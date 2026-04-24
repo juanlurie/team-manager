@@ -1,0 +1,217 @@
+import { Component, OnInit, inject, signal } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { MatIconModule } from '@angular/material/icon';
+import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatDialog } from '@angular/material/dialog';
+import { MatDialogModule } from '@angular/material/dialog';
+import { LeaderboardEntry } from '../../core/models/leaderboard.model';
+import { LeaderboardService } from '../../core/services/leaderboard.service';
+import { TeamMemberService } from '../../core/services/team-member.service';
+import { TeamMember } from '../../core/models/team-member.model';
+import { TeamMemberFormComponent } from '../team/team-member-form/team-member-form.component';
+
+const POS_COLORS: Record<number, { bg: string; text: string; border: string; label: string }> = {
+  1: { bg: 'rgba(255,215,0,0.12)',   text: '#FFD700', border: 'rgba(255,215,0,0.4)',   label: 'P1' },
+  2: { bg: 'rgba(192,192,192,0.12)', text: '#C0C0C0', border: 'rgba(192,192,192,0.4)', label: 'P2' },
+  3: { bg: 'rgba(205,127,50,0.12)',  text: '#CD7F32', border: 'rgba(205,127,50,0.4)',  label: 'P3' },
+};
+
+const SOURCE_COLORS: Record<string, { bg: string; text: string }> = {
+  badge:  { bg: 'rgba(171,71,188,0.15)', text: '#ce93d8' },
+  sprint: { bg: 'rgba(100,181,246,0.15)', text: '#64b5f6' },
+  bonus:  { bg: 'rgba(255,167,38,0.15)',  text: '#ffb74d' },
+};
+
+@Component({
+  selector: 'app-leaderboard',
+  standalone: true,
+  imports: [CommonModule, MatIconModule, MatTooltipModule, MatDialogModule],
+  template: `
+    <div style="max-width:900px;margin:0 auto;padding:0 8px">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:24px">
+        <mat-icon style="font-size:1.6rem;width:1.6rem;height:1.6rem;color:#FFD700">emoji_events</mat-icon>
+        <h2 style="margin:0;font-size:1.3rem;font-weight:700">Leaderboard</h2>
+      </div>
+
+      @if (entries().length > 0) {
+        <!-- F1 Podium: top 3 -->
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:32px;align-items:end">
+          <!-- P2 -->
+          @let p2 = entries()[1];
+          @if (p2) {
+            <div [style.background]="POS_COLORS[2].bg"
+                 [style.borderColor]="POS_COLORS[2].border"
+                 (click)="openMember(p2.memberId)"
+                 style="border:1px solid;border-radius:14px;padding:20px 16px 16px;text-align:center;order:1;cursor:pointer;transition:opacity 0.15s"
+                 onmouseenter="this.style.opacity='0.8'" onmouseleave="this.style.opacity='1'">
+              <div style="font-size:2rem;font-weight:900;margin-bottom:8px" [style.color]="POS_COLORS[2].text">P2</div>
+              <div style="width:52px;height:52px;border-radius:50%;margin:0 auto 10px;display:flex;align-items:center;justify-content:center;font-size:1rem;font-weight:700"
+                   [style.background]="POS_COLORS[2].bg" [style.color]="POS_COLORS[2].text" [style.border]="'2px solid ' + POS_COLORS[2].border">
+                {{p2.firstName[0]}}{{p2.lastName[0]}}
+              </div>
+              <div style="font-weight:700;font-size:0.95rem">{{p2.firstName}} {{p2.lastName}}</div>
+              <div style="font-size:1.4rem;font-weight:900;margin-top:6px" [style.color]="POS_COLORS[2].text">{{p2.totalPoints}} <span style="font-size:0.8rem;font-weight:400;opacity:0.6">pts</span></div>
+              <div style="display:flex;justify-content:center;gap:4px;margin-top:10px;flex-wrap:wrap">
+                @for (b of p2.breakdown; track b.source) {
+                  <span [style.background]="sourceStyle(b.source).bg" [style.color]="sourceStyle(b.source).text"
+                        [matTooltip]="b.label + ': ' + b.points + ' pts'"
+                        style="font-size:0.68rem;font-weight:700;padding:2px 7px;border-radius:10px">
+                    {{b.points}}
+                  </span>
+                }
+              </div>
+            </div>
+          }
+
+          <!-- P1 (centre, tallest) -->
+          @let p1 = entries()[0];
+          @if (p1) {
+            <div [style.background]="POS_COLORS[1].bg"
+                 [style.borderColor]="POS_COLORS[1].border"
+                 (click)="openMember(p1.memberId)"
+                 style="border:1px solid;border-radius:14px;padding:28px 16px 20px;text-align:center;order:2;cursor:pointer;transition:opacity 0.15s"
+                 onmouseenter="this.style.opacity='0.8'" onmouseleave="this.style.opacity='1'">
+              <div style="font-size:2.4rem;font-weight:900;margin-bottom:8px" [style.color]="POS_COLORS[1].text">P1</div>
+              <div style="width:60px;height:60px;border-radius:50%;margin:0 auto 10px;display:flex;align-items:center;justify-content:center;font-size:1.1rem;font-weight:700"
+                   [style.background]="POS_COLORS[1].bg" [style.color]="POS_COLORS[1].text" [style.border]="'2px solid ' + POS_COLORS[1].border">
+                {{p1.firstName[0]}}{{p1.lastName[0]}}
+              </div>
+              <div style="font-weight:700;font-size:1rem">{{p1.firstName}} {{p1.lastName}}</div>
+              <div style="font-size:1.7rem;font-weight:900;margin-top:6px" [style.color]="POS_COLORS[1].text">{{p1.totalPoints}} <span style="font-size:0.85rem;font-weight:400;opacity:0.6">pts</span></div>
+              <div style="display:flex;justify-content:center;gap:4px;margin-top:10px;flex-wrap:wrap">
+                @for (b of p1.breakdown; track b.source) {
+                  <span [style.background]="sourceStyle(b.source).bg" [style.color]="sourceStyle(b.source).text"
+                        [matTooltip]="b.label + ': ' + b.points + ' pts'"
+                        style="font-size:0.68rem;font-weight:700;padding:2px 7px;border-radius:10px">
+                    {{b.points}}
+                  </span>
+                }
+              </div>
+            </div>
+          }
+
+          <!-- P3 -->
+          @let p3 = entries()[2];
+          @if (p3) {
+            <div [style.background]="POS_COLORS[3].bg"
+                 [style.borderColor]="POS_COLORS[3].border"
+                 (click)="openMember(p3.memberId)"
+                 style="border:1px solid;border-radius:14px;padding:16px 16px 16px;text-align:center;order:3;cursor:pointer;transition:opacity 0.15s"
+                 onmouseenter="this.style.opacity='0.8'" onmouseleave="this.style.opacity='1'">
+              <div style="font-size:2rem;font-weight:900;margin-bottom:8px" [style.color]="POS_COLORS[3].text">P3</div>
+              <div style="width:52px;height:52px;border-radius:50%;margin:0 auto 10px;display:flex;align-items:center;justify-content:center;font-size:1rem;font-weight:700"
+                   [style.background]="POS_COLORS[3].bg" [style.color]="POS_COLORS[3].text" [style.border]="'2px solid ' + POS_COLORS[3].border">
+                {{p3.firstName[0]}}{{p3.lastName[0]}}
+              </div>
+              <div style="font-weight:700;font-size:0.95rem">{{p3.firstName}} {{p3.lastName}}</div>
+              <div style="font-size:1.4rem;font-weight:900;margin-top:6px" [style.color]="POS_COLORS[3].text">{{p3.totalPoints}} <span style="font-size:0.8rem;font-weight:400;opacity:0.6">pts</span></div>
+              <div style="display:flex;justify-content:center;gap:4px;margin-top:10px;flex-wrap:wrap">
+                @for (b of p3.breakdown; track b.source) {
+                  <span [style.background]="sourceStyle(b.source).bg" [style.color]="sourceStyle(b.source).text"
+                        [matTooltip]="b.label + ': ' + b.points + ' pts'"
+                        style="font-size:0.68rem;font-weight:700;padding:2px 7px;border-radius:10px">
+                    {{b.points}}
+                  </span>
+                }
+              </div>
+            </div>
+          }
+        </div>
+
+        <!-- Full rankings -->
+        <div style="display:flex;flex-direction:column;gap:6px">
+          @for (e of entries(); track e.memberId) {
+            <div style="display:flex;align-items:center;gap:12px;padding:12px 16px;border-radius:10px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.06);cursor:pointer;transition:opacity 0.15s"
+                 [style.borderColor]="e.position <= 3 ? POS_COLORS[e.position].border : 'rgba(255,255,255,0.06)'"
+                 [style.background]="e.position <= 3 ? POS_COLORS[e.position].bg : 'rgba(255,255,255,0.04)'"
+                 (click)="openMember(e.memberId)"
+                 onmouseenter="this.style.opacity='0.75'" onmouseleave="this.style.opacity='1'">
+
+              <!-- Position -->
+              <div style="width:32px;text-align:center;font-size:0.85rem;font-weight:700;flex-shrink:0"
+                   [style.color]="e.position <= 3 ? POS_COLORS[e.position].text : 'rgba(255,255,255,0.3)'">
+                P{{e.position}}
+              </div>
+
+              <!-- Avatar -->
+              <div style="width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:0.75rem;font-weight:700;flex-shrink:0;background:rgba(100,181,246,0.1);color:#64b5f6;border:1px solid rgba(100,181,246,0.2)">
+                {{e.firstName[0]}}{{e.lastName[0]}}
+              </div>
+
+              <!-- Name + role -->
+              <div style="flex:1;min-width:0">
+                <div style="font-weight:600;font-size:0.9rem">{{e.firstName}} {{e.lastName}}</div>
+                <div style="font-size:0.72rem;opacity:0.4">{{e.role === 'TeamLead' ? 'Team Lead' : e.role}}</div>
+              </div>
+
+              <!-- Breakdown chips -->
+              <div style="display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end">
+                @for (b of e.breakdown; track b.source) {
+                  <span [style.background]="sourceStyle(b.source).bg" [style.color]="sourceStyle(b.source).text"
+                        [matTooltip]="b.label + ' × ' + b.count + ' = ' + b.points + ' pts'"
+                        style="font-size:0.7rem;font-weight:700;padding:2px 8px;border-radius:10px;cursor:default">
+                    {{b.label}} {{b.points}}
+                  </span>
+                }
+              </div>
+
+              <!-- Total -->
+              <div style="width:64px;text-align:right;font-size:1rem;font-weight:800;flex-shrink:0"
+                   [style.color]="e.position <= 3 ? POS_COLORS[e.position].text : 'rgba(255,255,255,0.85)'">
+                {{e.totalPoints}}
+                <span style="font-size:0.65rem;font-weight:400;opacity:0.5">pts</span>
+              </div>
+            </div>
+          }
+        </div>
+
+        <!-- Legend -->
+        <div style="display:flex;gap:12px;margin-top:20px;flex-wrap:wrap;opacity:0.5;font-size:0.72rem">
+          @for (src of ['badge','sprint','bonus']; track src) {
+            <span style="display:flex;align-items:center;gap:5px">
+              <span style="width:10px;height:10px;border-radius:50%;display:inline-block" [style.background]="sourceStyle(src).text"></span>
+              {{src === 'badge' ? 'Badges' : src === 'sprint' ? 'Sprint participation (5 pts each)' : 'Bonus awards'}}
+            </span>
+          }
+        </div>
+      }
+
+      @if (entries().length === 0 && !loading()) {
+        <div style="text-align:center;padding:64px;opacity:0.35">No data yet</div>
+      }
+    </div>
+  `
+})
+export class LeaderboardComponent implements OnInit {
+  private svc = inject(LeaderboardService);
+  private memberSvc = inject(TeamMemberService);
+  private dialog = inject(MatDialog);
+
+  entries = signal<LeaderboardEntry[]>([]);
+  allMembers = signal<TeamMember[]>([]);
+  loading = signal(true);
+
+  readonly POS_COLORS = POS_COLORS;
+
+  sourceStyle(source: string) { return SOURCE_COLORS[source] ?? SOURCE_COLORS['bonus']; }
+
+  ngOnInit() {
+    this.svc.getLeaderboard().subscribe(data => {
+      this.entries.set(data);
+      this.loading.set(false);
+    });
+    this.memberSvc.getAll({ isActive: true }).subscribe(m => this.allMembers.set(m));
+  }
+
+  openMember(memberId: string) {
+    const member = this.allMembers().find(m => m.id === memberId);
+    if (!member) return;
+    const ref = this.dialog.open(TeamMemberFormComponent, {
+      width: '480px',
+      data: { member, allMembers: this.allMembers() }
+    });
+    ref.afterClosed().subscribe(changed => {
+      if (changed) this.svc.getLeaderboard().subscribe(data => this.entries.set(data));
+    });
+  }
+}

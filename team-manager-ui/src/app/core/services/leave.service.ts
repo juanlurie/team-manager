@@ -1,0 +1,40 @@
+import { Injectable, inject } from '@angular/core';
+import { HttpClient, HttpParams } from '@angular/common/http';
+import { Observable } from 'rxjs';
+import { LeaveRecord, CreateLeaveRecordRequest } from '../models/leave-record.model';
+import { API_BASE } from './api.config';
+
+@Injectable({ providedIn: 'root' })
+export class LeaveService {
+  private http = inject(HttpClient);
+  private base = `${API_BASE}/leave-records`;
+
+  getAll(filters?: { teamMemberId?: string; sprintId?: string; from?: string; to?: string }): Observable<LeaveRecord[]> {
+    let params = new HttpParams();
+    if (filters?.teamMemberId) params = params.set('teamMemberId', filters.teamMemberId);
+    if (filters?.sprintId)     params = params.set('sprintId', filters.sprintId);
+    if (filters?.from)         params = params.set('from', filters.from);
+    if (filters?.to)           params = params.set('to', filters.to);
+    return this.http.get<LeaveRecord[]>(this.base, { params });
+  }
+
+  create(request: CreateLeaveRecordRequest): Observable<LeaveRecord> {
+    return this.http.post<LeaveRecord>(this.base, request);
+  }
+
+  update(id: string, request: CreateLeaveRecordRequest): Observable<LeaveRecord> {
+    return this.http.put<LeaveRecord>(`${this.base}/${id}`, request);
+  }
+
+  delete(id: string): Observable<void> {
+    return this.http.delete<void>(`${this.base}/${id}`);
+  }
+
+  import(records: any[]): Observable<{ imported: number; duplicates: number; unknownMembers: string[] }> {
+    return this.http.post<any>(`${this.base}/import`, { records });
+  }
+
+  fetchAndImport(cookie: string, teamIds: number[], start: string, end: string): Observable<{ imported: number; duplicates: number; unknownMembers: string[] }> {
+    return this.http.post<any>(`${this.base}/fetch`, { cookie, teamIds, start, end });
+  }
+}

@@ -1,0 +1,53 @@
+@use '@angular/material' as mat;
+
+$theme: mat.define-theme((
+  color: (
+    theme-type: dark,
+    primary: mat.$azure-palette,
+    tertiary: mat.$blue-palette,
+  ),
+  typography: (
+    brand-family: 'Roboto, "Helvetica Neue", sans-serif',
+  ),
+));
+
+html {
+  @include mat.all-component-themes($theme);
+  color-scheme: dark;
+}
+
+html, body { height: 100%; margin: 0; }
+body { font-family: Roboto, "Helvetica Neue", sans-serif; background: #0f1117; color: #e0e0e0; }
+
+/* Let mat-sidenav-content scroll naturally */
+mat-sidenav-content {
+  overflow-y: auto !important;
+}
+
+.page-container {
+  padding: 24px;
+  max-width: 1400px;
+  margin: 0 auto;
+  box-sizing: border-box;
+}
+
+@media (max-width: 599px) {
+  .page-container {
+    padding: 16px 12px;
+  }
+}
+
+.mat-elevation-z2 { box-shadow: 0 2px 4px rgba(0,0,0,.12); }
+.spacer { flex: 1 1 auto; }
+
+/* Dialogs full-width on mobile */
+@media (max-width: 599px) {
+  .mat-mdc-dialog-container {
+    max-width: 100vw !important;
+  }
+  .cdk-overlay-pane {
+    width: 100vw !important;
+    max-width: 100vw !important;
+    margin: 0 !important;
+  }
+}
