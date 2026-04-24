@@ -1,0 +1,32 @@
+services:
+  api:
+    image: team-manager-api:prod
+    build:
+      context: ./src/TeamManager.Api
+      dockerfile: Dockerfile
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: http://+:5000
+      ConnectionStrings__DefaultConnection: "Host=postgres_db;Port=5432;Database=team_manager;Username=postgres;Password=postgres"
+    networks:
+      - default
+      - postgres_default
+    ports:
+      - "5000:5000"
+
+  ui:
+    image: team-manager-ui:prod
+    build:
+      context: ./team-manager-ui
+      dockerfile: Dockerfile
+    ports:
+      - "80:80"
+    depends_on:
+      - api
+
+networks:
+  default:
+    name: team-manager_default
+  postgres_default:
+    external: true
+    name: postgres_default
