@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { Sprint, PI, CreateSprintRequest } from '../models/sprint.model';
+import { Sprint, PI, CreateSprintRequest, VelocityEntry } from '../models/sprint.model';
 import { API_BASE } from './api.config';
 
 @Injectable({ providedIn: 'root' })
@@ -32,6 +32,16 @@ export class SprintService {
 
   deleteSprint(id: string): Observable<void> {
     return this.http.delete<void>(`${this.sprintBase}/${id}`);
+  }
+
+  cloneSprint(id: string, request: { name: string; startDate: string; endDate: string; copyMembers: boolean }): Observable<Sprint> {
+    return this.http.post<Sprint>(`${this.sprintBase}/${id}/clone`, request);
+  }
+
+  getVelocity(piId?: string | null): Observable<VelocityEntry[]> {
+    let params = new HttpParams();
+    if (piId) params = params.set('piId', piId);
+    return this.http.get<VelocityEntry[]>(`${this.sprintBase}/velocity`, { params });
   }
 
   initializeMembers(sprintId: string): Observable<{ addedCount: number }> {

@@ -7,11 +7,12 @@ import { MatDialogModule, MatDialog } from '@angular/material/dialog';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { Sprint, PI } from '../../../core/models/sprint.model';
+import { Sprint, PI, VelocityEntry } from '../../../core/models/sprint.model';
 import { Feature } from '../../../core/models/feature.model';
 import { SprintService } from '../../../core/services/sprint.service';
 import { FeatureService } from '../../../core/services/feature.service';
 import { SprintFormComponent } from '../sprint-form/sprint-form.component';
+import { SprintCloneDialogComponent } from '../sprint-clone-dialog/sprint-clone-dialog.component';
 import { ConfirmDialogComponent } from '../../../shared/components/confirm-dialog/confirm-dialog.component';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
@@ -29,7 +30,8 @@ const STATUS_COLOR: Record<string, string> = {
   selector: 'app-sprint-list',
   standalone: true,
   imports: [CommonModule, RouterLink, MatButtonModule, MatIconModule,
-    MatDialogModule, MatChipsModule, MatTooltipModule, MatProgressSpinnerModule],
+    MatDialogModule, MatChipsModule, MatTooltipModule, MatProgressSpinnerModule,
+    SprintCloneDialogComponent],
   template: `
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:24px;flex-wrap:wrap">
       <h2 style="margin:0;flex:1;min-width:120px">Sprints</h2>
@@ -115,17 +117,22 @@ const STATUS_COLOR: Record<string, string> = {
                     background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07);gap:12px">
           <div style="flex:1;min-width:0">
             <div style="font-weight:500;font-size:0.9rem">{{ s.name }}</div>
-            <div style="font-size:0.78rem;opacity:0.5;margin-top:1px">
-              {{ s.startDate | date:'d MMM' }} – {{ s.endDate | date:'d MMM yyyy' }}
-              @if (s.piName) { · {{ s.piName }} }
+            <div style="font-size:0.78rem;opacity:0.5;margin-top:1px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+              <span>{{ s.startDate | date:'d MMM' }} – {{ s.endDate | date:'d MMM yyyy' }}</span>
+              @if (s.piName) { <span>· {{ s.piName }}</span> }
+              <span [style.color]="daysLeft(s) <= 3 ? '#ffb74d' : 'rgba(255,255,255,0.4)'"
+                    [style.font-weight]="daysLeft(s) <= 3 ? '600' : '400'">
+                {{ daysLeft(s) === 0 ? 'ends today' : daysLeft(s) + 'd left' }}
+              </span>
             </div>
           </div>
           @if (s.isInnovationSprint) {
             <mat-chip style="font-size:0.7rem">IP</mat-chip>
           }
           <a mat-button color="primary" [routerLink]="['/sprints', s.id]">View</a>
-          <button mat-icon-button (click)="openSprintForm(s)"><mat-icon>edit</mat-icon></button>
-          <button mat-icon-button color="warn" (click)="deleteSprint(s.id)"><mat-icon>delete</mat-icon></button>
+          <button mat-icon-button (click)="openSprintForm(s)" matTooltip="Edit"><mat-icon>edit</mat-icon></button>
+          <button mat-icon-button (click)="cloneSprint(s)" matTooltip="Clone sprint"><mat-icon>content_copy</mat-icon></button>
+          <button mat-icon-button color="warn" (click)="deleteSprint(s.id)" matTooltip="Delete"><mat-icon>delete</mat-icon></button>
         </div>
       }
       @if (activeSprints().length === 0) {
@@ -161,14 +168,77 @@ const STATUS_COLOR: Record<string, string> = {
                   <mat-chip style="font-size:0.7rem">IP</mat-chip>
                 }
                 <a mat-button [routerLink]="['/sprints', s.id]" style="font-size:0.8rem">View</a>
-                <button mat-icon-button (click)="openSprintForm(s)"><mat-icon style="font-size:18px">edit</mat-icon></button>
-                <button mat-icon-button color="warn" (click)="deleteSprint(s.id)"><mat-icon style="font-size:18px">delete</mat-icon></button>
+                <button mat-icon-button (click)="openSprintForm(s)" matTooltip="Edit"><mat-icon style="font-size:18px">edit</mat-icon></button>
+                <button mat-icon-button (click)="cloneSprint(s)" matTooltip="Clone sprint"><mat-icon style="font-size:18px">content_copy</mat-icon></button>
+                <button mat-icon-button color="warn" (click)="deleteSprint(s.id)" matTooltip="Delete"><mat-icon style="font-size:18px">delete</mat-icon></button>
               </div>
             }
           </div>
         }
       </div>
     }
+    <!-- Velocity chart -->
+    @if (velocityData().length > 1) {
+      <div style="margin-top:36px">
+        <div style="font-size:0.72rem;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;opacity:0.4;margin-bottom:12px">
+          Velocity — completed tasks per sprint
+        </div>
+
+        <!-- bars -->
+        <div style="display:flex;align-items:flex-end;gap:2px;height:110px">
+          @for (v of velocityData(); track v.sprintId) {
+            <div style="flex:1;min-width:6px;position:relative;height:100%"
+                 [matTooltip]="barTooltip(v)" matTooltipClass="pre-tooltip">
+              <!-- total background -->
+              <div style="position:absolute;bottom:0;left:0;right:0;border-radius:3px 3px 0 0;
+                          background:rgba(255,255,255,0.06)"
+                   [style.height]="totalPct(v) + '%'"></div>
+              <!-- completed bar -->
+              <div style="position:absolute;bottom:0;left:0;right:0;border-radius:3px 3px 0 0;min-height:2px;transition:height 0.3s"
+                   [style.height]="completedPct(v) + '%'"
+                   [style.background]="piColor(v.piId)"></div>
+              <!-- count label above bar -->
+              @if (v.completedItems > 0) {
+                <div style="position:absolute;left:0;right:0;text-align:center;font-size:0.55rem;
+                            font-weight:600;opacity:0.7;line-height:1"
+                     [style.bottom]="'calc(' + completedPct(v) + '% + 3px)'">
+                  {{ v.completedItems }}
+                </div>
+              }
+            </div>
+          }
+        </div>
+
+        <!-- sprint name labels -->
+        <div style="display:flex;gap:2px;margin-top:5px">
+          @for (v of velocityData(); track v.sprintId) {
+            <div style="flex:1;min-width:0;font-size:0.57rem;opacity:0.35;text-align:center;
+                        white-space:nowrap;overflow:hidden;text-overflow:ellipsis"
+                 [title]="v.sprintName">
+              {{ v.sprintName }}
+            </div>
+          }
+        </div>
+
+        <!-- PI colour legend -->
+        @if (pis().length > 1) {
+          <div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:10px">
+            @for (pi of pis(); track pi.id) {
+              <div style="display:flex;align-items:center;gap:4px;font-size:0.68rem;opacity:0.55">
+                <span style="width:8px;height:8px;border-radius:2px;flex-shrink:0"
+                      [style.background]="piColor(pi.id)"></span>
+                {{ pi.name }}
+              </div>
+            }
+            <div style="display:flex;align-items:center;gap:4px;font-size:0.68rem;opacity:0.55">
+              <span style="width:8px;height:8px;border-radius:2px;flex-shrink:0;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.15)"></span>
+              total items
+            </div>
+          </div>
+        }
+      </div>
+    }
+
     } <!-- end @else -->
   `,
   styles: [`.active-filter { background: rgba(100,181,246,0.15) !important; border-color: rgba(100,181,246,0.4) !important; color: #64b5f6 !important; }`]
@@ -184,6 +254,39 @@ export class SprintListComponent implements OnInit {
   pis = signal<PI[]>([]);
   selectedPI = signal<string | null>(null);
   currentFeatures = signal<Feature[]>([]);
+  private velocity = signal<VelocityEntry[]>([]);
+
+  private readonly PI_PALETTE = ['#64b5f6','#81c784','#ffb74d','#ce93d8','#4dd0e1','#f48fb1','#a5d6a7','#ff8a65'];
+
+  private piColorMap = computed(() => {
+    const map = new Map<string, number>();
+    this.pis().forEach((pi, i) => map.set(pi.id, i));
+    return map;
+  });
+
+  velocityData = computed(() => {
+    const ids = new Set(this.filteredSprints().map(s => s.id));
+    return this.velocity().filter(v => ids.has(v.sprintId));
+  });
+
+  private maxVelocityTotal = computed(() =>
+    Math.max(1, ...this.velocityData().map(v => v.totalItems))
+  );
+
+  completedPct(v: VelocityEntry): number {
+    return (v.completedItems / this.maxVelocityTotal()) * 100;
+  }
+  totalPct(v: VelocityEntry): number {
+    return (v.totalItems / this.maxVelocityTotal()) * 100;
+  }
+  piColor(piId: string | null): string {
+    if (!piId) return 'rgba(255,255,255,0.3)';
+    const idx = this.piColorMap().get(piId) ?? 0;
+    return this.PI_PALETTE[idx % this.PI_PALETTE.length];
+  }
+  barTooltip(v: VelocityEntry): string {
+    return `${v.sprintName}\n${v.completedItems} completed / ${v.totalItems} total`;
+  }
 
   private today = (() => { const d = new Date(); d.setHours(0,0,0,0); return d; })();
 
@@ -209,10 +312,16 @@ export class SprintListComponent implements OnInit {
     });
   });
 
-  activeSprints = computed(() => this.filteredSprints().filter(s => !this.isPast(s)));
+  activeSprints = computed(() => this.filteredSprints().filter(s => !this.isPast(s) && s.id !== this.currentSprint()?.id));
   pastSprints   = computed(() => this.filteredSprints().filter(s => this.isPast(s)));
 
   isPast(s: Sprint) { return new Date(s.endDate) < this.today; }
+
+  daysLeft(s: Sprint): number {
+    const end = new Date(s.endDate);
+    end.setHours(0, 0, 0, 0);
+    return Math.max(0, Math.round((end.getTime() - this.today.getTime()) / 86_400_000));
+  }
   featureStatusColor(status: string) { return STATUS_COLOR[status] ?? '#95A5A6'; }
 
   constructor() {
@@ -230,6 +339,7 @@ export class SprintListComponent implements OnInit {
     this.loading.set(true);
     this.svc.getPIs().subscribe(pis => this.pis.set(pis));
     this.svc.getSprints().subscribe(sprints => { this.sprints.set(sprints); this.loading.set(false); });
+    this.svc.getVelocity().subscribe(v => this.velocity.set(v));
   }
 
   openSprintForm(sprint?: Sprint) {
@@ -240,6 +350,16 @@ export class SprintListComponent implements OnInit {
   openPIForm() {
     const ref = this.dialog.open(SprintFormComponent, { width: '480px', data: { piMode: true } });
     ref.afterClosed().subscribe(r => { if (r) this.load(); });
+  }
+
+  cloneSprint(sprint: Sprint) {
+    const ref = this.dialog.open(SprintCloneDialogComponent, { width: '440px', data: sprint });
+    ref.afterClosed().subscribe(r => {
+      if (r) {
+        this.snack.open('Sprint cloned', 'OK', { duration: 2000 });
+        this.load();
+      }
+    });
   }
 
   deleteSprint(id: string) {

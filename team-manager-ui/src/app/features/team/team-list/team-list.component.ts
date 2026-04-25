@@ -64,9 +64,8 @@ const CRAFT_LABELS: Record<string, string> = {
 
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,280px),1fr));gap:10px">
       @for (m of members; track m.id) {
-        <div (click)="openPersonal(m)" style="border-radius:10px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);padding:12px 14px;display:flex;align-items:center;gap:12px;cursor:pointer;transition:background 0.15s"
-             onmouseenter="this.style.background='rgba(255,255,255,0.08)'"
-             onmouseleave="this.style.background='rgba(255,255,255,0.04)'">
+        <div (click)="openPersonal(m)" class="member-card"
+             style="border-radius:10px;border:1px solid rgba(255,255,255,0.08);padding:12px 14px;display:flex;align-items:center;gap:12px;cursor:pointer">
           <!-- Avatar -->
           <div style="width:36px;height:36px;border-radius:50%;background:rgba(100,181,246,0.15);
                       color:#64b5f6;font-size:0.75rem;font-weight:700;display:flex;align-items:center;
@@ -120,6 +119,8 @@ const CRAFT_LABELS: Record<string, string> = {
     .role-member    { background:rgba(158,158,158,0.12);color:#9e9e9e; }
     .role-teamlead  { background:rgba(100,181,246,0.15);color:#64b5f6; }
     .role-techlead  { background:rgba(171,71,188,0.15);color:#ce93d8; }
+    .member-card    { background:rgba(255,255,255,0.04);transition:background 0.15s; }
+    .member-card:hover { background:rgba(255,255,255,0.08); }
   `]
 })
 export class TeamListComponent implements OnInit {

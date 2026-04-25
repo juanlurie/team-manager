@@ -26,6 +26,12 @@ const SOURCE_COLORS: Record<string, { bg: string; text: string }> = {
   selector: 'app-leaderboard',
   standalone: true,
   imports: [CommonModule, MatIconModule, MatTooltipModule, MatDialogModule],
+  styles: [`
+    .podium-card { transition:opacity 0.15s; }
+    .podium-card:hover { opacity:0.8; }
+    .rank-row { transition:opacity 0.15s; }
+    .rank-row:hover { opacity:0.75; }
+  `],
   template: `
     <div style="max-width:900px;margin:0 auto;padding:0 8px">
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:24px">
@@ -41,9 +47,8 @@ const SOURCE_COLORS: Record<string, { bg: string; text: string }> = {
           @if (p2) {
             <div [style.background]="POS_COLORS[2].bg"
                  [style.borderColor]="POS_COLORS[2].border"
-                 (click)="openMember(p2.memberId)"
-                 style="border:1px solid;border-radius:14px;padding:20px 16px 16px;text-align:center;order:1;cursor:pointer;transition:opacity 0.15s"
-                 onmouseenter="this.style.opacity='0.8'" onmouseleave="this.style.opacity='1'">
+                 (click)="openMember(p2.memberId)" class="podium-card"
+                 style="border:1px solid;border-radius:14px;padding:20px 16px 16px;text-align:center;order:1;cursor:pointer">
               <div style="font-size:2rem;font-weight:900;margin-bottom:8px" [style.color]="POS_COLORS[2].text">P2</div>
               <div style="width:52px;height:52px;border-radius:50%;margin:0 auto 10px;display:flex;align-items:center;justify-content:center;font-size:1rem;font-weight:700"
                    [style.background]="POS_COLORS[2].bg" [style.color]="POS_COLORS[2].text" [style.border]="'2px solid ' + POS_COLORS[2].border">
@@ -68,9 +73,8 @@ const SOURCE_COLORS: Record<string, { bg: string; text: string }> = {
           @if (p1) {
             <div [style.background]="POS_COLORS[1].bg"
                  [style.borderColor]="POS_COLORS[1].border"
-                 (click)="openMember(p1.memberId)"
-                 style="border:1px solid;border-radius:14px;padding:28px 16px 20px;text-align:center;order:2;cursor:pointer;transition:opacity 0.15s"
-                 onmouseenter="this.style.opacity='0.8'" onmouseleave="this.style.opacity='1'">
+                 (click)="openMember(p1.memberId)" class="podium-card"
+                 style="border:1px solid;border-radius:14px;padding:28px 16px 20px;text-align:center;order:2;cursor:pointer">
               <div style="font-size:2.4rem;font-weight:900;margin-bottom:8px" [style.color]="POS_COLORS[1].text">P1</div>
               <div style="width:60px;height:60px;border-radius:50%;margin:0 auto 10px;display:flex;align-items:center;justify-content:center;font-size:1.1rem;font-weight:700"
                    [style.background]="POS_COLORS[1].bg" [style.color]="POS_COLORS[1].text" [style.border]="'2px solid ' + POS_COLORS[1].border">
@@ -95,9 +99,8 @@ const SOURCE_COLORS: Record<string, { bg: string; text: string }> = {
           @if (p3) {
             <div [style.background]="POS_COLORS[3].bg"
                  [style.borderColor]="POS_COLORS[3].border"
-                 (click)="openMember(p3.memberId)"
-                 style="border:1px solid;border-radius:14px;padding:16px 16px 16px;text-align:center;order:3;cursor:pointer;transition:opacity 0.15s"
-                 onmouseenter="this.style.opacity='0.8'" onmouseleave="this.style.opacity='1'">
+                 (click)="openMember(p3.memberId)" class="podium-card"
+                 style="border:1px solid;border-radius:14px;padding:16px 16px 16px;text-align:center;order:3;cursor:pointer">
               <div style="font-size:2rem;font-weight:900;margin-bottom:8px" [style.color]="POS_COLORS[3].text">P3</div>
               <div style="width:52px;height:52px;border-radius:50%;margin:0 auto 10px;display:flex;align-items:center;justify-content:center;font-size:1rem;font-weight:700"
                    [style.background]="POS_COLORS[3].bg" [style.color]="POS_COLORS[3].text" [style.border]="'2px solid ' + POS_COLORS[3].border">
@@ -121,11 +124,11 @@ const SOURCE_COLORS: Record<string, { bg: string; text: string }> = {
         <!-- Full rankings -->
         <div style="display:flex;flex-direction:column;gap:6px">
           @for (e of entries(); track e.memberId) {
-            <div style="display:flex;align-items:center;gap:12px;padding:12px 16px;border-radius:10px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.06);cursor:pointer;transition:opacity 0.15s"
+            <div class="rank-row"
+                 style="display:flex;align-items:center;gap:12px;padding:12px 16px;border-radius:10px;border:1px solid rgba(255,255,255,0.06);cursor:pointer"
                  [style.borderColor]="e.position <= 3 ? POS_COLORS[e.position].border : 'rgba(255,255,255,0.06)'"
                  [style.background]="e.position <= 3 ? POS_COLORS[e.position].bg : 'rgba(255,255,255,0.04)'"
-                 (click)="openMember(e.memberId)"
-                 onmouseenter="this.style.opacity='0.75'" onmouseleave="this.style.opacity='1'">
+                 (click)="openMember(e.memberId)">
 
               <!-- Position -->
               <div style="width:32px;text-align:center;font-size:0.85rem;font-weight:700;flex-shrink:0"

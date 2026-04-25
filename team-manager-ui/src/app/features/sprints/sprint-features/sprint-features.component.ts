@@ -35,8 +35,10 @@ interface FeatureView {
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:24px;flex-wrap:wrap">
       <div>
         <div style="display:flex;align-items:center;gap:8px">
-          <a mat-icon-button [routerLink]="['/sprints', sprintId]" matTooltip="Back to sprint">
-            <mat-icon>arrow_back</mat-icon>
+          <a mat-button [routerLink]="['/sprints', sprintId]"
+             style="padding:0 8px 0 4px;gap:4px;color:rgba(255,255,255,0.55)">
+            <mat-icon style="font-size:18px;width:18px;height:18px;line-height:18px">arrow_back</mat-icon>
+            Sprints
           </a>
           <h2 style="margin:0;font-size:1.2rem">{{ dashboard()?.sprint?.name }} · Features</h2>
         </div>
@@ -78,6 +80,10 @@ interface FeatureView {
                     <mat-icon style="font-size:10px;width:10px;height:10px;line-height:10px">schedule</mat-icon>
                     {{ staleDays() }}d
                   </span>
+                }
+                @if (fv.feature.estimatedDays) {
+                  <span style="font-size:0.68rem;padding:1px 6px;border-radius:6px;background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.45)"
+                        matTooltip="Estimated days">⏱ {{ fv.feature.estimatedDays }}d</span>
                 }
                 @if (!fv.feature.isActive) {
                   <span style="font-size:0.68rem;padding:1px 6px;border-radius:6px;background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.35)">hidden</span>

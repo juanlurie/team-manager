@@ -53,4 +53,15 @@ public class SprintsController(ISprintService service) : ControllerBase
         var result = await service.UpdateRetroAsync(id, request);
         return result is null ? NotFound() : Ok(result);
     }
+
+    [HttpPost("{id:guid}/clone")]
+    public async Task<IActionResult> Clone(Guid id, [FromBody] CloneSprintRequest request)
+    {
+        var result = await service.CloneAsync(id, request);
+        return result is null ? NotFound() : CreatedAtAction(nameof(GetById), new { id = result.Id }, result);
+    }
+
+    [HttpGet("velocity")]
+    public async Task<IActionResult> GetVelocity([FromQuery] Guid? piId)
+        => Ok(await service.GetVelocityAsync(piId));
 }

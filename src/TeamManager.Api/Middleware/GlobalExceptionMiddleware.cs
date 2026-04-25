@@ -3,7 +3,7 @@ using System.Text.Json;
 
 namespace TeamManager.Api.Middleware;
 
-public class GlobalExceptionMiddleware(RequestDelegate next, ILogger<GlobalExceptionMiddleware> logger)
+public class GlobalExceptionMiddleware(RequestDelegate next, ILogger<GlobalExceptionMiddleware> logger, IHostEnvironment env)
 {
     public async Task InvokeAsync(HttpContext context)
     {
@@ -21,7 +21,7 @@ public class GlobalExceptionMiddleware(RequestDelegate next, ILogger<GlobalExcep
                 type = "https://tools.ietf.org/html/rfc7807",
                 title = "An unexpected error occurred.",
                 status = 500,
-                detail = ex.Message
+                detail = env.IsProduction() ? "An unexpected error occurred." : ex.Message
             };
             await context.Response.WriteAsync(JsonSerializer.Serialize(problem));
         }

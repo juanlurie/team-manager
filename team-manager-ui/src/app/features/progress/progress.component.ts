@@ -10,6 +10,12 @@ import { ProgressPI, ProgressSprint, ProgressFeature } from '../../core/models/p
   selector: 'app-progress',
   standalone: true,
   imports: [CommonModule, RouterLink, MatIconModule, MatButtonModule],
+  styles: [`
+    .sprint-link { color:rgba(255,255,255,0.7);text-decoration:none;transition:color 0.15s; }
+    .sprint-link:hover { color:#64b5f6; }
+    .feat-link { text-decoration:none;color:inherit; }
+    .feat-link:hover { text-decoration:underline; }
+  `],
   template: `
     <div style="margin-bottom:24px;display:flex;align-items:center;gap:12px">
       <h2 style="margin:0;font-size:1.1rem;font-weight:600;opacity:0.85">PI Progress</h2>
@@ -55,9 +61,8 @@ import { ProgressPI, ProgressSprint, ProgressFeature } from '../../core/models/p
               <mat-icon style="font-size:15px;width:15px;height:15px;line-height:15px;opacity:0.4">
                 {{ sprint.isInnovationSprint ? 'lightbulb' : 'directions_run' }}
               </mat-icon>
-              <a [routerLink]="['/sprints', sprint.id]"
-                 style="font-size:0.82rem;font-weight:600;color:rgba(255,255,255,0.7);text-decoration:none"
-                 onmouseenter="this.style.color='#64b5f6'" onmouseleave="this.style.color='rgba(255,255,255,0.7)'">
+              <a [routerLink]="['/sprints', sprint.id]" class="sprint-link"
+                 style="font-size:0.82rem;font-weight:600">
                 {{ sprint.name }}
               </a>
               <span style="font-size:0.72rem;opacity:0.35">{{ formatDate(sprint.startDate) }} – {{ formatDate(sprint.endDate) }}</span>
@@ -101,11 +106,9 @@ import { ProgressPI, ProgressSprint, ProgressFeature } from '../../core/models/p
                 }
 
                 <!-- Title -->
-                <a [routerLink]="['/sprints', sprint.id, 'features']"
-                   style="font-size:0.82rem;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
-                          text-decoration:none;color:inherit"
-                   [style.opacity]="f.status === 'Completed' || f.status === 'Released' ? 0.45 : 0.85"
-                   onmouseenter="this.style.textDecoration='underline'" onmouseleave="this.style.textDecoration='none'">
+                <a [routerLink]="['/sprints', sprint.id, 'features']" class="feat-link"
+                   style="font-size:0.82rem;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"
+                   [style.opacity]="f.status === 'Completed' || f.status === 'Released' ? 0.45 : 0.85">
                   {{ f.title }}
                 </a>
 
@@ -160,10 +163,8 @@ import { ProgressPI, ProgressSprint, ProgressFeature } from '../../core/models/p
                   @if (f.externalTicketRef) {
                     <span style="font-size:0.72rem;font-family:monospace;opacity:0.45;flex-shrink:0">{{ f.externalTicketRef }}</span>
                   }
-                  <a [routerLink]="['/sprints', sprint.id, 'features']"
-                     style="font-size:0.82rem;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
-                            opacity:0.75;text-decoration:none;color:inherit"
-                     onmouseenter="this.style.textDecoration='underline'" onmouseleave="this.style.textDecoration='none'">
+                  <a [routerLink]="['/sprints', sprint.id, 'features']" class="feat-link"
+                     style="font-size:0.82rem;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;opacity:0.75">
                     {{ f.title }}
                   </a>
                   @if (f.totalTasks > 0) {

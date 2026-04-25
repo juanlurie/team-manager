@@ -1,5 +1,5 @@
 import { Injectable, inject } from '@angular/core';
-import { HttpClient, HttpParams } from '@angular/common/http';
+import { HttpClient, HttpContext, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { LeaveRecord, CreateLeaveRecordRequest } from '../models/leave-record.model';
 import { API_BASE } from './api.config';
@@ -34,8 +34,8 @@ export class LeaveService {
     return this.http.post<any>(`${this.base}/import`, { records, override });
   }
 
-  fetchPreview(cookie: string, teamIds: number[], start: string, end: string): Observable<any[]> {
-    return this.http.post<any[]>(`${this.base}/fetch-preview`, { cookie, teamIds, start, end });
+  fetchPreview(cookie: string, teamIds: number[], start: string, end: string, context?: HttpContext): Observable<any[]> {
+    return this.http.post<any[]>(`${this.base}/fetch-preview`, { cookie, teamIds, start, end }, { context });
   }
 
   fetchAndImport(cookie: string, teamIds: number[], start: string, end: string): Observable<{ imported: number; overridden: number; duplicates: number; unknownMembers: string[] }> {

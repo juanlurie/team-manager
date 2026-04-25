@@ -11,4 +11,6 @@ public interface ISprintService
     Task<bool> DeleteAsync(Guid id);
     Task<int> InitializeMembersAsync(Guid sprintId);
     Task<SprintDto?> UpdateRetroAsync(Guid id, UpdateRetroRequest request);
+    Task<SprintDto?> CloneAsync(Guid sourceId, CloneSprintRequest request);
+    Task<IReadOnlyList<VelocityEntryDto>> GetVelocityAsync(Guid? piId);
 }

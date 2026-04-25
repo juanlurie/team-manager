@@ -1,11 +1,13 @@
+using System.ComponentModel.DataAnnotations;
+
 namespace TeamManager.Api.Application.DTOs.Sprint;
 
 public record CreateSprintRequest(
-    string Name,
-    DateOnly StartDate,
-    DateOnly EndDate,
+    [Required][MaxLength(100)] string Name,
+    [Required] DateOnly StartDate,
+    [Required] DateOnly EndDate,
     Guid? PiId,
-    int? SprintNumber,
+    [Range(1, 999)] int? SprintNumber,
     bool IsInnovationSprint = false,
-    string? Goal = null
+    [MaxLength(500)] string? Goal = null
 );

@@ -319,6 +319,13 @@ namespace TeamManager.Api.Migrations
                     b.Property<Guid?>("FeatureId")
                         .HasColumnType("uuid");
 
+                    b.Property<DateTimeOffset?>("BlockedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("BlockedReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
                     b.Property<Guid>("SprintMemberId")
                         .HasColumnType("uuid");
 

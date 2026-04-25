@@ -72,8 +72,7 @@ sudo docker logs tm-dev-api-1 2>&1 | tail -40
 - Create and Update operations must use separate request types if their field sets or rules differ
 
 ### Mapping
-- **Do not use AutoMapper for new mappings.** The project has a mix; new code must use explicit manual mapping only (private static `ToDto()` methods in the service, or inline in the service method).
-- AutoMapper `MappingProfile` remains for existing mappings — do not remove it, but do not add to it.
+- **No AutoMapper** — the dependency has been removed entirely. All mapping is done with explicit `internal static ToDto()` methods in the service class.
 - Manual mapping keeps the data shape visible and avoids implicit convention magic.
 
 ### Services

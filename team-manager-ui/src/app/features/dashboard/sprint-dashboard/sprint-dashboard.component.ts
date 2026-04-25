@@ -37,6 +37,12 @@ const STATUS_COLOR: Record<string, string> = {
   standalone: true,
   imports: [CommonModule, RouterLink, FormsModule, MatButtonModule,
     MatSelectModule, MatFormFieldModule, MatIconModule, MatDialogModule, MatProgressSpinnerModule],
+  styles: [`
+    .stat-card { transition:filter 0.15s; }
+    .stat-card:hover { filter:brightness(1.25); }
+    .blocker-row { background:rgba(239,83,80,0.07);transition:background 0.15s; }
+    .blocker-row:hover { background:rgba(239,83,80,0.12); }
+  `],
   template: `
     <!-- Header row -->
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:24px;flex-wrap:wrap">
@@ -44,7 +50,7 @@ const STATUS_COLOR: Record<string, string> = {
         <mat-label>Sprint</mat-label>
         <mat-select [(ngModel)]="selectedSprintId" (ngModelChange)="load()">
           @for (s of sprints(); track s.id) {
-            <mat-option [value]="s.id">{{ s.name }}</mat-option>
+            <mat-option [value]="s.id">{{ s.name }}{{ isCurrent(s) ? ' (current)' : '' }}</mat-option>
           }
         </mat-select>
       </mat-form-field>
@@ -79,18 +85,16 @@ const STATUS_COLOR: Record<string, string> = {
       <!-- Stat pills -->
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:28px">
         @for (stat of stats(); track stat.label) {
-          <a [routerLink]="stat.route" [queryParams]="stat.queryParams"
+          <a [routerLink]="stat.route" [queryParams]="stat.queryParams" class="stat-card"
              style="display:flex;align-items:center;gap:10px;padding:10px 16px;border-radius:10px;
-                    border:1px solid;flex:1;min-width:110px;max-width:160px;text-decoration:none;
-                    cursor:pointer;transition:filter 0.15s"
+                    border:1px solid;flex:1;min-width:110px;max-width:160px;text-decoration:none;cursor:pointer"
              [style.background]="stat.bg"
-             [style.border-color]="stat.border"
-             onmouseenter="this.style.filter='brightness(1.25)'"
-             onmouseleave="this.style.filter=''">
-            <div>
+             [style.border-color]="stat.border">
+            <div style="flex:1;min-width:0">
               <div style="font-size:1.5rem;font-weight:800;line-height:1" [style.color]="stat.color">{{ stat.value }}</div>
               <div style="font-size:0.72rem;opacity:0.55;margin-top:2px">{{ stat.label }}</div>
             </div>
+            <mat-icon style="font-size:14px;width:14px;height:14px;line-height:14px;opacity:0.3;flex-shrink:0">chevron_right</mat-icon>
           </a>
         }
       </div>
@@ -188,12 +192,9 @@ const STATUS_COLOR: Record<string, string> = {
           </div>
           <div style="display:flex;flex-direction:column;gap:6px">
             @for (b of blockers(); track b.workItemId) {
-              <div (click)="openBlocker(b)"
+              <div (click)="openBlocker(b)" class="blocker-row"
                    style="display:flex;align-items:center;gap:12px;padding:12px 16px;border-radius:10px;
-                          background:rgba(239,83,80,0.07);border:1px solid rgba(239,83,80,0.25);
-                          cursor:pointer;transition:background 0.15s"
-                   onmouseenter="this.style.background='rgba(239,83,80,0.12)'"
-                   onmouseleave="this.style.background='rgba(239,83,80,0.07)'">
+                          border:1px solid rgba(239,83,80,0.25);cursor:pointer">
 
                 <!-- Days badge -->
                 <div style="flex-shrink:0;min-width:44px;text-align:center;background:rgba(239,83,80,0.15);
@@ -300,11 +301,20 @@ export class SprintDashboardComponent implements OnInit {
     ];
   };
 
+  isCurrent(s: Sprint): boolean {
+    const today = this.todayStr();
+    return s.startDate <= today && s.endDate >= today;
+  }
+
   ngOnInit() {
     this.memberSvc.getAll({ isActive: true }).subscribe(m => this.allMembers.set(m));
     this.sprintSvc.getSprints().subscribe(s => {
       this.sprints.set(s);
-      if (s.length) { this.selectedSprintId = s[0].id; this.load(); }
+      if (s.length) {
+        const current = s.find(sp => this.isCurrent(sp));
+        this.selectedSprintId = (current ?? s[0]).id;
+        this.load();
+      }
     });
   }
 

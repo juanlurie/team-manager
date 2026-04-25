@@ -21,6 +21,14 @@ export interface PI {
   description: string | null;
 }
 
+export interface VelocityEntry {
+  sprintId: string;
+  sprintName: string;
+  piId: string | null;
+  completedItems: number;
+  totalItems: number;
+}
+
 export interface CreateSprintRequest {
   name: string;
   startDate: string;

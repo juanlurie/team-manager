@@ -1,8 +1,10 @@
+using System.ComponentModel.DataAnnotations;
+
 namespace TeamManager.Api.Application.DTOs.LeaveRecord;
 
 public record FetchLeaveRequest(
-    string Cookie,
-    IReadOnlyList<int> TeamIds,
-    string Start,
-    string End
+    [Required][MaxLength(2000)] string Cookie,
+    [Required][MinLength(1)] IReadOnlyList<int> TeamIds,
+    [Required][MaxLength(10)] string Start,
+    [Required][MaxLength(10)] string End
 );

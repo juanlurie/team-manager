@@ -1,12 +1,13 @@
+using System.ComponentModel.DataAnnotations;
 using TeamManager.Api.Domain.Enums;
 
 namespace TeamManager.Api.Application.DTOs.TeamMember;
 
 public record CreateTeamMemberRequest(
-    string FirstName,
-    string LastName,
-    string Email,
-    MemberRole Role,
+    [Required][MaxLength(100)] string FirstName,
+    [Required][MaxLength(100)] string LastName,
+    [Required][MaxLength(200)][EmailAddress] string Email,
+    [Required] MemberRole Role,
     Guid? TeamLeadId,
     List<string>? Crafts = null,
     DateOnly? BirthDate = null,

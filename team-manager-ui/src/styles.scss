@@ -40,6 +40,9 @@ mat-sidenav-content {
 .mat-elevation-z2 { box-shadow: 0 2px 4px rgba(0,0,0,.12); }
 .spacer { flex: 1 1 auto; }
 
+.error-snackbar .mdc-snackbar__surface { background: #c62828 !important; }
+.error-snackbar .mdc-snackbar__label { color: #fff !important; }
+
 /* Dialogs full-width on mobile */
 @media (max-width: 599px) {
   .mat-mdc-dialog-container {

@@ -15,4 +15,5 @@ public record WorkItemDto
     public decimal? ActualPoints { get; init; }
     public DateOnly? CompletedDate { get; init; }
     public DateTimeOffset? BlockedAt { get; init; }
+    public string? BlockedReason { get; init; }
 }

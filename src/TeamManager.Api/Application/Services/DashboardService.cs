@@ -1,4 +1,3 @@
-using AutoMapper;
 using Microsoft.EntityFrameworkCore;
 using TeamManager.Api.Application.DTOs.Dashboard;
 using TeamManager.Api.Application.DTOs.Feature;
@@ -11,7 +10,7 @@ using TeamManager.Api.Infrastructure.Data;
 
 namespace TeamManager.Api.Application.Services;
 
-public class DashboardService(AppDbContext db, IMapper mapper) : IDashboardService
+public class DashboardService(AppDbContext db) : IDashboardService
 {
     public async Task<SprintDashboardDto?> GetSprintDashboardAsync(Guid sprintId, Guid? teamLeadId = null)
     {
@@ -94,7 +93,7 @@ public class DashboardService(AppDbContext db, IMapper mapper) : IDashboardServi
 
         return new SprintDashboardDto
         {
-            Sprint = mapper.Map<SprintDto>(sprint),
+            Sprint = SprintService.ToDto(sprint),
             Features = features.Select(f => new FeatureDto
             {
                 Id = f.Id,

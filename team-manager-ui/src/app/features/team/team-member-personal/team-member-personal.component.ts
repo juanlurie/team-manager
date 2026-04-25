@@ -47,8 +47,10 @@ const MAP_CATEGORIES: MapCategory[] = [
 
       <!-- Header -->
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:24px">
-        <button mat-icon-button (click)="back()" matTooltip="Back to team">
-          <mat-icon>arrow_back</mat-icon>
+        <button mat-button (click)="back()"
+                style="padding:0 8px 0 4px;gap:4px;color:rgba(255,255,255,0.55)">
+          <mat-icon style="font-size:18px;width:18px;height:18px;line-height:18px">arrow_back</mat-icon>
+          Team
         </button>
         @if (member()) {
           <div>
@@ -297,14 +299,23 @@ const MAP_CATEGORIES: MapCategory[] = [
 
             <div style="display:flex;flex-direction:column;gap:6px">
               @for (task of tasks(); track task.id) {
-                <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06)">
+                <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;background:rgba(255,255,255,0.03)"
+                     [style.border]="!task.isCompleted && task.dueDate && isOverdue(task.dueDate) ? '1px solid rgba(239,83,80,0.35)' : '1px solid rgba(255,255,255,0.06)'"
+                     [style.borderLeft]="!task.isCompleted && task.dueDate && isOverdue(task.dueDate) ? '3px solid #ef5350' : ''">
                   <input type="checkbox" [checked]="task.isCompleted" (change)="toggleTask(task)"
                          style="width:16px;height:16px;cursor:pointer;accent-color:#64b5f6;flex-shrink:0">
                   <div style="flex:1;min-width:0">
-                    <div style="font-size:0.88rem"
-                         [style.opacity]="task.isCompleted ? '0.35' : '1'"
-                         [style.textDecoration]="task.isCompleted ? 'line-through' : 'none'">
-                      {{ task.title }}
+                    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+                      <span style="font-size:0.88rem"
+                            [style.opacity]="task.isCompleted ? '0.35' : '1'"
+                            [style.textDecoration]="task.isCompleted ? 'line-through' : 'none'">
+                        {{ task.title }}
+                      </span>
+                      @if (!task.isCompleted && task.dueDate && isOverdue(task.dueDate)) {
+                        <span style="font-size:0.68rem;font-weight:600;padding:1px 6px;border-radius:6px;
+                                     background:rgba(239,83,80,0.15);color:#ef9a9a;text-transform:uppercase;
+                                     letter-spacing:0.04em;flex-shrink:0">Overdue</span>
+                      }
                     </div>
                     <div style="display:flex;gap:10px;margin-top:3px;font-size:0.74rem;flex-wrap:wrap">
                       @if (task.dueDate && !task.isCompleted) {

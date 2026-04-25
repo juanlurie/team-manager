@@ -1,5 +1,4 @@
 using Microsoft.EntityFrameworkCore;
-using TeamManager.Api.Application.Mappings;
 using TeamManager.Api.Application.Services;
 using TeamManager.Api.Application.Services.Interfaces;
 using TeamManager.Api.Infrastructure.Data;
@@ -15,8 +14,6 @@ builder.Services.AddSwaggerGen();
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"))
            .ConfigureWarnings(w => w.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.RelationalEventId.PendingModelChangesWarning)));
-
-builder.Services.AddAutoMapper(typeof(MappingProfile));
 
 builder.Services.AddScoped<ITeamMemberService, TeamMemberService>();
 builder.Services.AddScoped<IPIService, PIService>();
@@ -36,6 +33,9 @@ builder.Services.AddScoped<IWheelService, WheelService>();
 builder.Services.AddScoped<IMemberPersonalService, MemberPersonalService>();
 builder.Services.AddScoped<ISprintVoteService, SprintVoteService>();
 
+builder.Services.AddHealthChecks()
+    .AddDbContextCheck<AppDbContext>();
+
 builder.Services.AddCors(options =>
     options.AddPolicy("AllowAll", policy =>
         policy.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod()));
@@ -48,13 +48,18 @@ app.UseSwagger();
 app.UseSwaggerUI();
 
 app.UseCors("AllowAll");
+app.MapHealthChecks("/health");
 app.MapControllers();
 
-// Auto-apply migrations on every startup (safe — EF Core is idempotent)
-using (var scope = app.Services.CreateScope())
+// When invoked with --migrate, apply pending migrations and exit.
+// In production this runs as a separate init container before the API starts.
+if (args.Contains("--migrate"))
 {
+    using var scope = app.Services.CreateScope();
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     db.Database.Migrate();
+    Console.WriteLine("Migrations applied.");
+    return;
 }
 
 app.Run();
