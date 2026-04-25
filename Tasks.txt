@@ -39,6 +39,74 @@ TEAM MANAGER — BACKLOG
     - Setting to 100% clears the field (full capacity = no badge)
     - ⚡ N% badge shown in workload summary panel and card footer when < 100%
 
+== ARCHITECTURE ==
+
+[ ] Authentication & authorisation
+    - Add login screen with username/password (or Google/Entra SSO)
+    - Backend: JWT bearer tokens, protect all API endpoints with [Authorize]
+    - Frontend: Angular auth guard on all routes, HttpInterceptor to attach token
+    - Store token in memory (not localStorage) to prevent XSS theft
+    - Role-based access: manager vs read-only viewer
+
+[ ] Move database credentials out of source control
+    - Remove postgres credentials from docker-compose.yml
+    - Use .env file (add to .gitignore) or Docker secrets
+    - Add docker-compose.yml.example with placeholder values
+    - Rotate the current password since it was committed to git
+
+[ ] Sanitise exception details in production responses
+    - GlobalExceptionMiddleware currently returns ex.Message to clients
+    - Return a generic "An unexpected error occurred" message in production
+    - Log full exception (with stack trace) server-side only
+    - Use IHostEnvironment.IsProduction() to gate the detail level
+
+[ ] Input validation on all API requests
+    - Add DataAnnotations ([Required], [MaxLength], [Range]) to all request records
+    - Or adopt FluentValidation for richer rules (date range checks, etc.)
+    - Return 400 Bad Request with a clear validation error body instead of 500
+
+[ ] Pagination on list endpoints
+    - Add page/pageSize query params to: leave records, work items, features, notes
+    - Dashboard endpoint loads all members + work items + leave in one shot — add limits
+    - Frontend: add "load more" or page controls where applicable
+
+[ ] Health check endpoint
+    - Add ASP.NET Core health checks: MapHealthChecks("/health")
+    - Include a DB connectivity check (EF Core ping)
+    - Add healthcheck to docker-compose so the container is marked unhealthy on failure
+
+[ ] Standardise DTO mapping strategy
+    - DashboardService manually constructs DTOs (80+ lines); other services use AutoMapper
+    - Pick one approach and apply consistently across all services
+    - If keeping AutoMapper, move manual mappings into MappingProfile
+    - If dropping AutoMapper, remove the dependency and map explicitly everywhere
+
+[ ] Angular HTTP error interceptor
+    - Add a single HttpInterceptor that catches 4xx/5xx responses
+    - Show a snackbar or toast with a user-friendly message
+    - Remove ad-hoc error handling scattered across individual components
+
+[ ] Split large components into sub-components
+    - sprint-detail.component.ts is 671 lines with 5 unrelated responsibilities
+    - Extract: MemberCardComponent, WorkloadSummaryComponent, SprintRetroComponent
+    - Each sub-component takes inputs via @Input signals and emits events upward
+    - Reduces cognitive load and makes individual sections independently testable
+
+[ ] Replace inline onmouseenter/onmouseleave with CSS hover
+    - Templates use onmouseenter="this.style.background='...'" throughout
+    - Replace with :hover rules in the component styles array
+    - Removes plain JS string handlers from Angular templates
+
+[ ] Decouple from shared Postgres network
+    - API currently joins external postgres_default network owned by another service
+    - Consider running a dedicated postgres instance in this compose file
+    - Or document the dependency explicitly and add a healthcheck on the DB container
+
+[ ] Separate migration step from app startup
+    - db.Database.Migrate() on startup is a race condition risk if ever scaled to 2+ instances
+    - Move migration to a dedicated init container or pre-deploy script
+    - Low priority while single-instance, but worth noting for future
+
 [ ] Performance review export per member
     - One-click export (PDF or formatted text) per team member
     - Aggregates personal notes, skill ratings over time, completed tasks, sprint work items

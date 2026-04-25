@@ -68,17 +68,31 @@ sudo docker logs tm-dev-api-1 2>&1 | tail -40
 - Requests are `record` types: `CreateXRequest`, `UpdateXRequest`, `UpsertXRequest`
 - Responses are `record` types ending in `Dto`
 - Import/export shapes live in their own subfolder (e.g. `DTOs/LeaveRecord/`, `DTOs/Personal/`)
+- **All request records must have validation attributes** — `[Required]`, `[MaxLength]`, `[Range]` at minimum. Do not add a new endpoint without validating its inputs.
+- Create and Update operations must use separate request types if their field sets or rules differ
+
+### Mapping
+- **Do not use AutoMapper for new mappings.** The project has a mix; new code must use explicit manual mapping only (private static `ToDto()` methods in the service, or inline in the service method).
+- AutoMapper `MappingProfile` remains for existing mappings — do not remove it, but do not add to it.
+- Manual mapping keeps the data shape visible and avoids implicit convention magic.
 
 ### Services
 - Interface in `Application/Services/Interfaces/IXService.cs`
 - Implementation in `Application/Services/XService.cs`
 - Registered in `Program.cs` as `AddScoped<IXService, XService>()`
 - Controllers only call service methods — no logic in controllers
+- Services must not return raw entities — always map to a DTO before returning
 
 ### Controllers
 - Routes: `api/v1/<resource>`
 - Return `Ok()`, `Created("", result)`, `NoContent()`, `NotFound()`
 - Catch `InvalidOperationException` where external calls can fail (e.g. Entelect fetch)
+- Do not expose `ex.Message` or stack traces in responses — log server-side, return a generic message
+
+### Error handling
+- `GlobalExceptionMiddleware` catches unhandled exceptions and returns a generic 500 body
+- For expected business errors, throw `InvalidOperationException` with a user-readable message and catch it in the controller
+- Never let raw EF/Npgsql exceptions reach the client
 
 ### Migrations
 The migrations directory is root-owned. Use `sudo tee` to create files:
@@ -96,7 +110,7 @@ sudo chmod 666 /opt/services/team-manager/src/TeamManager.Api/Migrations/AppDbCo
 
 Migration timestamp format: `YYYYMMDDHHMMSS` — use sequential times on the same day (e.g. `100000`, `110000`, `120000`).
 
-EF applies migrations automatically on startup via `db.Database.MigrateAsync()` in `Program.cs`.
+EF applies migrations automatically on startup via `db.Database.Migrate()` in `Program.cs`.
 
 ---
 
@@ -107,16 +121,26 @@ EF applies migrations automatically on startup via `db.Database.MigrateAsync()` 
 - Use Angular **signals** for state: `signal()`, `computed()`, `effect()`
 - Use `@if`, `@for`, `@switch` (Angular 17+ control flow syntax) — not `*ngIf`, `*ngFor`
 - No `NgModule`-based patterns
+- **Component size limit: ~300 lines.** If a component template + class exceeds this, extract logical sections into child components with `@Input` signals. Example: a member card in a list should be its own `MemberCardComponent`, not inline in the parent.
+- **Do not put multiple unrelated responsibilities in one component.** Each component should own one clear concern.
 
 ### Services
 - Inject with `inject()` function, not constructor injection
 - `API_BASE` constant from `core/services/api.config.ts`
 - One service per backend resource
+- **Do not handle HTTP errors inside individual components.** A global `HttpInterceptor` is the target pattern (tracked in Tasks.txt); until it exists, at minimum log errors and show a snackbar rather than silently swallowing them.
 
 ### Styling
 - Inline styles on elements — no separate `.scss` files for components
-- Use `styles: [...]` array in `@Component` only for things that can't be inlined (media queries, `::ng-deep`, pseudo-selectors)
-- Dark theme: background `#16202e`, cards `rgba(255,255,255,0.03)`, borders `rgba(255,255,255,0.07)`
+- Use `styles: [...]` array in `@Component` only for things that can't be inlined (media queries, `::ng-deep`, pseudo-selectors, `:hover`)
+- **Never use `onmouseenter`/`onmouseleave` string handlers in templates.** Use CSS `:hover` in the `styles` array instead — it's cleaner and doesn't bypass Angular's rendering.
+- Dark theme palette:
+  - Page background: `#0f1923`
+  - Sidebar/header: `#131e2b`
+  - Card surface: `rgba(255,255,255,0.03)` / `rgba(255,255,255,0.04)`
+  - Card border: `rgba(255,255,255,0.07)` / `rgba(255,255,255,0.08)`
+  - Primary accent: `#64b5f6` (blue)
+  - Success: `#4caf50`, Warning: `#ff9800`, Error: `#ef5350`
 - `::ng-deep` is acceptable for overriding Angular Material internals (e.g. expansion panel height)
 
 ### Dialogs
