@@ -1,8 +1,9 @@
-import { Component, inject, signal, HostListener } from '@angular/core';
-import { RouterOutlet, RouterLink, RouterLinkActive } from '@angular/router';
+import { Component, signal, computed, HostListener, inject } from '@angular/core';
+import { RouterOutlet, RouterLink, RouterLinkActive, Router, NavigationEnd } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { filter } from 'rxjs/operators';
 
 interface NavItem {
   path: string;
@@ -10,17 +11,37 @@ interface NavItem {
   label: string;
 }
 
-const NAV: NavItem[] = [
-  { path: '/dashboard',  icon: 'dashboard',      label: 'Dashboard'   },
-  { path: '/sprints',    icon: 'directions_run',  label: 'Sprints'     },
-  { path: '/features',   icon: 'view_list',       label: 'Features'    },
-  { path: '/progress',   icon: 'track_changes',   label: 'Progress'    },
-  { path: '/discussion', icon: 'forum',           label: 'Discussion'  },
-  { path: '/team',       icon: 'people',          label: 'Team'        },
-  { path: '/leave',      icon: 'event_busy',      label: 'Leave'       },
-  { path: '/export',     icon: 'download',        label: 'Export'      },
-  { path: '/leaderboard',icon: 'emoji_events',    label: 'Leaderboard' },
-  { path: '/wheel',      icon: 'casino',          label: 'Spin Wheel'  },
+const PRIMARY_NAV: NavItem[] = [
+  { path: '/dashboard',  icon: 'dashboard',     label: 'Dashboard'  },
+  { path: '/sprints',    icon: 'directions_run', label: 'Sprints'    },
+  { path: '/features',   icon: 'view_list',      label: 'Features'   },
+  { path: '/progress',   icon: 'track_changes',  label: 'Progress'   },
+  { path: '/discussion', icon: 'forum',          label: 'Discussion' },
+  { path: '/team',       icon: 'people',         label: 'Team'       },
+  { path: '/leave',      icon: 'event_busy',     label: 'Leave'      },
+];
+
+const SECONDARY_NAV: NavItem[] = [
+  { path: '/export',      icon: 'download',     label: 'Export'      },
+  { path: '/leaderboard', icon: 'emoji_events', label: 'Leaderboard' },
+  { path: '/wheel',       icon: 'casino',       label: 'Spin Wheel'  },
+];
+
+// Bottom bar: 4 core items + "More" button for the rest
+const BOTTOM_NAV: NavItem[] = [
+  { path: '/dashboard', icon: 'dashboard',     label: 'Dashboard' },
+  { path: '/sprints',   icon: 'directions_run', label: 'Sprints'   },
+  { path: '/team',      icon: 'people',         label: 'Team'      },
+  { path: '/leave',     icon: 'event_busy',     label: 'Leave'     },
+];
+
+const MORE_NAV: NavItem[] = [
+  { path: '/features',    icon: 'view_list',     label: 'Features'    },
+  { path: '/progress',    icon: 'track_changes', label: 'Progress'    },
+  { path: '/discussion',  icon: 'forum',         label: 'Discussion'  },
+  { path: '/export',      icon: 'download',      label: 'Export'      },
+  { path: '/leaderboard', icon: 'emoji_events',  label: 'Leaderboard' },
+  { path: '/wheel',       icon: 'casino',        label: 'Spin Wheel'  },
 ];
 
 @Component({
@@ -30,59 +51,79 @@ const NAV: NavItem[] = [
   template: `
     <div class="shell" [class.mobile]="isMobile()">
 
-      <!-- ── Mobile top bar ── -->
+      <!-- ── Mobile bottom nav ── -->
       @if (isMobile()) {
-        <header class="topbar">
-          <button class="icon-btn" (click)="mobileOpen.set(!mobileOpen())">
-            <mat-icon>{{ mobileOpen() ? 'close' : 'menu' }}</mat-icon>
+        <!-- Bottom nav bar -->
+        <nav class="bottom-nav">
+          @for (item of bottomNav; track item.path) {
+            <a class="bnav-item" [routerLink]="item.path" routerLinkActive="active">
+              <mat-icon class="bnav-icon">{{ item.icon }}</mat-icon>
+              <span class="bnav-label">{{ item.label }}</span>
+            </a>
+          }
+          <button class="bnav-item" [class.active]="isMoreActive()"
+                  (click)="moreOpen.set(!moreOpen())">
+            <mat-icon class="bnav-icon">{{ moreOpen() ? 'close' : 'more_horiz' }}</mat-icon>
+            <span class="bnav-label">More</span>
           </button>
-          <mat-icon style="color:rgba(255,255,255,0.7)">groups</mat-icon>
-          <span class="brand">Team Manager</span>
-        </header>
+        </nav>
 
-        <!-- Mobile overlay backdrop -->
-        @if (mobileOpen()) {
-          <div class="backdrop" (click)="mobileOpen.set(false)"></div>
-          <nav class="drawer">
-            <div class="nav-items">
-              @for (item of nav; track item.path) {
-                <a class="nav-link" [routerLink]="item.path" routerLinkActive="active"
-                   (click)="mobileOpen.set(false)">
-                  <mat-icon class="nav-icon">{{ item.icon }}</mat-icon>
-                  <span class="nav-label">{{ item.label }}</span>
+        <!-- More sheet -->
+        @if (moreOpen()) {
+          <div class="backdrop" (click)="moreOpen.set(false)"></div>
+          <div class="more-sheet">
+            <div class="more-handle"></div>
+            <div class="more-grid">
+              @for (item of moreNav; track item.path) {
+                <a class="more-item" [routerLink]="item.path" routerLinkActive="active"
+                   (click)="moreOpen.set(false)">
+                  <mat-icon class="more-icon">{{ item.icon }}</mat-icon>
+                  <span>{{ item.label }}</span>
                 </a>
               }
             </div>
-          </nav>
+          </div>
         }
       }
 
       <!-- ── Desktop sidebar ── -->
       @if (!isMobile()) {
-        <nav class="sidebar" [class.collapsed]="collapsed()">
+        <nav class="sidebar" [class.expanded]="sidebarExpanded()"
+             (mouseenter)="hovered.set(true)"
+             (mouseleave)="hovered.set(false)">
+
           <div class="sidebar-header">
             <mat-icon class="brand-icon">groups</mat-icon>
-            @if (!collapsed()) {
-              <span class="brand">Team Manager</span>
-            }
+            <span class="brand">Team Manager</span>
           </div>
 
           <div class="nav-items">
-            @for (item of nav; track item.path) {
+            @for (item of primaryNav; track item.path) {
               <a class="nav-link" [routerLink]="item.path" routerLinkActive="active"
-                 [matTooltip]="collapsed() ? item.label : ''" matTooltipPosition="right">
+                 [matTooltip]="sidebarExpanded() ? '' : item.label" matTooltipPosition="right">
                 <mat-icon class="nav-icon">{{ item.icon }}</mat-icon>
-                @if (!collapsed()) {
-                  <span class="nav-label">{{ item.label }}</span>
-                }
+                <span class="nav-label">{{ item.label }}</span>
+              </a>
+            }
+
+            <div class="nav-divider"></div>
+
+            @for (item of secondaryNav; track item.path) {
+              <a class="nav-link nav-secondary" [routerLink]="item.path" routerLinkActive="active"
+                 [matTooltip]="sidebarExpanded() ? '' : item.label" matTooltipPosition="right">
+                <mat-icon class="nav-icon">{{ item.icon }}</mat-icon>
+                <span class="nav-label">{{ item.label }}</span>
               </a>
             }
           </div>
 
-          <button class="collapse-btn" (click)="collapsed.set(!collapsed())" [title]="collapsed() ? 'Expand' : 'Collapse'">
-            <mat-icon style="font-size:18px;width:18px;height:18px;line-height:18px;transition:transform 0.25s"
-                      [style.transform]="collapsed() ? 'rotate(180deg)' : 'rotate(0)'">
-              chevron_left
+          <button class="pin-btn" (click)="togglePin()"
+                  [matTooltip]="pinned() ? 'Unpin sidebar' : 'Pin sidebar open'" matTooltipPosition="right">
+            <mat-icon style="font-size:18px;width:18px;height:18px;line-height:18px;
+                             transition:transform 0.2s,opacity 0.2s;display:block"
+                      [style.transform]="pinned() ? 'rotate(-45deg)' : 'none'"
+                      [style.opacity]="pinned() ? '0.8' : '0.3'">
+              push_pin
             </mat-icon>
           </button>
         </nav>
@@ -106,29 +147,43 @@ const NAV: NavItem[] = [
 
     /* ── Sidebar (desktop) ── */
     .sidebar {
-      width: 220px;
+      width: 58px;
       flex-shrink: 0;
       display: flex;
       flex-direction: column;
       background: #131e2b;
       border-right: 1px solid rgba(255,255,255,0.06);
-      transition: width 0.25s cubic-bezier(0.4,0,0.2,1);
+      transition: width 0.2s cubic-bezier(0.4,0,0.2,1);
       overflow: hidden;
+      z-index: 100;
     }
-    .sidebar.collapsed { width: 58px; }
+    .sidebar.expanded { width: 220px; }
 
     .sidebar-header {
       display: flex;
       align-items: center;
+      justify-content: center;
       gap: 10px;
-      padding: 18px 14px 16px;
+      padding: 16px 0;
       border-bottom: 1px solid rgba(255,255,255,0.05);
       min-height: 56px;
       overflow: hidden;
       white-space: nowrap;
+      flex-shrink: 0;
     }
-    .brand-icon { color: rgba(255,255,255,0.5); flex-shrink: 0; }
-    .brand { font-size: 0.9rem; font-weight: 600; opacity: 0.75; }
+    .brand-icon {
+      color: rgba(255,255,255,0.75);
+      flex-shrink: 0;
+      font-size: 28px; width: 28px; height: 28px; line-height: 28px;
+    }
+    .brand {
+      font-size: 0.9rem; font-weight: 600;
+      opacity: 0; max-width: 0; overflow: hidden;
+      transition: opacity 0.15s, max-width 0.2s;
+    }
+    .sidebar.expanded .sidebar-header { justify-content: flex-start; padding: 16px; }
+    .sidebar.expanded .brand-icon { font-size: 22px; width: 22px; height: 22px; line-height: 22px; }
+    .sidebar.expanded .brand { opacity: 0.75; max-width: 160px; }
 
     .nav-items {
       flex: 1;
@@ -142,21 +197,18 @@ const NAV: NavItem[] = [
     .nav-link {
       display: flex;
       align-items: center;
-      gap: 12px;
-      padding: 9px 14px;
-      color: rgba(255,255,255,0.5);
+      gap: 0;
+      padding: 12px 0;
+      justify-content: center;
+      color: rgba(255,255,255,0.45);
       text-decoration: none;
-      border-radius: 0;
       transition: background 0.15s, color 0.15s;
       white-space: nowrap;
       overflow: hidden;
       position: relative;
     }
-    .nav-link:hover { background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.85); }
-    .nav-link.active {
-      background: rgba(100,181,246,0.12);
-      color: #64b5f6;
-    }
+    .nav-link:hover { background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.9); }
+    .nav-link.active { background: rgba(100,181,246,0.12); color: #64b5f6; }
     .nav-link.active::before {
       content: '';
       position: absolute;
@@ -165,87 +217,159 @@ const NAV: NavItem[] = [
       background: #64b5f6;
       border-radius: 0 2px 2px 0;
     }
+    .nav-secondary { opacity: 0.65; }
+    .nav-secondary.active { opacity: 1; }
 
-    .nav-icon { font-size: 20px; width: 20px; height: 20px; line-height: 20px; flex-shrink: 0; }
-    .nav-label { font-size: 0.85rem; font-weight: 500; }
+    .nav-icon { font-size: 24px; width: 24px; height: 24px; line-height: 24px; flex-shrink: 0; }
+    .nav-label {
+      font-size: 0.85rem; font-weight: 500;
+      max-width: 0; overflow: hidden; opacity: 0;
+      transition: max-width 0.2s, opacity 0.15s;
+    }
 
-    .collapse-btn {
+    .sidebar.expanded .nav-link { padding: 9px 16px; justify-content: flex-start; gap: 12px; }
+    .sidebar.expanded .nav-icon { font-size: 20px; width: 20px; height: 20px; line-height: 20px; }
+    .sidebar.expanded .nav-label { max-width: 160px; opacity: 1; }
+
+    .nav-divider {
+      margin: 6px 10px;
+      border-top: 1px solid rgba(255,255,255,0.05);
+      flex-shrink: 0;
+    }
+
+    .pin-btn {
       display: flex;
       align-items: center;
       justify-content: center;
       padding: 12px;
       border: none;
       background: none;
-      color: rgba(255,255,255,0.25);
+      color: rgba(255,255,255,0.6);
       cursor: pointer;
       border-top: 1px solid rgba(255,255,255,0.05);
       transition: color 0.15s;
+      flex-shrink: 0;
     }
-    .collapse-btn:hover { color: rgba(255,255,255,0.6); }
+    .pin-btn:hover { color: rgba(255,255,255,0.9); }
 
-    /* ── Mobile top bar ── */
-    .topbar {
+    /* ── Bottom nav ── */
+    .bottom-nav {
       position: fixed;
-      top: 0; left: 0; right: 0;
-      height: 52px;
+      bottom: 0; left: 0; right: 0;
+      height: 60px;
       background: #131e2b;
-      border-bottom: 1px solid rgba(255,255,255,0.07);
+      border-top: 1px solid rgba(255,255,255,0.07);
       display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 0 12px;
+      align-items: stretch;
       z-index: 200;
     }
-    .icon-btn {
-      display: flex; align-items: center; justify-content: center;
-      width: 36px; height: 36px;
-      border: none; background: none; color: rgba(255,255,255,0.6); cursor: pointer;
-      border-radius: 8px;
+    .bnav-item {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 3px;
+      color: rgba(255,255,255,0.4);
+      text-decoration: none;
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 0;
+      transition: color 0.15s;
+      -webkit-tap-highlight-color: transparent;
     }
-    .icon-btn:hover { background: rgba(255,255,255,0.07); }
+    .bnav-item:hover { color: rgba(255,255,255,0.75); }
+    .bnav-item.active { color: #64b5f6; }
+    .bnav-icon { font-size: 22px; width: 22px; height: 22px; line-height: 22px; }
+    .bnav-label { font-size: 0.6rem; font-weight: 500; letter-spacing: 0.01em; }
 
+    /* ── More sheet ── */
     .backdrop {
-      position: fixed; inset: 0; z-index: 300;
-      background: rgba(0,0,0,0.5);
-    }
-    .drawer {
       position: fixed;
-      top: 52px; left: 0; bottom: 0;
-      width: 240px;
-      background: #131e2b;
-      border-right: 1px solid rgba(255,255,255,0.07);
+      top: 0; left: 0; right: 0; bottom: 60px;
+      background: rgba(0,0,0,0.55);
+      z-index: 300;
+    }
+    .more-sheet {
+      position: fixed;
+      left: 0; right: 0; bottom: 60px;
+      background: #1a2636;
+      border-top: 1px solid rgba(255,255,255,0.08);
+      border-radius: 16px 16px 0 0;
       z-index: 310;
-      overflow-y: auto;
-      padding: 8px 0;
+      padding: 8px 0 16px;
     }
-    .drawer .nav-link {
-      border-radius: 0;
+    .more-handle {
+      width: 36px; height: 4px;
+      background: rgba(255,255,255,0.15);
+      border-radius: 2px;
+      margin: 0 auto 12px;
     }
+    .more-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 4px;
+      padding: 0 12px;
+    }
+    .more-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 16px 8px;
+      border-radius: 12px;
+      color: rgba(255,255,255,0.6);
+      text-decoration: none;
+      font-size: 0.75rem;
+      font-weight: 500;
+      transition: background 0.15s, color 0.15s;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .more-item:hover { background: rgba(255,255,255,0.07); color: rgba(255,255,255,0.9); }
+    .more-item.active { background: rgba(100,181,246,0.12); color: #64b5f6; }
+    .more-icon { font-size: 26px; width: 26px; height: 26px; line-height: 26px; }
 
     /* ── Main content ── */
-    .content {
-      flex: 1;
-      overflow-y: auto;
-      min-width: 0;
-    }
-    .shell.mobile .content {
-      margin-top: 52px;
-    }
-    .page-wrap {
-      padding: 24px;
-      max-width: 1200px;
-      margin: 0 auto;
-    }
+    .content { flex: 1; overflow-y: auto; min-width: 0; }
+    .shell.mobile .content { padding-bottom: 60px; }
+    .page-wrap { padding: 24px; max-width: 1200px; margin: 0 auto; }
+    .shell.mobile .page-wrap { padding: 16px 12px; }
   `]
 })
 export class AppComponent {
-  readonly nav = NAV;
-  collapsed  = signal(false);
-  mobileOpen = signal(false);
-  isMobile   = signal(false);
+  readonly primaryNav   = PRIMARY_NAV;
+  readonly secondaryNav = SECONDARY_NAV;
+  readonly bottomNav    = BOTTOM_NAV;
+  readonly moreNav      = MORE_NAV;
 
-  constructor() { this.checkMobile(); }
+  private router = inject(Router);
+  private currentUrl = signal(this.router.url);
+
+  isMoreActive = computed(() => MORE_NAV.some(item => this.currentUrl().startsWith(item.path)));
+
+  pinned   = signal(localStorage.getItem('nav-pinned') === 'true');
+  hovered  = signal(false);
+  sidebarExpanded = computed(() => this.pinned() || this.hovered());
+
+  moreOpen = signal(false);
+  isMobile = signal(false);
+
+  constructor() {
+    this.checkMobile();
+    this.router.events.pipe(filter(e => e instanceof NavigationEnd)).subscribe(e => {
+      this.currentUrl.set((e as NavigationEnd).urlAfterRedirects);
+      this.moreOpen.set(false);
+    });
+  }
 
   @HostListener('window:resize')
   checkMobile() { this.isMobile.set(window.innerWidth < 768); }
+
+  togglePin() {
+    const next = !this.pinned();
+    this.pinned.set(next);
+    localStorage.setItem('nav-pinned', String(next));
+  }
 }

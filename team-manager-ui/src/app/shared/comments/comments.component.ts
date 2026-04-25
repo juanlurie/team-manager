@@ -14,6 +14,7 @@ import { ConfirmDialogComponent } from '../components/confirm-dialog/confirm-dia
   selector: 'app-comments',
   standalone: true,
   imports: [CommonModule, FormsModule, MatIconModule, MatButtonModule, MatInputModule, MatFormFieldModule, MatDialogModule, DatePipe],
+  styles: [`.comment-delete { color:rgba(255,255,255,0.2);background:transparent;transition:color 0.15s,background 0.15s; } .comment-delete:hover { color:#ef5350;background:rgba(239,83,80,0.1); }`],
   template: `
     <div style="margin-top:16px">
       <div style="font-size:0.75rem;font-weight:700;opacity:0.4;text-transform:uppercase;letter-spacing:0.07em;margin-bottom:10px">
@@ -37,12 +38,10 @@ import { ConfirmDialogComponent } from '../components/confirm-dialog/confirm-dia
             </div>
             <div style="font-size:0.83rem;line-height:1.5;white-space:pre-wrap;word-break:break-word">{{ c.text }}</div>
           </div>
-          <button (click)="remove(c)"
-                  style="width:24px;height:24px;border:none;border-radius:5px;background:transparent;
-                         cursor:pointer;color:rgba(255,255,255,0.2);flex-shrink:0;margin-top:3px;
-                         display:flex;align-items:center;justify-content:center"
-                  onmouseenter="this.style.color='#ef5350';this.style.background='rgba(239,83,80,0.1)'"
-                  onmouseleave="this.style.color='rgba(255,255,255,0.2)';this.style.background='transparent'">
+          <button (click)="remove(c)" class="comment-delete"
+                  style="width:24px;height:24px;border:none;border-radius:5px;
+                         cursor:pointer;flex-shrink:0;margin-top:3px;
+                         display:flex;align-items:center;justify-content:center">
             <mat-icon style="font-size:14px;width:14px;height:14px">close</mat-icon>
           </button>
         </div>

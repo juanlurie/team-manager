@@ -40,6 +40,14 @@ const TASK_STATUS_TEXT: Record<string, string> = {
   imports: [CommonModule, FormsModule, MatButtonModule, MatIconModule,
     MatSelectModule, MatFormFieldModule, MatTooltipModule, MatDialogModule, CommentsComponent,
     MatProgressSpinnerModule],
+  styles: [`
+    .feat-btn { width:28px;height:28px;border:none;border-radius:6px;cursor:pointer;
+                display:flex;align-items:center;justify-content:center;
+                background:rgba(255,255,255,0.05);color:rgba(255,255,255,0.4);
+                transition:background 0.15s,color 0.15s; }
+    .feat-btn-blue:hover { background:rgba(100,181,246,0.15);color:#64b5f6; }
+    .feat-btn-green:hover { background:rgba(76,175,80,0.15);color:#4caf50; }
+  `],
   template: `
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;flex-wrap:wrap">
       <h2 style="margin:0;font-size:1.2rem">Features</h2>
@@ -112,6 +120,11 @@ const TASK_STATUS_TEXT: Record<string, string> = {
             <!-- Right: chips + count + actions -->
             <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end"
                  (click)="$event.stopPropagation()">
+              @if (f.estimatedDays) {
+                <span style="font-size:0.65rem;padding:2px 7px;border-radius:6px;
+                             background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.45);white-space:nowrap"
+                      matTooltip="Estimated days">⏱ {{ f.estimatedDays }}d</span>
+              }
               @if (f.tasks?.length) {
                 <span style="font-size:0.7rem;opacity:0.4;white-space:nowrap">
                   {{ f.tasks!.length }} task{{ f.tasks!.length !== 1 ? 's' : '' }}
@@ -129,20 +142,12 @@ const TASK_STATUS_TEXT: Record<string, string> = {
                   {{ f.piName }}
                 </span>
               }
-              <button (click)="editFeature(f)"
-                      matTooltip="Edit feature"
-                      style="width:28px;height:28px;border:none;border-radius:6px;background:rgba(255,255,255,0.05);
-                             cursor:pointer;color:rgba(255,255,255,0.4);display:flex;align-items:center;justify-content:center"
-                      onmouseenter="this.style.background='rgba(100,181,246,0.15)';this.style.color='#64b5f6'"
-                      onmouseleave="this.style.background='rgba(255,255,255,0.05)';this.style.color='rgba(255,255,255,0.4)'">
+              <button (click)="editFeature(f)" class="feat-btn feat-btn-blue"
+                      matTooltip="Edit feature">
                 <mat-icon style="font-size:16px;width:16px;height:16px;line-height:16px">edit</mat-icon>
               </button>
-              <button (click)="markDone(f)"
-                      matTooltip="Mark as Released"
-                      style="width:28px;height:28px;border:none;border-radius:6px;background:rgba(255,255,255,0.05);
-                             cursor:pointer;color:rgba(255,255,255,0.4);display:flex;align-items:center;justify-content:center"
-                      onmouseenter="this.style.background='rgba(76,175,80,0.15)';this.style.color='#4caf50'"
-                      onmouseleave="this.style.background='rgba(255,255,255,0.05)';this.style.color='rgba(255,255,255,0.4)'">
+              <button (click)="markDone(f)" class="feat-btn feat-btn-green"
+                      matTooltip="Mark as Released">
                 <mat-icon style="font-size:16px;width:16px;height:16px;line-height:16px">check_circle</mat-icon>
               </button>
             </div>
@@ -222,13 +227,9 @@ const TASK_STATUS_TEXT: Record<string, string> = {
                   </span>
                 }
               </div>
-              <button (click)="unmarkDone(f)"
-                      matTooltip="Move back to active"
-                      style="flex-shrink:0;width:28px;height:28px;border:none;border-radius:6px;
-                             background:rgba(255,255,255,0.04);cursor:pointer;color:rgba(255,255,255,0.3);
-                             display:flex;align-items:center;justify-content:center"
-                      onmouseenter="this.style.background='rgba(100,181,246,0.15)';this.style.color='#64b5f6'"
-                      onmouseleave="this.style.background='rgba(255,255,255,0.04)';this.style.color='rgba(255,255,255,0.3)'">
+              <button (click)="unmarkDone(f)" class="feat-btn feat-btn-blue"
+                      style="flex-shrink:0"
+                      matTooltip="Move back to active">
                 <mat-icon style="font-size:16px;width:16px;height:16px;line-height:16px">undo</mat-icon>
               </button>
             </div>

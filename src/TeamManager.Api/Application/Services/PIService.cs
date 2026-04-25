@@ -1,4 +1,3 @@
-using AutoMapper;
 using Microsoft.EntityFrameworkCore;
 using TeamManager.Api.Application.DTOs.PI;
 using TeamManager.Api.Application.Services.Interfaces;
@@ -7,18 +6,18 @@ using TeamManager.Api.Infrastructure.Data;
 
 namespace TeamManager.Api.Application.Services;
 
-public class PIService(AppDbContext db, IMapper mapper) : IPIService
+public class PIService(AppDbContext db) : IPIService
 {
     public async Task<IReadOnlyList<PIDto>> GetAllAsync()
     {
         var pis = await db.PIs.OrderByDescending(p => p.StartDate).ToListAsync();
-        return mapper.Map<List<PIDto>>(pis);
+        return pis.Select(ToDto).ToList();
     }
 
     public async Task<PIDto?> GetByIdAsync(Guid id)
     {
         var pi = await db.PIs.FindAsync(id);
-        return pi is null ? null : mapper.Map<PIDto>(pi);
+        return pi is null ? null : ToDto(pi);
     }
 
     public async Task<PIDto> CreateAsync(CreatePIRequest request)
@@ -32,7 +31,7 @@ public class PIService(AppDbContext db, IMapper mapper) : IPIService
         };
         db.PIs.Add(pi);
         await db.SaveChangesAsync();
-        return mapper.Map<PIDto>(pi);
+        return ToDto(pi);
     }
 
     public async Task<PIDto?> UpdateAsync(Guid id, CreatePIRequest request)
@@ -46,7 +45,7 @@ public class PIService(AppDbContext db, IMapper mapper) : IPIService
         pi.Description = request.Description;
 
         await db.SaveChangesAsync();
-        return mapper.Map<PIDto>(pi);
+        return ToDto(pi);
     }
 
     public async Task<bool> DeleteAsync(Guid id)
@@ -57,4 +56,13 @@ public class PIService(AppDbContext db, IMapper mapper) : IPIService
         await db.SaveChangesAsync();
         return true;
     }
+
+    internal static PIDto ToDto(PI pi) => new()
+    {
+        Id = pi.Id,
+        Name = pi.Name,
+        StartDate = pi.StartDate,
+        EndDate = pi.EndDate,
+        Description = pi.Description
+    };
 }

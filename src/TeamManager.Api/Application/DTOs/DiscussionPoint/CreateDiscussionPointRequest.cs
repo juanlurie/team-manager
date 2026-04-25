@@ -1,9 +1,11 @@
+using System.ComponentModel.DataAnnotations;
+
 namespace TeamManager.Api.Application.DTOs.DiscussionPoint;
 
 public record CreateDiscussionPointRequest(
-    string Title,
-    string? Notes,
-    string Status,
-    string Priority,
+    [Required][MaxLength(200)] string Title,
+    [MaxLength(2000)] string? Notes,
+    [Required][MaxLength(50)] string Status,
+    [Required][MaxLength(50)] string Priority,
     Guid? SprintId
 );

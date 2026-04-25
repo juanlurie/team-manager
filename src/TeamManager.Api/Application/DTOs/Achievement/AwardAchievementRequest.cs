@@ -1,3 +1,9 @@
+using System.ComponentModel.DataAnnotations;
+
 namespace TeamManager.Api.Application.DTOs.Achievement;
 
-public record AwardAchievementRequest(Guid TeamMemberId, Guid AchievementId, string? Note = null);
+public record AwardAchievementRequest(
+    [Required] Guid TeamMemberId,
+    [Required] Guid AchievementId,
+    [MaxLength(500)] string? Note = null
+);

@@ -39,6 +39,13 @@ public class WorkItemsController(IWorkItemService service) : ControllerBase
         return result is null ? NotFound() : Ok(result);
     }
 
+    [HttpPost("api/v1/work-items/{id:guid}/carry-over")]
+    public async Task<IActionResult> CarryOver(Guid id, [FromBody] CarryOverRequest request)
+    {
+        var result = await service.CarryOverAsync(id, request.TargetSprintId);
+        return result is null ? NotFound() : Ok(result);
+    }
+
     [HttpDelete("api/v1/work-items/{id:guid}")]
     public async Task<IActionResult> Delete(Guid id)
     {

@@ -1,4 +1,3 @@
-using AutoMapper;
 using Microsoft.EntityFrameworkCore;
 using TeamManager.Api.Application.DTOs.WorkItem;
 using TeamManager.Api.Application.Services.Interfaces;
@@ -8,7 +7,7 @@ using TeamManager.Api.Infrastructure.Data;
 
 namespace TeamManager.Api.Application.Services;
 
-public class WorkItemService(AppDbContext db, IMapper mapper) : IWorkItemService
+public class WorkItemService(AppDbContext db) : IWorkItemService
 {
     public async Task<IReadOnlyList<WorkItemDto>> GetBySprintMemberAsync(Guid sprintMemberId)
     {
@@ -41,7 +40,7 @@ public class WorkItemService(AppDbContext db, IMapper mapper) : IWorkItemService
             ActualPoints = request.ActualPoints,
             CompletedDate = request.CompletedDate
         };
-        ApplyStatus(item, request.Status);
+        ApplyStatus(item, request.Status, request.BlockedReason);
         db.WorkItems.Add(item);
         await db.SaveChangesAsync();
         await db.Entry(item).Reference(w => w.Feature).LoadAsync();
@@ -61,7 +60,7 @@ public class WorkItemService(AppDbContext db, IMapper mapper) : IWorkItemService
         item.EstimatedPoints = request.EstimatedPoints;
         item.ActualPoints = request.ActualPoints;
         item.CompletedDate = request.CompletedDate;
-        ApplyStatus(item, request.Status);
+        ApplyStatus(item, request.Status, request.BlockedReason);
 
         await db.SaveChangesAsync();
         await db.Entry(item).Reference(w => w.Feature).LoadAsync();
@@ -77,15 +76,55 @@ public class WorkItemService(AppDbContext db, IMapper mapper) : IWorkItemService
         return ToDto(item);
     }
 
-    private static void ApplyStatus(WorkItem item, WorkItemStatus status)
+    private static void ApplyStatus(WorkItem item, WorkItemStatus status, string? blockedReason = null)
     {
         item.Status = status;
         if (status == WorkItemStatus.Blocked)
+        {
             item.BlockedAt ??= DateTimeOffset.UtcNow;
+            item.BlockedReason = blockedReason;
+        }
         else
+        {
             item.BlockedAt = null;
+            item.BlockedReason = null;
+        }
         if (status == WorkItemStatus.Completed)
             item.CompletedDate ??= DateOnly.FromDateTime(DateTime.UtcNow);
+    }
+
+    public async Task<WorkItemDto?> CarryOverAsync(Guid workItemId, Guid targetSprintId)
+    {
+        var source = await db.WorkItems
+            .Include(w => w.SprintMember)
+            .FirstOrDefaultAsync(w => w.Id == workItemId);
+        if (source is null) return null;
+
+        var targetMember = await db.SprintMembers
+            .FirstOrDefaultAsync(sm => sm.SprintId == targetSprintId && sm.TeamMemberId == source.SprintMember.TeamMemberId);
+
+        if (targetMember is null)
+        {
+            targetMember = new SprintMember { SprintId = targetSprintId, TeamMemberId = source.SprintMember.TeamMemberId };
+            db.SprintMembers.Add(targetMember);
+        }
+
+        var copy = new WorkItem
+        {
+            Title = source.Title,
+            Description = source.Description,
+            Type = source.Type,
+            SprintMemberId = targetMember.Id,
+            FeatureId = null,
+            ExternalTicketRef = source.ExternalTicketRef,
+            EstimatedPoints = source.EstimatedPoints,
+            ActualPoints = null,
+            CompletedDate = null,
+            Status = WorkItemStatus.Planned
+        };
+        db.WorkItems.Add(copy);
+        await db.SaveChangesAsync();
+        return ToDto(copy);
     }
 
     public async Task<bool> DeleteAsync(Guid id)
@@ -97,7 +136,7 @@ public class WorkItemService(AppDbContext db, IMapper mapper) : IWorkItemService
         return true;
     }
 
-    private static WorkItemDto ToDto(WorkItem w) => new()
+    internal static WorkItemDto ToDto(WorkItem w) => new()
     {
         Id = w.Id,
         Title = w.Title,
@@ -111,6 +150,7 @@ public class WorkItemService(AppDbContext db, IMapper mapper) : IWorkItemService
         EstimatedPoints = w.EstimatedPoints,
         ActualPoints = w.ActualPoints,
         CompletedDate = w.CompletedDate,
-        BlockedAt = w.BlockedAt
+        BlockedAt = w.BlockedAt,
+        BlockedReason = w.BlockedReason
     };
 }

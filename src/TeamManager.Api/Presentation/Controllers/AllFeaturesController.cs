@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using Microsoft.AspNetCore.Mvc;
 using TeamManager.Api.Application.Services.Interfaces;
 
@@ -18,5 +19,5 @@ public class AllFeaturesController(IFeatureService service) : ControllerBase
         return result is null ? NotFound() : Ok(result);
     }
 
-    public record SetStatusRequest(string Status);
+    public record SetStatusRequest([Required][MaxLength(50)] string Status);
 }

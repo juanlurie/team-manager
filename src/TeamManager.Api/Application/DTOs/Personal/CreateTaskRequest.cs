@@ -1,3 +1,8 @@
+using System.ComponentModel.DataAnnotations;
+
 namespace TeamManager.Api.Application.DTOs.Personal;
 
-public record CreateTaskRequest(string Title, DateOnly? DueDate);
+public record CreateTaskRequest(
+    [Required][MaxLength(200)] string Title,
+    DateOnly? DueDate
+);

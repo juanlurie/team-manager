@@ -1,4 +1,34 @@
 services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - default
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  migrate:
+    image: team-manager-api:prod
+    command: ["--migrate"]
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ConnectionStrings__DefaultConnection: "Host=db;Port=5432;Database=${DB_NAME};Username=${DB_USER};Password=${DB_PASSWORD}"
+    networks:
+      - default
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+
   api:
     image: team-manager-api:prod
     build:
@@ -7,12 +37,21 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:5000
-      ConnectionStrings__DefaultConnection: "Host=postgres_db;Port=5432;Database=team_manager;Username=postgres;Password=postgres"
+      ConnectionStrings__DefaultConnection: "Host=db;Port=5432;Database=${DB_NAME};Username=${DB_USER};Password=${DB_PASSWORD}"
     networks:
       - default
-      - postgres_default
     ports:
       - "5000:5000"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    restart: unless-stopped
 
   ui:
     image: team-manager-ui:prod
@@ -23,10 +62,12 @@ services:
       - "80:80"
     depends_on:
       - api
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+    name: team-manager_postgres_data
 
 networks:
   default:
     name: team-manager_default
-  postgres_default:
-    external: true
-    name: postgres_default

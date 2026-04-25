@@ -1,12 +1,13 @@
+using System.ComponentModel.DataAnnotations;
 using TeamManager.Api.Domain.Enums;
 
 namespace TeamManager.Api.Application.DTOs.LeaveRecord;
 
 public record CreateLeaveRecordRequest(
-    Guid TeamMemberId,
-    DateOnly StartDate,
-    DateOnly EndDate,
-    LeaveType Type,
-    decimal DaysCount,
-    string? Notes
+    [Required] Guid TeamMemberId,
+    [Required] DateOnly StartDate,
+    [Required] DateOnly EndDate,
+    [Required] LeaveType Type,
+    [Required][Range(0.5, 365.0)] decimal DaysCount,
+    [MaxLength(500)] string? Notes
 );

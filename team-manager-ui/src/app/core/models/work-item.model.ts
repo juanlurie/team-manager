@@ -15,6 +15,7 @@ export interface WorkItem {
   actualPoints: number | null;
   completedDate: string | null;
   blockedAt: string | null;
+  blockedReason: string | null;
 }
 
 export interface CreateWorkItemRequest {
@@ -27,4 +28,5 @@ export interface CreateWorkItemRequest {
   estimatedPoints: number | null;
   actualPoints: number | null;
   completedDate: string | null;
+  blockedReason: string | null;
 }

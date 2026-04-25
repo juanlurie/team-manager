@@ -39,6 +39,114 @@ TEAM MANAGER — BACKLOG
     - Setting to 100% clears the field (full capacity = no badge)
     - ⚡ N% badge shown in workload summary panel and card footer when < 100%
 
+[x] Bottom menu on mobile
+    - Replaced hamburger + drawer with fixed bottom nav bar (Dashboard, Sprints, Team, Leave, More)
+    - "More" button opens a 3-column bottom sheet with remaining nav items (Features, Progress, Discussion, Export, Leaderboard, Spin Wheel)
+    - Top bar simplified: no hamburger, just brand icon + "Team Manager" title
+    - More sheet closes automatically on navigation; backdrop tap also closes it
+    - isMoreActive computed signal highlights "More" tab when a "more" route is active
+
+[x] [UX] Spin Wheel — step-by-step flow + desktop layout fix
+    - Desktop: wheel canvas is squished and invisible until names are selected; layout needs to allocate space upfront
+    - Mobile: current layout requires too much scrolling; needs a step-based flow
+    - select a saved wheel OR enter/paste names (name list input)
+    - wheel renders full-size and is ready to spin; names visible on wheel before spinning
+    - Doesn't need to show steps but should follow the flow
+    - Desktop: side-by-side layout (controls left, wheel right); wheel always visible once names exist
+    - Mobile: full-width stacked steps with large spin button accessible without scrolling
+
+[x] [UX] Desktop sidebar — hover-to-expand rail with pin toggle
+    - mouseenter/mouseleave expand/collapse; pin button (push_pin icon) locks it open
+    - pinned state saved to localStorage; sidebarExpanded = computed(() => pinned || hovered)
+    - Collapse toggle button replaced with pin/unpin icon at sidebar bottom
+
+[x] [UX] Mobile — replace hamburger drawer with bottom navigation bar
+    - Done: bottom nav bar with Dashboard, Sprints, Team, Leave, More sheet
+
+[x] [UX] Mobile — show active section name in top bar
+    - pageTitle computed signal matches currentUrl against ALL_NAV; topbar shows section label instead of "Team Manager"
+
+[x] [UX] Deep routes — back buttons need a text label
+    - sprint-features: replaced bare icon with mat-button "← Sprints"
+    - team-member-personal: replaced bare icon with mat-button "← Team"
+
+[x] [UX] Sprint list — deduplicate current sprint from active list
+    - Current sprint appears in both the highlighted top card AND the active sprints list below
+    - Fix: filter activeSprints() to exclude s.id === currentSprint()?.id
+    - Pure frontend, one-line computed change in sprint-list.component.ts
+
+[x] [UX] Sprint list — days remaining on active sprint rows
+    - Active sprint rows show date range but no indication of sprint progress
+    - Add "X days left" label computed from endDate minus today, coloured amber when ≤3 days remain
+    - Pure frontend change in sprint-list.component.ts
+
+[x] [UX] Sprint dashboard — stat pills need clickable affordance
+    - Stat cards are anchor tags that navigate to other pages but look like passive counters
+    - Add a small chevron_right icon inside each pill to signal they are navigation items
+    - Pure frontend, template change in sprint-dashboard.component.ts
+
+[x] [UX] Sprint dashboard — mark current sprint in dropdown
+    - All sprints appear as plain text; auto-selects first sprint which may not be the current one
+    - Append " (current)" to the sprint name whose date range contains today when building mat-options
+    - Pure frontend, template change in sprint-dashboard.component.ts
+
+[x] [UX] Sprint detail — "Initialize members" button needs a text label
+    - Already had mat-stroked-button with "Init members" label; verified complete
+
+[x] [UX] Sprint member card — hide delete button until hover to prevent mis-taps
+    - Already implemented: .wi-delete / .leave-delete opacity:0 with :hover reveal; touch shows always
+
+[x] [UX] Leave overview — default filter to current sprint on load
+    - Page loads showing all leave records ever; most relevant context is always the current sprint
+    - On ngOnInit after sprints load, set selectedSprintId to the sprint containing today; fallback to null
+    - Pure frontend, logic change in leave-overview.component.ts
+
+[x] [UX] Sprint member card — "Add note" footer button needs priority and label
+    - Already implemented: "Note" button is first with mat-button label; leave/capacity remain icon-only
+
+[x] Blocked reason + linked blocker task
+    - Add nullable BlockedReason (string) column to WorkItems table
+    - Work item form shows a text input for the reason when status = Blocked
+    - Optional: select a team member as the "blocker owner" — creates a MemberTask for that person
+    - Blocker task title auto-filled: "Unblock: {work item title}"; linked back to the work item
+    - Blocker reason shown inline on the member card next to the blocked badge
+
+[x] Carry-over work items to next sprint
+    - "Carry over" icon button on incomplete work items in the sprint detail member card
+    - Opens a small dialog: pick target sprint, confirm
+    - Backend: clone the work item into the target sprint member (matched by teamMemberId); mark original as carried over or just leave it
+    - Useful at sprint close when items didn't make it across the line
+
+[x] Clone sprint
+    - "Clone" button on the sprint list next to each sprint row
+    - Dialog: new name, start date, end date; checkbox "copy members" (default on)
+    - Backend: create new sprint, copy SprintMember rows; incomplete work items NOT copied (use carry-over for that)
+    - Saves the repetitive sprint setup for stable teams
+
+[x] Member search / filter on sprint detail
+    - Search input above member grid; filters by fullName; clear button; getter reacts to memberSearch signal
+
+[x] Sprint velocity chart
+    - Bar chart on the Sprint List page (below the sprint cards) showing completed work item count per sprint
+    - X-axis: sprint name/number; Y-axis: completed items; bars coloured by PI
+    - If estimatedPoints exist, toggle between item count and story points
+    - New aggregation endpoint: GET api/v1/sprints/velocity?piId=... returning [{sprintId, sprintName, completedItems, totalItems, completedPoints}]
+
+[ ] Team skills matrix
+    - New view accessible from the Team page header: "Skills Matrix" icon/button
+    - Grid: rows = unique skills across all active members, columns = members, cells = latest rating (1–5 star or number, empty if not rated)
+    - Colour-coded cells: green (4–5), yellow (3), red (1–2), grey (unrated)
+    - New endpoint: GET api/v1/team-members/skills-matrix returning [{skillName, category, ratings: [{memberId, memberName, rating}]}]
+
+[x] Overdue personal task highlight
+    - Red left border + "Overdue" badge on past-due incomplete tasks; isOverdue() already existed, added visual treatment
+
+[x] Sprint capacity summary panel
+    - Second panel below Workload in sprint-detail Members tab
+    - Segmented bar per member: green=available, orange=leave, gray=capacity reduction
+    - Tooltip shows breakdown; "Xd" label turns amber/red when low
+    - workDays() helper counts Mon–Fri; leave overlap clamped to sprint dates
+
 == ARCHITECTURE ==
 
 [ ] Authentication & authorisation
@@ -48,64 +156,59 @@ TEAM MANAGER — BACKLOG
     - Store token in memory (not localStorage) to prevent XSS theft
     - Role-based access: manager vs read-only viewer
 
-[ ] Move database credentials out of source control
-    - Remove postgres credentials from docker-compose.yml
-    - Use .env file (add to .gitignore) or Docker secrets
-    - Add docker-compose.yml.example with placeholder values
-    - Rotate the current password since it was committed to git
+[x] Move database credentials out of source control
+    - .env file created, added to .gitignore; docker-compose files use ${DB_HOST} etc.
+    - .env.example added with placeholder values
+    - Note: still need to rotate the password since it was committed to git history
 
-[ ] Sanitise exception details in production responses
-    - GlobalExceptionMiddleware currently returns ex.Message to clients
-    - Return a generic "An unexpected error occurred" message in production
-    - Log full exception (with stack trace) server-side only
-    - Use IHostEnvironment.IsProduction() to gate the detail level
+[x] Sanitise exception details in production responses
+    - GlobalExceptionMiddleware now gates on IHostEnvironment.IsProduction()
+    - Production returns generic message; development returns ex.Message
 
-[ ] Input validation on all API requests
-    - Add DataAnnotations ([Required], [MaxLength], [Range]) to all request records
-    - Or adopt FluentValidation for richer rules (date range checks, etc.)
-    - Return 400 Bad Request with a clear validation error body instead of 500
+[x] Input validation on all API requests
+    - DataAnnotations added to all 22 request records/classes across all DTO folders
+    - [Required], [MaxLength], [Range], [EmailAddress] applied as appropriate
+    - Inline request types in AllFeaturesController and SprintMembersController also annotated
+    - [ApiController] on all controllers means validation fires automatically (400 on failure)
 
 [ ] Pagination on list endpoints
     - Add page/pageSize query params to: leave records, work items, features, notes
     - Dashboard endpoint loads all members + work items + leave in one shot — add limits
     - Frontend: add "load more" or page controls where applicable
 
-[ ] Health check endpoint
-    - Add ASP.NET Core health checks: MapHealthChecks("/health")
-    - Include a DB connectivity check (EF Core ping)
-    - Add healthcheck to docker-compose so the container is marked unhealthy on failure
+[x] Health check endpoint
+    - MapHealthChecks("/health") added with EF Core DB connectivity check
+    - Docker-compose healthcheck added to both dev and prod compose files
 
-[ ] Standardise DTO mapping strategy
-    - DashboardService manually constructs DTOs (80+ lines); other services use AutoMapper
-    - Pick one approach and apply consistently across all services
-    - If keeping AutoMapper, move manual mappings into MappingProfile
-    - If dropping AutoMapper, remove the dependency and map explicitly everywhere
+[x] Standardise DTO mapping strategy
+    - Dropped AutoMapper entirely; removed both NuGet packages from csproj
+    - Added manual ToDto() methods to TeamMemberService, SprintService, PIService, WorkItemService
+    - DashboardService already mapped manually; replaced its one mapper.Map<SprintDto> call
+    - MappingProfile.cs deleted; Mappings/ directory removed
 
-[ ] Angular HTTP error interceptor
-    - Add a single HttpInterceptor that catches 4xx/5xx responses
-    - Show a snackbar or toast with a user-friendly message
-    - Remove ad-hoc error handling scattered across individual components
+[x] Angular HTTP error interceptor
+    - errorInterceptor wired via withInterceptors in app.config.ts
+    - Shows red snackbar with error detail/title from problem+json response
+    - SKIP_ERROR_TOAST HttpContextToken lets components opt out (used in leave import)
+    - error-snackbar CSS class styled in global styles.scss
 
-[ ] Split large components into sub-components
-    - sprint-detail.component.ts is 671 lines with 5 unrelated responsibilities
-    - Extract: MemberCardComponent, WorkloadSummaryComponent, SprintRetroComponent
-    - Each sub-component takes inputs via @Input signals and emits events upward
-    - Reduces cognitive load and makes individual sections independently testable
+[x] Split large components into sub-components
+    - sprint-detail.component.ts reduced from 671 → ~170 lines
+    - Extracted: SprintWorkloadSummaryComponent, SprintRetroComponent, SprintMemberCardComponent, SprintVotePanelComponent
+    - Each sub-component owns one concern; parent passes data via @Input and reloads on @Output reload events
 
-[ ] Replace inline onmouseenter/onmouseleave with CSS hover
-    - Templates use onmouseenter="this.style.background='...'" throughout
-    - Replace with :hover rules in the component styles array
-    - Removes plain JS string handlers from Angular templates
+[x] Replace inline onmouseenter/onmouseleave with CSS hover
+    - All 6 files cleaned up: team-list, all-features, progress, leaderboard, sprint-dashboard, comments
+    - CSS :hover rules added to component styles arrays
 
-[ ] Decouple from shared Postgres network
-    - API currently joins external postgres_default network owned by another service
-    - Consider running a dedicated postgres instance in this compose file
-    - Or document the dependency explicitly and add a healthcheck on the DB container
+[x] Decouple from shared Postgres network
+    - Added dedicated postgres:16-alpine service (with healthcheck + named volume) to both compose files
+    - Removed postgres_default external network entirely; connection string hardcoded to Host=db
+    - NOTE: prod data was in shared postgres_db — run pg_dump/psql to migrate if needed
 
-[ ] Separate migration step from app startup
+[x] Separate migration step from app startup
     - db.Database.Migrate() on startup is a race condition risk if ever scaled to 2+ instances
-    - Move migration to a dedicated init container or pre-deploy script
-    - Low priority while single-instance, but worth noting for future
+    - Moved to --migrate CLI arg; both compose files run a migrate init container that must exit 0 before API starts
 
 [ ] Performance review export per member
     - One-click export (PDF or formatted text) per team member
@@ -117,12 +220,12 @@ TEAM MANAGER — BACKLOG
     - Uses sprint start date as baseline; tooltip shows exact day count
     - Pure frontend, no backend changes
 
-[ ] Add estimatedDays to Feature entity
+[x] Add estimatedDays to Feature entity
     - Backend: add decimal? EstimatedDays to Feature entity
     - Migration: add column
     - DTO + service update
     - Frontend: add field to feature form
-    STATUS: Noted, low priority
+    - Displayed as ⏱ Xd badge in sprint-features and all-features lists
 
 == DONE ==
 

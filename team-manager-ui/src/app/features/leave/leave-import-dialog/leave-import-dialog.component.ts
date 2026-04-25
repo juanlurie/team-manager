@@ -11,7 +11,9 @@ import { MatTabsModule } from '@angular/material/tabs';
 import { MatExpansionModule } from '@angular/material/expansion';
 import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { HttpContext } from '@angular/common/http';
 import { LeaveService } from '../../../core/services/leave.service';
+import { SKIP_ERROR_TOAST } from '../../../core/interceptors/error.interceptor';
 import { LeaveRecord } from '../../../core/models/leave-record.model';
 import { TeamMember } from '../../../core/models/team-member.model';
 
@@ -323,7 +325,8 @@ export class LeaveImportDialogComponent implements OnInit {
     this.step.set('loading');
     const teamIds = this.teamIdsInput.split(',').map(s => parseInt(s.trim(), 10)).filter(n => !isNaN(n));
     const toStr = (d: Date) => d.toISOString().split('T')[0];
-    this.svc.fetchPreview(this.cookie.trim(), teamIds, toStr(this.fetchStartDate), toStr(this.fetchEndDate)).subscribe({
+    const ctx = new HttpContext().set(SKIP_ERROR_TOAST, true);
+    this.svc.fetchPreview(this.cookie.trim(), teamIds, toStr(this.fetchStartDate), toStr(this.fetchEndDate), ctx).subscribe({
       next: records => {
         this.pendingRecords = records;
         this.buildPreview(records);

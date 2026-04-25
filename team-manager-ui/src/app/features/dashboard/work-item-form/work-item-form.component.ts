@@ -107,6 +107,13 @@ const NEW_FEATURE_KEY = '__new__';
             <textarea matInput formControlName="description" rows="2"></textarea>
           </mat-form-field>
 
+          @if (form.get('status')?.value === 'Blocked') {
+            <mat-form-field appearance="outline">
+              <mat-label>Blocked reason <span style="opacity:0.5;font-size:0.85em">(optional)</span></mat-label>
+              <textarea matInput formControlName="blockedReason" rows="2" placeholder="What is blocking this task?"></textarea>
+            </mat-form-field>
+          }
+
         </form>
       </div>
 
@@ -146,11 +153,12 @@ export class WorkItemFormComponent implements OnInit {
     type: ['Dev', Validators.required],
     status: ['Planned', Validators.required],
     externalTicketRef: [null as string | null],
+    blockedReason: [null as string | null],
   });
 
   ngOnInit() {
     if (this.data.workItem) {
-      this.form.patchValue(this.data.workItem as any);
+      this.form.patchValue({ ...this.data.workItem, blockedReason: this.data.workItem.blockedReason });
       this.selectedFeatureId = this.data.workItem.featureId;
     } else if (this.data.memberCrafts?.length) {
       const craft = this.data.memberCrafts[0];
@@ -179,7 +187,8 @@ export class WorkItemFormComponent implements OnInit {
         type: val.type!, status: val.status!,
         featureId,
         externalTicketRef: val.externalTicketRef ?? null,
-        estimatedPoints: null, actualPoints: null, completedDate: null
+        estimatedPoints: null, actualPoints: null, completedDate: null,
+        blockedReason: val.status === 'Blocked' ? (val.blockedReason ?? null) : null
       };
       const obs = this.data.workItem
         ? this.svc.update(this.data.workItem.id, req)

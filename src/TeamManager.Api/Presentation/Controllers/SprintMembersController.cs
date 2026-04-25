@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using TeamManager.Api.Infrastructure.Data;
@@ -29,5 +30,5 @@ public class SprintMembersController(AppDbContext db) : ControllerBase
     }
 }
 
-public record UpdateNotesRequest(string? Notes);
-public record UpdateCapacityRequest(int? Capacity);
+public record UpdateNotesRequest([MaxLength(2000)] string? Notes);
+public record UpdateCapacityRequest([Range(10, 100)] int? Capacity);

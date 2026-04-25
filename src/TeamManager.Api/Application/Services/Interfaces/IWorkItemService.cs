@@ -11,4 +11,5 @@ public interface IWorkItemService
     Task<WorkItemDto?> UpdateAsync(Guid id, CreateWorkItemRequest request);
     Task<WorkItemDto?> UpdateStatusAsync(Guid id, WorkItemStatus status);
     Task<bool> DeleteAsync(Guid id);
+    Task<WorkItemDto?> CarryOverAsync(Guid workItemId, Guid targetSprintId);
 }

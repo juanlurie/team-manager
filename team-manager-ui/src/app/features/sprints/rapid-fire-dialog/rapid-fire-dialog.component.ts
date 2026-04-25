@@ -232,7 +232,8 @@ export class RapidFireDialogComponent implements OnInit {
       externalTicketRef: null,
       estimatedPoints: null,
       actualPoints: null,
-      completedDate: null
+      completedDate: null,
+      blockedReason: null
     }).subscribe({
       next: () => { this.saving.set(false); this.advance(); },
       error: () => this.saving.set(false)

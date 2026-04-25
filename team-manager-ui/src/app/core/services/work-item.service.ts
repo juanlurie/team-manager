@@ -31,4 +31,8 @@ export class WorkItemService {
   delete(id: string): Observable<void> {
     return this.http.delete<void>(`${API_BASE}/work-items/${id}`);
   }
+
+  carryOver(id: string, targetSprintId: string): Observable<WorkItem> {
+    return this.http.post<WorkItem>(`${API_BASE}/work-items/${id}/carry-over`, { targetSprintId });
+  }
 }
