@@ -30,11 +30,15 @@ export class LeaveService {
     return this.http.delete<void>(`${this.base}/${id}`);
   }
 
-  import(records: any[]): Observable<{ imported: number; duplicates: number; unknownMembers: string[] }> {
-    return this.http.post<any>(`${this.base}/import`, { records });
+  import(records: any[], override = false): Observable<{ imported: number; overridden: number; duplicates: number; unknownMembers: string[] }> {
+    return this.http.post<any>(`${this.base}/import`, { records, override });
   }
 
-  fetchAndImport(cookie: string, teamIds: number[], start: string, end: string): Observable<{ imported: number; duplicates: number; unknownMembers: string[] }> {
+  fetchPreview(cookie: string, teamIds: number[], start: string, end: string): Observable<any[]> {
+    return this.http.post<any[]>(`${this.base}/fetch-preview`, { cookie, teamIds, start, end });
+  }
+
+  fetchAndImport(cookie: string, teamIds: number[], start: string, end: string): Observable<{ imported: number; overridden: number; duplicates: number; unknownMembers: string[] }> {
     return this.http.post<any>(`${this.base}/fetch`, { cookie, teamIds, start, end });
   }
 }

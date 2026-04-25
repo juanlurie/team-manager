@@ -34,9 +34,10 @@ public class SprintService(AppDbContext db, IMapper mapper) : ISprintService
             Name = request.Name,
             StartDate = request.StartDate,
             EndDate = request.EndDate,
-            PIId = request.PIId,
+            PIId = request.PiId,
             SprintNumber = request.SprintNumber,
-            IsInnovationSprint = request.IsInnovationSprint
+            IsInnovationSprint = request.IsInnovationSprint,
+            Goal = request.Goal
         };
         db.Sprints.Add(sprint);
         await db.SaveChangesAsync();
@@ -51,9 +52,10 @@ public class SprintService(AppDbContext db, IMapper mapper) : ISprintService
         sprint.Name = request.Name;
         sprint.StartDate = request.StartDate;
         sprint.EndDate = request.EndDate;
-        sprint.PIId = request.PIId;
+        sprint.PIId = request.PiId;
         sprint.SprintNumber = request.SprintNumber;
         sprint.IsInnovationSprint = request.IsInnovationSprint;
+        sprint.Goal = request.Goal;
 
         await db.SaveChangesAsync();
         return await GetByIdAsync(id);
@@ -66,6 +68,17 @@ public class SprintService(AppDbContext db, IMapper mapper) : ISprintService
         db.Sprints.Remove(sprint);
         await db.SaveChangesAsync();
         return true;
+    }
+
+    public async Task<SprintDto?> UpdateRetroAsync(Guid id, UpdateRetroRequest request)
+    {
+        var sprint = await db.Sprints.FindAsync(id);
+        if (sprint is null) return null;
+        sprint.RetroWentWell     = request.WentWell;
+        sprint.RetroDidntGoWell  = request.DidntGoWell;
+        sprint.RetroActionItems  = request.ActionItems;
+        await db.SaveChangesAsync();
+        return await GetByIdAsync(id);
     }
 
     public async Task<int> InitializeMembersAsync(Guid sprintId)

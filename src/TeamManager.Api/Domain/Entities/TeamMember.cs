@@ -13,6 +13,8 @@ public class TeamMember
     public List<string> Crafts { get; set; } = [];
     public bool IsActive { get; set; } = true;
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
+    public DateOnly? BirthDate { get; set; }
+    public DateOnly? JoinDate { get; set; }
 
     public TeamMember? TeamLead { get; set; }
     public ICollection<TeamMember> DirectReports { get; set; } = [];

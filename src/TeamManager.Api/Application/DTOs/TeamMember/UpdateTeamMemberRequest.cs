@@ -9,5 +9,7 @@ public record UpdateTeamMemberRequest(
     MemberRole Role,
     Guid? TeamLeadId,
     bool IsActive,
-    List<string>? Crafts = null
+    List<string>? Crafts = null,
+    DateOnly? BirthDate = null,
+    DateOnly? JoinDate = null
 );

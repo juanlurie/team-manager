@@ -11,6 +11,7 @@ export interface MemberSprintCard {
   teamLeadName: string | null;
   crafts: string[];
   notes: string | null;
+  capacity: number | null;
   workItems: WorkItem[];
   leaveRecords: LeaveRecord[];
 }
@@ -39,4 +40,24 @@ export interface Blocker {
   memberName: string;
   blockedAt: string;
   daysBlocked: number;
+}
+
+export interface SprintVoteDto {
+  id: string;
+  voterSprintMemberId: string;
+  voterName: string;
+  nomineeSprintMemberId: string;
+  nomineeName: string;
+}
+
+export interface VoteTallyDto {
+  sprintMemberId: string;
+  memberName: string;
+  votes: number;
+  isMvp: boolean;
+}
+
+export interface SprintVotesResponse {
+  votes: SprintVoteDto[];
+  tally: VoteTallyDto[];
 }

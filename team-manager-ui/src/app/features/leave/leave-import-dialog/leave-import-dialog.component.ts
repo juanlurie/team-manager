@@ -1,4 +1,4 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatDialogModule, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
@@ -10,17 +10,28 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTabsModule } from '@angular/material/tabs';
 import { MatExpansionModule } from '@angular/material/expansion';
 import { MatDatepickerModule } from '@angular/material/datepicker';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { LeaveService } from '../../../core/services/leave.service';
+import { LeaveRecord } from '../../../core/models/leave-record.model';
 import { TeamMember } from '../../../core/models/team-member.model';
 
-interface PreviewRow { name: string; type: string; start: string; end: string; days: string; matched: boolean; }
+type RowStatus = 'new' | 'duplicate' | 'unmatched';
+
+interface PreviewRow {
+  name: string;
+  type: string;
+  start: string;
+  end: string;
+  days: string;
+  status: RowStatus;
+}
 
 @Component({
   selector: 'app-leave-import-dialog',
   standalone: true,
   imports: [CommonModule, FormsModule, MatDialogModule, MatButtonModule, MatInputModule,
     MatFormFieldModule, MatIconModule, MatProgressSpinnerModule, MatTabsModule, MatExpansionModule,
-    MatDatepickerModule],
+    MatDatepickerModule, MatTooltipModule],
   template: `
     <h2 mat-dialog-title>Import Leave</h2>
     <mat-dialog-content style="width:700px;max-width:90vw">
@@ -100,17 +111,50 @@ interface PreviewRow { name: string; type: string; start: string; end: string; d
       }
 
       @if (step() === 'preview') {
-        <div style="display:flex;gap:16px;margin-bottom:16px">
-          <div style="flex:1;padding:14px;border-radius:8px;background:rgba(76,175,80,0.1);text-align:center">
-            <div style="font-size:1.75rem;font-weight:600;color:#4caf50">{{ matchedCount() }}</div>
-            <div style="font-size:0.75rem;opacity:0.7">Will import</div>
+        <!-- Summary counters -->
+        <div style="display:flex;gap:10px;margin-bottom:16px">
+          <div style="flex:1;padding:12px;border-radius:8px;background:rgba(76,175,80,0.1);text-align:center">
+            <div style="font-size:1.6rem;font-weight:700;color:#4caf50">{{ newCount() }}</div>
+            <div style="font-size:0.72rem;opacity:0.7;margin-top:2px">New</div>
           </div>
-          <div style="flex:1;padding:14px;border-radius:8px;background:rgba(255,152,0,0.1);text-align:center">
-            <div style="font-size:1.75rem;font-weight:600;color:#ff9800">{{ unmatchedCount() }}</div>
-            <div style="font-size:0.75rem;opacity:0.7">Unknown members (skipped)</div>
+          <div style="flex:1;padding:12px;border-radius:8px;background:rgba(255,152,0,0.1);text-align:center">
+            <div style="font-size:1.6rem;font-weight:700;color:#ff9800">{{ dupCount() }}</div>
+            <div style="font-size:0.72rem;opacity:0.7;margin-top:2px">Duplicates</div>
+          </div>
+          <div style="flex:1;padding:12px;border-radius:8px;background:rgba(158,158,158,0.1);text-align:center">
+            <div style="font-size:1.6rem;font-weight:700;color:#9e9e9e">{{ unmatchedCount() }}</div>
+            <div style="font-size:0.72rem;opacity:0.7;margin-top:2px">Unknown members</div>
           </div>
         </div>
-        <div style="max-height:340px;overflow-y:auto;border-radius:8px;border:1px solid rgba(255,255,255,0.1)">
+
+        <!-- Override toggle (only shown when duplicates exist) -->
+        @if (dupCount() > 0) {
+          <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:8px;margin-bottom:12px;border:1px solid"
+               [style.background]="override() ? 'rgba(255,152,0,0.08)' : 'rgba(255,255,255,0.03)'"
+               [style.borderColor]="override() ? 'rgba(255,152,0,0.4)' : 'rgba(255,255,255,0.1)'">
+            <mat-icon [style.color]="override() ? '#ff9800' : 'rgba(255,255,255,0.4)'" style="flex-shrink:0">warning</mat-icon>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:0.85rem;font-weight:600">{{ dupCount() }} duplicate{{ dupCount() !== 1 ? 's' : '' }} found</div>
+              <div style="font-size:0.75rem;opacity:0.55;margin-top:2px">
+                @if (override()) {
+                  Existing records will be replaced with the imported data
+                } @else {
+                  Duplicates will be skipped — existing records kept unchanged
+                }
+              </div>
+            </div>
+            <button (click)="override.set(!override())"
+                    style="padding:5px 14px;border-radius:6px;font-size:0.8rem;font-weight:600;cursor:pointer;border:1px solid;transition:all 0.15s;white-space:nowrap"
+                    [style.background]="override() ? 'rgba(255,152,0,0.2)' : 'rgba(255,255,255,0.05)'"
+                    [style.borderColor]="override() ? '#ff9800' : 'rgba(255,255,255,0.15)'"
+                    [style.color]="override() ? '#ff9800' : 'rgba(255,255,255,0.6)'">
+              {{ override() ? 'Override on' : 'Override off' }}
+            </button>
+          </div>
+        }
+
+        <!-- Preview table -->
+        <div style="max-height:300px;overflow-y:auto;border-radius:8px;border:1px solid rgba(255,255,255,0.1)">
           <table style="width:100%;border-collapse:collapse;font-size:0.8rem">
             <thead style="position:sticky;top:0;z-index:1">
               <tr style="background:#1e2029">
@@ -118,21 +162,27 @@ interface PreviewRow { name: string; type: string; start: string; end: string; d
                 <th style="padding:8px 12px;text-align:left;opacity:0.6;font-weight:600">Type</th>
                 <th style="padding:8px 12px;text-align:left;opacity:0.6;font-weight:600">Dates</th>
                 <th style="padding:8px 12px;text-align:right;opacity:0.6;font-weight:600">Days</th>
-                <th style="padding:8px 8px"></th>
+                <th style="padding:8px 8px;width:32px"></th>
               </tr>
             </thead>
             <tbody>
               @for (row of preview(); track $index) {
-                <tr [style.opacity]="row.matched ? '1' : '0.35'">
+                <tr [style.opacity]="row.status === 'unmatched' ? '0.3' : '1'"
+                    [style.background]="row.status === 'duplicate' ? 'rgba(255,152,0,0.06)' : 'transparent'">
                   <td style="padding:7px 12px">{{ row.name }}</td>
                   <td style="padding:7px 12px"><span [class]="badgeClass(row.type)">{{ row.type }}</span></td>
-                  <td style="padding:7px 12px">{{ row.start | date:'d MMM' }} – {{ row.end | date:'d MMM yy' }}</td>
+                  <td style="padding:7px 12px;white-space:nowrap">{{ row.start | date:'d MMM' }} – {{ row.end | date:'d MMM yy' }}</td>
                   <td style="padding:7px 12px;text-align:right;font-weight:600">{{ row.days }}</td>
                   <td style="padding:7px 8px;text-align:center">
-                    @if (row.matched) {
+                    @if (row.status === 'new') {
                       <mat-icon style="font-size:16px;width:16px;height:16px;color:#4caf50;vertical-align:middle">check_circle</mat-icon>
+                    } @else if (row.status === 'duplicate') {
+                      <mat-icon style="font-size:16px;width:16px;height:16px;color:#ff9800;vertical-align:middle"
+                                [matTooltip]="override() ? 'Will replace existing record' : 'Duplicate — will be skipped'">
+                        {{ override() ? 'swap_horiz' : 'skip_next' }}
+                      </mat-icon>
                     } @else {
-                      <mat-icon style="font-size:16px;width:16px;height:16px;color:#ff9800;vertical-align:middle" title="Not in system">person_off</mat-icon>
+                      <mat-icon style="font-size:16px;width:16px;height:16px;color:#9e9e9e;vertical-align:middle" matTooltip="Not in system">person_off</mat-icon>
                     }
                   </td>
                 </tr>
@@ -159,9 +209,11 @@ interface PreviewRow { name: string; type: string; start: string; end: string; d
       @if (step() === 'done') {
         <div style="text-align:center;padding:32px 0">
           <mat-icon style="font-size:4rem;width:4rem;height:4rem;color:#4caf50;display:block;margin:0 auto 16px">check_circle</mat-icon>
-          <div style="font-size:1.1rem;font-weight:500;margin-bottom:6px">Import complete</div>
-          <div style="opacity:0.6;font-size:0.875rem">
-            {{ result()!.imported }} imported · {{ result()!.duplicates }} duplicates skipped
+          <div style="font-size:1.1rem;font-weight:500;margin-bottom:8px">Import complete</div>
+          <div style="opacity:0.6;font-size:0.875rem;line-height:1.8">
+            @if (result()!.imported > 0) { <div>{{ result()!.imported }} new record{{ result()!.imported !== 1 ? 's' : '' }} added</div> }
+            @if (result()!.overridden > 0) { <div>{{ result()!.overridden }} existing record{{ result()!.overridden !== 1 ? 's' : '' }} replaced</div> }
+            @if (result()!.duplicates > 0) { <div>{{ result()!.duplicates }} duplicate{{ result()!.duplicates !== 1 ? 's' : '' }} skipped</div> }
           </div>
           @if (result()!.unknownMembers.length > 0) {
             <div style="margin-top:16px;padding:12px 16px;border-radius:8px;background:rgba(255,152,0,0.08);text-align:left">
@@ -188,7 +240,7 @@ interface PreviewRow { name: string; type: string; start: string; end: string; d
       } @else if (step() === 'input') {
         <button mat-button mat-dialog-close>Cancel</button>
         @if (activeTab === 0) {
-          <button mat-raised-button color="primary" (click)="fetchFromEntelect()" [disabled]="!cookie.trim()">
+          <button mat-raised-button color="primary" (click)="fetchAndPreview()" [disabled]="!cookie.trim()">
             <mat-icon>download</mat-icon> Fetch & Preview
           </button>
         } @else {
@@ -196,8 +248,8 @@ interface PreviewRow { name: string; type: string; start: string; end: string; d
         }
       } @else if (step() === 'preview') {
         <button mat-stroked-button (click)="step.set('input')">Back</button>
-        <button mat-raised-button color="primary" (click)="confirm()" [disabled]="matchedCount() === 0">
-          Import {{ matchedCount() }} record{{ matchedCount() !== 1 ? 's' : '' }}
+        <button mat-raised-button color="primary" (click)="confirm()" [disabled]="importableCount() === 0">
+          Import {{ importButtonLabel() }}
         </button>
       }
     </mat-dialog-actions>
@@ -213,7 +265,7 @@ interface PreviewRow { name: string; type: string; start: string; end: string; d
     .other               { background:rgba(158,158,158,0.15);color:#9e9e9e; }
   `]
 })
-export class LeaveImportDialogComponent {
+export class LeaveImportDialogComponent implements OnInit {
   private svc = inject(LeaveService);
   dialogRef = inject(MatDialogRef<LeaveImportDialogComponent>);
   private data: { members: TeamMember[] } = inject(MAT_DIALOG_DATA);
@@ -223,29 +275,59 @@ export class LeaveImportDialogComponent {
   cookie = '';
   teamIdsInput = '2296,2578,2588';
   fetchStartDate: Date = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
-  fetchEndDate: Date = new Date(new Date().getFullYear(), new Date().getMonth() + 2, 0);
+  fetchEndDate: Date   = new Date(new Date().getFullYear(), new Date().getMonth() + 2, 0);
 
-  step = signal<'input' | 'preview' | 'loading' | 'importing' | 'done'>('input');
-  preview = signal<PreviewRow[]>([]);
-  parseError = signal('');
-  fetchError = signal('');
-  result = signal<{ imported: number; duplicates: number; unknownMembers: string[] } | null>(null);
+  step        = signal<'input' | 'preview' | 'loading' | 'importing' | 'done'>('input');
+  preview     = signal<PreviewRow[]>([]);
+  override    = signal(false);
+  parseError  = signal('');
+  fetchError  = signal('');
+  result      = signal<{ imported: number; overridden: number; duplicates: number; unknownMembers: string[] } | null>(null);
+
   private pendingRecords: any[] = [];
+  private existingSet = new Set<string>(); // "{memberName_lower}|{startDate_iso}|{type_lower}"
+  private knownNames  = new Set<string>(); // member full names lowercased
 
-  private get knownNames() {
-    return new Set(this.data.members.map(m => `${m.firstName} ${m.lastName}`.toLowerCase()));
+  newCount       = computed(() => this.preview().filter(r => r.status === 'new').length);
+  dupCount       = computed(() => this.preview().filter(r => r.status === 'duplicate').length);
+  unmatchedCount = computed(() => this.preview().filter(r => r.status === 'unmatched').length);
+
+  importableCount = computed(() =>
+    this.newCount() + (this.override() ? this.dupCount() : 0)
+  );
+
+  importButtonLabel = computed(() => {
+    const n = this.newCount();
+    const d = this.dupCount();
+    const parts: string[] = [];
+    if (n > 0) parts.push(`${n} new`);
+    if (this.override() && d > 0) parts.push(`${d} override${d !== 1 ? 's' : ''}`);
+    if (parts.length === 0) return '0 records';
+    return parts.join(' + ') + ` record${this.importableCount() !== 1 ? 's' : ''}`;
+  });
+
+  ngOnInit() {
+    this.knownNames = new Set(
+      this.data.members.map(m => `${m.firstName} ${m.lastName}`.toLowerCase())
+    );
+    // Load existing records to detect duplicates
+    this.svc.getAll().subscribe(records => {
+      this.existingSet = new Set(
+        records.map(r => `${r.memberName.toLowerCase()}|${this.isoDate(r.startDate)}|${r.type.toLowerCase()}`)
+      );
+    });
   }
 
-  matchedCount = () => this.preview().filter(r => r.matched).length;
-  unmatchedCount = () => this.preview().filter(r => !r.matched).length;
-
-  fetchFromEntelect() {
+  fetchAndPreview() {
     this.fetchError.set('');
     this.step.set('loading');
     const teamIds = this.teamIdsInput.split(',').map(s => parseInt(s.trim(), 10)).filter(n => !isNaN(n));
     const toStr = (d: Date) => d.toISOString().split('T')[0];
-    this.svc.fetchAndImport(this.cookie.trim(), teamIds, toStr(this.fetchStartDate), toStr(this.fetchEndDate)).subscribe({
-      next: res => { this.result.set(res); this.step.set('done'); },
+    this.svc.fetchPreview(this.cookie.trim(), teamIds, toStr(this.fetchStartDate), toStr(this.fetchEndDate)).subscribe({
+      next: records => {
+        this.pendingRecords = records;
+        this.buildPreview(records);
+      },
       error: err => {
         this.fetchError.set(err?.error?.detail ?? err?.message ?? 'Failed to fetch from Entelect. Check your cookie.');
         this.step.set('input');
@@ -266,20 +348,32 @@ export class LeaveImportDialogComponent {
   }
 
   private buildPreview(records: any[]) {
-    const names = this.knownNames;
     this.preview.set(records.map(r => {
       const name = (r.title ?? '').split(' - ')[0].trim();
-      return { name, type: r.type ?? 'Other', start: r.start, end: r.end, days: r.totalDays, matched: names.has(name.toLowerCase()) };
+      const type = r.type ?? 'Other';
+      const startIso = this.isoDate(r.start);
+      const isKnown = this.knownNames.has(name.toLowerCase());
+      const dupKey  = `${name.toLowerCase()}|${startIso}|${type.toLowerCase()}`;
+      const isDup   = isKnown && this.existingSet.has(dupKey);
+      const status: RowStatus = !isKnown ? 'unmatched' : isDup ? 'duplicate' : 'new';
+      return { name, type, start: r.start, end: r.end, days: r.totalDays, status };
     }));
+    this.override.set(false);
     this.step.set('preview');
   }
 
   confirm() {
     this.step.set('importing');
-    this.svc.import(this.pendingRecords).subscribe({
+    this.svc.import(this.pendingRecords, this.override()).subscribe({
       next: res => { this.result.set(res); this.step.set('done'); },
       error: () => this.step.set('preview')
     });
+  }
+
+  private isoDate(raw: string): string {
+    if (!raw) return '';
+    // Handles "2026-03-15", "2026-03-15T00:00:00", DateOnly from API
+    return raw.slice(0, 10);
   }
 
   badgeClass(type: string) {

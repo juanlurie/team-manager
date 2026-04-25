@@ -13,6 +13,7 @@ import { SprintService } from '../../../core/services/sprint.service';
 import { FeatureService } from '../../../core/services/feature.service';
 import { SprintFormComponent } from '../sprint-form/sprint-form.component';
 import { ConfirmDialogComponent } from '../../../shared/components/confirm-dialog/confirm-dialog.component';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
 const STATUS_ORDER = ['InProgress', 'Planned', 'Completed', 'ReadyForRelease', 'Released'];
 const STATUS_LABEL: Record<string, string> = {
@@ -28,13 +29,19 @@ const STATUS_COLOR: Record<string, string> = {
   selector: 'app-sprint-list',
   standalone: true,
   imports: [CommonModule, RouterLink, MatButtonModule, MatIconModule,
-    MatDialogModule, MatChipsModule, MatTooltipModule],
+    MatDialogModule, MatChipsModule, MatTooltipModule, MatProgressSpinnerModule],
   template: `
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:24px;flex-wrap:wrap">
       <h2 style="margin:0;flex:1;min-width:120px">Sprints</h2>
       <button mat-stroked-button (click)="openPIForm()"><mat-icon>add</mat-icon> New PI</button>
       <button mat-raised-button color="primary" (click)="openSprintForm()"><mat-icon>add</mat-icon> New Sprint</button>
     </div>
+
+    @if (loading()) {
+      <div style="display:flex;justify-content:center;padding:80px">
+        <mat-spinner diameter="48"></mat-spinner>
+      </div>
+    } @else {
 
     <!-- Current Sprint -->
     @if (currentSprint()) {
@@ -101,12 +108,11 @@ const STATUS_COLOR: Record<string, string> = {
       }
     </div>
 
-    <!-- Sprint List -->
+    <!-- Active sprints -->
     <div style="display:flex;flex-direction:column;gap:6px">
-      @for (s of filteredSprints(); track s.id) {
+      @for (s of activeSprints(); track s.id) {
         <div style="display:flex;align-items:center;padding:12px 16px;border-radius:8px;
-                    background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07);gap:12px"
-             [style.opacity]="isPast(s) ? '0.5' : '1'">
+                    background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07);gap:12px">
           <div style="flex:1;min-width:0">
             <div style="font-weight:500;font-size:0.9rem">{{ s.name }}</div>
             <div style="font-size:0.78rem;opacity:0.5;margin-top:1px">
@@ -122,10 +128,48 @@ const STATUS_COLOR: Record<string, string> = {
           <button mat-icon-button color="warn" (click)="deleteSprint(s.id)"><mat-icon>delete</mat-icon></button>
         </div>
       }
-      @if (filteredSprints().length === 0) {
+      @if (activeSprints().length === 0) {
         <div style="text-align:center;padding:48px;opacity:0.4;font-size:0.9rem">No sprints found</div>
       }
     </div>
+
+    <!-- Past sprints collapsible -->
+    @if (pastSprints().length > 0) {
+      <div style="margin-top:24px">
+        <button style="display:flex;align-items:center;gap:8px;background:none;border:none;
+                       color:rgba(255,255,255,0.35);cursor:pointer;padding:4px 0;font-size:0.78rem;
+                       font-weight:600;text-transform:uppercase;letter-spacing:0.07em"
+                (click)="pastExpanded.set(!pastExpanded())">
+          <mat-icon style="font-size:16px;width:16px;height:16px;line-height:16px;transition:transform 0.2s"
+                    [style.transform]="pastExpanded() ? 'rotate(90deg)' : 'rotate(0)'">chevron_right</mat-icon>
+          Past Sprints ({{ pastSprints().length }})
+        </button>
+        @if (pastExpanded()) {
+          <div style="display:flex;flex-direction:column;gap:6px;margin-top:8px">
+            @for (s of pastSprints(); track s.id) {
+              <div style="display:flex;align-items:center;padding:10px 16px;border-radius:8px;
+                          background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.05);
+                          gap:12px;opacity:0.6">
+                <div style="flex:1;min-width:0">
+                  <div style="font-weight:500;font-size:0.88rem">{{ s.name }}</div>
+                  <div style="font-size:0.75rem;opacity:0.5;margin-top:1px">
+                    {{ s.startDate | date:'d MMM' }} – {{ s.endDate | date:'d MMM yyyy' }}
+                    @if (s.piName) { · {{ s.piName }} }
+                  </div>
+                </div>
+                @if (s.isInnovationSprint) {
+                  <mat-chip style="font-size:0.7rem">IP</mat-chip>
+                }
+                <a mat-button [routerLink]="['/sprints', s.id]" style="font-size:0.8rem">View</a>
+                <button mat-icon-button (click)="openSprintForm(s)"><mat-icon style="font-size:18px">edit</mat-icon></button>
+                <button mat-icon-button color="warn" (click)="deleteSprint(s.id)"><mat-icon style="font-size:18px">delete</mat-icon></button>
+              </div>
+            }
+          </div>
+        }
+      </div>
+    }
+    } <!-- end @else -->
   `,
   styles: [`.active-filter { background: rgba(100,181,246,0.15) !important; border-color: rgba(100,181,246,0.4) !important; color: #64b5f6 !important; }`]
 })
@@ -135,6 +179,7 @@ export class SprintListComponent implements OnInit {
   private dialog = inject(MatDialog);
   private snack = inject(MatSnackBar);
 
+  loading = signal(true);
   private sprints = signal<Sprint[]>([]);
   pis = signal<PI[]>([]);
   selectedPI = signal<string | null>(null);
@@ -153,6 +198,8 @@ export class SprintListComponent implements OnInit {
 
   hasUngrouped = computed(() => this.sprints().some(s => !s.piId));
 
+  pastExpanded = signal(false);
+
   filteredSprints = computed(() => {
     const pid = this.selectedPI();
     return this.sprints().filter(s => {
@@ -161,6 +208,9 @@ export class SprintListComponent implements OnInit {
       return s.piId === pid;
     });
   });
+
+  activeSprints = computed(() => this.filteredSprints().filter(s => !this.isPast(s)));
+  pastSprints   = computed(() => this.filteredSprints().filter(s => this.isPast(s)));
 
   isPast(s: Sprint) { return new Date(s.endDate) < this.today; }
   featureStatusColor(status: string) { return STATUS_COLOR[status] ?? '#95A5A6'; }
@@ -177,8 +227,9 @@ export class SprintListComponent implements OnInit {
   ngOnInit() { this.load(); }
 
   load() {
+    this.loading.set(true);
     this.svc.getPIs().subscribe(pis => this.pis.set(pis));
-    this.svc.getSprints().subscribe(sprints => this.sprints.set(sprints));
+    this.svc.getSprints().subscribe(sprints => { this.sprints.set(sprints); this.loading.set(false); });
   }
 
   openSprintForm(sprint?: Sprint) {

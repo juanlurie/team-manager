@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { SprintDashboard, SprintSummary, Blocker } from '../models/dashboard.model';
+import { SprintDashboard, SprintSummary, Blocker, SprintVotesResponse, SprintVoteDto } from '../models/dashboard.model';
 import { API_BASE } from './api.config';
 
 @Injectable({ providedIn: 'root' })
@@ -24,5 +24,21 @@ export class DashboardService {
 
   updateNotes(sprintMemberId: string, notes: string | null): Observable<void> {
     return this.http.patch<void>(`${API_BASE}/sprint-members/${sprintMemberId}/notes`, { notes });
+  }
+
+  updateCapacity(sprintMemberId: string, capacity: number | null): Observable<void> {
+    return this.http.patch<void>(`${API_BASE}/sprint-members/${sprintMemberId}/capacity`, { capacity });
+  }
+
+  getVotes(sprintId: string): Observable<SprintVotesResponse> {
+    return this.http.get<SprintVotesResponse>(`${API_BASE}/sprints/${sprintId}/votes`);
+  }
+
+  castVote(sprintId: string, voterSprintMemberId: string, nomineeSprintMemberId: string): Observable<SprintVoteDto> {
+    return this.http.post<SprintVoteDto>(`${API_BASE}/sprints/${sprintId}/votes`, { voterSprintMemberId, nomineeSprintMemberId });
+  }
+
+  awardMvp(sprintId: string): Observable<any> {
+    return this.http.post<any>(`${API_BASE}/sprints/${sprintId}/votes/award-mvp`, {});
   }
 }

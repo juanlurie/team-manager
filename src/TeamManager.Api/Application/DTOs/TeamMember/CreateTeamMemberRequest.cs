@@ -8,5 +8,7 @@ public record CreateTeamMemberRequest(
     string Email,
     MemberRole Role,
     Guid? TeamLeadId,
-    List<string>? Crafts = null
+    List<string>? Crafts = null,
+    DateOnly? BirthDate = null,
+    DateOnly? JoinDate = null
 );

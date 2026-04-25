@@ -13,6 +13,7 @@ import { MemberSkill, MemberNote, MemberTask } from '../../../core/models/member
 import { TeamMemberService } from '../../../core/services/team-member.service';
 import { MemberPersonalService } from '../../../core/services/member-personal.service';
 import { ConfirmDialogComponent } from '../../../shared/components/confirm-dialog/confirm-dialog.component';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
 const SKILL_CATEGORIES = ['Technical', 'Soft Skills'];
 const SKILL_FILTERS = ['All', ...SKILL_CATEGORIES];
@@ -35,7 +36,7 @@ const MAP_CATEGORIES: MapCategory[] = [
 @Component({
   selector: 'app-team-member-personal',
   standalone: true,
-  imports: [CommonModule, FormsModule, MatIconModule, MatButtonModule, MatTooltipModule, MatTabsModule, MatDialogModule],
+  imports: [CommonModule, FormsModule, MatIconModule, MatButtonModule, MatTooltipModule, MatTabsModule, MatDialogModule, MatProgressSpinnerModule],
   styles: [`
     @media (max-width: 480px) {
       .tab-label { display: none; }
@@ -56,6 +57,12 @@ const MAP_CATEGORIES: MapCategory[] = [
           </div>
         }
       </div>
+
+      @if (loading()) {
+        <div style="display:flex;justify-content:center;padding:80px">
+          <mat-spinner diameter="48"></mat-spinner>
+        </div>
+      } @else {
 
       <!-- Tabs -->
       <mat-tab-group animationDuration="150ms">
@@ -324,6 +331,7 @@ const MAP_CATEGORIES: MapCategory[] = [
         </mat-tab>
 
       </mat-tab-group>
+      } <!-- end @else -->
     </div>
   `
 })
@@ -338,6 +346,7 @@ export class TeamMemberPersonalComponent implements OnInit {
   readonly skillFilters = SKILL_FILTERS;
   readonly mapCategories = MAP_CATEGORIES;
 
+  loading = signal(true);
   memberId = '';
   member = signal<TeamMember | null>(null);
   skills = signal<MemberSkill[]>([]);
@@ -384,6 +393,7 @@ export class TeamMemberPersonalComponent implements OnInit {
       this.skills.set(skills);
       this.notes.set(notes);
       this.tasks.set(tasks);
+      this.loading.set(false);
     });
   }
 

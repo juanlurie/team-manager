@@ -38,6 +38,10 @@ export class SprintService {
     return this.http.post<{ addedCount: number }>(`${this.sprintBase}/${sprintId}/initialize-members`, {});
   }
 
+  updateRetro(id: string, req: { wentWell: string | null; didntGoWell: string | null; actionItems: string | null }): Observable<Sprint> {
+    return this.http.patch<Sprint>(`${this.sprintBase}/${id}/retro`, req);
+  }
+
   getPIs(): Observable<PI[]> {
     return this.http.get<PI[]>(this.piBase);
   }

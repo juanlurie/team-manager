@@ -99,15 +99,20 @@ public class LeaveService(AppDbContext db, IHttpClientFactory httpClientFactory)
         var memberLookup = members.ToDictionary(m => m.FullName, m => m.Id);
 
         var existing = await db.LeaveRecords
-            .Select(l => new { l.TeamMemberId, l.StartDate, l.Type })
+            .Select(l => new { l.Id, l.TeamMemberId, l.StartDate, l.Type })
             .ToListAsync();
 
-        var existingSet = existing
-            .Select(e => $"{e.TeamMemberId}|{e.StartDate}|{e.Type}")
-            .ToHashSet();
+        // Map from dedup key → existing record Id so we can delete on override
+        var existingMap = existing
+            .ToDictionary(e => $"{e.TeamMemberId}|{e.StartDate}|{e.Type}", e => e.Id);
 
         var unknownNames = new HashSet<string>();
-        var toInsert = new List<LeaveRecord>();
+        var toInsert    = new List<LeaveRecord>();
+        var toDelete    = new List<Guid>();
+        var processedKeys = new HashSet<string>();
+        int newCount      = 0;
+        int overrideCount = 0;
+        int skipCount     = 0;
 
         foreach (var r in request.Records)
         {
@@ -122,39 +127,46 @@ public class LeaveService(AppDbContext db, IHttpClientFactory httpClientFactory)
             var leaveType = ParseLeaveType(r.Type);
             var key = $"{memberId}|{startDate}|{leaveType}";
 
-            if (existingSet.Contains(key)) continue;
+            if (processedKeys.Contains(key)) continue;
+            processedKeys.Add(key);
+
+            if (existingMap.TryGetValue(key, out var existingId))
+            {
+                if (!request.Override) { skipCount++; continue; }
+                toDelete.Add(existingId);
+                overrideCount++;
+            }
+            else
+            {
+                newCount++;
+            }
 
             toInsert.Add(new LeaveRecord
             {
                 TeamMemberId = memberId,
-                StartDate = startDate,
-                EndDate = DateOnly.FromDateTime(DateTime.Parse(r.End).AddDays(-1)),
-                Type = leaveType,
-                DaysCount = decimal.TryParse(r.TotalDays, out var d) ? d : 1,
-                Notes = $"Imported ({r.Status})"
+                StartDate    = startDate,
+                EndDate      = DateOnly.FromDateTime(DateTime.Parse(r.End).AddDays(-1)),
+                Type         = leaveType,
+                DaysCount    = decimal.TryParse(r.TotalDays, out var d) ? d : 1,
+                Notes        = $"Imported ({r.Status})"
             });
+        }
 
-            existingSet.Add(key);
+        if (toDelete.Count > 0)
+        {
+            var recordsToRemove = await db.LeaveRecords.Where(l => toDelete.Contains(l.Id)).ToListAsync();
+            db.LeaveRecords.RemoveRange(recordsToRemove);
         }
 
         db.LeaveRecords.AddRange(toInsert);
         await db.SaveChangesAsync();
 
-        var duplicates = request.Records.Count - unknownNames
-            .Select(n => request.Records.Count(r => ExtractName(r.Title).Equals(n, StringComparison.OrdinalIgnoreCase)))
-            .Sum() - toInsert.Count;
-
-        return new ImportLeaveResult(toInsert.Count, Math.Max(0, duplicates), unknownNames.ToList());
+        return new ImportLeaveResult(newCount, overrideCount, skipCount, unknownNames.ToList());
     }
 
-    public async Task<ImportLeaveResult> FetchAndImportAsync(FetchLeaveRequest request)
+    public async Task<IReadOnlyList<ImportLeaveRecord>> FetchPreviewAsync(FetchLeaveRequest request)
     {
-        var client = httpClientFactory.CreateClient("entelect");
-        var cookieValue = request.Cookie.TrimStart();
-        var cookieHeader = cookieValue.StartsWith(".AspNet.Cookies=") ? cookieValue : $".AspNet.Cookies={cookieValue}";
-        client.DefaultRequestHeaders.Add("Cookie", cookieHeader);
-        client.DefaultRequestHeaders.Add("Accept", "application/json, text/javascript, */*; q=0.01");
-        client.DefaultRequestHeaders.Add("X-Requested-With", "XMLHttpRequest");
+        var client = BuildEntelectClient(request.Cookie);
 
         var formParts = request.TeamIds.Select(id => $"teamId={id}").ToList();
         formParts.Add($"start={request.Start}");
@@ -166,29 +178,48 @@ public class LeaveService(AppDbContext db, IHttpClientFactory httpClientFactory)
             "https://employee.entelect.co.za/LeaveCalendar/GetLeaveCalenderEvents", body);
 
         var json = await response.Content.ReadAsStringAsync();
-
-        if (!response.IsSuccessStatusCode)
-            throw new InvalidOperationException($"Entelect returned {(int)response.StatusCode}. Your session cookie may have expired.");
-
-        if (!json.TrimStart().StartsWith('['))
-            throw new InvalidOperationException("Entelect did not return JSON data. Your session cookie may have expired or is invalid.");
+        ValidateEntelectResponse(response, json);
 
         var records = JsonSerializer.Deserialize<List<JsonElement>>(json) ?? [];
+        return records.Select(ToImportRecord).ToList();
+    }
 
-        var importRecords = records.Select(r => new ImportLeaveRecord(
-            r.TryGetProperty("title", out var t) ? t.GetString() ?? "" : "",
-            r.TryGetProperty("start", out var s) ? s.GetString() ?? "" : "",
-            r.TryGetProperty("end", out var e) ? e.GetString() ?? "" : "",
-            r.TryGetProperty("type", out var ty) ? ty.GetString() ?? "Other" : "Other",
-            r.TryGetProperty("totalDays", out var d) ? d.GetString() ?? "1" : "1",
-            r.TryGetProperty("status", out var st) ? st.GetString() ?? "" : ""
-        )).ToList();
-
-        return await ImportAsync(new ImportLeaveRequest(importRecords));
+    public async Task<ImportLeaveResult> FetchAndImportAsync(FetchLeaveRequest request)
+    {
+        var records = await FetchPreviewAsync(request);
+        return await ImportAsync(new ImportLeaveRequest(records));
     }
 
     private static string ExtractName(string title) =>
         title.Split(" - ")[0].Trim();
+
+    private static ImportLeaveRecord ToImportRecord(JsonElement r) => new(
+        r.TryGetProperty("title",     out var t)  ? t.GetString()  ?? "" : "",
+        r.TryGetProperty("start",     out var s)  ? s.GetString()  ?? "" : "",
+        r.TryGetProperty("end",       out var e)  ? e.GetString()  ?? "" : "",
+        r.TryGetProperty("type",      out var ty) ? ty.GetString() ?? "Other" : "Other",
+        r.TryGetProperty("totalDays", out var d)  ? d.GetString()  ?? "1" : "1",
+        r.TryGetProperty("status",    out var st) ? st.GetString() ?? "" : ""
+    );
+
+    private HttpClient BuildEntelectClient(string cookie)
+    {
+        var client = httpClientFactory.CreateClient("entelect");
+        var cookieValue  = cookie.TrimStart();
+        var cookieHeader = cookieValue.StartsWith(".AspNet.Cookies=") ? cookieValue : $".AspNet.Cookies={cookieValue}";
+        client.DefaultRequestHeaders.Add("Cookie", cookieHeader);
+        client.DefaultRequestHeaders.Add("Accept", "application/json, text/javascript, */*; q=0.01");
+        client.DefaultRequestHeaders.Add("X-Requested-With", "XMLHttpRequest");
+        return client;
+    }
+
+    private static void ValidateEntelectResponse(HttpResponseMessage response, string json)
+    {
+        if (!response.IsSuccessStatusCode)
+            throw new InvalidOperationException($"Entelect returned {(int)response.StatusCode}. Your session cookie may have expired.");
+        if (!json.TrimStart().StartsWith('['))
+            throw new InvalidOperationException("Entelect did not return JSON data. Your session cookie may have expired or is invalid.");
+    }
 
     private static LeaveType ParseLeaveType(string type) => type.Replace(" ", "") switch
     {

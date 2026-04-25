@@ -1,5 +1,5 @@
 import { Injectable, inject } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { Feature, CreateFeatureRequest } from '../models/feature.model';
 import { API_BASE } from './api.config';
@@ -8,9 +8,11 @@ import { API_BASE } from './api.config';
 export class FeatureService {
   private http = inject(HttpClient);
 
-  getAllAcrossSprints(status?: string): Observable<Feature[]> {
-    const params = status ? `?status=${status}` : '';
-    return this.http.get<Feature[]>(`${API_BASE}/features${params}`);
+  getAllAcrossSprints(opts?: { status?: string; piId?: string }): Observable<Feature[]> {
+    let params = new HttpParams();
+    if (opts?.status) params = params.set('status', opts.status);
+    if (opts?.piId)   params = params.set('piId', opts.piId);
+    return this.http.get<Feature[]>(`${API_BASE}/features`, { params });
   }
 
   getAll(sprintId: string): Observable<Feature[]> {

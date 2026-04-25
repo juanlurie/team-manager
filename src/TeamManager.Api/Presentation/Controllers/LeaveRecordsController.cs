@@ -34,6 +34,13 @@ public class LeaveRecordsController(ILeaveService service) : ControllerBase
     public async Task<IActionResult> Import([FromBody] ImportLeaveRequest request)
         => Ok(await service.ImportAsync(request));
 
+    [HttpPost("fetch-preview")]
+    public async Task<IActionResult> FetchPreview([FromBody] FetchLeaveRequest request)
+    {
+        try { return Ok(await service.FetchPreviewAsync(request)); }
+        catch (InvalidOperationException ex) { return BadRequest(new { detail = ex.Message }); }
+    }
+
     [HttpPost("fetch")]
     public async Task<IActionResult> FetchAndImport([FromBody] FetchLeaveRequest request)
     {

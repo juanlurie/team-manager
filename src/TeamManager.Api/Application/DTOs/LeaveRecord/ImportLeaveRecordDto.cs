@@ -9,10 +9,11 @@ public record ImportLeaveRecord(
     string Status
 );
 
-public record ImportLeaveRequest(IReadOnlyList<ImportLeaveRecord> Records);
+public record ImportLeaveRequest(IReadOnlyList<ImportLeaveRecord> Records, bool Override = false);
 
 public record ImportLeaveResult(
     int Imported,
+    int Overridden,
     int Duplicates,
     IReadOnlyList<string> UnknownMembers
 );

@@ -12,6 +12,7 @@ public record MemberSprintCardDto
     public string? TeamLeadName { get; init; }
     public List<string> Crafts { get; init; } = [];
     public string? Notes { get; init; }
+    public int? Capacity { get; init; }
     public IReadOnlyList<WorkItemDto> WorkItems { get; init; } = [];
     public IReadOnlyList<LeaveRecordDto> LeaveRecords { get; init; } = [];
 }

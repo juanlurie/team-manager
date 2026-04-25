@@ -61,6 +61,7 @@ public class DashboardService(AppDbContext db, IMapper mapper) : IDashboardServi
                 : null,
             Crafts = sm.TeamMember.Crafts,
             Notes = sm.Notes,
+            Capacity = sm.Capacity,
             WorkItems = sm.WorkItems.Select(w => new WorkItemDto
             {
                 Id = w.Id,

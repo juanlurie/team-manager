@@ -10,4 +10,5 @@ public interface ISprintService
     Task<SprintDto?> UpdateAsync(Guid id, CreateSprintRequest request);
     Task<bool> DeleteAsync(Guid id);
     Task<int> InitializeMembersAsync(Guid sprintId);
+    Task<SprintDto?> UpdateRetroAsync(Guid id, UpdateRetroRequest request);
 }

@@ -46,4 +46,11 @@ public class SprintsController(ISprintService service) : ControllerBase
         var count = await service.InitializeMembersAsync(id);
         return Ok(new { addedCount = count });
     }
+
+    [HttpPatch("{id:guid}/retro")]
+    public async Task<IActionResult> UpdateRetro(Guid id, [FromBody] UpdateRetroRequest request)
+    {
+        var result = await service.UpdateRetroAsync(id, request);
+        return result is null ? NotFound() : Ok(result);
+    }
 }

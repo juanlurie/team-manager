@@ -4,7 +4,8 @@ public record CreateSprintRequest(
     string Name,
     DateOnly StartDate,
     DateOnly EndDate,
-    Guid? PIId,
+    Guid? PiId,
     int? SprintNumber,
-    bool IsInnovationSprint = false
+    bool IsInnovationSprint = false,
+    string? Goal = null
 );

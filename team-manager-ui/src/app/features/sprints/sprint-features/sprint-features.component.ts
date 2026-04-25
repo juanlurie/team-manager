@@ -69,6 +69,16 @@ interface FeatureView {
                   <span style="font-size:0.75rem;opacity:0.4;font-family:monospace">{{ fv.feature.externalTicketRef }}</span>
                 }
                 <span [class]="featureStatusClass(fv.feature.status)">{{ fv.feature.status | statusLabel }}</span>
+                @if (fv.feature.status === 'InProgress' && staleDays() >= 5) {
+                  <span [style.background]="staleDays() >= 10 ? 'rgba(239,83,80,0.15)' : 'rgba(255,152,0,0.15)'"
+                        [style.color]="staleDays() >= 10 ? '#ef5350' : '#ffa726'"
+                        style="display:inline-flex;align-items:center;gap:3px;font-size:0.68rem;font-weight:700;
+                               padding:2px 7px;border-radius:6px"
+                        [matTooltip]="staleDays() + ' days since sprint started'">
+                    <mat-icon style="font-size:10px;width:10px;height:10px;line-height:10px">schedule</mat-icon>
+                    {{ staleDays() }}d
+                  </span>
+                }
                 @if (!fv.feature.isActive) {
                   <span style="font-size:0.68rem;padding:1px 6px;border-radius:6px;background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.35)">hidden</span>
                 }
@@ -191,6 +201,13 @@ export class SprintFeaturesComponent implements OnInit {
           .map(wi => ({ id: wi.id, title: wi.title, type: wi.type, status: wi.status, externalTicketRef: wi.externalTicketRef, assignee: m.fullName }))
       )
     }));
+  });
+
+  staleDays = computed(() => {
+    const start = this.dashboard()?.sprint?.startDate;
+    if (!start) return 0;
+    const ms = Date.now() - new Date(start).getTime();
+    return Math.max(0, Math.floor(ms / 86_400_000));
   });
 
   unlinkedTasks = computed<TaskRow[]>(() => {

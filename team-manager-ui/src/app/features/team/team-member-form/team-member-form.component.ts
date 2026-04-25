@@ -7,6 +7,8 @@ import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCheckboxModule } from '@angular/material/checkbox';
+import { MatDatepickerModule } from '@angular/material/datepicker';
+import { MatNativeDateModule } from '@angular/material/core';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { TeamMember, Badge } from '../../../core/models/team-member.model';
@@ -29,7 +31,7 @@ const CATEGORY_COLORS: Record<string, { bg: string; text: string }> = {
   selector: 'app-team-member-form',
   standalone: true,
   imports: [CommonModule, ReactiveFormsModule, FormsModule, MatDialogModule, MatFormFieldModule,
-    MatInputModule, MatSelectModule, MatButtonModule, MatCheckboxModule,
+    MatInputModule, MatSelectModule, MatButtonModule, MatCheckboxModule, MatDatepickerModule, MatNativeDateModule,
     MatIconModule, MatTooltipModule, DatePipe],
   template: `
     <h2 mat-dialog-title>{{ data.member ? 'Edit' : 'Add' }} Team Member</h2>
@@ -78,6 +80,20 @@ const CATEGORY_COLORS: Record<string, { bg: string; text: string }> = {
             <mat-option value="QA">QA</mat-option>
           </mat-select>
         </mat-form-field>
+        <div style="display:flex;gap:12px">
+          <mat-form-field appearance="outline" style="flex:1">
+            <mat-label>Birthday (optional)</mat-label>
+            <input matInput [matDatepicker]="birthPicker" formControlName="birthDate">
+            <mat-datepicker-toggle matIconSuffix [for]="birthPicker"></mat-datepicker-toggle>
+            <mat-datepicker #birthPicker></mat-datepicker>
+          </mat-form-field>
+          <mat-form-field appearance="outline" style="flex:1">
+            <mat-label>Join Date (optional)</mat-label>
+            <input matInput [matDatepicker]="joinPicker" formControlName="joinDate">
+            <mat-datepicker-toggle matIconSuffix [for]="joinPicker"></mat-datepicker-toggle>
+            <mat-datepicker #joinPicker></mat-datepicker>
+          </mat-form-field>
+        </div>
         @if (data.member) {
           <mat-checkbox formControlName="isActive">Active</mat-checkbox>
         }
@@ -210,7 +226,9 @@ export class TeamMemberFormComponent implements OnInit {
     role: ['Member', Validators.required],
     teamLeadId: [null as string | null],
     crafts: [[] as string[]],
-    isActive: [true]
+    isActive: [true],
+    birthDate: [null as Date | null],
+    joinDate:  [null as Date | null]
   });
 
   get teamLeads() {
@@ -219,7 +237,11 @@ export class TeamMemberFormComponent implements OnInit {
 
   ngOnInit() {
     if (this.data.member) {
-      this.form.patchValue(this.data.member as any);
+      this.form.patchValue({
+        ...this.data.member,
+        birthDate: this.data.member.birthDate ? new Date(this.data.member.birthDate) : null,
+        joinDate:  this.data.member.joinDate  ? new Date(this.data.member.joinDate)  : null,
+      } as any);
       this.loadAchievements();
       this.refreshStats();
     }
@@ -283,9 +305,11 @@ export class TeamMemberFormComponent implements OnInit {
   save() {
     if (this.form.invalid) return;
     const val = this.form.value;
+    const toDateStr = (d: Date | null | undefined) => d ? d.toISOString().slice(0, 10) : null;
+    const payload = { ...val, birthDate: toDateStr(val.birthDate as any), joinDate: toDateStr(val.joinDate as any) };
     const obs = this.data.member
-      ? this.svc.update(this.data.member.id, val as any)
-      : this.svc.create(val as any);
+      ? this.svc.update(this.data.member.id, payload as any)
+      : this.svc.create(payload as any);
     obs.subscribe(() => this.dialogRef.close(true));
   }
 }

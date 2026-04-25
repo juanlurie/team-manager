@@ -15,6 +15,7 @@ import { DiscussionPointService } from '../../core/services/discussion-point.ser
 import { SprintService } from '../../core/services/sprint.service';
 import { CommentsComponent } from '../../shared/comments/comments.component';
 import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/confirm-dialog.component';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
 const STATUS_ORDER = ['Open', 'InProgress', 'Resolved', 'Deferred'] as const;
 const PRIORITY_ORDER = ['High', 'Medium', 'Low'] as const;
@@ -23,7 +24,8 @@ const PRIORITY_ORDER = ['High', 'Medium', 'Low'] as const;
   selector: 'app-discussion-points',
   standalone: true,
   imports: [CommonModule, FormsModule, MatButtonModule, MatIconModule,
-    MatSelectModule, MatFormFieldModule, MatInputModule, MatTooltipModule, MatChipsModule, MatDialogModule, CommentsComponent],
+    MatSelectModule, MatFormFieldModule, MatInputModule, MatTooltipModule, MatChipsModule, MatDialogModule, CommentsComponent,
+    MatProgressSpinnerModule],
   template: `
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;flex-wrap:wrap">
       <h2 style="margin:0;font-size:1.2rem;flex:1">Discussion Points</h2>
@@ -118,6 +120,12 @@ const PRIORITY_ORDER = ['High', 'Medium', 'Low'] as const;
       </div>
     }
 
+    @if (loading()) {
+      <div style="display:flex;justify-content:center;padding:80px">
+        <mat-spinner diameter="48"></mat-spinner>
+      </div>
+    } @else {
+
     <!-- Cards -->
     @if (filtered().length === 0 && !editing()) {
       <div style="text-align:center;opacity:0.3;padding:60px 0;font-size:0.95rem">
@@ -191,6 +199,7 @@ const PRIORITY_ORDER = ['High', 'Medium', 'Low'] as const;
         </div>
       }
     </div>
+    } <!-- end @else -->
   `
 })
 export class DiscussionPointsComponent implements OnInit {
@@ -198,6 +207,7 @@ export class DiscussionPointsComponent implements OnInit {
   private sprintSvc = inject(SprintService);
   private dialog    = inject(MatDialog);
 
+  loading  = signal(true);
   items    = signal<DiscussionPoint[]>([]);
   sprints  = signal<Sprint[]>([]);
   editing  = signal(false);
@@ -229,7 +239,8 @@ export class DiscussionPointsComponent implements OnInit {
   }
 
   load() {
-    this.svc.getAll(this.selectedSprintId || undefined).subscribe(items => this.items.set(items));
+    this.loading.set(true);
+    this.svc.getAll(this.selectedSprintId || undefined).subscribe(items => { this.items.set(items); this.loading.set(false); });
   }
 
   toggleExpand(id: string) {

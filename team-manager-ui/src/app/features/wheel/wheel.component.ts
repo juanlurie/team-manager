@@ -11,6 +11,7 @@ import { TeamMember } from '../../core/models/team-member.model';
 import { WheelService } from '../../core/services/wheel.service';
 import { Wheel } from '../../core/models/wheel.model';
 import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/confirm-dialog.component';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
 const COLORS = [
   '#5c6bc0','#42a5f5','#26c6da','#66bb6a','#ffca28','#ffa726','#ef5350','#ab47bc',
@@ -20,7 +21,7 @@ const COLORS = [
 @Component({
   selector: 'app-wheel',
   standalone: true,
-  imports: [CommonModule, FormsModule, MatButtonModule, MatIconModule, MatTooltipModule, MatDialogModule],
+  imports: [CommonModule, FormsModule, MatButtonModule, MatIconModule, MatTooltipModule, MatDialogModule, MatProgressSpinnerModule],
   styles: [`
     .wheel-layout { display: flex; gap: 24px; flex-wrap: wrap; align-items: flex-start; }
     .participant-panel { flex: 1 1 240px; max-width: 300px; min-width: 0; }
@@ -41,6 +42,12 @@ const COLORS = [
   `],
   template: `
     <h2 style="margin:0 0 20px;font-size:1.2rem">Spin the Wheel</h2>
+
+    @if (loading()) {
+      <div style="display:flex;justify-content:center;padding:80px">
+        <mat-spinner diameter="48"></mat-spinner>
+      </div>
+    } @else {
 
     <div class="wheel-layout">
 
@@ -299,6 +306,7 @@ const COLORS = [
         </div>
       </div>
     }
+    } <!-- end @else -->
   `
 })
 export class WheelComponent implements OnInit, AfterViewInit {
@@ -308,6 +316,7 @@ export class WheelComponent implements OnInit, AfterViewInit {
   private wheelSvc = inject(WheelService);
   private dialog = inject(MatDialog);
 
+  loading       = signal(true);
   allMembers    = signal<TeamMember[]>([]);
   teamLeads     = computed(() => this.allMembers().filter(m => m.role === 'TeamLead' || m.role === 'TechLead'));
   selected      = signal<TeamMember[]>([]);
@@ -331,7 +340,7 @@ export class WheelComponent implements OnInit, AfterViewInit {
   ngOnInit() {
     this.teamMemberSvc.getAll({ isActive: true }).subscribe(members => {
       this.allMembers.set(members.sort((a, b) => a.firstName.localeCompare(b.firstName)));
-      this.wheelSvc.getAll().subscribe(wheels => this.wheels.set(wheels));
+      this.wheelSvc.getAll().subscribe(wheels => { this.wheels.set(wheels); this.loading.set(false); });
     });
   }
 
