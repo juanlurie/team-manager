@@ -79,9 +79,10 @@ const TYPE_COLOR: Record<string, string> = {
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 16px">
             <mat-checkbox [(ngModel)]="sections.cover">Cover</mat-checkbox>
             <mat-checkbox [(ngModel)]="sections.discussion">Discussion Points</mat-checkbox>
-            <mat-checkbox [(ngModel)]="sections.features">Features</mat-checkbox>
+            <mat-checkbox [(ngModel)]="sections.summary">Summary</mat-checkbox>
             <mat-checkbox [(ngModel)]="sections.leave">Planned Leave</mat-checkbox>
-            <mat-checkbox [(ngModel)]="sections.team">Team slides (per craft)</mat-checkbox>
+            <mat-checkbox [(ngModel)]="sections.features">Features</mat-checkbox>
+            <mat-checkbox [(ngModel)]="sections.team">Team</mat-checkbox>
           </div>
         </div>
 
@@ -119,16 +120,16 @@ const TYPE_COLOR: Record<string, string> = {
           Lists every team member with leave in the selected range — name, dates, and days.
         </div>
 
-        <button mat-raised-button style="height:44px"
-                [disabled]="exportingLeave()"
-                (click)="exportLeaveImage()">
-          @if (exportingLeave()) {
-            <mat-spinner diameter="18" style="display:inline-block;margin-right:8px"></mat-spinner>
-            Building image…
-          } @else {
-            <mat-icon>image</mat-icon>
-            Export Leave as Image
-          }
+        <button mat-raised-button [disabled]="exportingLeave()" (click)="exportLeaveImage()">
+          <span style="display:flex;align-items:center;gap:8px;justify-content:center;padding:4px 0">
+            @if (exportingLeave()) {
+              <mat-spinner diameter="18"></mat-spinner>
+              <span>Building image…</span>
+            } @else {
+              <mat-icon>image</mat-icon>
+              <span>Export Leave as Image</span>
+            }
+          </span>
         </button>
       </div>
 
@@ -153,6 +154,7 @@ export class ExportPanelComponent implements OnInit {
 
   sections = {
     cover:      true,
+    summary:    true,
     discussion: true,
     features:   true,
     leave:      true,
@@ -359,31 +361,13 @@ export class ExportPanelComponent implements OnInit {
     const pptx = new pptxgen();
     pptx.layout = 'LAYOUT_WIDE'; // 13.33 × 7.5 in
 
+    const activeFeatures = features.filter(f => f.isActive);
     if (this.sections.cover)      this.coverSlide(pptx, sprint);
+    if (this.sections.summary)    this.summarySlide(pptx, sprint, activeFeatures);
     if (this.sections.discussion) this.discussionSlide(pptx, sprint, discussions);
-    if (this.sections.features)   this.featuresSlide(pptx, sprint, features.filter(f => f.isActive));
+    if (this.sections.features)   this.featuresSlide(pptx, sprint, activeFeatures);
     if (this.sections.leave)      this.leaveSlide(pptx, sprint, members);
-
-    // Group by craft — one slide per craft, skip members with no crafts
-    if (this.sections.team) {
-      const CRAFT_ORDER = ['DevBE', 'DevFE', 'DevIOS', 'DevAndroid', 'Dev', 'Analysis', 'Design', 'QA'];
-      const byCraft = new Map<string, MemberSprintCard[]>();
-      for (const m of members) {
-        if (!m.crafts?.length) continue; // skip unassigned
-        for (const key of m.crafts) {
-          if (!byCraft.has(key)) byCraft.set(key, []);
-          byCraft.get(key)!.push(m);
-        }
-      }
-      const craftKeys = [
-        ...CRAFT_ORDER.filter(k => byCraft.has(k)),
-        ...[...byCraft.keys()].filter(k => !CRAFT_ORDER.includes(k)).sort()
-      ];
-      for (const key of craftKeys) {
-        const group = byCraft.get(key)!.sort((a, b) => a.fullName.localeCompare(b.fullName));
-        this.teamSlide(pptx, sprint, this.craftLabel(key), group);
-      }
-    }
+    if (this.sections.team)       this.teamSlide(pptx, sprint, members);
 
     const name = sprint.name.replace(/[^a-z0-9]+/gi, '-');
     await pptx.writeFile({ fileName: `${name}-report.pptx` });
@@ -635,31 +619,98 @@ export class ExportPanelComponent implements OnInit {
     });
   }
 
-  /* ── Team slide (one per team lead) ────────────────────────────── */
+  /* ── Summary slide ──────────────────────────────────────────────── */
 
-  private teamSlide(pptx: any, sprint: Sprint, leadName: string, members: MemberSprintCard[]) {
-    // Dynamic row height: fill the available space, capped between 0.45 and 1.1 inches
-    const AVAIL_H  = 5.95; // slide height minus header bar and table header row
-    const rowH     = Math.min(1.1, Math.max(0.45, AVAIL_H / members.length));
-    const fontSize = rowH < 0.55 ? 9 : 10;
+  private summarySlide(pptx: any, sprint: Sprint, features: Feature[]) {
+    const s = pptx.addSlide();
+    s.background = { color: WHITE };
 
-    // If team is very large, chunk across multiple slides
+    s.addText('Sprint Summary', {
+      x: 0, y: 0, w: '100%', h: 0.85,
+      fill: { color: NAVY }, color: WHITE, fontSize: 20, bold: true,
+      align: 'left', valign: 'middle', margin: [0, 0, 0, 18]
+    });
+    s.addText(sprint.name, {
+      x: 0, y: 0, w: '100%', h: 0.85,
+      color: MGRAY, fontSize: 13, align: 'right', valign: 'middle', margin: [0, 18, 0, 0]
+    });
+
+    // Status count badges (5 across)
+    const statusOrder = ['Released', 'ReadyForRelease', 'InProgress', 'Completed', 'Planned'];
+    const boxW = 2.35, gap = 0.125;
+    statusOrder.forEach((st, i) => {
+      const x = 0.4 + i * (boxW + gap);
+      const count = features.filter(f => f.status === st).length;
+      s.addText(STATUS_LABEL[st], {
+        x, y: 1.0, w: boxW, h: 0.33,
+        fill: { color: STATUS_COLOR[st] }, color: WHITE,
+        fontSize: 10, bold: true, align: 'center', valign: 'middle'
+      });
+      s.addText(String(count), {
+        x, y: 1.33, w: boxW, h: 0.38,
+        color: DARK, fontSize: 24, bold: true, align: 'center', valign: 'middle'
+      });
+    });
+
+    // Left column: Released + ReadyForRelease
+    // Right column: InProgress + Planned + Completed
+    this.summaryColumn(s, features, ['Released', 'ReadyForRelease'], 0.3,  1.83, 6.0);
+    this.summaryColumn(s, features, ['InProgress', 'Planned', 'Completed'], 6.63, 1.83, 6.4);
+  }
+
+  private summaryColumn(s: any, features: Feature[], statuses: string[], x: number, y: number, w: number) {
+    const rows: any[][] = [];
+    for (const st of statuses) {
+      const group = features.filter(f => f.status === st);
+      if (!group.length) continue;
+      rows.push([{
+        text: STATUS_LABEL[st],
+        options: {
+          fill: { color: STATUS_COLOR[st] }, color: WHITE,
+          bold: true, fontSize: 10, align: 'left', margin: [2, 6, 2, 6]
+        }
+      }]);
+      for (const f of group) {
+        const label = f.externalTicketRef
+          ? `${f.externalTicketRef}  ${f.title}`
+          : f.title;
+        rows.push([{
+          text: label.length > 80 ? label.slice(0, 78) + '…' : label,
+          options: { color: DARK, fontSize: 10, margin: [2, 6, 2, 6] }
+        }]);
+      }
+    }
+    if (!rows.length) {
+      rows.push([{ text: 'No items', options: { color: MGRAY, fontSize: 10, italic: true, align: 'center' } }]);
+    }
+    const rowH = Math.min(0.55, Math.max(0.27, 5.4 / rows.length));
+    s.addTable(rows, {
+      x, y, w,
+      border: { type: 'solid', color: 'E2E8F0', pt: 0.5 },
+      rowH, fontSize: 10
+    });
+  }
+
+  /* ── Team slide (all members, paginated) ────────────────────────── */
+
+  private teamSlide(pptx: any, sprint: Sprint, members: MemberSprintCard[]) {
+    const sorted = [...members].sort((a, b) => a.fullName.localeCompare(b.fullName));
+
+    const AVAIL_H = 5.95;
     const maxPerSlide = Math.floor(AVAIL_H / 0.45);
     const chunks: MemberSprintCard[][] = [];
-    for (let i = 0; i < members.length; i += maxPerSlide) {
-      chunks.push(members.slice(i, i + maxPerSlide));
+    for (let i = 0; i < sorted.length; i += maxPerSlide) {
+      chunks.push(sorted.slice(i, i + maxPerSlide));
     }
 
     chunks.forEach((chunk, ci) => {
-      const chunkRowH = Math.min(1.1, Math.max(0.45, AVAIL_H / chunk.length));
+      const chunkRowH     = Math.min(1.1, Math.max(0.45, AVAIL_H / chunk.length));
       const chunkFontSize = chunkRowH < 0.55 ? 9 : 10;
       const s = pptx.addSlide();
       s.background = { color: WHITE };
 
-      // Header bar
       const suffix = chunks.length > 1 ? `  (${ci + 1}/${chunks.length})` : '';
-      const title = leadName + suffix;
-      s.addText(title, {
+      s.addText('Team' + suffix, {
         x: 0, y: 0, w: '100%', h: 0.85,
         fill: { color: NAVY }, color: WHITE, fontSize: 20, bold: true,
         align: 'left', valign: 'middle', margin: [0, 0, 0, 18]
@@ -669,7 +720,6 @@ export class ExportPanelComponent implements OnInit {
         color: MGRAY, fontSize: 13, align: 'right', valign: 'middle', margin: [0, 18, 0, 0]
       });
 
-      // Column headers
       const header = [
         { text: 'Member',      options: { bold: true, fill: { color: LGRAY }, color: DARK, fontSize: chunkFontSize + 1 } },
         { text: 'In Progress', options: { bold: true, fill: { color: STATUS_COLOR['InProgress'] }, color: WHITE, fontSize: chunkFontSize + 1 } },

@@ -1,4 +1,4 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -12,6 +12,7 @@ import { Router } from '@angular/router';
 import { TeamMember } from '../../../core/models/team-member.model';
 import { TeamMemberService } from '../../../core/services/team-member.service';
 import { TeamMemberFormComponent } from '../team-member-form/team-member-form.component';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
 const CRAFT_LABELS: Record<string, string> = {
   DevBE: 'Dev BE', DevFE: 'Dev FE', DevIOS: 'iOS', DevAndroid: 'Android',
@@ -22,7 +23,8 @@ const CRAFT_LABELS: Record<string, string> = {
   selector: 'app-team-list',
   standalone: true,
   imports: [CommonModule, MatButtonModule, MatIconModule, MatDialogModule,
-    MatChipsModule, MatTooltipModule, MatSelectModule, MatFormFieldModule, FormsModule],
+    MatChipsModule, MatTooltipModule, MatSelectModule, MatFormFieldModule, FormsModule,
+    MatProgressSpinnerModule],
   template: `
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap">
       <h2 style="margin:0;font-size:1.2rem">Team Members</h2>
@@ -54,9 +56,15 @@ const CRAFT_LABELS: Record<string, string> = {
       </button>
     </div>
 
+    @if (loading()) {
+      <div style="display:flex;justify-content:center;padding:80px">
+        <mat-spinner diameter="48"></mat-spinner>
+      </div>
+    } @else {
+
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,280px),1fr));gap:10px">
       @for (m of members; track m.id) {
-        <div (click)="openForm(m)" style="border-radius:10px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);padding:12px 14px;display:flex;align-items:center;gap:12px;cursor:pointer;transition:background 0.15s"
+        <div (click)="openPersonal(m)" style="border-radius:10px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);padding:12px 14px;display:flex;align-items:center;gap:12px;cursor:pointer;transition:background 0.15s"
              onmouseenter="this.style.background='rgba(255,255,255,0.08)'"
              onmouseleave="this.style.background='rgba(255,255,255,0.04)'">
           <!-- Avatar -->
@@ -93,10 +101,12 @@ const CRAFT_LABELS: Record<string, string> = {
               </div>
             }
           </div>
-          <button mat-icon-button (click)="openPersonal($event, m)" matTooltip="Personal profile"
-                  style="flex-shrink:0;color:#64b5f6;align-self:center">
-            <mat-icon style="font-size:20px">person</mat-icon>
-          </button>
+          <div style="flex-shrink:0;display:flex;flex-direction:column;gap:2px;align-self:center" (click)="$event.stopPropagation()">
+            <button mat-icon-button (click)="openForm(m)" matTooltip="Edit member"
+                    style="width:28px;height:28px">
+              <mat-icon style="font-size:16px;width:16px;height:16px;line-height:16px;opacity:0.45">edit</mat-icon>
+            </button>
+          </div>
         </div>
       }
     </div>
@@ -104,6 +114,7 @@ const CRAFT_LABELS: Record<string, string> = {
     @if (members.length === 0) {
       <div style="text-align:center;padding:64px;opacity:0.35;font-size:0.9rem">No members found</div>
     }
+    } <!-- end @else -->
   `,
   styles: [`
     .role-member    { background:rgba(158,158,158,0.12);color:#9e9e9e; }
@@ -117,6 +128,7 @@ export class TeamListComponent implements OnInit {
   private router = inject(Router);
 
   members: TeamMember[] = [];
+  loading = signal(true);
   allMembers: TeamMember[] = [];
   roleFilter = '';
   craftFilter = '';
@@ -128,8 +140,9 @@ export class TeamListComponent implements OnInit {
   ngOnInit() { this.load(); }
 
   load() {
+    this.loading.set(true);
     this.svc.getAll({ role: this.roleFilter || undefined, isActive: true })
-      .subscribe(m => { this.allMembers = m; this.applyFilters(); });
+      .subscribe(m => { this.allMembers = m; this.applyFilters(); this.loading.set(false); });
   }
 
   applyFilters() {
@@ -146,8 +159,7 @@ export class TeamListComponent implements OnInit {
     ref.afterClosed().subscribe(result => { if (result) this.load(); });
   }
 
-  openPersonal(event: Event, member: TeamMember) {
-    event.stopPropagation();
+  openPersonal(member: TeamMember) {
     this.router.navigate(['/team', member.id]);
   }
 }

@@ -6,6 +6,7 @@ public class SprintMember
     public Guid SprintId { get; set; }
     public Guid TeamMemberId { get; set; }
     public string? Notes { get; set; }
+    public int? Capacity { get; set; }
 
     public Sprint Sprint { get; set; } = null!;
     public TeamMember TeamMember { get; set; } = null!;

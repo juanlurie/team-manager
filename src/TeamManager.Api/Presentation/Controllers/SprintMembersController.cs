@@ -17,6 +17,17 @@ public class SprintMembersController(AppDbContext db) : ControllerBase
         await db.SaveChangesAsync();
         return NoContent();
     }
+
+    [HttpPatch("{id:guid}/capacity")]
+    public async Task<IActionResult> UpdateCapacity(Guid id, [FromBody] UpdateCapacityRequest request)
+    {
+        var sm = await db.SprintMembers.FindAsync(id);
+        if (sm is null) return NotFound();
+        sm.Capacity = request.Capacity;
+        await db.SaveChangesAsync();
+        return NoContent();
+    }
 }
 
 public record UpdateNotesRequest(string? Notes);
+public record UpdateCapacityRequest(int? Capacity);

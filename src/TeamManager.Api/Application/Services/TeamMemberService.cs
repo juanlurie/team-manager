@@ -48,7 +48,9 @@ public class TeamMemberService(AppDbContext db, IMapper mapper) : ITeamMemberSer
             Email = request.Email,
             Role = request.Role,
             TeamLeadId = request.TeamLeadId,
-            Crafts = request.Crafts ?? []
+            Crafts = request.Crafts ?? [],
+            BirthDate = request.BirthDate,
+            JoinDate = request.JoinDate
         };
         db.TeamMembers.Add(member);
         await db.SaveChangesAsync();
@@ -67,6 +69,8 @@ public class TeamMemberService(AppDbContext db, IMapper mapper) : ITeamMemberSer
         member.TeamLeadId = request.TeamLeadId;
         member.IsActive = request.IsActive;
         member.Crafts = request.Crafts ?? [];
+        member.BirthDate = request.BirthDate;
+        member.JoinDate = request.JoinDate;
 
         await db.SaveChangesAsync();
         return await GetByIdAsync(id);

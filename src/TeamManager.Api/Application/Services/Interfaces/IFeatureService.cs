@@ -4,7 +4,7 @@ namespace TeamManager.Api.Application.Services.Interfaces;
 
 public interface IFeatureService
 {
-    Task<IReadOnlyList<FeatureDto>> GetAllAsync(string? status = null);
+    Task<IReadOnlyList<FeatureDto>> GetAllAsync(string? status = null, Guid? piId = null);
     Task<IReadOnlyList<FeatureDto>> GetBySprintAsync(Guid sprintId);
     Task<FeatureDto> CreateAsync(Guid sprintId, CreateFeatureRequest request);
     Task<FeatureDto?> UpdateAsync(Guid id, CreateFeatureRequest request);

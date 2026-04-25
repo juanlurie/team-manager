@@ -1,0 +1,93 @@
+TEAM MANAGER — BACKLOG
+======================
+
+== PENDING ==
+[x] Sprint MVP vote
+    - Vote panel on sprint detail: each member row has a select to nominate a teammate
+    - Live tally bar chart shows vote counts per member
+    - "Award MVP" button: awards 🏆 Sprint MVP badge (50pts) to the top vote-getter
+    - Badge auto-created if missing; uses Key = "sprint-mvp" for idempotency
+    - Votes stored in SprintVotes table (migration 20260424160000), unique per voter per sprint
+    - Changing a vote upserts (no duplicate rows)
+
+[x] Sprint goal field
+    - Added Goal column to Sprints table (migration 20260424120000)
+    - Editable in sprint create/edit form
+    - Shown as a blue flag card on the sprint dashboard (above stat pills)
+    - Shown inline under sprint name/dates on the sprint detail page
+
+[x] Member workload view on sprint detail
+    - Compact summary panel above member cards showing per-member work item counts
+    - Segmented progress bar per member (green=done, blue=in progress, red=blocked, grey=planned)
+    - Blocked count highlighted in red; tooltips on all counts
+
+[x] Sprint retrospective section
+    - Three columns on sprint detail: ✅ Went Well / ⚠️ Didn't Go Well / 🎯 Action Items
+    - Auto-saves on blur and after 1.2s debounce; "Saving…" indicator
+    - Stored as 3 nullable columns on the Sprint table (migration 20260424130000)
+
+[x] Leave calendar view
+    - Monthly calendar grid toggled via list/calendar icon buttons in the header
+    - Prev/next month nav + Today button; today highlighted in blue
+    - Each day shows colour-coded first-name chips per leave type (annual=green, sick=red, etc.)
+    - Weekends dimmed; out-of-month days faded; tooltip shows full name + leave type
+    - Pure frontend — uses existing records signal, no new data fetching
+
+[x] Member capacity / availability per sprint
+    - Added Capacity (int?) to SprintMember entity + migration 20260424150000
+    - ⚡ bolt button in member card footer opens inline % input (10–100, defaults to 100)
+    - Setting to 100% clears the field (full capacity = no badge)
+    - ⚡ N% badge shown in workload summary panel and card footer when < 100%
+
+[ ] Performance review export per member
+    - One-click export (PDF or formatted text) per team member
+    - Aggregates personal notes, skill ratings over time, completed tasks, sprint work items
+    - Covers a user-selected date range
+
+[x] Feature blocker age highlight
+    - Orange badge (5–9 days) and red badge (10+ days) on InProgress features in sprint features list
+    - Uses sprint start date as baseline; tooltip shows exact day count
+    - Pure frontend, no backend changes
+
+[ ] Add estimatedDays to Feature entity
+    - Backend: add decimal? EstimatedDays to Feature entity
+    - Migration: add column
+    - DTO + service update
+    - Frontend: add field to feature form
+    STATUS: Noted, low priority
+
+== DONE ==
+
+[x] Birthday / work anniversary tracker
+    - Added BirthDate and JoinDate (DateOnly?) to TeamMember entity + migration 20260424140000
+    - Date pickers added to team member edit form
+    - Dashboard shows 🎂 birthday / 🎉 anniversary card for events in next 14 days
+    - Shows years of service for anniversaries; "Today! 🎊" / "Tomorrow" / "in Nd" labels
+
+[x] Loader on pages when data is loaded
+    - Loading spinner added to 8 full-page components (all-features, sprint-list, sprint-detail,
+      team-list, team-member-personal, discussion-points, wheel, sprint-dashboard)
+
+[x] PI progress summary on the dashboard + today/tomorrow leave section
+    - Progress bar + status dot-badges showing Released/ReadyForRelease/InProgress/Planned/Completed counts
+    - Fetches all features for the sprint's PI (piId filter on backend)
+    - Today + tomorrow on-leave members shown in a purple-tinted card
+    - Also fixed: SprintDto PIId/PIName renamed to PiId/PiName so they serialize correctly as piId/piName via camelCase
+
+[x] Member personal page (Personal Map, Skills, Notes, Tasks)
+[x] Task due date (DateOnly?) + CompletedAt (DateTimeOffset?) tracking
+[x] Confirm dialogs across all delete actions (sprints, features, leave, discussion, wheel, achievements, comments)
+[x] Leave overview responsive layout (header wrap, 2-col card grid, record row wrap)
+[x] Team personal responsive layout (icon-only tabs on mobile, skill card restructure, notes layout)
+[x] Leave import: duplicate detection + override prompt
+    - Preview step: rows marked new / duplicate / unmatched with colour coding
+    - Override toggle shown only when duplicates exist (default off = skip, on = replace)
+    - Fetch tab now goes through preview step before importing
+    - Done screen reports imported / overridden / duplicates separately
+[x] Export screen: button alignment fixed (flex wrapper on both PowerPoint and Leave Image buttons)
+[x] CLAUDE.md instruction file created (tech stack, workflow, conventions, domain notes)
+[x] Export PowerPoint: restructured slides
+    - Added Sprint Summary slide (after cover): status count badges + two columns
+      Left: Released + ReadyForRelease; Right: InProgress + Planned + Completed
+    - Replaced per-craft team slides with single "Team" slide, all members sorted alphabetically
+    - Renamed checkbox from "Team slides (per craft)" to "Team"; added "Summary" checkbox

@@ -18,7 +18,7 @@ public class PptxExportService : IPptxExportService
         ["{{TEAM_LEAD_NAME}}"] = (m, _) => m.TeamLeadName ?? "",
         ["{{SPRINT_NAME}}"] = (_, d) => d.Sprint.Name,
         ["{{SPRINT_DATES}}"] = (_, d) => $"{d.Sprint.StartDate:MMM d} – {d.Sprint.EndDate:MMM d, yyyy}",
-        ["{{PI_NAME}}"] = (_, d) => d.Sprint.PIName ?? "",
+        ["{{PI_NAME}}"] = (_, d) => d.Sprint.PiName ?? "",
         ["{{NOTES}}"] = (m, _) => m.Notes ?? "",
         ["{{LEAVE_SUMMARY}}"] = (m, _) => BuildLeaveSummary(m),
         ["{{LEAVE_DATES}}"] = (m, _) => BuildLeaveDates(m),

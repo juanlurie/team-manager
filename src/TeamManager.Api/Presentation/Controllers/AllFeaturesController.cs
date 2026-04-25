@@ -8,8 +8,8 @@ namespace TeamManager.Api.Presentation.Controllers;
 public class AllFeaturesController(IFeatureService service) : ControllerBase
 {
     [HttpGet]
-    public async Task<IActionResult> GetAll([FromQuery] string? status = null)
-        => Ok(await service.GetAllAsync(status));
+    public async Task<IActionResult> GetAll([FromQuery] string? status = null, [FromQuery] Guid? piId = null)
+        => Ok(await service.GetAllAsync(status, piId));
 
     [HttpPatch("{id:guid}/status")]
     public async Task<IActionResult> SetStatus(Guid id, [FromBody] SetStatusRequest request)

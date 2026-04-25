@@ -16,6 +16,8 @@ export interface TeamMember {
   crafts: string[];
   isActive: boolean;
   createdAt: string;
+  birthDate: string | null;
+  joinDate: string | null;
   achievements: Badge[];
 }
 
@@ -26,6 +28,8 @@ export interface CreateTeamMemberRequest {
   role: string;
   teamLeadId: string | null;
   crafts: string[];
+  birthDate: string | null;
+  joinDate: string | null;
 }
 
 export interface UpdateTeamMemberRequest extends CreateTeamMemberRequest {

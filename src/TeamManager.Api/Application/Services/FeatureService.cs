@@ -9,7 +9,7 @@ namespace TeamManager.Api.Application.Services;
 
 public class FeatureService(AppDbContext db) : IFeatureService
 {
-    public async Task<IReadOnlyList<FeatureDto>> GetAllAsync(string? status = null)
+    public async Task<IReadOnlyList<FeatureDto>> GetAllAsync(string? status = null, Guid? piId = null)
     {
         var query = db.Features
             .Include(f => f.Sprint).ThenInclude(s => s.PI)
@@ -17,6 +17,8 @@ public class FeatureService(AppDbContext db) : IFeatureService
             .AsQueryable();
         if (status is not null && Enum.TryParse<WorkItemStatus>(status, true, out var parsedStatus))
             query = query.Where(f => f.Status == parsedStatus);
+        if (piId.HasValue)
+            query = query.Where(f => f.Sprint.PIId == piId);
         var features = await query.OrderByDescending(f => f.Sprint.StartDate).ThenBy(f => f.Title).ToListAsync();
         return features.Select(f => ToDto(f, f.Sprint?.Name, f.Sprint?.PI?.Name)).ToList();
     }

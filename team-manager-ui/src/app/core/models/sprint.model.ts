@@ -7,6 +7,10 @@ export interface Sprint {
   piName: string | null;
   sprintNumber: number | null;
   isInnovationSprint: boolean;
+  goal: string | null;
+  retroWentWell: string | null;
+  retroDidntGoWell: string | null;
+  retroActionItems: string | null;
 }
 
 export interface PI {

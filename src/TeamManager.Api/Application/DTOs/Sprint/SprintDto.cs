@@ -6,8 +6,12 @@ public record SprintDto
     public string Name { get; init; } = string.Empty;
     public DateOnly StartDate { get; init; }
     public DateOnly EndDate { get; init; }
-    public Guid? PIId { get; init; }
-    public string? PIName { get; init; }
+    public Guid? PiId { get; init; }
+    public string? PiName { get; init; }
     public int? SprintNumber { get; init; }
     public bool IsInnovationSprint { get; init; }
+    public string? Goal { get; init; }
+    public string? RetroWentWell { get; init; }
+    public string? RetroDidntGoWell { get; init; }
+    public string? RetroActionItems { get; init; }
 }

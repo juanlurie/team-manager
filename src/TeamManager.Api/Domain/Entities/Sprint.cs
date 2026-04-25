@@ -9,6 +9,10 @@ public class Sprint
     public Guid? PIId { get; set; }
     public int? SprintNumber { get; set; }
     public bool IsInnovationSprint { get; set; }
+    public string? Goal { get; set; }
+    public string? RetroWentWell { get; set; }
+    public string? RetroDidntGoWell { get; set; }
+    public string? RetroActionItems { get; set; }
 
     public PI? PI { get; set; }
     public ICollection<SprintMember> SprintMembers { get; set; } = [];

@@ -11,6 +11,7 @@ import { Feature } from '../../core/models/feature.model';
 import { FeatureService } from '../../core/services/feature.service';
 import { FeatureFormDialogComponent } from '../sprints/feature-form-dialog/feature-form-dialog.component';
 import { CommentsComponent } from '../../shared/comments/comments.component';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
 const ACTIVE_STATUSES = ['InProgress', 'ReadyForRelease', 'Planned', 'Completed'];
 const DONE_STATUS = 'Released';
@@ -37,7 +38,8 @@ const TASK_STATUS_TEXT: Record<string, string> = {
   selector: 'app-all-features',
   standalone: true,
   imports: [CommonModule, FormsModule, MatButtonModule, MatIconModule,
-    MatSelectModule, MatFormFieldModule, MatTooltipModule, MatDialogModule, CommentsComponent],
+    MatSelectModule, MatFormFieldModule, MatTooltipModule, MatDialogModule, CommentsComponent,
+    MatProgressSpinnerModule],
   template: `
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;flex-wrap:wrap">
       <h2 style="margin:0;font-size:1.2rem">Features</h2>
@@ -53,6 +55,12 @@ const TASK_STATUS_TEXT: Record<string, string> = {
         </mat-select>
       </mat-form-field>
     </div>
+
+    @if (loading()) {
+      <div style="display:flex;justify-content:center;padding:80px">
+        <mat-spinner diameter="48"></mat-spinner>
+      </div>
+    } @else {
 
     <!-- Status summary counts -->
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:24px">
@@ -231,12 +239,14 @@ const TASK_STATUS_TEXT: Record<string, string> = {
         </div>
       }
     </div>
+    } <!-- end @else -->
   `
 })
 export class AllFeaturesComponent implements OnInit {
   private svc = inject(FeatureService);
   private dialog = inject(MatDialog);
 
+  loading = signal(true);
   all = signal<Feature[]>([]);
   statusFilter = '';
   showDone = signal(false);
@@ -254,7 +264,8 @@ export class AllFeaturesComponent implements OnInit {
   ngOnInit() { this.load(); }
 
   load() {
-    this.svc.getAllAcrossSprints().subscribe(f => this.all.set(f));
+    this.loading.set(true);
+    this.svc.getAllAcrossSprints().subscribe(f => { this.all.set(f); this.loading.set(false); });
   }
 
   applyFilter() {}

@@ -56,6 +56,19 @@ interface MemberLeaveGroup {
             }
           </mat-select>
         </mat-form-field>
+        <!-- View toggle -->
+        <div style="display:flex;border:1px solid rgba(255,255,255,0.12);border-radius:8px;overflow:hidden">
+          <button mat-icon-button style="border-radius:0;width:36px;height:36px"
+                  [style.background]="view() === 'list' ? 'rgba(255,255,255,0.1)' : 'transparent'"
+                  matTooltip="List view" (click)="view.set('list')">
+            <mat-icon style="font-size:18px;width:18px;height:18px;line-height:18px">view_list</mat-icon>
+          </button>
+          <button mat-icon-button style="border-radius:0;width:36px;height:36px"
+                  [style.background]="view() === 'calendar' ? 'rgba(255,255,255,0.1)' : 'transparent'"
+                  matTooltip="Calendar view" (click)="view.set('calendar')">
+            <mat-icon style="font-size:18px;width:18px;height:18px;line-height:18px">calendar_month</mat-icon>
+          </button>
+        </div>
         <button mat-stroked-button (click)="openImport()">
           <mat-icon>upload</mat-icon> Import
         </button>
@@ -118,70 +131,125 @@ interface MemberLeaveGroup {
         </mat-card>
       </div>
 
-      @if (groups().length === 0) {
-        <mat-card appearance="outlined">
-          <mat-card-content style="padding:48px;text-align:center;opacity:0.5">
-            <mat-icon style="font-size:3rem;width:3rem;height:3rem;display:block;margin:0 auto 16px">event_busy</mat-icon>
-            <div>No leave records found</div>
-          </mat-card-content>
-        </mat-card>
-      } @else {
-        <mat-accordion multi>
-          @for (g of groups(); track g.teamMemberId) {
-            <mat-expansion-panel [expanded]="true" style="margin-bottom:8px">
-              <mat-expansion-panel-header collapsedHeight="auto" expandedHeight="auto" style="padding:12px 16px">
-                <mat-panel-title style="flex-shrink:0;margin-right:8px">
-                  <div style="display:flex;align-items:center;gap:10px">
-                    <div style="width:34px;height:34px;border-radius:50%;background:var(--mat-sys-primary);display:flex;align-items:center;justify-content:center;font-size:0.75rem;font-weight:600;flex-shrink:0">
-                      {{ initials(g.memberName) }}
-                    </div>
-                    <span style="font-weight:500;font-size:0.9rem">{{ g.memberName }}</span>
-                  </div>
-                </mat-panel-title>
-                <mat-panel-description style="gap:6px;align-items:center;flex-wrap:wrap;justify-content:flex-end;min-width:0">
-                  @if (g.annualDays > 0) {
-                    <span class="leave-badge leave-annual">{{ g.annualDays }}d annual</span>
-                  }
-                  @if (g.sickDays > 0) {
-                    <span class="leave-badge leave-sick">{{ g.sickDays }}d sick</span>
-                  }
-                  @if (g.otherDays > 0) {
-                    <span class="leave-badge leave-other">{{ g.otherDays }}d other</span>
-                  }
-                  <span style="opacity:0.5;font-size:0.8rem;white-space:nowrap">{{ g.totalDays }}d total</span>
-                </mat-panel-description>
-              </mat-expansion-panel-header>
+      @if (view() === 'calendar') {
+        <!-- Calendar view — scrollable on narrow screens -->
+        <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;border-radius:10px;
+                    border:1px solid rgba(255,255,255,0.08)">
+          <div style="min-width:300px;background:rgba(255,255,255,0.03);overflow:hidden">
+            <!-- Month nav -->
+            <div style="display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid rgba(255,255,255,0.07)">
+              <button mat-icon-button style="width:32px;height:32px" (click)="prevMonth()">
+                <mat-icon style="font-size:18px;width:18px;height:18px;line-height:18px">chevron_left</mat-icon>
+              </button>
+              <span style="font-size:0.95rem;font-weight:600;flex:1;text-align:center">
+                {{ calendarMonth() | date:'MMMM yyyy' }}
+              </span>
+              <button mat-icon-button style="width:32px;height:32px" (click)="nextMonth()">
+                <mat-icon style="font-size:18px;width:18px;height:18px;line-height:18px">chevron_right</mat-icon>
+              </button>
+              <button mat-button style="font-size:0.75rem;height:28px;line-height:28px;padding:0 10px" (click)="goToday()">Today</button>
+            </div>
 
-              <div style="display:flex;flex-direction:column;gap:6px;padding:8px 0">
-                @for (r of g.records; track r.id) {
-                  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 12px;border-radius:8px;background:rgba(255,255,255,0.03)">
-                    <!-- type + dates + days always stay together -->
-                    <span [class]="'leave-badge leave-' + r.type.toLowerCase()">{{ r.type }}</span>
-                    <span style="font-size:0.85rem;white-space:nowrap">
-                      {{ r.startDate | date:'d MMM' }} – {{ r.endDate | date:'d MMM y' }}
-                    </span>
-                    <span style="font-weight:600;font-size:0.85rem;white-space:nowrap">{{ r.daysCount }}d</span>
-                    @if (r.notes) {
-                      <span style="opacity:0.55;font-size:0.8rem;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"
-                            [matTooltip]="r.notes">{{ r.notes }}</span>
-                    } @else {
-                      <span style="flex:1"></span>
-                    }
-                    <!-- actions pinned right, won't shrink -->
-                    <div style="display:flex;gap:2px;flex-shrink:0;margin-left:auto">
-                      <button mat-icon-button (click)="openEdit(r)" matTooltip="Edit">
-                        <mat-icon style="font-size:18px">edit</mat-icon>
-                      </button>
-                      <button mat-icon-button color="warn" (click)="delete(r)" matTooltip="Delete">
-                        <mat-icon style="font-size:18px">delete</mat-icon>
-                      </button>
-                    </div>
+            <!-- Day headers -->
+            <div style="display:grid;grid-template-columns:repeat(5,1fr);border-bottom:1px solid rgba(255,255,255,0.06)">
+              @for (d of dayNames; track d) {
+                <div style="padding:5px 2px;text-align:center;font-size:0.65rem;font-weight:700;
+                            text-transform:uppercase;letter-spacing:0.04em;opacity:0.4">{{ d }}</div>
+              }
+            </div>
+
+            <!-- Day cells -->
+            <div style="display:grid;grid-template-columns:repeat(5,1fr)">
+              @for (day of calendarDays(); track day.dateStr) {
+                <div style="min-height:64px;padding:4px 3px;border-right:1px solid rgba(255,255,255,0.04);
+                            border-bottom:1px solid rgba(255,255,255,0.04)"
+                     [style.background]="day.isToday ? 'rgba(100,181,246,0.07)' : 'transparent'"
+                     [style.opacity]="day.isCurrentMonth ? 1 : 0.3">
+                  <div style="font-size:0.68rem;font-weight:600;margin-bottom:3px;line-height:1"
+                       [style.color]="day.isToday ? '#64b5f6' : 'rgba(255,255,255,0.5)'">
+                    {{ day.date | date:'d' }}
                   </div>
-                }
-              </div>
-            </mat-expansion-panel>
-          }
-        </mat-accordion>
+                  <div style="display:flex;flex-direction:column;gap:2px">
+                    @for (r of day.records; track r.id) {
+                      <div [style.background]="leaveColor(r.type).bg"
+                           [style.color]="leaveColor(r.type).text"
+                           [matTooltip]="r.memberName + ' · ' + r.type"
+                           style="font-size:0.58rem;font-weight:600;padding:1px 3px;border-radius:3px;
+                                  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:default;line-height:1.4">
+                        {{ firstName(r.memberName) }}
+                      </div>
+                    }
+                  </div>
+                </div>
+              }
+            </div>
+          </div>
+        </div>
+      } @else {
+        <!-- List view -->
+        @if (groups().length === 0) {
+          <mat-card appearance="outlined">
+            <mat-card-content style="padding:48px;text-align:center;opacity:0.5">
+              <mat-icon style="font-size:3rem;width:3rem;height:3rem;display:block;margin:0 auto 16px">event_busy</mat-icon>
+              <div>No leave records found</div>
+            </mat-card-content>
+          </mat-card>
+        } @else {
+          <mat-accordion multi>
+            @for (g of groups(); track g.teamMemberId) {
+              <mat-expansion-panel [expanded]="true" style="margin-bottom:8px">
+                <mat-expansion-panel-header collapsedHeight="auto" expandedHeight="auto" style="padding:12px 16px">
+                  <mat-panel-title style="flex-shrink:0;margin-right:8px">
+                    <div style="display:flex;align-items:center;gap:10px">
+                      <div style="width:34px;height:34px;border-radius:50%;background:var(--mat-sys-primary);display:flex;align-items:center;justify-content:center;font-size:0.75rem;font-weight:600;flex-shrink:0">
+                        {{ initials(g.memberName) }}
+                      </div>
+                      <span style="font-weight:500;font-size:0.9rem">{{ g.memberName }}</span>
+                    </div>
+                  </mat-panel-title>
+                  <mat-panel-description style="gap:6px;align-items:center;flex-wrap:wrap;justify-content:flex-end;min-width:0">
+                    @if (g.annualDays > 0) {
+                      <span class="leave-badge leave-annual">{{ g.annualDays }}d annual</span>
+                    }
+                    @if (g.sickDays > 0) {
+                      <span class="leave-badge leave-sick">{{ g.sickDays }}d sick</span>
+                    }
+                    @if (g.otherDays > 0) {
+                      <span class="leave-badge leave-other">{{ g.otherDays }}d other</span>
+                    }
+                    <span style="opacity:0.5;font-size:0.8rem;white-space:nowrap">{{ g.totalDays }}d total</span>
+                  </mat-panel-description>
+                </mat-expansion-panel-header>
+
+                <div style="display:flex;flex-direction:column;gap:6px;padding:8px 0">
+                  @for (r of g.records; track r.id) {
+                    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 12px;border-radius:8px;background:rgba(255,255,255,0.03)">
+                      <span [class]="'leave-badge leave-' + r.type.toLowerCase()">{{ r.type }}</span>
+                      <span style="font-size:0.85rem;white-space:nowrap">
+                        {{ r.startDate | date:'d MMM' }} – {{ r.endDate | date:'d MMM y' }}
+                      </span>
+                      <span style="font-weight:600;font-size:0.85rem;white-space:nowrap">{{ r.daysCount }}d</span>
+                      @if (r.notes) {
+                        <span style="opacity:0.55;font-size:0.8rem;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"
+                              [matTooltip]="r.notes">{{ r.notes }}</span>
+                      } @else {
+                        <span style="flex:1"></span>
+                      }
+                      <div style="display:flex;gap:2px;flex-shrink:0;margin-left:auto">
+                        <button mat-icon-button (click)="openEdit(r)" matTooltip="Edit">
+                          <mat-icon style="font-size:18px">edit</mat-icon>
+                        </button>
+                        <button mat-icon-button color="warn" (click)="delete(r)" matTooltip="Delete">
+                          <mat-icon style="font-size:18px">delete</mat-icon>
+                        </button>
+                      </div>
+                    </div>
+                  }
+                </div>
+              </mat-expansion-panel>
+            }
+          </mat-accordion>
+        }
       }
     }
   `,
@@ -213,6 +281,41 @@ export class LeaveOverviewComponent implements OnInit {
   records = signal<LeaveRecord[]>([]);
   sprints = signal<Sprint[]>([]);
   members = signal<TeamMember[]>([]);
+  view = signal<'list' | 'calendar'>('list');
+  calendarMonth = signal(new Date());
+
+  readonly dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
+
+  calendarDays = computed(() => {
+    const month = this.calendarMonth();
+    const year = month.getFullYear();
+    const m = month.getMonth();
+    const firstDay = new Date(year, m, 1);
+    const lastDay  = new Date(year, m + 1, 0);
+    const todayStr = new Date().toISOString().slice(0, 10);
+
+    // Start from Monday of the week containing the 1st
+    const startOffset = (firstDay.getDay() + 6) % 7;
+    const cur = new Date(firstDay);
+    cur.setDate(cur.getDate() - startOffset);
+
+    const days: { date: Date; dateStr: string; isCurrentMonth: boolean; isToday: boolean; records: LeaveRecord[] }[] = [];
+    while (cur <= lastDay || days.length % 5 !== 0) {
+      const dow = cur.getDay();
+      if (dow !== 0 && dow !== 6) {
+        const dateStr = cur.toISOString().slice(0, 10);
+        days.push({
+          date: new Date(cur),
+          dateStr,
+          isCurrentMonth: cur.getMonth() === m,
+          isToday: dateStr === todayStr,
+          records: this.records().filter(r => r.startDate <= dateStr && r.endDate >= dateStr)
+        });
+      }
+      cur.setDate(cur.getDate() + 1);
+    }
+    return days;
+  });
 
   groups = computed<MemberLeaveGroup[]>(() => {
     const map = new Map<string, MemberLeaveGroup>();
@@ -269,6 +372,24 @@ export class LeaveOverviewComponent implements OnInit {
     }).afterClosed().subscribe(ok => {
       if (ok) this.leaveSvc.delete(record.id).subscribe(() => this.load());
     });
+  }
+
+  prevMonth() { const d = new Date(this.calendarMonth()); d.setMonth(d.getMonth() - 1); this.calendarMonth.set(d); }
+  nextMonth() { const d = new Date(this.calendarMonth()); d.setMonth(d.getMonth() + 1); this.calendarMonth.set(d); }
+  goToday()  { this.calendarMonth.set(new Date()); }
+
+  firstName(name: string) { return name.split(' ')[0]; }
+
+  leaveColor(type: string): { bg: string; text: string } {
+    const map: Record<string, { bg: string; text: string }> = {
+      Annual:              { bg: 'rgba(76,175,80,0.25)',  text: '#81c784' },
+      Sick:                { bg: 'rgba(244,67,54,0.25)',  text: '#ef9a9a' },
+      Birthday:            { bg: 'rgba(156,39,176,0.25)', text: '#ce93d8' },
+      Loyalty:             { bg: 'rgba(33,150,243,0.25)', text: '#90caf9' },
+      Discretionary:       { bg: 'rgba(0,188,212,0.25)',  text: '#80deea' },
+      FamilyResponsibility:{ bg: 'rgba(255,152,0,0.25)',  text: '#ffcc80' },
+    };
+    return map[type] ?? { bg: 'rgba(158,158,158,0.25)', text: '#eeeeee' };
   }
 
   initials(name: string) {

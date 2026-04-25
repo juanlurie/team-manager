@@ -25,6 +25,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<MemberSkillRating> MemberSkillRatings => Set<MemberSkillRating>();
     public DbSet<MemberNote> MemberNotes => Set<MemberNote>();
     public DbSet<MemberTask> MemberTasks => Set<MemberTask>();
+    public DbSet<SprintVote> SprintVotes => Set<SprintVote>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -47,5 +48,6 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         modelBuilder.ApplyConfiguration(new MemberSkillRatingConfiguration());
         modelBuilder.ApplyConfiguration(new MemberNoteConfiguration());
         modelBuilder.ApplyConfiguration(new MemberTaskConfiguration());
+        modelBuilder.ApplyConfiguration(new SprintVoteConfiguration());
     }
 }

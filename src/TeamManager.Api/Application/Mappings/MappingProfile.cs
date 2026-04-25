@@ -28,7 +28,8 @@ public class MappingProfile : Profile
         CreateMap<PI, PIDto>();
 
         CreateMap<Sprint, SprintDto>()
-            .ForMember(d => d.PIName, o => o.MapFrom(s => s.PI != null ? s.PI.Name : null));
+            .ForMember(d => d.PiName, o => o.MapFrom(s => s.PI != null ? s.PI.Name : null))
+            .ForMember(d => d.PiId, o => o.MapFrom(s => s.PIId));
 
         CreateMap<WorkItem, WorkItemDto>()
             .ForMember(d => d.Type, o => o.MapFrom(s => s.Type.ToString()))

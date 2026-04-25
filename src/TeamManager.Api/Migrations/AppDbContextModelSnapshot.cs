@@ -170,6 +170,18 @@ namespace TeamManager.Api.Migrations
                     b.Property<DateOnly>("EndDate")
                         .HasColumnType("date");
 
+                    b.Property<string>("Goal")
+                        .HasColumnType("text");
+
+                    b.Property<string>("RetroWentWell")
+                        .HasColumnType("text");
+
+                    b.Property<string>("RetroDidntGoWell")
+                        .HasColumnType("text");
+
+                    b.Property<string>("RetroActionItems")
+                        .HasColumnType("text");
+
                     b.Property<bool>("IsInnovationSprint")
                         .HasColumnType("boolean");
 
@@ -200,6 +212,9 @@ namespace TeamManager.Api.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid")
                         .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<int?>("Capacity")
+                        .HasColumnType("integer");
 
                     b.Property<string>("Notes")
                         .HasColumnType("text");
@@ -232,6 +247,9 @@ namespace TeamManager.Api.Migrations
                         .HasColumnType("text")
                         .HasDefaultValueSql("'[]'");
 
+                    b.Property<DateOnly?>("BirthDate")
+                        .HasColumnType("date");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -247,6 +265,9 @@ namespace TeamManager.Api.Migrations
 
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean");
+
+                    b.Property<DateOnly?>("JoinDate")
+                        .HasColumnType("date");
 
                     b.Property<string>("LastName")
                         .IsRequired()
@@ -617,6 +638,32 @@ namespace TeamManager.Api.Migrations
                     b.ToTable("MemberTasks");
                 });
 
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.SprintVote", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<Guid>("SprintId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("VoterSprintMemberId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("NomineeSprintMemberId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("NomineeSprintMemberId");
+
+                    b.HasIndex("SprintId", "VoterSprintMemberId")
+                        .IsUnique();
+
+                    b.ToTable("SprintVotes");
+                });
+
             modelBuilder.Entity("TeamManager.Api.Domain.Entities.MemberPersonal", b =>
                 {
                     b.HasOne("TeamManager.Api.Domain.Entities.TeamMember", "TeamMember")
@@ -671,6 +718,31 @@ namespace TeamManager.Api.Migrations
                         .IsRequired();
 
                     b.Navigation("TeamMember");
+                });
+
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.SprintVote", b =>
+                {
+                    b.HasOne("TeamManager.Api.Domain.Entities.Sprint", "Sprint")
+                        .WithMany()
+                        .HasForeignKey("SprintId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("TeamManager.Api.Domain.Entities.SprintMember", "Voter")
+                        .WithMany()
+                        .HasForeignKey("VoterSprintMemberId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("TeamManager.Api.Domain.Entities.SprintMember", "Nominee")
+                        .WithMany()
+                        .HasForeignKey("NomineeSprintMemberId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Sprint");
+                    b.Navigation("Voter");
+                    b.Navigation("Nominee");
                 });
 #pragma warning restore 612, 618
         }

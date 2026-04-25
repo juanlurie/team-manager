@@ -67,6 +67,10 @@ function parseDate(s: string | null): Date | null {
             <input matInput formControlName="sprintNumber" type="number">
           </mat-form-field>
           <mat-checkbox formControlName="isInnovationSprint">Innovation / IP Sprint</mat-checkbox>
+          <mat-form-field appearance="outline">
+            <mat-label>Sprint Goal (optional)</mat-label>
+            <textarea matInput formControlName="goal" rows="2" placeholder="What does this sprint aim to achieve?"></textarea>
+          </mat-form-field>
         }
         @if (data.piMode) {
           <mat-form-field appearance="outline">
@@ -101,6 +105,7 @@ export class SprintFormComponent implements OnInit {
     piId: [null as string | null],
     sprintNumber: [null as number | null],
     isInnovationSprint: [false],
+    goal: [null as string | null],
     description: [null as string | null]
   });
 
@@ -126,7 +131,8 @@ export class SprintFormComponent implements OnInit {
     } else {
       const req = { name: val.name!, startDate, endDate,
         piId: val.piId ?? null, sprintNumber: val.sprintNumber ?? null,
-        isInnovationSprint: val.isInnovationSprint ?? false };
+        isInnovationSprint: val.isInnovationSprint ?? false,
+        goal: val.goal ?? null };
       obs = this.data.sprint ? this.svc.updateSprint(this.data.sprint.id, req) : this.svc.createSprint(req);
     }
     obs.subscribe(() => this.dialogRef.close(true));

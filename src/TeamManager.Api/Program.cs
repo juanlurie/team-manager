@@ -34,6 +34,7 @@ builder.Services.AddScoped<ILeaderboardService, LeaderboardService>();
 builder.Services.AddScoped<ProgressService>();
 builder.Services.AddScoped<IWheelService, WheelService>();
 builder.Services.AddScoped<IMemberPersonalService, MemberPersonalService>();
+builder.Services.AddScoped<ISprintVoteService, SprintVoteService>();
 
 builder.Services.AddCors(options =>
     options.AddPolicy("AllowAll", policy =>

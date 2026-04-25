@@ -14,5 +14,7 @@ public record TeamMemberDto
     public List<string> Crafts { get; init; } = [];
     public bool IsActive { get; init; }
     public DateTimeOffset CreatedAt { get; init; }
+    public DateOnly? BirthDate { get; init; }
+    public DateOnly? JoinDate { get; init; }
     public IReadOnlyList<BadgeDto> Achievements { get; init; } = [];
 }
