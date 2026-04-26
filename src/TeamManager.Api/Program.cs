@@ -40,6 +40,34 @@ builder.Services.AddCors(options =>
     options.AddPolicy("AllowAll", policy =>
         policy.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod()));
 
+// 1. read the same three keys you will put in appsettings.json
+var jwtSection = builder.Configuration.GetSection("Jwt");
+var authority = jwtSection["Authority"] ?? throw new InvalidOperationException("Jwt:Authority missing");
+var audience  = jwtSection["Audience"]  ?? throw new InvalidOperationException("Jwt:Audience missing");
+
+// 2. wire JWT bearer
+builder.Services
+    .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(o =>
+    {
+        o.Authority = authority;
+        o.Audience  = audience;
+        o.TokenValidationParameters = new TokenValidationParameters
+        {
+            NameClaimTypeClaimType  = "name",        // Auth0 uses "name"
+            RoleClaimTypeClaimType  = "role"         // we will map TeamLead/TechLead into this claim
+        };
+    });
+
+// 3. global fallback policy: every endpoint requires an authenticated user
+builder.Services.AddAuthorization(o =>
+    o.FallbackPolicy = new AuthorizationPolicyBuilder()
+        .RequireAuthenticatedUser()
+        .Build());
+
+// Register claims transformer
+builder.Services.AddScoped<IClaimsTransformation, TeamMemberClaimsTransformer>();
+
 var app = builder.Build();
 
 app.UseMiddleware<GlobalExceptionMiddleware>();
@@ -48,7 +76,9 @@ app.UseSwagger();
 app.UseSwaggerUI();
 
 app.UseCors("AllowAll");
-app.MapHealthChecks("/health");
+app.UseAuthentication();   // <-- add
+app.UseAuthorization();    // <-- add
+app.MapHealthChecks("/health").AllowAnonymous();
 app.MapControllers();
 
 // When invoked with --migrate, apply pending migrations and exit.
