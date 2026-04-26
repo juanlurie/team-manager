@@ -32,6 +32,8 @@ builder.Services.AddScoped<ProgressService>();
 builder.Services.AddScoped<IWheelService, WheelService>();
 builder.Services.AddScoped<IMemberPersonalService, MemberPersonalService>();
 builder.Services.AddScoped<ISprintVoteService, SprintVoteService>();
+builder.Services.AddScoped<IInvitationService, InvitationService>();
+builder.Services.AddScoped<IEmailService, EmailService>();
 
 builder.Services.AddHealthChecks()
     .AddDbContextCheck<AppDbContext>();
