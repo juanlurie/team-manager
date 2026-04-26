@@ -23,8 +23,8 @@ public sealed class TeamMemberClaimsTransformer : IClaimsTransformation
         var id = new ClaimsIdentity(p.Identity.AuthenticationType);
 
         id.AddClaim(new Claim("teamMemberId", member.Id.ToString()));
-        if (member.Role == Role.TeamLead) id.AddClaim(new claim("role", "TeamLead"));
-        if (member.Role == Role.TechLead) id.AddClaim(new claim("role", "TechLead"));
+        if (member.Role == Role.TeamLead) id.AddClaim(new Claim("role", "TeamLead"));
+        if (member.Role == Role.TechLead) id.AddClaim(new Claim("role", "TechLead"));
 
         p.AddIdentity(id);
         return p;
