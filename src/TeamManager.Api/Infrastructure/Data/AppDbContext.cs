@@ -7,6 +7,7 @@ namespace TeamManager.Api.Infrastructure.Data;
 public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(options)
 {
     public DbSet<TeamMember> TeamMembers => Set<TeamMember>();
+    public DbSet<Invitation> Invitations => Set<Invitation>();
     public DbSet<PI> PIs => Set<PI>();
     public DbSet<Sprint> Sprints => Set<Sprint>();
     public DbSet<SprintMember> SprintMembers => Set<SprintMember>();
@@ -49,5 +50,6 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         modelBuilder.ApplyConfiguration(new MemberNoteConfiguration());
         modelBuilder.ApplyConfiguration(new MemberTaskConfiguration());
         modelBuilder.ApplyConfiguration(new SprintVoteConfiguration());
+        modelBuilder.ApplyConfiguration(new InvitationConfiguration());
     }
 }
