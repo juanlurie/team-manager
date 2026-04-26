@@ -2,6 +2,7 @@ using System.Security.Claims;
 using Microsoft.EntityFrameworkCore;
 using TeamManager.Api.Infrastructure.Data;
 using TeamManager.Api.Core.Models;
+using Microsoft.AspNetCore.Authentication;
 
 public sealed class TeamMemberClaimsTransformer : IClaimsTransformation
 {
