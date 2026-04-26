@@ -54,8 +54,8 @@ builder.Services
         o.Audience  = audience;
         o.TokenValidationParameters = new TokenValidationParameters
         {
-            NameClaimTypeClaimType  = "name",        // Auth0 uses "name"
-            RoleClaimTypeClaimType  = "role"         // we will map TeamLead/TechLead into this claim
+            NameClaimType  = "name",        // Auth0 uses "name"
+            RoleClaimType  = "role"         // we will map TeamLead/TechLead into this claim
         };
     });
 
