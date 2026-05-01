@@ -5,6 +5,12 @@ export interface Badge {
   category: string;
 }
 
+export interface SquadSummary {
+  id: string;
+  name: string;
+  color: string | null;
+}
+
 export interface TeamMember {
   id: string;
   firstName: string;
@@ -19,6 +25,7 @@ export interface TeamMember {
   birthDate: string | null;
   joinDate: string | null;
   achievements: Badge[];
+  squads: SquadSummary[];
 }
 
 export interface CreateTeamMemberRequest {

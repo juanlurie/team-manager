@@ -7,7 +7,8 @@ public record DiscussionPointDto
     public string? Notes { get; init; }
     public string Status { get; init; } = string.Empty;
     public string Priority { get; init; } = string.Empty;
-    public Guid? SprintId { get; init; }
+    public DateOnly? StartDate { get; init; }
+    public DateOnly? TargetDate { get; init; }
     public DateTimeOffset CreatedAt { get; init; }
     public DateTimeOffset UpdatedAt { get; init; }
 }

@@ -27,6 +27,9 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<MemberNote> MemberNotes => Set<MemberNote>();
     public DbSet<MemberTask> MemberTasks => Set<MemberTask>();
     public DbSet<SprintVote> SprintVotes => Set<SprintVote>();
+    public DbSet<Squad> Squads => Set<Squad>();
+    public DbSet<SquadMember> SquadMembers => Set<SquadMember>();
+    public DbSet<RetroAction> RetroActions => Set<RetroAction>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -51,5 +54,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         modelBuilder.ApplyConfiguration(new MemberTaskConfiguration());
         modelBuilder.ApplyConfiguration(new SprintVoteConfiguration());
         modelBuilder.ApplyConfiguration(new InvitationConfiguration());
+        modelBuilder.ApplyConfiguration(new SquadConfiguration());
+        modelBuilder.ApplyConfiguration(new SquadMemberConfiguration());
+        modelBuilder.ApplyConfiguration(new RetroActionConfiguration());
     }
 }

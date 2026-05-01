@@ -8,12 +8,9 @@ namespace TeamManager.Api.Application.Services;
 
 public class DiscussionPointService(AppDbContext db) : IDiscussionPointService
 {
-    public async Task<IReadOnlyList<DiscussionPointDto>> GetAllAsync(Guid? sprintId = null)
+    public async Task<IReadOnlyList<DiscussionPointDto>> GetAllAsync()
     {
-        var query = db.DiscussionPoints.AsQueryable();
-        if (sprintId.HasValue)
-            query = query.Where(d => d.SprintId == sprintId);
-        var items = await query.OrderBy(d => d.CreatedAt).ToListAsync();
+        var items = await db.DiscussionPoints.OrderBy(d => d.CreatedAt).ToListAsync();
         return items.Select(ToDto).ToList();
     }
 
@@ -21,11 +18,12 @@ public class DiscussionPointService(AppDbContext db) : IDiscussionPointService
     {
         var dp = new DiscussionPoint
         {
-            Title    = request.Title,
-            Notes    = request.Notes,
-            Status   = request.Status,
-            Priority = request.Priority,
-            SprintId = request.SprintId,
+            Title      = request.Title,
+            Notes      = request.Notes,
+            Status     = request.Status,
+            Priority   = request.Priority,
+            StartDate  = request.StartDate,
+            TargetDate = request.TargetDate,
         };
         db.DiscussionPoints.Add(dp);
         await db.SaveChangesAsync();
@@ -36,12 +34,13 @@ public class DiscussionPointService(AppDbContext db) : IDiscussionPointService
     {
         var dp = await db.DiscussionPoints.FindAsync(id);
         if (dp is null) return null;
-        dp.Title     = request.Title;
-        dp.Notes     = request.Notes;
-        dp.Status    = request.Status;
-        dp.Priority  = request.Priority;
-        dp.SprintId  = request.SprintId;
-        dp.UpdatedAt = DateTimeOffset.UtcNow;
+        dp.Title      = request.Title;
+        dp.Notes      = request.Notes;
+        dp.Status     = request.Status;
+        dp.Priority   = request.Priority;
+        dp.StartDate  = request.StartDate;
+        dp.TargetDate = request.TargetDate;
+        dp.UpdatedAt  = DateTimeOffset.UtcNow;
         await db.SaveChangesAsync();
         return ToDto(dp);
     }
@@ -57,13 +56,14 @@ public class DiscussionPointService(AppDbContext db) : IDiscussionPointService
 
     private static DiscussionPointDto ToDto(DiscussionPoint d) => new()
     {
-        Id        = d.Id,
-        Title     = d.Title,
-        Notes     = d.Notes,
-        Status    = d.Status,
-        Priority  = d.Priority,
-        SprintId  = d.SprintId,
-        CreatedAt = d.CreatedAt,
-        UpdatedAt = d.UpdatedAt,
+        Id         = d.Id,
+        Title      = d.Title,
+        Notes      = d.Notes,
+        Status     = d.Status,
+        Priority   = d.Priority,
+        StartDate  = d.StartDate,
+        TargetDate = d.TargetDate,
+        CreatedAt  = d.CreatedAt,
+        UpdatedAt  = d.UpdatedAt,
     };
 }

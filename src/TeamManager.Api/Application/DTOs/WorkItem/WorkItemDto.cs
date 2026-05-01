@@ -16,4 +16,5 @@ public record WorkItemDto
     public DateOnly? CompletedDate { get; init; }
     public DateTimeOffset? BlockedAt { get; init; }
     public string? BlockedReason { get; init; }
+    public int CommentCount { get; init; }
 }

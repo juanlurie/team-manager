@@ -49,9 +49,13 @@ const STATUS_COLOR: Record<string, string> = {
     @if (currentSprint()) {
       <div style="margin-bottom:28px">
         <div style="font-size:0.75rem;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;opacity:0.5;margin-bottom:8px">Current Sprint</div>
-        <div style="padding:18px 20px;border-radius:12px;
-                    background:linear-gradient(135deg,rgba(100,181,246,0.12),rgba(100,181,246,0.04));
-                    border:1px solid rgba(100,181,246,0.25)">
+        <a [routerLink]="['/sprints', currentSprint()!.id]"
+           style="padding:18px 20px;border-radius:12px;display:block;text-decoration:none;color:inherit;cursor:pointer;
+                  background:linear-gradient(135deg,rgba(100,181,246,0.12),rgba(100,181,246,0.04));
+                  border:1px solid rgba(100,181,246,0.25);transition:border-color 0.15s,background 0.15s"
+           (mouseenter)="$any($event.currentTarget).style.borderColor='rgba(100,181,246,0.5)'"
+           (mouseleave)="$any($event.currentTarget).style.borderColor='rgba(100,181,246,0.25)'"
+           >
           <div style="display:flex;align-items:center;gap:16px;margin-bottom:12px">
             <div style="flex:1;min-width:0">
               <div style="font-size:1.05rem;font-weight:600">{{ currentSprint()!.name }}</div>
@@ -65,10 +69,7 @@ const STATUS_COLOR: Record<string, string> = {
             @if (currentSprint()!.isInnovationSprint) {
               <mat-chip>IP Sprint</mat-chip>
             }
-            <a mat-raised-button color="primary" [routerLink]="['/sprints', currentSprint()!.id]">
-              <mat-icon>open_in_new</mat-icon> Open
-            </a>
-            <button mat-icon-button (click)="openSprintForm(currentSprint()!)"><mat-icon>edit</mat-icon></button>
+            <button mat-icon-button (click)="$event.preventDefault(); $event.stopPropagation(); openSprintForm(currentSprint()!)"><mat-icon>edit</mat-icon></button>
           </div>
 
           <!-- Feature summary -->
@@ -88,7 +89,7 @@ const STATUS_COLOR: Record<string, string> = {
               </div>
             </div>
           }
-        </div>
+        </a>
       </div>
     }
 
@@ -113,8 +114,7 @@ const STATUS_COLOR: Record<string, string> = {
     <!-- Active sprints -->
     <div style="display:flex;flex-direction:column;gap:6px">
       @for (s of activeSprints(); track s.id) {
-        <div style="display:flex;align-items:center;padding:12px 16px;border-radius:8px;
-                    background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07);gap:12px">
+        <a class="sprint-card" [routerLink]="['/sprints', s.id]">
           <div style="flex:1;min-width:0">
             <div style="font-weight:500;font-size:0.9rem">{{ s.name }}</div>
             <div style="font-size:0.78rem;opacity:0.5;margin-top:1px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
@@ -129,11 +129,10 @@ const STATUS_COLOR: Record<string, string> = {
           @if (s.isInnovationSprint) {
             <mat-chip style="font-size:0.7rem">IP</mat-chip>
           }
-          <a mat-button color="primary" [routerLink]="['/sprints', s.id]">View</a>
-          <button mat-icon-button (click)="openSprintForm(s)" matTooltip="Edit"><mat-icon>edit</mat-icon></button>
-          <button mat-icon-button (click)="cloneSprint(s)" matTooltip="Clone sprint"><mat-icon>content_copy</mat-icon></button>
-          <button mat-icon-button color="warn" (click)="deleteSprint(s.id)" matTooltip="Delete"><mat-icon>delete</mat-icon></button>
-        </div>
+          <button mat-icon-button (click)="$event.preventDefault(); $event.stopPropagation(); openSprintForm(s)" matTooltip="Edit"><mat-icon>edit</mat-icon></button>
+          <button mat-icon-button (click)="$event.preventDefault(); $event.stopPropagation(); cloneSprint(s)" matTooltip="Clone sprint"><mat-icon>content_copy</mat-icon></button>
+          <button mat-icon-button color="warn" (click)="$event.preventDefault(); $event.stopPropagation(); deleteSprint(s.id)" matTooltip="Delete"><mat-icon>delete</mat-icon></button>
+        </a>
       }
       @if (activeSprints().length === 0) {
         <div style="text-align:center;padding:48px;opacity:0.4;font-size:0.9rem">No sprints found</div>
@@ -154,9 +153,7 @@ const STATUS_COLOR: Record<string, string> = {
         @if (pastExpanded()) {
           <div style="display:flex;flex-direction:column;gap:6px;margin-top:8px">
             @for (s of pastSprints(); track s.id) {
-              <div style="display:flex;align-items:center;padding:10px 16px;border-radius:8px;
-                          background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.05);
-                          gap:12px;opacity:0.6">
+              <a class="sprint-card sprint-card-past" [routerLink]="['/sprints', s.id]">
                 <div style="flex:1;min-width:0">
                   <div style="font-weight:500;font-size:0.88rem">{{ s.name }}</div>
                   <div style="font-size:0.75rem;opacity:0.5;margin-top:1px">
@@ -167,11 +164,10 @@ const STATUS_COLOR: Record<string, string> = {
                 @if (s.isInnovationSprint) {
                   <mat-chip style="font-size:0.7rem">IP</mat-chip>
                 }
-                <a mat-button [routerLink]="['/sprints', s.id]" style="font-size:0.8rem">View</a>
-                <button mat-icon-button (click)="openSprintForm(s)" matTooltip="Edit"><mat-icon style="font-size:18px">edit</mat-icon></button>
-                <button mat-icon-button (click)="cloneSprint(s)" matTooltip="Clone sprint"><mat-icon style="font-size:18px">content_copy</mat-icon></button>
-                <button mat-icon-button color="warn" (click)="deleteSprint(s.id)" matTooltip="Delete"><mat-icon style="font-size:18px">delete</mat-icon></button>
-              </div>
+                <button mat-icon-button (click)="$event.preventDefault(); $event.stopPropagation(); openSprintForm(s)" matTooltip="Edit"><mat-icon style="font-size:18px">edit</mat-icon></button>
+                <button mat-icon-button (click)="$event.preventDefault(); $event.stopPropagation(); cloneSprint(s)" matTooltip="Clone sprint"><mat-icon style="font-size:18px">content_copy</mat-icon></button>
+                <button mat-icon-button color="warn" (click)="$event.preventDefault(); $event.stopPropagation(); deleteSprint(s.id)" matTooltip="Delete"><mat-icon style="font-size:18px">delete</mat-icon></button>
+              </a>
             }
           </div>
         }
@@ -241,7 +237,18 @@ const STATUS_COLOR: Record<string, string> = {
 
     } <!-- end @else -->
   `,
-  styles: [`.active-filter { background: rgba(100,181,246,0.15) !important; border-color: rgba(100,181,246,0.4) !important; color: #64b5f6 !important; }`]
+  styles: [`
+    .active-filter { background: rgba(100,181,246,0.15) !important; border-color: rgba(100,181,246,0.4) !important; color: #64b5f6 !important; }
+    .sprint-card {
+      display: flex; align-items: center; padding: 12px 16px; border-radius: 8px; gap: 12px;
+      background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07);
+      text-decoration: none; color: inherit; cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    .sprint-card:hover { background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.14); }
+    .sprint-card-past { opacity: 0.6; background: rgba(255,255,255,0.02); border-color: rgba(255,255,255,0.05); padding: 10px 16px; }
+    .sprint-card-past:hover { opacity: 0.85; }
+  `]
 })
 export class SprintListComponent implements OnInit {
   private svc = inject(SprintService);

@@ -10,7 +10,7 @@ export class AuthService {
 
   constructor(private oauth: OAuthService) {
     this.oauth.configure(authConfig);
-    this.oauth.loadDiscoveryDocumentAndTryLoginCodeFlow()
+    this.oauth.loadDiscoveryDocumentAndTryLogin()
       .then(() => this._isDone$.next(true));
   }
 

@@ -7,12 +7,9 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { MatChipsModule } from '@angular/material/chips';
 import { MatDialogModule, MatDialog } from '@angular/material/dialog';
 import { DiscussionPoint, CreateDiscussionPointRequest } from '../../core/models/discussion-point.model';
-import { Sprint } from '../../core/models/sprint.model';
 import { DiscussionPointService } from '../../core/services/discussion-point.service';
-import { SprintService } from '../../core/services/sprint.service';
 import { CommentsComponent } from '../../shared/comments/comments.component';
 import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/confirm-dialog.component';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
@@ -24,22 +21,11 @@ const PRIORITY_ORDER = ['High', 'Medium', 'Low'] as const;
   selector: 'app-discussion-points',
   standalone: true,
   imports: [CommonModule, FormsModule, MatButtonModule, MatIconModule,
-    MatSelectModule, MatFormFieldModule, MatInputModule, MatTooltipModule, MatChipsModule, MatDialogModule, CommentsComponent,
-    MatProgressSpinnerModule],
+    MatSelectModule, MatFormFieldModule, MatInputModule, MatTooltipModule,
+    MatDialogModule, CommentsComponent, MatProgressSpinnerModule],
   template: `
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;flex-wrap:wrap">
       <h2 style="margin:0;font-size:1.2rem;flex:1">Discussion Points</h2>
-
-      <!-- Sprint filter -->
-      <mat-form-field appearance="outline" style="width:200px;margin:0">
-        <mat-label>Sprint</mat-label>
-        <mat-select [(ngModel)]="selectedSprintId" (ngModelChange)="load()">
-          <mat-option value="">All</mat-option>
-          @for (s of sprints(); track s.id) {
-            <mat-option [value]="s.id">{{ s.name }}</mat-option>
-          }
-        </mat-select>
-      </mat-form-field>
 
       <!-- Status filter -->
       <mat-form-field appearance="outline" style="width:160px;margin:0">
@@ -53,10 +39,32 @@ const PRIORITY_ORDER = ['High', 'Medium', 'Low'] as const;
         </mat-select>
       </mat-form-field>
 
+      <!-- Priority filter -->
+      <mat-form-field appearance="outline" style="width:140px;margin:0">
+        <mat-label>Priority</mat-label>
+        <mat-select [(ngModel)]="filterPriority">
+          <mat-option value="">All</mat-option>
+          <mat-option value="High">High</mat-option>
+          <mat-option value="Medium">Medium</mat-option>
+          <mat-option value="Low">Low</mat-option>
+        </mat-select>
+      </mat-form-field>
+
       <button mat-raised-button color="primary" (click)="openNew()">
         <mat-icon>add</mat-icon> Add Point
       </button>
     </div>
+
+    <!-- Overdue banner -->
+    @if (overdueCount() > 0 && !filterStatus) {
+      <div style="display:flex;align-items:center;gap:8px;padding:8px 14px;margin-bottom:14px;
+                  border-radius:8px;background:rgba(239,83,80,0.1);border:1px solid rgba(239,83,80,0.25)">
+        <mat-icon style="color:#ef5350;font-size:18px;width:18px;height:18px;line-height:18px">warning</mat-icon>
+        <span style="font-size:0.85rem;color:#ef9a9a">
+          {{ overdueCount() }} discussion {{ overdueCount() === 1 ? 'point is' : 'points are' }} past their target date
+        </span>
+      </div>
+    }
 
     <!-- Inline add/edit form -->
     @if (editing()) {
@@ -97,15 +105,17 @@ const PRIORITY_ORDER = ['High', 'Medium', 'Low'] as const;
                 <mat-option value="Low">Low</mat-option>
               </mat-select>
             </mat-form-field>
+          </div>
+
+          <div style="display:flex;gap:12px;flex-wrap:wrap">
+            <mat-form-field appearance="outline" style="flex:1;min-width:160px">
+              <mat-label>Date started</mat-label>
+              <input matInput type="date" [(ngModel)]="form.startDate">
+            </mat-form-field>
 
             <mat-form-field appearance="outline" style="flex:1;min-width:160px">
-              <mat-label>Sprint (optional)</mat-label>
-              <mat-select [(ngModel)]="form.sprintId">
-                <mat-option [value]="null">— Not sprint-specific —</mat-option>
-                @for (s of sprints(); track s.id) {
-                  <mat-option [value]="s.id">{{ s.name }}</mat-option>
-                }
-              </mat-select>
+              <mat-label>Target date</mat-label>
+              <input matInput type="date" [(ngModel)]="form.targetDate">
             </mat-form-field>
           </div>
 
@@ -126,7 +136,6 @@ const PRIORITY_ORDER = ['High', 'Medium', 'Low'] as const;
       </div>
     } @else {
 
-    <!-- Cards -->
     @if (filtered().length === 0 && !editing()) {
       <div style="text-align:center;opacity:0.3;padding:60px 0;font-size:0.95rem">
         No discussion points yet. Add one to start tracking leadership items.
@@ -139,7 +148,6 @@ const PRIORITY_ORDER = ['High', 'Medium', 'Low'] as const;
                     border-left:3px solid {{ priorityColor(dp.priority) }};
                     opacity:{{ dp.status === 'Resolved' || dp.status === 'Deferred' ? '0.55' : '1' }}">
 
-          <!-- Clickable card body -->
           <div (click)="openEdit(dp)"
                style="display:flex;align-items:flex-start;gap:12px;padding:16px 18px;cursor:pointer">
             <!-- Priority + status badges -->
@@ -152,6 +160,12 @@ const PRIORITY_ORDER = ['High', 'Medium', 'Low'] as const;
                           background:{{ statusBg(dp.status) }};color:{{ statusColor(dp.status) }}">
                 {{ statusLabel(dp.status) }}
               </div>
+              @if (isOverdue(dp)) {
+                <div style="font-size:0.65rem;font-weight:700;padding:2px 8px;border-radius:10px;text-align:center;
+                            background:rgba(239,83,80,0.15);color:#ef5350">
+                  OVERDUE
+                </div>
+              }
             </div>
 
             <!-- Main content -->
@@ -161,17 +175,20 @@ const PRIORITY_ORDER = ['High', 'Medium', 'Low'] as const;
                 <div style="font-size:0.85rem;opacity:0.6;white-space:pre-wrap;line-height:1.5">{{ dp.notes }}</div>
               }
               <div style="display:flex;gap:12px;margin-top:8px;font-size:0.75rem;opacity:0.4;flex-wrap:wrap">
-                @if (sprintName(dp.sprintId)) {
-                  <span>Sprint: {{ sprintName(dp.sprintId) }}</span>
+                @if (dp.startDate) {
+                  <span>Started {{ fmtDate(dp.startDate) }}</span>
+                }
+                @if (dp.targetDate) {
+                  <span [style.color]="isOverdue(dp) ? '#ef9a9a' : 'inherit'"
+                        [style.opacity]="isOverdue(dp) ? '0.9' : 'inherit'">
+                    Target {{ fmtDate(dp.targetDate) }}
+                  </span>
                 }
                 <span>Added {{ relativeDate(dp.createdAt) }}</span>
-                @if (dp.updatedAt !== dp.createdAt) {
-                  <span>Updated {{ relativeDate(dp.updatedAt) }}</span>
-                }
               </div>
             </div>
 
-            <!-- Actions (stop propagation so card click doesn't fire) -->
+            <!-- Actions -->
             <div style="display:flex;gap:2px;flex-shrink:0;align-items:center" (click)="$event.stopPropagation()">
               <button mat-icon-button [matTooltip]="expandedIds().has(dp.id) ? 'Hide comments' : 'Comments'"
                       (click)="toggleExpand(dp.id)">
@@ -203,22 +220,23 @@ const PRIORITY_ORDER = ['High', 'Medium', 'Low'] as const;
   `
 })
 export class DiscussionPointsComponent implements OnInit {
-  private svc       = inject(DiscussionPointService);
-  private sprintSvc = inject(SprintService);
-  private dialog    = inject(MatDialog);
+  private svc    = inject(DiscussionPointService);
+  private dialog = inject(MatDialog);
 
-  loading  = signal(true);
-  items    = signal<DiscussionPoint[]>([]);
-  sprints  = signal<Sprint[]>([]);
-  editing  = signal(false);
-  editId   = signal<string | null>(null);
-  saving   = signal(false);
+  loading     = signal(true);
+  items       = signal<DiscussionPoint[]>([]);
+  editing     = signal(false);
+  editId      = signal<string | null>(null);
+  saving      = signal(false);
   expandedIds = signal<Set<string>>(new Set());
 
-  selectedSprintId = '';
-  filterStatus = '';
+  filterStatus   = '';
+  filterPriority = '';
 
-  form: CreateDiscussionPointRequest = { title: '', notes: null, status: 'Open', priority: 'Medium', sprintId: null };
+  form: CreateDiscussionPointRequest = {
+    title: '', notes: null, status: 'Open', priority: 'Medium',
+    startDate: null, targetDate: null
+  };
 
   filtered = computed(() => {
     let list = this.items().slice().sort((a, b) => {
@@ -229,18 +247,20 @@ export class DiscussionPointsComponent implements OnInit {
       const sB = STATUS_ORDER.indexOf(b.status as any);
       return sA - sB;
     });
-    if (this.filterStatus) list = list.filter(d => d.status === this.filterStatus);
+    if (this.filterStatus)   list = list.filter(d => d.status === this.filterStatus);
+    if (this.filterPriority) list = list.filter(d => d.priority === this.filterPriority);
     return list;
   });
 
-  ngOnInit() {
-    this.sprintSvc.getSprints().subscribe(s => this.sprints.set(s));
-    this.load();
-  }
+  overdueCount = computed(() =>
+    this.items().filter(d => this.isOverdue(d)).length
+  );
+
+  ngOnInit() { this.load(); }
 
   load() {
     this.loading.set(true);
-    this.svc.getAll(this.selectedSprintId || undefined).subscribe(items => { this.items.set(items); this.loading.set(false); });
+    this.svc.getAll().subscribe(items => { this.items.set(items); this.loading.set(false); });
   }
 
   toggleExpand(id: string) {
@@ -253,33 +273,34 @@ export class DiscussionPointsComponent implements OnInit {
 
   openNew() {
     this.editId.set(null);
-    this.form = { title: '', notes: null, status: 'Open', priority: 'Medium', sprintId: this.selectedSprintId || null };
+    this.form = { title: '', notes: null, status: 'Open', priority: 'Medium', startDate: null, targetDate: null };
     this.editing.set(true);
   }
 
   openEdit(dp: DiscussionPoint) {
     this.editId.set(dp.id);
-    this.form = { title: dp.title, notes: dp.notes, status: dp.status, priority: dp.priority, sprintId: dp.sprintId };
+    this.form = {
+      title: dp.title, notes: dp.notes, status: dp.status, priority: dp.priority,
+      startDate: dp.startDate, targetDate: dp.targetDate
+    };
     this.editing.set(true);
   }
 
-  cancel() {
-    this.editing.set(false);
-    this.editId.set(null);
-  }
+  cancel() { this.editing.set(false); this.editId.set(null); }
 
   save() {
     if (!this.form.title.trim() || this.saving()) return;
     this.saving.set(true);
+    const req: CreateDiscussionPointRequest = {
+      ...this.form,
+      startDate:  (this.form.startDate  as any) || null,
+      targetDate: (this.form.targetDate as any) || null,
+    };
     const id = this.editId();
-    const obs = id ? this.svc.update(id, this.form) : this.svc.create(this.form);
+    const obs = id ? this.svc.update(id, req) : this.svc.create(req);
     obs.subscribe({
       next: (dp) => {
-        if (id) {
-          this.items.update(list => list.map(x => x.id === id ? dp : x));
-        } else {
-          this.items.update(list => [...list, dp]);
-        }
+        this.items.update(list => id ? list.map(x => x.id === id ? dp : x) : [...list, dp]);
         this.saving.set(false);
         this.editing.set(false);
         this.editId.set(null);
@@ -303,16 +324,23 @@ export class DiscussionPointsComponent implements OnInit {
     const cycle: Record<string, string> = {
       Open: 'InProgress', InProgress: 'Resolved', Resolved: 'Deferred', Deferred: 'Open'
     };
-    const next = cycle[dp.status] ?? 'Open';
-    const req: CreateDiscussionPointRequest = { ...dp, sprintId: dp.sprintId, status: next };
+    const req: CreateDiscussionPointRequest = {
+      title: dp.title, notes: dp.notes, priority: dp.priority,
+      startDate: dp.startDate, targetDate: dp.targetDate,
+      status: cycle[dp.status] ?? 'Open'
+    };
     this.svc.update(dp.id, req).subscribe(updated =>
       this.items.update(list => list.map(x => x.id === updated.id ? updated : x))
     );
   }
 
-  sprintName(id: string | null): string | null {
-    if (!id) return null;
-    return this.sprints().find(s => s.id === id)?.name ?? null;
+  isOverdue(dp: DiscussionPoint): boolean {
+    if (!dp.targetDate || dp.status === 'Resolved' || dp.status === 'Deferred') return false;
+    return dp.targetDate < new Date().toISOString().slice(0, 10);
+  }
+
+  fmtDate(iso: string): string {
+    return new Date(iso + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
   }
 
   relativeDate(iso: string): string {
@@ -322,7 +350,7 @@ export class DiscussionPointsComponent implements OnInit {
     if (days === 1) return 'yesterday';
     if (days < 7) return `${days}d ago`;
     if (days < 30) return `${Math.floor(days / 7)}w ago`;
-    return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
   }
 
   statusLabel(s: string): string {

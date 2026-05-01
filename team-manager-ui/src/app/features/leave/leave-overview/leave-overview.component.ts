@@ -247,7 +247,6 @@ interface WeekRow {
                                (mouseenter)="hoveredLeaveId.set(slot.record.id)"
                                (mouseleave)="hoveredLeaveId.set(null)"
                                (click)="toggleClick(slot.record); $event.stopPropagation()"
-                               [matTooltip]="chipTooltip(slot.record)"
                                style="height:22px;margin-top:3px;display:flex;align-items:center;
                                       padding:0 6px;font-size:0.65rem;font-weight:600;white-space:nowrap;
                                       cursor:pointer;transition:opacity 0.1s,box-shadow 0.1s;overflow:hidden">

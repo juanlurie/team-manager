@@ -1,7 +1,7 @@
 using System.Security.Claims;
 using Microsoft.EntityFrameworkCore;
 using TeamManager.Api.Infrastructure.Data;
-using TeamManager.Api.Core.Models;
+using TeamManager.Api.Domain.Enums;
 using Microsoft.AspNetCore.Authentication;
 
 public sealed class TeamMemberClaimsTransformer : IClaimsTransformation
@@ -24,8 +24,8 @@ public sealed class TeamMemberClaimsTransformer : IClaimsTransformation
         var id = new ClaimsIdentity(p.Identity.AuthenticationType);
 
         id.AddClaim(new Claim("teamMemberId", member.Id.ToString()));
-        if (member.Role == Role.TeamLead) id.AddClaim(new Claim("role", "TeamLead"));
-        if (member.Role == Role.TechLead) id.AddClaim(new Claim("role", "TechLead"));
+        if (member.Role == MemberRole.TeamLead) id.AddClaim(new Claim("role", "TeamLead"));
+        if (member.Role == MemberRole.TechLead) id.AddClaim(new Claim("role", "TechLead"));
 
         p.AddIdentity(id);
         return p;

@@ -25,6 +25,7 @@ public class DashboardService(AppDbContext db) : IDashboardService
         var membersQuery = db.SprintMembers
             .Where(sm => sm.SprintId == sprintId)
             .Include(sm => sm.TeamMember).ThenInclude(m => m.TeamLead)
+            .Include(sm => sm.TeamMember).ThenInclude(m => m.SquadMemberships).ThenInclude(sqm => sqm.Squad)
             .Include(sm => sm.WorkItems).ThenInclude(w => w.Feature)
             .AsQueryable();
 
@@ -48,6 +49,15 @@ public class DashboardService(AppDbContext db) : IDashboardService
 
         var leaveByMember = leaveRecords.GroupBy(l => l.TeamMemberId)
             .ToDictionary(g => g.Key, g => g.ToList());
+
+        var workItemIds = members.SelectMany(m => m.WorkItems.Select(w => w.Id)).ToList();
+        var commentCounts = workItemIds.Count > 0
+            ? await db.Comments
+                .Where(c => c.EntityType == "WorkItem" && workItemIds.Contains(c.EntityId))
+                .GroupBy(c => c.EntityId)
+                .Select(g => new { EntityId = g.Key, Count = g.Count() })
+                .ToDictionaryAsync(x => x.EntityId, x => x.Count)
+            : new Dictionary<Guid, int>();
 
         var cards = members.Select(sm => new MemberSprintCardDto
         {
@@ -74,7 +84,8 @@ public class DashboardService(AppDbContext db) : IDashboardService
                 ExternalTicketRef = w.ExternalTicketRef,
                 EstimatedPoints = w.EstimatedPoints,
                 ActualPoints = w.ActualPoints,
-                CompletedDate = w.CompletedDate
+                CompletedDate = w.CompletedDate,
+                CommentCount = commentCounts.TryGetValue(w.Id, out var cc) ? cc : 0
             }).ToList(),
             LeaveRecords = leaveByMember.TryGetValue(sm.TeamMemberId, out var leave)
                 ? leave.Select(l => new LeaveRecordDto
@@ -88,7 +99,11 @@ public class DashboardService(AppDbContext db) : IDashboardService
                     DaysCount = l.DaysCount,
                     Notes = l.Notes
                 }).ToList()
-                : []
+                : [],
+            SquadNames = sm.TeamMember.SquadMemberships
+                .OrderBy(sqm => sqm.Squad.Name)
+                .Select(sqm => sqm.Squad.Name)
+                .ToList()
         }).ToList();
 
         return new SprintDashboardDto

@@ -7,7 +7,8 @@ public class DiscussionPoint
     public string? Notes { get; set; }
     public string Status { get; set; } = "Open";
     public string Priority { get; set; } = "Medium";
-    public Guid? SprintId { get; set; }
+    public DateOnly? StartDate { get; set; }
+    public DateOnly? TargetDate { get; set; }
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
     public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.UtcNow;
 }

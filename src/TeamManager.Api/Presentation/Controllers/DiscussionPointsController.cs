@@ -9,8 +9,8 @@ namespace TeamManager.Api.Presentation.Controllers;
 public class DiscussionPointsController(IDiscussionPointService service) : ControllerBase
 {
     [HttpGet]
-    public async Task<IActionResult> GetAll([FromQuery] Guid? sprintId = null)
-        => Ok(await service.GetAllAsync(sprintId));
+    public async Task<IActionResult> GetAll()
+        => Ok(await service.GetAllAsync());
 
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] CreateDiscussionPointRequest request)

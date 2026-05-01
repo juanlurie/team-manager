@@ -12,6 +12,7 @@ import { Router } from '@angular/router';
 import { TeamMember } from '../../../core/models/team-member.model';
 import { TeamMemberService } from '../../../core/services/team-member.service';
 import { TeamMemberFormComponent } from '../team-member-form/team-member-form.component';
+import { SquadManagerDialogComponent } from '../squad-manager-dialog/squad-manager-dialog.component';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
 const CRAFT_LABELS: Record<string, string> = {
@@ -51,6 +52,9 @@ const CRAFT_LABELS: Record<string, string> = {
           <mat-option value="QA">QA</mat-option>
         </mat-select>
       </mat-form-field>
+      <button mat-stroked-button (click)="openSquadManager()">
+        <mat-icon>groups</mat-icon> Squads
+      </button>
       <button mat-raised-button color="primary" (click)="openForm()">
         <mat-icon>add</mat-icon> Add
       </button>
@@ -87,6 +91,13 @@ const CRAFT_LABELS: Record<string, string> = {
               }
               @if (m.teamLeadName) {
                 <span style="font-size:0.7rem;opacity:0.4">· {{ m.teamLeadName }}</span>
+              }
+              @for (sq of m.squads; track sq.id) {
+                <span style="font-size:0.68rem;font-weight:600;padding:2px 7px;border-radius:6px"
+                      [style.background]="squadBg(sq.color)"
+                      [style.color]="sq.color ?? '#9e9e9e'">
+                  {{ sq.name }}
+                </span>
               }
             </div>
             @if (m.achievements?.length) {
@@ -137,6 +148,7 @@ export class TeamListComponent implements OnInit {
   roleClass(role: string) { return `role-${role.toLowerCase()}`; }
   roleLabel(role: string) { return role === 'TeamLead' ? 'Team Lead' : role === 'TechLead' ? 'Tech Lead' : 'Member'; }
   craftLabel(craft: string) { return CRAFT_LABELS[craft] ?? craft; }
+  squadBg(color: string | null) { return color ? color + '28' : 'rgba(158,158,158,0.12)'; }
 
   ngOnInit() { this.load(); }
 
@@ -158,6 +170,11 @@ export class TeamListComponent implements OnInit {
       data: { member, allMembers: this.allMembers }
     });
     ref.afterClosed().subscribe(result => { if (result) this.load(); });
+  }
+
+  openSquadManager() {
+    const ref = this.dialog.open(SquadManagerDialogComponent, { width: '560px' });
+    ref.afterClosed().subscribe(() => this.load());
   }
 
   openPersonal(member: TeamMember) {

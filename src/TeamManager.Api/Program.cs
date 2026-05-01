@@ -1,8 +1,27 @@
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
 using TeamManager.Api.Application.Services;
 using TeamManager.Api.Application.Services.Interfaces;
 using TeamManager.Api.Infrastructure.Data;
 using TeamManager.Api.Middleware;
+
+// Migrate-only mode: apply EF migrations and exit without wiring up the full app.
+if (args.Contains("--migrate"))
+{
+    var migrateBuilder = WebApplication.CreateBuilder(args);
+    migrateBuilder.Services.AddDbContext<AppDbContext>(options =>
+        options.UseNpgsql(migrateBuilder.Configuration.GetConnectionString("DefaultConnection"))
+               .ConfigureWarnings(w => w.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.RelationalEventId.PendingModelChangesWarning)));
+    var migrateApp = migrateBuilder.Build();
+    using var migrateScope = migrateApp.Services.CreateScope();
+    var migrateDb = migrateScope.ServiceProvider.GetRequiredService<AppDbContext>();
+    migrateDb.Database.Migrate();
+    Console.WriteLine("Migrations applied.");
+    return;
+}
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -26,6 +45,7 @@ builder.Services.AddHttpClient("entelect").ConfigurePrimaryHttpMessageHandler(()
 builder.Services.AddScoped<IDashboardService, DashboardService>();
 builder.Services.AddScoped<IPptxExportService, PptxExportService>();
 builder.Services.AddScoped<IDiscussionPointService, DiscussionPointService>();
+builder.Services.AddScoped<IRetroActionService, RetroActionService>();
 builder.Services.AddScoped<IAchievementService, AchievementService>();
 builder.Services.AddScoped<ILeaderboardService, LeaderboardService>();
 builder.Services.AddScoped<ProgressService>();
@@ -34,6 +54,7 @@ builder.Services.AddScoped<IMemberPersonalService, MemberPersonalService>();
 builder.Services.AddScoped<ISprintVoteService, SprintVoteService>();
 builder.Services.AddScoped<IInvitationService, InvitationService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
+builder.Services.AddScoped<SquadService>();
 
 builder.Services.AddHealthChecks()
     .AddDbContextCheck<AppDbContext>();
@@ -42,33 +63,37 @@ builder.Services.AddCors(options =>
     options.AddPolicy("AllowAll", policy =>
         policy.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod()));
 
-// 1. read the same three keys you will put in appsettings.json
 var jwtSection = builder.Configuration.GetSection("Jwt");
-var authority = jwtSection["Authority"] ?? throw new InvalidOperationException("Jwt:Authority missing");
-var audience  = jwtSection["Audience"]  ?? throw new InvalidOperationException("Jwt:Audience missing");
+var authority = jwtSection["Authority"];
+var audience  = jwtSection["Audience"];
 
-// 2. wire JWT bearer
-builder.Services
-    .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-    .AddJwtBearer(o =>
-    {
-        o.Authority = authority;
-        o.Audience  = audience;
-        o.TokenValidationParameters = new TokenValidationParameters
+if (!string.IsNullOrEmpty(authority) && !string.IsNullOrEmpty(audience))
+{
+    builder.Services
+        .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+        .AddJwtBearer(o =>
         {
-            NameClaimType  = "name",        // Auth0 uses "name"
-            RoleClaimType  = "role"         // we will map TeamLead/TechLead into this claim
-        };
-    });
+            o.Authority = authority;
+            o.Audience  = audience;
+            o.TokenValidationParameters = new TokenValidationParameters
+            {
+                NameClaimType = "name",
+                RoleClaimType = "role"
+            };
+        });
 
-// 3. global fallback policy: every endpoint requires an authenticated user
-builder.Services.AddAuthorization(o =>
-    o.FallbackPolicy = new AuthorizationPolicyBuilder()
-        .RequireAuthenticatedUser()
-        .Build());
+    builder.Services.AddAuthorization(o =>
+        o.FallbackPolicy = new AuthorizationPolicyBuilder()
+            .RequireAuthenticatedUser()
+            .Build());
 
-// Register claims transformer
-builder.Services.AddScoped<IClaimsTransformation, TeamMemberClaimsTransformer>();
+    builder.Services.AddScoped<IClaimsTransformation, TeamMemberClaimsTransformer>();
+}
+else
+{
+    builder.Services.AddAuthentication();
+    builder.Services.AddAuthorization();
+}
 
 var app = builder.Build();
 
@@ -82,16 +107,5 @@ app.UseAuthentication();   // <-- add
 app.UseAuthorization();    // <-- add
 app.MapHealthChecks("/health").AllowAnonymous();
 app.MapControllers();
-
-// When invoked with --migrate, apply pending migrations and exit.
-// In production this runs as a separate init container before the API starts.
-if (args.Contains("--migrate"))
-{
-    using var scope = app.Services.CreateScope();
-    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    db.Database.Migrate();
-    Console.WriteLine("Migrations applied.");
-    return;
-}
 
 app.Run();
