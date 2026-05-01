@@ -13,6 +13,8 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { TeamMember, Badge } from '../../../core/models/team-member.model';
 import { TeamMemberService } from '../../../core/services/team-member.service';
+import { SquadService } from '../../../core/services/squad.service';
+import { Squad } from '../../../core/models/squad.model';
 import { AchievementService } from '../../../core/services/achievement.service';
 import { LeaderboardService } from '../../../core/services/leaderboard.service';
 import { AwardAchievementDialogComponent } from '../award-achievement-dialog/award-achievement-dialog.component';
@@ -78,6 +80,14 @@ const CATEGORY_COLORS: Record<string, { bg: string; text: string }> = {
             <mat-option value="Analysis">Analyst</mat-option>
             <mat-option value="Design">Designer</mat-option>
             <mat-option value="QA">QA</mat-option>
+          </mat-select>
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Squads <span style="opacity:0.5;font-size:0.85em">(optional)</span></mat-label>
+          <mat-select [(ngModel)]="selectedSquadIds" [ngModelOptions]="{standalone:true}" multiple>
+            @for (sq of allSquads(); track sq.id) {
+              <mat-option [value]="sq.id">{{ sq.name }}</mat-option>
+            }
           </mat-select>
         </mat-form-field>
         <div style="display:flex;gap:12px">
@@ -204,6 +214,7 @@ const CATEGORY_COLORS: Record<string, { bg: string; text: string }> = {
 export class TeamMemberFormComponent implements OnInit {
   private fb = inject(FormBuilder);
   private svc = inject(TeamMemberService);
+  private squadSvc = inject(SquadService);
   private achievementSvc = inject(AchievementService);
   private leaderboardSvc = inject(LeaderboardService);
   private dialog = inject(MatDialog);
@@ -215,6 +226,8 @@ export class TeamMemberFormComponent implements OnInit {
   showBonusForm = signal(false);
   bonusPoints: number | null = null;
   bonusReason = '';
+  allSquads = signal<Squad[]>([]);
+  selectedSquadIds: string[] = [];
 
   readonly CATEGORY_COLORS = CATEGORY_COLORS;
   catStyle(cat: string) { return CATEGORY_COLORS[cat] ?? { bg: 'rgba(255,255,255,0.08)', text: 'rgba(255,255,255,0.6)' }; }
@@ -236,12 +249,14 @@ export class TeamMemberFormComponent implements OnInit {
   }
 
   ngOnInit() {
+    this.squadSvc.getAll().subscribe(s => this.allSquads.set(s));
     if (this.data.member) {
       this.form.patchValue({
         ...this.data.member,
         birthDate: this.data.member.birthDate ? new Date(this.data.member.birthDate) : null,
         joinDate:  this.data.member.joinDate  ? new Date(this.data.member.joinDate)  : null,
       } as any);
+      this.selectedSquadIds = this.data.member.squads.map(s => s.id);
       this.loadAchievements();
       this.refreshStats();
     }
@@ -310,6 +325,14 @@ export class TeamMemberFormComponent implements OnInit {
     const obs = this.data.member
       ? this.svc.update(this.data.member.id, payload as any)
       : this.svc.create(payload as any);
-    obs.subscribe(() => this.dialogRef.close(true));
+    obs.subscribe(saved => {
+      const memberId = this.data.member?.id ?? (saved as any)?.id;
+      if (memberId) {
+        this.squadSvc.setMemberSquads(memberId, this.selectedSquadIds)
+          .subscribe(() => this.dialogRef.close(true));
+      } else {
+        this.dialogRef.close(true);
+      }
+    });
   }
 }

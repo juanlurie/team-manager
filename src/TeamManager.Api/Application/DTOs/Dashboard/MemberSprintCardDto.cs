@@ -15,4 +15,5 @@ public record MemberSprintCardDto
     public int? Capacity { get; init; }
     public IReadOnlyList<WorkItemDto> WorkItems { get; init; } = [];
     public IReadOnlyList<LeaveRecordDto> LeaveRecords { get; init; } = [];
+    public IReadOnlyList<string> SquadNames { get; init; } = [];
 }

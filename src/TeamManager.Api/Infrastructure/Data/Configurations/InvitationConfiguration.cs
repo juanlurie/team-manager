@@ -1,6 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
-using TeamManager.Api.Core.Models;
+using TeamManager.Api.Domain.Entities;
 
 namespace TeamManager.Api.Infrastructure.Data.Configurations
 {
@@ -10,13 +10,15 @@ namespace TeamManager.Api.Infrastructure.Data.Configurations
         {
             builder.ToTable("Invitations");
             builder.HasKey(i => i.Id);
-            
+            builder.Property(i => i.Id).HasDefaultValueSql("gen_random_uuid()");
+
             builder.Property(i => i.Email)
                 .IsRequired()
                 .HasMaxLength(256);
-                
+
             builder.Property(i => i.Role)
-                .IsRequired();
+                .IsRequired()
+                .HasConversion<string>();
                 
             builder.Property(i => i.SentAt)
                 .IsRequired();

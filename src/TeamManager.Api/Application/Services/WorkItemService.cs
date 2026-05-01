@@ -151,6 +151,7 @@ public class WorkItemService(AppDbContext db) : IWorkItemService
         ActualPoints = w.ActualPoints,
         CompletedDate = w.CompletedDate,
         BlockedAt = w.BlockedAt,
-        BlockedReason = w.BlockedReason
+        BlockedReason = w.BlockedReason,
+        CommentCount = 0
     };
 }

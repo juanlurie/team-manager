@@ -88,19 +88,21 @@ const MORE_NAV: NavItem[] = [
 
       <!-- ── Desktop sidebar ── -->
       @if (!isMobile()) {
-        <nav class="sidebar" [class.expanded]="sidebarExpanded()"
-             (mouseenter)="hovered.set(true)"
-             (mouseleave)="hovered.set(false)">
+        <nav class="sidebar" [class.expanded]="expanded()">
 
-          <div class="sidebar-header">
+          <button class="sidebar-header" (click)="toggleExpanded()"
+                  [matTooltip]="expanded() ? '' : 'Expand sidebar'" matTooltipPosition="right">
             <mat-icon class="brand-icon">groups</mat-icon>
             <span class="brand">Team Manager</span>
-          </div>
+            <mat-icon class="collapse-icon">
+              {{ expanded() ? 'chevron_left' : 'chevron_right' }}
+            </mat-icon>
+          </button>
 
           <div class="nav-items">
             @for (item of primaryNav; track item.path) {
               <a class="nav-link" [routerLink]="item.path" routerLinkActive="active"
-                 [matTooltip]="sidebarExpanded() ? '' : item.label" matTooltipPosition="right">
+                 [matTooltip]="expanded() ? '' : item.label" matTooltipPosition="right">
                 <mat-icon class="nav-icon">{{ item.icon }}</mat-icon>
                 <span class="nav-label">{{ item.label }}</span>
               </a>
@@ -110,22 +112,13 @@ const MORE_NAV: NavItem[] = [
 
             @for (item of secondaryNav; track item.path) {
               <a class="nav-link nav-secondary" [routerLink]="item.path" routerLinkActive="active"
-                 [matTooltip]="sidebarExpanded() ? '' : item.label" matTooltipPosition="right">
+                 [matTooltip]="expanded() ? '' : item.label" matTooltipPosition="right">
                 <mat-icon class="nav-icon">{{ item.icon }}</mat-icon>
                 <span class="nav-label">{{ item.label }}</span>
               </a>
             }
           </div>
 
-          <button class="pin-btn" (click)="togglePin()"
-                  [matTooltip]="pinned() ? 'Unpin sidebar' : 'Pin sidebar open'" matTooltipPosition="right">
-            <mat-icon style="font-size:18px;width:18px;height:18px;line-height:18px;
-                             transition:transform 0.2s,opacity 0.2s;display:block"
-                      [style.transform]="pinned() ? 'rotate(-45deg)' : 'none'"
-                      [style.opacity]="pinned() ? '0.8' : '0.3'">
-              push_pin
-            </mat-icon>
-          </button>
         </nav>
       }
 
@@ -164,34 +157,47 @@ const MORE_NAV: NavItem[] = [
       align-items: center;
       justify-content: center;
       gap: 10px;
-      padding: 16px 0;
+      padding: 14px 0;
+      border: none;
       border-bottom: 1px solid rgba(255,255,255,0.05);
+      background: none;
       min-height: 56px;
       overflow: hidden;
       white-space: nowrap;
       flex-shrink: 0;
+      cursor: pointer;
+      width: 100%;
+      transition: background 0.15s;
     }
+    .sidebar-header:hover { background: rgba(255,255,255,0.04); }
     .brand-icon {
       color: rgba(255,255,255,0.75);
       flex-shrink: 0;
-      font-size: 28px; width: 28px; height: 28px; line-height: 28px;
+      font-size: 24px; width: 24px; height: 24px; line-height: 24px;
     }
     .brand {
-      font-size: 0.9rem; font-weight: 600;
+      font-size: 0.9rem; font-weight: 600; color: rgba(255,255,255,0.75);
+      opacity: 0; max-width: 0; overflow: hidden;
+      transition: opacity 0.15s, max-width 0.2s;
+      flex: 1; text-align: left;
+    }
+    .collapse-icon {
+      color: rgba(255,255,255,0.3);
+      font-size: 18px; width: 18px; height: 18px; line-height: 18px;
+      flex-shrink: 0;
       opacity: 0; max-width: 0; overflow: hidden;
       transition: opacity 0.15s, max-width 0.2s;
     }
-    .sidebar.expanded .sidebar-header { justify-content: flex-start; padding: 16px; }
-    .sidebar.expanded .brand-icon { font-size: 22px; width: 22px; height: 22px; line-height: 22px; }
-    .sidebar.expanded .brand { opacity: 0.75; max-width: 160px; }
+    .sidebar.expanded .sidebar-header { justify-content: flex-start; padding: 14px 12px; }
+    .sidebar.expanded .brand { opacity: 1; max-width: 160px; }
+    .sidebar.expanded .collapse-icon { opacity: 1; max-width: 18px; }
 
     .nav-items {
       flex: 1;
       display: flex;
       flex-direction: column;
       padding: 8px 0;
-      overflow-y: auto;
-      overflow-x: hidden;
+      overflow: hidden;
     }
 
     .nav-link {
@@ -236,21 +242,6 @@ const MORE_NAV: NavItem[] = [
       border-top: 1px solid rgba(255,255,255,0.05);
       flex-shrink: 0;
     }
-
-    .pin-btn {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 12px;
-      border: none;
-      background: none;
-      color: rgba(255,255,255,0.6);
-      cursor: pointer;
-      border-top: 1px solid rgba(255,255,255,0.05);
-      transition: color 0.15s;
-      flex-shrink: 0;
-    }
-    .pin-btn:hover { color: rgba(255,255,255,0.9); }
 
     /* ── Bottom nav ── */
     .bottom-nav {
@@ -349,9 +340,7 @@ export class AppComponent {
 
   isMoreActive = computed(() => MORE_NAV.some(item => this.currentUrl().startsWith(item.path)));
 
-  pinned   = signal(localStorage.getItem('nav-pinned') === 'true');
-  hovered  = signal(false);
-  sidebarExpanded = computed(() => this.pinned() || this.hovered());
+  expanded = signal(localStorage.getItem('nav-expanded') === 'true');
 
   moreOpen = signal(false);
   isMobile = signal(false);
@@ -367,9 +356,9 @@ export class AppComponent {
   @HostListener('window:resize')
   checkMobile() { this.isMobile.set(window.innerWidth < 768); }
 
-  togglePin() {
-    const next = !this.pinned();
-    this.pinned.set(next);
-    localStorage.setItem('nav-pinned', String(next));
+  toggleExpanded() {
+    const next = !this.expanded();
+    this.expanded.set(next);
+    localStorage.setItem('nav-expanded', String(next));
   }
 }

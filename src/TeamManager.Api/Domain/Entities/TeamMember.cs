@@ -11,6 +11,7 @@ public class TeamMember
     public MemberRole Role { get; set; }
     public Guid? TeamLeadId { get; set; }
     public List<string> Crafts { get; set; } = [];
+    public string? ExternalSubjectId { get; set; }
     public bool IsActive { get; set; } = true;
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
     public DateOnly? BirthDate { get; set; }
@@ -22,4 +23,5 @@ public class TeamMember
     public ICollection<LeaveRecord> LeaveRecords { get; set; } = [];
     public ICollection<MemberAchievement> Achievements { get; set; } = [];
     public ICollection<PointAward> PointAwards { get; set; } = [];
+    public ICollection<SquadMember> SquadMemberships { get; set; } = [];
 }

@@ -7,5 +7,6 @@ public record CreateDiscussionPointRequest(
     [MaxLength(2000)] string? Notes,
     [Required][MaxLength(50)] string Status,
     [Required][MaxLength(50)] string Priority,
-    Guid? SprintId
+    DateOnly? StartDate,
+    DateOnly? TargetDate
 );

@@ -1,7 +1,8 @@
 import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, Validators, FormsModule } from '@angular/forms';
-import { MatDialogModule, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
+import { MatDialogModule, MatDialogRef, MatDialog, MAT_DIALOG_DATA } from '@angular/material/dialog';
+import { CarryOverDialogComponent } from '../../sprints/carry-over-dialog/carry-over-dialog.component';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
@@ -20,7 +21,7 @@ const NEW_FEATURE_KEY = '__new__';
   selector: 'app-work-item-form',
   standalone: true,
   imports: [CommonModule, ReactiveFormsModule, FormsModule, MatDialogModule, MatFormFieldModule,
-    MatInputModule, MatSelectModule, MatButtonModule, MatIconModule, MatDividerModule, CommentsComponent],
+    MatInputModule, MatSelectModule, MatButtonModule, MatIconModule, MatDividerModule, CommentsComponent, CarryOverDialogComponent],
   template: `
     <h2 mat-dialog-title>{{ data.workItem ? 'Edit task' : 'Add task' }}</h2>
     <mat-dialog-content>
@@ -122,8 +123,14 @@ const NEW_FEATURE_KEY = '__new__';
         <app-comments entityType="WorkItem" [entityId]="data.workItem.id"></app-comments>
       }
     </mat-dialog-content>
-    <mat-dialog-actions align="end">
+    <mat-dialog-actions>
       <button mat-button mat-dialog-close>Cancel</button>
+      @if (data.workItem && data.sprintId) {
+        <button mat-stroked-button (click)="carryOver()" matTooltip="Copy to another sprint as Planned">
+          <mat-icon>move_down</mat-icon> Carry Over
+        </button>
+      }
+      <span style="flex:1"></span>
       <button mat-raised-button color="primary" (click)="save()"
               [disabled]="form.invalid || (creatingFeature() && !newFeatureTitle.trim()) || saving()">
         {{ saving() ? 'Saving…' : 'Save' }}
@@ -138,6 +145,7 @@ export class WorkItemFormComponent implements OnInit {
   private svc = inject(WorkItemService);
   private featureSvc = inject(FeatureService);
   private dialogRef = inject(MatDialogRef<WorkItemFormComponent>);
+  private dialog = inject(MatDialog);
   data: { sprintId?: string; sprintMemberId: string; workItem?: WorkItem; features?: Feature[]; memberCrafts?: string[] } = inject(MAT_DIALOG_DATA);
 
   selectedFeatureId: string | null = null;
@@ -174,6 +182,14 @@ export class WorkItemFormComponent implements OnInit {
     } else {
       this.creatingFeature.set(false);
     }
+  }
+
+  carryOver() {
+    if (!this.data.workItem || !this.data.sprintId) return;
+    this.dialog.open(CarryOverDialogComponent, {
+      width: '400px',
+      data: { workItem: this.data.workItem, currentSprintId: this.data.sprintId }
+    }).afterClosed().subscribe(done => { if (done) this.dialogRef.close(true); });
   }
 
   save() {

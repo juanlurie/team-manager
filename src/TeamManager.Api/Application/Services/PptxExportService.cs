@@ -23,6 +23,7 @@ public class PptxExportService : IPptxExportService
         ["{{LEAVE_SUMMARY}}"] = (m, _) => BuildLeaveSummary(m),
         ["{{LEAVE_DATES}}"] = (m, _) => BuildLeaveDates(m),
         ["{{LEAVE_DAYS_TOTAL}}"] = (m, _) => m.LeaveRecords.Sum(l => l.DaysCount).ToString("0.#"),
+        ["{{MEMBER_SQUADS}}"] = (m, _) => m.SquadNames.Count > 0 ? string.Join(", ", m.SquadNames) : "",
     };
 
     private static readonly Dictionary<string, Func<MemberSprintCardDto, IEnumerable<string>>> ListPlaceholders = new()

@@ -43,6 +43,13 @@ mat-sidenav-content {
 .error-snackbar .mdc-snackbar__surface { background: #c62828 !important; }
 .error-snackbar .mdc-snackbar__label { color: #fff !important; }
 
+/* Prevent iOS Safari auto-zoom on input focus (triggers when font-size < 16px) */
+@media (max-width: 767px) {
+  input, select, textarea {
+    font-size: 16px !important;
+  }
+}
+
 /* Dialogs full-width on mobile */
 @media (max-width: 599px) {
   .mat-mdc-dialog-container {

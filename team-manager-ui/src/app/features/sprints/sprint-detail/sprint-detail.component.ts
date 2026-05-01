@@ -52,8 +52,8 @@ import { SprintVotePanelComponent } from '../sprint-vote-panel/sprint-vote-panel
             </div>
           }
         </div>
-        <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
-          <mat-form-field appearance="outline" style="width:160px" subscriptSizing="dynamic">
+        <div class="hdr-controls">
+          <mat-form-field appearance="outline" class="hdr-select" subscriptSizing="dynamic">
             <mat-label>Team lead</mat-label>
             <mat-select [(ngModel)]="selectedTeamLeadId" (ngModelChange)="load()">
               <mat-option value="">All</mat-option>
@@ -85,12 +85,11 @@ import { SprintVotePanelComponent } from '../sprint-vote-panel/sprint-vote-panel
         <!-- ── Members ── -->
         <mat-tab>
           <ng-template mat-tab-label>
-            <mat-icon style="font-size:16px;width:16px;height:16px;line-height:16px;margin-right:6px">group</mat-icon>
+            <mat-icon class="tab-icon">group</mat-icon>
             Members
           </ng-template>
           <div style="padding-top:16px">
             @if ((dashboard?.members?.length ?? 0) > 0) {
-              <app-sprint-workload-summary [members]="dashboard!.members" [sprint]="dashboard!.sprint"></app-sprint-workload-summary>
               <!-- Member search -->
               <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
                 <div style="position:relative;flex:1;max-width:280px">
@@ -111,7 +110,7 @@ import { SprintVotePanelComponent } from '../sprint-vote-panel/sprint-vote-panel
                 }
               </div>
             }
-            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,320px),1fr));gap:12px">
+            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,380px),1fr));gap:14px">
               @for (member of filteredMembers; track member.sprintMemberId) {
                 <app-sprint-member-card
                   [member]="member"
@@ -125,10 +124,23 @@ import { SprintVotePanelComponent } from '../sprint-vote-panel/sprint-vote-panel
           </div>
         </mat-tab>
 
+        <!-- ── Workload ── -->
+        <mat-tab>
+          <ng-template mat-tab-label>
+            <mat-icon class="tab-icon">bar_chart</mat-icon>
+            Workload
+          </ng-template>
+          <div style="padding-top:16px">
+            @if (dashboard) {
+              <app-sprint-workload-summary [members]="dashboard.members" [sprint]="dashboard.sprint"></app-sprint-workload-summary>
+            }
+          </div>
+        </mat-tab>
+
         <!-- ── Retrospective ── -->
         <mat-tab>
           <ng-template mat-tab-label>
-            <mat-icon style="font-size:16px;width:16px;height:16px;line-height:16px;margin-right:6px">rate_review</mat-icon>
+            <mat-icon class="tab-icon">rate_review</mat-icon>
             Retro
           </ng-template>
           <div style="padding-top:16px">
@@ -141,7 +153,7 @@ import { SprintVotePanelComponent } from '../sprint-vote-panel/sprint-vote-panel
         <!-- ── MVP Vote ── -->
         <mat-tab>
           <ng-template mat-tab-label>
-            <mat-icon style="font-size:16px;width:16px;height:16px;line-height:16px;margin-right:6px">emoji_events</mat-icon>
+            <mat-icon class="tab-icon">emoji_events</mat-icon>
             Vote
           </ng-template>
           <div style="padding-top:16px">
@@ -154,7 +166,21 @@ import { SprintVotePanelComponent } from '../sprint-vote-panel/sprint-vote-panel
 
       </mat-tab-group>
     }
-  `
+  `,
+  styles: [`
+    .tab-icon {
+      font-size: 18px; width: 18px; height: 18px; line-height: 18px;
+      margin-right: 6px; vertical-align: middle;
+    }
+    .hdr-controls {
+      display: flex; align-items: center; gap: 8px; flex-shrink: 0; flex-wrap: wrap;
+    }
+    .hdr-select { width: 160px; }
+    @media (max-width: 767px) {
+      .hdr-controls { width: 100%; flex-shrink: 1; }
+      .hdr-select { flex: 1; min-width: 120px; width: auto; }
+    }
+  `]
 })
 export class SprintDetailComponent implements OnInit {
   private route = inject(ActivatedRoute);
@@ -206,8 +232,9 @@ export class SprintDetailComponent implements OnInit {
     const members = this.dashboard?.members ?? [];
     if (!members.length) return;
     const ref = this.dialog.open(RapidFireDialogComponent, {
-      width: '500px',
-      maxWidth: '100vw',
+      width: '95vw',
+      maxWidth: '1100px',
+      height: '92vh',
       data: { sprintId: this.sprintId, members, features: this.dashboard?.features ?? [] }
     });
     ref.afterClosed().subscribe(() => this.load());

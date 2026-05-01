@@ -1,4 +1,5 @@
 using TeamManager.Api.Application.DTOs.Achievement;
+using TeamManager.Api.Application.DTOs.Squad;
 
 namespace TeamManager.Api.Application.DTOs.TeamMember;
 
@@ -17,4 +18,5 @@ public record TeamMemberDto
     public DateOnly? BirthDate { get; init; }
     public DateOnly? JoinDate { get; init; }
     public IReadOnlyList<BadgeDto> Achievements { get; init; } = [];
+    public IReadOnlyList<SquadSummaryDto> Squads { get; init; } = [];
 }

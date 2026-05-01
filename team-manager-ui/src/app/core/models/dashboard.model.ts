@@ -14,6 +14,7 @@ export interface MemberSprintCard {
   capacity: number | null;
   workItems: WorkItem[];
   leaveRecords: LeaveRecord[];
+  squadNames: string[];
 }
 
 export interface SprintDashboard {

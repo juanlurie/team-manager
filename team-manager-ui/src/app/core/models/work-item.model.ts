@@ -16,6 +16,7 @@ export interface WorkItem {
   completedDate: string | null;
   blockedAt: string | null;
   blockedReason: string | null;
+  commentCount: number;
 }
 
 export interface CreateWorkItemRequest {

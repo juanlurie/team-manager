@@ -2,6 +2,14 @@ TEAM MANAGER — BACKLOG
 ======================
 
 == PENDING ==
+[ ] Timesheets
+    - Should allow export as excel. I've added a file called TimeSheetUpload.xlsx to the root. That is how it should export.
+    - The categories it allows are in that file. There a main category and a sub category.
+    - I want common things to be button clicks for the day. 
+    - I want to be able to select which days are work from office days and allow override.
+    - Intention of this is to capture time easily. then export the file at end of month.
+    - Eventually I want to be able to capture from telegram but as a webhook in this project
+
 [x] Sprint MVP vote
     - Vote panel on sprint detail: each member row has a select to nominate a teammate
     - Live tally bar chart shows vote counts per member

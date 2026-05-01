@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using TeamManager.Api.Application.DTOs.Achievement;
+using TeamManager.Api.Application.DTOs.Squad;
 using TeamManager.Api.Application.DTOs.TeamMember;
 using TeamManager.Api.Application.Services.Interfaces;
 using TeamManager.Api.Domain.Entities;
@@ -15,6 +16,7 @@ public class TeamMemberService(AppDbContext db) : ITeamMemberService
         var query = db.TeamMembers
             .Include(m => m.TeamLead)
             .Include(m => m.Achievements).ThenInclude(a => a.Achievement)
+            .Include(m => m.SquadMemberships).ThenInclude(sm => sm.Squad)
             .AsQueryable();
 
         if (role is not null && Enum.TryParse<MemberRole>(role, true, out var parsedRole))
@@ -35,6 +37,7 @@ public class TeamMemberService(AppDbContext db) : ITeamMemberService
         var member = await db.TeamMembers
             .Include(m => m.TeamLead)
             .Include(m => m.Achievements).ThenInclude(a => a.Achievement)
+            .Include(m => m.SquadMemberships).ThenInclude(sm => sm.Squad)
             .FirstOrDefaultAsync(m => m.Id == id);
         return member is null ? null : ToDto(member);
     }
@@ -105,6 +108,14 @@ public class TeamMemberService(AppDbContext db) : ITeamMemberService
             Icon = a.Achievement.Icon,
             Name = a.Achievement.Name,
             Category = a.Achievement.Category
-        }).ToList()
+        }).ToList(),
+        Squads = m.SquadMemberships
+            .OrderBy(sm => sm.Squad?.Name)
+            .Select(sm => new SquadSummaryDto
+            {
+                Id = sm.Squad.Id,
+                Name = sm.Squad.Name,
+                Color = sm.Squad.Color
+            }).ToList()
     };
 }

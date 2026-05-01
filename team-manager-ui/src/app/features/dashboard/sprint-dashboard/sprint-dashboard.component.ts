@@ -13,14 +13,19 @@ import { SprintSummary, Blocker } from '../../../core/models/dashboard.model';
 import { Feature } from '../../../core/models/feature.model';
 import { LeaveRecord } from '../../../core/models/leave-record.model';
 import { TeamMember } from '../../../core/models/team-member.model';
+import { DiscussionPoint } from '../../../core/models/discussion-point.model';
+import { RetroAction } from '../../../core/models/retro-action.model';
 import { SprintService } from '../../../core/services/sprint.service';
 import { DashboardService } from '../../../core/services/dashboard.service';
 import { FeatureService } from '../../../core/services/feature.service';
 import { LeaveService } from '../../../core/services/leave.service';
 import { TeamMemberService } from '../../../core/services/team-member.service';
+import { DiscussionPointService } from '../../../core/services/discussion-point.service';
+import { RetroActionService } from '../../../core/services/retro-action.service';
 import { WorkItemFormComponent } from '../work-item-form/work-item-form.component';
 import { WorkItemService } from '../../../core/services/work-item.service';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatTooltipModule } from '@angular/material/tooltip';
 
 const STATUS_ORDER  = ['Released', 'ReadyForRelease', 'InProgress', 'Completed', 'Planned'] as const;
 const STATUS_LABEL: Record<string, string> = {
@@ -36,12 +41,17 @@ const STATUS_COLOR: Record<string, string> = {
   selector: 'app-sprint-dashboard',
   standalone: true,
   imports: [CommonModule, RouterLink, FormsModule, MatButtonModule,
-    MatSelectModule, MatFormFieldModule, MatIconModule, MatDialogModule, MatProgressSpinnerModule],
+    MatSelectModule, MatFormFieldModule, MatIconModule, MatDialogModule, MatProgressSpinnerModule,
+    MatTooltipModule],
   styles: [`
     .stat-card { transition:filter 0.15s; }
     .stat-card:hover { filter:brightness(1.25); }
     .blocker-row { background:rgba(239,83,80,0.07);transition:background 0.15s; }
     .blocker-row:hover { background:rgba(239,83,80,0.12); }
+    .discussion-row { background:rgba(121,134,203,0.05);transition:background 0.15s; }
+    .discussion-row:hover { background:rgba(121,134,203,0.1); }
+    .retro-row { background:rgba(100,181,246,0.04);transition:background 0.15s; }
+    .retro-row:hover { background:rgba(100,181,246,0.09); }
   `],
   template: `
     <!-- Header row -->
@@ -98,6 +108,133 @@ const STATUS_COLOR: Record<string, string> = {
           </a>
         }
       </div>
+
+      <!-- Sprint progress bar -->
+      @if (sprintProgress() && sprintProgress()!.total > 0) {
+        <div style="margin-bottom:24px;padding:14px 18px;border-radius:10px;
+                    background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08)">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+            <mat-icon style="font-size:16px;width:16px;height:16px;line-height:16px;opacity:0.5">speed</mat-icon>
+            <span style="font-size:0.75rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;opacity:0.5">
+              Sprint Progress
+            </span>
+            <span style="margin-left:auto;font-size:0.78rem;opacity:0.6">
+              {{ sprintProgress()!.done }} / {{ sprintProgress()!.total }} done
+              <span style="opacity:0.6">({{ sprintProgress()!.pct }}%)</span>
+            </span>
+          </div>
+          <div style="height:6px;border-radius:3px;background:rgba(255,255,255,0.08);overflow:hidden">
+            <div style="height:100%;border-radius:3px;background:linear-gradient(90deg,#4caf50,#81c784);transition:width 0.4s"
+                 [style.width]="sprintProgress()!.pct + '%'"></div>
+          </div>
+        </div>
+      }
+
+      <!-- Discussion points -->
+      <div style="margin-bottom:28px">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+          <mat-icon style="color:#7986cb;font-size:18px;width:18px;height:18px;line-height:18px">forum</mat-icon>
+          <span style="font-size:0.8rem;font-weight:700;color:#7986cb;text-transform:uppercase;letter-spacing:0.07em">
+            Discussions
+            @if (openDiscussions().length > 0) { ({{ openDiscussions().length }}) }
+          </span>
+          <a routerLink="/discussion" style="margin-left:auto;font-size:0.72rem;opacity:0.4;text-decoration:none;
+                                             display:flex;align-items:center;gap:2px">
+            View all <mat-icon style="font-size:12px;width:12px;height:12px;line-height:12px">open_in_new</mat-icon>
+          </a>
+        </div>
+
+        @if (openDiscussions().length === 0) {
+          <div style="display:flex;align-items:center;gap:8px;padding:12px 16px;border-radius:10px;
+                      background:rgba(121,134,203,0.05);border:1px solid rgba(121,134,203,0.15)">
+            <mat-icon style="color:#7986cb;font-size:16px;width:16px;height:16px;line-height:16px;opacity:0.5">check_circle</mat-icon>
+            <span style="font-size:0.85rem;opacity:0.45">No open discussions for this sprint</span>
+          </div>
+        } @else {
+          <div style="display:flex;flex-direction:column;gap:6px">
+            @for (d of openDiscussions(); track d.id) {
+              <a routerLink="/discussion" class="discussion-row"
+                 style="display:flex;align-items:center;gap:12px;padding:11px 16px;border-radius:10px;
+                        border:1px solid rgba(121,134,203,0.15);cursor:pointer;text-decoration:none">
+                <!-- Priority dot -->
+                <span style="width:8px;height:8px;border-radius:50%;flex-shrink:0"
+                      [style.background]="discussionPriorityColor(d.priority)"></span>
+                <!-- Title -->
+                <span style="flex:1;font-size:0.88rem;font-weight:500;overflow:hidden;
+                             text-overflow:ellipsis;white-space:nowrap;color:inherit">{{ d.title }}</span>
+                <!-- Status badge -->
+                <span style="font-size:0.68rem;font-weight:600;border-radius:8px;padding:2px 8px;flex-shrink:0"
+                      [style.background]="d.status === 'InProgress' ? 'rgba(33,150,243,0.15)' : 'rgba(255,255,255,0.08)'"
+                      [style.color]="d.status === 'InProgress' ? '#2196f3' : 'rgba(255,255,255,0.45)'">
+                  {{ d.status === 'InProgress' ? 'In Progress' : d.status }}
+                </span>
+                <mat-icon style="font-size:16px;width:16px;height:16px;line-height:16px;opacity:0.3;flex-shrink:0">chevron_right</mat-icon>
+              </a>
+            }
+          </div>
+        }
+      </div>
+
+      <!-- Retro Action Items -->
+      @if (pendingRetroActions().length > 0) {
+        <div style="margin-bottom:28px">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+            <mat-icon style="color:#64b5f6;font-size:18px;width:18px;height:18px;line-height:18px">task_alt</mat-icon>
+            <span style="font-size:0.8rem;font-weight:700;color:#64b5f6;text-transform:uppercase;letter-spacing:0.07em">
+              Retro Actions ({{ pendingRetroActions().length }})
+            </span>
+            <a [routerLink]="['/sprints', selectedSprintId]" [fragment]="'retro'"
+               style="margin-left:auto;font-size:0.72rem;opacity:0.4;text-decoration:none;display:flex;align-items:center;gap:2px">
+              View retro <mat-icon style="font-size:12px;width:12px;height:12px;line-height:12px">open_in_new</mat-icon>
+            </a>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:6px">
+            @for (a of pendingRetroActions(); track a.id) {
+              <div class="retro-row"
+                   style="display:flex;align-items:center;gap:12px;padding:11px 16px;border-radius:10px;
+                          border:1px solid rgba(100,181,246,0.15)">
+                <!-- Status dot -->
+                <span style="width:8px;height:8px;border-radius:50%;flex-shrink:0"
+                      [style.background]="retroStatusColor(a.status)"></span>
+                <!-- Content -->
+                <div style="flex:1;min-width:0">
+                  <div style="font-size:0.88rem;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+                    {{ a.title }}
+                  </div>
+                  @if (a.assignedTo || a.dueDate) {
+                    <div style="font-size:0.72rem;opacity:0.4;margin-top:2px;display:flex;gap:8px">
+                      @if (a.assignedTo) { <span>{{ a.assignedTo }}</span> }
+                      @if (a.dueDate) {
+                        <span [style.color]="isRetroOverdue(a) ? '#ef9a9a' : 'inherit'"
+                              [style.opacity]="isRetroOverdue(a) ? '0.85' : 'inherit'">
+                          {{ fmtDate(a.dueDate) }}{{ isRetroOverdue(a) ? ' ⚠' : '' }}
+                        </span>
+                      }
+                    </div>
+                  }
+                </div>
+                <!-- Status badge -->
+                <span style="font-size:0.68rem;font-weight:600;border-radius:8px;padding:2px 8px;flex-shrink:0"
+                      [style.background]="a.status === 'InProgress' ? 'rgba(100,181,246,0.15)' : 'rgba(255,255,255,0.07)'"
+                      [style.color]="a.status === 'InProgress' ? '#64b5f6' : 'rgba(255,255,255,0.4)'">
+                  {{ a.status === 'InProgress' ? 'In Progress' : 'Open' }}
+                </span>
+                <!-- Promote button -->
+                <button mat-icon-button
+                        style="width:30px;height:30px;line-height:30px;flex-shrink:0"
+                        [matTooltip]="promotingId() === a.id ? 'Promoted!' : 'Promote to Discussion'"
+                        [disabled]="promotingId() === a.id"
+                        (click)="promoteToDiscussion(a)">
+                  <mat-icon style="font-size:16px;width:16px;height:16px;line-height:16px"
+                            [style.color]="promotingId() === a.id ? '#81c784' : '#7986cb'">
+                    {{ promotingId() === a.id ? 'check_circle' : 'move_up' }}
+                  </mat-icon>
+                </button>
+              </div>
+            }
+          </div>
+        </div>
+      }
 
       <!-- PI Progress -->
       @if (selectedSprint()?.piId && piFeatures().length > 0) {
@@ -158,24 +295,31 @@ const STATUS_COLOR: Record<string, string> = {
         </div>
       }
 
-      <!-- Today & tomorrow leave -->
-      @if (todayLeave().length > 0 || tomorrowLeave().length > 0) {
+      <!-- Next 7 days leave -->
+      @if (leaveByDay().length > 0) {
         <div style="margin-bottom:28px;padding:14px 18px;border-radius:10px;
                     background:rgba(206,147,216,0.06);border:1px solid rgba(206,147,216,0.18)">
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
             <mat-icon style="font-size:16px;width:16px;height:16px;line-height:16px;color:#ce93d8">beach_access</mat-icon>
             <span style="font-size:0.75rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:#ce93d8">On Leave</span>
           </div>
-          @if (todayLeave().length > 0) {
-            <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:6px">
-              <span style="font-size:0.7rem;font-weight:600;opacity:0.45;width:56px;flex-shrink:0">Today</span>
-              <span style="font-size:0.82rem">{{ namesOf(todayLeave()) }}</span>
-            </div>
-          }
-          @if (tomorrowLeave().length > 0) {
-            <div style="display:flex;align-items:baseline;gap:8px">
-              <span style="font-size:0.7rem;font-weight:600;opacity:0.45;width:56px;flex-shrink:0">Tomorrow</span>
-              <span style="font-size:0.82rem">{{ namesOf(tomorrowLeave()) }}</span>
+          @for (group of leaveByDay(); track group.label; let last = $last) {
+            <div [style.margin-bottom]="last ? '0' : '10px'">
+              <div style="font-size:0.7rem;font-weight:600;opacity:0.45;margin-bottom:4px">{{ group.label }}</div>
+              @for (r of group.records; track r.id) {
+                <div style="display:flex;align-items:center;gap:8px;padding:3px 0">
+                  <a [routerLink]="['/sprints', selectedSprintId]"
+                     style="font-size:0.82rem;flex:1;color:inherit;text-decoration:none;transition:opacity 0.15s"
+                     onmouseover="this.style.opacity='0.7'" onmouseout="this.style.opacity='1'">
+                    {{ r.memberName }}
+                  </a>
+                  <span style="font-size:0.75rem;opacity:0.5">
+                    {{ r.startDate | date:'d MMM' }}
+                    @if (r.startDate !== r.endDate) { – {{ r.endDate | date:'d MMM' }} }
+                  </span>
+                  <span style="font-size:0.72rem;opacity:0.35">{{ r.daysCount }}d</span>
+                </div>
+              }
             </div>
           }
         </div>
@@ -243,14 +387,16 @@ const STATUS_COLOR: Record<string, string> = {
   `
 })
 export class SprintDashboardComponent implements OnInit {
-  private sprintSvc   = inject(SprintService);
-  private dashSvc     = inject(DashboardService);
-  private featureSvc  = inject(FeatureService);
-  private leaveSvc    = inject(LeaveService);
-  private memberSvc   = inject(TeamMemberService);
-  private workItemSvc = inject(WorkItemService);
-  private dialog      = inject(MatDialog);
-  private router      = inject(Router);
+  private sprintSvc      = inject(SprintService);
+  private dashSvc        = inject(DashboardService);
+  private featureSvc     = inject(FeatureService);
+  private leaveSvc       = inject(LeaveService);
+  private memberSvc      = inject(TeamMemberService);
+  private workItemSvc    = inject(WorkItemService);
+  private discussionSvc  = inject(DiscussionPointService);
+  private retroActionSvc = inject(RetroActionService);
+  private dialog         = inject(MatDialog);
+  private router         = inject(Router);
 
   readonly statusOrder = STATUS_ORDER;
 
@@ -261,21 +407,55 @@ export class SprintDashboardComponent implements OnInit {
   piFeatures   = signal<Feature[]>([]);
   leaveWindow  = signal<LeaveRecord[]>([]);
   allMembers   = signal<TeamMember[]>([]);
+  discussions  = signal<DiscussionPoint[]>([]);
+  retroActions = signal<RetroAction[]>([]);
+  promotingId  = signal<string | null>(null);
   selectedSprintId = '';
 
   selectedSprint = computed(() => this.sprints().find(s => s.id === this.selectedSprintId) ?? null);
 
-  todayLeave = computed(() => {
-    const today = this.todayStr();
-    return this.leaveWindow().filter(r => r.startDate <= today && r.endDate >= today);
-  });
-
-  tomorrowLeave = computed(() => {
-    const tom = this.tomorrowStr();
-    return this.leaveWindow().filter(r => r.startDate <= tom && r.endDate >= tom);
+  leaveByDay = computed(() => {
+    const today    = this.todayStr();
+    const tomorrow = this.tomorrowStr();
+    const groups: { label: string; records: LeaveRecord[] }[] = [];
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(); d.setDate(d.getDate() + i);
+      const dateStr = d.toISOString().slice(0, 10);
+      const records = this.leaveWindow().filter(r => r.startDate <= dateStr && r.endDate >= dateStr);
+      if (!records.length) continue;
+      const label = dateStr === today ? 'Today'
+                  : dateStr === tomorrow ? 'Tomorrow'
+                  : d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+      groups.push({ label, records });
+    }
+    return groups;
   });
 
   piCount = (status: string) => this.piFeatures().filter(f => f.status === status).length;
+
+  openDiscussions = computed(() => {
+    const order: Record<string, number> = { High: 0, Medium: 1, Low: 2 };
+    return this.discussions()
+      .filter(d => d.status === 'Open' || d.status === 'InProgress')
+      .sort((a, b) => (order[a.priority] ?? 1) - (order[b.priority] ?? 1));
+  });
+
+  pendingRetroActions = computed(() =>
+    this.retroActions().filter(a => a.status === 'Open' || a.status === 'InProgress')
+  );
+
+  sprintProgress = computed(() => {
+    const s = this.summary();
+    if (!s) return null;
+    const total = s.plannedCount + s.inProgressCount + s.blockedCount + s.completedCount;
+    const done  = s.completedCount;
+    return { done, total, pct: total ? Math.round((done / total) * 100) : 0 };
+  });
+
+  discussionPriorityColor(priority: string): string {
+    const map: Record<string, string> = { High: '#ef5350', Medium: '#ffb74d', Low: '#9e9e9e' };
+    return map[priority] ?? '#9e9e9e';
+  }
 
   piDonePercent = computed(() => {
     const total = this.piFeatures().length;
@@ -323,12 +503,13 @@ export class SprintDashboardComponent implements OnInit {
     this.loading.set(true);
     const sprint = this.sprints().find(s => s.id === this.selectedSprintId);
     const today    = this.todayStr();
-    const tomorrow = this.tomorrowStr();
+    const in7days  = (() => { const d = new Date(); d.setDate(d.getDate() + 6); return d.toISOString().slice(0, 10); })();
 
     const requests: Record<string, any> = {
-      summary:  this.dashSvc.getSprintSummary(this.selectedSprintId),
-      blockers: this.dashSvc.getBlockers(this.selectedSprintId),
-      leave:    this.leaveSvc.getAll({ from: today, to: tomorrow }),
+      summary:     this.dashSvc.getSprintSummary(this.selectedSprintId),
+      blockers:    this.dashSvc.getBlockers(this.selectedSprintId),
+      leave:       this.leaveSvc.getAll({ from: today, to: in7days }),
+      discussions: this.discussionSvc.getAll(),
     };
     if (sprint?.piId) {
       requests['piFeatures'] = this.featureSvc.getAllAcrossSprints({ piId: sprint.piId });
@@ -338,6 +519,7 @@ export class SprintDashboardComponent implements OnInit {
       this.summary.set(res['summary']);
       this.blockers.set(res['blockers']);
       this.leaveWindow.set(res['leave'] ?? []);
+      this.discussions.set(res['discussions'] ?? []);
       this.piFeatures.set(res['piFeatures'] ?? []);
       this.loading.set(false);
     });

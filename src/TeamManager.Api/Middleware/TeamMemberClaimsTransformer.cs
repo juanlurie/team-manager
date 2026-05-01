@@ -1,7 +1,7 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authentication;
+using Microsoft.EntityFrameworkCore;
 using TeamManager.Api.Infrastructure.Data;
-using TeamManager.Api.Infrastructure.Models;
 
 namespace TeamManager.Api.Middleware;
 

@@ -22,6 +22,40 @@ namespace TeamManager.Api.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.Invitation", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<DateTime?>("AcceptedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<string>("ExternalSubjectId")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<string>("Role")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("SentAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Email")
+                        .IsUnique();
+
+                    b.ToTable("Invitations");
+                });
+
             modelBuilder.Entity("TeamManager.Api.Domain.Entities.DiscussionPoint", b =>
                 {
                     b.Property<Guid>("Id")
@@ -40,13 +74,16 @@ namespace TeamManager.Api.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)");
 
-                    b.Property<Guid?>("SprintId")
-                        .HasColumnType("uuid");
+                    b.Property<DateOnly?>("StartDate")
+                        .HasColumnType("date");
 
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)");
+
+                    b.Property<DateOnly?>("TargetDate")
+                        .HasColumnType("date");
 
                     b.Property<string>("Title")
                         .IsRequired()
@@ -59,6 +96,49 @@ namespace TeamManager.Api.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("DiscussionPoints");
+                });
+
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.RetroAction", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<string>("AssignedTo")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateOnly?>("DueDate")
+                        .HasColumnType("date");
+
+                    b.Property<string>("Notes")
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("SprintId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SprintId");
+
+                    b.ToTable("RetroActions");
                 });
 
             modelBuilder.Entity("TeamManager.Api.Domain.Entities.Feature", b =>
@@ -258,6 +338,10 @@ namespace TeamManager.Api.Migrations
                         .HasMaxLength(255)
                         .HasColumnType("character varying(255)");
 
+                    b.Property<string>("ExternalSubjectId")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
                     b.Property<string>("FirstName")
                         .IsRequired()
                         .HasMaxLength(100)
@@ -349,6 +433,59 @@ namespace TeamManager.Api.Migrations
                     b.HasIndex("SprintMemberId");
 
                     b.ToTable("WorkItems");
+                });
+
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.Squad", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<string>("Color")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Squads");
+                });
+
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.SquadMember", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<Guid>("SquadId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("TeamMemberId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TeamMemberId");
+
+                    b.HasIndex("SquadId", "TeamMemberId")
+                        .IsUnique();
+
+                    b.ToTable("SquadMembers");
+                });
+
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.RetroAction", b =>
+                {
+                    b.HasOne("TeamManager.Api.Domain.Entities.Sprint", null)
+                        .WithMany()
+                        .HasForeignKey("SprintId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("TeamManager.Api.Domain.Entities.Feature", b =>
@@ -452,6 +589,29 @@ namespace TeamManager.Api.Migrations
                     b.Navigation("WorkItems");
                 });
 
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.SquadMember", b =>
+                {
+                    b.HasOne("TeamManager.Api.Domain.Entities.Squad", "Squad")
+                        .WithMany("Members")
+                        .HasForeignKey("SquadId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("TeamManager.Api.Domain.Entities.TeamMember", "TeamMember")
+                        .WithMany("SquadMemberships")
+                        .HasForeignKey("TeamMemberId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Squad");
+                    b.Navigation("TeamMember");
+                });
+
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.Squad", b =>
+                {
+                    b.Navigation("Members");
+                });
+
             modelBuilder.Entity("TeamManager.Api.Domain.Entities.TeamMember", b =>
                 {
                     b.Navigation("DirectReports");
@@ -459,6 +619,8 @@ namespace TeamManager.Api.Migrations
                     b.Navigation("LeaveRecords");
 
                     b.Navigation("SprintMemberships");
+
+                    b.Navigation("SquadMemberships");
                 });
 
             modelBuilder.Entity("TeamManager.Api.Domain.Entities.Wheel", b =>
