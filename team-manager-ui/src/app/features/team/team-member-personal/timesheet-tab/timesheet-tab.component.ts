@@ -96,12 +96,12 @@ const DN = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
       .m-dnum { width:26px; height:26px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:500; }
       .m-dhrs { font-size:9px; color:rgba(255,255,255,0.28); }
       .m-day-btn.sel .m-dhrs { color:#64b5f6; }
-      .m-recents { flex-direction:column; padding:4px 12px 5px; flex-shrink:0; }
+      .m-recents { display:flex; flex-direction:column; padding:4px 12px 5px; flex-shrink:0; }
       .m-rec-lbl { font-size:10px; font-weight:700; color:rgba(255,255,255,0.28); text-transform:uppercase; letter-spacing:0.06em; margin-bottom:6px; }
       .m-rec-grid { display:grid; grid-template-columns:1fr 1fr; gap:5px; }
       .m-rec-card { padding:9px 10px; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.07); border-left:3px solid; border-radius:8px; cursor:pointer; transition:all 0.12s; }
       .m-rec-card:active { transform:scale(0.97); border-color:rgba(100,181,246,0.6); }
-      .m-add-bar { flex-direction:column; border-top:1px solid rgba(255,255,255,0.07); background:rgba(14,20,30,0.98); flex-shrink:0; }
+      .m-add-bar { display:flex; flex-direction:column; border-top:1px solid rgba(255,255,255,0.07); background:rgba(14,20,30,0.98); flex-shrink:0; }
       .m-add-trigger { display:flex; align-items:center; gap:10px; padding:12px 14px; cursor:pointer; }
       .m-add-icon { width:26px; height:26px; border-radius:50%; background:#64b5f6; display:flex; align-items:center; justify-content:center; color:#0f1923; font-size:18px; font-weight:700; flex-shrink:0; }
       .m-add-day { font-size:11px; color:rgba(255,255,255,0.28); margin-left:auto; }
