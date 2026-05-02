@@ -24,7 +24,7 @@ const DN = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
   styles: [`
     .ts-wrap { display:flex; flex-direction:column; height:calc(100vh - 228px); min-height:400px; }
     .ts-main { display:flex; flex:1; overflow:hidden; }
-    .ts-sidebar { width:210px; flex-shrink:0; border-right:1px solid rgba(255,255,255,0.07); overflow-y:auto; padding:14px 0; }
+    .ts-sidebar { width:260px; flex-shrink:0; border-right:1px solid rgba(255,255,255,0.07); overflow-y:auto; padding:14px 0; }
     .ts-sidebar::-webkit-scrollbar { width:3px; }
     .ts-sidebar::-webkit-scrollbar-thumb { background:rgba(255,255,255,0.1); border-radius:2px; }
     .ts-sb-hdr { display:flex; align-items:center; justify-content:space-between; padding:0 10px 10px; font-size:12px; font-weight:600; color:rgba(255,255,255,0.45); }
