@@ -106,3 +106,18 @@ export function minutesToDurationLabel(total: number): string {
   if (!m) return `${h}h`;
   return `${h}h ${m}m`;
 }
+
+export const PUBLIC_HOLIDAYS_2026 = [
+  '2026-01-01', // New Year's Day
+  '2026-03-23', // Human Rights Day observed
+  '2026-04-03', // Good Friday
+  '2026-04-06', // Family Day
+  '2026-04-27', // Freedom Day
+  '2026-05-01', // Workers' Day
+  '2026-06-16', // Youth Day
+  '2026-08-10', // National Women's Day observed
+  '2026-09-24', // Heritage Day
+  '2026-12-16', // Day of Reconciliation
+  '2026-12-25', // Christmas Day
+  '2026-12-28', // Day of Goodwill observed
+];
