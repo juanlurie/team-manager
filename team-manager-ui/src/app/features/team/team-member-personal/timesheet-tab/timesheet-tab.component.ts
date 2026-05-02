@@ -385,7 +385,13 @@ export class TimesheetTabComponent implements OnInit {
   addEntry() {
     if (!this.canAdd()) return;
     const req: CreateTimesheetEntryRequest = { date: this.selKey(), project: this.formProject(), category: this.formCategory(), hours: Math.floor(this.formDurMins() / 60), minutes: this.formDurMins() % 60, billable: false, workedFrom: 'Home', sentiment: 'Neutral', description: this.formNote(), ticketNumber: null };
-    this.svc.create(this.memberId(), req).subscribe({ next: () => { this.formNote.set(''); this.load(this.viewYear(), this.viewMonth()); } });
+    this.svc.create(this.memberId(), req).subscribe({ next: () => {
+      this.formProject.set('');
+      this.formCategory.set('');
+      this.formNote.set('');
+      this.formDurMins.set(60);
+      this.load(this.viewYear(), this.viewMonth());
+    } });
   }
 
   handleSave({ id, req }: { id: string; req: CreateTimesheetEntryRequest }) {
