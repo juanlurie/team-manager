@@ -7,7 +7,7 @@ import { TimesheetConfigService } from '../../../../core/services/timesheet-conf
 import { TimesheetEntry, CreateTimesheetEntryRequest } from '../../../../core/models/timesheet.model';
 import { TimesheetConfig, QuickActionConfig } from '../../../../core/models/timesheet-config.model';
 import {
-  ActivityCombo, ACTIVITY_COMBOS, DURATION_CHIPS, DURATION_CHIP_MINUTES,
+  ActivityCombo, ACTIVITY_COMBOS,
   TIMESHEET_PROJECTS, CATEGORIES_BY_PROJECT, minutesToDurationLabel,
 } from '../timesheet-data.constants';
 import { TimesheetEntryCardComponent } from '../timesheet-entry-card/timesheet-entry-card.component';
@@ -192,10 +192,12 @@ const DN = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
                   <button class="ts-chip" [class.sel]="formProject()===c.project&&formCategory()===c.category" (click)="applyCombo(c)">{{ c.label }}</button>
                 }
               </div>
-              <div class="ts-ap-durs">
-                @for (d of durChips; track d) {
-                  <button class="ts-dur-chip" [class.sel]="formDurMins()===chipMins[d]" (click)="formDurMins.set(chipMins[d])">{{ d }}</button>
-                }
+              <div class="ts-ap-durs" style="display: flex; align-items: center; gap: 3px;">
+                <span style="font-size: 12px; font-weight: 600; color: rgba(255,255,255,0.6); min-width: 40px; text-align: right; margin-right: 4px;">{{ fmtDur(formDurMins()) }}</span>
+                <button class="ts-dur-chip" (click)="adjustDuration(-60)">-1h</button>
+                <button class="ts-dur-chip" (click)="adjustDuration(-15)">-15m</button>
+                <button class="ts-dur-chip" (click)="adjustDuration(15)">+15m</button>
+                <button class="ts-dur-chip" (click)="adjustDuration(60)">+1h</button>
               </div>
             </div>
             <div class="ts-ap-r2">
@@ -240,7 +242,16 @@ const DN = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
                   <button (click)="mobileAddOpen.set(false)" style="background:none;border:none;color:rgba(255,255,255,0.4);cursor:pointer;font-size:20px;line-height:1">×</button>
                 </div>
                 <div><div class="m-form-lbl">Activity</div><div class="ts-chips">@for (c of activeQuickActions(); track c.label) { <button class="ts-chip" [class.sel]="formProject()===c.project&&formCategory()===c.category" (click)="applyCombo(c)">{{ c.label }}</button> }</div></div>
-                <div><div class="m-form-lbl">Duration</div><div class="ts-chips">@for (d of durChips; track d) { <button class="ts-dur-chip" [class.sel]="formDurMins()===chipMins[d]" (click)="formDurMins.set(chipMins[d])">{{ d }}</button> }</div></div>
+                <div>
+                  <div class="m-form-lbl">Duration</div>
+                  <div class="ts-chips" style="display:flex; align-items:center; gap:4px;">
+                    <span style="font-size:14px; color:rgba(255,255,255,0.8); font-weight:600; margin-right:8px;">{{ fmtDur(formDurMins()) }}</span>
+                    <button class="ts-dur-chip" (click)="adjustDuration(-60)">-1h</button>
+                    <button class="ts-dur-chip" (click)="adjustDuration(-15)">-15m</button>
+                    <button class="ts-dur-chip" (click)="adjustDuration(15)">+15m</button>
+                    <button class="ts-dur-chip" (click)="adjustDuration(60)">+1h</button>
+                  </div>
+                </div>
                 <select class="ts-sel" style="width:100%" [ngModel]="formProject()" (ngModelChange)="setFormProject($event)"><option value="">Select project…</option>@for (p of allProjects(); track p) { <option [value]="p">{{ p }}</option> }</select>
                 <select class="ts-sel" style="width:100%" [ngModel]="formCategory()" (ngModelChange)="formCategory.set($event)" [disabled]="!formProject()"><option value="">Select category…</option>@for (c of formCats(); track c) { <option [value]="c">{{ c }}</option> }</select>
                 <input class="ts-input" style="width:100%" placeholder="Note (required)" [ngModel]="formNote()" (ngModelChange)="formNote.set($event)" />
@@ -273,8 +284,6 @@ export class TimesheetTabComponent implements OnInit {
 
   tsConfig = signal<TimesheetConfig>({ extraProjects: [], extraCategories: {}, quickActions: [] });
 
-  readonly durChips = DURATION_CHIPS;
-  readonly chipMins = DURATION_CHIP_MINUTES;
   readonly fmtDur = minutesToDurationLabel;
 
   activeQuickActions = computed<QuickActionConfig[]>(() => {
@@ -385,6 +394,10 @@ export class TimesheetTabComponent implements OnInit {
     this.formCategory.set(c.category);
     if (c.note) this.formNote.set(c.note);
     if (c.durationMins) this.formDurMins.set(c.durationMins);
+  }
+
+  adjustDuration(minutes: number) {
+    this.formDurMins.update(current => Math.max(0, current + minutes));
   }
 
   setFormProject(p: string) { this.formProject.set(p); this.formCategory.set(''); }
