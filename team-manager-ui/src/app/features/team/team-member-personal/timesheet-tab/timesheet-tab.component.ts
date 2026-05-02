@@ -391,7 +391,17 @@ export class TimesheetTabComponent implements OnInit {
 
   addEntry() {
     if (!this.canAdd()) return;
-    const req: CreateTimesheetEntryRequest = { date: this.selKey(), project: this.formProject(), category: this.formCategory(), hours: Math.floor(this.formDurMins() / 60), minutes: this.formDurMins() % 60, billable: false, workedFrom: 'Home', sentiment: 'Neutral', description: this.formNote(), ticketNumber: null };
+    const config = this.tsConfig() as any;
+    const isBillable = (config.billableProjects ?? []).includes(this.formProject());
+
+    const dayName = this.selectedDate().toLocaleDateString('en-US', { weekday: 'long' });
+    let workedFrom = (config.workWeek ?? {})[dayName] ?? 'Home';
+    const appliedCombo = this.activeQuickActions().find(c => c.project === this.formProject() && c.category === this.formCategory()) as any;
+    if (appliedCombo && appliedCombo.workedFrom) {
+      workedFrom = appliedCombo.workedFrom;
+    }
+
+    const req: CreateTimesheetEntryRequest = { date: this.selKey(), project: this.formProject(), category: this.formCategory(), hours: Math.floor(this.formDurMins() / 60), minutes: this.formDurMins() % 60, billable: isBillable, workedFrom, sentiment: 'Neutral', description: this.formNote(), ticketNumber: null };
     this.svc.create(this.memberId(), req).subscribe({ next: () => {
       this.formProject.set('');
       this.formCategory.set('');
@@ -425,7 +435,16 @@ export class TimesheetTabComponent implements OnInit {
   setFormProject(p: string) { this.formProject.set(p); this.formCategory.set(''); }
 
   logRecent(r: Recent) {
-    const req: CreateTimesheetEntryRequest = { date: this.selKey(), project: r.project, category: r.category, hours: Math.floor(r.durationMins / 60), minutes: r.durationMins % 60, billable: false, workedFrom: 'Home', sentiment: 'Neutral', description: r.category, ticketNumber: null };
+    const config = this.tsConfig() as any;
+    const isBillable = (config.billableProjects ?? []).includes(r.project);
+
+    const dayName = this.selectedDate().toLocaleDateString('en-US', { weekday: 'long' });
+    let workedFrom = (config.workWeek ?? {})[dayName] ?? 'Home';
+    if (r.combo && (r.combo as any).workedFrom) {
+      workedFrom = (r.combo as any).workedFrom;
+    }
+
+    const req: CreateTimesheetEntryRequest = { date: this.selKey(), project: r.project, category: r.category, hours: Math.floor(r.durationMins / 60), minutes: r.durationMins % 60, billable: isBillable, workedFrom, sentiment: 'Neutral', description: r.category, ticketNumber: null };
     this.svc.create(this.memberId(), req).subscribe({ next: () => this.load(this.viewYear(), this.viewMonth()) });
   }
 

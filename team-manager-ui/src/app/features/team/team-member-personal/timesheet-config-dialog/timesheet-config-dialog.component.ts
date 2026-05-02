@@ -57,6 +57,7 @@ export interface TimesheetConfigDialogData {
     .add-row { display:flex; gap:7px; align-items:center; margin-top:8px; }
     .tag-list { display:flex; flex-wrap:wrap; gap:5px; margin-bottom:8px; }
     .tag { display:flex; align-items:center; gap:5px; padding:4px 8px 4px 10px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); border-radius:16px; font-size:12px; }
+    .tag.custom { background:rgba(100,181,246,0.08); border-color:rgba(100,181,246,0.25); }
     .tag-rm { background:none; border:none; cursor:pointer; color:rgba(255,255,255,0.3); font-size:14px; line-height:1; padding:0; }
     .tag-rm:hover { color:#ef5350; }
     .qa-card { background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.07); border-radius:8px; padding:12px 14px; margin-bottom:8px; }
@@ -86,7 +87,7 @@ export interface TimesheetConfigDialogData {
     .proj-sel-row { display:flex; gap:7px; align-items:center; margin-bottom:10px; }
     .proj-list { display:flex; flex-direction:column; gap:8px; margin-bottom:12px; }
     .proj-row { display:flex; align-items:center; justify-content:space-between; padding:8px 12px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.07); border-radius:6px; }
-    .billable-check { display:flex; align-items:center; gap:10px; cursor:pointer; font-size:12px; }
+    .billable-check { display:flex; align-items:center; gap:8px; cursor:pointer; font-size:12px; }
     .billable-check input { width:15px; height:15px; cursor:pointer; accent-color:#64b5f6; }
   `],
   template: `
@@ -99,6 +100,7 @@ export interface TimesheetConfigDialogData {
         <button class="dlg-tab" [class.active]="tab()===0" (click)="tab.set(0)">Quick Actions</button>
         <button class="dlg-tab" [class.active]="tab()===1" (click)="tab.set(1)">Projects</button>
         <button class="dlg-tab" [class.active]="tab()===2" (click)="tab.set(2)">Categories</button>
+        <button class="dlg-tab" [class.active]="tab()===3" (click)="tab.set(3)">Work Location</button>
       </div>
 
       <div class="dlg-body">
@@ -121,7 +123,13 @@ export interface TimesheetConfigDialogData {
                     <option value="">Category…</option>
                     @for (c of catsFor(qa.project); track c) { <option [value]="c">{{ c }}</option> }
                   </select>
-                  <input class="inp full" placeholder="Note (optional — pre-fills on click)" [(ngModel)]="qa.note" (ngModelChange)="markDirty()" />
+                  <input class="inp" placeholder="Note (optional)" [(ngModel)]="qa.note" (ngModelChange)="markDirty()" />
+                  <select class="sel" [(ngModel)]="qa.workedFrom" (ngModelChange)="markDirty()">
+                    <option [ngValue]="null">Location: Default</option>
+                    <option value="Home">Home</option>
+                    <option value="Office">Office</option>
+                    <option value="Other">Other</option>
+                  </select>
                   <div class="full">
                     <div class="sec-lbl" style="margin-bottom:4px">Default duration <span style="font-weight:400;text-transform:none;letter-spacing:0">(optional)</span></div>
                     <div class="dur-chips">
@@ -152,13 +160,16 @@ export interface TimesheetConfigDialogData {
             <div class="proj-list">
               @for (p of allProjects(); track p) {
                 <div class="proj-row">
-                  <label class="billable-check">
-                    <input type="checkbox" [checked]="isBillable(p)" (change)="toggleBillable(p, $event)">
-                    <span>{{ p }}</span>
-                  </label>
-                  @if (isExtraProject(p)) {
-                    <button class="tag-rm" (click)="removeProject(p)">×</button>
-                  }
+                  <span>{{ p }}</span>
+                  <div style="margin-left:auto; display:flex; align-items:center; gap:16px;">
+                    <label class="billable-check">
+                      <input type="checkbox" [checked]="isBillable(p)" (change)="toggleBillable(p, $event)">
+                      <span>Billable</span>
+                    </label>
+                    @if (isExtraProject(p)) {
+                      <button class="tag-rm" (click)="removeProject(p)">×</button>
+                    }
+                  </div>
                 </div>
               }
             </div>
@@ -179,16 +190,36 @@ export interface TimesheetConfigDialogData {
               </select>
             </div>
             @if (catProject) {
-              <div class="sec-lbl">Extra categories for "{{ catProject }}"</div>
+              <div class="sec-lbl">Categories for "{{ catProject }}"</div>
               <div class="tag-list">
-                @for (c of extraCategoriesFor(catProject); track c; let i = $index) {
-                  <span class="tag">{{ c }}<button class="tag-rm" (click)="removeCategory(catProject, i)">×</button></span>
+                @for (c of catsFor(catProject); track c) {
+                  <span class="tag" [class.custom]="isExtraCategory(catProject, c)">
+                    {{ c }}
+                    @if (isExtraCategory(catProject, c)) {
+                      <button class="tag-rm" (click)="removeCategory(catProject, c)">×</button>
+                    }
+                  </span>
                 }
-                @if (extraCategoriesFor(catProject).length===0) { <span style="font-size:12px;color:rgba(255,255,255,0.25)">No extra categories for this project.</span> }
+                @if (catsFor(catProject).length===0) { <span style="font-size:12px;color:rgba(255,255,255,0.25)">No categories for this project.</span> }
               </div>
               <div class="add-row">
                 <input class="inp" placeholder="Category name" [(ngModel)]="newCategory" (keydown.enter)="addCategory()" style="flex:1" />
                 <button class="btn-add" [disabled]="!newCategory.trim()" (click)="addCategory()">Add</button>
+              </div>
+            }
+          </div>
+        }
+
+        @if (tab()===3) {
+          <div class="sec">
+            <div class="hint">Set your default work location for each day of the week.</div>
+            @for (day of weekDays; track day) {
+              <div class="row" style="justify-content:space-between; margin-bottom:8px;">
+                <span>{{ day }}</span>
+                <select class="sel" style="width:120px" [ngModel]="workWeek()[day]" (ngModelChange)="setWorkDay(day, $event)">
+                  <option value="Home">Home</option>
+                  <option value="Office">Office</option>
+                </select>
               </div>
             }
           </div>
@@ -207,6 +238,7 @@ export class TimesheetConfigDialogComponent implements OnInit {
   private data: TimesheetConfigDialogData = inject(MAT_DIALOG_DATA);
   private svc = inject(TimesheetConfigService);
 
+  readonly weekDays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
   readonly presetColors = PRESET_COLORS;
   readonly durChips = DURATION_CHIPS;
   readonly chipMins = DURATION_CHIP_MINUTES;
@@ -219,6 +251,7 @@ export class TimesheetConfigDialogComponent implements OnInit {
   extraProjects = signal<string[]>([]);
   extraCategories = signal<Record<string, string[]>>({});
   billableProjects = signal<string[]>([]);
+  workWeek = signal<Record<string, 'Home' | 'Office'>>({});
 
   newProject = '';
   newCategory = '';
@@ -230,11 +263,12 @@ export class TimesheetConfigDialogComponent implements OnInit {
   ]);
 
   ngOnInit() {
-    const c = this.data.config;
-    this.quickActions.set(c.quickActions.map(q => ({ ...q })));
+    const c = this.data.config as any;
+    this.quickActions.set(c.quickActions.map((q: any) => ({ ...q })));
     this.extraProjects.set([...c.extraProjects]);
     this.extraCategories.set({ ...c.extraCategories });
-    this.billableProjects.set([...((c as any).billableProjects ?? [])]);
+    this.billableProjects.set([...(c.billableProjects ?? [])]);
+    this.workWeek.set({ ...(c.workWeek ?? {}) });
   }
 
   catsFor(project: string): string[] {
@@ -245,6 +279,10 @@ export class TimesheetConfigDialogComponent implements OnInit {
 
   extraCategoriesFor(project: string): string[] {
     return this.extraCategories()[project] ?? [];
+  }
+
+  isExtraCategory(project: string, category: string): boolean {
+    return this.extraCategoriesFor(project).includes(category);
   }
 
   isBillable(project: string): boolean {
@@ -267,12 +305,17 @@ export class TimesheetConfigDialogComponent implements OnInit {
 
   markDirty() { this.dirty.set(true); }
 
+  setWorkDay(day: string, location: 'Home' | 'Office') {
+    this.workWeek.update(ww => ({ ...ww, [day]: location }));
+    this.markDirty();
+  }
+
   addQa() {
     this.quickActions.update(list => [...list, {
-      label: '', project: '', category: '', note: null,
+      label: '', project: '', category: '', note: null, workedFrom: null,
       color: PRESET_COLORS[list.length % PRESET_COLORS.length].color,
       bg: PRESET_COLORS[list.length % PRESET_COLORS.length].bg,
-    }]);
+    } as QuickActionConfig]);
     this.markDirty();
   }
 
@@ -327,10 +370,10 @@ export class TimesheetConfigDialogComponent implements OnInit {
     this.markDirty();
   }
 
-  removeCategory(project: string, i: number) {
+  removeCategory(project: string, category: string) {
     this.extraCategories.update(map => ({
       ...map,
-      [project]: (map[project] ?? []).filter((_, idx) => idx !== i)
+      [project]: (map[project] ?? []).filter(c => c !== category)
     }));
     this.markDirty();
   }
@@ -342,6 +385,7 @@ export class TimesheetConfigDialogComponent implements OnInit {
       extraCategories: this.extraCategories(),
       quickActions: this.quickActions().filter(q => q.label && q.project && q.category),
       billableProjects: this.billableProjects(),
+      workWeek: this.workWeek(),
     };
     this.svc.upsert(this.data.memberId, payload).subscribe({
       next: config => this.ref.close(config),
