@@ -9,6 +9,12 @@ TEAM MANAGER — BACKLOG
     - I want to be able to select which days are work from office days and allow override.
     - Intention of this is to capture time easily. then export the file at end of month.
     - Eventually I want to be able to capture from telegram but as a webhook in this project
+    - I want to be able to easily select common time increments with a single click. Also want to be able to add or remove 15min at a time easily.
+    - Selecting common category/ sub category combos should be a single click 
+    - I want to be able to capture for a week at a time and easily be able to navigate to next/ previous week.
+    - Timesheets run from 1st to last day of month.
+    - These will be saved for the logged in person. But for now let's just allow navigation from the team member
+
 
 [x] Sprint MVP vote
     - Vote panel on sprint detail: each member row has a select to nominate a teammate

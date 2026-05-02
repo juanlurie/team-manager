@@ -506,10 +506,11 @@ export class SprintDashboardComponent implements OnInit {
     const in7days  = (() => { const d = new Date(); d.setDate(d.getDate() + 6); return d.toISOString().slice(0, 10); })();
 
     const requests: Record<string, any> = {
-      summary:     this.dashSvc.getSprintSummary(this.selectedSprintId),
-      blockers:    this.dashSvc.getBlockers(this.selectedSprintId),
-      leave:       this.leaveSvc.getAll({ from: today, to: in7days }),
-      discussions: this.discussionSvc.getAll(),
+      summary:      this.dashSvc.getSprintSummary(this.selectedSprintId),
+      blockers:     this.dashSvc.getBlockers(this.selectedSprintId),
+      leave:        this.leaveSvc.getAll({ from: today, to: in7days }),
+      discussions:  this.discussionSvc.getAll(),
+      retroActions: this.retroActionSvc.getBySprintId(this.selectedSprintId),
     };
     if (sprint?.piId) {
       requests['piFeatures'] = this.featureSvc.getAllAcrossSprints({ piId: sprint.piId });
@@ -520,6 +521,7 @@ export class SprintDashboardComponent implements OnInit {
       this.blockers.set(res['blockers']);
       this.leaveWindow.set(res['leave'] ?? []);
       this.discussions.set(res['discussions'] ?? []);
+      this.retroActions.set(res['retroActions'] ?? []);
       this.piFeatures.set(res['piFeatures'] ?? []);
       this.loading.set(false);
     });
@@ -534,6 +536,35 @@ export class SprintDashboardComponent implements OnInit {
       });
       ref.afterClosed().subscribe(changed => { if (changed) this.load(); });
     });
+  }
+
+  promoteToDiscussion(action: RetroAction) {
+    if (this.promotingId()) return;
+    this.promotingId.set(action.id);
+    this.discussionSvc.create({
+      title:      action.title,
+      notes:      action.notes,
+      status:     'Open',
+      priority:   'Medium',
+      startDate:  null,
+      targetDate: action.dueDate,
+    }).subscribe(dp => {
+      this.discussions.update(list => [...list, dp]);
+      setTimeout(() => this.promotingId.set(null), 1500);
+    });
+  }
+
+  retroStatusColor(s: string): string {
+    return { Open: '#64b5f6', InProgress: '#ffb74d', Done: '#81c784' }[s] ?? '#aaa';
+  }
+
+  isRetroOverdue(a: RetroAction): boolean {
+    if (!a.dueDate || a.status === 'Done') return false;
+    return a.dueDate < new Date().toISOString().slice(0, 10);
+  }
+
+  fmtDate(iso: string): string {
+    return new Date(iso + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
   }
 
   namesOf(records: LeaveRecord[]) { return records.map(r => r.memberName).join(', '); }
