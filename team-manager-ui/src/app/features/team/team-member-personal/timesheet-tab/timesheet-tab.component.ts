@@ -59,10 +59,11 @@ const DN = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
     .ts-entries::-webkit-scrollbar { width:4px; }
     .ts-entries::-webkit-scrollbar-thumb { background:rgba(255,255,255,0.1); border-radius:2px; }
     .ts-empty { display:flex; flex-direction:column; align-items:center; justify-content:center; flex:1; gap:5px; color:rgba(255,255,255,0.28); padding:40px; text-align:center; font-size:13px; }
-    .ts-add-panel { border-bottom:1px solid rgba(255,255,255,0.07); padding:10px 16px 12px; flex-shrink:0; }
+    .ts-add-panel { border-top:1px solid rgba(100,181,246,0.2); border-bottom:1px solid rgba(100,181,246,0.2); padding:10px 16px 12px; flex-shrink:0; }
     .ts-ap-r1 { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:8px; }
     .ts-ap-combos { display:flex; gap:4px; flex-wrap:wrap; }
-    .ts-ap-durs { display:flex; gap:3px; flex-wrap:wrap; flex-shrink:0; }
+    .ts-ap-durs { display:flex; flex-direction:column; gap:6px; margin-left:auto; }
+    .ts-dur-row { display:flex; align-items:center; justify-content:center; gap:4px; }
     .ts-ap-r2 { display:flex; gap:6px; align-items:center; }
     .ts-chip { padding:5px 11px; border-radius:16px; font-size:12px; font-weight:500; border:1px solid rgba(255,255,255,0.09); background:rgba(255,255,255,0.03); color:rgba(255,255,255,0.45); cursor:pointer; transition:all 0.1s; white-space:nowrap; }
     .ts-chip:hover { border-color:rgba(255,255,255,0.18); color:rgba(255,255,255,0.85); }
@@ -193,15 +194,18 @@ const DN = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
                 }
               </div>
               <div class="ts-ap-durs">
-                @for (d of durChips; track d[0]) {
-                  <button class="ts-dur-chip" [class.sel]="formDurMins()===d[1]" (click)="formDurMins.set(d[1])">{{ d[0] }}</button>
-                }
-                <span style="width:1px;height:18px;background:rgba(255,255,255,0.1);margin:0 4px;"></span>
-                <button class="ts-dur-chip" (click)="adjustDuration(-60)">-1h</button>
-                <button class="ts-dur-chip" (click)="adjustDuration(-15)">-15m</button>
-                <button class="ts-dur-chip" (click)="adjustDuration(15)">+15m</button>
-                <button class="ts-dur-chip" (click)="adjustDuration(60)">+1h</button>
-                <span style="font-size: 12px; font-weight: 600; color: rgba(255,255,255,0.6); min-width: 40px; text-align: right; margin-left: auto;">{{ fmtDur(formDurMins()) }}</span>
+                <div class="ts-dur-row">
+                  @for (d of durChips; track d[0]) {
+                    <button class="ts-dur-chip" [class.sel]="formDurMins()===d[1]" (click)="formDurMins.set(d[1])">{{ d[0] }}</button>
+                  }
+                </div>
+                <div class="ts-dur-row">
+                  <button class="ts-dur-chip" (click)="adjustDuration(-60)">-1h</button>
+                  <button class="ts-dur-chip" (click)="adjustDuration(-15)">-15m</button>
+                  <span style="font-size:14px;font-weight:700;color:rgba(255,255,255,0.8);min-width:60px;text-align:center;margin:0 6px;">{{ fmtDur(formDurMins()) }}</span>
+                  <button class="ts-dur-chip" (click)="adjustDuration(15)">+15m</button>
+                  <button class="ts-dur-chip" (click)="adjustDuration(60)">+1h</button>
+                </div>
               </div>
             </div>
             <div class="ts-ap-r2">
@@ -248,16 +252,19 @@ const DN = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
                 <div><div class="m-form-lbl">Activity</div><div class="ts-chips">@for (c of activeQuickActions(); track c.label) { <button class="ts-chip" [class.sel]="formProject()===c.project&&formCategory()===c.category" (click)="applyCombo(c)">{{ c.label }}</button> }</div></div>
                 <div>
                   <div class="m-form-lbl">Duration</div>
-                  <div class="ts-chips" style="display:flex; align-items:center; gap:4px; flex-wrap:wrap;">
-                    @for (d of durChips; track d[0]) {
-                      <button class="ts-dur-chip" [class.sel]="formDurMins()===d[1]" (click)="formDurMins.set(d[1])">{{ d[0] }}</button>
-                    }
-                    <div style="width:100%; height:4px;"></div>
-                    <button class="ts-dur-chip" (click)="adjustDuration(-60)">-1h</button>
-                    <button class="ts-dur-chip" (click)="adjustDuration(-15)">-15m</button>
-                    <button class="ts-dur-chip" (click)="adjustDuration(15)">+15m</button>
-                    <button class="ts-dur-chip" (click)="adjustDuration(60)">+1h</button>
-                    <span style="font-size:14px; color:rgba(255,255,255,0.8); font-weight:600; margin-left:auto;">{{ fmtDur(formDurMins()) }}</span>
+                  <div class="ts-chips" style="display:flex; flex-direction:column; gap:8px;">
+                    <div style="display:flex; justify-content:center; gap:4px; flex-wrap:wrap;">
+                      @for (d of durChips; track d[0]) {
+                        <button class="ts-dur-chip" [class.sel]="formDurMins()===d[1]" (click)="formDurMins.set(d[1])">{{ d[0] }}</button>
+                      }
+                    </div>
+                    <div style="display:flex; align-items:center; justify-content:center; gap:4px;">
+                      <button class="ts-dur-chip" (click)="adjustDuration(-60)">-1h</button>
+                      <button class="ts-dur-chip" (click)="adjustDuration(-15)">-15m</button>
+                      <span style="font-size:16px; color:rgba(255,255,255,0.9); font-weight:700; margin:0 12px; min-width:50px; text-align:center;">{{ fmtDur(formDurMins()) }}</span>
+                      <button class="ts-dur-chip" (click)="adjustDuration(15)">+15m</button>
+                      <button class="ts-dur-chip" (click)="adjustDuration(60)">+1h</button>
+                    </div>
                   </div>
                 </div>
                 <select class="ts-sel" style="width:100%" [ngModel]="formProject()" (ngModelChange)="setFormProject($event)"><option value="">Select project…</option>@for (p of allProjects(); track p) { <option [value]="p">{{ p }}</option> }</select>
