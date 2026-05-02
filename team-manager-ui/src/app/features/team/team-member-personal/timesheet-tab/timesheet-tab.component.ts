@@ -336,8 +336,14 @@ export class TimesheetTabComponent implements OnInit {
   }
 
   openConfig() {
+    const currentConfig = this.tsConfig();
+    const configForDialog: TimesheetConfig = {
+      ...currentConfig,
+      billableProjects: currentConfig.billableProjects ?? [],
+      workWeek: currentConfig.workWeek ?? {},
+    };
     const ref = this.dialog.open(TimesheetConfigDialogComponent, {
-      data: { memberId: this.memberId(), config: this.tsConfig() },
+      data: { memberId: this.memberId(), config: configForDialog },
       panelClass: 'dark-dialog',
       maxWidth: '100vw',
     });
