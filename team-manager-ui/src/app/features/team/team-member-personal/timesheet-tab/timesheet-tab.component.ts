@@ -2,13 +2,14 @@ import { Component, OnInit, inject, input, signal, computed, effect } from '@ang
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { TimesheetService } from '../../../../core/services/timesheet.service';
 import { TimesheetConfigService } from '../../../../core/services/timesheet-config.service';
 import { TimesheetEntry, CreateTimesheetEntryRequest } from '../../../../core/models/timesheet.model';
 import { TimesheetConfig, QuickActionConfig } from '../../../../core/models/timesheet-config.model';
 import {
   ActivityCombo, ACTIVITY_COMBOS,
-  TIMESHEET_PROJECTS, CATEGORIES_BY_PROJECT, minutesToDurationLabel,
+  TIMESHEET_PROJECTS, CATEGORIES_BY_PROJECT, minutesToDurationLabel, PUBLIC_HOLIDAYS_2026,
 } from '../timesheet-data.constants';
 import { TimesheetEntryCardComponent } from '../timesheet-entry-card/timesheet-entry-card.component';
 import { TimesheetConfigDialogComponent } from '../timesheet-config-dialog/timesheet-config-dialog.component';
@@ -20,7 +21,7 @@ const DN = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 @Component({
   selector: 'app-timesheet-tab',
   standalone: true,
-  imports: [CommonModule, FormsModule, MatDialogModule, TimesheetEntryCardComponent],
+  imports: [CommonModule, FormsModule, MatDialogModule, TimesheetEntryCardComponent, MatTooltipModule],
   styles: [`
     .ts-wrap { display:flex; flex-direction:column; height:calc(100vh - 228px); min-height:400px; }
     .ts-main { display:flex; flex:1; overflow:hidden; }
@@ -143,7 +144,7 @@ const DN = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
             <div class="ts-day-row" [class.sel]="isSel(d)" (click)="selectDay(d)">
               <span class="ts-dname">{{ dn(d) }}</span>
               <span class="ts-dnum" [style.background]="isToday(d)?'#64b5f6':'none'" [style.color]="isToday(d)?'#0f1923':''">{{ d.getDate() }}</span>
-              <div class="ts-dbar-w"><div class="ts-dbar-t"><div class="ts-dbar-f" [style.width]="dayBarPct(d)+'%'" [style.background]="dayBarPct(d)>=100?'#4caf50':'#64b5f6'"></div></div></div>
+              <div class="ts-dbar-w" [matTooltip]="getDayStatus(d).error ?? ''" [matTooltipDisabled]="!getDayStatus(d).error"><div class="ts-dbar-t"><div class="ts-dbar-f" [style.width]="dayBarPct(d)+'%'" [style.background]="getDayStatus(d).color"></div></div></div>
               @if (dayHrsLabel(d)) { <span class="ts-dhrs">{{ dayHrsLabel(d) }}</span> }
             </div>
           }
@@ -379,15 +380,64 @@ export class TimesheetTabComponent implements OnInit {
     this.svc.getByMonth(this.memberId(), year, month).subscribe({ next: d => { this.entries.set(d); this.loading.set(false); }, error: () => this.loading.set(false) });
   }
 
-  prevWeek() { this.weekOffset.update(n => n - 1); }
-  nextWeek() { this.weekOffset.update(n => n + 1); }
-  selectDay(d: Date) { this.selectedDate.set(d); this.mobileAddOpen.set(false); }
+  prevWeek() {
+    const dayOfWeek = this.selectedDate().getDay();
+    const indexInWeek = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+    this.weekOffset.update(n => n - 1);
+    this.selectDay(this.week()[indexInWeek]);
+  }
+  nextWeek() {
+    const dayOfWeek = this.selectedDate().getDay();
+    const indexInWeek = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+    this.weekOffset.update(n => n + 1);
+    this.selectDay(this.week()[indexInWeek]);
+  }
+  selectDay(d: Date) {
+    if (d.getMonth() !== this.selectedDate().getMonth() || d.getFullYear() !== this.selectedDate().getFullYear()) {
+      this.entries.set([]);
+    }
+    this.selectedDate.set(d);
+    this.mobileAddOpen.set(false);
+  }
   isSel(d: Date) { return this.dk(d) === this.selKey(); }
   isToday(d: Date) { return this.dk(d) === this.dk(this.today); }
   dn(d: Date) { return DN[d.getDay()]; }
   dayMins(d: Date) { return (this.byDate()[this.dk(d)] ?? []).reduce((s, e) => s + e.hours * 60 + e.minutes, 0); }
   dayHrsLabel(d: Date) { const m = this.dayMins(d); return m ? minutesToDurationLabel(m) : ''; }
   dayBarPct(d: Date) { return Math.min(this.dayMins(d) / 480, 1) * 100; }
+
+  getDayStatus(d: Date): { color: string; error: string | null } {
+    const mins = this.dayMins(d);
+    const dayOfWeek = d.getDay(); // 0=Sun, 6=Sat
+    const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+    const dateKey = this.dk(d);
+    const isPublicHoliday = PUBLIC_HOLIDAYS_2026.includes(dateKey);
+
+    if (mins > 0) {
+      if (isWeekend) {
+        return { color: '#ef5350', error: 'Time logged on a weekend' };
+      }
+      if (isPublicHoliday) {
+        return { color: '#ef5350', error: 'Time logged on a public holiday' };
+      }
+    }
+
+    if (mins > 600) { // Over 10 hours
+      return { color: '#ef5350', error: 'Over 10 hours logged' };
+    }
+
+    if (!isWeekend && !isPublicHoliday) { // It's a workday
+      if (mins > 0 && mins < 480) { // Under 8 hours
+        return { color: '#ef5350', error: 'Under 8 hours logged' };
+      }
+      if (mins >= 480) { // 8 hours or more (but not > 10)
+        return { color: '#4caf50', error: null };
+      }
+    }
+
+    // Default for in-progress on workday, or 0 hours.
+    return { color: '#64b5f6', error: null };
+  }
 
   addEntry() {
     if (!this.canAdd()) return;
