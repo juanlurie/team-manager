@@ -192,12 +192,16 @@ const DN = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
                   <button class="ts-chip" [class.sel]="formProject()===c.project&&formCategory()===c.category" (click)="applyCombo(c)">{{ c.label }}</button>
                 }
               </div>
-              <div class="ts-ap-durs" style="display: flex; align-items: center; gap: 3px;">
-                <span style="font-size: 12px; font-weight: 600; color: rgba(255,255,255,0.6); min-width: 40px; text-align: right; margin-right: 4px;">{{ fmtDur(formDurMins()) }}</span>
+              <div class="ts-ap-durs">
+                @for (d of durChips; track d[0]) {
+                  <button class="ts-dur-chip" [class.sel]="formDurMins()===d[1]" (click)="formDurMins.set(d[1])">{{ d[0] }}</button>
+                }
+                <span style="width:1px;height:18px;background:rgba(255,255,255,0.1);margin:0 4px;"></span>
                 <button class="ts-dur-chip" (click)="adjustDuration(-60)">-1h</button>
                 <button class="ts-dur-chip" (click)="adjustDuration(-15)">-15m</button>
                 <button class="ts-dur-chip" (click)="adjustDuration(15)">+15m</button>
                 <button class="ts-dur-chip" (click)="adjustDuration(60)">+1h</button>
+                <span style="font-size: 12px; font-weight: 600; color: rgba(255,255,255,0.6); min-width: 40px; text-align: right; margin-left: auto;">{{ fmtDur(formDurMins()) }}</span>
               </div>
             </div>
             <div class="ts-ap-r2">
@@ -244,12 +248,16 @@ const DN = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
                 <div><div class="m-form-lbl">Activity</div><div class="ts-chips">@for (c of activeQuickActions(); track c.label) { <button class="ts-chip" [class.sel]="formProject()===c.project&&formCategory()===c.category" (click)="applyCombo(c)">{{ c.label }}</button> }</div></div>
                 <div>
                   <div class="m-form-lbl">Duration</div>
-                  <div class="ts-chips" style="display:flex; align-items:center; gap:4px;">
-                    <span style="font-size:14px; color:rgba(255,255,255,0.8); font-weight:600; margin-right:8px;">{{ fmtDur(formDurMins()) }}</span>
+                  <div class="ts-chips" style="display:flex; align-items:center; gap:4px; flex-wrap:wrap;">
+                    @for (d of durChips; track d[0]) {
+                      <button class="ts-dur-chip" [class.sel]="formDurMins()===d[1]" (click)="formDurMins.set(d[1])">{{ d[0] }}</button>
+                    }
+                    <div style="width:100%; height:4px;"></div>
                     <button class="ts-dur-chip" (click)="adjustDuration(-60)">-1h</button>
                     <button class="ts-dur-chip" (click)="adjustDuration(-15)">-15m</button>
                     <button class="ts-dur-chip" (click)="adjustDuration(15)">+15m</button>
                     <button class="ts-dur-chip" (click)="adjustDuration(60)">+1h</button>
+                    <span style="font-size:14px; color:rgba(255,255,255,0.8); font-weight:600; margin-left:auto;">{{ fmtDur(formDurMins()) }}</span>
                   </div>
                 </div>
                 <select class="ts-sel" style="width:100%" [ngModel]="formProject()" (ngModelChange)="setFormProject($event)"><option value="">Select project…</option>@for (p of allProjects(); track p) { <option [value]="p">{{ p }}</option> }</select>
@@ -284,6 +292,7 @@ export class TimesheetTabComponent implements OnInit {
 
   tsConfig = signal<TimesheetConfig>({ extraProjects: [], extraCategories: {}, quickActions: [] });
 
+  readonly durChips: [string, number][] = [['15m', 15], ['30m', 30], ['1h', 60], ['2h', 120], ['4h', 240], ['8h', 480]];
   readonly fmtDur = minutesToDurationLabel;
 
   activeQuickActions = computed<QuickActionConfig[]>(() => {
