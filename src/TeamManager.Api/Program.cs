@@ -51,6 +51,7 @@ builder.Services.AddScoped<ILeaderboardService, LeaderboardService>();
 builder.Services.AddScoped<ProgressService>();
 builder.Services.AddScoped<IWheelService, WheelService>();
 builder.Services.AddScoped<IMemberPersonalService, MemberPersonalService>();
+builder.Services.AddScoped<ITimesheetService, TimesheetService>();
 builder.Services.AddScoped<ISprintVoteService, SprintVoteService>();
 builder.Services.AddScoped<IInvitationService, InvitationService>();
 builder.Services.AddScoped<IEmailService, EmailService>();

@@ -14,6 +14,7 @@ import { TeamMemberService } from '../../../core/services/team-member.service';
 import { MemberPersonalService } from '../../../core/services/member-personal.service';
 import { ConfirmDialogComponent } from '../../../shared/components/confirm-dialog/confirm-dialog.component';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { TimesheetTabComponent } from './timesheet-tab/timesheet-tab.component';
 
 const SKILL_CATEGORIES = ['Technical', 'Soft Skills'];
 const SKILL_FILTERS = ['All', ...SKILL_CATEGORIES];
@@ -36,7 +37,7 @@ const MAP_CATEGORIES: MapCategory[] = [
 @Component({
   selector: 'app-team-member-personal',
   standalone: true,
-  imports: [CommonModule, FormsModule, MatIconModule, MatButtonModule, MatTooltipModule, MatTabsModule, MatDialogModule, MatProgressSpinnerModule],
+  imports: [CommonModule, FormsModule, MatIconModule, MatButtonModule, MatTooltipModule, MatTabsModule, MatDialogModule, MatProgressSpinnerModule, TimesheetTabComponent],
   styles: [`
     @media (max-width: 480px) {
       .tab-label { display: none; }
@@ -339,6 +340,15 @@ const MAP_CATEGORIES: MapCategory[] = [
               <div style="text-align:center;padding:48px;opacity:0.3;font-size:0.85rem">No tasks</div>
             }
           </div>
+        </mat-tab>
+
+        <!-- Timesheets -->
+        <mat-tab>
+          <ng-template mat-tab-label>
+            <mat-icon style="font-size:18px;margin-right:6px;vertical-align:middle">schedule</mat-icon>
+            <span class="tab-label">Timesheets</span>
+          </ng-template>
+          <app-timesheet-tab [memberId]="memberId" />
         </mat-tab>
 
       </mat-tab-group>
