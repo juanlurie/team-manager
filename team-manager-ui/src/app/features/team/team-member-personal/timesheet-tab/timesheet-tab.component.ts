@@ -381,30 +381,34 @@ export class TimesheetTabComponent implements OnInit {
     });
 
     effect(() => {
-      const w = this.week();
-      const start = w[0];
-      const end = w[6];
+      this.load();
+    });
+  }
 
-      const startYear = start.getFullYear();
-      const startMonth = start.getMonth() + 1;
-      const endYear = end.getFullYear();
-      const endMonth = end.getMonth() + 1;
+  private load() {
+    const w = this.week();
+    const start = w[0];
+    const end = w[6];
 
-      const monthsToLoad: {year: number, month: number}[] = [{year: startYear, month: startMonth}];
-      if (startYear !== endYear || startMonth !== endMonth) {
-        monthsToLoad.push({year: endYear, month: endMonth});
-      }
+    const startYear = start.getFullYear();
+    const startMonth = start.getMonth() + 1;
+    const endYear = end.getFullYear();
+    const endMonth = end.getMonth() + 1;
 
-      this.loading.set(true);
-      const loaders = monthsToLoad.map(({year, month}) => this.svc.getByMonth(this.memberId(), year, month));
-      forkJoin(loaders).subscribe({
-        next: results => {
-          const allEntries = results.flat();
-          this.entries.set(allEntries);
-          this.loading.set(false);
-        },
-        error: () => this.loading.set(false)
-      });
+    const monthsToLoad: {year: number, month: number}[] = [{year: startYear, month: startMonth}];
+    if (startYear !== endYear || startMonth !== endMonth) {
+      monthsToLoad.push({year: endYear, month: endMonth});
+    }
+
+    this.loading.set(true);
+    const loaders = monthsToLoad.map(({year, month}) => this.svc.getByMonth(this.memberId(), year, month));
+    forkJoin(loaders).subscribe({
+      next: results => {
+        const allEntries = results.flat();
+        this.entries.set(allEntries);
+        this.loading.set(false);
+      },
+      error: () => this.loading.set(false)
     });
   }
 
@@ -482,16 +486,16 @@ export class TimesheetTabComponent implements OnInit {
       this.formCategory.set('');
       this.formNote.set('');
       this.formDurMins.set(60);
-      this.load(this.viewYear(), this.viewMonth());
+      this.load();
     } });
   }
 
   handleSave({ id, req }: { id: string; req: CreateTimesheetEntryRequest }) {
-    this.svc.update(this.memberId(), id, req).subscribe({ next: () => this.load(this.viewYear(), this.viewMonth()) });
+    this.svc.update(this.memberId(), id, req).subscribe({ next: () => this.load() });
   }
 
   deleteEntry(id: string) {
-    this.svc.delete(this.memberId(), id).subscribe({ next: () => this.load(this.viewYear(), this.viewMonth()) });
+    this.svc.delete(this.memberId(), id).subscribe({ next: () => this.load() });
   }
 
   applyRecent(r: Recent) { this.formProject.set(r.project); this.formCategory.set(r.category); }
@@ -520,7 +524,7 @@ export class TimesheetTabComponent implements OnInit {
     }
 
     const req: CreateTimesheetEntryRequest = { date: this.selKey(), project: r.project, category: r.category, hours: Math.floor(r.durationMins / 60), minutes: r.durationMins % 60, billable: isBillable, workedFrom, sentiment: 'Neutral', description: r.category, ticketNumber: null };
-    this.svc.create(this.memberId(), req).subscribe({ next: () => this.load(this.viewYear(), this.viewMonth()) });
+    this.svc.create(this.memberId(), req).subscribe({ next: () => this.load() });
   }
 
   openConfig() {
