@@ -44,10 +44,10 @@ const MAP_CATEGORIES: MapCategory[] = [
     }
   `],
   template: `
-    <div style="padding:24px 0 64px">
+    <div style="max-width:1280px;margin:0 auto;padding:24px 16px 64px">
 
       <!-- Header -->
-      <div style="display:flex;align-items:center;gap:12px;margin-bottom:24px;padding:0 24px;">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:24px;">
         <button mat-button (click)="back()"
                 style="padding:0 8px 0 4px;gap:4px;color:rgba(255,255,255,0.55)">
           <mat-icon style="font-size:18px;width:18px;height:18px;line-height:18px">arrow_back</mat-icon>
@@ -76,7 +76,7 @@ const MAP_CATEGORIES: MapCategory[] = [
             <mat-icon style="font-size:18px;margin-right:6px;vertical-align:middle">hub</mat-icon>
             <span class="tab-label">Personal Map</span>
           </ng-template>
-          <div style="padding:20px 24px 0;">
+          <div style="padding-top:20px">
             <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
               <span style="font-size:0.8rem;opacity:0.4">Click any card to edit — saves automatically on blur</span>
               @if (mapSaved()) {
@@ -110,7 +110,7 @@ const MAP_CATEGORIES: MapCategory[] = [
             <mat-icon style="font-size:18px;margin-right:6px;vertical-align:middle">trending_up</mat-icon>
             <span class="tab-label">Skills</span>
           </ng-template>
-          <div style="padding:24px 24px 0;">
+          <div style="padding-top:24px">
 
             <!-- Add skill -->
             <div style="display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap">
@@ -247,7 +247,7 @@ const MAP_CATEGORIES: MapCategory[] = [
             <mat-icon style="font-size:18px;margin-right:6px;vertical-align:middle">notes</mat-icon>
             <span class="tab-label">Notes</span>
           </ng-template>
-          <div style="padding:24px 24px 0;">
+          <div style="padding-top:24px">
             <div style="font-size:0.8rem;opacity:0.4;margin-bottom:16px">Observations and highlights — builds up for annual reviews</div>
 
             <div style="display:flex;gap:8px;margin-bottom:20px;align-items:flex-end;flex-wrap:wrap">
@@ -285,7 +285,7 @@ const MAP_CATEGORIES: MapCategory[] = [
             <mat-icon style="font-size:18px;margin-right:6px;vertical-align:middle">task_alt</mat-icon>
             <span class="tab-label">Tasks</span>
           </ng-template>
-          <div style="padding:24px 24px 0;">
+          <div style="padding-top:24px">
 
             <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;align-items:center">
               <input [(ngModel)]="newTaskTitle"
