@@ -84,6 +84,10 @@ export interface TimesheetConfigDialogData {
     .btn-add:hover { background:rgba(100,181,246,0.18); }
     .btn-add:disabled { opacity:0.35; cursor:not-allowed; }
     .proj-sel-row { display:flex; gap:7px; align-items:center; margin-bottom:10px; }
+    .proj-list { display:flex; flex-direction:column; gap:8px; margin-bottom:12px; }
+    .proj-row { display:flex; align-items:center; justify-content:space-between; padding:8px 12px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.07); border-radius:6px; }
+    .billable-check { display:flex; align-items:center; gap:10px; cursor:pointer; font-size:12px; }
+    .billable-check input { width:15px; height:15px; cursor:pointer; accent-color:#64b5f6; }
   `],
   template: `
     <div class="dlg">
@@ -145,11 +149,18 @@ export interface TimesheetConfigDialogData {
         @if (tab()===1) {
           <div class="sec">
             <div class="hint">These projects are added to the default Entelect list. Use this for client projects or custom work categories.</div>
-            <div class="tag-list">
-              @for (p of extraProjects(); track p; let i = $index) {
-                <span class="tag">{{ p }}<button class="tag-rm" (click)="removeProject(i)">×</button></span>
+            <div class="proj-list">
+              @for (p of allProjects(); track p) {
+                <div class="proj-row">
+                  <label class="billable-check">
+                    <input type="checkbox" [checked]="isBillable(p)" (change)="toggleBillable(p, $event)">
+                    <span>{{ p }}</span>
+                  </label>
+                  @if (isExtraProject(p)) {
+                    <button class="tag-rm" (click)="removeProject(p)">×</button>
+                  }
+                </div>
               }
-              @if (extraProjects().length===0) { <span style="font-size:12px;color:rgba(255,255,255,0.25)">No extra projects added yet.</span> }
             </div>
             <div class="add-row">
               <input class="inp" placeholder="Project name" [(ngModel)]="newProject" (keydown.enter)="addProject()" style="flex:1" />
@@ -207,6 +218,7 @@ export class TimesheetConfigDialogComponent implements OnInit {
   quickActions = signal<QuickActionConfig[]>([]);
   extraProjects = signal<string[]>([]);
   extraCategories = signal<Record<string, string[]>>({});
+  billableProjects = signal<string[]>([]);
 
   newProject = '';
   newCategory = '';
@@ -222,6 +234,7 @@ export class TimesheetConfigDialogComponent implements OnInit {
     this.quickActions.set(c.quickActions.map(q => ({ ...q })));
     this.extraProjects.set([...c.extraProjects]);
     this.extraCategories.set({ ...c.extraCategories });
+    this.billableProjects.set([...((c as any).billableProjects ?? [])]);
   }
 
   catsFor(project: string): string[] {
@@ -232,6 +245,24 @@ export class TimesheetConfigDialogComponent implements OnInit {
 
   extraCategoriesFor(project: string): string[] {
     return this.extraCategories()[project] ?? [];
+  }
+
+  isBillable(project: string): boolean {
+    return this.billableProjects().includes(project);
+  }
+
+  isExtraProject(project: string): boolean {
+    return !TIMESHEET_PROJECTS.includes(project);
+  }
+
+  toggleBillable(project: string, event: Event) {
+    const checked = (event.target as HTMLInputElement).checked;
+    if (checked) {
+      this.billableProjects.update(list => [...list, project]);
+    } else {
+      this.billableProjects.update(list => list.filter(p => p !== project));
+    }
+    this.markDirty();
   }
 
   markDirty() { this.dirty.set(true); }
@@ -277,8 +308,9 @@ export class TimesheetConfigDialogComponent implements OnInit {
     this.markDirty();
   }
 
-  removeProject(i: number) {
-    this.extraProjects.update(list => list.filter((_, idx) => idx !== i));
+  removeProject(project: string) {
+    this.extraProjects.update(list => list.filter(p => p !== project));
+    this.billableProjects.update(list => list.filter(p => p !== project));
     this.markDirty();
   }
 
@@ -305,11 +337,13 @@ export class TimesheetConfigDialogComponent implements OnInit {
 
   save() {
     this.saving.set(true);
-    this.svc.upsert(this.data.memberId, {
+    const payload: any = {
       extraProjects: this.extraProjects(),
       extraCategories: this.extraCategories(),
       quickActions: this.quickActions().filter(q => q.label && q.project && q.category),
-    }).subscribe({
+      billableProjects: this.billableProjects(),
+    };
+    this.svc.upsert(this.data.memberId, payload).subscribe({
       next: config => this.ref.close(config),
       error: () => this.saving.set(false),
     });
