@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { forkJoin } from 'rxjs';
 import { TimesheetService } from '../../../../core/services/timesheet.service';
 import { TimesheetConfigService } from '../../../../core/services/timesheet-config.service';
 import { TimesheetEntry, CreateTimesheetEntryRequest } from '../../../../core/models/timesheet.model';
@@ -334,8 +335,17 @@ export class TimesheetTabComponent implements OnInit {
   selKey = computed(() => this.dk(this.selectedDate()));
   dayEntries = computed(() => this.byDate()[this.selKey()] ?? []);
   dayTotal = computed(() => this.dayEntries().reduce((s, e) => s + e.hours * 60 + e.minutes, 0));
-  monthTotal = computed(() => minutesToDurationLabel(this.entries().reduce((s, e) => s + e.hours * 60 + e.minutes, 0)));
-  monthDaysLogged = computed(() => new Set(this.entries().filter(e => { const d = new Date(e.date); return d.getFullYear() === this.viewYear() && d.getMonth() + 1 === this.viewMonth(); }).map(e => e.date)).size);
+
+  monthEntries = computed(() => {
+    const year = this.viewYear();
+    const month = this.viewMonth();
+    return this.entries().filter(e => {
+      const d = new Date(e.date);
+      return d.getFullYear() === year && d.getMonth() + 1 === month;
+    });
+  });
+  monthTotal = computed(() => minutesToDurationLabel(this.monthEntries().reduce((s, e) => s + e.hours * 60 + e.minutes, 0)));
+  monthDaysLogged = computed(() => new Set(this.monthEntries().map(e => e.date)).size);
   weekRange = computed(() => { const w = this.week(); return `${w[0].getDate()} ${MN[w[0].getMonth()]} – ${w[6].getDate()} ${MN[w[6].getMonth()]}`; });
   monthYear = computed(() => this.week()[3].toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }));
   selDateLabel = computed(() => this.selectedDate().toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'long', year: 'numeric' }));
@@ -364,20 +374,38 @@ export class TimesheetTabComponent implements OnInit {
 
   canAdd = computed(() => !!this.formProject() && !!this.formCategory() && !!this.formNote().trim());
 
-  constructor() {
-    effect(() => { this.load(this.viewYear(), this.viewMonth()); });
-  }
-
   ngOnInit() {
     this.cfgSvc.get(this.memberId()).subscribe({
       next: cfg => this.tsConfig.set(cfg),
       error: () => {},
     });
-  }
 
-  private load(year: number, month: number) {
-    this.loading.set(true);
-    this.svc.getByMonth(this.memberId(), year, month).subscribe({ next: d => { this.entries.set(d); this.loading.set(false); }, error: () => this.loading.set(false) });
+    effect(() => {
+      const w = this.week();
+      const start = w[0];
+      const end = w[6];
+
+      const startYear = start.getFullYear();
+      const startMonth = start.getMonth() + 1;
+      const endYear = end.getFullYear();
+      const endMonth = end.getMonth() + 1;
+
+      const monthsToLoad: {year: number, month: number}[] = [{year: startYear, month: startMonth}];
+      if (startYear !== endYear || startMonth !== endMonth) {
+        monthsToLoad.push({year: endYear, month: endMonth});
+      }
+
+      this.loading.set(true);
+      const loaders = monthsToLoad.map(({year, month}) => this.svc.getByMonth(this.memberId(), year, month));
+      forkJoin(loaders).subscribe({
+        next: results => {
+          const allEntries = results.flat();
+          this.entries.set(allEntries);
+          this.loading.set(false);
+        },
+        error: () => this.loading.set(false)
+      });
+    });
   }
 
   prevWeek() {
@@ -393,9 +421,6 @@ export class TimesheetTabComponent implements OnInit {
     this.selectDay(this.week()[indexInWeek]);
   }
   selectDay(d: Date) {
-    if (d.getMonth() !== this.selectedDate().getMonth() || d.getFullYear() !== this.selectedDate().getFullYear()) {
-      this.entries.set([]);
-    }
     this.selectedDate.set(d);
     this.mobileAddOpen.set(false);
   }
