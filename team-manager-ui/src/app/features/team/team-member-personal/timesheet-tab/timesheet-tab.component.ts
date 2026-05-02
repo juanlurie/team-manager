@@ -24,14 +24,14 @@ const DN = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
   styles: [`
     .ts-wrap { display:flex; flex-direction:column; height:calc(100vh - 228px); min-height:400px; }
     .ts-main { display:flex; flex:1; overflow:hidden; }
-    .ts-sidebar { width:260px; flex-shrink:0; border-right:1px solid rgba(255,255,255,0.07); overflow-y:auto; padding:14px 0; }
+    .ts-sidebar { width:346px; flex-shrink:0; border-right:1px solid rgba(255,255,255,0.07); overflow-y:auto; padding:14px 0; }
     .ts-sidebar::-webkit-scrollbar { width:3px; }
     .ts-sidebar::-webkit-scrollbar-thumb { background:rgba(255,255,255,0.1); border-radius:2px; }
     .ts-sb-hdr { display:flex; align-items:center; justify-content:space-between; padding:0 10px 10px; font-size:12px; font-weight:600; color:rgba(255,255,255,0.45); }
     .ts-sb-btn { background:none; border:none; cursor:pointer; color:rgba(255,255,255,0.3); padding:3px; border-radius:4px; display:flex; align-items:center; }
     .ts-sb-btn:hover { color:rgba(255,255,255,0.85); background:rgba(255,255,255,0.06); }
     .ts-wk-lbl { padding:0 10px 6px; font-size:10px; font-weight:700; color:rgba(255,255,255,0.28); letter-spacing:0.07em; text-transform:uppercase; }
-    .ts-day-row { display:flex; align-items:center; gap:7px; padding:5px 10px; cursor:pointer; transition:background 0.1s; position:relative; }
+    .ts-day-row { display:flex; align-items:center; gap:7px; padding:8px 10px; cursor:pointer; transition:background 0.1s; position:relative; }
     .ts-day-row:hover { background:rgba(255,255,255,0.04); }
     .ts-day-row.sel { background:rgba(100,181,246,0.09); }
     .ts-day-row.sel::before { content:''; position:absolute; left:0; top:0; bottom:0; width:3px; background:#64b5f6; border-radius:0 2px 2px 0; }
