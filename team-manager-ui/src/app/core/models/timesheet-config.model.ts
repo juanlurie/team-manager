@@ -10,6 +10,7 @@ export interface QuickActionConfig {
   category: string;
   note?: string | null;
   durationMins?: number | null;
+  workedFrom?: string | null;
   color: string;
   bg: string;
 }
