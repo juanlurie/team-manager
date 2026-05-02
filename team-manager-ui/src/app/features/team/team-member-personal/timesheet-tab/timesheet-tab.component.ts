@@ -446,7 +446,7 @@ export class TimesheetTabComponent implements OnInit {
 
     const dayName = this.selectedDate().toLocaleDateString('en-US', { weekday: 'long' });
     let workedFrom = (config.workWeek ?? {})[dayName] ?? 'Home';
-    const appliedCombo = this.activeQuickActions().find(c => c.project === this.formProject() && c.category === this.formCategory()) as any;
+    const appliedCombo = this.activeQuickActions().find(c => c.project === this.formProject() && c.category === this.formCategory());
     if (appliedCombo && appliedCombo.workedFrom) {
       workedFrom = appliedCombo.workedFrom;
     }
@@ -490,8 +490,8 @@ export class TimesheetTabComponent implements OnInit {
 
     const dayName = this.selectedDate().toLocaleDateString('en-US', { weekday: 'long' });
     let workedFrom = (config.workWeek ?? {})[dayName] ?? 'Home';
-    if (r.combo && (r.combo as any).workedFrom) {
-      workedFrom = (r.combo as any).workedFrom;
+    if (r.combo && r.combo.workedFrom) {
+      workedFrom = r.combo.workedFrom;
     }
 
     const req: CreateTimesheetEntryRequest = { date: this.selKey(), project: r.project, category: r.category, hours: Math.floor(r.durationMins / 60), minutes: r.durationMins % 60, billable: isBillable, workedFrom, sentiment: 'Neutral', description: r.category, ticketNumber: null };
