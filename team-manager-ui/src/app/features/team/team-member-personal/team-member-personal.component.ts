@@ -44,7 +44,7 @@ const MAP_CATEGORIES: MapCategory[] = [
     }
   `],
   template: `
-    <div style="max-width:860px;margin:0 auto;padding:24px 16px 64px">
+    <div style="max-width:1280px;margin:0 auto;padding:24px 16px 64px">
 
       <!-- Header -->
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:24px">
