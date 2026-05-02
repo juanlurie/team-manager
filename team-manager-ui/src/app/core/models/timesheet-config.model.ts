@@ -2,6 +2,8 @@ export interface TimesheetConfig {
   extraProjects: string[];
   extraCategories: Record<string, string[]>;
   quickActions: QuickActionConfig[];
+  billableProjects?: string[];
+  workWeek?: Record<string, string>;
 }
 
 export interface QuickActionConfig {

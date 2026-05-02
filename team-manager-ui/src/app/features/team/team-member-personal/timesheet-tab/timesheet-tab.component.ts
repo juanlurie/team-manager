@@ -441,7 +441,7 @@ export class TimesheetTabComponent implements OnInit {
 
   addEntry() {
     if (!this.canAdd()) return;
-    const config = this.tsConfig() as any;
+    const config = this.tsConfig();
     const isBillable = (config.billableProjects ?? []).includes(this.formProject());
 
     const dayName = this.selectedDate().toLocaleDateString('en-US', { weekday: 'long' });
@@ -485,7 +485,7 @@ export class TimesheetTabComponent implements OnInit {
   setFormProject(p: string) { this.formProject.set(p); this.formCategory.set(''); }
 
   logRecent(r: Recent) {
-    const config = this.tsConfig() as any;
+    const config = this.tsConfig();
     const isBillable = (config.billableProjects ?? []).includes(r.project);
 
     const dayName = this.selectedDate().toLocaleDateString('en-US', { weekday: 'long' });
