@@ -254,9 +254,7 @@ export class TimesheetTabComponent implements OnInit {
       error: () => {},
     });
 
-    effect(() => {
-      this.load();
-    });
+    this.load();
   }
 
   private load() {
