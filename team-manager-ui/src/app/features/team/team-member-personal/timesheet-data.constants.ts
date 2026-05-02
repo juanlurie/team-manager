@@ -75,3 +75,34 @@ export const QUICK_COMBOS = [
   { label: 'Training', project: 'Training', category: 'Self-study' },
   { label: 'Remote', project: 'Remote Culture', category: 'Other' },
 ];
+
+export interface ActivityCombo {
+  label: string;
+  project: string;
+  category: string;
+  color: string;
+  bg: string;
+}
+
+export const ACTIVITY_COMBOS: ActivityCombo[] = [
+  { label: 'Dev',      project: 'Interim Project Work',  category: 'Software Development',    color: '#82aaff', bg: 'rgba(130,170,255,0.15)' },
+  { label: 'Analysis', project: 'Interim Project Work',  category: 'Analysis',                color: '#4caf50', bg: 'rgba(76,175,80,0.13)' },
+  { label: '1:1',      project: 'Meetings and Reviews',  category: 'One On One Facilitation', color: '#ff9800', bg: 'rgba(255,152,0,0.14)' },
+  { label: 'Training', project: 'Training',              category: 'Self-study',              color: '#ce93d8', bg: 'rgba(206,147,216,0.14)' },
+  { label: 'Remote',   project: 'Remote Culture',        category: 'Other',                   color: '#4dd0e1', bg: 'rgba(77,208,225,0.13)' },
+  { label: 'Review',   project: 'Meetings and Reviews',  category: 'Review Attendance',       color: '#ffb74d', bg: 'rgba(255,183,77,0.14)' },
+];
+
+export const DURATION_CHIPS = ['15m', '30m', '45m', '1h', '2h', '4h', '8h'];
+
+export const DURATION_CHIP_MINUTES: Record<string, number> = {
+  '15m': 15, '30m': 30, '45m': 45, '1h': 60, '2h': 120, '4h': 240, '8h': 480,
+};
+
+export function minutesToDurationLabel(total: number): string {
+  if (!total) return '—';
+  const h = Math.floor(total / 60), m = total % 60;
+  if (!h) return `${m}m`;
+  if (!m) return `${h}h`;
+  return `${h}h ${m}m`;
+}

@@ -326,7 +326,7 @@ const MORE_NAV: NavItem[] = [
     .content { flex: 1; overflow-y: auto; min-width: 0; }
     .shell.mobile .content { padding-bottom: 60px; }
     .page-wrap { padding: 24px; max-width: 1200px; margin: 0 auto; }
-    .shell.mobile .page-wrap { padding: 16px 12px; }
+    .shell.mobile .page-wrap { padding: 0 4px; }
   `]
 })
 export class AppComponent {
