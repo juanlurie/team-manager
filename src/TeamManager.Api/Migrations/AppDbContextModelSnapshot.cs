@@ -752,6 +752,28 @@ namespace TeamManager.Api.Migrations
                     b.Navigation("Participants");
                 });
 
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.MemberTimesheetConfig", b =>
+                {
+                    b.Property<Guid>("TeamMemberId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ExtraCategoriesJson")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("ExtraProjectsJson")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("QuickActionsJson")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("TeamMemberId");
+
+                    b.ToTable("MemberTimesheetConfigs");
+                });
+
             modelBuilder.Entity("TeamManager.Api.Domain.Entities.MemberPersonal", b =>
                 {
                     b.Property<Guid>("TeamMemberId")
@@ -902,6 +924,17 @@ namespace TeamManager.Api.Migrations
                         .IsUnique();
 
                     b.ToTable("SprintVotes");
+                });
+
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.MemberTimesheetConfig", b =>
+                {
+                    b.HasOne("TeamManager.Api.Domain.Entities.TeamMember", "TeamMember")
+                        .WithOne()
+                        .HasForeignKey("TeamManager.Api.Domain.Entities.MemberTimesheetConfig", "TeamMemberId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("TeamMember");
                 });
 
             modelBuilder.Entity("TeamManager.Api.Domain.Entities.MemberPersonal", b =>

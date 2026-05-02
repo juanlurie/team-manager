@@ -33,7 +33,7 @@ mat-sidenav-content {
 
 @media (max-width: 599px) {
   .page-container {
-    padding: 16px 12px;
+    padding: 8px 4px;
   }
 }
 
@@ -49,6 +49,8 @@ mat-sidenav-content {
     font-size: 16px !important;
   }
 }
+
+.dark-dialog .mat-mdc-dialog-container .mdc-dialog__surface { background: #131e2b !important; }
 
 /* Dialogs full-width on mobile */
 @media (max-width: 599px) {

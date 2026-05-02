@@ -27,6 +27,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<MemberNote> MemberNotes => Set<MemberNote>();
     public DbSet<MemberTask> MemberTasks => Set<MemberTask>();
     public DbSet<TimesheetEntry> TimesheetEntries => Set<TimesheetEntry>();
+    public DbSet<MemberTimesheetConfig> MemberTimesheetConfigs => Set<MemberTimesheetConfig>();
     public DbSet<SprintVote> SprintVotes => Set<SprintVote>();
     public DbSet<Squad> Squads => Set<Squad>();
     public DbSet<SquadMember> SquadMembers => Set<SquadMember>();
@@ -59,5 +60,6 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         modelBuilder.ApplyConfiguration(new SquadMemberConfiguration());
         modelBuilder.ApplyConfiguration(new RetroActionConfiguration());
         modelBuilder.ApplyConfiguration(new TimesheetEntryConfiguration());
+        modelBuilder.ApplyConfiguration(new MemberTimesheetConfigConfiguration());
     }
 }
