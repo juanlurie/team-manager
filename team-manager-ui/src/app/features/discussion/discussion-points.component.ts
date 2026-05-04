@@ -85,48 +85,27 @@ const PRIORITY_ORDER = ['High', 'Medium', 'Low'] as const;
                     border-left:3px solid {{ priorityColor(dp.priority) }};
                     opacity:{{ dp.status === 'Resolved' || dp.status === 'Deferred' ? '0.55' : '1' }}">
 
-          <div (click)="openEdit(dp)"
-               style="display:flex;align-items:flex-start;gap:12px;padding:16px 18px;cursor:pointer">
-            <!-- Priority + status badges -->
-            <div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0;padding-top:2px">
-              <div style="font-size:0.68rem;font-weight:700;padding:2px 8px;border-radius:10px;text-align:center;
+          <!-- Row 1: Badges and Actions -->
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px 8px">
+            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+              <div style="font-size:0.68rem;font-weight:700;padding:2px 8px;border-radius:10px;
                           background:{{ priorityBg(dp.priority) }};color:{{ priorityColor(dp.priority) }}">
                 {{ dp.priority.toUpperCase() }}
               </div>
-              <div style="font-size:0.68rem;font-weight:600;padding:2px 8px;border-radius:10px;text-align:center;
+              <div style="font-size:0.68rem;font-weight:600;padding:2px 8px;border-radius:10px;
                           background:{{ statusBg(dp.status) }};color:{{ statusColor(dp.status) }}">
                 {{ statusLabel(dp.status) }}
               </div>
               @if (isOverdue(dp)) {
-                <div style="font-size:0.65rem;font-weight:700;padding:2px 8px;border-radius:10px;text-align:center;
+                <div style="font-size:0.65rem;font-weight:700;padding:2px 8px;border-radius:10px;
                             background:rgba(239,83,80,0.15);color:#ef5350">
                   OVERDUE
                 </div>
               }
             </div>
 
-            <!-- Main content -->
-            <div style="flex:1;min-width:0">
-              <div style="font-size:1rem;font-weight:600;margin-bottom:4px">{{ dp.title }}</div>
-              @if (dp.notes) {
-                <div style="font-size:0.85rem;opacity:0.6;white-space:pre-wrap;line-height:1.5">{{ dp.notes }}</div>
-              }
-              <div style="display:flex;gap:12px;margin-top:8px;font-size:0.75rem;opacity:0.4;flex-wrap:wrap">
-                @if (dp.startDate) {
-                  <span>Started {{ fmtDate(dp.startDate) }}</span>
-                }
-                @if (dp.targetDate) {
-                  <span [style.color]="isOverdue(dp) ? '#ef9a9a' : 'inherit'"
-                        [style.opacity]="isOverdue(dp) ? '0.9' : 'inherit'">
-                    Target {{ fmtDate(dp.targetDate) }}
-                  </span>
-                }
-                <span>Added {{ relativeDate(dp.createdAt) }}</span>
-              </div>
-            </div>
-
             <!-- Actions -->
-            <div style="display:flex;gap:2px;flex-shrink:0;align-items:center" (click)="$event.stopPropagation()">
+            <div style="display:flex;gap:2px" (click)="$event.stopPropagation()">
               <button mat-icon-button [matTooltip]="expandedIds().has(dp.id) ? 'Hide comments' : 'Comments'"
                       (click)="toggleExpand(dp.id)">
                 <mat-icon style="font-size:20px;width:20px;height:20px;line-height:20px">
@@ -143,6 +122,28 @@ const PRIORITY_ORDER = ['High', 'Medium', 'Low'] as const;
                 <mat-icon style="font-size:20px;width:20px;height:20px;line-height:20px">delete_outline</mat-icon>
               </button>
             </div>
+          </div>
+
+          <!-- Row 2: Title/Notes -->
+          <div (click)="openEdit(dp)" style="padding:0 16px 8px;cursor:pointer">
+            <div style="font-size:1rem;font-weight:600;margin-bottom:4px">{{ dp.title }}</div>
+            @if (dp.notes) {
+              <div style="font-size:0.85rem;opacity:0.6;white-space:pre-wrap;line-height:1.5">{{ dp.notes }}</div>
+            }
+          </div>
+
+          <!-- Row 3: Dates -->
+          <div style="display:flex;gap:12px;padding:0 16px 12px;font-size:0.75rem;opacity:0.4;flex-wrap:wrap">
+            @if (dp.startDate) {
+              <span>Started {{ fmtDate(dp.startDate) }}</span>
+            }
+            @if (dp.targetDate) {
+              <span [style.color]="isOverdue(dp) ? '#ef9a9a' : 'inherit'"
+                    [style.opacity]="isOverdue(dp) ? '0.9' : 'inherit'">
+                Target {{ fmtDate(dp.targetDate) }}
+              </span>
+            }
+            <span>Added {{ relativeDate(dp.createdAt) }}</span>
           </div>
 
           @if (expandedIds().has(dp.id)) {

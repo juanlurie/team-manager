@@ -1,0 +1,1 @@
+import"./chunk-TSRGIXR5.js";var o=[{path:"",loadComponent:()=>import("./chunk-AV6B7GCE.js").then(t=>t.SprintListComponent)},{path:":id",loadComponent:()=>import("./chunk-YJR2MDBH.js").then(t=>t.SprintDetailComponent)},{path:":id/features",loadComponent:()=>import("./chunk-GOVU6L43.js").then(t=>t.SprintFeaturesComponent)}];export{o as SPRINT_ROUTES};
