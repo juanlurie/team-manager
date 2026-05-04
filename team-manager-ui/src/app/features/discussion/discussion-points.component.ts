@@ -13,6 +13,7 @@ import { DiscussionPointService } from '../../core/services/discussion-point.ser
 import { CommentsComponent } from '../../shared/comments/comments.component';
 import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/confirm-dialog.component';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { DiscussionPointsEditDialogComponent } from './discussion-points-edit-dialog/discussion-points-edit-dialog.component';
 
 const STATUS_ORDER = ['Open', 'InProgress', 'Resolved', 'Deferred'] as const;
 const PRIORITY_ORDER = ['High', 'Medium', 'Low'] as const;
@@ -66,77 +67,13 @@ const PRIORITY_ORDER = ['High', 'Medium', 'Low'] as const;
       </div>
     }
 
-    <!-- Inline add/edit form -->
-    @if (editing()) {
-      <div style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);
-                  border-radius:12px;padding:20px;margin-bottom:20px">
-        <div style="font-size:0.85rem;font-weight:600;opacity:0.5;margin-bottom:14px;text-transform:uppercase;letter-spacing:0.08em">
-          {{ editId() ? 'Edit Point' : 'New Discussion Point' }}
-        </div>
-
-        <div style="display:flex;flex-direction:column;gap:12px">
-          <mat-form-field appearance="outline">
-            <mat-label>Topic / concern</mat-label>
-            <input matInput [(ngModel)]="form.title" placeholder="What needs to be discussed?">
-          </mat-form-field>
-
-          <mat-form-field appearance="outline">
-            <mat-label>Notes</mat-label>
-            <textarea matInput [(ngModel)]="form.notes" rows="4"
-                      placeholder="Context, background, what input is needed from leadership…"></textarea>
-          </mat-form-field>
-
-          <div style="display:flex;gap:12px;flex-wrap:wrap">
-            <mat-form-field appearance="outline" style="flex:1;min-width:140px">
-              <mat-label>Status</mat-label>
-              <mat-select [(ngModel)]="form.status">
-                <mat-option value="Open">Open</mat-option>
-                <mat-option value="InProgress">In Progress</mat-option>
-                <mat-option value="Resolved">Resolved</mat-option>
-                <mat-option value="Deferred">Deferred</mat-option>
-              </mat-select>
-            </mat-form-field>
-
-            <mat-form-field appearance="outline" style="flex:1;min-width:140px">
-              <mat-label>Priority</mat-label>
-              <mat-select [(ngModel)]="form.priority">
-                <mat-option value="High">High</mat-option>
-                <mat-option value="Medium">Medium</mat-option>
-                <mat-option value="Low">Low</mat-option>
-              </mat-select>
-            </mat-form-field>
-          </div>
-
-          <div style="display:flex;gap:12px;flex-wrap:wrap">
-            <mat-form-field appearance="outline" style="flex:1;min-width:160px">
-              <mat-label>Date started</mat-label>
-              <input matInput type="date" [(ngModel)]="form.startDate">
-            </mat-form-field>
-
-            <mat-form-field appearance="outline" style="flex:1;min-width:160px">
-              <mat-label>Target date</mat-label>
-              <input matInput type="date" [(ngModel)]="form.targetDate">
-            </mat-form-field>
-          </div>
-
-          <div style="display:flex;gap:8px;justify-content:flex-end">
-            <button mat-button (click)="cancel()">Cancel</button>
-            <button mat-raised-button color="primary" [disabled]="!form.title.trim() || saving()"
-                    (click)="save()">
-              {{ saving() ? 'Saving…' : (editId() ? 'Save Changes' : 'Add Point') }}
-            </button>
-          </div>
-        </div>
-      </div>
-    }
-
     @if (loading()) {
       <div style="display:flex;justify-content:center;padding:80px">
         <mat-spinner diameter="48"></mat-spinner>
       </div>
     } @else {
 
-    @if (filtered().length === 0 && !editing()) {
+    @if (filtered().length === 0) {
       <div style="text-align:center;opacity:0.3;padding:60px 0;font-size:0.95rem">
         No discussion points yet. Add one to start tracking leadership items.
       </div>
@@ -225,18 +162,11 @@ export class DiscussionPointsComponent implements OnInit {
 
   loading     = signal(true);
   items       = signal<DiscussionPoint[]>([]);
-  editing     = signal(false);
-  editId      = signal<string | null>(null);
   saving      = signal(false);
   expandedIds = signal<Set<string>>(new Set());
 
   filterStatus   = '';
   filterPriority = '';
-
-  form: CreateDiscussionPointRequest = {
-    title: '', notes: null, status: 'Open', priority: 'Medium',
-    startDate: null, targetDate: null
-  };
 
   filtered = computed(() => {
     let list = this.items().slice().sort((a, b) => {
@@ -272,40 +202,33 @@ export class DiscussionPointsComponent implements OnInit {
   }
 
   openNew() {
-    this.editId.set(null);
-    this.form = { title: '', notes: null, status: 'Open', priority: 'Medium', startDate: null, targetDate: null };
-    this.editing.set(true);
+    const form: CreateDiscussionPointRequest = { title: '', notes: null, status: 'Open', priority: 'Medium', startDate: null, targetDate: null };
+    const dialogRef = this.dialog.open(DiscussionPointsEditDialogComponent, {
+      width: '500px',
+      data: { editId: null, form }
+    });
+    dialogRef.afterClosed().subscribe((result?: CreateDiscussionPointRequest) => {
+      if (result) {
+        this.svc.create(result).subscribe(dp => this.items.update(list => [...list, dp]));
+      }
+    });
   }
 
   openEdit(dp: DiscussionPoint) {
-    this.editId.set(dp.id);
-    this.form = {
+    const form: CreateDiscussionPointRequest = {
       title: dp.title, notes: dp.notes, status: dp.status, priority: dp.priority,
       startDate: dp.startDate, targetDate: dp.targetDate
     };
-    this.editing.set(true);
-  }
-
-  cancel() { this.editing.set(false); this.editId.set(null); }
-
-  save() {
-    if (!this.form.title.trim() || this.saving()) return;
-    this.saving.set(true);
-    const req: CreateDiscussionPointRequest = {
-      ...this.form,
-      startDate:  (this.form.startDate  as any) || null,
-      targetDate: (this.form.targetDate as any) || null,
-    };
-    const id = this.editId();
-    const obs = id ? this.svc.update(id, req) : this.svc.create(req);
-    obs.subscribe({
-      next: (dp) => {
-        this.items.update(list => id ? list.map(x => x.id === id ? dp : x) : [...list, dp]);
-        this.saving.set(false);
-        this.editing.set(false);
-        this.editId.set(null);
-      },
-      error: () => this.saving.set(false)
+    const dialogRef = this.dialog.open(DiscussionPointsEditDialogComponent, {
+      width: '500px',
+      data: { editId: dp.id, form }
+    });
+    dialogRef.afterClosed().subscribe((result?: CreateDiscussionPointRequest) => {
+      if (result) {
+        this.svc.update(dp.id, result).subscribe(updated =>
+          this.items.update(list => list.map(x => x.id === updated.id ? updated : x))
+        );
+      }
     });
   }
 
