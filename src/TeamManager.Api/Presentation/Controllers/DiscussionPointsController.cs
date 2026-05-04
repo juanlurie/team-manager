@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using TeamManager.Api.Application.DTOs.DiscussionPoint;
+using TeamManager.Api.Application.DTOs.DiscussionTask;
 using TeamManager.Api.Application.Services.Interfaces;
 
 namespace TeamManager.Api.Presentation.Controllers;
@@ -28,5 +29,35 @@ public class DiscussionPointsController(IDiscussionPointService service) : Contr
     {
         var success = await service.DeleteAsync(id);
         return success ? NoContent() : NotFound();
+    }
+
+    // Task endpoints
+    [HttpGet("{discussionPointId:guid}/tasks")]
+    public async Task<IActionResult> GetTasks(Guid discussionPointId)
+        => Ok(await service.GetTasksAsync(discussionPointId));
+
+    [HttpPost("{discussionPointId:guid}/tasks")]
+    public async Task<IActionResult> CreateTask(Guid discussionPointId, [FromBody] CreateDiscussionTaskRequest request)
+        => Created("", await service.CreateTaskAsync(discussionPointId, request));
+
+    [HttpPut("{discussionPointId:guid}/tasks/{taskId:guid}")]
+    public async Task<IActionResult> UpdateTask(Guid discussionPointId, Guid taskId, [FromBody] CreateDiscussionTaskRequest request)
+    {
+        var result = await service.UpdateTaskAsync(discussionPointId, taskId, request);
+        return result is null ? NotFound() : Ok(result);
+    }
+
+    [HttpDelete("{discussionPointId:guid}/tasks/{taskId:guid}")]
+    public async Task<IActionResult> DeleteTask(Guid discussionPointId, Guid taskId)
+    {
+        var success = await service.DeleteTaskAsync(discussionPointId, taskId);
+        return success ? NoContent() : NotFound();
+    }
+
+    [HttpPost("{discussionPointId:guid}/tasks/{taskId:guid}/toggle")]
+    public async Task<IActionResult> ToggleTask(Guid discussionPointId, Guid taskId)
+    {
+        var result = await service.ToggleTaskAsync(discussionPointId, taskId);
+        return result is null ? NotFound() : Ok(result);
     }
 }

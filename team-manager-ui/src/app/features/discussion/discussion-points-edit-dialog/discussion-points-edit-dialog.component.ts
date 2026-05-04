@@ -65,6 +65,11 @@ import { CreateDiscussionPointRequest } from '../../../core/models/discussion-po
           <mat-datepicker #targetDatePicker></mat-datepicker>
         </mat-form-field>
       </div>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Assignee (optional)</mat-label>
+        <input matInput [(ngModel)]="form.teamMemberId" placeholder="Team member ID">
+      </mat-form-field>
     </div>
 
     <div mat-dialog-actions style="justify-content:flex-end;gap:8px">

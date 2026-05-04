@@ -8,7 +8,10 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatDialogModule, MatDialog } from '@angular/material/dialog';
-import { DiscussionPoint, CreateDiscussionPointRequest } from '../../core/models/discussion-point.model';
+import { DiscussionPoint, CreateDiscussionPointRequest, DiscussionTask, CreateDiscussionTaskRequest } from '../../core/models/discussion-point.model';
+import { MatDatepickerModule } from '@angular/material/datepicker';
+import { MatCheckboxModule } from '@angular/material/checkbox';
+import { DiscussionPointsTaskDialogComponent } from './discussion-points-task-dialog/discussion-points-task-dialog.component';
 import { DiscussionPointService } from '../../core/services/discussion-point.service';
 import { CommentsComponent } from '../../shared/comments/comments.component';
 import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/confirm-dialog.component';
@@ -23,7 +26,7 @@ const PRIORITY_ORDER = ['High', 'Medium', 'Low'] as const;
   standalone: true,
   imports: [CommonModule, FormsModule, MatButtonModule, MatIconModule,
     MatSelectModule, MatFormFieldModule, MatInputModule, MatTooltipModule,
-    MatDialogModule, CommentsComponent, MatProgressSpinnerModule],
+    MatDialogModule, CommentsComponent, MatProgressSpinnerModule, MatDatepickerModule, MatCheckboxModule],
   template: `
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;flex-wrap:wrap">
       <h2 style="margin:0;font-size:1.2rem;flex:1">Discussion Points</h2>
@@ -106,7 +109,7 @@ const PRIORITY_ORDER = ['High', 'Medium', 'Low'] as const;
 
             <!-- Actions -->
             <div style="display:flex;gap:2px" (click)="$event.stopPropagation()">
-              <button mat-icon-button [matTooltip]="expandedIds().has(dp.id) ? 'Hide comments' : 'Comments'"
+              <button mat-icon-button [matTooltip]="expandedIds().has(dp.id) ? 'Hide comments & tasks' : 'Comments & tasks'"
                       (click)="toggleExpand(dp.id)">
                 <mat-icon style="font-size:20px;width:20px;height:20px;line-height:20px">
                   {{ expandedIds().has(dp.id) ? 'chat_bubble' : 'chat_bubble_outline' }}
@@ -130,6 +133,9 @@ const PRIORITY_ORDER = ['High', 'Medium', 'Low'] as const;
             @if (dp.notes) {
               <div style="font-size:0.85rem;opacity:0.6;white-space:pre-wrap;line-height:1.5">{{ dp.notes }}</div>
             }
+            @if (dp.assigneeName) {
+              <div style="font-size:0.8rem;color:#ffb74d;margin-top:6px">Assigned to: {{ dp.assigneeName }}</div>
+            }
           </div>
 
           <!-- Row 3: Dates -->
@@ -147,7 +153,70 @@ const PRIORITY_ORDER = ['High', 'Medium', 'Low'] as const;
           </div>
 
           @if (expandedIds().has(dp.id)) {
-            <div style="border-top:1px solid rgba(255,255,255,0.07);padding:4px 18px 14px">
+            <div style="border-top:1px solid rgba(255,255,255,0.07);padding:12px 18px">
+              <!-- Tasks Section -->
+              <div style="margin-bottom:12px">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+                  <mat-icon style="font-size:16px;width:16px;height:16px;color:#ffb74d">task_alt</mat-icon>
+                  <span style="font-size:0.75rem;font-weight:700;opacity:0.6;text-transform:uppercase;letter-spacing:0.05em">
+                    Tasks ({{ tasksFor(dp.id).length }})
+                  </span>
+                </div>
+
+                @if (tasksLoading(dp.id)) {
+                  <div style="display:flex;justify-content:center;padding:20px">
+                    <mat-spinner diameter="24"></mat-spinner>
+                  </div>
+                } @else {
+                  <!-- Task list -->
+                  @for (task of tasksFor(dp.id); track task.id) {
+                    <div style="display:flex;align-items:flex-start;gap:8px;padding:6px 8px;margin-bottom:4px;
+                                background:rgba(255,255,255,0.03);border-radius:6px;border:1px solid rgba(255,255,255,0.05)">
+                      <mat-checkbox [checked]="task.isCompleted"
+                                    (change)="toggleTask(dp.id, task)"></mat-checkbox>
+                      <div style="flex:1;min-width:0">
+                        <div style="font-size:0.85rem;font-weight:{{ task.isCompleted ? 500 : 600 }};
+                                    text-decoration:{{ task.isCompleted ? 'line-through' : 'none' }};
+                                    opacity:{{ task.isCompleted ? 0.6 : 1 }};word-break:break-word">
+                          {{ task.title }}
+                        </div>
+                        @if (task.assigneeName || task.dueDate) {
+                          <div style="display:flex;gap:8px;font-size:0.7rem;opacity:0.5;margin-top:2px;flex-wrap:wrap">
+                            @if (task.assigneeName) {
+                              <span>{{ task.assigneeName }}</span>
+                            }
+                            @if (task.dueDate) {
+                              <span [style.color]="isTaskOverdue(task) ? '#ef5350' : 'inherit'">
+                                Due {{ fmtDate(task.dueDate) }}
+                              </span>
+                            }
+                          </div>
+                        }
+                      </div>
+                      <button mat-icon-button (click)="openTaskEdit(dp.id, task)" style="width:28px;height:28px">
+                        <mat-icon style="font-size:14px;width:14px;height:14px">edit</mat-icon>
+                      </button>
+                      <button mat-icon-button (click)="deleteTask(dp.id, task)" style="width:28px;height:28px">
+                        <mat-icon style="font-size:14px;width:14px;height:14px">delete_outline</mat-icon>
+                      </button>
+                    </div>
+                  }
+
+                  @if (tasksFor(dp.id).length === 0) {
+                    <div style="font-size:0.8rem;opacity:0.4;padding:8px 0">No tasks yet</div>
+                  }
+
+                  <!-- Add task -->
+                  <div style="display:flex;gap:8px;margin-top:8px">
+                    <button mat-stroked-button (click)="openTaskAdd(dp.id)" style="font-size:0.8rem">
+                      <mat-icon style="font-size:16px;width:16px;height:16px;margin-right:4px">add</mat-icon>
+                      Add Task
+                    </button>
+                  </div>
+                }
+              </div>
+
+              <!-- Comments -->
               <app-comments entityType="DiscussionPoint" [entityId]="dp.id"></app-comments>
             </div>
           }
@@ -165,6 +234,8 @@ export class DiscussionPointsComponent implements OnInit {
   items       = signal<DiscussionPoint[]>([]);
   saving      = signal(false);
   expandedIds = signal<Set<string>>(new Set());
+  tasks       = signal<Record<string, DiscussionTask[]>>({});
+  tasksLoadingMap = signal<Record<string, boolean>>({});
 
   filterStatus   = '';
   filterPriority = '';
@@ -195,10 +266,95 @@ export class DiscussionPointsComponent implements OnInit {
   }
 
   toggleExpand(id: string) {
+    this.toggleTasks(id);
     this.expandedIds.update(s => {
       const next = new Set(s);
       next.has(id) ? next.delete(id) : next.add(id);
       return next;
+    });
+  }
+
+  tasksFor(discussionPointId: string): DiscussionTask[] {
+    return this.tasks()[discussionPointId] || [];
+  }
+
+  tasksLoading(discussionPointId: string): boolean {
+    return this.tasksLoadingMap()[discussionPointId] || false;
+  }
+
+  loadTasks(discussionPointId: string) {
+    if (this.tasks()[discussionPointId]) return;
+    this.tasksLoadingMap.update(m => ({ ...m, [discussionPointId]: true }));
+    this.svc.getTasks(discussionPointId).subscribe({
+      next: tasks => {
+        this.tasks.update(t => ({ ...t, [discussionPointId]: tasks }));
+        this.tasksLoadingMap.update(m => ({ ...m, [discussionPointId]: false }));
+      },
+      error: () => this.tasksLoadingMap.update(m => ({ ...m, [discussionPointId]: false }))
+    });
+  }
+
+  toggleTasks(discussionPointId: string) {
+    if (!this.tasks()[discussionPointId]) {
+      this.loadTasks(discussionPointId);
+    }
+  }
+
+  toggleTask(discussionPointId: string, task: DiscussionTask) {
+    this.svc.toggleTask(discussionPointId, task.id).subscribe(updated => {
+      this.tasks.update(t => ({
+        ...t,
+        [discussionPointId]: t[discussionPointId]?.map(x => x.id === updated.id ? updated : x) || []
+      }));
+    });
+  }
+
+  deleteTask(discussionPointId: string, task: DiscussionTask) {
+    this.dialog.open(ConfirmDialogComponent, {
+      width: '360px',
+      data: { title: 'Delete task?', message: `"${task.title}" will be permanently removed.`, danger: true }
+    }).afterClosed().subscribe(ok => {
+      if (ok) this.svc.deleteTask(discussionPointId, task.id).subscribe(() =>
+        this.tasks.update(t => ({
+          ...t,
+          [discussionPointId]: t[discussionPointId]?.filter(x => x.id !== task.id) || []
+        }))
+      );
+    });
+  }
+
+  isTaskOverdue(task: DiscussionTask): boolean {
+    if (!task.dueDate || task.isCompleted) return false;
+    return task.dueDate < new Date().toISOString().slice(0, 10);
+  }
+
+  openTaskAdd(discussionPointId: string) {
+    const dialogRef = this.dialog.open(DiscussionPointsTaskDialogComponent, {
+      width: '420px',
+      data: { discussionPointId, teamMembers: [] }
+    });
+    dialogRef.afterClosed().subscribe((result?: DiscussionTask) => {
+      if (result) {
+        this.tasks.update(t => ({
+          ...t,
+          [discussionPointId]: [...(t[discussionPointId] || []), result]
+        }));
+      }
+    });
+  }
+
+  openTaskEdit(discussionPointId: string, task: DiscussionTask) {
+    const dialogRef = this.dialog.open(DiscussionPointsTaskDialogComponent, {
+      width: '420px',
+      data: { discussionPointId, task, teamMembers: [] }
+    });
+    dialogRef.afterClosed().subscribe((result?: DiscussionTask) => {
+      if (result) {
+        this.tasks.update(t => ({
+          ...t,
+          [discussionPointId]: t[discussionPointId]?.map(x => x.id === result!.id ? result! : x) || []
+        }));
+      }
     });
   }
 

@@ -13,5 +13,10 @@ public class DiscussionPointConfiguration : IEntityTypeConfiguration<DiscussionP
         builder.Property(d => d.Title).IsRequired().HasMaxLength(500);
         builder.Property(d => d.Status).IsRequired().HasMaxLength(50);
         builder.Property(d => d.Priority).IsRequired().HasMaxLength(20);
+
+        builder.HasOne(d => d.Assignee)
+            .WithMany()
+            .HasForeignKey(d => d.TeamMemberId)
+            .OnDelete(DeleteBehavior.SetNull);
     }
 }

@@ -9,6 +9,9 @@ public class DiscussionPoint
     public string Priority { get; set; } = "Medium";
     public DateOnly? StartDate { get; set; }
     public DateOnly? TargetDate { get; set; }
+    public Guid? TeamMemberId { get; set; }
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
     public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.UtcNow;
+
+    public TeamMember? Assignee { get; set; }
 }
