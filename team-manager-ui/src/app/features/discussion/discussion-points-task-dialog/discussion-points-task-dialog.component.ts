@@ -33,7 +33,7 @@ export interface TaskDialogData {
       <div mat-dialog-content style="display:flex;flex-direction:column;gap:12px;min-width:360px">
         <mat-form-field appearance="outline">
           <mat-label>Title</mat-label>
-          <input matInput [(ngModel)]="form.title" cdkFocusInitial>
+          <input matInput [(ngModel)]="form.title">
         </mat-form-field>
 
         <mat-form-field appearance="outline">
