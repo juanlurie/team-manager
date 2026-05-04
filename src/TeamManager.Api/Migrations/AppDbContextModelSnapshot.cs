@@ -98,6 +98,51 @@ namespace TeamManager.Api.Migrations
                     b.ToTable("DiscussionPoints");
                 });
 
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.DiscussionTask", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<Guid>("DiscussionPointId")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("IsCompleted")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
+
+                    b.Property<DateTimeOffset?>("CompletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateOnly?>("DueDate")
+                        .HasColumnType("date");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<Guid?>("TeamMemberId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DiscussionPointId");
+
+                    b.HasIndex("TeamMemberId");
+
+                    b.ToTable("DiscussionTasks");
+                });
+
             modelBuilder.Entity("TeamManager.Api.Domain.Entities.RetroAction", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1017,6 +1062,7 @@ namespace TeamManager.Api.Migrations
                     b.Navigation("Voter");
                     b.Navigation("Nominee");
                 });
+modelBuilder.Entity("TeamManager.Api.Domain.Entities.DiscussionTask", b =>                {                    b.HasOne("TeamManager.Api.Domain.Entities.DiscussionPoint", "DiscussionPoint")                        .WithMany()                        .HasForeignKey("DiscussionPointId")                        .OnDelete(DeleteBehavior.Cascade)                        .IsRequired();                    b.HasOne("TeamManager.Api.Domain.Entities.TeamMember", "Assignee")                        .WithMany()                        .HasForeignKey("TeamMemberId")                        .OnDelete(DeleteBehavior.SetNull);                    b.Navigation("DiscussionPoint");                    b.Navigation("Assignee");                });
 #pragma warning restore 612, 618
         }
     }

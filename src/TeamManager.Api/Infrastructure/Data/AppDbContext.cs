@@ -15,6 +15,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<Feature> Features => Set<Feature>();
     public DbSet<LeaveRecord> LeaveRecords => Set<LeaveRecord>();
     public DbSet<DiscussionPoint> DiscussionPoints => Set<DiscussionPoint>();
+    public DbSet<DiscussionTask> DiscussionTasks => Set<DiscussionTask>();
     public DbSet<Achievement> Achievements => Set<Achievement>();
     public DbSet<MemberAchievement> MemberAchievements => Set<MemberAchievement>();
     public DbSet<PointAward> PointAwards => Set<PointAward>();
@@ -43,6 +44,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         modelBuilder.ApplyConfiguration(new FeatureConfiguration());
         modelBuilder.ApplyConfiguration(new LeaveRecordConfiguration());
         modelBuilder.ApplyConfiguration(new DiscussionPointConfiguration());
+        modelBuilder.ApplyConfiguration(new DiscussionTaskConfiguration());
         modelBuilder.ApplyConfiguration(new AchievementConfiguration());
         modelBuilder.ApplyConfiguration(new MemberAchievementConfiguration());
         modelBuilder.ApplyConfiguration(new PointAwardConfiguration());

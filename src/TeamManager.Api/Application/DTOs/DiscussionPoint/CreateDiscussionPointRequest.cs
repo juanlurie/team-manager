@@ -8,5 +8,6 @@ public record CreateDiscussionPointRequest(
     [Required][MaxLength(50)] string Status,
     [Required][MaxLength(50)] string Priority,
     DateOnly? StartDate,
-    DateOnly? TargetDate
+    DateOnly? TargetDate,
+    Guid? TeamMemberId = null
 );
