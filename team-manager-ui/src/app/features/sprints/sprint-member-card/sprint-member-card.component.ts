@@ -5,6 +5,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatDialogModule, MatDialog } from '@angular/material/dialog';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatMenuModule } from '@angular/material/menu';
 import { MemberSprintCard } from '../../../core/models/dashboard.model';
 import { Feature } from '../../../core/models/feature.model';
 import { TeamMember } from '../../../core/models/team-member.model';
@@ -22,7 +23,7 @@ import { CarryOverDialogComponent } from '../carry-over-dialog/carry-over-dialog
 @Component({
   selector: 'app-sprint-member-card',
   standalone: true,
-  imports: [CommonModule, FormsModule, MatButtonModule, MatIconModule, MatDialogModule, MatTooltipModule, CarryOverDialogComponent],
+  imports: [CommonModule, FormsModule, MatButtonModule, MatIconModule, MatDialogModule, MatTooltipModule, MatMenuModule, CarryOverDialogComponent],
   template: `
     <div class="card">
 
@@ -38,12 +39,22 @@ import { CarryOverDialogComponent } from '../carry-over-dialog/carry-over-dialog
             </div>
           }
         </div>
-        @if (member.teamLeadName) {
-          <div class="lead-avatar" [matTooltip]="member.teamLeadName">{{ initials(member.teamLeadName) }}</div>
-        }
-        <button class="add-task-btn" (click)="addWorkItem()">
-          <mat-icon>add</mat-icon> Add task
+        <button class="add-task-btn" mat-icon-button (click)="addWorkItem()" matTooltip="Add task">
+          <mat-icon>add</mat-icon>
         </button>
+        <button class="more-btn" mat-icon-button [matMenuTriggerFor]="menu" matTooltip="Actions">
+          <mat-icon>more_vert</mat-icon>
+        </button>
+        <mat-menu #menu="matMenu" xPosition="before">
+          <button mat-menu-item (click)="addLeave()">
+            <mat-icon>event_busy</mat-icon>
+            <span>Add Leave</span>
+          </button>
+          <button mat-menu-item (click)="toggleCapacity()">
+            <mat-icon>bolt</mat-icon>
+            <span>{{ member.capacity !== null && member.capacity < 100 ? 'Edit Capacity' : 'Set Capacity' }}</span>
+          </button>
+        </mat-menu>
       </div>
 
       <!-- Work items -->
@@ -173,17 +184,6 @@ import { CarryOverDialogComponent } from '../carry-over-dialog/carry-over-dialog
         </div>
       }
 
-      <!-- Footer -->
-      <div class="card-footer">
-        <button class="footer-btn" (click)="addLeave()">
-          <mat-icon>event_busy</mat-icon> Leave
-        </button>
-        <button class="footer-btn" [class.capacity-active]="member.capacity !== null && member.capacity < 100"
-                (click)="toggleCapacity()">
-          <mat-icon>bolt</mat-icon> Capacity
-        </button>
-      </div>
-
     </div>
   `,
   styles: [`
@@ -192,21 +192,16 @@ import { CarryOverDialogComponent } from '../carry-over-dialog/carry-over-dialog
             overflow:hidden;display:flex;flex-direction:column;height:100%; }
 
     /* ── Header ── */
-    .card-header { display:flex;align-items:center;gap:10px;padding:12px 14px 10px;border-bottom:1px solid rgba(255,255,255,0.05); }
+    .card-header { display:flex;align-items:center;gap:6px;padding:12px 14px 10px;border-bottom:1px solid rgba(255,255,255,0.05); }
     .member-info { flex:1;min-width:0; }
     .member-name { font-weight:600;font-size:0.95rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
     .squad-chips { display:flex;flex-wrap:wrap;gap:4px;margin-top:4px; }
     .squad-chip  { font-size:0.65rem;font-weight:600;padding:2px 7px;border-radius:5px;
                    background:rgba(132,191,64,0.15);color:#84BF40; }
-    .lead-avatar { width:28px;height:28px;border-radius:50%;background:rgba(100,181,246,0.15);
-                   color:#64b5f6;font-size:0.62rem;font-weight:700;display:flex;align-items:center;
-                   justify-content:center;flex-shrink:0;cursor:default;border:1px solid rgba(100,181,246,0.2); }
-    .add-task-btn { display:flex;align-items:center;gap:4px;height:34px;padding:0 12px;
-                    border:1px solid rgba(255,255,255,0.18);border-radius:8px;background:transparent;
-                    color:rgba(255,255,255,0.75);font-size:0.82rem;font-weight:500;cursor:pointer;
-                    flex-shrink:0;transition:background 0.15s,border-color 0.15s; }
-    .add-task-btn:hover { background:rgba(255,255,255,0.08);border-color:rgba(255,255,255,0.3); }
-    .add-task-btn mat-icon { font-size:18px;width:18px;height:18px;line-height:18px; }
+    .add-task-btn { color:rgba(255,255,255,0.6); }
+    .add-task-btn:hover { color:rgba(255,255,255,0.95); background:rgba(255,255,255,0.08); }
+    .more-btn { color:rgba(255,255,255,0.5); }
+    .more-btn:hover { color:rgba(255,255,255,0.95); background:rgba(255,255,255,0.08); }
 
     /* ── Work items ── */
     .work-items { flex:1;padding:6px 8px 8px; }
@@ -227,7 +222,7 @@ import { CarryOverDialogComponent } from '../carry-over-dialog/carry-over-dialog
     .blocked-reason { font-size:0.72rem;color:#ef9a9a;padding:0 6px 4px;
                       white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
 
-    /* Action buttons — plain <button>, no Material overrides */
+    /* Action buttons */
     .wi-actions { display:flex;gap:2px;flex-shrink:0;opacity:0;transition:opacity 0.12s; }
     .wi-row:hover .wi-actions { opacity:1; }
     .action-btn { display:flex;align-items:center;justify-content:center;
@@ -310,16 +305,6 @@ import { CarryOverDialogComponent } from '../carry-over-dialog/carry-over-dialog
                       border-radius:6px;padding:5px 8px;font-size:0.85rem;color:inherit;text-align:center; }
     .capacity-pct { font-size:0.82rem;opacity:0.4; }
     .capacity-reduced { font-size:0.78rem;color:#ffb74d;opacity:0.9; }
-
-    /* ── Footer ── */
-    .card-footer { display:flex;align-items:center;padding:4px 6px;gap:2px;border-top:1px solid rgba(255,255,255,0.05); }
-    .footer-btn { flex:1;display:flex;align-items:center;justify-content:center;gap:6px;
-                  height:38px;border:none;border-radius:8px;background:transparent;
-                  color:rgba(255,255,255,0.5);font-size:0.82rem;font-weight:500;cursor:pointer;
-                  transition:background 0.15s,color 0.15s; }
-    .footer-btn:hover { background:rgba(255,255,255,0.07);color:rgba(255,255,255,0.85); }
-    .footer-btn.capacity-active { color:#ffb74d; }
-    .footer-btn mat-icon { font-size:18px;width:18px;height:18px;line-height:18px; }
   `]
 })
 export class SprintMemberCardComponent {
