@@ -18,6 +18,7 @@ import { FeatureService } from '../../../core/services/feature.service';
 import { CommentService } from '../../../core/services/comment.service';
 import { Comment } from '../../../core/models/comment.model';
 import { CarryOverDialogComponent } from '../carry-over-dialog/carry-over-dialog.component';
+import { IconButtonComponent } from '../../../shared/components/icon-btn/icon-btn.component';
 
 interface ItemState {
   title: string;
@@ -32,7 +33,7 @@ interface ItemState {
   standalone: true,
   imports: [CommonModule, ReactiveFormsModule, FormsModule, MatDialogModule,
     MatFormFieldModule, MatInputModule, MatSelectModule, MatButtonModule,
-    MatIconModule, MatDividerModule, MatTooltipModule, ConfirmDialogComponent, CarryOverDialogComponent],
+    MatIconModule, MatDividerModule, MatTooltipModule, ConfirmDialogComponent, CarryOverDialogComponent, IconButtonComponent],
   template: `
     <div class="rf-shell">
 
@@ -42,9 +43,7 @@ interface ItemState {
         <span class="rf-title">Rapid Fire</span>
         <span style="flex:1"></span>
         <span class="rf-counter">{{ index() + 1 }} / {{ queue().length }}</span>
-        <button mat-icon-button mat-dialog-close matTooltip="Done">
-          <mat-icon>close</mat-icon>
-        </button>
+        <app-icon-btn icon="close" size="sm" tooltip="Done" (btnClick)="closeDialog()" />
       </div>
 
       <!-- Progress bar -->
@@ -197,14 +196,8 @@ interface ItemState {
                          (keydown.enter)="saveNewFeature()"
                          (keydown.escape)="showInlineFeature.set(false)">
                 </mat-form-field>
-                <button mat-icon-button color="primary"
-                        [disabled]="!newFeatureTitle.trim() || newFeatureSaving()"
-                        (click)="saveNewFeature()">
-                  <mat-icon>check</mat-icon>
-                </button>
-                <button mat-icon-button (click)="showInlineFeature.set(false)">
-                  <mat-icon>close</mat-icon>
-                </button>
+                <app-icon-btn icon="check" size="sm" tooltip="Save" color="primary" [disabled]="!newFeatureTitle.trim() || newFeatureSaving()" (btnClick)="saveNewFeature()" />
+                <app-icon-btn icon="close" size="sm" tooltip="Cancel" (btnClick)="showInlineFeature.set(false)" />
               </div>
             } @else {
               <button mat-button style="font-size:0.75rem;opacity:0.55;margin-top:-12px;margin-bottom:4px"
@@ -459,6 +452,8 @@ export class RapidFireDialogComponent implements OnInit {
   isDeferred = computed(() => this.deferredIds.has(this.current()?.sprintMemberId));
 
   ngOnInit() { this.restart(); }
+
+  closeDialog() { this.dialogRef.close(); }
 
   restart() {
     const shuffled = [...this.data.members].sort(() => Math.random() - 0.5);

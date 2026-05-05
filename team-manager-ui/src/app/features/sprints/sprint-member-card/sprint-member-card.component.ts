@@ -52,37 +52,43 @@ import { CarryOverDialogComponent } from '../carry-over-dialog/carry-over-dialog
           <div class="empty-tasks">No tasks yet</div>
         }
         @for (group of groupedWorkItems(); track group.featureId) {
-          @if (group.featureTitle) {
-            <div class="feature-label">{{ group.featureTitle }}</div>
-          }
           @for (wi of group.items; track wi.id) {
             <div class="wi-row">
-              <div class="wi-top">
-                <span [class]="wiTypeClass(wi.type)">{{ wi.type }}</span>
-                <span [class]="wiStatusClass(wi.status)">{{ statusLabel(wi.status) }}</span>
-                <span class="wi-title" [title]="wi.title">
-                  {{ wi.title }}{{ wi.externalTicketRef ? ' · ' + wi.externalTicketRef : '' }}
-                </span>
-                <div class="wi-actions">
-                  <button class="action-btn" [class.comment-active]="commentsOpen[wi.id]"
-                          [matTooltip]="commentsOpen[wi.id] ? 'Hide comments' : 'Comments'"
-                          (click)="toggleComments(wi)" style="position:relative">
-                    <mat-icon>{{ commentsOpen[wi.id] ? 'chat_bubble' : 'chat_bubble_outline' }}</mat-icon>
-                    @if (commentCount(wi) > 0) {
-                      <span class="comment-badge">{{ commentCount(wi) }}</span>
-                    }
-                  </button>
-                  <button class="action-btn" matTooltip="Edit" (click)="editWorkItem(wi)">
-                    <mat-icon>edit</mat-icon>
-                  </button>
-                  @if (wi.status !== 'Completed' && wi.status !== 'Released') {
-                    <button class="action-btn" matTooltip="Carry over" (click)="carryOver(wi)">
-                      <mat-icon>move_down</mat-icon>
-                    </button>
+              <div class="wi-body">
+                <div class="wi-feature-row">
+                  @if (group.featureTitle) {
+                    <span class="wi-feature" [title]="group.featureTitle">{{ group.featureTitle }}</span>
                   }
-                  <button class="action-btn warn" matTooltip="Delete" (click)="deleteWorkItem(wi.id)">
-                    <mat-icon>delete</mat-icon>
-                  </button>
+                </div>
+                <div class="wi-title" [title]="wi.title">
+                  {{ wi.title }}{{ wi.externalTicketRef ? ' · ' + wi.externalTicketRef : '' }}
+                </div>
+                <div class="wi-bottom">
+                  <div class="wi-badges">
+                    <span [class]="wiTypeClass(wi.type)">{{ wi.type }}</span>
+                    <span [class]="wiStatusClass(wi.status)">{{ statusLabel(wi.status) }}</span>
+                  </div>
+                  <div class="wi-actions">
+                    <button class="action-btn" [class.comment-active]="commentsOpen[wi.id]"
+                            [matTooltip]="commentsOpen[wi.id] ? 'Hide comments' : 'Comments'"
+                            (click)="toggleComments(wi)" style="position:relative">
+                      <mat-icon>{{ commentsOpen[wi.id] ? 'chat_bubble' : 'chat_bubble_outline' }}</mat-icon>
+                      @if (commentCount(wi) > 0) {
+                        <span class="comment-badge">{{ commentCount(wi) }}</span>
+                      }
+                    </button>
+                    <button class="action-btn" matTooltip="Edit" (click)="editWorkItem(wi)">
+                      <mat-icon>edit</mat-icon>
+                    </button>
+                    @if (wi.status !== 'Completed' && wi.status !== 'Released') {
+                      <button class="action-btn" matTooltip="Carry over" (click)="carryOver(wi)">
+                        <mat-icon>move_down</mat-icon>
+                      </button>
+                    }
+                    <button class="action-btn warn" matTooltip="Delete" (click)="deleteWorkItem(wi.id)">
+                      <mat-icon>delete</mat-icon>
+                    </button>
+                  </div>
                 </div>
               </div>
               @if (wi.status === 'Blocked' && wi.blockedReason) {
@@ -205,13 +211,19 @@ import { CarryOverDialogComponent } from '../carry-over-dialog/carry-over-dialog
     /* ── Work items ── */
     .work-items { flex:1;padding:6px 8px 8px; }
     .empty-tasks { font-size:0.8rem;opacity:0.3;font-style:italic;padding:6px 4px; }
-    .feature-label { font-size:0.67rem;font-weight:600;opacity:0.4;text-transform:uppercase;
-                     letter-spacing:0.07em;padding:8px 4px 3px;margin-top:2px; }
 
     .wi-row { border-radius:6px;padding:2px 0; }
     .wi-row:hover { background:rgba(255,255,255,0.04); }
-    .wi-top { display:flex;align-items:center;gap:5px;padding:4px 6px;min-height:38px; }
-    .wi-title { flex:1;font-size:0.84rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
+    .wi-body { padding:4px 6px;min-height:38px; }
+    .wi-feature-row { padding-bottom:1px; }
+    .wi-feature { font-size:0.65rem;font-weight:600;opacity:0.45;max-width:200px;
+                  overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
+    .wi-title { font-size:0.84rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+                margin:2px 0; }
+    .wi-bottom { display:flex;align-items:center;gap:5px; }
+    .wi-badges { display:flex;gap:4px;flex-shrink:0; }
+    .wi-actions { display:flex;gap:2px;flex-shrink:0;margin-left:auto; }
+    .wi-row:hover .wi-actions { opacity:1; }
     .blocked-reason { font-size:0.72rem;color:#ef9a9a;padding:0 6px 4px;
                       white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
 

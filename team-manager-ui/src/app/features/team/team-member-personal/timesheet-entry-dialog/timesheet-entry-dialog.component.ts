@@ -5,6 +5,7 @@ import { MatDialogModule, MatDialogRef, MAT_DIALOG_DATA } from '@angular/materia
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { IconButtonComponent } from '../../../../shared/components/icon-btn/icon-btn.component';
 import { TimesheetService } from '../../../../core/services/timesheet.service';
 import { TimesheetEntry, CreateTimesheetEntryRequest } from '../../../../core/models/timesheet.model';
 import {
@@ -20,7 +21,7 @@ export interface TimesheetEntryDialogData {
 @Component({
   selector: 'app-timesheet-entry-dialog',
   standalone: true,
-  imports: [CommonModule, FormsModule, MatDialogModule, MatButtonModule, MatIconModule, MatProgressSpinnerModule],
+  imports: [CommonModule, FormsModule, MatDialogModule, MatButtonModule, MatIconModule, MatProgressSpinnerModule, IconButtonComponent],
   styles: [`
     .date-nav {
       display: flex; align-items: center; gap: 8px;
@@ -130,13 +131,9 @@ export interface TimesheetEntryDialogData {
 
       <!-- Date navigation -->
       <div class="date-nav">
-        <button mat-icon-button class="nav-btn" type="button" (click)="prevDay()">
-          <mat-icon>chevron_left</mat-icon>
-        </button>
+        <app-icon-btn icon="chevron_left" size="lg" tooltip="Previous day" (btnClick)="prevDay()" />
         <div class="date-nav-label">{{ dateLabel() }}</div>
-        <button mat-icon-button class="nav-btn" type="button" (click)="nextDay()">
-          <mat-icon>chevron_right</mat-icon>
-        </button>
+        <app-icon-btn icon="chevron_right" size="lg" tooltip="Next day" (btnClick)="nextDay()" />
       </div>
 
       <!-- Existing entries for this day -->

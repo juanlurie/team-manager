@@ -11,10 +11,14 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MemberSprintCard } from '../../../core/models/dashboard.model';
 import { TeamMember } from '../../../core/models/team-member.model';
+import { SquadSummary } from '../../../core/models/squad.model';
 import { DashboardService } from '../../../core/services/dashboard.service';
 import { TeamMemberService } from '../../../core/services/team-member.service';
+import { SquadService } from '../../../core/services/squad.service';
 import { RapidFireDialogComponent } from '../rapid-fire-dialog/rapid-fire-dialog.component';
 import { SprintMemberCardComponent } from '../sprint-member-card/sprint-member-card.component';
+import { IconButtonComponent } from '../../../shared/components/icon-btn/icon-btn.component';
+import { SquadFilterComponent } from '../../../shared/components/squad-filter/squad-filter.component';
 
 @Component({
   selector: 'app-sprint-members-tab',
@@ -22,7 +26,8 @@ import { SprintMemberCardComponent } from '../sprint-member-card/sprint-member-c
   imports: [
     CommonModule, FormsModule, MatButtonModule, MatIconModule,
     MatDialogModule, MatSelectModule, MatFormFieldModule,
-    MatTooltipModule, MatProgressSpinnerModule, SprintMemberCardComponent,
+    MatTooltipModule, MatProgressSpinnerModule, SprintMemberCardComponent, IconButtonComponent,
+    SquadFilterComponent,
   ],
   template: `
     @if (loading()) {
@@ -31,7 +36,7 @@ import { SprintMemberCardComponent } from '../sprint-member-card/sprint-member-c
       </div>
     } @else {
       @if ((members().length ?? 0) > 0) {
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap">
           <mat-form-field appearance="outline" style="flex:1;max-width:320px;margin:0">
             <mat-icon matPrefix style="font-size:18px;width:18px;height:18px;line-height:18px;
                              opacity:0.4;margin-right:6px">search</mat-icon>
@@ -40,11 +45,9 @@ import { SprintMemberCardComponent } from '../sprint-member-card/sprint-member-c
                    style="font-size:0.85rem">
           </mat-form-field>
           @if (memberSearch()) {
-            <button mat-icon-button style="width:28px;height:28px" (click)="memberSearch.set('')"
-                    matTooltip="Clear search">
-              <mat-icon style="font-size:16px;width:16px;height:16px;line-height:16px">close</mat-icon>
-            </button>
+            <app-icon-btn icon="close" size="sm" tooltip="Clear search" (btnClick)="memberSearch.set('')" />
           }
+          <app-squad-filter [squads]="squads" [value]="squadFilter()" (valueChange)="squadFilter.set($event)" />
         </div>
       }
       <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,380px),1fr));gap:14px">
@@ -66,6 +69,7 @@ export class SprintMembersTabComponent implements OnInit {
   private dashSvc = inject(DashboardService);
   private dialog = inject(MatDialog);
   private teamMemberSvc = inject(TeamMemberService);
+  private squadSvc = inject(SquadService);
 
   sprintId = '';
   teamLeadId = '';
@@ -73,17 +77,30 @@ export class SprintMembersTabComponent implements OnInit {
   members = signal<MemberSprintCard[]>([]);
   features = signal<any[]>([]);
   memberSearch = signal('');
+  squadFilter = signal('');
+  squads: SquadSummary[] = [];
   allMembers: TeamMember[] = [];
 
   filteredMembers = computed(() => {
     const q = this.memberSearch().trim().toLowerCase();
-    if (!q) return this.members();
-    return this.members().filter(m => m.fullName.toLowerCase().includes(q));
+    let filtered = this.members();
+    if (q) {
+      filtered = filtered.filter(m => m.fullName.toLowerCase().includes(q));
+    }
+    const squadId = this.squadFilter();
+    if (squadId) {
+      const squad = this.squads.find(s => s.id === squadId);
+      if (squad) {
+        filtered = filtered.filter(m => m.squadNames?.includes(squad.name));
+      }
+    }
+    return filtered;
   });
 
   ngOnInit() {
     this.sprintId = this.route.parent!.snapshot.paramMap.get('id')!;
     this.teamMemberSvc.getAll({ isActive: true }).subscribe(m => this.allMembers = m);
+    this.squadSvc.getAll().subscribe(s => this.squads = s.map(sq => ({ id: sq.id, name: sq.name, color: sq.color })));
     this.teamLeadId = this.route.parent!.snapshot.queryParamMap.get('teamLeadId') ?? '';
     this.load();
     this.route.parent!.queryParamMap.subscribe(params => {

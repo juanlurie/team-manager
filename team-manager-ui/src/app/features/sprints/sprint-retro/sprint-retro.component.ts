@@ -10,6 +10,8 @@ import { Sprint } from '../../../core/models/sprint.model';
 import { SprintService } from '../../../core/services/sprint.service';
 import { RetroAction, CreateRetroActionRequest } from '../../../core/models/retro-action.model';
 import { RetroActionService } from '../../../core/services/retro-action.service';
+import { ConfirmDialogComponent } from '../../../shared/components/confirm-dialog/confirm-dialog.component';
+import { IconButtonComponent } from '../../../shared/components/icon-btn/icon-btn.component';
 
 const TEXT_COLS = [
   { key: 'wentWell',    label: '✅ Went Well',      color: '#4caf50', placeholder: 'What went well this sprint?' },
@@ -19,7 +21,7 @@ const TEXT_COLS = [
 @Component({
   selector: 'app-sprint-retro',
   standalone: true,
-  imports: [FormsModule, MatButtonModule, MatIconModule, MatInputModule, MatFormFieldModule, MatTooltipModule],
+  imports: [FormsModule, MatButtonModule, MatIconModule, MatInputModule, MatFormFieldModule, MatTooltipModule, ConfirmDialogComponent, IconButtonComponent],
   template: `
     <div style="border-radius:10px;background:rgba(255,255,255,0.03);
                 border:1px solid rgba(255,255,255,0.07);overflow:hidden">
@@ -114,16 +116,8 @@ const TEXT_COLS = [
 
               @if (editingId() !== action.id) {
                 <div style="display:flex;gap:0;flex-shrink:0">
-                  <button mat-icon-button matTooltip="Edit"
-                          style="width:28px;height:28px;line-height:28px"
-                          (click)="startEdit(action)">
-                    <mat-icon style="font-size:16px;width:16px;height:16px;line-height:16px">edit</mat-icon>
-                  </button>
-                  <button mat-icon-button matTooltip="Delete"
-                          style="width:28px;height:28px;line-height:28px"
-                          (click)="deleteAction(action)">
-                    <mat-icon style="font-size:16px;width:16px;height:16px;line-height:16px">delete_outline</mat-icon>
-                  </button>
+                  <app-icon-btn icon="edit" size="sm" tooltip="Edit" (btnClick)="startEdit(action)" />
+                  <app-icon-btn icon="delete_outline" size="sm" tooltip="Delete" [danger]="true" (btnClick)="deleteAction(action)" />
                 </div>
               }
             </div>

@@ -26,6 +26,7 @@ import { WorkItemFormComponent } from '../work-item-form/work-item-form.componen
 import { WorkItemService } from '../../../core/services/work-item.service';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { IconButtonComponent } from '../../../shared/components/icon-btn/icon-btn.component';
 
 const STATUS_ORDER  = ['Released', 'ReadyForRelease', 'InProgress', 'Completed', 'Planned'] as const;
 const STATUS_LABEL: Record<string, string> = {
@@ -42,7 +43,7 @@ const STATUS_COLOR: Record<string, string> = {
   standalone: true,
   imports: [CommonModule, RouterLink, FormsModule, MatButtonModule,
     MatSelectModule, MatFormFieldModule, MatIconModule, MatDialogModule, MatProgressSpinnerModule,
-    MatTooltipModule],
+    MatTooltipModule, IconButtonComponent],
   styles: [`
     .stat-card { transition:filter 0.15s; }
     .stat-card:hover { filter:brightness(1.25); }
@@ -220,16 +221,7 @@ const STATUS_COLOR: Record<string, string> = {
                   {{ a.status === 'InProgress' ? 'In Progress' : 'Open' }}
                 </span>
                 <!-- Promote button -->
-                <button mat-icon-button
-                        style="width:30px;height:30px;line-height:30px;flex-shrink:0"
-                        [matTooltip]="promotingId() === a.id ? 'Promoted!' : 'Promote to Discussion'"
-                        [disabled]="promotingId() === a.id"
-                        (click)="promoteToDiscussion(a)">
-                  <mat-icon style="font-size:16px;width:16px;height:16px;line-height:16px"
-                            [style.color]="promotingId() === a.id ? '#81c784' : '#7986cb'">
-                    {{ promotingId() === a.id ? 'check_circle' : 'move_up' }}
-                  </mat-icon>
-                </button>
+                <app-icon-btn [icon]="promotingId() === a.id ? 'check_circle' : 'move_up'" size="sm" [tooltip]="promotingId() === a.id ? 'Promoted!' : 'Promote to Discussion'" [disabled]="promotingId() === a.id" [style.color]="promotingId() === a.id ? '#81c784' : '#7986cb'" (btnClick)="promoteToDiscussion(a)" />
               </div>
             }
           </div>

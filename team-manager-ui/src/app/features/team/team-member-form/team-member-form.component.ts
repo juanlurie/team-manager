@@ -19,6 +19,7 @@ import { AchievementService } from '../../../core/services/achievement.service';
 import { LeaderboardService } from '../../../core/services/leaderboard.service';
 import { AwardAchievementDialogComponent } from '../award-achievement-dialog/award-achievement-dialog.component';
 import { ConfirmDialogComponent } from '../../../shared/components/confirm-dialog/confirm-dialog.component';
+import { IconButtonComponent } from '../../../shared/components/icon-btn/icon-btn.component';
 import { Achievement, MemberAchievement } from '../../../core/models/achievement.model';
 import { LeaderboardEntry } from '../../../core/models/leaderboard.model';
 
@@ -34,7 +35,7 @@ const CATEGORY_COLORS: Record<string, { bg: string; text: string }> = {
   standalone: true,
   imports: [CommonModule, ReactiveFormsModule, FormsModule, MatDialogModule, MatFormFieldModule,
     MatInputModule, MatSelectModule, MatButtonModule, MatCheckboxModule, MatDatepickerModule, MatNativeDateModule,
-    MatIconModule, MatTooltipModule, DatePipe],
+    MatIconModule, MatTooltipModule, DatePipe, IconButtonComponent],
   template: `
     <h2 mat-dialog-title>{{ data.member ? 'Edit' : 'Add' }} Team Member</h2>
     <mat-dialog-content style="max-height:80vh">
@@ -147,10 +148,7 @@ const CATEGORY_COLORS: Record<string, { bg: string; text: string }> = {
                   </div>
 
                   <!-- Remove -->
-                  <button mat-icon-button style="width:28px;height:28px;line-height:28px;flex-shrink:0;opacity:0.35"
-                          (click)="revokeAchievement(a)" matTooltip="Remove">
-                    <mat-icon style="font-size:16px;line-height:28px">close</mat-icon>
-                  </button>
+                  <app-icon-btn icon="close" size="sm" tooltip="Remove" (btnClick)="revokeAchievement(a)" />
                 </div>
               }
             </div>
@@ -194,12 +192,8 @@ const CATEGORY_COLORS: Record<string, { bg: string; text: string }> = {
                 <mat-label>Reason</mat-label>
                 <input matInput [(ngModel)]="bonusReason" [ngModelOptions]="{standalone:true}">
               </mat-form-field>
-              <button mat-icon-button color="primary" [disabled]="!bonusPoints || !bonusReason" (click)="awardBonus()" matTooltip="Confirm">
-                <mat-icon>check</mat-icon>
-              </button>
-              <button mat-icon-button (click)="showBonusForm.set(false)" matTooltip="Cancel">
-                <mat-icon>close</mat-icon>
-              </button>
+              <app-icon-btn icon="check" size="md" tooltip="Confirm" color="primary" [disabled]="!bonusPoints || !bonusReason" (btnClick)="awardBonus()" />
+              <app-icon-btn icon="close" size="md" tooltip="Cancel" (btnClick)="showBonusForm.set(false)" />
             </div>
           }
         </div>

@@ -14,6 +14,7 @@ import { FeatureService } from '../../../core/services/feature.service';
 import { SprintFormComponent } from '../sprint-form/sprint-form.component';
 import { SprintCloneDialogComponent } from '../sprint-clone-dialog/sprint-clone-dialog.component';
 import { ConfirmDialogComponent } from '../../../shared/components/confirm-dialog/confirm-dialog.component';
+import { IconButtonComponent } from '../../../shared/components/icon-btn/icon-btn.component';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
 const STATUS_ORDER = ['InProgress', 'Planned', 'Completed', 'ReadyForRelease', 'Released'];
@@ -31,7 +32,7 @@ const STATUS_COLOR: Record<string, string> = {
   standalone: true,
   imports: [CommonModule, RouterLink, MatButtonModule, MatIconModule,
     MatDialogModule, MatChipsModule, MatTooltipModule, MatProgressSpinnerModule,
-    SprintCloneDialogComponent],
+    SprintCloneDialogComponent, IconButtonComponent],
   template: `
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:24px;flex-wrap:wrap">
       <h2 style="margin:0;flex:1;min-width:120px">Sprints</h2>
@@ -69,7 +70,7 @@ const STATUS_COLOR: Record<string, string> = {
             @if (currentSprint()!.isInnovationSprint) {
               <mat-chip>IP Sprint</mat-chip>
             }
-            <button mat-icon-button (click)="$event.preventDefault(); $event.stopPropagation(); openSprintForm(currentSprint()!)"><mat-icon>edit</mat-icon></button>
+            <app-icon-btn icon="edit" size="sm" tooltip="Edit" (btnClick)="$event.preventDefault(); $event.stopPropagation(); openSprintForm(currentSprint()!)" />
           </div>
 
           <!-- Feature summary -->
@@ -129,9 +130,9 @@ const STATUS_COLOR: Record<string, string> = {
           @if (s.isInnovationSprint) {
             <mat-chip style="font-size:0.7rem">IP</mat-chip>
           }
-          <button mat-icon-button (click)="$event.preventDefault(); $event.stopPropagation(); openSprintForm(s)" matTooltip="Edit"><mat-icon>edit</mat-icon></button>
-          <button mat-icon-button (click)="$event.preventDefault(); $event.stopPropagation(); cloneSprint(s)" matTooltip="Clone sprint"><mat-icon>content_copy</mat-icon></button>
-          <button mat-icon-button color="warn" (click)="$event.preventDefault(); $event.stopPropagation(); deleteSprint(s.id)" matTooltip="Delete"><mat-icon>delete</mat-icon></button>
+          <app-icon-btn icon="edit" size="sm" tooltip="Edit" (btnClick)="$event.preventDefault(); $event.stopPropagation(); openSprintForm(s)" />
+          <app-icon-btn icon="content_copy" size="sm" tooltip="Clone sprint" (btnClick)="$event.preventDefault(); $event.stopPropagation(); cloneSprint(s)" />
+          <app-icon-btn icon="delete" size="sm" tooltip="Delete" [danger]="true" (btnClick)="$event.preventDefault(); $event.stopPropagation(); deleteSprint(s.id)" />
         </a>
       }
       @if (activeSprints().length === 0) {
@@ -164,9 +165,9 @@ const STATUS_COLOR: Record<string, string> = {
                 @if (s.isInnovationSprint) {
                   <mat-chip style="font-size:0.7rem">IP</mat-chip>
                 }
-                <button mat-icon-button (click)="$event.preventDefault(); $event.stopPropagation(); openSprintForm(s)" matTooltip="Edit"><mat-icon style="font-size:18px">edit</mat-icon></button>
-                <button mat-icon-button (click)="$event.preventDefault(); $event.stopPropagation(); cloneSprint(s)" matTooltip="Clone sprint"><mat-icon style="font-size:18px">content_copy</mat-icon></button>
-                <button mat-icon-button color="warn" (click)="$event.preventDefault(); $event.stopPropagation(); deleteSprint(s.id)" matTooltip="Delete"><mat-icon style="font-size:18px">delete</mat-icon></button>
+                <app-icon-btn icon="edit" size="sm" tooltip="Edit" (btnClick)="$event.preventDefault(); $event.stopPropagation(); openSprintForm(s)" />
+                <app-icon-btn icon="content_copy" size="sm" tooltip="Clone sprint" (btnClick)="$event.preventDefault(); $event.stopPropagation(); cloneSprint(s)" />
+                <app-icon-btn icon="delete" size="sm" tooltip="Delete" [danger]="true" (btnClick)="$event.preventDefault(); $event.stopPropagation(); deleteSprint(s.id)" />
               </a>
             }
           </div>

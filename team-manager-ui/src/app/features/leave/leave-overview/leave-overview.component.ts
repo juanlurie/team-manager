@@ -20,6 +20,7 @@ import { TeamMember } from '../../../core/models/team-member.model';
 import { LeaveFormDialogComponent } from '../leave-form-dialog/leave-form-dialog.component';
 import { LeaveImportDialogComponent } from '../leave-import-dialog/leave-import-dialog.component';
 import { ConfirmDialogComponent } from '../../../shared/components/confirm-dialog/confirm-dialog.component';
+import { IconButtonComponent } from '../../../shared/components/icon-btn/icon-btn.component';
 
 interface MemberLeaveGroup {
   teamMemberId: string;
@@ -50,18 +51,14 @@ interface WeekRow {
     CommonModule, FormsModule,
     MatCardModule, MatExpansionModule, MatSelectModule, MatFormFieldModule,
     MatIconModule, MatButtonModule, MatProgressSpinnerModule, MatTooltipModule,
-    MatDialogModule, MatChipsModule
+    MatDialogModule, MatChipsModule, IconButtonComponent
   ],
   template: `
     <div style="margin-bottom:24px">
       <div style="display:flex;align-items:center;gap:4px;margin-bottom:12px">
         <h2 style="margin:0;font-size:1.3rem;font-weight:500;flex:1;min-width:0">Leave Overview</h2>
-        <button mat-icon-button color="primary" (click)="openAdd()" matTooltip="Add leave">
-          <mat-icon>add_circle</mat-icon>
-        </button>
-        <button mat-icon-button (click)="openImport()" matTooltip="Import leave">
-          <mat-icon>upload</mat-icon>
-        </button>
+        <app-icon-btn icon="add_circle" size="md" tooltip="Add leave" color="primary" (btnClick)="openAdd()" />
+        <app-icon-btn icon="upload" size="md" tooltip="Import leave" (btnClick)="openImport()" />
       </div>
       <div style="display:flex;align-items:center;gap:8px">
         <mat-form-field appearance="outline" subscriptSizing="dynamic" style="flex:1;min-width:0">
@@ -158,15 +155,11 @@ interface WeekRow {
             <!-- Month nav -->
             <div style="display:flex;align-items:center;gap:8px;padding:10px 14px;
                         border-bottom:1px solid rgba(255,255,255,0.07)">
-              <button mat-icon-button style="width:36px;height:36px" (click)="prevMonth()">
-                <mat-icon>chevron_left</mat-icon>
-              </button>
+              <app-icon-btn icon="chevron_left" size="md" tooltip="Previous month" (btnClick)="prevMonth()" />
               <span style="font-size:1rem;font-weight:600;flex:1;text-align:center">
                 {{ calendarMonth() | date:'MMMM yyyy' }}
               </span>
-              <button mat-icon-button style="width:36px;height:36px" (click)="nextMonth()">
-                <mat-icon>chevron_right</mat-icon>
-              </button>
+              <app-icon-btn icon="chevron_right" size="md" tooltip="Next month" (btnClick)="nextMonth()" />
               <button mat-button style="font-size:0.8rem;height:32px;line-height:32px;padding:0 12px"
                       (click)="goToday()">Today</button>
             </div>
@@ -183,10 +176,7 @@ interface WeekRow {
                     {{ clickedLeave()!.type }} · {{ formatDateRange(clickedLeave()!) }}
                   </div>
                 </div>
-                <button mat-icon-button style="width:32px;height:32px;flex-shrink:0"
-                        (click)="clickedLeave.set(null);$event.stopPropagation()">
-                  <mat-icon style="font-size:18px;width:18px;height:18px;line-height:18px">close</mat-icon>
-                </button>
+                <app-icon-btn icon="close" size="sm" tooltip="Dismiss" (btnClick)="clickedLeave.set(null); $event.stopPropagation()" />
               </div>
             }
 
@@ -320,12 +310,8 @@ interface WeekRow {
                         <span style="flex:1"></span>
                       }
                       <div style="display:flex;gap:2px;flex-shrink:0;margin-left:auto">
-                        <button mat-icon-button (click)="openEdit(r)" matTooltip="Edit">
-                          <mat-icon style="font-size:18px">edit</mat-icon>
-                        </button>
-                        <button mat-icon-button color="warn" (click)="delete(r)" matTooltip="Delete">
-                          <mat-icon style="font-size:18px">delete</mat-icon>
-                        </button>
+                        <app-icon-btn icon="edit" size="sm" tooltip="Edit" (btnClick)="openEdit(r)" />
+                        <app-icon-btn icon="delete" size="sm" tooltip="Delete" [danger]="true" (btnClick)="delete(r)" />
                       </div>
                     </div>
                   }

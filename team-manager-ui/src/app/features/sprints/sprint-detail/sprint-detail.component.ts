@@ -12,9 +12,11 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 import { SprintDashboard } from '../../../core/models/dashboard.model';
 import { Feature } from '../../../core/models/feature.model';
 import { TeamMember } from '../../../core/models/team-member.model';
+import { SquadSummary } from '../../../core/models/squad.model';
 import { DashboardService } from '../../../core/services/dashboard.service';
 import { SprintService } from '../../../core/services/sprint.service';
 import { TeamMemberService } from '../../../core/services/team-member.service';
+import { SquadService } from '../../../core/services/squad.service';
 import { FeatureFormDialogComponent } from '../feature-form-dialog/feature-form-dialog.component';
 import { RapidFireDialogComponent } from '../rapid-fire-dialog/rapid-fire-dialog.component';
 import { FeatureService } from '../../../core/services/feature.service';
@@ -25,6 +27,9 @@ import { SprintWorkloadSummaryComponent } from '../sprint-workload-summary/sprin
 import { SprintMemberCardComponent } from '../sprint-member-card/sprint-member-card.component';
 import { SprintRetroComponent } from '../sprint-retro/sprint-retro.component';
 import { SprintVotePanelComponent } from '../sprint-vote-panel/sprint-vote-panel.component';
+import { IconButtonComponent } from '../../../shared/components/icon-btn/icon-btn.component';
+import { SquadFilterComponent } from '../../../shared/components/squad-filter/squad-filter.component';
+import { SearchableSelectComponent } from '../../../shared/components/searchable-select/searchable-select.component';
 
 @Component({
   selector: 'app-sprint-detail',
@@ -34,45 +39,47 @@ import { SprintVotePanelComponent } from '../sprint-vote-panel/sprint-vote-panel
     MatSelectModule, MatFormFieldModule, FormsModule, MatTooltipModule,
     MatProgressSpinnerModule, MatTabsModule,
     SprintWorkloadSummaryComponent, SprintMemberCardComponent,
-    SprintRetroComponent, SprintVotePanelComponent,
+    SprintRetroComponent, SprintVotePanelComponent, IconButtonComponent,
+    SquadFilterComponent, SearchableSelectComponent,
   ],
   template: `
-    <!-- Header -->
-    <div style="margin-bottom:20px">
-      <div style="display:flex;align-items:flex-start;gap:12px;flex-wrap:wrap">
-        <div style="flex:1;min-width:0">
-          <h2 style="margin:0;font-size:1.2rem">{{ dashboard?.sprint?.name }}</h2>
-          <div style="font-size:0.8rem;opacity:0.5;margin-top:2px">
-            {{ dashboard?.sprint?.startDate | date:'d MMM' }} – {{ dashboard?.sprint?.endDate | date:'d MMM yyyy' }}
+    <!-- Top row: Sprint info left, tabs right -->
+    <div class="top-row">
+      <div class="sprint-info">
+        <h2 class="sprint-name">{{ dashboard?.sprint?.name }}</h2>
+        <div class="sprint-dates">
+          {{ dashboard?.sprint?.startDate | date:'d MMM' }} – {{ dashboard?.sprint?.endDate | date:'d MMM yyyy' }}
+        </div>
+        @if (dashboard?.sprint?.goal) {
+          <div class="sprint-goal">
+            <mat-icon style="font-size:12px;width:12px;height:12px;line-height:12px;vertical-align:middle">flag</mat-icon>
+            {{ dashboard!.sprint!.goal }}
           </div>
-          @if (dashboard?.sprint?.goal) {
-            <div style="font-size:0.8rem;color:#64b5f6;margin-top:4px;opacity:0.85">
-              <mat-icon style="font-size:12px;width:12px;height:12px;line-height:12px;vertical-align:middle">flag</mat-icon>
-              {{ dashboard!.sprint!.goal }}
-            </div>
-          }
-        </div>
-        <div class="hdr-controls">
-          <mat-form-field appearance="outline" class="hdr-select" subscriptSizing="dynamic">
-            <mat-label>Team lead</mat-label>
-            <mat-select [(ngModel)]="selectedTeamLeadId" (ngModelChange)="load()">
-              <mat-option value="">All</mat-option>
-              @for (tl of teamLeads; track tl.id) {
-                <mat-option [value]="tl.id">{{ tl.firstName }} {{ tl.lastName }}</mat-option>
-              }
-            </mat-select>
-          </mat-form-field>
-          <button mat-stroked-button (click)="initializeMembers()">
-            <mat-icon>group_add</mat-icon> Init members
-          </button>
-          <button mat-stroked-button style="color:#ff9800;border-color:rgba(255,152,0,0.4)"
-                  matTooltip="Rapid fire task entry"
-                  [disabled]="!dashboard?.members?.length"
-                  (click)="rapidFire()">
-            <mat-icon>bolt</mat-icon> Rapid Fire
-          </button>
-        </div>
+        }
       </div>
+      <mat-tab-group class="top-tabs" animationDuration="0ms" [mat-stretch-tabs]="false"
+                     [(selectedIndex)]="activeTab">
+        <mat-tab>
+          <ng-template mat-tab-label>
+            <mat-icon class="tab-icon">group</mat-icon> Members
+          </ng-template>
+        </mat-tab>
+        <mat-tab>
+          <ng-template mat-tab-label>
+            <mat-icon class="tab-icon">bar_chart</mat-icon> Workload
+          </ng-template>
+        </mat-tab>
+        <mat-tab>
+          <ng-template mat-tab-label>
+            <mat-icon class="tab-icon">rate_review</mat-icon> Retro
+          </ng-template>
+        </mat-tab>
+        <mat-tab>
+          <ng-template mat-tab-label>
+            <mat-icon class="tab-icon">emoji_events</mat-icon> Vote
+          </ng-template>
+        </mat-tab>
+      </mat-tab-group>
     </div>
 
     @if (loading()) {
@@ -80,91 +87,83 @@ import { SprintVotePanelComponent } from '../sprint-vote-panel/sprint-vote-panel
         <mat-spinner diameter="48"></mat-spinner>
       </div>
     } @else {
-      <mat-tab-group animationDuration="0ms" [mat-stretch-tabs]="false">
+      <!-- Filters row (under tabs) -->
+      <div class="filters-row">
+        <app-searchable-select
+          [options]="teamLeads"
+          label="Team lead"
+          placeholder="Filter by lead…"
+          width="200px"
+          [nullable]="true"
+          nullableLabel="All"
+          nullValue=""
+          (valueChange)="load()">
+        </app-searchable-select>
+        @if (activeTab === 0) {
+          <div style="position:relative;flex:1;max-width:280px">
+            <mat-icon style="position:absolute;left:10px;top:50%;transform:translateY(-50%);
+                             font-size:18px;width:18px;height:18px;line-height:18px;
+                             opacity:0.35;pointer-events:none">search</mat-icon>
+            <input [ngModel]="memberSearch()" (ngModelChange)="memberSearch.set($event)"
+                   placeholder="Search members…"
+                   style="width:100%;box-sizing:border-box;padding:7px 10px 7px 34px;
+                          background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);
+                          border-radius:8px;color:inherit;font-size:0.85rem;outline:none">
+          </div>
+          @if (memberSearch()) {
+            <app-icon-btn icon="close" size="sm" tooltip="Clear search" (btnClick)="memberSearch.set('')" />
+          }
+          <app-squad-filter [squads]="squads" [value]="squadFilter()" (valueChange)="squadFilter.set($event)" />
+        }
+        <div class="filters-spacer"></div>
+        <button mat-stroked-button (click)="initializeMembers()">
+          <mat-icon>group_add</mat-icon> Init members
+        </button>
+        <button mat-stroked-button class="rapid-btn"
+                matTooltip="Rapid fire task entry"
+                [disabled]="!dashboard?.members?.length"
+                (click)="rapidFire()">
+          <mat-icon>bolt</mat-icon> Rapid Fire
+        </button>
+      </div>
 
+      <!-- Tab content -->
+      @if (activeTab === 0) {
         <!-- ── Members ── -->
-        <mat-tab>
-          <ng-template mat-tab-label>
-            <mat-icon class="tab-icon">group</mat-icon>
-            Members
-          </ng-template>
-          <div style="padding-top:16px">
-            @if ((dashboard?.members?.length ?? 0) > 0) {
-              <!-- Member search -->
-              <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
-                <div style="position:relative;flex:1;max-width:280px">
-                  <mat-icon style="position:absolute;left:10px;top:50%;transform:translateY(-50%);
-                                   font-size:18px;width:18px;height:18px;line-height:18px;
-                                   opacity:0.35;pointer-events:none">search</mat-icon>
-                  <input [ngModel]="memberSearch()" (ngModelChange)="memberSearch.set($event)"
-                         placeholder="Search members…"
-                         style="width:100%;box-sizing:border-box;padding:7px 10px 7px 34px;
-                                background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);
-                                border-radius:8px;color:inherit;font-size:0.85rem;outline:none">
-                </div>
-                @if (memberSearch()) {
-                  <button mat-icon-button style="width:28px;height:28px" (click)="memberSearch.set('')"
-                          matTooltip="Clear search">
-                    <mat-icon style="font-size:16px;width:16px;height:16px;line-height:16px">close</mat-icon>
-                  </button>
-                }
-              </div>
-            }
-            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,380px),1fr));gap:14px">
-              @for (member of filteredMembers; track member.sprintMemberId) {
-                <app-sprint-member-card
-                  [member]="member"
-                  [sprintId]="sprintId"
-                  [features]="dashboard?.features ?? []"
-                  [allMembers]="allMembers"
-                  (reload)="load()">
-                </app-sprint-member-card>
-              }
-            </div>
-          </div>
-        </mat-tab>
-
-        <!-- ── Workload ── -->
-        <mat-tab>
-          <ng-template mat-tab-label>
-            <mat-icon class="tab-icon">bar_chart</mat-icon>
-            Workload
-          </ng-template>
-          <div style="padding-top:16px">
-            @if (dashboard) {
-              <app-sprint-workload-summary [members]="dashboard.members" [sprint]="dashboard.sprint"></app-sprint-workload-summary>
-            }
-          </div>
-        </mat-tab>
-
-        <!-- ── Retrospective ── -->
-        <mat-tab>
-          <ng-template mat-tab-label>
-            <mat-icon class="tab-icon">rate_review</mat-icon>
-            Retro
-          </ng-template>
-          <div style="padding-top:16px">
-            @if (dashboard) {
-              <app-sprint-retro [sprintId]="sprintId" [sprint]="dashboard.sprint"></app-sprint-retro>
-            }
-          </div>
-        </mat-tab>
-
-        <!-- ── MVP Vote ── -->
-        <mat-tab>
-          <ng-template mat-tab-label>
-            <mat-icon class="tab-icon">emoji_events</mat-icon>
-            Vote
-          </ng-template>
-          <div style="padding-top:16px">
-            <app-sprint-vote-panel
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,380px),1fr));gap:14px;margin-top:12px">
+          @for (member of filteredMembers; track member.sprintMemberId) {
+            <app-sprint-member-card
+              [member]="member"
               [sprintId]="sprintId"
-              [members]="dashboard?.members ?? []">
-            </app-sprint-vote-panel>
-          </div>
-        </mat-tab>
-
-      </mat-tab-group>
+              [features]="dashboard?.features ?? []"
+              [allMembers]="allMembers"
+              (reload)="load()">
+            </app-sprint-member-card>
+          }
+        </div>
+      } @else if (activeTab === 1) {
+        <!-- ── Workload ── -->
+        <div style="padding-top:12px">
+          @if (dashboard) {
+            <app-sprint-workload-summary [members]="dashboard.members" [sprint]="dashboard.sprint"></app-sprint-workload-summary>
+          }
+        </div>
+      } @else if (activeTab === 2) {
+        <!-- ── Retrospective ── -->
+        <div style="padding-top:12px">
+          @if (dashboard) {
+            <app-sprint-retro [sprintId]="sprintId" [sprint]="dashboard.sprint"></app-sprint-retro>
+          }
+        </div>
+      } @else if (activeTab === 3) {
+        <!-- ── MVP Vote ── -->
+        <div style="padding-top:12px">
+          <app-sprint-vote-panel
+            [sprintId]="sprintId"
+            [members]="dashboard?.members ?? []">
+          </app-sprint-vote-panel>
+        </div>
+      }
     }
   `,
   styles: [`
@@ -172,14 +171,30 @@ import { SprintVotePanelComponent } from '../sprint-vote-panel/sprint-vote-panel
       font-size: 18px; width: 18px; height: 18px; line-height: 18px;
       margin-right: 6px; vertical-align: middle;
     }
-    .hdr-controls {
-      display: flex; align-items: center; gap: 8px; flex-shrink: 0; flex-wrap: wrap;
+    .top-row {
+      display: flex; align-items: flex-end; gap: 16px;
+      margin-bottom: 12px; flex-wrap: wrap;
     }
-    .hdr-select { width: 160px; }
-    @media (max-width: 767px) {
-      .hdr-controls { width: 100%; flex-shrink: 1; }
-      .hdr-select { flex: 1; min-width: 120px; width: auto; }
+    .sprint-info { flex: 1; min-width: 0; }
+    .sprint-name { margin: 0; font-size: 1.2rem; }
+    .sprint-dates { font-size: 0.8rem; opacity: 0.5; margin-top: 2px; }
+    .sprint-goal {
+      font-size: 0.8rem; color: #64b5f6; margin-top: 4px; opacity: 0.85;
+      display: flex; align-items: center; gap: 4px;
     }
+    .top-tabs {
+      flex-shrink: 0;
+    }
+    .top-tabs .mdc-tab { min-width: 90px; }
+    .filters-row {
+      display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+      padding: 8px 0;
+    }
+    .filter-field { width: 160px; }
+    .filters-spacer { flex: 1; }
+    .filters-spacer { flex: 1; }
+    .rapid-btn { color: #ff9800; border-color: rgba(255,152,0,0.4); }
+    ::ng-deep .top-tabs .mat-mdc-tab-header { border-bottom: none; }
   `]
 })
 export class SprintDetailComponent implements OnInit {
@@ -187,6 +202,7 @@ export class SprintDetailComponent implements OnInit {
   private dashSvc = inject(DashboardService);
   private sprintSvc = inject(SprintService);
   private memberSvc = inject(TeamMemberService);
+  private squadSvc = inject(SquadService);
   private featureSvc = inject(FeatureService);
   private dialog = inject(MatDialog);
   private snack = inject(MatSnackBar);
@@ -195,16 +211,27 @@ export class SprintDetailComponent implements OnInit {
   dashboard: SprintDashboard | null = null;
   teamLeads: TeamMember[] = [];
   allMembers: TeamMember[] = [];
+  squads: SquadSummary[] = [];
   selectedTeamLeadId = '';
   sprintId = '';
   memberSearch = signal('');
+  squadFilter = signal('');
+  activeTab = 0;
 
   get filteredMembers() {
     const q = this.memberSearch().trim().toLowerCase();
-    if (!q) return this.dashboard?.members ?? [];
-    return (this.dashboard?.members ?? []).filter(m =>
-      m.fullName.toLowerCase().includes(q)
-    );
+    let filtered = this.dashboard?.members ?? [];
+    if (q) {
+      filtered = filtered.filter(m => m.fullName.toLowerCase().includes(q));
+    }
+    const squadId = this.squadFilter();
+    if (squadId) {
+      const squad = this.squads.find(s => s.id === squadId);
+      if (squad) {
+        filtered = filtered.filter(m => m.squadNames?.includes(squad.name));
+      }
+    }
+    return filtered;
   }
 
   ngOnInit() {
@@ -213,6 +240,7 @@ export class SprintDetailComponent implements OnInit {
     this.load();
     this.memberSvc.getAll({ role: 'TeamLead' }).subscribe(m => this.teamLeads = m);
     this.memberSvc.getAll({ isActive: true }).subscribe(m => this.allMembers = m);
+    this.squadSvc.getAll().subscribe(s => this.squads = s.map(sq => ({ id: sq.id, name: sq.name, color: sq.color })));
   }
 
   load() {
