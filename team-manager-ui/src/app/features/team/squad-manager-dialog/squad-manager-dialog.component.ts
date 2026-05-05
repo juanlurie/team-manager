@@ -28,8 +28,14 @@ const PALETTE = ['#42A5F5','#66BB6A','#FFA726','#AB47BC','#26C6DA','#EC407A','#8
     .squad-header { display:flex;align-items:center;gap:10px;padding:12px 14px;cursor:pointer; }
     .squad-header:hover { background:rgba(255,255,255,0.04); }
     .member-row { display:flex;align-items:center;gap:8px;padding:6px 14px 6px 20px;font-size:0.85rem; }
+    .member-row:hover { background:rgba(255,255,255,0.03);border-radius:6px; }
     .color-dot { width:20px;height:20px;border-radius:50%;cursor:pointer;border:2px solid transparent;flex-shrink:0; }
     .color-dot.selected { border-color:rgba(255,255,255,0.8); }
+    ::ng-deep .icon-btn-sm { width:32px!important;height:32px!important;line-height:32px!important; }
+    ::ng-deep .icon-btn-sm .mat-mdc-button-persistent-ripple { border-radius:50%!important; }
+    ::ng-deep .icon-btn-sm mat-icon { font-size:16px!important;width:16px!important;height:16px!important;line-height:16px!important; }
+    ::ng-deep .remove-btn { opacity:0.4;transition:opacity 0.15s; }
+    ::ng-deep .remove-btn:hover { opacity:1!important; }
   `],
   template: `
     <div style="display:flex;align-items:center;gap:10px;padding:20px 24px 0">
@@ -79,32 +85,32 @@ const PALETTE = ['#42A5F5','#66BB6A','#FFA726','#AB47BC','#26C6DA','#EC407A','#8
                 <div style="display:flex;gap:6px;align-items:center;flex:1" (click)="$event.stopPropagation()">
                   <div style="display:flex;gap:4px;align-items:center">
                     @for (c of palette; track c) {
-                      <div class="color-dot" style="width:16px;height:16px" [class.selected]="editColor === c"
+                      <div class="color-dot" style="width:14px;height:14px" [class.selected]="editColor === c"
                            [style.background]="c" (click)="editColor = c"></div>
                     }
                   </div>
                   <input [(ngModel)]="editName" style="flex:1;background:transparent;border:none;outline:none;
                          color:inherit;font-size:0.9rem;font-weight:600"
                          (keydown.enter)="saveEdit(squad)" (keydown.escape)="editingId.set(null)">
-                  <button mat-icon-button style="width:28px;height:28px" color="primary"
+                  <button mat-icon-button class="icon-btn-sm" color="primary"
                           [disabled]="!editName.trim()" (click)="saveEdit(squad)">
-                    <mat-icon style="font-size:16px;width:16px;height:16px">check</mat-icon>
+                    <mat-icon>check</mat-icon>
                   </button>
-                  <button mat-icon-button style="width:28px;height:28px"
+                  <button mat-icon-button class="icon-btn-sm"
                           (click)="editingId.set(null); $event.stopPropagation()">
-                    <mat-icon style="font-size:16px;width:16px;height:16px">close</mat-icon>
+                    <mat-icon>close</mat-icon>
                   </button>
                 </div>
               } @else {
                 <span style="font-weight:600;flex:1">{{ squad.name }}</span>
                 <span style="font-size:0.72rem;opacity:0.4">{{ squad.members.length }} member{{ squad.members.length !== 1 ? 's' : '' }}</span>
-                <button mat-icon-button style="width:28px;height:28px" (click)="startEdit(squad); $event.stopPropagation()" matTooltip="Rename">
-                  <mat-icon style="font-size:14px;width:14px;height:14px;opacity:0.5">edit</mat-icon>
+                <button mat-icon-button class="icon-btn-sm" (click)="startEdit(squad); $event.stopPropagation()" matTooltip="Rename">
+                  <mat-icon style="opacity:0.5">edit</mat-icon>
                 </button>
-                <button mat-icon-button style="width:28px;height:28px" (click)="deleteSquad(squad); $event.stopPropagation()" matTooltip="Delete squad">
-                  <mat-icon style="font-size:14px;width:14px;height:14px;opacity:0.5;color:#ef5350">delete</mat-icon>
+                <button mat-icon-button class="icon-btn-sm" (click)="deleteSquad(squad); $event.stopPropagation()" matTooltip="Delete squad">
+                  <mat-icon style="color:#ef5350;opacity:0.5">delete</mat-icon>
                 </button>
-                <mat-icon style="font-size:16px;width:16px;height:16px;opacity:0.3">
+                <mat-icon style="opacity:0.3">
                   {{ expandedId() === squad.id ? 'expand_less' : 'expand_more' }}
                 </mat-icon>
               }
@@ -116,9 +122,9 @@ const PALETTE = ['#42A5F5','#66BB6A','#FFA726','#AB47BC','#26C6DA','#EC407A','#8
                 @for (m of squad.members; track m.teamMemberId) {
                   <div class="member-row">
                     <span style="flex:1">{{ m.fullName }}</span>
-                    <button mat-icon-button style="width:24px;height:24px"
+                    <button mat-icon-button class="icon-btn-sm remove-btn"
                             (click)="removeMember(squad, m.teamMemberId)" matTooltip="Remove from squad">
-                      <mat-icon style="font-size:14px;width:14px;height:14px;opacity:0.45;color:#ef5350">remove_circle_outline</mat-icon>
+                      <mat-icon style="color:#ef5350">remove_circle_outline</mat-icon>
                     </button>
                   </div>
                 }
