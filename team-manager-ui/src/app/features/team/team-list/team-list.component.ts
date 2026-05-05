@@ -14,6 +14,7 @@ import { TeamMemberService } from '../../../core/services/team-member.service';
 import { TeamMemberFormComponent } from '../team-member-form/team-member-form.component';
 import { SquadManagerDialogComponent } from '../squad-manager-dialog/squad-manager-dialog.component';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { IconButtonComponent } from '../../../shared/components/icon-btn/icon-btn.component';
 
 const CRAFT_LABELS: Record<string, string> = {
   DevBE: 'Dev BE', DevFE: 'Dev FE', DevIOS: 'iOS', DevAndroid: 'Android',
@@ -25,7 +26,7 @@ const CRAFT_LABELS: Record<string, string> = {
   standalone: true,
   imports: [CommonModule, MatButtonModule, MatIconModule, MatDialogModule,
     MatChipsModule, MatTooltipModule, MatSelectModule, MatFormFieldModule, FormsModule,
-    MatProgressSpinnerModule],
+    MatProgressSpinnerModule, IconButtonComponent],
   template: `
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap">
       <h2 style="margin:0;font-size:1.2rem">Team Members</h2>
@@ -111,11 +112,8 @@ const CRAFT_LABELS: Record<string, string> = {
               </div>
             }
           </div>
-          <div style="flex-shrink:0;display:flex;flex-direction:column;gap:2px;align-self:center" (click)="$event.stopPropagation()">
-            <button mat-icon-button (click)="openForm(m)" matTooltip="Edit member"
-                    style="width:28px;height:28px">
-              <mat-icon style="font-size:16px;width:16px;height:16px;line-height:16px;opacity:0.45">edit</mat-icon>
-            </button>
+          <div style="flex-shrink:0;align-self:center" (click)="$event.stopPropagation()">
+            <app-icon-btn icon="edit" size="sm" tooltip="Edit member" (btnClick)="openForm(m)" />
           </div>
         </div>
       }
