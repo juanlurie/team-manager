@@ -34,6 +34,10 @@ export class SprintService {
     return this.http.delete<void>(`${this.sprintBase}/${id}`);
   }
 
+  closeSprint(id: string): Observable<Sprint> {
+    return this.http.patch<Sprint>(`${this.sprintBase}/${id}/close`, {});
+  }
+
   cloneSprint(id: string, request: { name: string; startDate: string; endDate: string; copyMembers: boolean }): Observable<Sprint> {
     return this.http.post<Sprint>(`${this.sprintBase}/${id}/clone`, request);
   }

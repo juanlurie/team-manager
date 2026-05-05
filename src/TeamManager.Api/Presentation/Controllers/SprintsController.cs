@@ -61,6 +61,13 @@ public class SprintsController(ISprintService service) : ControllerBase
         return result is null ? NotFound() : CreatedAtAction(nameof(GetById), new { id = result.Id }, result);
     }
 
+    [HttpPatch("{id:guid}/close")]
+    public async Task<IActionResult> Close(Guid id)
+    {
+        var result = await service.CloseAsync(id);
+        return result is null ? NotFound() : Ok(result);
+    }
+
     [HttpGet("velocity")]
     public async Task<IActionResult> GetVelocity([FromQuery] Guid? piId)
         => Ok(await service.GetVelocityAsync(piId));

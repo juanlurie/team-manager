@@ -135,6 +135,15 @@ public class SprintService(AppDbContext db) : ISprintService
         return await GetByIdAsync(clone.Id) ?? ToDto(clone);
     }
 
+    public async Task<SprintDto?> CloseAsync(Guid id)
+    {
+        var sprint = await db.Sprints.FindAsync(id);
+        if (sprint is null) return null;
+        sprint.IsActive = false;
+        await db.SaveChangesAsync();
+        return await GetByIdAsync(id);
+    }
+
     public async Task<IReadOnlyList<VelocityEntryDto>> GetVelocityAsync(Guid? piId)
     {
         var query = db.Sprints.AsQueryable();
@@ -165,6 +174,7 @@ public class SprintService(AppDbContext db) : ISprintService
         PiName = s.PI?.Name,
         SprintNumber = s.SprintNumber,
         IsInnovationSprint = s.IsInnovationSprint,
+        IsActive = s.IsActive,
         Goal = s.Goal,
         RetroWentWell = s.RetroWentWell,
         RetroDidntGoWell = s.RetroDidntGoWell,

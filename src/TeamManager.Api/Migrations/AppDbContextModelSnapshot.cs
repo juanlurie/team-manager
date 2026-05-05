@@ -307,6 +307,9 @@ namespace TeamManager.Api.Migrations
                     b.Property<string>("RetroActionItems")
                         .HasColumnType("text");
 
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
                     b.Property<bool>("IsInnovationSprint")
                         .HasColumnType("boolean");
 
