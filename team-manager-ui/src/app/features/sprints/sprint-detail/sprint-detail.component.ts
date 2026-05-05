@@ -103,18 +103,8 @@ import { Router } from '@angular/router';
     } @else {
       <!-- Filters row (under tabs) -->
       <div class="filters-row">
-        <app-searchable-select
-          [options]="teamLeads"
-          label="Team lead"
-          placeholder="Filter by lead…"
-          width="200px"
-          [nullable]="true"
-          nullableLabel="All"
-          nullValue=""
-          (valueChange)="load()">
-        </app-searchable-select>
         @if (activeTab === 0) {
-          <div style="position:relative;flex:1;max-width:280px">
+          <div style="position:relative;flex:0 0 200px;min-width:160px">
             <mat-icon style="position:absolute;left:10px;top:50%;transform:translateY(-50%);
                              font-size:18px;width:18px;height:18px;line-height:18px;
                              opacity:0.35;pointer-events:none">search</mat-icon>
@@ -128,16 +118,36 @@ import { Router } from '@angular/router';
             <app-icon-btn icon="close" size="sm" tooltip="Clear search" (btnClick)="memberSearch.set('')" />
           }
           <app-squad-filter [squads]="squads" [value]="squadFilter()" (valueChange)="squadFilter.set($event)" />
+          <app-searchable-select
+            [options]="features()"
+            label="Feature"
+            placeholder="Filter by feature…"
+            width="200px"
+            [nullable]="true"
+            nullableLabel="All"
+            nullValue=""
+            [valueFn]="featValueFn"
+            [displayFn]="featDisplayFn"
+            [trackBy]="featTrackFn"
+            (valueChange)="featureFilter.set($event)">
+          </app-searchable-select>
         }
+        <app-searchable-select
+          [options]="teamLeads"
+          label="Team lead"
+          placeholder="Filter by lead…"
+          width="200px"
+          [nullable]="true"
+          nullableLabel="All"
+          nullValue=""
+          (valueChange)="load()">
+        </app-searchable-select>
         <div class="filters-spacer"></div>
-        <button mat-stroked-button (click)="initializeMembers()">
-          <mat-icon>group_add</mat-icon> Init members
-        </button>
-        <button mat-stroked-button class="rapid-btn"
+        <button mat-icon-button class="rapid-btn"
                 matTooltip="Rapid fire task entry"
                 [disabled]="!dashboard?.members?.length"
                 (click)="rapidFire()">
-          <mat-icon>bolt</mat-icon> Rapid Fire
+          <mat-icon>bolt</mat-icon>
         </button>
       </div>
 
@@ -207,7 +217,9 @@ import { Router } from '@angular/router';
     .filter-field { width: 160px; }
     .filters-spacer { flex: 1; }
     .filters-spacer { flex: 1; }
-    .rapid-btn { color: #ff9800; border-color: rgba(255,152,0,0.4); }
+    .rapid-btn { color:#ff9800; }
+    .rapid-btn:hover { background:rgba(255,152,0,0.12); }
+    .rapid-btn:disabled { color:rgba(255,255,255,0.2); background:none; }
     .gear-btn { flex-shrink:0; }
     ::ng-deep .top-tabs .mat-mdc-tab-header { border-bottom: none; }
   `]
@@ -233,7 +245,14 @@ export class SprintDetailComponent implements OnInit {
   sprintId = '';
   memberSearch = signal('');
   squadFilter = signal('');
+  featureFilter = signal('');
   activeTab = 0;
+
+  features = computed(() => this.dashboard?.features ?? []);
+
+  featValueFn = (f: any) => f?.id ?? '';
+  featDisplayFn = (f: any) => f?.title ?? '';
+  featTrackFn = (f: any) => f?.id ?? '';
 
   get filteredMembers() {
     const q = this.memberSearch().trim().toLowerCase();
@@ -247,6 +266,10 @@ export class SprintDetailComponent implements OnInit {
       if (squad) {
         filtered = filtered.filter(m => m.squadNames?.includes(squad.name));
       }
+    }
+    const featureId = this.featureFilter();
+    if (featureId) {
+      filtered = filtered.filter(m => m.workItems.some(w => w.featureId === featureId));
     }
     return filtered;
   }
@@ -265,13 +288,6 @@ export class SprintDetailComponent implements OnInit {
     this.loading.set(true);
     this.dashSvc.getSprintDashboard(this.sprintId, this.selectedTeamLeadId || undefined)
       .subscribe(d => { this.dashboard = d; this.loading.set(false); });
-  }
-
-  initializeMembers() {
-    this.sprintSvc.initializeMembers(this.sprintId).subscribe(r => {
-      this.snack.open(`${r.addedCount} members added`, 'OK', { duration: 3000 });
-      this.load();
-    });
   }
 
   rapidFire() {
