@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatDialogModule, MatDialogRef, MatDialog } from '@angular/material/dialog';
 import { ConfirmDialogComponent } from '../../../shared/components/confirm-dialog/confirm-dialog.component';
+import { IconButtonComponent } from '../../../shared/components/icon-btn/icon-btn.component';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
@@ -22,7 +23,7 @@ const PALETTE = ['#42A5F5','#66BB6A','#FFA726','#AB47BC','#26C6DA','#EC407A','#8
   standalone: true,
   imports: [CommonModule, FormsModule, MatDialogModule, MatButtonModule, MatIconModule,
     MatInputModule, MatFormFieldModule, MatSelectModule, MatTooltipModule, MatProgressSpinnerModule,
-    ConfirmDialogComponent],
+    ConfirmDialogComponent, IconButtonComponent],
   styles: [`
     .squad-card { border-radius:10px;border:1px solid rgba(255,255,255,0.08);margin-bottom:10px; }
     .squad-header { display:flex;align-items:center;gap:10px;padding:12px 14px;cursor:pointer; }
@@ -31,18 +32,13 @@ const PALETTE = ['#42A5F5','#66BB6A','#FFA726','#AB47BC','#26C6DA','#EC407A','#8
     .member-row:hover { background:rgba(255,255,255,0.03);border-radius:6px; }
     .color-dot { width:20px;height:20px;border-radius:50%;cursor:pointer;border:2px solid transparent;flex-shrink:0; }
     .color-dot.selected { border-color:rgba(255,255,255,0.8); }
-    ::ng-deep .icon-btn-sm { width:32px!important;height:32px!important;line-height:32px!important; }
-    ::ng-deep .icon-btn-sm .mat-mdc-button-persistent-ripple { border-radius:50%!important; }
-    ::ng-deep .icon-btn-sm mat-icon { font-size:16px!important;width:16px!important;height:16px!important;line-height:16px!important; }
-    ::ng-deep .remove-btn { opacity:0.4;transition:opacity 0.15s; }
-    ::ng-deep .remove-btn:hover { opacity:1!important; }
   `],
   template: `
     <div style="display:flex;align-items:center;gap:10px;padding:20px 24px 0">
       <mat-icon style="color:#5c6bc0">groups</mat-icon>
       <span style="font-size:1rem;font-weight:600">Manage Squads</span>
       <span style="flex:1"></span>
-      <button mat-icon-button mat-dialog-close><mat-icon>close</mat-icon></button>
+      <app-icon-btn icon="close" tooltip="Close" (btnClick)="close()" />
     </div>
 
     <mat-dialog-content style="padding:16px 24px;min-height:200px">
@@ -65,11 +61,9 @@ const PALETTE = ['#42A5F5','#66BB6A','#FFA726','#AB47BC','#26C6DA','#EC407A','#8
             <input matInput [(ngModel)]="newName" placeholder="Squad name"
                    style="flex:1;background:transparent;border:none;outline:none;color:inherit;font-size:0.9rem"
                    (keydown.enter)="createSquad()" (keydown.escape)="showNewForm.set(false)">
-            <button mat-icon-button color="primary" [disabled]="!newName.trim() || saving()"
-                    (click)="createSquad()" matTooltip="Create squad">
-              <mat-icon>check</mat-icon>
-            </button>
-            <button mat-icon-button (click)="showNewForm.set(false)"><mat-icon>close</mat-icon></button>
+            <app-icon-btn icon="check" color="primary" tooltip="Create squad"
+                          [disabled]="!newName.trim() || saving()" (btnClick)="createSquad()" />
+            <app-icon-btn icon="close" tooltip="Cancel" (btnClick)="showNewForm.set(false)" />
           </div>
         }
 
@@ -92,24 +86,18 @@ const PALETTE = ['#42A5F5','#66BB6A','#FFA726','#AB47BC','#26C6DA','#EC407A','#8
                   <input [(ngModel)]="editName" style="flex:1;background:transparent;border:none;outline:none;
                          color:inherit;font-size:0.9rem;font-weight:600"
                          (keydown.enter)="saveEdit(squad)" (keydown.escape)="editingId.set(null)">
-                  <button mat-icon-button class="icon-btn-sm" color="primary"
-                          [disabled]="!editName.trim()" (click)="saveEdit(squad)">
-                    <mat-icon>check</mat-icon>
-                  </button>
-                  <button mat-icon-button class="icon-btn-sm"
-                          (click)="editingId.set(null); $event.stopPropagation()">
-                    <mat-icon>close</mat-icon>
-                  </button>
+                  <app-icon-btn icon="check" color="primary"
+                                [disabled]="!editName.trim()" (btnClick)="saveEdit(squad)" />
+                  <app-icon-btn icon="close" tooltip="Cancel"
+                                (btnClick)="editingId.set(null)" />
                 </div>
               } @else {
                 <span style="font-weight:600;flex:1">{{ squad.name }}</span>
                 <span style="font-size:0.72rem;opacity:0.4">{{ squad.members.length }} member{{ squad.members.length !== 1 ? 's' : '' }}</span>
-                <button mat-icon-button class="icon-btn-sm" (click)="startEdit(squad); $event.stopPropagation()" matTooltip="Rename">
-                  <mat-icon style="opacity:0.5">edit</mat-icon>
-                </button>
-                <button mat-icon-button class="icon-btn-sm" (click)="deleteSquad(squad); $event.stopPropagation()" matTooltip="Delete squad">
-                  <mat-icon style="color:#ef5350;opacity:0.5">delete</mat-icon>
-                </button>
+                <app-icon-btn icon="edit" size="sm" tooltip="Rename"
+                              (btnClick)="startEdit(squad); $event.stopPropagation()" />
+                <app-icon-btn icon="delete" size="sm" [danger]="true" tooltip="Delete squad"
+                              (btnClick)="deleteSquad(squad); $event.stopPropagation()" />
                 <mat-icon style="opacity:0.3">
                   {{ expandedId() === squad.id ? 'expand_less' : 'expand_more' }}
                 </mat-icon>
@@ -122,10 +110,9 @@ const PALETTE = ['#42A5F5','#66BB6A','#FFA726','#AB47BC','#26C6DA','#EC407A','#8
                 @for (m of squad.members; track m.teamMemberId) {
                   <div class="member-row">
                     <span style="flex:1">{{ m.fullName }}</span>
-                    <button mat-icon-button class="icon-btn-sm remove-btn"
-                            (click)="removeMember(squad, m.teamMemberId)" matTooltip="Remove from squad">
-                      <mat-icon style="color:#ef5350">remove_circle_outline</mat-icon>
-                    </button>
+                    <app-icon-btn icon="remove_circle_outline" size="sm" [danger]="true"
+                                  tooltip="Remove from squad"
+                                  (btnClick)="removeMember(squad, m.teamMemberId)" />
                   </div>
                 }
                 @if (squad.members.length === 0) {
@@ -272,4 +259,6 @@ export class SquadManagerDialogComponent implements OnInit {
     const inSquad = new Set(squad.members.map(m => m.teamMemberId));
     return this.allMembers().filter(m => !inSquad.has(m.id));
   }
+
+  close() { this.dialogRef.close(); }
 }

@@ -63,3 +63,15 @@ mat-sidenav-content {
     margin: 0 !important;
   }
 }
+
+/* Small icon button hover for danger buttons */
+.danger-btn .mat-mdc-button-persistent-ripple::before {
+  background: #ef5350 !important;
+}
+.danger-btn:hover mat-icon {
+  opacity: 1 !important;
+}
+.danger-btn mat-icon {
+  transition: opacity 0.15s ease;
+}
+
