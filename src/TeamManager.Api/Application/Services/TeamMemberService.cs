@@ -44,6 +44,27 @@ public class TeamMemberService(AppDbContext db) : ITeamMemberService
 
     public async Task<TeamMemberDto> CreateAsync(CreateTeamMemberRequest request)
     {
+        var existing = await db.TeamMembers
+            .FirstOrDefaultAsync(m => m.Email.ToLower() == request.Email.ToLower());
+
+        if (existing is not null)
+        {
+            if (!existing.IsActive)
+            {
+                existing.FirstName = request.FirstName;
+                existing.LastName = request.LastName;
+                existing.Role = request.Role;
+                existing.TeamLeadId = request.TeamLeadId;
+                existing.Crafts = request.Crafts ?? [];
+                existing.BirthDate = request.BirthDate;
+                existing.JoinDate = request.JoinDate;
+                existing.IsActive = true;
+                await db.SaveChangesAsync();
+                return await GetByIdAsync(existing.Id) ?? ToDto(existing);
+            }
+            throw new InvalidOperationException("A team member with this email address already exists and is active.");
+        }
+
         var member = new TeamMember
         {
             FirstName = request.FirstName,

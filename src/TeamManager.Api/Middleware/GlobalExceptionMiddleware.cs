@@ -13,6 +13,20 @@ public class GlobalExceptionMiddleware(RequestDelegate next, ILogger<GlobalExcep
         {
             await next(context);
         }
+        catch (InvalidOperationException ex) when (ex.Message.Contains("already exists", StringComparison.OrdinalIgnoreCase))
+        {
+            logger.LogWarning(ex, "Conflict: {Message}", ex.Message);
+            context.Response.StatusCode = (int)HttpStatusCode.Conflict;
+            context.Response.ContentType = "application/problem+json";
+            var problem = new
+            {
+                type = "https://tools.ietf.org/html/rfc7807",
+                title = "Conflict",
+                status = 409,
+                detail = ex.Message
+            };
+            await context.Response.WriteAsync(JsonSerializer.Serialize(problem));
+        }
         catch (DbUpdateException ex) when (ex.InnerException is PostgresException pgEx)
         {
             logger.LogWarning(ex, "Database constraint violation: {SqlState}", pgEx.SqlState);
