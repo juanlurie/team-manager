@@ -1,4 +1,4 @@
-import { Component, Input, Output, EventEmitter, HostBinding } from '@angular/core';
+import { Component, Input, Output, EventEmitter, HostBinding, ViewEncapsulation } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -8,9 +8,10 @@ import { MatTooltipModule } from '@angular/material/tooltip';
   selector: 'app-icon-btn',
   standalone: true,
   imports: [CommonModule, MatButtonModule, MatIconModule, MatTooltipModule],
+  encapsulation: ViewEncapsulation.None,
   template: `
-    <button mat-icon-button
-            [class]="btnClass"
+    <button mat-icon-button class="app-icon-btn-inner"
+            [class.danger-btn]="danger"
             [color]="color"
             [disabled]="disabled"
             [matTooltip]="tooltip || ''"
@@ -19,9 +20,42 @@ import { MatTooltipModule } from '@angular/material/tooltip';
     </button>
   `,
   styles: [`
-    :host { display: inline-flex; align-items: center; justify-content: center; line-height: 0; }
-    button { margin: 0; padding: 0; border-radius: 50%; }
-    mat-icon { display: flex; align-items: center; justify-content: center; }
+    :host {
+      display: inline-flex;
+      flex-shrink: 0;
+      vertical-align: middle;
+    }
+    button.app-icon-btn-inner {
+      margin: 0 !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      padding: 0 !important;
+      min-width: unset !important;
+      width: var(--btn-size, 40px) !important;
+      height: var(--btn-size, 40px) !important;
+      line-height: 1 !important;
+    }
+    button.app-icon-btn-inner .mat-mdc-button-touch-target {
+      width: var(--btn-size, 40px) !important;
+      height: var(--btn-size, 40px) !important;
+    }
+    button.app-icon-btn-inner mat-icon {
+      font-size: var(--icon-size, 20px) !important;
+      width: var(--icon-size, 20px) !important;
+      height: var(--icon-size, 20px) !important;
+      line-height: var(--icon-size, 20px) !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+    }
+    button.app-icon-btn-inner.danger-btn mat-icon {
+      opacity: 0.45;
+      transition: opacity 0.15s ease;
+    }
+    button.app-icon-btn-inner.danger-btn:hover mat-icon {
+      opacity: 1 !important;
+    }
   `]
 })
 export class IconButtonComponent {
@@ -33,19 +67,10 @@ export class IconButtonComponent {
   @Input() size: 'sm' | 'md' | 'lg' = 'md';
   @Output() btnClick = new EventEmitter<MouseEvent>();
 
-  @HostBinding('style.width') get btnWidth() {
+  @HostBinding('style.--btn-size') get btnSize() {
     return { sm: '32px', md: '40px', lg: '48px' }[this.size];
   }
-  @HostBinding('style.height') get btnHeight() {
-    return { sm: '32px', md: '40px', lg: '48px' }[this.size];
-  }
-  @HostBinding('style.flex-shrink') get flexShrink() {
-    return '0';
-  }
-
-  get btnClass() {
-    const classes: string[] = [];
-    if (this.danger) classes.push('danger-btn');
-    return classes.join(' ');
+  @HostBinding('style.--icon-size') get iconSize() {
+    return { sm: '16px', md: '20px', lg: '24px' }[this.size];
   }
 }
