@@ -325,13 +325,22 @@ export class TeamMemberFormComponent implements OnInit {
     const obs = this.data.member
       ? this.svc.update(this.data.member.id, payload as any)
       : this.svc.create(payload as any);
-    obs.subscribe(saved => {
-      const memberId = this.data.member?.id ?? (saved as any)?.id;
-      if (memberId) {
-        this.squadSvc.setMemberSquads(memberId, this.selectedSquadIds)
-          .subscribe(() => this.dialogRef.close(true));
-      } else {
-        this.dialogRef.close(true);
+    obs.subscribe({
+      next: saved => {
+        const memberId = this.data.member?.id ?? (saved as any)?.id;
+        if (memberId) {
+          this.squadSvc.setMemberSquads(memberId, this.selectedSquadIds).subscribe({
+            next: () => this.dialogRef.close(true),
+            error: err => console.error('[TeamMember] Error saving squad memberships:', err)
+          });
+        } else {
+          this.dialogRef.close(true);
+        }
+      },
+      error: err => {
+        const detail = err.error?.detail ?? err.message ?? 'Unknown error';
+        console.error('[TeamMember] Error saving member:', err);
+        console.error('[TeamMember] Detail:', detail);
       }
     });
   }
