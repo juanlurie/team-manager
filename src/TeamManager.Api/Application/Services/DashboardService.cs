@@ -5,6 +5,7 @@ using TeamManager.Api.Application.DTOs.LeaveRecord;
 using TeamManager.Api.Application.DTOs.Sprint;
 using TeamManager.Api.Application.DTOs.WorkItem;
 using TeamManager.Api.Application.Services.Interfaces;
+using TeamManager.Api.Domain.Entities;
 using TeamManager.Api.Domain.Enums;
 using TeamManager.Api.Infrastructure.Data;
 
@@ -16,6 +17,27 @@ public class DashboardService(AppDbContext db) : IDashboardService
     {
         var sprint = await db.Sprints.Include(s => s.PI).FirstOrDefaultAsync(s => s.Id == sprintId);
         if (sprint is null) return null;
+
+        var existingMemberIds = await db.SprintMembers
+            .Where(sm => sm.SprintId == sprintId)
+            .Select(sm => sm.TeamMemberId)
+            .ToListAsync();
+
+        var activeMembers = await db.TeamMembers
+            .Where(m => m.IsActive)
+            .Select(m => m.Id)
+            .ToListAsync();
+
+        var toAdd = activeMembers.Except(existingMemberIds).ToList();
+        if (toAdd.Count > 0)
+        {
+            db.SprintMembers.AddRange(toAdd.Select(memberId => new SprintMember
+            {
+                SprintId = sprintId,
+                TeamMemberId = memberId
+            }));
+            await db.SaveChangesAsync();
+        }
 
         var features = await db.Features
             .Where(f => f.SprintId == sprintId)

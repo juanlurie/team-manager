@@ -23,6 +23,7 @@ import { FeatureService } from '../../../core/services/feature.service';
 import { ConfirmDialogComponent } from '../../../shared/components/confirm-dialog/confirm-dialog.component';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTabsModule } from '@angular/material/tabs';
+import { MatMenuModule } from '@angular/material/menu';
 import { SprintWorkloadSummaryComponent } from '../sprint-workload-summary/sprint-workload-summary.component';
 import { SprintMemberCardComponent } from '../sprint-member-card/sprint-member-card.component';
 import { SprintRetroComponent } from '../sprint-retro/sprint-retro.component';
@@ -30,6 +31,9 @@ import { SprintVotePanelComponent } from '../sprint-vote-panel/sprint-vote-panel
 import { IconButtonComponent } from '../../../shared/components/icon-btn/icon-btn.component';
 import { SquadFilterComponent } from '../../../shared/components/squad-filter/squad-filter.component';
 import { SearchableSelectComponent } from '../../../shared/components/searchable-select/searchable-select.component';
+import { SprintSettingsDialogComponent } from '../sprint-settings-dialog/sprint-settings-dialog.component';
+import { PI } from '../../../core/models/sprint.model';
+import { Router } from '@angular/router';
 
 @Component({
   selector: 'app-sprint-detail',
@@ -37,10 +41,10 @@ import { SearchableSelectComponent } from '../../../shared/components/searchable
   imports: [
     CommonModule, MatButtonModule, MatIconModule, MatDialogModule,
     MatSelectModule, MatFormFieldModule, FormsModule, MatTooltipModule,
-    MatProgressSpinnerModule, MatTabsModule,
+    MatProgressSpinnerModule, MatTabsModule, MatMenuModule,
     SprintWorkloadSummaryComponent, SprintMemberCardComponent,
     SprintRetroComponent, SprintVotePanelComponent, IconButtonComponent,
-    SquadFilterComponent, SearchableSelectComponent,
+    SquadFilterComponent, SearchableSelectComponent, SprintSettingsDialogComponent,
   ],
   template: `
     <!-- Top row: Sprint info left, tabs right -->
@@ -80,6 +84,16 @@ import { SearchableSelectComponent } from '../../../shared/components/searchable
           </ng-template>
         </mat-tab>
       </mat-tab-group>
+      <button class="gear-btn" mat-icon-button matTooltip="Sprint settings"
+              [matMenuTriggerFor]="settingsMenu">
+        <mat-icon>settings</mat-icon>
+      </button>
+      <mat-menu #settingsMenu="matMenu" xPosition="before">
+        <button mat-menu-item (click)="openSettings()">
+          <mat-icon>settings</mat-icon>
+          <span>Sprint Settings</span>
+        </button>
+      </mat-menu>
     </div>
 
     @if (loading()) {
@@ -194,6 +208,7 @@ import { SearchableSelectComponent } from '../../../shared/components/searchable
     .filters-spacer { flex: 1; }
     .filters-spacer { flex: 1; }
     .rapid-btn { color: #ff9800; border-color: rgba(255,152,0,0.4); }
+    .gear-btn { flex-shrink:0; }
     ::ng-deep .top-tabs .mat-mdc-tab-header { border-bottom: none; }
   `]
 })
@@ -206,12 +221,14 @@ export class SprintDetailComponent implements OnInit {
   private featureSvc = inject(FeatureService);
   private dialog = inject(MatDialog);
   private snack = inject(MatSnackBar);
+  private router = inject(Router);
 
   loading = signal(true);
   dashboard: SprintDashboard | null = null;
   teamLeads: TeamMember[] = [];
   allMembers: TeamMember[] = [];
   squads: SquadSummary[] = [];
+  pis: PI[] = [];
   selectedTeamLeadId = '';
   sprintId = '';
   memberSearch = signal('');
@@ -241,6 +258,7 @@ export class SprintDetailComponent implements OnInit {
     this.memberSvc.getAll({ role: 'TeamLead' }).subscribe(m => this.teamLeads = m);
     this.memberSvc.getAll({ isActive: true }).subscribe(m => this.allMembers = m);
     this.squadSvc.getAll().subscribe(s => this.squads = s.map(sq => ({ id: sq.id, name: sq.name, color: sq.color })));
+    this.sprintSvc.getPIs().subscribe(p => this.pis = p);
   }
 
   load() {
@@ -266,6 +284,22 @@ export class SprintDetailComponent implements OnInit {
       data: { sprintId: this.sprintId, members, features: this.dashboard?.features ?? [] }
     });
     ref.afterClosed().subscribe(() => this.load());
+  }
+
+  openSettings() {
+    const sprint = this.dashboard?.sprint;
+    if (!sprint) return;
+    const ref = this.dialog.open(SprintSettingsDialogComponent, {
+      width: '420px',
+      data: { sprint, pis: this.pis }
+    });
+    ref.afterClosed().subscribe(result => {
+      if (result === 'delete') {
+        this.router.navigate(['/sprints']);
+      } else if (result === 'reload') {
+        this.load();
+      }
+    });
   }
 
   addFeature() {

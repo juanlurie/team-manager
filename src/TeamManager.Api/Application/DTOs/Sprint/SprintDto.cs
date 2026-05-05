@@ -10,6 +10,7 @@ public record SprintDto
     public string? PiName { get; init; }
     public int? SprintNumber { get; init; }
     public bool IsInnovationSprint { get; init; }
+    public bool IsActive { get; init; }
     public string? Goal { get; init; }
     public string? RetroWentWell { get; init; }
     public string? RetroDidntGoWell { get; init; }

@@ -10,6 +10,7 @@ public class Sprint
     public int? SprintNumber { get; set; }
     public bool IsInnovationSprint { get; set; }
     public string? Goal { get; set; }
+    public bool IsActive { get; set; } = true;
     public string? RetroWentWell { get; set; }
     public string? RetroDidntGoWell { get; set; }
     public string? RetroActionItems { get; set; }
