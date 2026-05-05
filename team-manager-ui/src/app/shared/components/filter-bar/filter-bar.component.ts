@@ -1,12 +1,12 @@
-import { Component, computed, effect, input, output, signal, untracked, ViewChild } from '@angular/core';
+import { Component, computed, effect, input, output, signal, untracked } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { MatMenuModule, MatMenuTrigger } from '@angular/material/menu';
-import { SquadSummary } from '../../../core/models/squad.model';
-import { Feature } from '../../../core/models/feature.model';
-import { TeamMember } from '../../../core/models/team-member.model';
+
+export interface FilterOption { id: string; label: string; }
+export interface FilterGroup { key: string; label: string; icon: string; options: FilterOption[]; }
 
 @Component({
   selector: 'app-filter-bar',
@@ -17,97 +17,42 @@ import { TeamMember } from '../../../core/models/team-member.model';
       <input class="fb-search" type="text"
              [placeholder]="searchPlaceholder()"
              [value]="search()"
-             (input)="search.set($any($event.target).value)" />
+             (input)="onSearch($any($event.target).value)" />
 
       <div class="fb-divider"></div>
 
       <div class="fb-desktop">
-        @if (squads().length > 0) {
-          <div class="fb-dd" #squadTrigger="matMenuTrigger" [matMenuTriggerFor]="squadMenu">
-            <span class="fb-dd-label">Squad</span>
-            <span class="fb-dd-value">{{ squadLabel() }}</span>
-            <mat-icon class="fb-dd-arrow">expand_more</mat-icon>
-          </div>
-          <mat-menu #squadMenu="matMenu" panelClass="fb-menu-panel" xPosition="before"
-                    [hasBackdrop]="false" (closed)="onMenuClosed('squad', squadTrigger)">
-            <div class="fb-menu-content" (click)="$event.stopPropagation()" (mousedown)="$event.stopPropagation()">
-              <input class="fb-menu-search" type="text" placeholder="Search…"
-                     [value]="ddSearch.squad()" (input)="ddSearch.squad.set($any($event.target).value)"
-                     (click)="$event.stopPropagation()" (mousedown)="$event.stopPropagation()" />
-              <div class="fb-menu-list">
-                @for (s of filteredSquads(); track s.id) {
-                  <label class="fb-menu-item" (click)="$event.stopPropagation()" (mousedown)="$event.stopPropagation()">
-                    <input type="checkbox" [checked]="selectedSquads().includes(s.id)"
-                           (change)="toggleMulti('squad', s.id)" />
-                    <span>{{ s.name }}</span>
-                  </label>
+        @for (group of groups(); track group.key) {
+          @if (group.options.length > 0) {
+            <div class="fb-dd" [matMenuTriggerFor]="ddMenu" #menu="matMenuTrigger">
+              <span class="fb-dd-label">{{ group.label }}</span>
+              <span class="fb-dd-value">{{ groupLabel(group.key) }}</span>
+              <mat-icon class="fb-dd-arrow">expand_more</mat-icon>
+            </div>
+            <mat-menu #ddMenu="matMenu" panelClass="fb-menu-panel" xPosition="before"
+                      [hasBackdrop]="false" (closed)="onMenuClosed(group.key, menu)">
+              <div class="fb-menu-content" (click)="$event.stopPropagation()" (mousedown)="$event.stopPropagation()">
+                <input class="fb-menu-search" type="text" placeholder="Search…"
+                       [value]="ddSearch()[group.key] ?? ''"
+                       (input)="setDdSearch(group.key, $any($event.target).value)"
+                       (click)="$event.stopPropagation()" (mousedown)="$event.stopPropagation()" />
+                <div class="fb-menu-list">
+                  @for (opt of filteredOptions(group.key); track opt.id) {
+                    <label class="fb-menu-item" (click)="$event.stopPropagation()" (mousedown)="$event.stopPropagation()">
+                      <input type="checkbox" [checked]="isSelected(group.key, opt.id)"
+                             (change)="toggleMulti(group.key, opt.id)" />
+                      <span>{{ opt.label }}</span>
+                    </label>
+                  }
+                </div>
+                @if (selectedFor(group.key).length > 0) {
+                  <div class="fb-menu-footer">
+                    <button (click)="$event.stopPropagation(); clearFilter(group.key)"><mat-icon>close</mat-icon> Clear</button>
+                  </div>
                 }
               </div>
-              @if (selectedSquads().length > 0) {
-                <div class="fb-menu-footer">
-                  <button (click)="$event.stopPropagation(); clearFilter('squad')"><mat-icon>close</mat-icon> Clear</button>
-                </div>
-              }
-            </div>
-          </mat-menu>
-        }
-        @if (features().length > 0) {
-          <div class="fb-dd" #featTrigger="matMenuTrigger" [matMenuTriggerFor]="featMenu">
-            <span class="fb-dd-label">Feature</span>
-            <span class="fb-dd-value">{{ featureLabel() }}</span>
-            <mat-icon class="fb-dd-arrow">expand_more</mat-icon>
-          </div>
-          <mat-menu #featMenu="matMenu" panelClass="fb-menu-panel" xPosition="before"
-                    [hasBackdrop]="false" (closed)="onMenuClosed('feature', featTrigger)">
-            <div class="fb-menu-content" (click)="$event.stopPropagation()" (mousedown)="$event.stopPropagation()">
-              <input class="fb-menu-search" type="text" placeholder="Search…"
-                     [value]="ddSearch.feature()" (input)="ddSearch.feature.set($any($event.target).value)"
-                     (click)="$event.stopPropagation()" (mousedown)="$event.stopPropagation()" />
-              <div class="fb-menu-list">
-                @for (f of filteredFeatures(); track f.id) {
-                  <label class="fb-menu-item" (click)="$event.stopPropagation()" (mousedown)="$event.stopPropagation()">
-                    <input type="checkbox" [checked]="selectedFeatures().includes(f.id)"
-                           (change)="toggleMulti('feature', f.id)" />
-                    <span>{{ f.title }}</span>
-                  </label>
-                }
-              </div>
-              @if (selectedFeatures().length > 0) {
-                <div class="fb-menu-footer">
-                  <button (click)="$event.stopPropagation(); clearFilter('feature')"><mat-icon>close</mat-icon> Clear</button>
-                </div>
-              }
-            </div>
-          </mat-menu>
-        }
-        @if (teamLeads().length > 0) {
-          <div class="fb-dd" #leadTrigger="matMenuTrigger" [matMenuTriggerFor]="leadMenu">
-            <span class="fb-dd-label">Lead</span>
-            <span class="fb-dd-value">{{ leadLabel() }}</span>
-            <mat-icon class="fb-dd-arrow">expand_more</mat-icon>
-          </div>
-          <mat-menu #leadMenu="matMenu" panelClass="fb-menu-panel" xPosition="before"
-                    [hasBackdrop]="false" (closed)="onMenuClosed('lead', leadTrigger)">
-            <div class="fb-menu-content" (click)="$event.stopPropagation()" (mousedown)="$event.stopPropagation()">
-              <input class="fb-menu-search" type="text" placeholder="Search…"
-                     [value]="ddSearch.lead()" (input)="ddSearch.lead.set($any($event.target).value)"
-                     (click)="$event.stopPropagation()" (mousedown)="$event.stopPropagation()" />
-              <div class="fb-menu-list">
-                @for (l of filteredLeads(); track l.id) {
-                  <label class="fb-menu-item" (click)="$event.stopPropagation()" (mousedown)="$event.stopPropagation()">
-                    <input type="checkbox" [checked]="selectedLeads().includes(l.id)"
-                           (change)="toggleMulti('lead', l.id)" />
-                    <span>{{ l.firstName }} {{ l.lastName }}</span>
-                  </label>
-                }
-              </div>
-              @if (selectedLeads().length > 0) {
-                <div class="fb-menu-footer">
-                  <button (click)="$event.stopPropagation(); clearFilter('lead')"><mat-icon>close</mat-icon> Clear</button>
-                </div>
-              }
-            </div>
-          </mat-menu>
+            </mat-menu>
+          }
         }
       </div>
 
@@ -121,57 +66,36 @@ import { TeamMember } from '../../../core/models/team-member.model';
     </div>
 
     @if (sheetOpen()) {
-      <div class="fb-overlay" (click)="sheetOpen.set(false)"></div>
+      <div class="fb-overlay"></div>
       <div class="fb-sheet">
         <div class="fb-sheet-header">
           <h3>Filters</h3>
           <button class="fb-sheet-close" (click)="sheetOpen.set(false)"><mat-icon>close</mat-icon></button>
         </div>
         <div class="fb-sheet-tabs">
-          @for (t of sheetTabs; track t.key) {
-            <button class="fb-sheet-tab" [class.active]="sheetTab() === t.key"
-                    (click)="sheetTab.set(t.key)">
-              <mat-icon>{{ t.icon }}</mat-icon> {{ t.label }}
-              @if (sheetTabCount(t.key) > 0) {
-                <span class="fb-tab-badge">{{ sheetTabCount(t.key) }}</span>
-              }
-            </button>
+          @for (group of groups(); track group.key) {
+            @if (group.options.length > 0) {
+              <button class="fb-sheet-tab" [class.active]="sheetTab() === group.key"
+                      (click)="sheetTab.set(group.key)">
+                <mat-icon>{{ group.icon }}</mat-icon> {{ group.label }}
+                @if (sheetTabCount(group.key) > 0) {
+                  <span class="fb-tab-badge">{{ sheetTabCount(group.key) }}</span>
+                }
+              </button>
+            }
           }
         </div>
         <div class="fb-sheet-body">
-          @switch (sheetTab()) {
-            @case ('squad') {
+          @for (group of groups(); track group.key) {
+            @if (group.options.length > 0 && sheetTab() === group.key) {
               <input class="fb-sheet-search" type="text" placeholder="Search…"
-                     [value]="sheetSquadSearch()" (input)="sheetSquadSearch.set($any($event.target).value)" />
+                     [value]="sheetSearch()[group.key] ?? ''"
+                     (input)="setSheetSearch(group.key, $any($event.target).value)" />
               <div class="fb-checklist">
-                @for (s of sheetFilteredSquads(); track s.id) {
-                  <label class="fb-check-item" (click)="toggleMulti('squad', s.id)">
-                    <input type="checkbox" [checked]="selectedSquads().includes(s.id)" />
-                    <span>{{ s.name }}</span>
-                  </label>
-                }
-              </div>
-            }
-            @case ('feature') {
-              <input class="fb-sheet-search" type="text" placeholder="Search…"
-                     [value]="sheetFeatureSearch()" (input)="sheetFeatureSearch.set($any($event.target).value)" />
-              <div class="fb-checklist">
-                @for (f of sheetFilteredFeatures(); track f.id) {
-                  <label class="fb-check-item" (click)="toggleMulti('feature', f.id)">
-                    <input type="checkbox" [checked]="selectedFeatures().includes(f.id)" />
-                    <span>{{ f.title }}</span>
-                  </label>
-                }
-              </div>
-            }
-            @case ('lead') {
-              <input class="fb-sheet-search" type="text" placeholder="Search…"
-                     [value]="sheetLeadSearch()" (input)="sheetLeadSearch.set($any($event.target).value)" />
-              <div class="fb-checklist">
-                @for (l of sheetFilteredLeads(); track l.id) {
-                  <label class="fb-check-item" (click)="toggleMulti('lead', l.id)">
-                    <input type="checkbox" [checked]="selectedLeads().includes(l.id)" />
-                    <span>{{ l.firstName }} {{ l.lastName }}</span>
+                @for (opt of sheetFilteredOptions(group.key); track opt.id) {
+                  <label class="fb-check-item" (click)="toggleMulti(group.key, opt.id)">
+                    <input type="checkbox" [checked]="isSelected(group.key, opt.id)" />
+                    <span>{{ opt.label }}</span>
                   </label>
                 }
               </div>
@@ -180,7 +104,7 @@ import { TeamMember } from '../../../core/models/team-member.model';
         </div>
         <div class="fb-sheet-footer">
           <button class="fb-sheet-clear" (click)="clearAll()">Clear all</button>
-          <button class="fb-sheet-apply" (click)="applyAndClose()">Show results</button>
+          <button class="fb-sheet-apply" (click)="emitApply()">Apply</button>
         </div>
       </div>
     }
@@ -340,136 +264,111 @@ import { TeamMember } from '../../../core/models/team-member.model';
   `]
 })
 export class FilterBarComponent {
-  @ViewChild('squadTrigger') squadTrigger!: MatMenuTrigger;
-  @ViewChild('featTrigger') featTrigger!: MatMenuTrigger;
-  @ViewChild('leadTrigger') leadTrigger!: MatMenuTrigger;
-
-  searchPlaceholder = input('Search members…');
-  squads = input<SquadSummary[]>([]);
-  features = input<Feature[]>([]);
-  teamLeads = input<TeamMember[]>([]);
-
+  groups = input<FilterGroup[]>([]);
+  searchPlaceholder = input('Search…');
   searchVal = input('');
-  selectedSquadsVal = input<string[]>([]);
-  selectedFeaturesVal = input<string[]>([]);
-  selectedLeadsVal = input<string[]>([]);
+  selectedValues = input<Record<string, string[]>>({});
 
   searchChange = output<string>();
-  apply = output<{ squads?: string[]; features?: string[]; leads?: string[] }>();
+  apply = output<Record<string, string[]>>();
 
   search = signal('');
-  selectedSquads = signal<string[]>([]);
-  selectedFeatures = signal<string[]>([]);
-  selectedLeads = signal<string[]>([]);
+  selected = signal<Record<string, string[]>>({});
+
+  ddSearch = signal<Record<string, string>>({});
+  sheetSearch = signal<Record<string, string>>({});
+
+  sheetOpen = signal(false);
+  sheetTab = signal('');
+
+  private _menuReopen = false;
 
   constructor() {
     effect(() => { untracked(() => this.search.set(this.searchVal())); });
-    effect(() => { untracked(() => this.selectedSquads.set(this.selectedSquadsVal())); });
-    effect(() => { untracked(() => this.selectedFeatures.set(this.selectedFeaturesVal())); });
-    effect(() => { untracked(() => this.selectedLeads.set(this.selectedLeadsVal())); });
+    effect(() => { untracked(() => this.selected.set({ ...this.selectedValues() })); });
+    effect(() => {
+      const g = this.groups();
+      untracked(() => {
+        if (g.length > 0 && !this.sheetTab()) {
+          const first = g.find(gr => gr.options.length > 0);
+          if (first) this.sheetTab.set(first.key);
+        }
+      });
+    });
   }
 
-  ddSearch = { squad: signal(''), feature: signal(''), lead: signal('') };
-
-  filteredSquads = computed(() => {
-    const q = this.ddSearch.squad().trim().toLowerCase();
-    return q ? this.squads().filter(s => s.name.toLowerCase().includes(q)) : this.squads();
-  });
-  filteredFeatures = computed(() => {
-    const q = this.ddSearch.feature().trim().toLowerCase();
-    return q ? this.features().filter(f => f.title.toLowerCase().includes(q)) : this.features();
-  });
-  filteredLeads = computed(() => {
-    const q = this.ddSearch.lead().trim().toLowerCase();
-    return q ? this.teamLeads().filter(l => `${l.firstName} ${l.lastName}`.toLowerCase().includes(q)) : this.teamLeads();
-  });
-
-  sheetOpen = signal(false);
-  sheetTab = signal<'squad' | 'feature' | 'lead'>('squad');
-  sheetTabs = [
-    { key: 'squad' as const, icon: 'groups', label: 'Squad' },
-    { key: 'feature' as const, icon: 'flag', label: 'Feature' },
-    { key: 'lead' as const, icon: 'person', label: 'Lead' },
-  ];
-  sheetSquadSearch = signal('');
-  sheetFeatureSearch = signal('');
-  sheetLeadSearch = signal('');
-
-  sheetFilteredSquads = computed(() => {
-    const q = this.sheetSquadSearch().trim().toLowerCase();
-    return q ? this.squads().filter(s => s.name.toLowerCase().includes(q)) : this.squads();
-  });
-  sheetFilteredFeatures = computed(() => {
-    const q = this.sheetFeatureSearch().trim().toLowerCase();
-    return q ? this.features().filter(f => f.title.toLowerCase().includes(q)) : this.features();
-  });
-  sheetFilteredLeads = computed(() => {
-    const q = this.sheetLeadSearch().trim().toLowerCase();
-    return q ? this.teamLeads().filter(l => `${l.firstName} ${l.lastName}`.toLowerCase().includes(q)) : this.teamLeads();
-  });
-
-  squadLabel = computed(() => {
-    const sel = this.selectedSquads();
-    if (sel.length === 0) return '';
-    if (sel.length === 1) return this.squads().find(s => s.id === sel[0])?.name ?? '';
+  groupLabel(key: string): string {
+    const sel = this.selected()[key] ?? [];
+    const group = this.groups().find(g => g.key === key);
+    if (!group || sel.length === 0) return '';
+    if (sel.length === 1) return group.options.find(o => o.id === sel[0])?.label ?? '';
     return `${sel.length} selected`;
-  });
-  featureLabel = computed(() => {
-    const sel = this.selectedFeatures();
-    if (sel.length === 0) return '';
-    if (sel.length === 1) return this.features().find(f => f.id === sel[0])?.title ?? '';
-    return `${sel.length} selected`;
-  });
-  leadLabel = computed(() => {
-    const sel = this.selectedLeads();
-    if (sel.length === 0) return '';
-    if (sel.length === 1) {
-      const l = this.teamLeads().find(t => t.id === sel[0]);
-      return l ? `${l.firstName} ${l.lastName}` : '';
-    }
-    return `${sel.length} selected`;
-  });
+  }
 
-  totalCount = computed(() => this.selectedSquads().length + this.selectedFeatures().length + this.selectedLeads().length);
+  selectedFor(key: string): string[] {
+    return this.selected()[key] ?? [];
+  }
+
+  isSelected(key: string, id: string): boolean {
+    return (this.selected()[key] ?? []).includes(id);
+  }
+
+  filteredOptions(key: string): FilterOption[] {
+    const q = (this.ddSearch()[key] ?? '').trim().toLowerCase();
+    const group = this.groups().find(g => g.key === key);
+    if (!group) return [];
+    return q ? group.options.filter(o => o.label.toLowerCase().includes(q)) : group.options;
+  }
+
+  sheetFilteredOptions(key: string): FilterOption[] {
+    const q = (this.sheetSearch()[key] ?? '').trim().toLowerCase();
+    const group = this.groups().find(g => g.key === key);
+    if (!group) return [];
+    return q ? group.options.filter(o => o.label.toLowerCase().includes(q)) : group.options;
+  }
+
+  totalCount = computed(() => {
+    const sel = this.selected();
+    return Object.values(sel).reduce((sum, arr) => sum + arr.length, 0);
+  });
 
   sheetTabCount(key: string): number {
-    switch (key) {
-      case 'squad': return this.selectedSquads().length;
-      case 'feature': return this.selectedFeatures().length;
-      case 'lead': return this.selectedLeads().length;
-      default: return 0;
-    }
+    return (this.selected()[key] ?? []).length;
   }
 
-  toggleMulti(group: 'squad' | 'feature' | 'lead', id: string) {
+  onSearch(val: string) {
+    this.search.set(val);
+    this.searchChange.emit(val);
+  }
+
+  setDdSearch(key: string, val: string) {
+    this.ddSearch.set({ ...this.ddSearch(), [key]: val });
+  }
+
+  setSheetSearch(key: string, val: string) {
+    this.sheetSearch.set({ ...this.sheetSearch(), [key]: val });
+  }
+
+  toggleMulti(key: string, id: string) {
     this._menuReopen = true;
-    const fn = (arr: string[]) => arr.includes(id) ? arr.filter(x => x !== id) : [...arr, id];
-    switch (group) {
-      case 'squad': this.selectedSquads.update(fn); break;
-      case 'feature': this.selectedFeatures.update(fn); break;
-      case 'lead': this.selectedLeads.update(fn); break;
-    }
+    const arr = this.selected()[key] ?? [];
+    const next = arr.includes(id) ? arr.filter(x => x !== id) : [...arr, id];
+    this.selected.set({ ...this.selected(), [key]: next });
     this.emitApply();
   }
 
-  clearFilter(group: 'squad' | 'feature' | 'lead') {
-    switch (group) {
-      case 'squad': this.selectedSquads.set([]); break;
-      case 'feature': this.selectedFeatures.set([]); break;
-      case 'lead': this.selectedLeads.set([]); break;
-    }
+  clearFilter(key: string) {
+    this.selected.set({ ...this.selected(), [key]: [] });
     this.emitApply();
   }
 
   clearAll() {
-    this.selectedSquads.set([]);
-    this.selectedFeatures.set([]);
-    this.selectedLeads.set([]);
+    const cleared: Record<string, string[]> = {};
+    for (const g of this.groups()) cleared[g.key] = [];
+    this.selected.set(cleared);
   }
 
-  private _menuReopen = false;
-
-  onMenuClosed(group: string, trigger: MatMenuTrigger) {
+  onMenuClosed(key: string, trigger: MatMenuTrigger) {
     if (this._menuReopen) {
       this._menuReopen = false;
       setTimeout(() => trigger.openMenu());
@@ -477,21 +376,6 @@ export class FilterBarComponent {
   }
 
   emitApply() {
-    this.apply.emit({
-      squads: this.selectedSquads(),
-      features: this.selectedFeatures(),
-      leads: this.selectedLeads(),
-    });
-  }
-
-  applyAndClose() {
-    this.emitApply();
-    this.sheetOpen.set(false);
-  }
-
-  openDd() {
-    this.ddSearch.squad.set('');
-    this.ddSearch.feature.set('');
-    this.ddSearch.lead.set('');
+    this.apply.emit(this.selected());
   }
 }
