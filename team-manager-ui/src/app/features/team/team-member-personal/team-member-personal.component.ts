@@ -13,6 +13,7 @@ import { MemberSkill, MemberNote, MemberTask } from '../../../core/models/member
 import { TeamMemberService } from '../../../core/services/team-member.service';
 import { MemberPersonalService } from '../../../core/services/member-personal.service';
 import { ConfirmDialogComponent } from '../../../shared/components/confirm-dialog/confirm-dialog.component';
+import { IconButtonComponent } from '../../../shared/components/icon-btn/icon-btn.component';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { TimesheetTabComponent } from './timesheet-tab/timesheet-tab.component';
 
@@ -37,7 +38,7 @@ const MAP_CATEGORIES: MapCategory[] = [
 @Component({
   selector: 'app-team-member-personal',
   standalone: true,
-  imports: [CommonModule, FormsModule, MatIconModule, MatButtonModule, MatTooltipModule, MatTabsModule, MatDialogModule, MatProgressSpinnerModule, TimesheetTabComponent],
+  imports: [CommonModule, FormsModule, MatIconModule, MatButtonModule, MatTooltipModule, MatTabsModule, MatDialogModule, MatProgressSpinnerModule, TimesheetTabComponent, IconButtonComponent],
   styles: [`
     @media (max-width: 480px) {
       .tab-label { display: none; }
@@ -150,15 +151,9 @@ const MAP_CATEGORIES: MapCategory[] = [
                   <!-- Row 1: name + actions (never wraps) -->
                   <div style="display:flex;align-items:center;gap:6px">
                     <span style="font-weight:600;font-size:0.9rem;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ skill.name }}</span>
-                    <button mat-icon-button (click)="toggleRateForm(skill.id)" matTooltip="Add rating" style="width:32px;height:32px;flex-shrink:0">
-                      <mat-icon style="font-size:18px">add_circle_outline</mat-icon>
-                    </button>
-                    <button mat-icon-button (click)="toggleHistory(skill.id)" matTooltip="History" style="width:32px;height:32px;flex-shrink:0">
-                      <mat-icon style="font-size:18px">history</mat-icon>
-                    </button>
-                    <button mat-icon-button (click)="deleteSkill(skill)" matTooltip="Delete" style="width:32px;height:32px;flex-shrink:0;color:#ef9a9a">
-                      <mat-icon style="font-size:18px">delete_outline</mat-icon>
-                    </button>
+                    <app-icon-btn icon="add_circle_outline" size="sm" tooltip="Add rating" (btnClick)="toggleRateForm(skill.id)" />
+                    <app-icon-btn icon="history" size="sm" tooltip="History" (btnClick)="toggleHistory(skill.id)" />
+                    <app-icon-btn icon="delete_outline" size="sm" tooltip="Delete" [danger]="true" (btnClick)="deleteSkill(skill)" />
                   </div>
                   <!-- Row 2: category + rating + date + trend -->
                   @if (skill.category || latestRating(skill)) {
@@ -264,9 +259,7 @@ const MAP_CATEGORIES: MapCategory[] = [
                 <div style="padding:12px 14px;border-radius:8px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06)">
                   <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
                     <span style="font-size:0.74rem;opacity:0.4;flex:1">{{ note.createdAt | date:'d MMM y' }}</span>
-                    <button mat-icon-button (click)="deleteNote(note)" matTooltip="Delete note" style="flex-shrink:0;color:#ef9a9a;width:32px;height:32px">
-                      <mat-icon style="font-size:18px">delete_outline</mat-icon>
-                    </button>
+                    <app-icon-btn icon="delete_outline" size="sm" tooltip="Delete note" [danger]="true" (btnClick)="deleteNote(note)" />
                   </div>
                   <div style="font-size:0.88rem;white-space:pre-wrap;line-height:1.5">{{ note.text }}</div>
                 </div>
@@ -329,9 +322,7 @@ const MAP_CATEGORIES: MapCategory[] = [
                       }
                     </div>
                   </div>
-                  <button mat-icon-button (click)="deleteTask(task)" matTooltip="Delete task" style="color:#ef9a9a;flex-shrink:0">
-                    <mat-icon>delete_outline</mat-icon>
-                  </button>
+                  <app-icon-btn icon="delete_outline" size="sm" tooltip="Delete task" [danger]="true" (btnClick)="deleteTask(task)" />
                 </div>
               }
             </div>

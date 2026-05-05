@@ -12,6 +12,7 @@ import { SprintDashboard } from '../../../core/models/dashboard.model';
 import { Feature } from '../../../core/models/feature.model';
 import { FeatureFormDialogComponent } from '../feature-form-dialog/feature-form-dialog.component';
 import { StatusLabelPipe } from '../../../core/pipes/status-label.pipe';
+import { IconButtonComponent } from '../../../shared/components/icon-btn/icon-btn.component';
 
 interface TaskRow {
   id: string;
@@ -30,7 +31,7 @@ interface FeatureView {
 @Component({
   selector: 'app-sprint-features',
   standalone: true,
-  imports: [CommonModule, RouterLink, MatButtonModule, MatIconModule, MatDialogModule, MatTooltipModule, MatChipsModule, StatusLabelPipe],
+  imports: [CommonModule, RouterLink, MatButtonModule, MatIconModule, MatDialogModule, MatTooltipModule, MatChipsModule, StatusLabelPipe, IconButtonComponent],
   template: `
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:24px;flex-wrap:wrap">
       <div>
@@ -95,14 +96,8 @@ interface FeatureView {
             </div>
             <div style="display:flex;align-items:center;gap:4px;flex-shrink:0">
               <span style="font-size:0.75rem;opacity:0.4">{{ fv.tasks.length }} task{{ fv.tasks.length !== 1 ? 's' : '' }}</span>
-              <button mat-icon-button style="width:28px;height:28px"
-                      [matTooltip]="fv.feature.isActive ? 'Hide from task dropdown' : 'Unhide feature'"
-                      (click)="toggleActive(fv.feature)">
-                <mat-icon style="font-size:16px;width:16px;height:16px;line-height:16px">{{ fv.feature.isActive ? 'visibility_off' : 'visibility' }}</mat-icon>
-              </button>
-              <button mat-icon-button style="width:28px;height:28px" (click)="editFeature(fv.feature)">
-                <mat-icon style="font-size:16px;width:16px;height:16px;line-height:16px">edit</mat-icon>
-              </button>
+              <app-icon-btn [icon]="fv.feature.isActive ? 'visibility_off' : 'visibility'" size="sm" [tooltip]="fv.feature.isActive ? 'Hide from task dropdown' : 'Unhide feature'" (btnClick)="toggleActive(fv.feature)" />
+              <app-icon-btn icon="edit" size="sm" tooltip="Edit" (btnClick)="editFeature(fv.feature)" />
             </div>
           </div>
 

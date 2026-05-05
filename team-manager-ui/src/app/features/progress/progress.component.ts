@@ -5,11 +5,12 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { ProgressService } from '../../core/services/progress.service';
 import { ProgressPI, ProgressSprint, ProgressFeature } from '../../core/models/progress.model';
+import { IconButtonComponent } from '../../shared/components/icon-btn/icon-btn.component';
 
 @Component({
   selector: 'app-progress',
   standalone: true,
-  imports: [CommonModule, RouterLink, MatIconModule, MatButtonModule],
+  imports: [CommonModule, RouterLink, MatIconModule, MatButtonModule, IconButtonComponent],
   styles: [`
     .sprint-link { color:rgba(255,255,255,0.7);text-decoration:none;transition:color 0.15s; }
     .sprint-link:hover { color:#64b5f6; }
@@ -19,9 +20,7 @@ import { ProgressPI, ProgressSprint, ProgressFeature } from '../../core/models/p
   template: `
     <div style="margin-bottom:24px;display:flex;align-items:center;gap:12px">
       <h2 style="margin:0;font-size:1.1rem;font-weight:600;opacity:0.85">PI Progress</h2>
-      <button mat-icon-button (click)="load()" title="Refresh" style="opacity:0.5">
-        <mat-icon style="font-size:18px;width:18px;height:18px;line-height:18px">refresh</mat-icon>
-      </button>
+      <app-icon-btn icon="refresh" size="sm" tooltip="Refresh" (btnClick)="load()" />
     </div>
 
     @if (loading()) {

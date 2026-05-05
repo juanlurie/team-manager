@@ -1,14 +1,14 @@
 import { Component, computed, input, output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
-import { MatButtonModule } from '@angular/material/button';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { TimesheetEntry } from '../../../../core/models/timesheet.model';
+import { IconButtonComponent } from '../../../../shared/components/icon-btn/icon-btn.component';
 
 @Component({
   selector: 'app-timesheet-week-row',
   standalone: true,
-  imports: [CommonModule, MatIconModule, MatButtonModule, MatTooltipModule],
+  imports: [CommonModule, MatIconModule, MatTooltipModule, IconButtonComponent],
   styles: [`
     .entry-chip {
       display: inline-flex; align-items: center; gap: 4px;
@@ -44,13 +44,7 @@ import { TimesheetEntry } from '../../../../core/models/timesheet.model';
           }
 
           <!-- Add / open dialog button -->
-          <button mat-icon-button style="width:40px;height:40px"
-                  matTooltip="Manage this day"
-                  (click)="openDay.emit(date())">
-            <mat-icon style="font-size:20px;width:20px;height:20px;line-height:20px">
-              {{ entries().length > 0 ? 'edit_calendar' : 'add' }}
-            </mat-icon>
-          </button>
+          <app-icon-btn [icon]="entries().length > 0 ? 'edit_calendar' : 'add'" size="lg" tooltip="Manage this day" (btnClick)="openDay.emit(date())" />
         </div>
 
       </div>

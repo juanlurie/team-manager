@@ -8,9 +8,9 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatSelectModule } from '@angular/material/select';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { SearchableMultiSelectComponent } from '../../../shared/components/searchable-multi-select/searchable-multi-select.component';
 import { Squad } from '../../../core/models/squad.model';
 import { TeamMember } from '../../../core/models/team-member.model';
 import { SquadService } from '../../../core/services/squad.service';
@@ -22,14 +22,12 @@ const PALETTE = ['#42A5F5','#66BB6A','#FFA726','#AB47BC','#26C6DA','#EC407A','#8
   selector: 'app-squad-manager-dialog',
   standalone: true,
   imports: [CommonModule, FormsModule, MatDialogModule, MatButtonModule, MatIconModule,
-    MatInputModule, MatFormFieldModule, MatSelectModule, MatTooltipModule, MatProgressSpinnerModule,
-    ConfirmDialogComponent, IconButtonComponent],
+    MatInputModule, MatFormFieldModule, MatTooltipModule, MatProgressSpinnerModule,
+    ConfirmDialogComponent, IconButtonComponent, SearchableMultiSelectComponent],
   styles: [`
     .squad-card { border-radius:10px;border:1px solid rgba(255,255,255,0.08);margin-bottom:10px; }
     .squad-header { display:flex;align-items:center;gap:10px;padding:12px 14px;cursor:pointer; }
     .squad-header:hover { background:rgba(255,255,255,0.04); }
-    .member-row { display:flex;align-items:center;gap:8px;padding:6px 14px 6px 20px;font-size:0.85rem; }
-    .member-row:hover { background:rgba(255,255,255,0.03);border-radius:6px; }
     .color-dot { width:20px;height:20px;border-radius:50%;cursor:pointer;border:2px solid transparent;flex-shrink:0; }
     .color-dot.selected { border-color:rgba(255,255,255,0.8); }
   `],
@@ -104,34 +102,19 @@ const PALETTE = ['#42A5F5','#66BB6A','#FFA726','#AB47BC','#26C6DA','#EC407A','#8
               }
             </div>
 
-            <!-- Members list (expanded) -->
+            <!-- Members selector (expanded) -->
             @if (expandedId() === squad.id) {
-              <div style="border-top:1px solid rgba(255,255,255,0.06);padding-bottom:8px">
-                @for (m of squad.members; track m.teamMemberId) {
-                  <div class="member-row">
-                    <span style="flex:1">{{ m.fullName }}</span>
-                    <app-icon-btn icon="remove_circle_outline" size="sm" [danger]="true"
-                                  tooltip="Remove from squad"
-                                  (btnClick)="removeMember(squad, m.teamMemberId)" />
-                  </div>
-                }
+              <div style="border-top:1px solid rgba(255,255,255,0.06)">
                 @if (squad.members.length === 0) {
                   <div style="padding:8px 20px;font-size:0.8rem;opacity:0.35;font-style:italic">No members yet</div>
                 }
-                <!-- Add member row -->
-                <div style="display:flex;align-items:center;gap:8px;padding:6px 14px 6px 20px">
-                  <mat-form-field appearance="outline" subscriptSizing="dynamic" style="flex:1">
-                    <mat-label>Add member</mat-label>
-                    <mat-select [(ngModel)]="addMemberIds[squad.id]" multiple>
-                      @for (m of availableMembers(squad); track m.id) {
-                        <mat-option [value]="m.id">{{ m.firstName }} {{ m.lastName }}</mat-option>
-                      }
-                    </mat-select>
-                  </mat-form-field>
-                  <button mat-stroked-button style="height:40px;flex-shrink:0"
-                          [disabled]="!addMemberIds[squad.id]?.length"
-                          (click)="addMembers(squad)">
-                    Add
+                <div style="display:flex;align-items:flex-start;gap:8px;padding:6px 14px 6px 20px">
+                  <app-searchable-multi-select [options]="allMembers()" label="Members"
+                    placeholder="Search members…" [(ngModel)]="addMemberIds[squad.id]" />
+                  <button mat-stroked-button style="height:40px;flex-shrink:0;margin-top:4px"
+                          [disabled]="isUnchanged(squad)"
+                          (click)="saveMembers(squad)">
+                    Save
                   </button>
                 </div>
               </div>
@@ -190,6 +173,12 @@ export class SquadManagerDialogComponent implements OnInit {
 
   toggleExpand(id: string) {
     if (this.editingId() === id) return;
+    if (this.expandedId() !== id) {
+      const squad = this.squads().find(s => s.id === id);
+      if (squad) {
+        this.addMemberIds[id] = squad.members.map(m => m.teamMemberId);
+      }
+    }
     this.expandedId.set(this.expandedId() === id ? null : id);
   }
 
@@ -240,24 +229,20 @@ export class SquadManagerDialogComponent implements OnInit {
     });
   }
 
-  removeMember(squad: Squad, memberId: string) {
-    const newIds = squad.members.filter(m => m.teamMemberId !== memberId).map(m => m.teamMemberId);
+  saveMembers(squad: Squad) {
+    const newIds = this.addMemberIds[squad.id] ?? [];
     this.squadSvc.setMembers(squad.id, newIds).subscribe(updated => {
       this.squads.update(s => s.map(sq => sq.id === updated.id ? updated : sq));
     });
   }
 
-  addMembers(squad: Squad) {
-    const newIds = [...squad.members.map(m => m.teamMemberId), ...(this.addMemberIds[squad.id] ?? [])];
-    this.squadSvc.setMembers(squad.id, newIds).subscribe(updated => {
-      this.squads.update(s => s.map(sq => sq.id === updated.id ? updated : sq));
-      this.addMemberIds[squad.id] = [];
-    });
-  }
-
-  availableMembers(squad: Squad): TeamMember[] {
-    const inSquad = new Set(squad.members.map(m => m.teamMemberId));
-    return this.allMembers().filter(m => !inSquad.has(m.id));
+  isUnchanged(squad: Squad): boolean {
+    const current = this.addMemberIds[squad.id];
+    if (!current || current.length === 0) return true;
+    const existing = squad.members.map(m => m.teamMemberId);
+    if (current.length !== existing.length) return false;
+    const s = new Set(current);
+    return existing.every(v => s.has(v));
   }
 
   close() { this.dialogRef.close(); }

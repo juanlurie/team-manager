@@ -15,6 +15,7 @@ import { DiscussionPointsTaskDialogComponent } from './discussion-points-task-di
 import { DiscussionPointService } from '../../core/services/discussion-point.service';
 import { CommentsComponent } from '../../shared/comments/comments.component';
 import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/confirm-dialog.component';
+import { IconButtonComponent } from '../../shared/components/icon-btn/icon-btn.component';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { DiscussionPointsEditDialogComponent } from './discussion-points-edit-dialog/discussion-points-edit-dialog.component';
 
@@ -26,7 +27,7 @@ const PRIORITY_ORDER = ['High', 'Medium', 'Low'] as const;
   standalone: true,
   imports: [CommonModule, FormsModule, MatButtonModule, MatIconModule,
     MatSelectModule, MatFormFieldModule, MatInputModule, MatTooltipModule,
-    MatDialogModule, CommentsComponent, MatProgressSpinnerModule, MatDatepickerModule, MatCheckboxModule],
+    MatDialogModule, CommentsComponent, MatProgressSpinnerModule, MatDatepickerModule, MatCheckboxModule, IconButtonComponent],
   template: `
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;flex-wrap:wrap">
       <h2 style="margin:0;font-size:1.2rem;flex:1">Discussion Points</h2>
@@ -109,21 +110,10 @@ const PRIORITY_ORDER = ['High', 'Medium', 'Low'] as const;
 
             <!-- Actions -->
             <div style="display:flex;gap:2px" (click)="$event.stopPropagation()">
-              <button mat-icon-button [matTooltip]="expandedIds().has(dp.id) ? 'Hide comments & tasks' : 'Comments & tasks'"
-                      (click)="toggleExpand(dp.id)">
-                <mat-icon style="font-size:20px;width:20px;height:20px;line-height:20px">
-                  {{ expandedIds().has(dp.id) ? 'chat_bubble' : 'chat_bubble_outline' }}
-                </mat-icon>
-              </button>
-              <button mat-icon-button [matTooltip]="nextStatusLabel(dp.status)" (click)="cycleStatus(dp)">
-                <mat-icon style="font-size:20px;width:20px;height:20px;line-height:20px">{{ nextStatusIcon(dp.status) }}</mat-icon>
-              </button>
-              <button mat-icon-button matTooltip="Edit" (click)="openEdit(dp)">
-                <mat-icon style="font-size:20px;width:20px;height:20px;line-height:20px">edit</mat-icon>
-              </button>
-              <button mat-icon-button matTooltip="Delete" (click)="remove(dp)">
-                <mat-icon style="font-size:20px;width:20px;height:20px;line-height:20px">delete_outline</mat-icon>
-              </button>
+              <app-icon-btn [icon]="expandedIds().has(dp.id) ? 'chat_bubble' : 'chat_bubble_outline'" size="md" [tooltip]="expandedIds().has(dp.id) ? 'Hide comments & tasks' : 'Comments & tasks'" (btnClick)="toggleExpand(dp.id)" />
+              <app-icon-btn [icon]="nextStatusIcon(dp.status)" size="md" [tooltip]="nextStatusLabel(dp.status)" (btnClick)="cycleStatus(dp)" />
+              <app-icon-btn icon="edit" size="md" tooltip="Edit" (btnClick)="openEdit(dp)" />
+              <app-icon-btn icon="delete_outline" size="md" tooltip="Delete" [danger]="true" (btnClick)="remove(dp)" />
             </div>
           </div>
 
@@ -193,12 +183,8 @@ const PRIORITY_ORDER = ['High', 'Medium', 'Low'] as const;
                           </div>
                         }
                       </div>
-                      <button mat-icon-button (click)="openTaskEdit(dp.id, task)" style="width:28px;height:28px">
-                        <mat-icon style="font-size:14px;width:14px;height:14px">edit</mat-icon>
-                      </button>
-                      <button mat-icon-button (click)="deleteTask(dp.id, task)" style="width:28px;height:28px">
-                        <mat-icon style="font-size:14px;width:14px;height:14px">delete_outline</mat-icon>
-                      </button>
+                      <app-icon-btn icon="edit" size="sm" tooltip="Edit" (btnClick)="openTaskEdit(dp.id, task)" />
+                      <app-icon-btn icon="delete_outline" size="sm" tooltip="Delete" [danger]="true" (btnClick)="deleteTask(dp.id, task)" />
                     </div>
                   }
 

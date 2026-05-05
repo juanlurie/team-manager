@@ -16,6 +16,7 @@ import { TeamMemberService } from '../../../core/services/team-member.service';
 import { SprintFormComponent } from '../sprint-form/sprint-form.component';
 import { SprintCloneDialogComponent } from '../sprint-clone-dialog/sprint-clone-dialog.component';
 import { RapidFireDialogComponent } from '../rapid-fire-dialog/rapid-fire-dialog.component';
+import { IconButtonComponent } from '../../../shared/components/icon-btn/icon-btn.component';
 
 @Component({
   selector: 'app-sprint-detail-layout',
@@ -24,7 +25,7 @@ import { RapidFireDialogComponent } from '../rapid-fire-dialog/rapid-fire-dialog
     CommonModule, RouterLink, RouterLinkActive, RouterOutlet,
     MatButtonModule, MatIconModule, MatDialogModule,
     MatSelectModule, MatFormFieldModule, FormsModule, MatTooltipModule,
-    SprintCloneDialogComponent,
+    SprintCloneDialogComponent, IconButtonComponent,
   ],
   template: `
     <!-- Header -->
@@ -60,12 +61,8 @@ import { RapidFireDialogComponent } from '../rapid-fire-dialog/rapid-fire-dialog
                   (click)="rapidFire()">
             <mat-icon>bolt</mat-icon> Rapid Fire
           </button>
-          <button mat-icon-button (click)="editSprint()" matTooltip="Edit sprint">
-            <mat-icon>edit</mat-icon>
-          </button>
-          <button mat-icon-button (click)="cloneSprint()" matTooltip="Clone sprint">
-            <mat-icon>content_copy</mat-icon>
-          </button>
+          <app-icon-btn icon="edit" size="sm" tooltip="Edit sprint" (btnClick)="editSprint()" />
+          <app-icon-btn icon="content_copy" size="sm" tooltip="Clone sprint" (btnClick)="cloneSprint()" />
         </div>
       </div>
     </div>
