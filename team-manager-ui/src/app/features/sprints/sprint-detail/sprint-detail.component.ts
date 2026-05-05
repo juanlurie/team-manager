@@ -31,6 +31,7 @@ import { SprintVotePanelComponent } from '../sprint-vote-panel/sprint-vote-panel
 import { IconButtonComponent } from '../../../shared/components/icon-btn/icon-btn.component';
 import { SquadFilterComponent } from '../../../shared/components/squad-filter/squad-filter.component';
 import { SearchableSelectComponent } from '../../../shared/components/searchable-select/searchable-select.component';
+import { SearchInputComponent } from '../../../shared/components/search-input/search-input.component';
 import { SprintSettingsDialogComponent } from '../sprint-settings-dialog/sprint-settings-dialog.component';
 import { PI } from '../../../core/models/sprint.model';
 import { Router } from '@angular/router';
@@ -44,7 +45,7 @@ import { Router } from '@angular/router';
     MatProgressSpinnerModule, MatTabsModule, MatMenuModule,
     SprintWorkloadSummaryComponent, SprintMemberCardComponent,
     SprintRetroComponent, SprintVotePanelComponent, IconButtonComponent,
-    SquadFilterComponent, SearchableSelectComponent, SprintSettingsDialogComponent,
+    SquadFilterComponent, SearchableSelectComponent, SearchInputComponent, SprintSettingsDialogComponent,
   ],
   template: `
     <!-- Top row: Sprint info left, tabs right -->
@@ -104,19 +105,12 @@ import { Router } from '@angular/router';
       <!-- Filters row (under tabs) -->
       <div class="filters-row">
         @if (activeTab === 0) {
-          <div style="position:relative;flex:0 0 200px;min-width:160px">
-            <mat-icon style="position:absolute;left:10px;top:50%;transform:translateY(-50%);
-                             font-size:18px;width:18px;height:18px;line-height:18px;
-                             opacity:0.35;pointer-events:none">search</mat-icon>
-            <input [ngModel]="memberSearch()" (ngModelChange)="memberSearch.set($event)"
-                   placeholder="Search members…"
-                   style="width:100%;box-sizing:border-box;padding:7px 10px 7px 34px;
-                          background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);
-                          border-radius:8px;color:inherit;font-size:0.85rem;outline:none">
-          </div>
-          @if (memberSearch()) {
-            <app-icon-btn icon="close" size="sm" tooltip="Clear search" (btnClick)="memberSearch.set('')" />
-          }
+          <app-search-input
+            placeholder="Search members…"
+            width="200px"
+            [ngModel]="memberSearch()"
+            (ngModelChange)="memberSearch.set($event)">
+          </app-search-input>
           <app-squad-filter [squads]="squads" [value]="squadFilter()" (valueChange)="squadFilter.set($event)" />
           <app-searchable-select
             [options]="features()"
