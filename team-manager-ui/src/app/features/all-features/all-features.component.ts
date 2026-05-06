@@ -50,8 +50,8 @@ const TASK_STATUS_TEXT: Record<string, string> = {
     <div style="display:flex;align-items:center;margin-bottom:10px">
       <h2 style="margin:0;font-size:1.2rem">Features</h2>
       <span style="flex:1"></span>
-      <button mat-raised-button color="primary" (click)="addFeature()">
-        <mat-icon>add</mat-icon> New Feature
+      <button mat-icon-button color="primary" (click)="addFeature()" matTooltip="New Feature">
+        <mat-icon>add</mat-icon>
       </button>
     </div>
     <div style="display:flex;margin-bottom:16px">
