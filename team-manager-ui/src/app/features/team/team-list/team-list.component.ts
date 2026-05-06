@@ -28,9 +28,8 @@ const CRAFT_LABELS: Record<string, string> = {
     MatChipsModule, MatTooltipModule, MatProgressSpinnerModule,
     IconButtonComponent, FilterBarComponent],
   template: `
-    <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap">
-      <h2 style="margin:0;font-size:1.2rem">Team Members</h2>
-      <span style="flex:1"></span>
+    <div class="tl-header">
+      <h2 class="tl-title">Team Members</h2>
       <app-filter-bar
         [groups]="filterGroups()"
         [searchPlaceholder]="'Search members…'"
@@ -38,12 +37,14 @@ const CRAFT_LABELS: Record<string, string> = {
         [selectedValues]="filterValues()"
         (searchChange)="memberSearch.set($event)"
         (apply)="onFilterApply($event)" />
-      <button mat-stroked-button style="flex-shrink:0" (click)="openSquadManager()">
-        <mat-icon>groups</mat-icon> Squads
-      </button>
-      <button mat-raised-button color="primary" style="flex-shrink:0" (click)="openForm()">
-        <mat-icon>add</mat-icon> Add
-      </button>
+      <div class="tl-actions">
+        <button mat-stroked-button (click)="openSquadManager()">
+          <mat-icon>groups</mat-icon> Squads
+        </button>
+        <button mat-raised-button color="primary" (click)="openForm()">
+          <mat-icon>add</mat-icon> Add
+        </button>
+      </div>
     </div>
 
     @if (loading()) {
@@ -106,11 +107,22 @@ const CRAFT_LABELS: Record<string, string> = {
     }
   `,
   styles: [`
+    .tl-header {
+      display:flex; align-items:center; gap:12px; margin-bottom:16px; flex-wrap:wrap;
+    }
+    .tl-title { margin:0; font-size:1.2rem; flex-shrink:0; }
+    .tl-actions { display:flex; gap:8px; flex-shrink:0; }
+    :host ::ng-deep app-filter-bar { flex:1; min-width:0; }
     .role-member    { background:rgba(158,158,158,0.12);color:#9e9e9e; }
     .role-teamlead  { background:rgba(100,181,246,0.15);color:#64b5f6; }
     .role-techlead  { background:rgba(171,71,188,0.15);color:#ce93d8; }
     .member-card    { background:rgba(255,255,255,0.04);transition:background 0.15s;min-height:80px; }
     .member-card:hover { background:rgba(255,255,255,0.08); }
+    @media (max-width: 767px) {
+      .tl-header { flex-direction:column; align-items:stretch; gap:8px; }
+      .tl-actions { justify-content:stretch; }
+      .tl-actions button { flex:1; }
+    }
   `]
 })
 export class TeamListComponent implements OnInit {
