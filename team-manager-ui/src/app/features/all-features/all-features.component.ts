@@ -288,7 +288,11 @@ export class AllFeaturesComponent implements OnInit {
         f.title.toLowerCase().includes(q) ||
         (f.externalTicketRef ?? '').toLowerCase().includes(q) ||
         (f.sprintName ?? '').toLowerCase().includes(q) ||
-        (f.piName ?? '').toLowerCase().includes(q)
+        (f.piName ?? '').toLowerCase().includes(q) ||
+        (f.tasks ?? []).some(t =>
+          t.title.toLowerCase().includes(q) ||
+          t.assignee.toLowerCase().includes(q)
+        )
       );
     }
     return list;
