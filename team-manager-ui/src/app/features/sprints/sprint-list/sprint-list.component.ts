@@ -15,6 +15,7 @@ import { SprintFormComponent } from '../sprint-form/sprint-form.component';
 import { SprintCloneDialogComponent } from '../sprint-clone-dialog/sprint-clone-dialog.component';
 import { ConfirmDialogComponent } from '../../../shared/components/confirm-dialog/confirm-dialog.component';
 import { IconButtonComponent } from '../../../shared/components/icon-btn/icon-btn.component';
+import { CurrentSprintCardComponent } from '../../../shared/components/current-sprint-card/current-sprint-card.component';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
 const STATUS_ORDER = ['InProgress', 'Planned', 'Completed', 'ReadyForRelease', 'Released'];
@@ -32,7 +33,7 @@ const STATUS_COLOR: Record<string, string> = {
   standalone: true,
   imports: [CommonModule, RouterLink, MatButtonModule, MatIconModule,
     MatDialogModule, MatChipsModule, MatTooltipModule, MatProgressSpinnerModule,
-    SprintCloneDialogComponent, IconButtonComponent],
+    SprintCloneDialogComponent, IconButtonComponent, CurrentSprintCardComponent],
   template: `
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:24px;flex-wrap:wrap">
       <h2 style="margin:0;flex:1;min-width:120px">Sprints</h2>
@@ -50,47 +51,10 @@ const STATUS_COLOR: Record<string, string> = {
     @if (currentSprint()) {
       <div style="margin-bottom:28px">
         <div style="font-size:0.75rem;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;opacity:0.5;margin-bottom:8px">Current Sprint</div>
-        <a [routerLink]="['/sprints', currentSprint()!.id]"
-           style="padding:18px 20px;border-radius:12px;display:block;text-decoration:none;color:inherit;cursor:pointer;
-                  background:linear-gradient(135deg,rgba(100,181,246,0.12),rgba(100,181,246,0.04));
-                  border:1px solid rgba(100,181,246,0.25);transition:border-color 0.15s,background 0.15s"
-           (mouseenter)="$any($event.currentTarget).style.borderColor='rgba(100,181,246,0.5)'"
-           (mouseleave)="$any($event.currentTarget).style.borderColor='rgba(100,181,246,0.25)'"
-           >
-          <div style="display:flex;align-items:center;gap:16px;margin-bottom:12px">
-            <div style="flex:1;min-width:0">
-              <div style="font-size:1.05rem;font-weight:600">{{ currentSprint()!.name }}</div>
-              <div style="font-size:0.8rem;opacity:0.55;margin-top:2px">
-                {{ currentSprint()!.startDate | date:'d MMM' }} – {{ currentSprint()!.endDate | date:'d MMM yyyy' }}
-                @if (currentSprint()!.piName) {
-                  · <span>{{ currentSprint()!.piName }}</span>
-                }
-              </div>
-            </div>
-            @if (currentSprint()!.isInnovationSprint) {
-              <mat-chip>IP Sprint</mat-chip>
-            }
-            <app-icon-btn icon="edit" size="sm" tooltip="Edit" (btnClick)="$event.preventDefault(); $event.stopPropagation(); openSprintForm(currentSprint()!)" />
-          </div>
-
-          <!-- Feature summary -->
-          @if (currentFeatures().length) {
-            <div style="border-top:1px solid rgba(100,181,246,0.15);padding-top:12px">
-              <div style="font-size:0.7rem;font-weight:600;text-transform:uppercase;letter-spacing:0.07em;opacity:0.4;margin-bottom:8px">Sprint Goals</div>
-              <div style="display:flex;flex-wrap:wrap;gap:6px">
-                @for (f of currentFeaturesSorted(); track f.id) {
-                  <span style="display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:20px;
-                               font-size:0.72rem;font-weight:500;
-                               background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1)">
-                    <span [style.width]="'7px'" [style.height]="'7px'" [style.border-radius]="'50%'"
-                          [style.background]="featureStatusColor(f.status)" [style.flex-shrink]="'0'"></span>
-                    {{ f.externalTicketRef ? f.externalTicketRef + ' · ' : '' }}{{ f.title }}
-                  </span>
-                }
-              </div>
-            </div>
-          }
-        </a>
+        <app-current-sprint-card
+          [sprint]="currentSprint()!"
+          [features]="currentFeatures()"
+          (edit)="openSprintForm($event)" />
       </div>
     }
 
