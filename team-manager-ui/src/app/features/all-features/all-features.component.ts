@@ -12,6 +12,9 @@ import { CommentsComponent } from '../../shared/comments/comments.component';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { FilterBarComponent } from '../../shared/components/filter-bar/filter-bar.component';
 import { WorkItemService } from '../../core/services/work-item.service';
+import { TeamMemberService } from '../../core/services/team-member.service';
+import { SquadService } from '../../core/services/squad.service';
+import { Squad } from '../../core/models/squad.model';
 
 const ACTIVE_STATUSES = ['InProgress', 'ReadyForRelease', 'Planned', 'Completed'];
 const DONE_STATUS = 'Released';
@@ -253,36 +256,69 @@ export class AllFeaturesComponent implements OnInit {
   private svc = inject(FeatureService);
   private dialog = inject(MatDialog);
   private workItemSvc = inject(WorkItemService);
+  private teamMemberSvc = inject(TeamMemberService);
+  private squadSvc = inject(SquadService);
 
   loading = signal(true);
   all = signal<Feature[]>([]);
   search = signal('');
   statusFilters = signal<string[]>([]);
+  assigneeFilters = signal<string[]>([]);
+  squadFilters = signal<string[]>([]);
   showDone = signal(false);
   expanded = signal<Set<string>>(new Set());
   activeStatuses = ['InProgress', 'ReadyForRelease', 'Planned', 'Completed'];
 
-  readonly filterGroups = [{
-    key: 'status', label: 'Status', icon: 'flag',
-    options: [
-      { id: 'InProgress', label: 'In Progress' },
-      { id: 'Planned', label: 'Planned' },
-      { id: 'Completed', label: 'Completed' },
-      { id: 'ReadyForRelease', label: 'Ready for Release' },
-    ]
-  }];
+  teamMembers = signal<{id: string, label: string}[]>([]);
+  squads = signal<Squad[]>([]);
 
-  filterValues = computed(() => ({ status: this.statusFilters() }));
+  readonly filterGroups = [
+    {
+      key: 'status', label: 'Status', icon: 'flag',
+      options: [
+        { id: 'InProgress', label: 'In Progress' },
+        { id: 'Planned', label: 'Planned' },
+        { id: 'Completed', label: 'Completed' },
+        { id: 'ReadyForRelease', label: 'Ready for Release' },
+      ]
+    },
+    {
+      key: 'assignee', label: 'Assignee', icon: 'person',
+      options: [] as { id: string; label: string }[]
+    },
+    {
+      key: 'squad', label: 'Squad', icon: 'group',
+      options: [] as { id: string; label: string }[]
+    }
+  ];
+
+  filterValues = computed(() => ({
+    status: this.statusFilters(),
+    assignee: this.assigneeFilters(),
+    squad: this.squadFilters()
+  }));
 
   activeFeatures = computed(() => this.all().filter(f => f.status !== DONE_STATUS));
   doneFeatures = computed(() => this.all().filter(f => f.status === DONE_STATUS));
 
   activeFiltered = computed(() => {
     const statuses = this.statusFilters();
+    const assignees = this.assigneeFilters();
+    const squads = this.squadFilters();
     const q = this.search().trim().toLowerCase();
-    let list = statuses.length > 0
-      ? this.activeFeatures().filter(f => statuses.includes(f.status))
-      : this.activeFeatures();
+    let list = this.activeFeatures();
+    if (statuses.length > 0) list = list.filter(f => statuses.includes(f.status));
+    if (assignees.length > 0) {
+      list = list.filter(f =>
+        (f.tasks ?? []).some(t => assignees.includes(t.assignee))
+      );
+    }
+    if (squads.length > 0) {
+      const squadMembers = this.getSquadMemberNames(squads);
+      list = list.filter(f =>
+        (f.tasks ?? []).some(t => squadMembers.includes(t.assignee))
+      );
+    }
     if (q) {
       list = list.filter(f =>
         f.title.toLowerCase().includes(q) ||
@@ -298,7 +334,30 @@ export class AllFeaturesComponent implements OnInit {
     return list;
   });
 
-  ngOnInit() { this.load(); }
+  private getSquadMemberNames(squadIds: string[]): string[] {
+    const squadList = this.squads();
+    const members: string[] = [];
+    squadIds.forEach(sid => {
+      const squad = squadList.find(s => s.id === sid);
+      if (squad?.members) {
+        squad.members.forEach(m => members.push(m.fullName));
+      }
+    });
+    return members;
+  }
+
+  ngOnInit() {
+    this.load();
+    this.teamMemberSvc.getAll().subscribe(members => {
+      const opts = members.map(m => ({ id: m.firstName + ' ' + m.lastName, label: m.firstName + ' ' + m.lastName }));
+      this.teamMembers.set(opts);
+      this.filterGroups[1].options = opts;
+    });
+    this.squadSvc.getAll().subscribe(squads => {
+      this.squads.set(squads);
+      this.filterGroups[2].options = squads.map(s => ({ id: s.id, label: s.name }));
+    });
+  }
 
   load() {
     this.loading.set(true);
@@ -307,6 +366,8 @@ export class AllFeaturesComponent implements OnInit {
 
   onFilterApply(filters: Record<string, string[]>) {
     this.statusFilters.set(filters['status'] ?? []);
+    this.assigneeFilters.set(filters['assignee'] ?? []);
+    this.squadFilters.set(filters['squad'] ?? []);
   }
 
   toggleStatus(st: string) {
