@@ -1,12 +1,10 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatDialogModule, MatDialog } from '@angular/material/dialog';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { TeamMember } from '../../../core/models/team-member.model';
 import { TeamMemberService } from '../../../core/services/team-member.service';
@@ -16,7 +14,7 @@ import { TeamMemberFormComponent } from '../team-member-form/team-member-form.co
 import { SquadManagerDialogComponent } from '../squad-manager-dialog/squad-manager-dialog.component';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { IconButtonComponent } from '../../../shared/components/icon-btn/icon-btn.component';
-import { SearchableSelectComponent } from '../../../shared/components/searchable-select/searchable-select.component';
+import { FilterBarComponent, FilterGroup } from '../../../shared/components/filter-bar/filter-bar.component';
 
 const CRAFT_LABELS: Record<string, string> = {
   DevBE: 'Dev BE', DevFE: 'Dev FE', DevIOS: 'iOS', DevAndroid: 'Android',
@@ -27,24 +25,23 @@ const CRAFT_LABELS: Record<string, string> = {
   selector: 'app-team-list',
   standalone: true,
   imports: [CommonModule, MatButtonModule, MatIconModule, MatDialogModule,
-    MatChipsModule, MatTooltipModule, MatFormFieldModule, FormsModule,
-    MatProgressSpinnerModule, IconButtonComponent, SearchableSelectComponent],
+    MatChipsModule, MatTooltipModule, MatProgressSpinnerModule,
+    IconButtonComponent, FilterBarComponent],
   template: `
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap">
       <h2 style="margin:0;font-size:1.2rem">Team Members</h2>
       <span style="flex:1"></span>
-      <app-searchable-select [options]="roleOptions" label="Role" width="150px"
-        nullableLabel="All roles" [(ngModel)]="roleFilter" (valueChange)="load()" />
-      <app-searchable-select [options]="craftOptions" label="Craft" width="170px"
-        nullableLabel="All crafts" [(ngModel)]="craftFilter" (valueChange)="applyFilters()" />
-      <app-searchable-select [options]="squads" label="Squad" width="170px"
-        nullableLabel="All squads" [(ngModel)]="squadFilter" (valueChange)="applyFilters()" />
-      <app-searchable-select [options]="teamLeads" label="Team Lead" width="170px"
-        nullableLabel="All leads" [(ngModel)]="teamLeadFilter" (valueChange)="applyFilters()" />
-      <button mat-stroked-button (click)="openSquadManager()">
+      <app-filter-bar
+        [groups]="filterGroups()"
+        [searchPlaceholder]="'Search members…'"
+        [searchVal]="memberSearch()"
+        [selectedValues]="filterValues()"
+        (searchChange)="memberSearch.set($event)"
+        (apply)="onFilterApply($event)" />
+      <button mat-stroked-button style="flex-shrink:0" (click)="openSquadManager()">
         <mat-icon>groups</mat-icon> Squads
       </button>
-      <button mat-raised-button color="primary" (click)="openForm()">
+      <button mat-raised-button color="primary" style="flex-shrink:0" (click)="openForm()">
         <mat-icon>add</mat-icon> Add
       </button>
     </div>
@@ -56,11 +53,10 @@ const CRAFT_LABELS: Record<string, string> = {
     } @else {
 
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,280px),1fr));gap:10px;grid-auto-rows:1fr">
-      @for (m of members; track m.id) {
+      @for (m of filteredMembers(); track m.id) {
         <div (click)="openPersonal(m)" class="member-card"
              style="border-radius:10px;border:1px solid rgba(255,255,255,0.08);padding:12px 14px;cursor:pointer;display:flex;flex-direction:column">
           <div style="display:flex;align-items:center;gap:12px">
-            <!-- Avatar -->
             <div style="width:36px;height:36px;border-radius:50%;background:rgba(100,181,246,0.15);
                         color:#64b5f6;font-size:0.75rem;font-weight:700;display:flex;align-items:center;
                         justify-content:center;flex-shrink:0;border:1px solid rgba(100,181,246,0.2)">
@@ -104,10 +100,10 @@ const CRAFT_LABELS: Record<string, string> = {
       }
     </div>
 
-    @if (members.length === 0) {
+    @if (filteredMembers().length === 0) {
       <div style="text-align:center;padding:64px;opacity:0.35;font-size:0.9rem">No members found</div>
     }
-    } <!-- end @else -->
+    }
   `,
   styles: [`
     .role-member    { background:rgba(158,158,158,0.12);color:#9e9e9e; }
@@ -128,10 +124,77 @@ export class TeamListComponent implements OnInit {
   allMembers: TeamMember[] = [];
   squads: SquadSummary[] = [];
   teamLeads: TeamMember[] = [];
-  roleFilter = '';
-  craftFilter = '';
-  squadFilter = '';
-  teamLeadFilter = '';
+  memberSearch = signal('');
+
+  filterRole = signal<string[]>([]);
+  filterCraft = signal<string[]>([]);
+  filterSquad = signal<string[]>([]);
+  filterLead = signal<string[]>([]);
+
+  filterGroups = computed<FilterGroup[]>(() => {
+    const groups: FilterGroup[] = [];
+    groups.push({
+      key: 'role',
+      label: 'Role',
+      icon: 'badge',
+      options: this.roleOptions.map(r => ({ id: r.id, label: r.name })),
+    });
+    groups.push({
+      key: 'craft',
+      label: 'Craft',
+      icon: 'build',
+      options: this.craftOptions.map(c => ({ id: c.id, label: c.name })),
+    });
+    groups.push({
+      key: 'squad',
+      label: 'Squad',
+      icon: 'groups',
+      options: this.squads.map(s => ({ id: s.id, label: s.name })),
+    });
+    if (this.teamLeads.length > 0) {
+      groups.push({
+        key: 'lead',
+        label: 'Lead',
+        icon: 'person',
+        options: this.teamLeads.map(t => ({ id: t.id, label: `${t.firstName} ${t.lastName}` })),
+      });
+    }
+    return groups;
+  });
+
+  filterValues = computed<Record<string, string[]>>(() => ({
+    role: this.filterRole(),
+    craft: this.filterCraft(),
+    squad: this.filterSquad(),
+    lead: this.filterLead(),
+  }));
+
+  filteredMembers = computed(() => {
+    const q = this.memberSearch().trim().toLowerCase();
+    const roles = this.filterRole();
+    const crafts = this.filterCraft();
+    const squads = this.filterSquad();
+    const leads = this.filterLead();
+
+    let filtered = this.allMembers;
+
+    if (q) {
+      filtered = filtered.filter(m => `${m.firstName} ${m.lastName}`.toLowerCase().includes(q));
+    }
+    if (roles.length > 0) {
+      filtered = filtered.filter(m => roles.includes(m.role));
+    }
+    if (crafts.length > 0) {
+      filtered = filtered.filter(m => m.crafts.some(c => crafts.includes(c)));
+    }
+    if (squads.length > 0) {
+      filtered = filtered.filter(m => m.squads.some(s => squads.includes(s.id)));
+    }
+    if (leads.length > 0) {
+      filtered = filtered.filter(m => leads.includes(m.teamLeadId ?? ''));
+    }
+    return filtered;
+  });
 
   readonly roleOptions = [
     { id: 'Member', name: 'Member' },
@@ -162,22 +225,15 @@ export class TeamListComponent implements OnInit {
 
   load() {
     this.loading.set(true);
-    this.svc.getAll({ role: this.roleFilter || undefined, isActive: true })
-      .subscribe(m => { this.allMembers = m; this.applyFilters(); this.loading.set(false); });
+    this.svc.getAll({ isActive: true })
+      .subscribe(m => { this.allMembers = m; this.loading.set(false); });
   }
 
-  applyFilters() {
-    let filtered = this.allMembers;
-    if (this.craftFilter) {
-      filtered = filtered.filter(m => m.crafts.includes(this.craftFilter));
-    }
-    if (this.squadFilter) {
-      filtered = filtered.filter(m => m.squads.some(s => s.id === this.squadFilter));
-    }
-    if (this.teamLeadFilter) {
-      filtered = filtered.filter(m => m.teamLeadId === this.teamLeadFilter);
-    }
-    this.members = filtered;
+  onFilterApply(filters: Record<string, string[]>) {
+    this.filterRole.set(filters['role'] ?? []);
+    this.filterCraft.set(filters['craft'] ?? []);
+    this.filterSquad.set(filters['squad'] ?? []);
+    this.filterLead.set(filters['lead'] ?? []);
   }
 
   openForm(member?: TeamMember) {

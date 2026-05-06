@@ -92,8 +92,8 @@ export interface FilterGroup { key: string; label: string; icon: string; options
                      (input)="setSheetSearch(group.key, $any($event.target).value)" (click)="$event.stopPropagation()" />
               <div class="fb-checklist" (click)="$event.stopPropagation()" (mousedown)="$event.stopPropagation()">
                 @for (opt of sheetFilteredOptions(group.key); track opt.id) {
-                  <div class="fb-check-item" (click)="$event.stopPropagation(); toggleMulti(group.key, opt.id)" (mousedown)="$event.stopPropagation()">
-                    <input type="checkbox" [checked]="isSelected(group.key, opt.id)" />
+                  <div class="fb-check-item" (click)="toggleMulti(group.key, opt.id); $event.stopPropagation()" (mousedown)="$event.stopPropagation()">
+                    <input type="checkbox" [checked]="isSelected(group.key, opt.id)" (click)="$event.stopPropagation()" (change)="$event.stopPropagation()" />
                     <span>{{ opt.label }}</span>
                   </div>
                 }
