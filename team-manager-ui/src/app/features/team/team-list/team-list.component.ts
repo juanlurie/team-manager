@@ -137,8 +137,8 @@ export class TeamListComponent implements OnInit {
   members: TeamMember[] = [];
   loading = signal(true);
   allMembers: TeamMember[] = [];
-  squads: SquadSummary[] = [];
-  teamLeads: TeamMember[] = [];
+  squads = signal<SquadSummary[]>([]);
+  teamLeads = signal<TeamMember[]>([]);
   memberSearch = signal('');
 
   filterRole = signal<string[]>([]);
@@ -164,14 +164,15 @@ export class TeamListComponent implements OnInit {
       key: 'squad',
       label: 'Squad',
       icon: 'groups',
-      options: this.squads.map(s => ({ id: s.id, label: s.name })),
+      options: this.squads().map(s => ({ id: s.id, label: s.name })),
     });
-    if (this.teamLeads.length > 0) {
+    const leads = this.teamLeads();
+    if (leads.length > 0) {
       groups.push({
         key: 'lead',
         label: 'Lead',
         icon: 'person',
-        options: this.teamLeads.map(t => ({ id: t.id, label: `${t.firstName} ${t.lastName}` })),
+        options: leads.map(t => ({ id: t.id, label: `${t.firstName} ${t.lastName}` })),
       });
     }
     return groups;
@@ -203,7 +204,7 @@ export class TeamListComponent implements OnInit {
       filtered = filtered.filter(m => m.crafts.some(c => crafts.includes(c)));
     }
     if (squads.length > 0) {
-      filtered = filtered.filter(m => m.squads.some(s => squads.includes(s.id)));
+      filtered = filtered.filter(m => m.squads.some(sq => squads.includes(sq.id)));
     }
     if (leads.length > 0) {
       filtered = filtered.filter(m => leads.includes(m.teamLeadId ?? ''));
@@ -233,8 +234,8 @@ export class TeamListComponent implements OnInit {
   squadBg(color: string | null) { return color ? color + '28' : 'rgba(158,158,158,0.12)'; }
 
   ngOnInit() {
-    this.squadSvc.getAll().subscribe(s => this.squads = s.map(sq => ({ id: sq.id, name: sq.name, color: sq.color })));
-    this.svc.getAll({ role: 'TeamLead', isActive: true }).subscribe(m => this.teamLeads = m);
+    this.squadSvc.getAll().subscribe(s => this.squads.set(s.map(sq => ({ id: sq.id, name: sq.name, color: sq.color }))));
+    this.svc.getAll({ role: 'TeamLead', isActive: true }).subscribe(m => this.teamLeads.set(m));
     this.load();
   }
 

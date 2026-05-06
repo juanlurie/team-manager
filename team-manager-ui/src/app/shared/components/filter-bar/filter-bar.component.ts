@@ -29,7 +29,7 @@ export interface FilterGroup { key: string; label: string; icon: string; options
               <span class="fb-dd-value">{{ groupLabel(group.key) }}</span>
               <mat-icon class="fb-dd-arrow">expand_more</mat-icon>
             </div>
-            <mat-menu #menu="matMenu" panelClass="fb-menu-panel" xPosition="before" [hasBackdrop]="false">
+            <mat-menu #menu="matMenu" panelClass="fb-menu-panel" xPosition="before">
               <div class="fb-menu-content" (click)="$event.stopPropagation()" (mousedown)="$event.stopPropagation()">
                 <input class="fb-menu-search" type="text" placeholder="Search…"
                        [value]="ddSearch()[group.key] ?? ''"
@@ -39,7 +39,7 @@ export interface FilterGroup { key: string; label: string; icon: string; options
                   @for (opt of filteredOptions(group.key); track opt.id) {
                     <label class="fb-menu-item" (click)="$event.stopPropagation()" (mousedown)="$event.stopPropagation()">
                       <input type="checkbox" [checked]="isSelected(group.key, opt.id)"
-                             (change)="$event.stopPropagation(); toggleMulti(group.key, opt.id)" />
+                             (change)="$event.stopPropagation(); toggleMulti(group.key, opt.id); emitApply()" />
                       <span>{{ opt.label }}</span>
                     </label>
                   }
@@ -92,8 +92,9 @@ export interface FilterGroup { key: string; label: string; icon: string; options
                      (input)="setSheetSearch(group.key, $any($event.target).value)" (click)="$event.stopPropagation()" />
               <div class="fb-checklist" (click)="$event.stopPropagation()" (mousedown)="$event.stopPropagation()">
                 @for (opt of sheetFilteredOptions(group.key); track opt.id) {
-                  <div class="fb-check-item" (click)="toggleMulti(group.key, opt.id); $event.stopPropagation()" (mousedown)="$event.stopPropagation()">
-                    <input type="checkbox" [checked]="isSelected(group.key, opt.id)" (click)="$event.stopPropagation()" (change)="$event.stopPropagation()" />
+                  <div class="fb-check-item">
+                    <input type="checkbox" [checked]="isSelected(group.key, opt.id)"
+                           (change)="toggleMulti(group.key, opt.id)" />
                     <span>{{ opt.label }}</span>
                   </div>
                 }
@@ -372,6 +373,7 @@ export class FilterBarComponent {
   }
 
   emitApply() {
+    this.sheetOpen.set(false);
     this.apply.emit(this.selected());
   }
 }

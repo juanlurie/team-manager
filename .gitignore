@@ -1,2 +1,6 @@
 .env
 .aider*
+src/TeamManager.Api/bin/**/*
+team-manager-ui/dist/**/*
+src/TeamManager.Api/obj/**/*
+team-manager-ui/.angular/**/*

@@ -53,14 +53,14 @@ import { Router } from '@angular/router';
     <!-- Top row: Sprint info left, navigation right -->
     <div class="top-row">
       <div class="sprint-info">
-        <h2 class="sprint-name">{{ dashboard?.sprint?.name }}</h2>
+        <h2 class="sprint-name">{{ dashboard()?.sprint?.name }}</h2>
         <div class="sprint-dates">
-          {{ dashboard?.sprint?.startDate | date:'d MMM' }} – {{ dashboard?.sprint?.endDate | date:'d MMM yyyy' }}
+          {{ dashboard()?.sprint?.startDate | date:'d MMM' }} – {{ dashboard()?.sprint?.endDate | date:'d MMM yyyy' }}
         </div>
-        @if (dashboard?.sprint?.goal) {
+        @if (dashboard()?.sprint?.goal) {
           <div class="sprint-goal">
             <mat-icon style="font-size:12px;width:12px;height:12px;line-height:12px;vertical-align:middle">flag</mat-icon>
-            {{ dashboard!.sprint!.goal }}
+            {{ dashboard()!.sprint!.goal }}
           </div>
         }
       </div>
@@ -115,31 +115,31 @@ import { Router } from '@angular/router';
       </mat-menu>
     </div>
 
+    <!-- Filters row (always visible, outside loading guard) -->
+    <div class="filters-row">
+      @if (activeTab === 0) {
+        <app-filter-bar
+          [groups]="filterGroups()"
+          [searchPlaceholder]="'Search members…'"
+          [searchVal]="memberSearch()"
+          [selectedValues]="filterValues()"
+          (searchChange)="memberSearch.set($event)"
+          (apply)="onFilterApply($event)" />
+      }
+      <div class="filters-spacer"></div>
+      <button mat-icon-button class="rapid-btn"
+              matTooltip="Rapid fire task entry"
+              [disabled]="!dashboard()?.members?.length"
+              (click)="rapidFire()">
+        <mat-icon>bolt</mat-icon>
+      </button>
+    </div>
+
     @if (loading()) {
       <div style="display:flex;justify-content:center;padding:80px">
         <mat-spinner diameter="48"></mat-spinner>
       </div>
     } @else {
-      <!-- Filters row (under tabs) -->
-      <div class="filters-row">
-        @if (activeTab === 0) {
-          <app-filter-bar
-            [groups]="filterGroups()"
-            [searchPlaceholder]="'Search members…'"
-            [searchVal]="memberSearch()"
-            [selectedValues]="filterValues()"
-            (searchChange)="memberSearch.set($event)"
-            (apply)="onFilterApply($event)" />
-        }
-        <div class="filters-spacer"></div>
-        <button mat-icon-button class="rapid-btn"
-                matTooltip="Rapid fire task entry"
-                [disabled]="!dashboard?.members?.length"
-                (click)="rapidFire()">
-          <mat-icon>bolt</mat-icon>
-        </button>
-      </div>
-
       <!-- Tab content -->
       @if (activeTab === 0) {
         <!-- ── Members ── -->
@@ -148,7 +148,7 @@ import { Router } from '@angular/router';
             <app-sprint-member-card
               [member]="member"
               [sprintId]="sprintId"
-              [features]="dashboard?.features ?? []"
+              [features]="dashboard()?.features ?? []"
               [allMembers]="allMembers"
               (reload)="load()">
             </app-sprint-member-card>
@@ -157,15 +157,15 @@ import { Router } from '@angular/router';
       } @else if (activeTab === 1) {
         <!-- ── Workload ── -->
         <div style="padding-top:12px">
-          @if (dashboard) {
-            <app-sprint-workload-summary [members]="dashboard.members" [sprint]="dashboard.sprint"></app-sprint-workload-summary>
+          @if (dashboard(); as d) {
+            <app-sprint-workload-summary [members]="d.members" [sprint]="d.sprint"></app-sprint-workload-summary>
           }
         </div>
       } @else if (activeTab === 2) {
         <!-- ── Retrospective ── -->
         <div style="padding-top:12px">
-          @if (dashboard) {
-            <app-sprint-retro [sprintId]="sprintId" [sprint]="dashboard.sprint"></app-sprint-retro>
+          @if (dashboard(); as d) {
+            <app-sprint-retro [sprintId]="sprintId" [sprint]="d.sprint"></app-sprint-retro>
           }
         </div>
       } @else if (activeTab === 3) {
@@ -173,7 +173,7 @@ import { Router } from '@angular/router';
         <div style="padding-top:12px">
           <app-sprint-vote-panel
             [sprintId]="sprintId"
-            [members]="dashboard?.members ?? []">
+            [members]="dashboard()?.members ?? []">
           </app-sprint-vote-panel>
         </div>
       }
@@ -243,10 +243,10 @@ export class SprintDetailComponent implements OnInit {
   private router = inject(Router);
 
   loading = signal(true);
-  dashboard: SprintDashboard | null = null;
-  teamLeads: TeamMember[] = [];
+  dashboard = signal<SprintDashboard | null>(null);
+  teamLeads = signal<TeamMember[]>([]);
   allMembers: TeamMember[] = [];
-  squads: SquadSummary[] = [];
+  squads = signal<SquadSummary[]>([]);
   pis: PI[] = [];
   sprintId = '';
   memberSearch = signal('');
@@ -255,7 +255,7 @@ export class SprintDetailComponent implements OnInit {
   leadFilters = signal<string[]>([]);
   activeTab = 0;
 
-  features = computed(() => this.dashboard?.features ?? []);
+  features = computed(() => this.dashboard()?.features ?? []);
 
   filterGroups = computed<FilterGroup[]>(() => {
     const groups: FilterGroup[] = [];
@@ -263,7 +263,7 @@ export class SprintDetailComponent implements OnInit {
       key: 'squad',
       label: 'Squad',
       icon: 'groups',
-      options: this.squads.map(s => ({ id: s.id, label: s.name })),
+      options: this.squads().map(s => ({ id: s.id, label: s.name })),
     });
     const feats = this.features();
     if (feats.length > 0) {
@@ -274,12 +274,13 @@ export class SprintDetailComponent implements OnInit {
         options: feats.map(f => ({ id: f.id, label: f.title })),
       });
     }
-    if (this.teamLeads.length > 0) {
+    const leads = this.teamLeads();
+    if (leads.length > 0) {
       groups.push({
         key: 'lead',
         label: 'Lead',
         icon: 'person',
-        options: this.teamLeads.map(t => ({ id: t.id, label: `${t.firstName} ${t.lastName}` })),
+        options: leads.map(t => ({ id: t.id, label: `${t.firstName} ${t.lastName}` })),
       });
     }
     return groups;
@@ -300,13 +301,13 @@ export class SprintDetailComponent implements OnInit {
 
   get filteredMembers() {
     const q = this.memberSearch().trim().toLowerCase();
-    let filtered = this.dashboard?.members ?? [];
+    let filtered = this.dashboard()?.members ?? [];
     if (q) {
       filtered = filtered.filter(m => m.fullName.toLowerCase().includes(q));
     }
     const squads = this.squadFilters();
     if (squads.length > 0) {
-      const squadNames = squads.map(id => this.squads.find(s => s.id === id)?.name).filter(Boolean) as string[];
+      const squadNames = squads.map(id => this.squads().find(s => s.id === id)?.name).filter(Boolean) as string[];
       filtered = filtered.filter(m => m.squadNames?.some(sn => squadNames.includes(sn)));
     }
     const features = this.featureFilters();
@@ -315,8 +316,8 @@ export class SprintDetailComponent implements OnInit {
     }
     const leads = this.leadFilters();
     if (leads.length > 0) {
-      const leadNames = leads.map(id => this.teamLeads.find(t => t.id === id)).filter(Boolean);
-      const leadNameSet = new Set(leadNames.map(l => `${l!.firstName} ${l!.lastName}`));
+      const allLeads = this.teamLeads();
+      const leadNameSet = new Set(leads.map(id => allLeads.find(t => t.id === id)).filter(Boolean).map(l => `${l!.firstName} ${l!.lastName}`));
       filtered = filtered.filter(m => m.teamLeadName !== null && leadNameSet.has(m.teamLeadName));
     }
     return filtered;
@@ -327,9 +328,9 @@ export class SprintDetailComponent implements OnInit {
     const qTeamLeadId = this.route.snapshot.queryParamMap.get('teamLeadId') ?? '';
     if (qTeamLeadId) this.leadFilters.set([qTeamLeadId]);
     this.load();
-    this.memberSvc.getAll({ role: 'TeamLead' }).subscribe(m => this.teamLeads = m);
+    this.memberSvc.getAll({ role: 'TeamLead' }).subscribe(m => this.teamLeads.set(m));
     this.memberSvc.getAll({ isActive: true }).subscribe(m => this.allMembers = m);
-    this.squadSvc.getAll().subscribe(s => this.squads = s.map(sq => ({ id: sq.id, name: sq.name, color: sq.color })));
+    this.squadSvc.getAll().subscribe(s => this.squads.set(s.map(sq => ({ id: sq.id, name: sq.name, color: sq.color }))));
     this.sprintSvc.getPIs().subscribe(p => this.pis = p);
   }
 
@@ -337,30 +338,32 @@ export class SprintDetailComponent implements OnInit {
     this.loading.set(true);
     const leadId = this.leadFilters();
     this.dashSvc.getSprintDashboard(this.sprintId, leadId.length > 0 ? leadId[0] : undefined)
-      .subscribe(d => { this.dashboard = d; this.loading.set(false); });
+      .subscribe(d => { this.dashboard.set(d); this.loading.set(false); });
   }
 
   onFilterApply(filters: Record<string, string[]>) {
+    const newLeads = filters['lead'] ?? [];
+    const leadChanged = newLeads.join(',') !== this.leadFilters().join(',');
     this.squadFilters.set(filters['squad'] ?? []);
     this.featureFilters.set(filters['feature'] ?? []);
-    this.leadFilters.set(filters['lead'] ?? []);
-    this.load();
+    this.leadFilters.set(newLeads);
+    if (leadChanged) this.load();
   }
 
   rapidFire() {
-    const members = this.dashboard?.members ?? [];
+    const members = this.dashboard()?.members ?? [];
     if (!members.length) return;
     const ref = this.dialog.open(RapidFireDialogComponent, {
       width: '95vw',
       maxWidth: '1100px',
       height: '92vh',
-      data: { sprintId: this.sprintId, members, features: this.dashboard?.features ?? [] }
+      data: { sprintId: this.sprintId, members, features: this.dashboard()?.features ?? [] }
     });
     ref.afterClosed().subscribe(() => this.load());
   }
 
   openSettings() {
-    const sprint = this.dashboard?.sprint;
+    const sprint = this.dashboard()?.sprint;
     if (!sprint) return;
     const ref = this.dialog.open(SprintSettingsDialogComponent, {
       width: '420px',
