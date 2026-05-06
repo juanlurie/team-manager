@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
-import { MatMenuModule, MatMenuTrigger } from '@angular/material/menu';
+import { MatMenuModule } from '@angular/material/menu';
 
 export interface FilterOption { id: string; label: string; }
 export interface FilterGroup { key: string; label: string; icon: string; options: FilterOption[]; }
@@ -24,13 +24,12 @@ export interface FilterGroup { key: string; label: string; icon: string; options
       <div class="fb-desktop">
         @for (group of groups(); track group.key) {
           @if (group.options.length > 0) {
-            <div class="fb-dd" [matMenuTriggerFor]="ddMenu" #menu="matMenuTrigger">
+            <div class="fb-dd" [matMenuTriggerFor]="menu">
               <span class="fb-dd-label">{{ group.label }}</span>
               <span class="fb-dd-value">{{ groupLabel(group.key) }}</span>
               <mat-icon class="fb-dd-arrow">expand_more</mat-icon>
             </div>
-            <mat-menu #ddMenu="matMenu" panelClass="fb-menu-panel" xPosition="before"
-                      [hasBackdrop]="false" (closed)="onMenuClosed(group.key, menu)">
+            <mat-menu #menu="matMenu" panelClass="fb-menu-panel" xPosition="before" [hasBackdrop]="false">
               <div class="fb-menu-content" (click)="$event.stopPropagation()" (mousedown)="$event.stopPropagation()">
                 <input class="fb-menu-search" type="text" placeholder="Search…"
                        [value]="ddSearch()[group.key] ?? ''"
@@ -40,7 +39,7 @@ export interface FilterGroup { key: string; label: string; icon: string; options
                   @for (opt of filteredOptions(group.key); track opt.id) {
                     <label class="fb-menu-item" (click)="$event.stopPropagation()" (mousedown)="$event.stopPropagation()">
                       <input type="checkbox" [checked]="isSelected(group.key, opt.id)"
-                             (change)="toggleMulti(group.key, opt.id)" />
+                             (change)="$event.stopPropagation(); toggleMulti(group.key, opt.id)" />
                       <span>{{ opt.label }}</span>
                     </label>
                   }
@@ -56,7 +55,7 @@ export interface FilterGroup { key: string; label: string; icon: string; options
         }
       </div>
 
-      <button class="fb-filters-btn" (click)="sheetOpen.set(true)">
+      <button class="fb-filters-btn" (click)="openSheet()">
         <mat-icon>filter_list</mat-icon>
         <span>Filters</span>
         @if (totalCount() > 0) {
@@ -66,17 +65,17 @@ export interface FilterGroup { key: string; label: string; icon: string; options
     </div>
 
     @if (sheetOpen()) {
-      <div class="fb-overlay"></div>
-      <div class="fb-sheet">
+      <div class="fb-overlay" (click)="sheetOpen.set(false)"></div>
+      <div class="fb-sheet" (click)="$event.stopPropagation()" (mousedown)="$event.stopPropagation()">
         <div class="fb-sheet-header">
           <h3>Filters</h3>
-          <button class="fb-sheet-close" (click)="sheetOpen.set(false)"><mat-icon>close</mat-icon></button>
+          <button class="fb-sheet-close" (click)="$event.stopPropagation(); sheetOpen.set(false)"><mat-icon>close</mat-icon></button>
         </div>
-        <div class="fb-sheet-tabs">
+        <div class="fb-sheet-tabs" (click)="$event.stopPropagation()" (mousedown)="$event.stopPropagation()">
           @for (group of groups(); track group.key) {
             @if (group.options.length > 0) {
               <button class="fb-sheet-tab" [class.active]="sheetTab() === group.key"
-                      (click)="sheetTab.set(group.key)">
+                      (click)="$event.stopPropagation(); sheetTab.set(group.key)" (mousedown)="$event.stopPropagation()">
                 <mat-icon>{{ group.icon }}</mat-icon> {{ group.label }}
                 @if (sheetTabCount(group.key) > 0) {
                   <span class="fb-tab-badge">{{ sheetTabCount(group.key) }}</span>
@@ -85,24 +84,24 @@ export interface FilterGroup { key: string; label: string; icon: string; options
             }
           }
         </div>
-        <div class="fb-sheet-body">
+        <div class="fb-sheet-body" (click)="$event.stopPropagation()" (mousedown)="$event.stopPropagation()">
           @for (group of groups(); track group.key) {
             @if (group.options.length > 0 && sheetTab() === group.key) {
               <input class="fb-sheet-search" type="text" placeholder="Search…"
                      [value]="sheetSearch()[group.key] ?? ''"
-                     (input)="setSheetSearch(group.key, $any($event.target).value)" />
-              <div class="fb-checklist">
+                     (input)="setSheetSearch(group.key, $any($event.target).value)" (click)="$event.stopPropagation()" />
+              <div class="fb-checklist" (click)="$event.stopPropagation()" (mousedown)="$event.stopPropagation()">
                 @for (opt of sheetFilteredOptions(group.key); track opt.id) {
-                  <label class="fb-check-item" (click)="toggleMulti(group.key, opt.id)">
+                  <div class="fb-check-item" (click)="$event.stopPropagation(); toggleMulti(group.key, opt.id)" (mousedown)="$event.stopPropagation()">
                     <input type="checkbox" [checked]="isSelected(group.key, opt.id)" />
                     <span>{{ opt.label }}</span>
-                  </label>
+                  </div>
                 }
               </div>
             }
           }
         </div>
-        <div class="fb-sheet-footer">
+        <div class="fb-sheet-footer" (click)="$event.stopPropagation()" (mousedown)="$event.stopPropagation()">
           <button class="fb-sheet-clear" (click)="clearAll()">Clear all</button>
           <button class="fb-sheet-apply" (click)="emitApply()">Apply</button>
         </div>
@@ -281,7 +280,13 @@ export class FilterBarComponent {
   sheetOpen = signal(false);
   sheetTab = signal('');
 
-  private _menuReopen = false;
+  openSheet() {
+    this.sheetOpen.set(true);
+    if (!this.sheetTab() && this.groups().length > 0) {
+      const first = this.groups().find(g => g.options.length > 0);
+      if (first) this.sheetTab.set(first.key);
+    }
+  }
 
   constructor() {
     effect(() => { untracked(() => this.search.set(this.searchVal())); });
@@ -350,11 +355,9 @@ export class FilterBarComponent {
   }
 
   toggleMulti(key: string, id: string) {
-    this._menuReopen = true;
     const arr = this.selected()[key] ?? [];
     const next = arr.includes(id) ? arr.filter(x => x !== id) : [...arr, id];
     this.selected.set({ ...this.selected(), [key]: next });
-    this.emitApply();
   }
 
   clearFilter(key: string) {
@@ -366,13 +369,6 @@ export class FilterBarComponent {
     const cleared: Record<string, string[]> = {};
     for (const g of this.groups()) cleared[g.key] = [];
     this.selected.set(cleared);
-  }
-
-  onMenuClosed(key: string, trigger: MatMenuTrigger) {
-    if (this._menuReopen) {
-      this._menuReopen = false;
-      setTimeout(() => trigger.openMenu());
-    }
   }
 
   emitApply() {

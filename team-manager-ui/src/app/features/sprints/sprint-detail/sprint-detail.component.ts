@@ -33,7 +33,7 @@ import { SquadFilterComponent } from '../../../shared/components/squad-filter/sq
 import { SearchableSelectComponent } from '../../../shared/components/searchable-select/searchable-select.component';
 import { SearchInputComponent } from '../../../shared/components/search-input/search-input.component';
 import { SprintSettingsDialogComponent } from '../sprint-settings-dialog/sprint-settings-dialog.component';
-import { FilterBarComponent } from '../../../shared/components/filter-bar/filter-bar.component';
+import { FilterBarComponent, FilterGroup } from '../../../shared/components/filter-bar/filter-bar.component';
 import { PI } from '../../../core/models/sprint.model';
 import { Router } from '@angular/router';
 
@@ -124,12 +124,10 @@ import { Router } from '@angular/router';
       <div class="filters-row">
         @if (activeTab === 0) {
           <app-filter-bar
-            [squads]="squads" [features]="features()" [teamLeads]="teamLeads"
+            [groups]="filterGroups()"
             [searchPlaceholder]="'Search members…'"
             [searchVal]="memberSearch()"
-            [selectedSquadsVal]="squadFilters()"
-            [selectedFeaturesVal]="featureFilters()"
-            [selectedLeadsVal]="leadFilters()"
+            [selectedValues]="filterValues()"
             (searchChange)="memberSearch.set($event)"
             (apply)="onFilterApply($event)" />
         }
@@ -259,6 +257,40 @@ export class SprintDetailComponent implements OnInit {
 
   features = computed(() => this.dashboard?.features ?? []);
 
+  filterGroups = computed<FilterGroup[]>(() => {
+    const groups: FilterGroup[] = [];
+    groups.push({
+      key: 'squad',
+      label: 'Squad',
+      icon: 'groups',
+      options: this.squads.map(s => ({ id: s.id, label: s.name })),
+    });
+    const feats = this.features();
+    if (feats.length > 0) {
+      groups.push({
+        key: 'feature',
+        label: 'Feature',
+        icon: 'flag',
+        options: feats.map(f => ({ id: f.id, label: f.title })),
+      });
+    }
+    if (this.teamLeads.length > 0) {
+      groups.push({
+        key: 'lead',
+        label: 'Lead',
+        icon: 'person',
+        options: this.teamLeads.map(t => ({ id: t.id, label: `${t.firstName} ${t.lastName}` })),
+      });
+    }
+    return groups;
+  });
+
+  filterValues = computed<Record<string, string[]>>(() => ({
+    squad: this.squadFilters(),
+    feature: this.featureFilters(),
+    lead: this.leadFilters(),
+  }));
+
   navTabs = [
     { index: 0, icon: 'group', label: 'Members' },
     { index: 1, icon: 'bar_chart', label: 'Workload' },
@@ -308,10 +340,10 @@ export class SprintDetailComponent implements OnInit {
       .subscribe(d => { this.dashboard = d; this.loading.set(false); });
   }
 
-  onFilterApply(filters: { squads?: string[]; features?: string[]; leads?: string[] }) {
-    this.squadFilters.set(filters.squads ?? []);
-    this.featureFilters.set(filters.features ?? []);
-    this.leadFilters.set(filters.leads ?? []);
+  onFilterApply(filters: Record<string, string[]>) {
+    this.squadFilters.set(filters['squad'] ?? []);
+    this.featureFilters.set(filters['feature'] ?? []);
+    this.leadFilters.set(filters['lead'] ?? []);
     this.load();
   }
 
