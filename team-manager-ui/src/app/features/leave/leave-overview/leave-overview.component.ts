@@ -3,8 +3,6 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
 import { MatExpansionModule } from '@angular/material/expansion';
-import { MatSelectModule } from '@angular/material/select';
-import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
@@ -21,6 +19,7 @@ import { LeaveFormDialogComponent } from '../leave-form-dialog/leave-form-dialog
 import { LeaveImportDialogComponent } from '../leave-import-dialog/leave-import-dialog.component';
 import { ConfirmDialogComponent } from '../../../shared/components/confirm-dialog/confirm-dialog.component';
 import { IconButtonComponent } from '../../../shared/components/icon-btn/icon-btn.component';
+import { FilterBarComponent, FilterGroup } from '../../../shared/components/filter-bar/filter-bar.component';
 
 interface MemberLeaveGroup {
   teamMemberId: string;
@@ -49,9 +48,9 @@ interface WeekRow {
   standalone: true,
   imports: [
     CommonModule, FormsModule,
-    MatCardModule, MatExpansionModule, MatSelectModule, MatFormFieldModule,
+    MatCardModule, MatExpansionModule,
     MatIconModule, MatButtonModule, MatProgressSpinnerModule, MatTooltipModule,
-    MatDialogModule, MatChipsModule, IconButtonComponent
+    MatDialogModule, MatChipsModule, IconButtonComponent, FilterBarComponent
   ],
   template: `
     <div style="margin-bottom:24px">
@@ -61,15 +60,13 @@ interface WeekRow {
         <app-icon-btn icon="upload" size="md" tooltip="Import leave" (btnClick)="openImport()" />
       </div>
       <div style="display:flex;align-items:center;gap:8px">
-        <mat-form-field appearance="outline" subscriptSizing="dynamic" style="flex:1;min-width:0">
-          <mat-label>Sprint</mat-label>
-          <mat-select [(ngModel)]="selectedSprintId" (ngModelChange)="load()">
-            <mat-option [value]="null">All</mat-option>
-            @for (s of sprints(); track s.id) {
-              <mat-option [value]="s.id">{{ s.name }}</mat-option>
-            }
-          </mat-select>
-        </mat-form-field>
+        <app-filter-bar
+          [groups]="filterGroups()"
+          searchPlaceholder="Search leave…"
+          [searchVal]="search()"
+          [selectedValues]="filterValues()"
+          (searchChange)="search.set($event)"
+          (apply)="onFilterApply($event)" />
         <!-- View toggle -->
         <div style="display:inline-flex;border:1px solid rgba(255,255,255,0.15);border-radius:8px;overflow:hidden;height:40px;flex-shrink:0">
           <button mat-icon-button
@@ -346,6 +343,7 @@ export class LeaveOverviewComponent implements OnInit {
   private dialog = inject(MatDialog);
 
   selectedSprintId: string | null = null;
+  search = signal('');
   loading = signal(true);
   records = signal<LeaveRecord[]>([]);
   sprints = signal<Sprint[]>([]);
@@ -354,6 +352,18 @@ export class LeaveOverviewComponent implements OnInit {
   calendarMonth = signal(new Date());
   hoveredLeaveId = signal<string | null>(null);
   clickedLeave = signal<LeaveRecord | null>(null);
+
+  readonly filterGroups = computed<FilterGroup[]>(() => [
+    {
+      key: 'sprint', label: 'Sprint', icon: 'flag',
+      options: [
+        { id: 'null', label: 'All' },
+        ...this.sprints().map(s => ({ id: s.id, label: s.name }))
+      ]
+    }
+  ]);
+
+  filterValues = computed(() => ({ sprint: this.selectedSprintId ? [this.selectedSprintId] : [] }));
 
   readonly dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
 
@@ -421,7 +431,14 @@ export class LeaveOverviewComponent implements OnInit {
 
   groups = computed<MemberLeaveGroup[]>(() => {
     const map = new Map<string, MemberLeaveGroup>();
-    for (const r of this.records()) {
+    const q = this.search().trim().toLowerCase();
+    const records = q
+      ? this.records().filter(r =>
+          r.memberName.toLowerCase().includes(q) ||
+          r.type.toLowerCase().includes(q) ||
+          (r.notes ?? '').toLowerCase().includes(q))
+      : this.records();
+    for (const r of records) {
       if (!map.has(r.teamMemberId)) {
         map.set(r.teamMemberId, { teamMemberId: r.teamMemberId, memberName: r.memberName, records: [], totalDays: 0, annualDays: 0, sickDays: 0, otherDays: 0 });
       }
@@ -449,6 +466,12 @@ export class LeaveOverviewComponent implements OnInit {
       if (current) this.selectedSprintId = current.id;
       this.load();
     });
+  }
+
+  onFilterApply(filters: Record<string, string[]>) {
+    const sprints = filters['sprint'] ?? [];
+    this.selectedSprintId = sprints.length > 0 && sprints[0] !== 'null' ? sprints[0] : null;
+    this.load();
   }
 
   load() {
