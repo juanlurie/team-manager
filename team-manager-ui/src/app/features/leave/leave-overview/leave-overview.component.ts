@@ -9,9 +9,11 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatDialogModule, MatDialog } from '@angular/material/dialog';
 import { MatChipsModule } from '@angular/material/chips';
+import { MatMenuModule } from '@angular/material/menu';
 import { LeaveService } from '../../../core/services/leave.service';
 import { SprintService } from '../../../core/services/sprint.service';
 import { TeamMemberService } from '../../../core/services/team-member.service';
+import { SquadService } from '../../../core/services/squad.service';
 import { LeaveRecord } from '../../../core/models/leave-record.model';
 import { Sprint } from '../../../core/models/sprint.model';
 import { TeamMember } from '../../../core/models/team-member.model';
@@ -50,14 +52,26 @@ interface WeekRow {
     CommonModule, FormsModule,
     MatCardModule, MatExpansionModule,
     MatIconModule, MatButtonModule, MatProgressSpinnerModule, MatTooltipModule,
-    MatDialogModule, MatChipsModule, IconButtonComponent, FilterBarComponent
+    MatDialogModule, MatChipsModule, MatMenuModule, IconButtonComponent, FilterBarComponent
   ],
   template: `
     <div style="margin-bottom:24px">
       <div style="display:flex;align-items:center;gap:4px;margin-bottom:12px">
         <h2 style="margin:0;font-size:1.3rem;font-weight:500;flex:1;min-width:0">Leave Overview</h2>
         <app-icon-btn icon="add_circle" size="md" tooltip="Add leave" color="primary" (btnClick)="openAdd()" />
-        <app-icon-btn icon="upload" size="md" tooltip="Import leave" (btnClick)="openImport()" />
+        <button mat-icon-button [matMenuTriggerFor]="settingsMenu" matTooltip="Settings">
+          <mat-icon>more_vert</mat-icon>
+        </button>
+        <mat-menu #settingsMenu="matMenu">
+          <button mat-menu-item (click)="openImport()">
+            <mat-icon>upload</mat-icon>
+            <span>Import leave</span>
+          </button>
+          <button mat-menu-item (click)="exportLeaveImage()">
+            <mat-icon>image</mat-icon>
+            <span>Export as Image</span>
+          </button>
+        </mat-menu>
       </div>
       <div style="display:flex;align-items:center;gap:8px;flex:1;min-width:0">
         <div style="flex:1;min-width:0">
@@ -342,15 +356,36 @@ export class LeaveOverviewComponent implements OnInit {
   private leaveSvc = inject(LeaveService);
   private sprintSvc = inject(SprintService);
   private memberSvc = inject(TeamMemberService);
+  private squadSvc = inject(SquadService);
   private dialog = inject(MatDialog);
 
   selectedSprintId: string | null = null;
+  selectedLeadId: string | null = null;
+  selectedSquadId: string | null = null;
+  selectedCraft: string | null = null;
   search = signal('');
   loading = signal(true);
   records = signal<LeaveRecord[]>([]);
   sprints = signal<Sprint[]>([]);
   members = signal<TeamMember[]>([]);
+  teamLeads = signal<TeamMember[]>([]);
+  squads = signal<{ id: string; name: string }[]>([]);
+  crafts = signal<string[]>([]);
   view = signal<'list' | 'calendar'>('calendar');
+
+  filteredRecords = computed(() => {
+    const q = this.search().trim().toLowerCase();
+    const records = this.records();
+    if (!q) return records;
+    return records.filter(r => {
+      const member = this.members().find(m => m.id === r.teamMemberId);
+      const crafts = member?.crafts ?? [];
+      return r.memberName.toLowerCase().includes(q) ||
+        r.type.toLowerCase().includes(q) ||
+        (r.notes ?? '').toLowerCase().includes(q) ||
+        crafts.some(c => c.toLowerCase().includes(q));
+    });
+  });
   calendarMonth = signal(new Date());
   hoveredLeaveId = signal<string | null>(null);
   clickedLeave = signal<LeaveRecord | null>(null);
@@ -362,10 +397,36 @@ export class LeaveOverviewComponent implements OnInit {
         { id: 'null', label: 'All' },
         ...this.sprints().map(s => ({ id: s.id, label: s.name }))
       ]
+    },
+    {
+      key: 'lead', label: 'Lead', icon: 'person',
+      options: [
+        { id: 'null', label: 'All' },
+        ...this.teamLeads().map(m => ({ id: m.id, label: m.firstName + ' ' + m.lastName }))
+      ]
+    },
+    {
+      key: 'squad', label: 'Squad', icon: 'groups',
+      options: [
+        { id: 'null', label: 'All' },
+        ...this.squads().map(s => ({ id: s.id, label: s.name }))
+      ]
+    },
+    {
+      key: 'craft', label: 'Craft', icon: 'construction',
+      options: [
+        { id: 'null', label: 'All' },
+        ...this.crafts().map(c => ({ id: c, label: c }))
+      ]
     }
   ]);
 
-  filterValues = computed(() => ({ sprint: this.selectedSprintId ? [this.selectedSprintId] : [] }));
+  filterValues = computed(() => ({
+    sprint: this.selectedSprintId ? [this.selectedSprintId] : [],
+    lead: this.selectedLeadId ? [this.selectedLeadId] : [],
+    squad: this.selectedSquadId ? [this.selectedSquadId] : [],
+    craft: this.selectedCraft ? [this.selectedCraft] : []
+  }));
 
   readonly dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
 
@@ -397,7 +458,7 @@ export class LeaveOverviewComponent implements OnInit {
       const mondayStr = weekDays[0].dateStr;
       const fridayStr = weekDays[4].dateStr;
 
-      const weekRecords = this.records()
+      const weekRecords = this.filteredRecords()
         .filter(r => r.startDate <= fridayStr && r.endDate >= mondayStr)
         .sort((a, b) => a.startDate.localeCompare(b.startDate) || a.memberName.localeCompare(b.memberName));
 
@@ -435,10 +496,14 @@ export class LeaveOverviewComponent implements OnInit {
     const map = new Map<string, MemberLeaveGroup>();
     const q = this.search().trim().toLowerCase();
     const records = q
-      ? this.records().filter(r =>
-          r.memberName.toLowerCase().includes(q) ||
-          r.type.toLowerCase().includes(q) ||
-          (r.notes ?? '').toLowerCase().includes(q))
+      ? this.records().filter(r => {
+          const member = this.members().find(m => m.id === r.teamMemberId);
+          const crafts = member?.crafts ?? [];
+          return r.memberName.toLowerCase().includes(q) ||
+            r.type.toLowerCase().includes(q) ||
+            (r.notes ?? '').toLowerCase().includes(q) ||
+            crafts.some(c => c.toLowerCase().includes(q));
+        })
       : this.records();
     for (const r of records) {
       if (!map.has(r.teamMemberId)) {
@@ -460,7 +525,14 @@ export class LeaveOverviewComponent implements OnInit {
   otherDays  = computed(() => this.records().filter(r => r.type === 'Other').reduce((s, r) => s + r.daysCount, 0));
 
   ngOnInit() {
-    this.memberSvc.getAll({ isActive: true }).subscribe(m => this.members.set(m));
+    this.memberSvc.getAll({ isActive: true }).subscribe(m => {
+      this.members.set(m);
+      this.teamLeads.set(m.filter(x => x.role === 'TeamLead' || x.role === 'TechLead'));
+      const craftsSet = new Set<string>();
+      m.forEach(mem => mem.crafts.forEach(c => craftsSet.add(c)));
+      this.crafts.set([...craftsSet].sort());
+    });
+    this.squadSvc.getAll().subscribe(s => this.squads.set(s.map(x => ({ id: x.id, name: x.name }))));
     this.sprintSvc.getSprints().subscribe(s => {
       this.sprints.set(s);
       const today = new Date().toISOString().slice(0, 10);
@@ -473,13 +545,46 @@ export class LeaveOverviewComponent implements OnInit {
   onFilterApply(filters: Record<string, string[]>) {
     const sprints = filters['sprint'] ?? [];
     this.selectedSprintId = sprints.length > 0 && sprints[0] !== 'null' ? sprints[0] : null;
+    const leads = filters['lead'] ?? [];
+    this.selectedLeadId = leads.length > 0 && leads[0] !== 'null' ? leads[0] : null;
+    const squads = filters['squad'] ?? [];
+    this.selectedSquadId = squads.length > 0 && squads[0] !== 'null' ? squads[0] : null;
+    const crafts = filters['craft'] ?? [];
+    this.selectedCraft = crafts.length > 0 && crafts[0] !== 'null' ? crafts[0] : null;
     this.load();
   }
 
   load() {
     this.loading.set(true);
+    const leadId = this.selectedLeadId;
+    const squadId = this.selectedSquadId;
+    const craft = this.selectedCraft;
+    const memberIds = this.getFilteredMemberIds(leadId, squadId, craft);
     this.leaveSvc.getAll(this.selectedSprintId ? { sprintId: this.selectedSprintId } : undefined)
-      .subscribe(r => { this.records.set(r); this.loading.set(false); });
+      .subscribe(r => {
+        let filtered = r;
+        if (memberIds) filtered = filtered.filter(rec => memberIds.includes(rec.teamMemberId));
+        this.records.set(filtered);
+        this.loading.set(false);
+      });
+  }
+
+  private getFilteredMemberIds(leadId: string | null, squadId: string | null, craft: string | null): string[] | null {
+    let ids: string[] | null = null;
+    if (leadId) {
+      const lead = this.members().find(m => m.id === leadId);
+      const leadName = lead ? lead.firstName + ' ' + lead.lastName : '';
+      ids = this.members().filter(m => m.teamLeadName === leadName).map(m => m.id);
+    }
+    if (squadId) {
+      const squadMembers = this.members().filter(m => m.squads.some(s => s.id === squadId)).map(m => m.id);
+      ids = ids ? ids.filter(id => squadMembers.includes(id)) : squadMembers;
+    }
+    if (craft) {
+      const craftMembers = this.members().filter(m => m.crafts.includes(craft)).map(m => m.id);
+      ids = ids ? ids.filter(id => craftMembers.includes(id)) : craftMembers;
+    }
+    return ids;
   }
 
   openImport() {
@@ -563,5 +668,142 @@ export class LeaveOverviewComponent implements OnInit {
 
   initials(name: string) {
     return name.split(' ').map(p => p[0]).slice(0, 2).join('').toUpperCase();
+  }
+
+  exportingLeave = signal(false);
+
+  exportLeaveImage() {
+    if (this.exportingLeave()) return;
+    this.exportingLeave.set(true);
+    this.leaveSvc.getAll().subscribe({
+      next: records => {
+        try { this.drawLeaveImage(records); } finally { this.exportingLeave.set(false); }
+      },
+      error: () => this.exportingLeave.set(false)
+    });
+  }
+
+  private drawLeaveImage(records: LeaveRecord[]) {
+    const title = 'Planned Leave';
+
+    const byMember = new Map<string, LeaveRecord[]>();
+    for (const r of records) {
+      if (!byMember.has(r.memberName)) byMember.set(r.memberName, []);
+      byMember.get(r.memberName)!.push(r);
+    }
+    const members = [...byMember.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+
+    const SCALE   = 2;
+    const W       = 700;
+    const PAD     = 32;
+    const ROW_H   = 32;
+    const HDR_H   = 44;
+    const TITLE_H = 60;
+    const COL_X   = [0, 260, 390, 510];
+
+    const totalRows = members.reduce((s, [, rs]) => s + Math.max(rs.length, 1), 0);
+    const H = TITLE_H + HDR_H + totalRows * ROW_H + PAD;
+
+    const canvas = document.createElement('canvas');
+    canvas.width  = W * SCALE;
+    canvas.height = H * SCALE;
+    const ctx = canvas.getContext('2d')!;
+    ctx.scale(SCALE, SCALE);
+
+    ctx.fillStyle = '#16202e';
+    ctx.fillRect(0, 0, W, H);
+
+    ctx.fillStyle = '#1b3050';
+    ctx.fillRect(0, 0, W, TITLE_H);
+    ctx.fillStyle = '#FFFFFF';
+    ctx.font = 'bold 18px Inter, Arial, sans-serif';
+    ctx.fillText(title, PAD, TITLE_H / 2 + 7);
+
+    const dateStr = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    ctx.fillStyle = 'rgba(255,255,255,0.35)';
+    ctx.font = '11px Inter, Arial, sans-serif';
+    ctx.textAlign = 'right';
+    ctx.fillText(dateStr, W - PAD, TITLE_H / 2 + 6);
+    ctx.textAlign = 'left';
+
+    const headers = ['Member', 'From', 'To', 'Days'];
+    ctx.fillStyle = '#1e3a5f';
+    ctx.fillRect(0, TITLE_H, W, HDR_H);
+    ctx.fillStyle = 'rgba(255,255,255,0.45)';
+    ctx.font = 'bold 10px Inter, Arial, sans-serif';
+    headers.forEach((h, i) => {
+      ctx.fillText(h.toUpperCase(), PAD + COL_X[i], TITLE_H + HDR_H / 2 + 4);
+    });
+
+    let rowY = TITLE_H + HDR_H;
+
+    members.forEach(([name, leaves], mi) => {
+      const sorted = leaves.slice().sort((a, b) => a.startDate.localeCompare(b.startDate));
+      const rowCount = sorted.length || 1;
+      const bg = mi % 2 === 0 ? 'rgba(255,255,255,0.025)' : 'transparent';
+
+      ctx.fillStyle = bg;
+      ctx.fillRect(0, rowY, W, rowCount * ROW_H);
+
+      ctx.fillStyle = '#FFFFFF';
+      ctx.font = '600 13px Inter, Arial, sans-serif';
+      ctx.fillText(
+        name.length > 28 ? name.slice(0, 26) + '…' : name,
+        PAD + COL_X[0],
+        rowY + (rowCount * ROW_H) / 2 + 5
+      );
+
+      if (!sorted.length) {
+        ctx.fillStyle = 'rgba(255,255,255,0.2)';
+        ctx.font = '12px Inter, Arial, sans-serif';
+        ctx.fillText('—', PAD + COL_X[1], rowY + ROW_H / 2 + 5);
+        rowY += ROW_H;
+      } else {
+        sorted.forEach(lr => {
+          const cy = rowY + ROW_H / 2 + 5;
+          ctx.fillStyle = 'rgba(255,255,255,0.7)';
+          ctx.font = '12px Inter, Arial, sans-serif';
+          ctx.fillText(this.fmtDate(lr.startDate), PAD + COL_X[1], cy);
+          ctx.fillText(this.fmtDate(lr.endDate),   PAD + COL_X[2], cy);
+
+          ctx.fillStyle = '#FFFFFF';
+          ctx.font = 'bold 12px Inter, Arial, sans-serif';
+          ctx.fillText(String(lr.daysCount), PAD + COL_X[3], cy);
+
+          ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(PAD + COL_X[1], rowY + ROW_H);
+          ctx.lineTo(W - PAD, rowY + ROW_H);
+          ctx.stroke();
+
+          rowY += ROW_H;
+        });
+      }
+
+      ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(0, rowY);
+      ctx.lineTo(W, rowY);
+      ctx.stroke();
+    });
+
+    if (!members.length) {
+      ctx.fillStyle = 'rgba(255,255,255,0.3)';
+      ctx.font = '15px Inter, Arial, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('No leave in this range.', W / 2, TITLE_H + HDR_H + 60);
+      ctx.textAlign = 'left';
+    }
+
+    const link = document.createElement('a');
+    link.download = `leave-${new Date().toISOString().slice(0,10)}.png`;
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+  }
+
+  private fmtDate(d: string): string {
+    return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   }
 }
