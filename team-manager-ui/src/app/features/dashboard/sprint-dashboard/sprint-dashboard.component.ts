@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, signal, computed } from '@angular/core';
+import { Component, OnInit, inject, signal, computed, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink, Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
@@ -27,6 +27,7 @@ import { WorkItemService } from '../../../core/services/work-item.service';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { IconButtonComponent } from '../../../shared/components/icon-btn/icon-btn.component';
+import { CurrentSprintCardComponent } from '../../../shared/components/current-sprint-card/current-sprint-card.component';
 
 const STATUS_ORDER  = ['Released', 'ReadyForRelease', 'InProgress', 'Completed', 'Planned'] as const;
 const STATUS_LABEL: Record<string, string> = {
@@ -43,7 +44,7 @@ const STATUS_COLOR: Record<string, string> = {
   standalone: true,
   imports: [CommonModule, RouterLink, FormsModule, MatButtonModule,
     MatSelectModule, MatFormFieldModule, MatIconModule, MatDialogModule, MatProgressSpinnerModule,
-    MatTooltipModule, IconButtonComponent],
+    MatTooltipModule, IconButtonComponent, CurrentSprintCardComponent],
   styles: [`
     .stat-card { transition:filter 0.15s; }
     .stat-card:hover { filter:brightness(1.25); }
@@ -76,6 +77,17 @@ const STATUS_COLOR: Record<string, string> = {
         </a>
       }
     </div>
+
+    <!-- Current Sprint Card -->
+    @if (currentSprint()) {
+      <div style="margin-bottom:28px">
+        <div style="font-size:0.75rem;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;opacity:0.5;margin-bottom:8px">Current Sprint</div>
+        <app-current-sprint-card
+          [sprint]="currentSprint()!"
+          [features]="currentFeatures()"
+          [showEditButton]="false" />
+      </div>
+    }
 
     @if (loading()) {
       <div style="display:flex;justify-content:center;padding:80px">
@@ -403,6 +415,22 @@ export class SprintDashboardComponent implements OnInit {
   retroActions = signal<RetroAction[]>([]);
   promotingId  = signal<string | null>(null);
   selectedSprintId = '';
+  currentFeatures = signal<Feature[]>([]);
+
+  private today = (() => { const d = new Date(); d.setHours(0,0,0,0); return d; })();
+
+  currentSprint = computed(() =>
+    this.sprints().find(s => new Date(s.startDate) <= this.today && new Date(s.endDate) >= this.today) ?? null
+  );
+
+  constructor() {
+    effect(() => {
+      const sprint = this.currentSprint();
+      if (sprint) {
+        this.featureSvc.getAll(sprint.id).subscribe(f => this.currentFeatures.set(f));
+      }
+    });
+  }
 
   selectedSprint = computed(() => this.sprints().find(s => s.id === this.selectedSprintId) ?? null);
 
