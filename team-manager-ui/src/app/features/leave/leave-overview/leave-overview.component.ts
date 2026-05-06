@@ -60,14 +60,15 @@ interface WeekRow {
         <app-icon-btn icon="upload" size="md" tooltip="Import leave" (btnClick)="openImport()" />
       </div>
       <div style="display:flex;align-items:center;gap:8px;flex:1;min-width:0">
-        <app-filter-bar
-          [groups]="filterGroups()"
-          searchPlaceholder="Search leave…"
-          [searchVal]="search()"
-          [selectedValues]="filterValues()"
-          (searchChange)="search.set($event)"
-          (apply)="onFilterApply($event)"
-          style="flex:1;min-width:0" />
+        <div style="flex:1;min-width:0">
+          <app-filter-bar
+            [groups]="filterGroups()"
+            searchPlaceholder="Search leave…"
+            [searchVal]="search()"
+            [selectedValues]="filterValues()"
+            (searchChange)="search.set($event)"
+            (apply)="onFilterApply($event)" />
+        </div>
         <!-- View toggle -->
         <div style="display:inline-flex;border:1px solid rgba(255,255,255,0.15);border-radius:8px;overflow:hidden;height:40px;flex-shrink:0">
           <button mat-icon-button
