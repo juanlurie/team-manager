@@ -32,13 +32,6 @@ import { MatMenuModule } from '@angular/material/menu';
   template: `
     <div class="tl-header">
       <h2 class="tl-title">Team Members</h2>
-      <app-filter-bar
-        [groups]="filterGroups()"
-        [searchPlaceholder]="'Search members…'"
-        [searchVal]="memberSearch()"
-        [selectedValues]="filterValues()"
-        (searchChange)="memberSearch.set($event)"
-        (apply)="onFilterApply($event)" />
       <button class="tl-settings-btn" mat-icon-button [matMenuTriggerFor]="settingsMenu"
               matTooltip="Settings">
         <mat-icon>settings</mat-icon>
@@ -54,6 +47,13 @@ import { MatMenuModule } from '@angular/material/menu';
         </button>
       </mat-menu>
     </div>
+    <app-filter-bar
+      [groups]="filterGroups()"
+      [searchPlaceholder]="'Search members…'"
+      [searchVal]="memberSearch()"
+      [selectedValues]="filterValues()"
+      (searchChange)="memberSearch.set($event)"
+      (apply)="onFilterApply($event)" />
 
     @if (loading()) {
       <div style="display:flex;justify-content:center;padding:80px">
@@ -116,11 +116,11 @@ import { MatMenuModule } from '@angular/material/menu';
   `,
   styles: [`
     .tl-header {
-      display:flex; align-items:center; gap:12px; margin-bottom:16px; flex-wrap:wrap;
+      display:flex; align-items:center; margin-bottom:8px; gap:8px;
     }
-    .tl-title { margin:0; font-size:1.2rem; flex-shrink:0; }
+    .tl-title { margin:0; font-size:1.2rem; flex:1; }
     .tl-settings-btn { flex-shrink:0; }
-    :host ::ng-deep app-filter-bar { flex:1; min-width:0; }
+    :host ::ng-deep app-filter-bar { display:flex; flex:1; min-width:0; margin-bottom:16px; }
     .role-member    { background:rgba(158,158,158,0.12);color:#9e9e9e; }
     .role-teamlead  { background:rgba(100,181,246,0.15);color:#64b5f6; }
     .role-techlead  { background:rgba(171,71,188,0.15);color:#ce93d8; }
