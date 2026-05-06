@@ -2,7 +2,6 @@ import { Component, OnInit, inject, signal, computed, effect } from '@angular/co
 import { CommonModule } from '@angular/common';
 import { RouterLink, Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
-import { MatButtonModule } from '@angular/material/button';
 import { MatSelectModule } from '@angular/material/select';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
@@ -25,7 +24,6 @@ import { RetroActionService } from '../../../core/services/retro-action.service'
 import { WorkItemFormComponent } from '../work-item-form/work-item-form.component';
 import { WorkItemService } from '../../../core/services/work-item.service';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { MatTooltipModule } from '@angular/material/tooltip';
 import { IconButtonComponent } from '../../../shared/components/icon-btn/icon-btn.component';
 import { CurrentSprintCardComponent } from '../../../shared/components/current-sprint-card/current-sprint-card.component';
 
@@ -42,9 +40,9 @@ const STATUS_COLOR: Record<string, string> = {
 @Component({
   selector: 'app-sprint-dashboard',
   standalone: true,
-  imports: [CommonModule, RouterLink, FormsModule, MatButtonModule,
+  imports: [CommonModule, RouterLink, FormsModule,
     MatSelectModule, MatFormFieldModule, MatIconModule, MatDialogModule, MatProgressSpinnerModule,
-    MatTooltipModule, IconButtonComponent, CurrentSprintCardComponent],
+    IconButtonComponent, CurrentSprintCardComponent],
   styles: [`
     .stat-card { transition:filter 0.15s; }
     .stat-card:hover { filter:brightness(1.25); }
@@ -56,28 +54,6 @@ const STATUS_COLOR: Record<string, string> = {
     .retro-row:hover { background:rgba(100,181,246,0.09); }
   `],
   template: `
-    <!-- Header row -->
-    <div style="display:flex;align-items:center;gap:12px;margin-bottom:24px;flex-wrap:wrap">
-      <mat-form-field appearance="outline" subscriptSizing="dynamic" style="width:220px">
-        <mat-label>Sprint</mat-label>
-        <mat-select [(ngModel)]="selectedSprintId" (ngModelChange)="load()">
-          @for (s of sprints(); track s.id) {
-            <mat-option [value]="s.id">{{ s.name }}{{ isCurrent(s) ? ' (current)' : '' }}</mat-option>
-          }
-        </mat-select>
-      </mat-form-field>
-      @if (selectedSprintId) {
-        <a mat-stroked-button [routerLink]="['/sprints', selectedSprintId]" style="height:40px">
-          <mat-icon style="font-size:16px;width:16px;height:16px;line-height:16px">directions_run</mat-icon>
-          Manage Sprint
-        </a>
-        <a mat-stroked-button [routerLink]="['/export']" style="height:40px">
-          <mat-icon style="font-size:16px;width:16px;height:16px;line-height:16px">download</mat-icon>
-          Export
-        </a>
-      }
-    </div>
-
     <!-- Current Sprint Card -->
     @if (currentSprint()) {
       <div style="margin-bottom:28px">
@@ -432,7 +408,7 @@ export class SprintDashboardComponent implements OnInit {
     });
   }
 
-  selectedSprint = computed(() => this.sprints().find(s => s.id === this.selectedSprintId) ?? null);
+  selectedSprint = computed(() => this.currentSprint() ?? null);
 
   leaveByDay = computed(() => {
     const today    = this.todayStr();
@@ -511,28 +487,27 @@ export class SprintDashboardComponent implements OnInit {
     this.sprintSvc.getSprints().subscribe(s => {
       this.sprints.set(s);
       if (s.length) {
-        const current = s.find(sp => this.isCurrent(sp));
-        this.selectedSprintId = (current ?? s[0]).id;
         this.load();
       }
     });
   }
 
   load() {
-    if (!this.selectedSprintId) return;
+    const sprint = this.currentSprint();
+    if (!sprint) return;
+    this.selectedSprintId = sprint.id;
     this.loading.set(true);
-    const sprint = this.sprints().find(s => s.id === this.selectedSprintId);
     const today    = this.todayStr();
     const in7days  = (() => { const d = new Date(); d.setDate(d.getDate() + 6); return d.toISOString().slice(0, 10); })();
 
     const requests: Record<string, any> = {
-      summary:      this.dashSvc.getSprintSummary(this.selectedSprintId),
-      blockers:     this.dashSvc.getBlockers(this.selectedSprintId),
+      summary:      this.dashSvc.getSprintSummary(sprint.id),
+      blockers:     this.dashSvc.getBlockers(sprint.id),
       leave:        this.leaveSvc.getAll({ from: today, to: in7days }),
       discussions:  this.discussionSvc.getAll(),
-      retroActions: this.retroActionSvc.getBySprintId(this.selectedSprintId),
+      retroActions: this.retroActionSvc.getBySprintId(sprint.id),
     };
-    if (sprint?.piId) {
+    if (sprint.piId) {
       requests['piFeatures'] = this.featureSvc.getAllAcrossSprints({ piId: sprint.piId });
     }
 

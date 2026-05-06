@@ -55,6 +55,7 @@ export interface FilterGroup { key: string; label: string; icon: string; options
         }
       </div>
 
+      @if (hasGroups()) {
       <button class="fb-filters-btn" (click)="openSheet()">
         <mat-icon>filter_list</mat-icon>
         <span>Filters</span>
@@ -62,6 +63,7 @@ export interface FilterGroup { key: string; label: string; icon: string; options
           <span class="fb-badge">{{ totalCount() }}</span>
         }
       </button>
+      }
     </div>
 
     @if (sheetOpen()) {
@@ -337,6 +339,8 @@ export class FilterBarComponent {
     const sel = this.selected();
     return Object.values(sel).reduce((sum, arr) => sum + arr.length, 0);
   });
+
+  hasGroups = computed(() => this.groups().some(g => g.options.length > 0));
 
   sheetTabCount(key: string): number {
     return (this.selected()[key] ?? []).length;

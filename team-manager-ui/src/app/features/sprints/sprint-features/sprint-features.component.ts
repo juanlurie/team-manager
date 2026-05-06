@@ -13,6 +13,7 @@ import { Feature } from '../../../core/models/feature.model';
 import { FeatureFormDialogComponent } from '../feature-form-dialog/feature-form-dialog.component';
 import { StatusLabelPipe } from '../../../core/pipes/status-label.pipe';
 import { IconButtonComponent } from '../../../shared/components/icon-btn/icon-btn.component';
+import { FilterBarComponent } from '../../../shared/components/filter-bar/filter-bar.component';
 
 interface TaskRow {
   id: string;
@@ -31,7 +32,7 @@ interface FeatureView {
 @Component({
   selector: 'app-sprint-features',
   standalone: true,
-  imports: [CommonModule, RouterLink, MatButtonModule, MatIconModule, MatDialogModule, MatTooltipModule, MatChipsModule, StatusLabelPipe, IconButtonComponent],
+  imports: [CommonModule, RouterLink, MatButtonModule, MatIconModule, MatDialogModule, MatTooltipModule, MatChipsModule, StatusLabelPipe, IconButtonComponent, FilterBarComponent],
   template: `
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:24px;flex-wrap:wrap">
       <div>
@@ -53,14 +54,22 @@ interface FeatureView {
       </button>
     </div>
 
-    @if (featureViews().length === 0) {
+    <div style="display:flex;margin-bottom:16px">
+      <app-filter-bar
+        [groups]="[]"
+        searchPlaceholder="Search features and tasks…"
+        [searchVal]="search()"
+        (searchChange)="search.set($event)" />
+    </div>
+
+    @if (filteredFeatureViews().length === 0 && !search()) {
       <div style="text-align:center;padding:64px;opacity:0.35;font-size:0.9rem">
         No features yet — add one to get started
       </div>
     }
 
     <div style="display:flex;flex-direction:column;gap:16px">
-      @for (fv of featureViews(); track fv.feature.id) {
+      @for (fv of filteredFeatureViews(); track fv.feature.id) {
         <div [style.opacity]="fv.feature.isActive ? 1 : 0.45" style="border-radius:10px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);overflow:hidden">
 
           <!-- Feature header -->
@@ -137,7 +146,7 @@ interface FeatureView {
       }
 
       <!-- Unlinked tasks section -->
-      @if (unlinkedTasks().length > 0) {
+      @if (filteredUnlinkedTasks().length > 0) {
         <div style="border-radius:10px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.05);overflow:hidden">
           <div style="padding:10px 16px;border-bottom:1px solid rgba(255,255,255,0.05)">
             <span style="font-size:0.75rem;font-weight:600;opacity:0.35;text-transform:uppercase;letter-spacing:0.08em">Unlinked tasks</span>
@@ -145,7 +154,7 @@ interface FeatureView {
           <div style="overflow-x:auto">
             <table style="width:100%;border-collapse:collapse;font-size:0.82rem">
               <tbody>
-                @for (task of unlinkedTasks(); track task.id) {
+                @for (task of filteredUnlinkedTasks(); track task.id) {
                   <tr style="border-top:1px solid rgba(255,255,255,0.04)">
                     <td style="padding:8px 16px">{{ task.title }}</td>
                     <td style="padding:8px 12px"><span [class]="wiTypeClass(task.type)">{{ task.type }}</span></td>
@@ -190,6 +199,7 @@ export class SprintFeaturesComponent implements OnInit {
 
   sprintId = '';
   dashboard = signal<SprintDashboard | null>(null);
+  search = signal('');
 
   featureViews = computed<FeatureView[]>(() => {
     const d = this.dashboard();
@@ -204,11 +214,42 @@ export class SprintFeaturesComponent implements OnInit {
     }));
   });
 
+  filteredUnlinkedTasks = computed<TaskRow[]>(() => {
+    const q = this.search().trim().toLowerCase();
+    const tasks = this.unlinkedTasks();
+    if (!q) return tasks;
+    return tasks.filter(t =>
+      t.title.toLowerCase().includes(q) ||
+      t.assignee.toLowerCase().includes(q) ||
+      (t.externalTicketRef ?? '').toLowerCase().includes(q)
+    );
+  });
+
   staleDays = computed(() => {
     const start = this.dashboard()?.sprint?.startDate;
     if (!start) return 0;
     const ms = Date.now() - new Date(start).getTime();
     return Math.max(0, Math.floor(ms / 86_400_000));
+  });
+
+  filteredFeatureViews = computed<FeatureView[]>(() => {
+    const q = this.search().trim().toLowerCase();
+    if (!q) return this.featureViews();
+    return this.featureViews()
+      .map(fv => {
+        const featureMatches =
+          fv.feature.title.toLowerCase().includes(q) ||
+          (fv.feature.externalTicketRef ?? '').toLowerCase().includes(q) ||
+          (fv.feature.description ?? '').toLowerCase().includes(q);
+        const matchingTasks = fv.tasks.filter(t =>
+          t.title.toLowerCase().includes(q) ||
+          t.assignee.toLowerCase().includes(q) ||
+          (t.externalTicketRef ?? '').toLowerCase().includes(q)
+        );
+        if (!featureMatches && matchingTasks.length === 0) return null;
+        return { feature: fv.feature, tasks: featureMatches ? fv.tasks : matchingTasks };
+      })
+      .filter((fv): fv is FeatureView => fv !== null);
   });
 
   unlinkedTasks = computed<TaskRow[]>(() => {

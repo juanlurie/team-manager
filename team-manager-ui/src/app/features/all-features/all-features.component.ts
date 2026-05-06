@@ -1,10 +1,7 @@
 import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
-import { MatSelectModule } from '@angular/material/select';
-import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatDialogModule, MatDialog } from '@angular/material/dialog';
 import { Feature } from '../../core/models/feature.model';
@@ -12,6 +9,7 @@ import { FeatureService } from '../../core/services/feature.service';
 import { FeatureFormDialogComponent } from '../sprints/feature-form-dialog/feature-form-dialog.component';
 import { CommentsComponent } from '../../shared/comments/comments.component';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { FilterBarComponent } from '../../shared/components/filter-bar/filter-bar.component';
 
 const ACTIVE_STATUSES = ['InProgress', 'ReadyForRelease', 'Planned', 'Completed'];
 const DONE_STATUS = 'Released';
@@ -37,9 +35,9 @@ const TASK_STATUS_TEXT: Record<string, string> = {
 @Component({
   selector: 'app-all-features',
   standalone: true,
-  imports: [CommonModule, FormsModule, MatButtonModule, MatIconModule,
-    MatSelectModule, MatFormFieldModule, MatTooltipModule, MatDialogModule, CommentsComponent,
-    MatProgressSpinnerModule],
+  imports: [CommonModule, MatButtonModule, MatIconModule,
+    MatTooltipModule, MatDialogModule, CommentsComponent,
+    MatProgressSpinnerModule, FilterBarComponent],
   styles: [`
     .feat-btn { width:28px;height:28px;border:none;border-radius:6px;cursor:pointer;
                 display:flex;align-items:center;justify-content:center;
@@ -49,19 +47,17 @@ const TASK_STATUS_TEXT: Record<string, string> = {
     .feat-btn-green:hover { background:rgba(76,175,80,0.15);color:#4caf50; }
   `],
   template: `
-    <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;flex-wrap:wrap">
+    <div style="display:flex;align-items:center;margin-bottom:10px">
       <h2 style="margin:0;font-size:1.2rem">Features</h2>
-      <span style="flex:1"></span>
-      <mat-form-field appearance="outline" subscriptSizing="dynamic" style="width:180px">
-        <mat-label>Status</mat-label>
-        <mat-select [(ngModel)]="statusFilter" (ngModelChange)="applyFilter()">
-          <mat-option value="">All active</mat-option>
-          <mat-option value="InProgress">In Progress</mat-option>
-          <mat-option value="Planned">Planned</mat-option>
-          <mat-option value="Completed">Completed</mat-option>
-          <mat-option value="ReadyForRelease">Ready for Release</mat-option>
-        </mat-select>
-      </mat-form-field>
+    </div>
+    <div style="display:flex;margin-bottom:16px">
+      <app-filter-bar
+        [groups]="filterGroups"
+        searchPlaceholder="Search features…"
+        [searchVal]="search()"
+        [selectedValues]="filterValues()"
+        (searchChange)="search.set($event)"
+        (apply)="onFilterApply($event)" />
     </div>
 
     @if (loading()) {
@@ -74,8 +70,8 @@ const TASK_STATUS_TEXT: Record<string, string> = {
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:24px">
       @for (st of activeStatuses; track st) {
         <button (click)="toggleStatus(st)"
-                [style.border-color]="statusFilter === st ? statusColor(st) : 'rgba(255,255,255,0.1)'"
-                [style.background]="statusFilter === st ? 'rgba(255,255,255,0.06)' : 'transparent'"
+                [style.border-color]="statusFilters().includes(st) ? statusColor(st) : 'rgba(255,255,255,0.1)'"
+                [style.background]="statusFilters().includes(st) ? 'rgba(255,255,255,0.06)' : 'transparent'"
                 style="border:1px solid;border-radius:8px;padding:6px 14px;cursor:pointer;color:inherit;
                        display:flex;align-items:center;gap:8px;font-size:0.8rem">
           <span [style.color]="statusColor(st)" style="font-weight:700">{{ countByStatus(st) }}</span>
@@ -249,17 +245,42 @@ export class AllFeaturesComponent implements OnInit {
 
   loading = signal(true);
   all = signal<Feature[]>([]);
-  statusFilter = '';
+  search = signal('');
+  statusFilters = signal<string[]>([]);
   showDone = signal(false);
   expanded = signal<Set<string>>(new Set());
   activeStatuses = ['InProgress', 'ReadyForRelease', 'Planned', 'Completed'];
+
+  readonly filterGroups = [{
+    key: 'status', label: 'Status', icon: 'flag',
+    options: [
+      { id: 'InProgress', label: 'In Progress' },
+      { id: 'Planned', label: 'Planned' },
+      { id: 'Completed', label: 'Completed' },
+      { id: 'ReadyForRelease', label: 'Ready for Release' },
+    ]
+  }];
+
+  filterValues = computed(() => ({ status: this.statusFilters() }));
 
   activeFeatures = computed(() => this.all().filter(f => f.status !== DONE_STATUS));
   doneFeatures = computed(() => this.all().filter(f => f.status === DONE_STATUS));
 
   activeFiltered = computed(() => {
-    const s = this.statusFilter;
-    return s ? this.activeFeatures().filter(f => f.status === s) : this.activeFeatures();
+    const statuses = this.statusFilters();
+    const q = this.search().trim().toLowerCase();
+    let list = statuses.length > 0
+      ? this.activeFeatures().filter(f => statuses.includes(f.status))
+      : this.activeFeatures();
+    if (q) {
+      list = list.filter(f =>
+        f.title.toLowerCase().includes(q) ||
+        (f.externalTicketRef ?? '').toLowerCase().includes(q) ||
+        (f.sprintName ?? '').toLowerCase().includes(q) ||
+        (f.piName ?? '').toLowerCase().includes(q)
+      );
+    }
+    return list;
   });
 
   ngOnInit() { this.load(); }
@@ -269,10 +290,12 @@ export class AllFeaturesComponent implements OnInit {
     this.svc.getAllAcrossSprints().subscribe(f => { this.all.set(f); this.loading.set(false); });
   }
 
-  applyFilter() {}
+  onFilterApply(filters: Record<string, string[]>) {
+    this.statusFilters.set(filters['status'] ?? []);
+  }
 
   toggleStatus(st: string) {
-    this.statusFilter = this.statusFilter === st ? '' : st;
+    this.statusFilters.update(s => s.includes(st) ? s.filter(x => x !== st) : [...s, st]);
   }
 
   toggleExpand(id: string) {

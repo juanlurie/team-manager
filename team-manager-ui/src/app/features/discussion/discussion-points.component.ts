@@ -18,6 +18,7 @@ import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/c
 import { IconButtonComponent } from '../../shared/components/icon-btn/icon-btn.component';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { DiscussionPointsEditDialogComponent } from './discussion-points-edit-dialog/discussion-points-edit-dialog.component';
+import { FilterBarComponent, FilterGroup } from '../../shared/components/filter-bar/filter-bar.component';
 
 const STATUS_ORDER = ['Open', 'InProgress', 'Resolved', 'Deferred'] as const;
 const PRIORITY_ORDER = ['High', 'Medium', 'Low'] as const;
@@ -25,43 +26,29 @@ const PRIORITY_ORDER = ['High', 'Medium', 'Low'] as const;
 @Component({
   selector: 'app-discussion-points',
   standalone: true,
-  imports: [CommonModule, FormsModule, MatButtonModule, MatIconModule,
-    MatSelectModule, MatFormFieldModule, MatInputModule, MatTooltipModule,
-    MatDialogModule, CommentsComponent, MatProgressSpinnerModule, MatDatepickerModule, MatCheckboxModule, IconButtonComponent],
+  imports: [CommonModule, MatButtonModule, MatIconModule,
+    MatTooltipModule, MatDialogModule, CommentsComponent, MatProgressSpinnerModule,
+    MatDatepickerModule, MatCheckboxModule, IconButtonComponent, FilterBarComponent],
   template: `
-    <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;flex-wrap:wrap">
-      <h2 style="margin:0;font-size:1.2rem;flex:1">Discussion Points</h2>
-
-      <!-- Status filter -->
-      <mat-form-field appearance="outline" style="width:160px;margin:0">
-        <mat-label>Status</mat-label>
-        <mat-select [(ngModel)]="filterStatus">
-          <mat-option value="">All</mat-option>
-          <mat-option value="Open">Open</mat-option>
-          <mat-option value="InProgress">In Progress</mat-option>
-          <mat-option value="Resolved">Resolved</mat-option>
-          <mat-option value="Deferred">Deferred</mat-option>
-        </mat-select>
-      </mat-form-field>
-
-      <!-- Priority filter -->
-      <mat-form-field appearance="outline" style="width:140px;margin:0">
-        <mat-label>Priority</mat-label>
-        <mat-select [(ngModel)]="filterPriority">
-          <mat-option value="">All</mat-option>
-          <mat-option value="High">High</mat-option>
-          <mat-option value="Medium">Medium</mat-option>
-          <mat-option value="Low">Low</mat-option>
-        </mat-select>
-      </mat-form-field>
-
-      <button mat-raised-button color="primary" (click)="openNew()">
-        <mat-icon>add</mat-icon> Add Point
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+      <h2 style="margin:0;font-size:1.2rem">Discussion Points</h2>
+      <button mat-icon-button (click)="openNew()" matTooltip="Add discussion point"
+              style="flex-shrink:0;background:rgba(100,181,246,0.12);color:#64b5f6;border-radius:10px">
+        <mat-icon>add</mat-icon>
       </button>
+    </div>
+    <div style="display:flex;margin-bottom:16px">
+      <app-filter-bar
+        [groups]="filterGroups"
+        searchPlaceholder="Search…"
+        [searchVal]="search()"
+        [selectedValues]="filterValues()"
+        (searchChange)="search.set($event)"
+        (apply)="onFilterApply($event)" />
     </div>
 
     <!-- Overdue banner -->
-    @if (overdueCount() > 0 && !filterStatus) {
+    @if (overdueCount() > 0 && filterStatuses().length === 0) {
       <div style="display:flex;align-items:center;gap:8px;padding:8px 14px;margin-bottom:14px;
                   border-radius:8px;background:rgba(239,83,80,0.1);border:1px solid rgba(239,83,80,0.25)">
         <mat-icon style="color:#ef5350;font-size:18px;width:18px;height:18px;line-height:18px">warning</mat-icon>
@@ -223,10 +210,39 @@ export class DiscussionPointsComponent implements OnInit {
   tasks       = signal<Record<string, DiscussionTask[]>>({});
   tasksLoadingMap = signal<Record<string, boolean>>({});
 
-  filterStatus   = '';
-  filterPriority = '';
+  search          = signal('');
+  filterStatuses  = signal<string[]>([]);
+  filterPriorities = signal<string[]>([]);
+
+  readonly filterGroups: FilterGroup[] = [
+    {
+      key: 'status', label: 'Status', icon: 'flag',
+      options: [
+        { id: 'Open', label: 'Open' },
+        { id: 'InProgress', label: 'In Progress' },
+        { id: 'Resolved', label: 'Resolved' },
+        { id: 'Deferred', label: 'Deferred' },
+      ]
+    },
+    {
+      key: 'priority', label: 'Priority', icon: 'priority_high',
+      options: [
+        { id: 'High', label: 'High' },
+        { id: 'Medium', label: 'Medium' },
+        { id: 'Low', label: 'Low' },
+      ]
+    },
+  ];
+
+  filterValues = computed(() => ({
+    status: this.filterStatuses(),
+    priority: this.filterPriorities(),
+  }));
 
   filtered = computed(() => {
+    const statuses  = this.filterStatuses();
+    const priorities = this.filterPriorities();
+    const q = this.search().trim().toLowerCase();
     let list = this.items().slice().sort((a, b) => {
       const pA = PRIORITY_ORDER.indexOf(a.priority as any);
       const pB = PRIORITY_ORDER.indexOf(b.priority as any);
@@ -235,8 +251,13 @@ export class DiscussionPointsComponent implements OnInit {
       const sB = STATUS_ORDER.indexOf(b.status as any);
       return sA - sB;
     });
-    if (this.filterStatus)   list = list.filter(d => d.status === this.filterStatus);
-    if (this.filterPriority) list = list.filter(d => d.priority === this.filterPriority);
+    if (statuses.length > 0)   list = list.filter(d => statuses.includes(d.status));
+    if (priorities.length > 0) list = list.filter(d => priorities.includes(d.priority));
+    if (q) list = list.filter(d =>
+      d.title.toLowerCase().includes(q) ||
+      (d.notes ?? '').toLowerCase().includes(q) ||
+      (d.assigneeName ?? '').toLowerCase().includes(q)
+    );
     return list;
   });
 
@@ -245,6 +266,11 @@ export class DiscussionPointsComponent implements OnInit {
   );
 
   ngOnInit() { this.load(); }
+
+  onFilterApply(filters: Record<string, string[]>) {
+    this.filterStatuses.set(filters['status'] ?? []);
+    this.filterPriorities.set(filters['priority'] ?? []);
+  }
 
   load() {
     this.loading.set(true);
