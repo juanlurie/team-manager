@@ -10,7 +10,12 @@ export const errorInterceptor: HttpInterceptorFn = (req, next) => {
   return next(req).pipe(
     catchError(error => {
       if (!req.context.get(SKIP_ERROR_TOAST)) {
-        const message = error?.error?.detail ?? error?.error?.title ?? 'An unexpected error occurred.';
+        let message: string;
+        if (error?.status === 0) {
+          message = 'Connection lost. Please check your network and try again.';
+        } else {
+          message = error?.error?.detail ?? error?.error?.title ?? 'An unexpected error occurred.';
+        }
         snackBar.open(message, 'Close', { duration: 5000, panelClass: ['error-snackbar'] });
       }
       return throwError(() => error);
