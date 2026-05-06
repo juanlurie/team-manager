@@ -12,10 +12,6 @@ import { CommentsComponent } from '../../shared/comments/comments.component';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { FilterBarComponent } from '../../shared/components/filter-bar/filter-bar.component';
 import { WorkItemService } from '../../core/services/work-item.service';
-import { HttpClient } from '@angular/common/http';
-import { API_BASE } from '../../core/services/api.config';
-import { Observable, of } from 'rxjs';
-import { catchError, map } from 'rxjs/operators';
 
 const ACTIVE_STATUSES = ['InProgress', 'ReadyForRelease', 'Planned', 'Completed'];
 const DONE_STATUS = 'Released';
@@ -257,7 +253,6 @@ export class AllFeaturesComponent implements OnInit {
   private svc = inject(FeatureService);
   private dialog = inject(MatDialog);
   private workItemSvc = inject(WorkItemService);
-  private http = inject(HttpClient);
 
   loading = signal(true);
   all = signal<Feature[]>([]);
@@ -345,24 +340,18 @@ export class AllFeaturesComponent implements OnInit {
     });
     ref.afterClosed().subscribe(result => {
       if (!result) return;
-      this.http.get<any[]>(`${API_BASE}/sprints/${f.sprintId}/sprint-members`).pipe(
-        map(members => members[0]?.id),
-        catchError(() => of(null))
-      ).subscribe(sprintMemberId => {
-        if (!sprintMemberId) return;
-        this.workItemSvc.create(sprintMemberId, {
-          title: result.title,
-          description: null,
-          type: result.type,
-          status: 'Planned',
-          featureId: f.id,
-          externalTicketRef: null,
-          estimatedPoints: null,
-          actualPoints: null,
-          completedDate: null,
-          blockedReason: null
-        }).subscribe(() => this.load());
-      });
+      this.workItemSvc.create(result.sprintMemberId, {
+        title: result.title,
+        description: null,
+        type: result.type,
+        status: 'Planned',
+        featureId: f.id,
+        externalTicketRef: null,
+        estimatedPoints: null,
+        actualPoints: null,
+        completedDate: null,
+        blockedReason: null
+      }).subscribe(() => this.load());
     });
   }
 
