@@ -58,6 +58,41 @@ export interface VoteTallyDto {
   isMvp: boolean;
 }
 
+export interface DashboardLeaveSummary {
+  membersOnLeaveToday: number;
+  membersOnLeaveTotal: number;
+  totalWorkingDays: number;
+  totalCalendarDays: number;
+  byType: LeaveTypeSummary[];
+  members: MemberLeaveDetail[];
+}
+
+export interface LeaveTypeSummary {
+  type: string;
+  recordCount: number;
+  workingDays: number;
+  calendarDays: number;
+}
+
+export interface MemberLeaveDetail {
+  teamMemberId: string;
+  memberName: string;
+  recordCount: number;
+  totalWorkingDays: number;
+  totalCalendarDays: number;
+  records: DetailedLeaveRecord[];
+}
+
+export interface DetailedLeaveRecord {
+  id: string;
+  type: string;
+  startDate: string;
+  endDate: string;
+  workingDays: number;
+  calendarDays: number;
+  notes: string | null;
+}
+
 export interface SprintVotesResponse {
   votes: SprintVoteDto[];
   tally: VoteTallyDto[];

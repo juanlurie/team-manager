@@ -24,4 +24,11 @@ public class DashboardController(IDashboardService service) : ControllerBase
     [HttpGet("sprint/{sprintId:guid}/blockers")]
     public async Task<IActionResult> GetBlockers(Guid sprintId)
         => Ok(await service.GetBlockersAsync(sprintId));
+
+    [HttpGet("sprint/{sprintId:guid}/leave-summary")]
+    public async Task<IActionResult> GetLeaveSummary(Guid sprintId)
+    {
+        var result = await service.GetLeaveSummaryAsync(sprintId);
+        return result is null ? NotFound() : Ok(result);
+    }
 }
