@@ -32,6 +32,8 @@ public class TimesheetConfigService(AppDbContext db) : ITimesheetConfigService
             config.ExtraCategoriesJson = JsonSerializer.Serialize(request.ExtraCategories);
         if (request.QuickActions is not null)
             config.QuickActionsJson = JsonSerializer.Serialize(request.QuickActions);
+        if (request.WorkLocationOptions is not null)
+            config.WorkLocationOptionsJson = JsonSerializer.Serialize(request.WorkLocationOptions);
 
         await db.SaveChangesAsync();
         return ToDto(config);
@@ -40,8 +42,9 @@ public class TimesheetConfigService(AppDbContext db) : ITimesheetConfigService
     private static TimesheetConfigDto ToDto(MemberTimesheetConfig c) => new(
         JsonSerializer.Deserialize<string[]>(c.ExtraProjectsJson, Json) ?? [],
         JsonSerializer.Deserialize<Dictionary<string, string[]>>(c.ExtraCategoriesJson, Json) ?? [],
-        (JsonSerializer.Deserialize<List<QuickActionConfigDto>>(c.QuickActionsJson, Json) ?? []).ToArray()
+        (JsonSerializer.Deserialize<List<QuickActionConfigDto>>(c.QuickActionsJson, Json) ?? []).ToArray(),
+        JsonSerializer.Deserialize<string[]>(c.WorkLocationOptionsJson, Json) ?? ["Home", "Other", "Client", "Entelect"]
     );
 
-    private static TimesheetConfigDto Empty() => new([], [], []);
+    private static TimesheetConfigDto Empty() => new([], [], [], ["Home", "Other", "Client", "Entelect"]);
 }

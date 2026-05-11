@@ -1,1 +1,0 @@
-import"./chunk-TSRGIXR5.js";var t=[{path:"",loadComponent:()=>import("./chunk-LYFNRKBD.js").then(o=>o.TeamListComponent)},{path:":id",loadComponent:()=>import("./chunk-3MJMLIDL.js").then(o=>o.TeamMemberPersonalComponent)}];export{t as TEAM_ROUTES};

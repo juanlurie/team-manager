@@ -211,14 +211,20 @@ const DN = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
               </div>
             </div>
             <div class="ts-ap-r2">
-              <select class="ts-sel ts-sel-proj" [ngModel]="formProject()" (ngModelChange)="setFormProject($event)">
-                <option value="">Project…</option>
-                @for (p of allProjects(); track p) { <option [value]="p">{{ p }}</option> }
-              </select>
-              <select class="ts-sel ts-sel-cat" [ngModel]="formCategory()" (ngModelChange)="formCategory.set($event)" [disabled]="!formProject()">
-                <option value="">Category…</option>
-                @for (c of formCats(); track c) { <option [value]="c">{{ c }}</option> }
-              </select>
+              <div style="display:flex;flex-direction:column;gap:3px;">
+                <input class="ts-input" placeholder="Search project…" [ngModel]="projectSearch()" (ngModelChange)="projectSearch.set($event)" style="width:180px;padding:4px 8px;font-size:11px;flex-shrink:0;" />
+                <select class="ts-sel ts-sel-proj" [ngModel]="formProject()" (ngModelChange)="setFormProject($event)">
+                  <option value="">Project…</option>
+                  @for (p of filteredProjects(); track p) { <option [value]="p">{{ p }}</option> }
+                </select>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:3px;flex:1.2;min-width:140px;">
+                <input class="ts-input" placeholder="Search category…" [ngModel]="categorySearch()" (ngModelChange)="categorySearch.set($event)" style="padding:4px 8px;font-size:11px;" [disabled]="!formProject()" />
+                <select class="ts-sel ts-sel-cat" [ngModel]="formCategory()" (ngModelChange)="formCategory.set($event);categorySearch.set('')" [disabled]="!formProject()">
+                  <option value="">Category…</option>
+                  @for (c of filteredCategories(); track c) { <option [value]="c">{{ c }}</option> }
+                </select>
+              </div>
               <input class="ts-input" placeholder="Note (required)" [ngModel]="formNote()" (ngModelChange)="formNote.set($event)" (keydown.enter)="canAdd()&&addEntry()" />
               <button class="ts-add-btn" [disabled]="!canAdd()" (click)="addEntry()">Add Entry</button>
             </div>
@@ -269,8 +275,10 @@ const DN = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
                     </div>
                   </div>
                 </div>
-                <select class="ts-sel" style="width:100%" [ngModel]="formProject()" (ngModelChange)="setFormProject($event)"><option value="">Select project…</option>@for (p of allProjects(); track p) { <option [value]="p">{{ p }}</option> }</select>
-                <select class="ts-sel" style="width:100%" [ngModel]="formCategory()" (ngModelChange)="formCategory.set($event)" [disabled]="!formProject()"><option value="">Select category…</option>@for (c of formCats(); track c) { <option [value]="c">{{ c }}</option> }</select>
+                <input class="ts-input" style="width:100%;padding:4px 8px;font-size:11px;margin-bottom:4px;" placeholder="Search project…" [ngModel]="projectSearch()" (ngModelChange)="projectSearch.set($event)" />
+                <select class="ts-sel" style="width:100%" [ngModel]="formProject()" (ngModelChange)="setFormProject($event)"><option value="">Select project…</option>@for (p of filteredProjects(); track p) { <option [value]="p">{{ p }}</option> }</select>
+                <input class="ts-input" style="width:100%;padding:4px 8px;font-size:11px;margin-bottom:4px;" placeholder="Search category…" [ngModel]="categorySearch()" (ngModelChange)="categorySearch.set($event)" [disabled]="!formProject()" />
+                <select class="ts-sel" style="width:100%" [ngModel]="formCategory()" (ngModelChange)="formCategory.set($event);categorySearch.set('')" [disabled]="!formProject()"><option value="">Select category…</option>@for (c of filteredCategories(); track c) { <option [value]="c">{{ c }}</option> }</select>
                 <input class="ts-input" style="width:100%" placeholder="Note (required)" [ngModel]="formNote()" (ngModelChange)="formNote.set($event)" />
                 <button class="m-add-btn" [disabled]="!canAdd()" (click)="addEntry();mobileAddOpen.set(false)">Add Entry</button>
               </div>
@@ -298,6 +306,8 @@ export class TimesheetTabComponent implements OnInit {
   formDurMins = signal(60);
   formNote = signal('');
   mobileAddOpen = signal(false);
+  projectSearch = signal('');
+  categorySearch = signal('');
 
   tsConfig = signal<TimesheetConfig>({ extraProjects: [], extraCategories: {}, quickActions: [] });
 
@@ -312,6 +322,12 @@ export class TimesheetTabComponent implements OnInit {
   allProjects = computed<string[]>(() => {
     const extras = this.tsConfig().extraProjects;
     return [...TIMESHEET_PROJECTS, ...extras.filter(p => !TIMESHEET_PROJECTS.includes(p))];
+  });
+
+  filteredProjects = computed(() => {
+    const q = this.projectSearch().trim().toLowerCase();
+    if (!q) return this.allProjects();
+    return this.allProjects().filter(p => p.toLowerCase().includes(q));
   });
 
   viewYear = computed(() => this.selectedDate().getFullYear());
@@ -370,6 +386,12 @@ export class TimesheetTabComponent implements OnInit {
     const defaults = CATEGORIES_BY_PROJECT[p] ?? [];
     const extras = this.tsConfig().extraCategories[p] ?? [];
     return [...defaults, ...extras.filter(c => !defaults.includes(c))];
+  });
+
+  filteredCategories = computed(() => {
+    const q = this.categorySearch().trim().toLowerCase();
+    if (!q) return this.formCats();
+    return this.formCats().filter(c => c.toLowerCase().includes(q));
   });
 
   canAdd = computed(() => !!this.formProject() && !!this.formCategory() && !!this.formNote().trim());
@@ -509,7 +531,7 @@ export class TimesheetTabComponent implements OnInit {
     this.formDurMins.update(current => Math.max(0, current + minutes));
   }
 
-  setFormProject(p: string) { this.formProject.set(p); this.formCategory.set(''); }
+  setFormProject(p: string) { this.formProject.set(p); this.formCategory.set(''); this.categorySearch.set(''); }
 
   logRecent(r: Recent) {
     const config = this.tsConfig();

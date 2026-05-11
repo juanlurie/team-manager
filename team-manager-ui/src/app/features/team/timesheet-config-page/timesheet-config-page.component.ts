@@ -27,6 +27,8 @@ const PRESET_COLORS = [
 const SECTION_KEYS = ['quick-actions', 'projects', 'categories', 'work-location'];
 const SECTION_LABELS = ['Quick Actions', 'Projects', 'Categories', 'Work Location'];
 
+const DEFAULT_LOCATION_OPTIONS = ['Home', 'Other', 'Client', 'Entelect'];
+
 @Component({
   selector: 'app-timesheet-config-page',
   standalone: true,
@@ -109,7 +111,22 @@ const SECTION_LABELS = ['Quick Actions', 'Projects', 'Categories', 'Work Locatio
               (remove)="removeCategory($event.project,$event.category)" (add)="addCategory()" />
           }
           @if (sectionIdx()===3) {
-            <app-config-work-location [workWeek]="workWeek()" (change)="setWorkDay($event.day,$event.value)" />
+            <app-config-work-location [workWeek]="workWeek()" [options]="workLocationOptions()" (change)="setWorkDay($event.day,$event.value)" />
+            <div style="margin-top:20px; padding-top:16px; border-top:1px solid rgba(255,255,255,0.07);">
+              <div class="hint">Configure available location options.</div>
+              <div style="display:flex; flex-wrap:wrap; gap:5px; margin-bottom:8px;">
+                @for (opt of workLocationOptions(); track opt) {
+                  <span style="display:flex; align-items:center; gap:5px; padding:4px 8px 4px 10px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); border-radius:16px; font-size:12px;">
+                    {{ opt }}
+                    <button style="background:none; border:none; cursor:pointer; color:rgba(255,255,255,0.3); font-size:14px; line-height:1; padding:0;" (click)="removeLocation(opt)">×</button>
+                  </span>
+                }
+              </div>
+              <div style="display:flex; gap:7px; align-items:center; margin-top:8px;">
+                <input style="flex:1; box-sizing:border-box; padding:8px 10px; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.1); border-radius:6px; color:inherit; font-size:12px; font-family:inherit; outline:none;" placeholder="Location name" [(ngModel)]="newLocation" (keydown.enter)="addLocation()" />
+                <button style="padding:7px 12px; background:rgba(100,181,246,0.1); border:1px solid rgba(100,181,246,0.3); border-radius:6px; color:#64b5f6; font-size:12px; font-weight:600; cursor:pointer; font-family:inherit; white-space:nowrap;" [disabled]="!newLocation().trim()" (click)="addLocation()">Add</button>
+              </div>
+            </div>
           }
         </div>
         <div class="footer">
@@ -139,10 +156,12 @@ export class TimesheetConfigPageComponent implements OnInit {
   extraCategories = signal<Record<string, string[]>>({});
   billableProjects = signal<string[]>([]);
   workWeek = signal<Record<string, string>>({});
+  workLocationOptions = signal<string[]>(['Home', 'Other', 'Client', 'Entelect']);
   projects = signal<ProjectDto[]>([]);
   categories = signal<CategoryDto[]>([]);
   newProject = signal('');
   newCategory = signal('');
+  newLocation = signal('');
   catProject = signal('');
 
   allProjects = computed(() => {
@@ -186,6 +205,7 @@ export class TimesheetConfigPageComponent implements OnInit {
       this.extraCategories.set({ ...(c.extraCategories ?? {}) });
       this.billableProjects.set([...(c.billableProjects ?? [])]);
       this.workWeek.set({ ...(c.workWeek ?? {}) });
+      this.workLocationOptions.set([...(c.workLocationOptions ?? ['Home', 'Other', 'Client', 'Entelect'])]);
       this.loading.set(false);
     });
     this.memberSvc.getById(this.memberId).subscribe(m => {
@@ -213,6 +233,17 @@ export class TimesheetConfigPageComponent implements OnInit {
 
   goToSection(idx: number) { this.router.navigate(['/team', this.memberId, 'timesheet-config', SECTION_KEYS[idx]]); }
   setWorkDay(day: string, location: string) { this.workWeek.update(w => ({ ...w, [day]: location })); }
+
+  addLocation() {
+    const val = this.newLocation().trim();
+    if (!val || this.workLocationOptions().includes(val)) return;
+    this.workLocationOptions.update(list => [...list, val]);
+    this.newLocation.set('');
+  }
+
+  removeLocation(location: string) {
+    this.workLocationOptions.update(list => list.filter(l => l !== location));
+  }
 
   addQa() {
     const idx = this.quickActions().length;
@@ -265,7 +296,7 @@ export class TimesheetConfigPageComponent implements OnInit {
 
   save() {
     this.saving.set(true);
-    const payload = { extraProjects: this.extraProjects(), extraCategories: this.extraCategories(), quickActions: this.quickActions().filter(q => q.label && q.project && q.category), billableProjects: this.billableProjects(), workWeek: this.workWeek() };
+    const payload = { extraProjects: this.extraProjects(), extraCategories: this.extraCategories(), quickActions: this.quickActions().filter(q => q.label && q.project && q.category), billableProjects: this.billableProjects(), workWeek: this.workWeek(), workLocationOptions: this.workLocationOptions() };
     this.svc.upsert(this.memberId, payload).subscribe({ next: () => this.goBack(), error: () => this.saving.set(false) });
   }
 }

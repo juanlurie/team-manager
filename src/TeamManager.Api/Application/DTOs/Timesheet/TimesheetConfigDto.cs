@@ -5,7 +5,8 @@ namespace TeamManager.Api.Application.DTOs.Timesheet;
 public record TimesheetConfigDto(
     string[] ExtraProjects,
     Dictionary<string, string[]> ExtraCategories,
-    QuickActionConfigDto[] QuickActions
+    QuickActionConfigDto[] QuickActions,
+    string[] WorkLocationOptions
 );
 
 public record QuickActionConfigDto(
@@ -21,7 +22,8 @@ public record QuickActionConfigDto(
 public record UpsertTimesheetConfigRequest(
     string[]? ExtraProjects,
     Dictionary<string, string[]>? ExtraCategories,
-    QuickActionConfigRequest[]? QuickActions
+    QuickActionConfigRequest[]? QuickActions,
+    string[]? WorkLocationOptions
 );
 
 public record QuickActionConfigRequest(

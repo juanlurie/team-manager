@@ -5,6 +5,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatDialogModule, MatDialog } from '@angular/material/dialog';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatMenuModule } from '@angular/material/menu';
 import { MatChipsModule } from '@angular/material/chips';
 import { DashboardService } from '../../../core/services/dashboard.service';
 import { FeatureService } from '../../../core/services/feature.service';
@@ -12,27 +13,19 @@ import { SprintDashboard } from '../../../core/models/dashboard.model';
 import { Feature } from '../../../core/models/feature.model';
 import { FeatureFormDialogComponent } from '../feature-form-dialog/feature-form-dialog.component';
 import { StatusLabelPipe } from '../../../core/pipes/status-label.pipe';
+import { TaskListComponent, TaskItem } from '../../../shared/components/task-list/task-list.component';
 import { IconButtonComponent } from '../../../shared/components/icon-btn/icon-btn.component';
 import { FilterBarComponent } from '../../../shared/components/filter-bar/filter-bar.component';
 
-interface TaskRow {
-  id: string;
-  title: string;
-  type: string;
-  status: string;
-  externalTicketRef: string | null;
-  assignee: string;
-}
-
 interface FeatureView {
   feature: Feature;
-  tasks: TaskRow[];
+  tasks: TaskItem[];
 }
 
 @Component({
   selector: 'app-sprint-features',
   standalone: true,
-  imports: [CommonModule, RouterLink, MatButtonModule, MatIconModule, MatDialogModule, MatTooltipModule, MatChipsModule, StatusLabelPipe, IconButtonComponent, FilterBarComponent],
+  imports: [CommonModule, RouterLink, MatButtonModule, MatIconModule, MatDialogModule, MatTooltipModule, MatMenuModule, MatChipsModule, StatusLabelPipe, TaskListComponent, IconButtonComponent, FilterBarComponent],
   template: `
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:24px;flex-wrap:wrap">
       <div>
@@ -105,85 +98,43 @@ interface FeatureView {
             </div>
             <div style="display:flex;align-items:center;gap:4px;flex-shrink:0">
               <span style="font-size:0.75rem;opacity:0.4">{{ fv.tasks.length }} task{{ fv.tasks.length !== 1 ? 's' : '' }}</span>
-              <app-icon-btn [icon]="fv.feature.isActive ? 'visibility_off' : 'visibility'" size="sm" [tooltip]="fv.feature.isActive ? 'Hide from task dropdown' : 'Unhide feature'" (btnClick)="toggleActive(fv.feature)" />
-              <app-icon-btn icon="edit" size="sm" tooltip="Edit" (btnClick)="editFeature(fv.feature)" />
+              <button mat-icon-button [matMenuTriggerFor]="featureMenu" style="color:rgba(255,255,255,0.4);width:28px;height:28px">
+                <mat-icon style="font-size:18px;width:18px;height:18px;line-height:18px">more_vert</mat-icon>
+              </button>
+              <mat-menu #featureMenu="matMenu">
+                <button mat-menu-item (click)="editFeature(fv.feature)">
+                  <mat-icon>edit</mat-icon>
+                  <span>Edit feature</span>
+                </button>
+                <button mat-menu-item (click)="toggleActive(fv.feature)">
+                  <mat-icon>{{ fv.feature.isActive ? 'visibility_off' : 'visibility' }}</mat-icon>
+                  <span>{{ fv.feature.isActive ? 'Hide from task dropdown' : 'Unhide feature' }}</span>
+                </button>
+              </mat-menu>
             </div>
           </div>
 
           <!-- Tasks table -->
-          @if (fv.tasks.length === 0) {
-            <div style="padding:12px 16px;font-size:0.8rem;opacity:0.3;font-style:italic">No tasks linked to this feature</div>
-          } @else {
-            <div style="overflow-x:auto">
-              <table style="width:100%;border-collapse:collapse;font-size:0.82rem">
-                <thead>
-                  <tr style="background:rgba(0,0,0,0.2)">
-                    <th style="padding:7px 16px;text-align:left;opacity:0.5;font-weight:600;white-space:nowrap">Task</th>
-                    <th style="padding:7px 12px;text-align:left;opacity:0.5;font-weight:600;white-space:nowrap">Type</th>
-                    <th style="padding:7px 12px;text-align:left;opacity:0.5;font-weight:600;white-space:nowrap">Status</th>
-                    <th style="padding:7px 16px;text-align:left;opacity:0.5;font-weight:600;white-space:nowrap">Assignee</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  @for (task of fv.tasks; track task.id) {
-                    <tr style="border-top:1px solid rgba(255,255,255,0.04)">
-                      <td style="padding:8px 16px">
-                        {{ task.title }}
-                        @if (task.externalTicketRef) {
-                          <span style="opacity:0.4;font-size:0.75rem;margin-left:6px;font-family:monospace">{{ task.externalTicketRef }}</span>
-                        }
-                      </td>
-                      <td style="padding:8px 12px"><span [class]="wiTypeClass(task.type)">{{ task.type }}</span></td>
-                      <td style="padding:8px 12px"><span [class]="wiStatusClass(task.status)">{{ task.status | statusLabel }}</span></td>
-                      <td style="padding:8px 16px;opacity:0.7">{{ task.assignee }}</td>
-                    </tr>
-                  }
-                </tbody>
-              </table>
-            </div>
-          }
+          <div style="padding:8px 16px">
+            <app-task-list [tasks]="fv.tasks" [showAssignee]="true" />
+          </div>
         </div>
       }
 
-      <!-- Unlinked tasks section -->
-      @if (filteredUnlinkedTasks().length > 0) {
-        <div style="border-radius:10px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.05);overflow:hidden">
-          <div style="padding:10px 16px;border-bottom:1px solid rgba(255,255,255,0.05)">
-            <span style="font-size:0.75rem;font-weight:600;opacity:0.35;text-transform:uppercase;letter-spacing:0.08em">Unlinked tasks</span>
-          </div>
-          <div style="overflow-x:auto">
-            <table style="width:100%;border-collapse:collapse;font-size:0.82rem">
-              <tbody>
-                @for (task of filteredUnlinkedTasks(); track task.id) {
-                  <tr style="border-top:1px solid rgba(255,255,255,0.04)">
-                    <td style="padding:8px 16px">{{ task.title }}</td>
-                    <td style="padding:8px 12px"><span [class]="wiTypeClass(task.type)">{{ task.type }}</span></td>
-                    <td style="padding:8px 12px"><span [class]="wiStatusClass(task.status)">{{ task.status | statusLabel }}</span></td>
-                    <td style="padding:8px 16px;opacity:0.7">{{ task.assignee }}</td>
-                  </tr>
-                }
-              </tbody>
-            </table>
-          </div>
-        </div>
-      }
+       <!-- Unlinked tasks section -->
+       @if (filteredUnlinkedTasks().length > 0) {
+         <div style="border-radius:10px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.05);overflow:hidden">
+           <div style="padding:10px 16px;border-bottom:1px solid rgba(255,255,255,0.05)">
+             <span style="font-size:0.75rem;font-weight:600;opacity:0.35;text-transform:uppercase;letter-spacing:0.08em">Unlinked tasks</span>
+           </div>
+           <div style="padding:8px 16px">
+             <app-task-list [tasks]="filteredUnlinkedTasks()" [showAssignee]="true" />
+           </div>
+         </div>
+       }
     </div>
   `,
   styles: [`
-    .wi-type  { padding:2px 6px;border-radius:6px;font-size:0.68rem;font-weight:700;text-transform:uppercase; }
-    .wi-badge { padding:2px 6px;border-radius:6px;font-size:0.68rem;font-weight:600; }
-    .type-analysis  { background:rgba(156,39,176,0.15);color:#ce93d8; }
-    .type-design    { background:rgba(0,188,212,0.15);color:#4dd0e1; }
-    .type-dev       { background:rgba(33,150,243,0.15);color:#64b5f6; }
-    .type-qa        { background:rgba(255,152,0,0.15);color:#ff9800; }
-    .type-bug       { background:rgba(244,67,54,0.15);color:#f44336; }
-    .type-task      { background:rgba(158,158,158,0.15);color:#9e9e9e; }
-    .type-release   { background:rgba(76,175,80,0.15);color:#4caf50; }
-    .wi-planned          { background:rgba(158,158,158,0.12);color:#9e9e9e; }
-    .wi-inprogress       { background:rgba(33,150,243,0.12);color:#64b5f6; }
-    .wi-completed        { background:rgba(76,175,80,0.12);color:#4caf50; }
-    .wi-readyforrelease  { background:rgba(255,193,7,0.15);color:#ffd54f; }
-    .wi-released         { background:rgba(255,255,255,0.1);color:#e0e0e0;border:1px solid rgba(255,255,255,0.2); }
     .fs-planned          { padding:2px 8px;border-radius:8px;font-size:0.7rem;font-weight:600;background:rgba(158,158,158,0.15);color:#9e9e9e; }
     .fs-inprogress       { padding:2px 8px;border-radius:8px;font-size:0.7rem;font-weight:600;background:rgba(33,150,243,0.15);color:#64b5f6; }
     .fs-completed        { padding:2px 8px;border-radius:8px;font-size:0.7rem;font-weight:600;background:rgba(76,175,80,0.15);color:#4caf50; }
@@ -209,18 +160,18 @@ export class SprintFeaturesComponent implements OnInit {
       tasks: d.members.flatMap(m =>
         m.workItems
           .filter(wi => wi.featureId === f.id)
-          .map(wi => ({ id: wi.id, title: wi.title, type: wi.type, status: wi.status, externalTicketRef: wi.externalTicketRef, assignee: m.fullName }))
+          .map(wi => ({ id: wi.id, title: wi.title, type: wi.type, status: wi.status, externalTicketRef: wi.externalTicketRef, assignee: m.fullName } as TaskItem))
       )
     }));
   });
 
-  filteredUnlinkedTasks = computed<TaskRow[]>(() => {
+  filteredUnlinkedTasks = computed<TaskItem[]>(() => {
     const q = this.search().trim().toLowerCase();
     const tasks = this.unlinkedTasks();
     if (!q) return tasks;
     return tasks.filter(t =>
       t.title.toLowerCase().includes(q) ||
-      t.assignee.toLowerCase().includes(q) ||
+      (t.assignee ?? '').toLowerCase().includes(q) ||
       (t.externalTicketRef ?? '').toLowerCase().includes(q)
     );
   });
@@ -243,7 +194,7 @@ export class SprintFeaturesComponent implements OnInit {
           (fv.feature.description ?? '').toLowerCase().includes(q);
         const matchingTasks = fv.tasks.filter(t =>
           t.title.toLowerCase().includes(q) ||
-          t.assignee.toLowerCase().includes(q) ||
+          (t.assignee ?? '').toLowerCase().includes(q) ||
           (t.externalTicketRef ?? '').toLowerCase().includes(q)
         );
         if (!featureMatches && matchingTasks.length === 0) return null;
@@ -252,13 +203,13 @@ export class SprintFeaturesComponent implements OnInit {
       .filter((fv): fv is FeatureView => fv !== null);
   });
 
-  unlinkedTasks = computed<TaskRow[]>(() => {
+  unlinkedTasks = computed<TaskItem[]>(() => {
     const d = this.dashboard();
     if (!d) return [];
     return d.members.flatMap(m =>
       m.workItems
         .filter(wi => !wi.featureId)
-        .map(wi => ({ id: wi.id, title: wi.title, type: wi.type, status: wi.status, externalTicketRef: wi.externalTicketRef, assignee: m.fullName }))
+        .map(wi => ({ id: wi.id, title: wi.title, type: wi.type, status: wi.status, externalTicketRef: wi.externalTicketRef, assignee: m.fullName } as TaskItem))
     );
   });
 
@@ -272,8 +223,6 @@ export class SprintFeaturesComponent implements OnInit {
   }
 
   featureStatusClass(status: string) { return `fs-${status.toLowerCase()}`; }
-  wiTypeClass(type: string) { return `wi-type type-${type.toLowerCase()}`; }
-  wiStatusClass(status: string) { return `wi-badge wi-${status.toLowerCase()}`; }
 
   addFeature() {
     const ref = this.dialog.open(FeatureFormDialogComponent, { width: '440px', data: { sprintId: this.sprintId } });

@@ -6,6 +6,7 @@ public class MemberTimesheetConfig
     public string ExtraProjectsJson { get; set; } = "[]";
     public string ExtraCategoriesJson { get; set; } = "{}";
     public string QuickActionsJson { get; set; } = "[]";
+    public string WorkLocationOptionsJson { get; set; } = "[\"Home\",\"Other\",\"Client\",\"Entelect\"]";
 
     public TeamMember TeamMember { get; set; } = null!;
 }
