@@ -340,6 +340,23 @@ export class AllFeaturesComponent implements OnInit {
     squad: this.squadFilters()
   }));
 
+  /** Extract @mentioned assignee names from the raw search text */
+  mentionAssigneeNames = computed(() => {
+    const rawQ = this.search();
+    const members = this.teamMembers();
+    const names: string[] = [];
+    const regex = /@([\w'-]+(?:\s[\w'-]+)*)/g;
+    let match;
+    while ((match = regex.exec(rawQ)) !== null) {
+      const namePart = match[1].toLowerCase();
+      const found = members.find(m => m.label.toLowerCase().includes(namePart));
+      if (found && !names.includes(found.label)) {
+        names.push(found.label);
+      }
+    }
+    return names;
+  });
+
   activeFeatures = computed(() => this.all().filter(f => f.status !== DONE_STATUS));
   doneFeatures = computed(() => this.all().filter(f => f.status === DONE_STATUS));
 
@@ -347,6 +364,7 @@ export class AllFeaturesComponent implements OnInit {
     const statuses = this.statusFilters();
     const assignees = this.assigneeFilters();
     const squads = this.squadFilters();
+    const mentionNames = this.mentionAssigneeNames();
     const rawQ = this.search();
     const q = stripMentions(rawQ).toLowerCase();
     let list = this.activeFeatures();
@@ -360,6 +378,12 @@ export class AllFeaturesComponent implements OnInit {
       const squadMembers = this.getSquadMemberNames(squads);
       list = list.filter(f =>
         (f.tasks ?? []).some(t => squadMembers.includes(t.assignee))
+      );
+    }
+    // Filter by @mentioned assignee names
+    if (mentionNames.length > 0) {
+      list = list.filter(f =>
+        (f.tasks ?? []).some(t => mentionNames.includes(t.assignee))
       );
     }
     if (q) {

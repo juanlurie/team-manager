@@ -185,7 +185,30 @@ export class TeamListComponent implements OnInit {
     lead: this.filterLead(),
   }));
 
+  /** Extract @mentioned member names from the raw search text */
+  mentionMemberNames = computed(() => {
+    const rawQ = this.memberSearch();
+    const members = this.allMembers;
+    const names: string[] = [];
+    const regex = /@([\w'-]+(?:\s[\w'-]+)*)/g;
+    let match;
+    while ((match = regex.exec(rawQ)) !== null) {
+      const namePart = match[1].toLowerCase();
+      const found = members.find(m =>
+        `${m.firstName} ${m.lastName}`.toLowerCase().includes(namePart)
+      );
+      if (found) {
+        const fullName = `${found.firstName} ${found.lastName}`;
+        if (!names.includes(fullName)) {
+          names.push(fullName);
+        }
+      }
+    }
+    return names;
+  });
+
   filteredMembers = computed(() => {
+    const mentionNames = this.mentionMemberNames();
     const q = stripMentions(this.memberSearch()).toLowerCase();
     const roles = this.filterRole();
     const crafts = this.filterCraft();
@@ -193,6 +216,14 @@ export class TeamListComponent implements OnInit {
     const leads = this.filterLead();
 
     let filtered = this.allMembers;
+
+    // Filter by @mentioned member names
+    if (mentionNames.length > 0) {
+      filtered = filtered.filter(m => {
+        const fullName = `${m.firstName} ${m.lastName}`;
+        return mentionNames.some(n => fullName.toLowerCase().includes(n.toLowerCase()));
+      });
+    }
 
     if (q) {
       filtered = filtered.filter(m => `${m.firstName} ${m.lastName}`.toLowerCase().includes(q));
