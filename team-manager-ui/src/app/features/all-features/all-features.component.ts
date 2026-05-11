@@ -1,20 +1,23 @@
 import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatMenuModule } from '@angular/material/menu';
 import { MatDialogModule, MatDialog } from '@angular/material/dialog';
-import { Feature } from '../../core/models/feature.model';
+import { Feature, FeatureTask } from '../../core/models/feature.model';
 import { FeatureService } from '../../core/services/feature.service';
 import { FeatureFormDialogComponent } from '../sprints/feature-form-dialog/feature-form-dialog.component';
-import { AddTaskDialogComponent } from './add-task-dialog/add-task-dialog.component';
-import { CommentsComponent } from '../../shared/comments/comments.component';
+import { TaskFormDialogComponent } from '../../shared/components/task-form-dialog/task-form-dialog.component';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { FilterBarComponent } from '../../shared/components/filter-bar/filter-bar.component';
+import { CommentsComponent } from '../../shared/comments/comments.component';
 import { WorkItemService } from '../../core/services/work-item.service';
 import { TeamMemberService } from '../../core/services/team-member.service';
 import { SquadService } from '../../core/services/squad.service';
 import { Squad } from '../../core/models/squad.model';
+import { WorkItem } from '../../core/models/work-item.model';
 
 const ACTIVE_STATUSES = ['InProgress', 'ReadyForRelease', 'Planned', 'Completed'];
 const DONE_STATUS = 'Released';
@@ -40,16 +43,30 @@ const TASK_STATUS_TEXT: Record<string, string> = {
 @Component({
   selector: 'app-all-features',
   standalone: true,
-  imports: [CommonModule, MatButtonModule, MatIconModule,
-    MatTooltipModule, MatDialogModule, CommentsComponent,
-    MatProgressSpinnerModule, FilterBarComponent],
+  imports: [CommonModule, FormsModule, MatButtonModule, MatIconModule,
+    MatTooltipModule, MatMenuModule, MatDialogModule,
+    MatProgressSpinnerModule, FilterBarComponent, CommentsComponent],
   styles: [`
-    .feat-btn { width:28px;height:28px;border:none;border-radius:6px;cursor:pointer;
+    .more-btn { width:28px;height:28px;border:none;border-radius:6px;cursor:pointer;
                 display:flex;align-items:center;justify-content:center;
-                background:rgba(255,255,255,0.05);color:rgba(255,255,255,0.4);
+                background:transparent;color:rgba(255,255,255,0.4);
                 transition:background 0.15s,color 0.15s; }
-    .feat-btn-blue:hover { background:rgba(100,181,246,0.15);color:#64b5f6; }
-    .feat-btn-green:hover { background:rgba(76,175,80,0.15);color:#4caf50; }
+    .more-btn:hover { background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.7); }
+    .wi-type { padding:2px 6px;border-radius:6px;font-size:0.68rem;font-weight:700;text-transform:uppercase; }
+    .type-analysis  { background:rgba(156,39,176,0.15);color:#ce93d8; }
+    .type-design    { background:rgba(0,188,212,0.15);color:#4dd0e1; }
+    .type-dev       { background:rgba(33,150,243,0.15);color:#64b5f6; }
+    .type-qa        { background:rgba(255,152,0,0.15);color:#ff9800; }
+    .type-bug       { background:rgba(244,67,54,0.15);color:#f44336; }
+    .type-task      { background:rgba(158,158,158,0.15);color:#9e9e9e; }
+    .type-release   { background:rgba(76,175,80,0.15);color:#4caf50; }
+    .wi-planned          { padding:2px 6px;border-radius:6px;font-size:0.68rem;font-weight:700;background:rgba(158,158,158,0.12);color:#9e9e9e; }
+    .wi-inprogress       { padding:2px 6px;border-radius:6px;font-size:0.68rem;font-weight:700;background:rgba(33,150,243,0.12);color:#64b5f6; }
+    .wi-completed        { padding:2px 6px;border-radius:6px;font-size:0.68rem;font-weight:700;background:rgba(76,175,80,0.12);color:#4caf50; }
+    .wi-readyforrelease  { padding:2px 6px;border-radius:6px;font-size:0.68rem;font-weight:700;background:rgba(255,193,7,0.15);color:#ffd54f; }
+    .wi-released         { padding:2px 6px;border-radius:6px;font-size:0.68rem;font-weight:700;background:rgba(255,255,255,0.1);color:#e0e0e0;border:1px solid rgba(255,255,255,0.2); }
+    .task-more-btn { width:28px;height:28px;border:none;border-radius:6px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;background:transparent;color:rgba(255,255,255,0.3);transition:background 0.15s,color 0.15s; }
+    .task-more-btn:hover { background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.7); }
   `],
   template: `
     <div style="display:flex;align-items:center;margin-bottom:10px">
@@ -147,52 +164,72 @@ const TASK_STATUS_TEXT: Record<string, string> = {
                   {{ f.piName }}
                 </span>
               }
-              <button (click)="editFeature(f)" class="feat-btn feat-btn-blue"
-                       matTooltip="Edit feature">
-                <mat-icon style="font-size:16px;width:16px;height:16px;line-height:16px">edit</mat-icon>
+              <button class="more-btn" [matMenuTriggerFor]="featureMenu"
+                      (click)="$event.stopPropagation()"
+                      matTooltip="More actions">
+                <mat-icon style="font-size:18px;width:18px;height:18px;line-height:18px">more_vert</mat-icon>
               </button>
-              <button (click)="addTask(f)" class="feat-btn feat-btn-blue"
-                       matTooltip="Add task">
-                <mat-icon style="font-size:16px;width:16px;height:16px;line-height:16px">add_task</mat-icon>
-              </button>
-              <button (click)="markDone(f)" class="feat-btn feat-btn-green"
-                       matTooltip="Mark as Released">
-                <mat-icon style="font-size:16px;width:16px;height:16px;line-height:16px">check_circle</mat-icon>
-              </button>
+              <mat-menu #featureMenu="matMenu">
+                <button mat-menu-item (click)="editFeature(f); $event.stopPropagation()">
+                  <mat-icon>edit</mat-icon>
+                  <span>Edit feature</span>
+                </button>
+                <button mat-menu-item (click)="addTask(f); $event.stopPropagation()">
+                  <mat-icon>add_task</mat-icon>
+                  <span>Add task</span>
+                </button>
+                <button mat-menu-item (click)="markDone(f); $event.stopPropagation()">
+                  <mat-icon>check_circle</mat-icon>
+                  <span>Mark as Released</span>
+                </button>
+              </mat-menu>
             </div>
           </div>
 
           <!-- Expanded tasks -->
-          @if (expanded().has(f.id) && f.tasks?.length) {
-            <div style="border-top:1px solid rgba(255,255,255,0.05);background:rgba(0,0,0,0.15)">
-              @for (t of f.tasks!; track t.id) {
-                <div style="display:flex;align-items:center;gap:8px;padding:8px 14px 8px 26px;
-                            border-bottom:1px solid rgba(255,255,255,0.03);flex-wrap:wrap">
-                  <div style="display:flex;align-items:center;gap:8px;flex:1 1 120px;min-width:0">
-                    <span [style.background]="taskStatusBg(t.status)" [style.color]="taskStatusColor(t.status)"
-                          style="font-size:0.62rem;font-weight:600;padding:1px 6px;border-radius:5px;
-                                 text-transform:uppercase;white-space:nowrap;flex-shrink:0">
-                      {{ statusLabel(t.status) }}
-                    </span>
-                    <span style="flex-shrink:0;background:rgba(255,255,255,0.06);padding:1px 6px;border-radius:5px;
-                                 font-size:0.65rem;font-weight:600;color:rgba(255,255,255,0.5)">
-                      {{ t.type }}
-                    </span>
-                    <span style="font-size:0.82rem;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ t.title }}</span>
-                  </div>
-                  <span style="font-size:0.75rem;opacity:0.45;flex-shrink:0">{{ t.assignee }}</span>
-                </div>
+          @if (expanded().has(f.id)) {
+            <div style="border-top:1px solid rgba(255,255,255,0.05);background:rgba(0,0,0,0.15);padding:8px 14px 8px 42px;overflow-x:auto">
+              @if (!f.tasks || f.tasks.length === 0) {
+                <div style="padding:12px 16px;font-size:0.8rem;opacity:0.3;font-style:italic">No tasks linked to this feature</div>
+              } @else {
+                <table style="width:100%;border-collapse:collapse;font-size:0.82rem">
+                  <thead>
+                    <tr style="background:rgba(0,0,0,0.2)">
+                      <th style="padding:7px 16px;text-align:left;opacity:0.5;font-weight:600;white-space:nowrap">Task</th>
+                      <th style="padding:7px 12px;text-align:left;opacity:0.5;font-weight:600;white-space:nowrap">Type</th>
+                      <th style="padding:7px 12px;text-align:left;opacity:0.5;font-weight:600;white-space:nowrap">Status</th>
+                      <th style="padding:7px 16px;text-align:left;opacity:0.5;font-weight:600;white-space:nowrap">Assignee</th>
+                      <th style="padding:7px 8px;text-align:center;opacity:0.5;font-weight:600;white-space:nowrap;width:40px"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (t of f.tasks; track t.id) {
+                      <tr style="border-top:1px solid rgba(255,255,255,0.04)">
+                        <td style="padding:8px 16px">{{ t.title }}</td>
+                        <td style="padding:8px 12px"><span [class]="'wi-type type-' + t.type.toLowerCase()">{{ t.type }}</span></td>
+                        <td style="padding:8px 12px"><span [class]="'wi-' + t.status.toLowerCase()">{{ t.status }}</span></td>
+                        <td style="padding:8px 16px;opacity:0.7">{{ t.assignee }}</td>
+                        <td style="padding:4px 8px;text-align:center">
+                          <button class="task-more-btn" [matMenuTriggerFor]="taskMenu">
+                            <mat-icon style="font-size:16px;width:16px;height:16px;line-height:16px">more_vert</mat-icon>
+                          </button>
+                          <mat-menu #taskMenu="matMenu">
+                            <button mat-menu-item (click)="editTask(f, t)">
+                              <mat-icon>edit</mat-icon>
+                              <span>Edit task</span>
+                            </button>
+                          </mat-menu>
+                        </td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
               }
             </div>
           }
-          @if (expanded().has(f.id) && !f.tasks?.length) {
-            <div style="padding:10px 14px 10px 42px;font-size:0.8rem;opacity:0.3;border-top:1px solid rgba(255,255,255,0.05)">
-              No tasks linked to this feature
-            </div>
-          }
           @if (expanded().has(f.id)) {
-            <div style="padding:8px 14px 14px 42px;border-top:1px solid rgba(255,255,255,0.04)">
-              <app-comments entityType="Feature" [entityId]="f.id"></app-comments>
+            <div style="padding:4px 14px 14px 42px;border-top:1px solid rgba(255,255,255,0.04)">
+              <app-comments entityType="Feature" [entityId]="f.id" />
             </div>
           }
         </div>
@@ -236,11 +273,16 @@ const TASK_STATUS_TEXT: Record<string, string> = {
                   </span>
                 }
               </div>
-              <button (click)="unmarkDone(f)" class="feat-btn feat-btn-blue"
-                      style="flex-shrink:0"
-                      matTooltip="Move back to active">
-                <mat-icon style="font-size:16px;width:16px;height:16px;line-height:16px">undo</mat-icon>
+              <button class="more-btn" [matMenuTriggerFor]="doneMenu"
+                      matTooltip="More actions">
+                <mat-icon style="font-size:18px;width:18px;height:18px;line-height:18px">more_vert</mat-icon>
               </button>
+              <mat-menu #doneMenu="matMenu">
+                <button mat-menu-item (click)="unmarkDone(f)">
+                  <mat-icon>undo</mat-icon>
+                  <span>Move back to active</span>
+                </button>
+              </mat-menu>
             </div>
           }
           @if (doneFeatures().length === 0) {
@@ -399,24 +441,20 @@ export class AllFeaturesComponent implements OnInit {
   }
 
   addTask(f: Feature) {
-    const ref = this.dialog.open(AddTaskDialogComponent, {
-      width: '440px',
-      data: { featureId: f.id, sprintId: f.sprintId }
+    const ref = this.dialog.open(TaskFormDialogComponent, {
+      width: '480px',
+      data: { featureId: f.id, sprintId: f.sprintId, features: this.all().filter(x => x.isActive) }
     });
-    ref.afterClosed().subscribe(result => {
-      if (!result) return;
-      this.workItemSvc.create(result.sprintMemberId, {
-        title: result.title,
-        description: null,
-        type: result.type,
-        status: 'Planned',
-        featureId: f.id,
-        externalTicketRef: null,
-        estimatedPoints: null,
-        actualPoints: null,
-        completedDate: null,
-        blockedReason: null
-      }).subscribe(() => this.load());
+    ref.afterClosed().subscribe(r => { if (r) this.load(); });
+  }
+
+  editTask(f: Feature, task: FeatureTask) {
+    this.workItemSvc.getById(task.id).subscribe(workItem => {
+      const ref = this.dialog.open(TaskFormDialogComponent, {
+        width: '480px',
+        data: { featureId: workItem.featureId, sprintId: f.sprintId, workItem, features: this.all().filter(x => x.isActive) }
+      });
+      ref.afterClosed().subscribe(r => { if (r) this.load(); });
     });
   }
 
@@ -445,4 +483,5 @@ export class AllFeaturesComponent implements OnInit {
   }
   taskStatusBg(s: string) { return TASK_STATUS_COLOR[s] ?? 'rgba(158,158,158,0.12)'; }
   taskStatusColor(s: string) { return TASK_STATUS_TEXT[s] ?? '#9e9e9e'; }
+
 }
