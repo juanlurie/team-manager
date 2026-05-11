@@ -11,7 +11,7 @@ import { FeatureService } from '../../core/services/feature.service';
 import { FeatureFormDialogComponent } from '../sprints/feature-form-dialog/feature-form-dialog.component';
 import { TaskFormDialogComponent } from '../../shared/components/task-form-dialog/task-form-dialog.component';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { FilterBarComponent } from '../../shared/components/filter-bar/filter-bar.component';
+import { FilterBarComponent, stripMentions } from '../../shared/components/filter-bar/filter-bar.component';
 import { CommentsComponent } from '../../shared/comments/comments.component';
 import { WorkItemService } from '../../core/services/work-item.service';
 import { TeamMemberService } from '../../core/services/team-member.service';
@@ -347,7 +347,8 @@ export class AllFeaturesComponent implements OnInit {
     const statuses = this.statusFilters();
     const assignees = this.assigneeFilters();
     const squads = this.squadFilters();
-    const q = this.search().trim().toLowerCase();
+    const rawQ = this.search();
+    const q = stripMentions(rawQ).toLowerCase();
     let list = this.activeFeatures();
     if (statuses.length > 0) list = list.filter(f => statuses.includes(f.status));
     if (assignees.length > 0) {

@@ -14,7 +14,7 @@ import { TeamMemberFormComponent } from '../team-member-form/team-member-form.co
 import { SquadManagerDialogComponent } from '../squad-manager-dialog/squad-manager-dialog.component';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { IconButtonComponent } from '../../../shared/components/icon-btn/icon-btn.component';
-import { FilterBarComponent, FilterGroup } from '../../../shared/components/filter-bar/filter-bar.component';
+import { FilterBarComponent, FilterGroup, stripMentions } from '../../../shared/components/filter-bar/filter-bar.component';
 
 const CRAFT_LABELS: Record<string, string> = {
   DevBE: 'Dev BE', DevFE: 'Dev FE', DevIOS: 'iOS', DevAndroid: 'Android',
@@ -186,7 +186,7 @@ export class TeamListComponent implements OnInit {
   }));
 
   filteredMembers = computed(() => {
-    const q = this.memberSearch().trim().toLowerCase();
+    const q = stripMentions(this.memberSearch()).toLowerCase();
     const roles = this.filterRole();
     const crafts = this.filterCraft();
     const squads = this.filterSquad();
