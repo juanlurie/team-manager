@@ -1,9 +1,10 @@
-import { Component, computed, effect, input, output, signal, untracked } from '@angular/core';
+import { Component, computed, effect, input, output, signal, untracked, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { MatMenuModule } from '@angular/material/menu';
+import { TeamMemberService } from '../../../core/services/team-member.service';
 
 export interface FilterOption { id: string; label: string; }
 export interface FilterGroup { key: string; label: string; icon: string; options: FilterOption[]; }
@@ -13,28 +14,47 @@ export interface MentionItem {
   label: string;
 }
 
+/** Strip @Name mentions from a search string for plain-text matching */
+export function stripMentions(text: string): string {
+  return text.replace(/@[\w'-]+(?:\s[\w'-]+)*/g, '').trim();
+}
+
 @Component({
   selector: 'app-filter-bar',
   standalone: true,
   imports: [CommonModule, FormsModule, MatIconModule, MatButtonModule, MatMenuModule],
   template: `
     <div class="filter-bar">
-      <div style="flex:1;min-width:0;position:relative">
-        <input class="fb-search" type="text"
-               [placeholder]="searchPlaceholder()"
-               [value]="search()"
-               (input)="onSearchInput($any($event.target).value, $event)"
-               (keydown)="onSearchKeydown($event)" />
-        @if (mentionEnabled() && mentionActive() && filteredMentions().length > 0) {
-          <div style="position:absolute;top:100%;left:0;right:0;margin-top:4px;background:#1e2a3a;border:1px solid rgba(255,255,255,0.12);border-radius:8px;overflow:hidden;z-index:100;box-shadow:0 4px 16px rgba(0,0,0,0.4)">
-            @for (item of filteredMentions(); track item.id; let i = $index) {
-              <div (mousedown)="insertMention(item)"
-                   [style.background]="i === mentionSelectedIndex ? 'rgba(100,181,246,0.15)' : 'transparent'"
-                   style="padding:6px 12px;cursor:pointer;font-size:0.78rem;display:flex;align-items:center;gap:8px"
-                   (mouseenter)="mentionSelectedIndex = i">
-                <span style="color:#64b5f6;font-weight:500">&#64;</span>
-                <span>{{ item.label }}</span>
-              </div>
+      <div style="flex:1;min-width:0;display:flex;flex-direction:column">
+        <div style="position:relative">
+          <input class="fb-search" type="text"
+                 [placeholder]="searchPlaceholder()"
+                 [value]="search()"
+                 (input)="onSearchInput($any($event.target).value, $event)"
+                 (keydown)="onSearchKeydown($event)" />
+          @if (mentionActive() && filteredMentions().length > 0) {
+            <div style="position:absolute;top:100%;left:0;right:0;margin-top:4px;background:#1e2a3a;border:1px solid rgba(255,255,255,0.12);border-radius:8px;overflow:hidden;z-index:100;box-shadow:0 4px 16px rgba(0,0,0,0.4)">
+              @for (item of filteredMentions(); track item.id; let i = $index) {
+                <div (mousedown)="insertMention(item)"
+                     [style.background]="i === mentionSelectedIndex ? 'rgba(100,181,246,0.15)' : 'transparent'"
+                     style="padding:6px 12px;cursor:pointer;font-size:0.78rem;display:flex;align-items:center;gap:8px"
+                     (mouseenter)="mentionSelectedIndex = i">
+                  <span style="color:#64b5f6;font-weight:500">&#64;</span>
+                  <span>{{ item.label }}</span>
+                </div>
+              }
+            </div>
+          }
+        </div>
+        @if (activeMentions().length > 0) {
+          <div style="display:flex;flex-wrap:wrap;gap:4px;padding:0 10px 8px">
+            @for (m of activeMentions(); track m.id) {
+              <span class="fb-mention-chip">
+                <span>&#64;{{ m.label }}</span>
+                <button class="fb-chip-remove" (mousedown)="removeMention(m); $event.preventDefault()">
+                  <mat-icon>close</mat-icon>
+                </button>
+              </span>
             }
           </div>
         }
@@ -141,9 +161,24 @@ export interface MentionItem {
     }
     .fb-search {
       flex:1; min-width:0; padding:10px 14px; border:none; background:transparent;
-      color:#e0e0e0; font-size:0.85rem; outline:none;
+      color:#e0e0e0; font-size:0.85rem; outline:none; width:100%; box-sizing:border-box;
     }
     .fb-search::placeholder { color:rgba(255,255,255,0.35); }
+
+    .fb-mention-chip {
+      display:inline-flex; align-items:center; gap:2px;
+      padding:2px 2px 2px 8px; border-radius:6px;
+      background:rgba(100,181,246,0.15); color:#64b5f6;
+      font-size:0.75rem; font-weight:500; line-height:1;
+    }
+    .fb-chip-remove {
+      display:inline-flex; align-items:center; justify-content:center;
+      width:18px; height:18px; padding:0; border:none; border-radius:4px;
+      background:transparent; color:rgba(100,181,246,0.6); cursor:pointer;
+      transition:background 0.1s, color 0.1s;
+    }
+    .fb-chip-remove:hover { background:rgba(100,181,246,0.25); color:#64b5f6; }
+    .fb-chip-remove mat-icon { font-size:12px; width:12px; height:12px; line-height:12px; }
 
     .fb-divider {
       width:1px; height:24px; background:rgba(255,255,255,0.1);
@@ -286,16 +321,13 @@ export interface MentionItem {
     }
   `]
 })
-export class FilterBarComponent {
+export class FilterBarComponent implements OnInit {
+  private teamMemberSvc = inject(TeamMemberService);
+
   groups = input<FilterGroup[]>([]);
   searchPlaceholder = input('Search…');
   searchVal = input('');
   selectedValues = input<Record<string, string[]>>({});
-
-  /** Enable @-mention autocomplete for team member filtering */
-  mentionEnabled = input(false);
-  /** Items to show in the @-mention dropdown ({ id, label }) */
-  mentionItems = input<MentionItem[]>([]);
 
   searchChange = output<string>();
   apply = output<Record<string, string[]>>();
@@ -303,20 +335,41 @@ export class FilterBarComponent {
   search = signal('');
   selected = signal<Record<string, string[]>>({});
 
+  /** @-mention candidates loaded from TeamMemberService */
+  private mentionCandidates = signal<MentionItem[]>([]);
+
   // @-mention state
   mentionActive = signal(false);
   mentionQuery = signal('');
   mentionAtPos = 0;
   mentionSelectedIndex = 0;
-  private mentionItemsCache: MentionItem[] = [];
 
   filteredMentions = computed(() => {
     if (!this.mentionActive()) return [];
     const q = this.mentionQuery().toLowerCase();
     if (!q) return [];
-    return this.mentionItemsCache.filter(m =>
+    return this.mentionCandidates().filter(m =>
       m.label.toLowerCase().includes(q)
     ).slice(0, 10);
+  });
+
+  /** Extract all @-mentioned members currently in the search text */
+  activeMentions = computed(() => {
+    const q = this.search();
+    const items = this.mentionCandidates();
+    const result: MentionItem[] = [];
+    const seen = new Set<string>();
+    const regex = /@([\w'-]+(?:\s[\w'-]+)*)/g;
+    let match;
+    while ((match = regex.exec(q)) !== null) {
+      const name = match[1].toLowerCase();
+      const found = items.find(m => m.label.toLowerCase().includes(name));
+      if (found && !seen.has(found.id)) {
+        seen.add(found.id);
+        result.push(found);
+      }
+    }
+    return result;
   });
 
   ddSearch = signal<Record<string, string>>({});
@@ -419,11 +472,16 @@ export class FilterBarComponent {
     }
   }
 
-  private detectMention(val: string, event: Event) {
-    if (!this.mentionEnabled()) return;
-    // Update cache whenever mention items change
-    this.mentionItemsCache = this.mentionItems();
+  ngOnInit() {
+    this.teamMemberSvc.getAll({ isActive: true }).subscribe(members => {
+      this.mentionCandidates.set(members.map(m => ({
+        id: m.id,
+        label: `${m.firstName} ${m.lastName}`
+      })));
+    });
+  }
 
+  private detectMention(val: string, event: Event) {
     const input = event.target as HTMLInputElement;
     const cursorPos = input.selectionStart ?? val.length;
     const textBeforeCursor = val.slice(0, cursorPos);
@@ -454,6 +512,15 @@ export class FilterBarComponent {
     this.search.set(newVal);
     this.searchChange.emit(newVal);
     this.resetMention();
+  }
+
+  /** Remove a @-mentioned member from the search text */
+  removeMention(item: MentionItem) {
+    const escaped = item.label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(`@${escaped}\\s*`, 'g');
+    const newVal = this.search().replace(regex, '').trim().replace(/\s{2,}/g, ' ');
+    this.search.set(newVal);
+    this.searchChange.emit(newVal);
   }
 
   setDdSearch(key: string, val: string) {

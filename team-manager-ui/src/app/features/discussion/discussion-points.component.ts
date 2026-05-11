@@ -18,7 +18,7 @@ import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/c
 import { IconButtonComponent } from '../../shared/components/icon-btn/icon-btn.component';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { DiscussionPointsEditDialogComponent } from './discussion-points-edit-dialog/discussion-points-edit-dialog.component';
-import { FilterBarComponent, FilterGroup } from '../../shared/components/filter-bar/filter-bar.component';
+import { FilterBarComponent, FilterGroup, stripMentions } from '../../shared/components/filter-bar/filter-bar.component';
 
 const STATUS_ORDER = ['Open', 'InProgress', 'Resolved', 'Deferred'] as const;
 const PRIORITY_ORDER = ['High', 'Medium', 'Low'] as const;
@@ -242,7 +242,7 @@ export class DiscussionPointsComponent implements OnInit {
   filtered = computed(() => {
     const statuses  = this.filterStatuses();
     const priorities = this.filterPriorities();
-    const q = this.search().trim().toLowerCase();
+    const q = stripMentions(this.search()).toLowerCase();
     let list = this.items().slice().sort((a, b) => {
       const pA = PRIORITY_ORDER.indexOf(a.priority as any);
       const pB = PRIORITY_ORDER.indexOf(b.priority as any);

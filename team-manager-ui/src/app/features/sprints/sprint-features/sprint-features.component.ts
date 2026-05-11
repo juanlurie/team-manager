@@ -15,7 +15,7 @@ import { FeatureFormDialogComponent } from '../feature-form-dialog/feature-form-
 import { StatusLabelPipe } from '../../../core/pipes/status-label.pipe';
 import { TaskListComponent, TaskItem } from '../../../shared/components/task-list/task-list.component';
 import { IconButtonComponent } from '../../../shared/components/icon-btn/icon-btn.component';
-import { FilterBarComponent } from '../../../shared/components/filter-bar/filter-bar.component';
+import { FilterBarComponent, stripMentions } from '../../../shared/components/filter-bar/filter-bar.component';
 
 interface FeatureView {
   feature: Feature;
@@ -166,7 +166,7 @@ export class SprintFeaturesComponent implements OnInit {
   });
 
   filteredUnlinkedTasks = computed<TaskItem[]>(() => {
-    const q = this.search().trim().toLowerCase();
+    const q = stripMentions(this.search()).toLowerCase();
     const tasks = this.unlinkedTasks();
     if (!q) return tasks;
     return tasks.filter(t =>
@@ -184,7 +184,7 @@ export class SprintFeaturesComponent implements OnInit {
   });
 
   filteredFeatureViews = computed<FeatureView[]>(() => {
-    const q = this.search().trim().toLowerCase();
+    const q = stripMentions(this.search()).toLowerCase();
     if (!q) return this.featureViews();
     return this.featureViews()
       .map(fv => {
