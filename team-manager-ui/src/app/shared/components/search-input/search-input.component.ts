@@ -23,8 +23,9 @@ import { MatIconModule } from '@angular/material/icon';
       <input matInput type="text"
              [ngModel]="value()"
              [placeholder]="placeholder()"
-             (ngModelChange)="onInput($event)"
-             (blur)="onTouched()">
+              (ngModelChange)="onInput($event)"
+             (blur)="onTouched()"
+             (keydown)="onKeydown($event)">
       @if (value()) {
         <button matSuffix type="button" class="clear-btn"
                 (click)="clear($event)"
@@ -75,5 +76,11 @@ export class SearchInputComponent implements ControlValueAccessor {
     this.value.set('');
     this.onChange('');
     this.valueChange.emit('');
+  }
+
+  onKeydown(event: KeyboardEvent): void {
+    if (event.key === 'Escape' && this.value()) {
+      this.clear(event);
+    }
   }
 }

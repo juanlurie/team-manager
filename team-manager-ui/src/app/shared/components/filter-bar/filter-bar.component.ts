@@ -470,6 +470,11 @@ export class FilterBarComponent implements OnInit {
         return;
       }
     }
+    if (event.key === 'Escape' && this.search()) {
+      event.preventDefault();
+      this.search.set('');
+      this.searchChange.emit('');
+    }
   }
 
   ngOnInit() {
