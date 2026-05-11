@@ -141,6 +141,16 @@ echo "[commit] Pushing $BRANCH..."
 git push -u origin "$BRANCH"
 
 echo "[pr] Creating draft PR..."
+if ! command -v gh &>/dev/null; then
+  echo "WARNING: gh CLI not found — skipping draft PR creation."
+  echo "         Install it from https://cli.github.com/ then run:"
+  echo "         gh pr create --draft --title \"feat: $FEATURE\""
+  echo ""
+  echo "[pipeline] Done (no PR — gh not installed)."
+  echo "[pipeline] Feature:   $FEATURE"
+  echo "[pipeline] Artifacts: $PIPELINE_DIR"
+  exit 0
+fi
 gh pr create --draft \
   --title "feat: $FEATURE" \
   --body "$(cat <<EOF
