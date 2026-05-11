@@ -3,7 +3,9 @@ import { RouterOutlet, RouterLink, RouterLinkActive, Router, NavigationEnd } fro
 import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatDialogModule, MatDialog } from '@angular/material/dialog';
 import { filter } from 'rxjs/operators';
+import { QuickOpenDialogComponent } from './core/components/quick-open-dialog/quick-open-dialog.component';
 
 interface NavItem {
   path: string;
@@ -47,7 +49,7 @@ const MORE_NAV: NavItem[] = [
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [RouterOutlet, RouterLink, RouterLinkActive, CommonModule, MatIconModule, MatTooltipModule],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, CommonModule, MatIconModule, MatTooltipModule, MatDialogModule],
   template: `
     <div class="shell" [class.mobile]="isMobile()">
 
@@ -336,6 +338,7 @@ export class AppComponent {
   readonly moreNav      = MORE_NAV;
 
   private router = inject(Router);
+  private dialog = inject(MatDialog);
   private currentUrl = signal(this.router.url);
 
   isMoreActive = computed(() => MORE_NAV.some(item => this.currentUrl().startsWith(item.path)));
@@ -351,6 +354,13 @@ export class AppComponent {
       this.currentUrl.set((e as NavigationEnd).urlAfterRedirects);
       this.moreOpen.set(false);
     });
+    window.addEventListener('keydown', (event) => {
+      if ((event.ctrlKey || event.metaKey) && event.key === 'p') {
+        event.preventDefault();
+        event.stopPropagation();
+        this.openQuickOpen();
+      }
+    }, true);
   }
 
   @HostListener('window:resize')
@@ -360,5 +370,14 @@ export class AppComponent {
     const next = !this.expanded();
     this.expanded.set(next);
     localStorage.setItem('nav-expanded', String(next));
+  }
+
+  private openQuickOpen(): void {
+    if (this.dialog.openDialogs.length > 0) return;
+    this.dialog.open(QuickOpenDialogComponent, {
+      width: 'auto',
+      maxWidth: '90vw',
+      panelClass: 'quick-open-panel',
+    });
   }
 }

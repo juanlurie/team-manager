@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm --version)",
+      "Bash(~/.opencode/bin/opencode --help)",
+      "Bash(~/.opencode/bin/opencode agent *)",
+      "Bash(~/.opencode/bin/opencode run *)",
+      "Bash(~/.opencode/bin/opencode *)",
+      "Bash(curl -s https://api.github.com/repos/sst/opencode/contents)"
+    ]
+  }
+}
