@@ -4,6 +4,7 @@ export interface TimesheetConfig {
   quickActions: QuickActionConfig[];
   billableProjects?: string[];
   workWeek?: Record<string, string>;
+  workLocationOptions?: string[];
 }
 
 export interface QuickActionConfig {

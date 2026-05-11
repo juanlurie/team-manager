@@ -817,6 +817,10 @@ namespace TeamManager.Api.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<string>("WorkLocationOptionsJson")
+                        .IsRequired()
+                        .HasColumnType("text");
+
                     b.HasKey("TeamMemberId");
 
                     b.ToTable("MemberTimesheetConfigs");

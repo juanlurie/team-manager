@@ -19,8 +19,7 @@ import { FormsModule } from '@angular/forms';
       <div class="row">
         <span>{{ day }}</span>
         <select class="sel" [ngModel]="workWeek()[day] || 'Home'" (ngModelChange)="change.emit({day,value:$event})">
-          <option value="Home">Home</option>
-          <option value="Office">Office</option>
+          @for (opt of options(); track opt) { <option [value]="opt">{{ opt }}</option> }
         </select>
       </div>
     }
@@ -29,5 +28,6 @@ import { FormsModule } from '@angular/forms';
 export class ConfigWorkLocationComponent {
   readonly weekDays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
   workWeek = input.required<Record<string, string>>();
+  options = input<string[]>(['Home', 'Other', 'Client', 'Entelect']);
   change = output<{day:string;value:string}>();
 }

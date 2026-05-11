@@ -101,6 +101,7 @@ export interface TimesheetConfigDialogData {
         <button class="dlg-tab" [class.active]="tab()===1" (click)="tab.set(1)">Projects</button>
         <button class="dlg-tab" [class.active]="tab()===2" (click)="tab.set(2)">Categories</button>
         <button class="dlg-tab" [class.active]="tab()===3" (click)="tab.set(3)">Work Location</button>
+        <button class="dlg-tab" [class.active]="tab()===4" (click)="tab.set(4)">Location Options</button>
       </div>
 
       <div class="dlg-body">
@@ -126,9 +127,7 @@ export interface TimesheetConfigDialogData {
                   <input class="inp" placeholder="Note (optional)" [(ngModel)]="qa.note" (ngModelChange)="markDirty()" />
                   <select class="sel" [(ngModel)]="qa.workedFrom" (ngModelChange)="markDirty()">
                     <option [ngValue]="null">Location: Default</option>
-                    <option value="Home">Home</option>
-                    <option value="Office">Office</option>
-                    <option value="Other">Other</option>
+                    @for (opt of workLocationOptions(); track opt) { <option [value]="opt">{{ opt }}</option> }
                   </select>
                   <div class="full">
                     <div class="sec-lbl" style="margin-bottom:4px">Default duration <span style="font-weight:400;text-transform:none;letter-spacing:0">(optional)</span></div>
@@ -217,11 +216,28 @@ export interface TimesheetConfigDialogData {
               <div class="row" style="justify-content:space-between; margin-bottom:8px;">
                 <span>{{ day }}</span>
                 <select class="sel" style="width:120px" [ngModel]="workWeek()[day]" (ngModelChange)="setWorkDay(day, $event)">
-                  <option value="Home">Home</option>
-                  <option value="Office">Office</option>
+                  @for (opt of workLocationOptions(); track opt) { <option [value]="opt">{{ opt }}</option> }
                 </select>
               </div>
             }
+          </div>
+        }
+
+        @if (tab()===4) {
+          <div class="sec">
+            <div class="hint">Configure the available work location options. These appear in dropdowns when logging timesheets.</div>
+            <div class="tag-list">
+              @for (opt of workLocationOptions(); track opt) {
+                <span class="tag">
+                  {{ opt }}
+                  <button class="tag-rm" (click)="removeLocation(opt)">×</button>
+                </span>
+              }
+            </div>
+            <div class="add-row">
+              <input class="inp" placeholder="Location name" [(ngModel)]="newLocation" (keydown.enter)="addLocation()" style="flex:1" />
+              <button class="btn-add" [disabled]="!newLocation.trim()" (click)="addLocation()">Add</button>
+            </div>
           </div>
         }
       </div>
@@ -251,10 +267,12 @@ export class TimesheetConfigDialogComponent implements OnInit {
   extraProjects = signal<string[]>([]);
   extraCategories = signal<Record<string, string[]>>({});
   billableProjects = signal<string[]>([]);
-  workWeek = signal<Record<string, 'Home' | 'Office'>>({});
+  workWeek = signal<Record<string, string>>({});
+  workLocationOptions = signal<string[]>([]);
 
   newProject = '';
   newCategory = '';
+  newLocation = '';
   catProject = '';
 
   allProjects = computed(() => [
@@ -269,6 +287,7 @@ export class TimesheetConfigDialogComponent implements OnInit {
     this.extraCategories.set({ ...c.extraCategories });
     this.billableProjects.set([...(c.billableProjects ?? [])]);
     this.workWeek.set({ ...(c.workWeek ?? {}) });
+    this.workLocationOptions.set([...(c.workLocationOptions ?? ['Home', 'Other', 'Client', 'Entelect'])]);
   }
 
   catsFor(project: string): string[] {
@@ -305,8 +324,21 @@ export class TimesheetConfigDialogComponent implements OnInit {
 
   markDirty() { this.dirty.set(true); }
 
-  setWorkDay(day: string, location: 'Home' | 'Office') {
+  setWorkDay(day: string, location: string) {
     this.workWeek.update(ww => ({ ...ww, [day]: location }));
+    this.markDirty();
+  }
+
+  addLocation() {
+    const val = this.newLocation.trim();
+    if (!val || this.workLocationOptions().includes(val)) return;
+    this.workLocationOptions.update(list => [...list, val]);
+    this.newLocation = '';
+    this.markDirty();
+  }
+
+  removeLocation(location: string) {
+    this.workLocationOptions.update(list => list.filter(l => l !== location));
     this.markDirty();
   }
 
@@ -386,6 +418,7 @@ export class TimesheetConfigDialogComponent implements OnInit {
       quickActions: this.quickActions().filter(q => q.label && q.project && q.category),
       billableProjects: this.billableProjects(),
       workWeek: this.workWeek(),
+      workLocationOptions: this.workLocationOptions(),
     };
     this.svc.upsert(this.data.memberId, payload).subscribe({
       next: config => this.ref.close(config),
