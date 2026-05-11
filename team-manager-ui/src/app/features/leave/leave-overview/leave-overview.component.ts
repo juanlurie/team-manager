@@ -80,8 +80,6 @@ interface WeekRow {
             searchPlaceholder="Search leave…"
             [searchVal]="search()"
             [selectedValues]="filterValues()"
-            [mentionEnabled]="true"
-            [mentionItems]="mentionMembers()"
             (searchChange)="search.set($event)"
             (apply)="onFilterApply($event)" />
         </div>
@@ -374,10 +372,6 @@ export class LeaveOverviewComponent implements OnInit {
   squads = signal<{ id: string; name: string }[]>([]);
   crafts = signal<string[]>([]);
   view = signal<'list' | 'calendar'>('calendar');
-
-  mentionMembers = computed(() =>
-    this.members().map(m => ({ id: m.id, label: `${m.firstName} ${m.lastName}` }))
-  );
 
   private mentionMemberIds = computed(() => {
     const q = this.search().trim();
