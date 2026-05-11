@@ -8,16 +8,14 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { forkJoin } from 'rxjs';
 import { Sprint } from '../../../core/models/sprint.model';
-import { SprintSummary, Blocker } from '../../../core/models/dashboard.model';
+import { SprintSummary, Blocker, DashboardLeaveSummary } from '../../../core/models/dashboard.model';
 import { Feature } from '../../../core/models/feature.model';
-import { LeaveRecord } from '../../../core/models/leave-record.model';
 import { TeamMember } from '../../../core/models/team-member.model';
 import { DiscussionPoint } from '../../../core/models/discussion-point.model';
 import { RetroAction } from '../../../core/models/retro-action.model';
 import { SprintService } from '../../../core/services/sprint.service';
 import { DashboardService } from '../../../core/services/dashboard.service';
 import { FeatureService } from '../../../core/services/feature.service';
-import { LeaveService } from '../../../core/services/leave.service';
 import { TeamMemberService } from '../../../core/services/team-member.service';
 import { DiscussionPointService } from '../../../core/services/discussion-point.service';
 import { RetroActionService } from '../../../core/services/retro-action.service';
@@ -26,6 +24,7 @@ import { WorkItemService } from '../../../core/services/work-item.service';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { IconButtonComponent } from '../../../shared/components/icon-btn/icon-btn.component';
 import { CurrentSprintCardComponent } from '../../../shared/components/current-sprint-card/current-sprint-card.component';
+import { LeaveSummaryCardComponent } from '../leave-summary-card/leave-summary-card.component';
 
 const STATUS_ORDER  = ['Released', 'ReadyForRelease', 'InProgress', 'Completed', 'Planned'] as const;
 const STATUS_LABEL: Record<string, string> = {
@@ -42,7 +41,7 @@ const STATUS_COLOR: Record<string, string> = {
   standalone: true,
   imports: [CommonModule, RouterLink, FormsModule,
     MatSelectModule, MatFormFieldModule, MatIconModule, MatDialogModule, MatProgressSpinnerModule,
-    IconButtonComponent, CurrentSprintCardComponent],
+    IconButtonComponent, CurrentSprintCardComponent, LeaveSummaryCardComponent],
   styles: [`
     .stat-card { transition:filter 0.15s; }
     .stat-card:hover { filter:brightness(1.25); }
@@ -275,34 +274,9 @@ const STATUS_COLOR: Record<string, string> = {
         </div>
       }
 
-      <!-- Next 7 days leave -->
-      @if (leaveByDay().length > 0) {
-        <div style="margin-bottom:28px;padding:14px 18px;border-radius:10px;
-                    background:rgba(206,147,216,0.06);border:1px solid rgba(206,147,216,0.18)">
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
-            <mat-icon style="font-size:16px;width:16px;height:16px;line-height:16px;color:#ce93d8">beach_access</mat-icon>
-            <span style="font-size:0.75rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:#ce93d8">On Leave</span>
-          </div>
-          @for (group of leaveByDay(); track group.label; let last = $last) {
-            <div [style.margin-bottom]="last ? '0' : '10px'">
-              <div style="font-size:0.7rem;font-weight:600;opacity:0.45;margin-bottom:4px">{{ group.label }}</div>
-              @for (r of group.records; track r.id) {
-                <div style="display:flex;align-items:center;gap:8px;padding:3px 0">
-                  <a [routerLink]="['/sprints', selectedSprintId]"
-                     style="font-size:0.82rem;flex:1;color:inherit;text-decoration:none;transition:opacity 0.15s"
-                     onmouseover="this.style.opacity='0.7'" onmouseout="this.style.opacity='1'">
-                    {{ r.memberName }}
-                  </a>
-                  <span style="font-size:0.75rem;opacity:0.5">
-                    {{ r.startDate | date:'d MMM' }}
-                    @if (r.startDate !== r.endDate) { – {{ r.endDate | date:'d MMM' }} }
-                  </span>
-                  <span style="font-size:0.72rem;opacity:0.35">{{ r.daysCount }}d</span>
-                </div>
-              }
-            </div>
-          }
-        </div>
+      <!-- Leave & PTO Summary -->
+      @if (leaveSummary()) {
+        <app-leave-summary-card [leaveSummary]="leaveSummary()!" style="display:block;margin-bottom:28px" />
       }
 
       <!-- Blockers section -->
@@ -370,7 +344,6 @@ export class SprintDashboardComponent implements OnInit {
   private sprintSvc      = inject(SprintService);
   private dashSvc        = inject(DashboardService);
   private featureSvc     = inject(FeatureService);
-  private leaveSvc       = inject(LeaveService);
   private memberSvc      = inject(TeamMemberService);
   private workItemSvc    = inject(WorkItemService);
   private discussionSvc  = inject(DiscussionPointService);
@@ -385,11 +358,11 @@ export class SprintDashboardComponent implements OnInit {
   summary  = signal<SprintSummary | null>(null);
   blockers = signal<Blocker[]>([]);
   piFeatures   = signal<Feature[]>([]);
-  leaveWindow  = signal<LeaveRecord[]>([]);
   allMembers   = signal<TeamMember[]>([]);
   discussions  = signal<DiscussionPoint[]>([]);
   retroActions = signal<RetroAction[]>([]);
   promotingId  = signal<string | null>(null);
+  leaveSummary = signal<DashboardLeaveSummary | null>(null);
   selectedSprintId = '';
   currentFeatures = signal<Feature[]>([]);
 
@@ -409,23 +382,6 @@ export class SprintDashboardComponent implements OnInit {
   }
 
   selectedSprint = computed(() => this.currentSprint() ?? null);
-
-  leaveByDay = computed(() => {
-    const today    = this.todayStr();
-    const tomorrow = this.tomorrowStr();
-    const groups: { label: string; records: LeaveRecord[] }[] = [];
-    for (let i = 0; i < 7; i++) {
-      const d = new Date(); d.setDate(d.getDate() + i);
-      const dateStr = d.toISOString().slice(0, 10);
-      const records = this.leaveWindow().filter(r => r.startDate <= dateStr && r.endDate >= dateStr);
-      if (!records.length) continue;
-      const label = dateStr === today ? 'Today'
-                  : dateStr === tomorrow ? 'Tomorrow'
-                  : d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
-      groups.push({ label, records });
-    }
-    return groups;
-  });
 
   piCount = (status: string) => this.piFeatures().filter(f => f.status === status).length;
 
@@ -497,15 +453,12 @@ export class SprintDashboardComponent implements OnInit {
     if (!sprint) return;
     this.selectedSprintId = sprint.id;
     this.loading.set(true);
-    const today    = this.todayStr();
-    const in7days  = (() => { const d = new Date(); d.setDate(d.getDate() + 6); return d.toISOString().slice(0, 10); })();
-
     const requests: Record<string, any> = {
       summary:      this.dashSvc.getSprintSummary(sprint.id),
       blockers:     this.dashSvc.getBlockers(sprint.id),
-      leave:        this.leaveSvc.getAll({ from: today, to: in7days }),
       discussions:  this.discussionSvc.getAll(),
       retroActions: this.retroActionSvc.getBySprintId(sprint.id),
+      leaveSummary: this.dashSvc.getLeaveSummary(sprint.id),
     };
     if (sprint.piId) {
       requests['piFeatures'] = this.featureSvc.getAllAcrossSprints({ piId: sprint.piId });
@@ -514,10 +467,10 @@ export class SprintDashboardComponent implements OnInit {
     forkJoin(requests).subscribe((res: any) => {
       this.summary.set(res['summary']);
       this.blockers.set(res['blockers']);
-      this.leaveWindow.set(res['leave'] ?? []);
       this.discussions.set(res['discussions'] ?? []);
       this.retroActions.set(res['retroActions'] ?? []);
       this.piFeatures.set(res['piFeatures'] ?? []);
+      this.leaveSummary.set(res['leaveSummary'] ?? null);
       this.loading.set(false);
     });
   }
@@ -562,8 +515,6 @@ export class SprintDashboardComponent implements OnInit {
     return new Date(iso + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
   }
 
-  namesOf(records: LeaveRecord[]) { return records.map(r => r.memberName).join(', '); }
-
   celebrations = computed(() => {
     const today = new Date();
     const events: { name: string; type: 'birthday' | 'anniversary'; daysUntil: number; years?: number }[] = [];
@@ -590,5 +541,4 @@ export class SprintDashboardComponent implements OnInit {
   }
 
   private todayStr()    { return new Date().toISOString().slice(0, 10); }
-  private tomorrowStr() { const d = new Date(); d.setDate(d.getDate() + 1); return d.toISOString().slice(0, 10); }
 }

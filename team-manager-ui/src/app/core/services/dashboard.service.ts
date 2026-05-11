@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { SprintDashboard, SprintSummary, Blocker, SprintVotesResponse, SprintVoteDto } from '../models/dashboard.model';
+import { SprintDashboard, SprintSummary, Blocker, DashboardLeaveSummary, SprintVotesResponse, SprintVoteDto } from '../models/dashboard.model';
 import { API_BASE } from './api.config';
 
 @Injectable({ providedIn: 'root' })
@@ -16,6 +16,10 @@ export class DashboardService {
 
   getSprintSummary(sprintId: string): Observable<SprintSummary> {
     return this.http.get<SprintSummary>(`${API_BASE}/dashboard/sprint/${sprintId}/summary`);
+  }
+
+  getLeaveSummary(sprintId: string): Observable<DashboardLeaveSummary> {
+    return this.http.get<DashboardLeaveSummary>(`${API_BASE}/dashboard/sprint/${sprintId}/leave-summary`);
   }
 
   getBlockers(sprintId: string): Observable<Blocker[]> {

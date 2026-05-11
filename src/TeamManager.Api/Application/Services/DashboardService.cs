@@ -174,6 +174,92 @@ public class DashboardService(AppDbContext db) : IDashboardService
         };
     }
 
+    public async Task<DashboardLeaveSummaryDto?> GetLeaveSummaryAsync(Guid sprintId)
+    {
+        var sprint = await db.Sprints.FindAsync(sprintId);
+        if (sprint is null) return null;
+
+        var memberIds = await db.SprintMembers
+            .Where(sm => sm.SprintId == sprintId)
+            .Select(sm => sm.TeamMemberId)
+            .ToListAsync();
+
+        if (memberIds.Count == 0)
+            return new DashboardLeaveSummaryDto();
+
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+
+        var records = await db.LeaveRecords
+            .Include(l => l.TeamMember)
+            .Where(l =>
+                memberIds.Contains(l.TeamMemberId) &&
+                l.StartDate <= sprint.EndDate &&
+                l.EndDate >= sprint.StartDate)
+            .OrderBy(l => l.TeamMember.LastName)
+            .ThenBy(l => l.TeamMember.FirstName)
+            .ThenBy(l => l.StartDate)
+            .ToListAsync();
+
+        var membersOnLeaveToday = records
+            .Where(l => l.StartDate <= today && l.EndDate >= today)
+            .Select(l => l.TeamMemberId)
+            .Distinct()
+            .Count();
+
+        var byType = records
+            .GroupBy(l => l.Type)
+            .Select(g => new LeaveTypeSummaryDto
+            {
+                Type = g.Key.ToString(),
+                RecordCount = g.Count(),
+                WorkingDays = g.Sum(l => l.DaysCount),
+                CalendarDays = g.Sum(l => CalendarDaysBetween(l.StartDate, l.EndDate))
+            })
+            .ToList();
+
+        var members = records
+            .GroupBy(l => l.TeamMemberId)
+            .Select(g =>
+            {
+                var first = g.First();
+                return new MemberLeaveDetailDto
+                {
+                    TeamMemberId = g.Key,
+                    MemberName = $"{first.TeamMember.FirstName} {first.TeamMember.LastName}",
+                    RecordCount = g.Count(),
+                    TotalWorkingDays = g.Sum(l => l.DaysCount),
+                    TotalCalendarDays = g.Sum(l => CalendarDaysBetween(l.StartDate, l.EndDate)),
+                    Records = g.Select(l => new DetailedLeaveRecordDto
+                    {
+                        Id = l.Id,
+                        Type = l.Type.ToString(),
+                        StartDate = l.StartDate,
+                        EndDate = l.EndDate,
+                        WorkingDays = l.DaysCount,
+                        CalendarDays = CalendarDaysBetween(l.StartDate, l.EndDate),
+                        Notes = l.Notes
+                    }).ToList()
+                };
+            })
+            .OrderBy(m => m.MemberName)
+            .ToList();
+
+        return new DashboardLeaveSummaryDto
+        {
+            MembersOnLeaveToday = membersOnLeaveToday,
+            MembersOnLeaveTotal = members.Count,
+            TotalWorkingDays = records.Sum(l => l.DaysCount),
+            TotalCalendarDays = records.Sum(l => CalendarDaysBetween(l.StartDate, l.EndDate)),
+            ByType = byType,
+            Members = members
+        };
+    }
+
+    private static decimal CalendarDaysBetween(DateOnly start, DateOnly end)
+    {
+        return end.DayNumber - start.DayNumber + 1;
+    }
+
     public async Task<IReadOnlyList<BlockerDto>> GetBlockersAsync(Guid sprintId)
     {
         var now = DateTimeOffset.UtcNow;
