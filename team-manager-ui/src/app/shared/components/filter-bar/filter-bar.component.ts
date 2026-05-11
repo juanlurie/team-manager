@@ -8,16 +8,37 @@ import { MatMenuModule } from '@angular/material/menu';
 export interface FilterOption { id: string; label: string; }
 export interface FilterGroup { key: string; label: string; icon: string; options: FilterOption[]; }
 
+export interface MentionItem {
+  id: string;
+  label: string;
+}
+
 @Component({
   selector: 'app-filter-bar',
   standalone: true,
   imports: [CommonModule, FormsModule, MatIconModule, MatButtonModule, MatMenuModule],
   template: `
     <div class="filter-bar">
-      <input class="fb-search" type="text"
-             [placeholder]="searchPlaceholder()"
-             [value]="search()"
-             (input)="onSearch($any($event.target).value)" />
+      <div style="flex:1;min-width:0;position:relative">
+        <input class="fb-search" type="text"
+               [placeholder]="searchPlaceholder()"
+               [value]="search()"
+               (input)="onSearchInput($any($event.target).value, $event)"
+               (keydown)="onSearchKeydown($event)" />
+        @if (mentionEnabled() && mentionActive() && filteredMentions().length > 0) {
+          <div style="position:absolute;top:100%;left:0;right:0;margin-top:4px;background:#1e2a3a;border:1px solid rgba(255,255,255,0.12);border-radius:8px;overflow:hidden;z-index:100;box-shadow:0 4px 16px rgba(0,0,0,0.4)">
+            @for (item of filteredMentions(); track item.id; let i = $index) {
+              <div (mousedown)="insertMention(item)"
+                   [style.background]="i === mentionSelectedIndex ? 'rgba(100,181,246,0.15)' : 'transparent'"
+                   style="padding:6px 12px;cursor:pointer;font-size:0.78rem;display:flex;align-items:center;gap:8px"
+                   (mouseenter)="mentionSelectedIndex = i">
+                <span style="color:#64b5f6;font-weight:500">&#64;</span>
+                <span>{{ item.label }}</span>
+              </div>
+            }
+          </div>
+        }
+      </div>
 
       <div class="fb-divider"></div>
 
@@ -271,11 +292,32 @@ export class FilterBarComponent {
   searchVal = input('');
   selectedValues = input<Record<string, string[]>>({});
 
+  /** Enable @-mention autocomplete for team member filtering */
+  mentionEnabled = input(false);
+  /** Items to show in the @-mention dropdown ({ id, label }) */
+  mentionItems = input<MentionItem[]>([]);
+
   searchChange = output<string>();
   apply = output<Record<string, string[]>>();
 
   search = signal('');
   selected = signal<Record<string, string[]>>({});
+
+  // @-mention state
+  mentionActive = signal(false);
+  mentionQuery = signal('');
+  mentionAtPos = 0;
+  mentionSelectedIndex = 0;
+  private mentionItemsCache: MentionItem[] = [];
+
+  filteredMentions = computed(() => {
+    if (!this.mentionActive()) return [];
+    const q = this.mentionQuery().toLowerCase();
+    if (!q) return [];
+    return this.mentionItemsCache.filter(m =>
+      m.label.toLowerCase().includes(q)
+    ).slice(0, 10);
+  });
 
   ddSearch = signal<Record<string, string>>({});
   sheetSearch = signal<Record<string, string>>({});
@@ -346,9 +388,72 @@ export class FilterBarComponent {
     return (this.selected()[key] ?? []).length;
   }
 
-  onSearch(val: string) {
+  onSearchInput(val: string, event: Event) {
     this.search.set(val);
     this.searchChange.emit(val);
+    this.detectMention(val, event);
+  }
+
+  onSearchKeydown(event: KeyboardEvent) {
+    if (this.mentionActive() && this.filteredMentions().length > 0) {
+      if (event.key === 'ArrowDown') {
+        event.preventDefault();
+        const max = this.filteredMentions().length - 1;
+        this.mentionSelectedIndex = Math.min(this.mentionSelectedIndex + 1, max);
+        return;
+      } else if (event.key === 'ArrowUp') {
+        event.preventDefault();
+        this.mentionSelectedIndex = Math.max(this.mentionSelectedIndex - 1, 0);
+        return;
+      } else if (event.key === 'Enter' || event.key === 'Tab') {
+        const items = this.filteredMentions();
+        if (items[this.mentionSelectedIndex]) {
+          event.preventDefault();
+          this.insertMention(items[this.mentionSelectedIndex]);
+          return;
+        }
+      } else if (event.key === 'Escape') {
+        this.resetMention();
+        return;
+      }
+    }
+  }
+
+  private detectMention(val: string, event: Event) {
+    if (!this.mentionEnabled()) return;
+    // Update cache whenever mention items change
+    this.mentionItemsCache = this.mentionItems();
+
+    const input = event.target as HTMLInputElement;
+    const cursorPos = input.selectionStart ?? val.length;
+    const textBeforeCursor = val.slice(0, cursorPos);
+    const atIdx = textBeforeCursor.lastIndexOf('@');
+    if (atIdx >= 0) {
+      const query = textBeforeCursor.slice(atIdx + 1);
+      if (!query.includes(' ')) {
+        this.mentionActive.set(true);
+        this.mentionAtPos = atIdx;
+        this.mentionQuery.set(query);
+        this.mentionSelectedIndex = 0;
+        return;
+      }
+    }
+    this.resetMention();
+  }
+
+  private resetMention() {
+    this.mentionActive.set(false);
+    this.mentionQuery.set('');
+    this.mentionSelectedIndex = 0;
+  }
+
+  insertMention(item: MentionItem) {
+    const before = this.search().slice(0, this.mentionAtPos);
+    const after = this.search().slice(this.mentionAtPos + 1 + this.mentionQuery().length);
+    const newVal = `${before}@${item.label} ${after}`;
+    this.search.set(newVal);
+    this.searchChange.emit(newVal);
+    this.resetMention();
   }
 
   setDdSearch(key: string, val: string) {
