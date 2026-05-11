@@ -80,6 +80,8 @@ interface WeekRow {
             searchPlaceholder="Search leave…"
             [searchVal]="search()"
             [selectedValues]="filterValues()"
+            [mentionEnabled]="true"
+            [mentionItems]="mentionMembers()"
             (searchChange)="search.set($event)"
             (apply)="onFilterApply($event)" />
         </div>
@@ -373,9 +375,29 @@ export class LeaveOverviewComponent implements OnInit {
   crafts = signal<string[]>([]);
   view = signal<'list' | 'calendar'>('calendar');
 
+  mentionMembers = computed(() =>
+    this.members().map(m => ({ id: m.id, label: `${m.firstName} ${m.lastName}` }))
+  );
+
+  private mentionMemberId = computed(() => {
+    const q = this.search().trim();
+    // Match @ followed by name chars (letters, hyphens, apostrophes, spaces)
+    const atMatch = q.match(/@([\w'-]+(?:\s[\w'-]+)*)/);
+    if (!atMatch) return null;
+    const name = atMatch[1].toLowerCase();
+    const found = this.members().find(m =>
+      `${m.firstName} ${m.lastName}`.toLowerCase().includes(name)
+    );
+    return found ? found.id : null;
+  });
+
   filteredRecords = computed(() => {
     const q = this.search().trim().toLowerCase();
+    const mentionId = this.mentionMemberId();
     const records = this.records();
+    if (mentionId) {
+      return records.filter(r => r.teamMemberId === mentionId);
+    }
     if (!q) return records;
     return records.filter(r => {
       const member = this.members().find(m => m.id === r.teamMemberId);
@@ -495,16 +517,19 @@ export class LeaveOverviewComponent implements OnInit {
   groups = computed<MemberLeaveGroup[]>(() => {
     const map = new Map<string, MemberLeaveGroup>();
     const q = this.search().trim().toLowerCase();
-    const records = q
-      ? this.records().filter(r => {
-          const member = this.members().find(m => m.id === r.teamMemberId);
-          const crafts = member?.crafts ?? [];
-          return r.memberName.toLowerCase().includes(q) ||
-            r.type.toLowerCase().includes(q) ||
-            (r.notes ?? '').toLowerCase().includes(q) ||
-            crafts.some(c => c.toLowerCase().includes(q));
-        })
-      : this.records();
+    const mentionId = this.mentionMemberId();
+    const records = mentionId
+      ? this.records().filter(r => r.teamMemberId === mentionId)
+      : q
+        ? this.records().filter(r => {
+            const member = this.members().find(m => m.id === r.teamMemberId);
+            const crafts = member?.crafts ?? [];
+            return r.memberName.toLowerCase().includes(q) ||
+              r.type.toLowerCase().includes(q) ||
+              (r.notes ?? '').toLowerCase().includes(q) ||
+              crafts.some(c => c.toLowerCase().includes(q));
+          })
+        : this.records();
     for (const r of records) {
       if (!map.has(r.teamMemberId)) {
         map.set(r.teamMemberId, { teamMemberId: r.teamMemberId, memberName: r.memberName, records: [], totalDays: 0, annualDays: 0, sickDays: 0, otherDays: 0 });
