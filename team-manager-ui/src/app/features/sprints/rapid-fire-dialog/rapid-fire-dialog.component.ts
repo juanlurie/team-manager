@@ -2,7 +2,6 @@ import { Component, OnInit, inject, signal, computed, ElementRef, ViewChild } fr
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormsModule } from '@angular/forms';
 import { MatDialogModule, MatDialogRef, MatDialog, MAT_DIALOG_DATA } from '@angular/material/dialog';
-import { ConfirmDialogComponent } from '../../../shared/components/confirm-dialog/confirm-dialog.component';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
@@ -15,8 +14,7 @@ import { Feature } from '../../../core/models/feature.model';
 import { WorkItem } from '../../../core/models/work-item.model';
 import { WorkItemService } from '../../../core/services/work-item.service';
 import { FeatureService } from '../../../core/services/feature.service';
-import { CommentService } from '../../../core/services/comment.service';
-import { Comment } from '../../../core/models/comment.model';
+import { CommentsComponent } from '../../../shared/comments/comments.component';
 import { CarryOverDialogComponent } from '../carry-over-dialog/carry-over-dialog.component';
 import { IconButtonComponent } from '../../../shared/components/icon-btn/icon-btn.component';
 
@@ -33,7 +31,7 @@ interface ItemState {
   standalone: true,
   imports: [CommonModule, ReactiveFormsModule, FormsModule, MatDialogModule,
     MatFormFieldModule, MatInputModule, MatSelectModule, MatButtonModule,
-    MatIconModule, MatDividerModule, MatTooltipModule, ConfirmDialogComponent, CarryOverDialogComponent, IconButtonComponent],
+    MatIconModule, MatDividerModule, MatTooltipModule, CommentsComponent, CarryOverDialogComponent, IconButtonComponent],
   template: `
     <div class="rf-shell">
 
@@ -98,14 +96,6 @@ interface ItemState {
                          (ngModelChange)="getState(item).title = $event"
                          (blur)="saveTitle(item)"
                          (keydown.enter)="saveTitle(item)">
-                  <button class="rf-icon-btn" [class.rf-icon-active]="commentsOpen[item.id]"
-                          [matTooltip]="commentsOpen[item.id] ? 'Hide comments' : 'Comments'"
-                          (click)="toggleComments(item)" style="position:relative">
-                    <mat-icon>{{ commentsOpen[item.id] ? 'chat_bubble' : 'chat_bubble_outline' }}</mat-icon>
-                    @if (commentCount(item) > 0) {
-                      <span class="rf-comment-badge">{{ commentCount(item) }}</span>
-                    }
-                  </button>
                   <button class="rf-icon-btn" matTooltip="Carry over to another sprint"
                           (click)="carryOver(item)">
                     <mat-icon>move_down</mat-icon>
@@ -114,35 +104,7 @@ interface ItemState {
                     <mat-icon class="rf-saving-spin">sync</mat-icon>
                   }
                 </div>
-                @if (commentsOpen[item.id]) {
-                  <div class="rf-comment-section">
-                    @if (commentsLoading[item.id]) {
-                      <div class="rf-comment-loading">···</div>
-                    } @else {
-                      @for (c of commentsData[item.id] ?? []; track c.id) {
-                        <div class="rf-comment-row">
-                          <span class="rf-comment-date">{{ c.createdAt | date:'d MMM HH:mm' }}</span>
-                          <span class="rf-comment-text">{{ c.text }}</span>
-                          <button class="rf-icon-btn" (click)="deleteComment(item.id, c.id)">
-                            <mat-icon>close</mat-icon>
-                          </button>
-                        </div>
-                      }
-                      <div class="rf-comment-add">
-                        <input class="rf-comment-input"
-                               [ngModel]="commentDraftMap[item.id] ?? ''"
-                               (ngModelChange)="commentDraftMap[item.id] = $event"
-                               placeholder="Add comment…"
-                               (keydown.enter)="addComment(item)">
-                        <button class="rf-icon-btn"
-                                [disabled]="!(commentDraftMap[item.id] ?? '').trim() || commentSaving[item.id]"
-                                (click)="addComment(item)">
-                          <mat-icon>send</mat-icon>
-                        </button>
-                      </div>
-                    }
-                  </div>
-                }
+                <app-comments entityType="WorkItem" [entityId]="item.id" [initialCount]="item.commentCount" />
               </div>
             }
           </div>
@@ -336,27 +298,9 @@ interface ItemState {
     .rf-icon-btn:hover { background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.9); }
     .rf-icon-btn:disabled { opacity:0.3;cursor:default; }
     .rf-icon-btn mat-icon { font-size:17px;width:17px;height:17px;line-height:17px; }
-    .rf-icon-active { color:#64b5f6; }
-    .rf-comment-badge { position:absolute;top:2px;right:2px;min-width:14px;height:14px;border-radius:7px;
-                        background:#64b5f6;color:#0f1923;font-size:0.6rem;font-weight:700;
-                        display:flex;align-items:center;justify-content:center;padding:0 3px;
-                        pointer-events:none;line-height:1; }
-
     .rf-saving-spin { font-size:16px;width:16px;height:16px;line-height:16px;
                       opacity:0.4;animation:rf-spin 1s linear infinite;flex-shrink:0; }
     @keyframes rf-spin { to { transform:rotate(360deg); } }
-
-    /* Comments */
-    .rf-comment-section { padding:6px 0 2px;border-top:1px solid rgba(255,255,255,0.06); }
-    .rf-comment-loading { font-size:0.72rem;opacity:0.3;padding:4px 0;letter-spacing:0.1em; }
-    .rf-comment-row { display:flex;align-items:flex-start;gap:8px;padding:3px 0; }
-    .rf-comment-date { font-size:0.68rem;color:rgba(255,255,255,0.3);white-space:nowrap;flex-shrink:0;padding-top:2px; }
-    .rf-comment-text { flex:1;font-size:0.78rem;line-height:1.4;color:rgba(255,255,255,0.75);word-break:break-word; }
-    .rf-comment-add { display:flex;align-items:center;gap:4px;margin-top:6px; }
-    .rf-comment-input { flex:1;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);
-                        border-radius:6px;padding:6px 10px;font-size:0.78rem;color:inherit;
-                        outline:none;font-family:inherit; }
-    .rf-comment-input:focus { border-color:rgba(255,255,255,0.25); }
 
     /* Column divider */
     .rf-col-divider { width:1px;background:rgba(255,255,255,0.07);flex-shrink:0;margin:12px 0; }
@@ -412,7 +356,6 @@ export class RapidFireDialogComponent implements OnInit {
 
   private svc = inject(WorkItemService);
   private featureSvc = inject(FeatureService);
-  private commentSvc = inject(CommentService);
   private dialog = inject(MatDialog);
   private dialogRef = inject(MatDialogRef<RapidFireDialogComponent>);
   data: { sprintId: string; members: MemberSprintCard[]; features: Feature[] } = inject(MAT_DIALOG_DATA);
@@ -429,12 +372,6 @@ export class RapidFireDialogComponent implements OnInit {
 
   // Per-item mutable edit state (always-editable, no modal)
   private itemStates: Record<string, ItemState> = {};
-
-  commentsOpen: Record<string, boolean> = {};
-  commentsLoading: Record<string, boolean> = {};
-  commentsData: Record<string, Comment[]> = {};
-  commentDraftMap: Record<string, string> = {};
-  commentSaving: Record<string, boolean> = {};
 
   private deferredIds = new Set<string>();
 
@@ -525,54 +462,10 @@ export class RapidFireDialogComponent implements OnInit {
     };
   }
 
-  // ── Comments ───────────────────────────────────────────────────────────────
-
-  commentCount(item: WorkItem): number {
-    return this.commentsData[item.id]?.length ?? item.commentCount ?? 0;
-  }
-
   carryOver(item: WorkItem) {
     this.dialog.open(CarryOverDialogComponent, {
       width: '400px',
       data: { workItem: item, currentSprintId: this.data.sprintId }
-    });
-  }
-
-  toggleComments(item: WorkItem) {
-    const id = item.id;
-    if (!this.commentsOpen[id]) {
-      this.commentsOpen[id] = true;
-      if (!this.commentsData[id]) {
-        this.commentsLoading[id] = true;
-        this.commentSvc.getComments('WorkItem', id).subscribe(cs => {
-          this.commentsData[id] = cs;
-          this.commentsLoading[id] = false;
-        });
-      }
-    } else {
-      this.commentsOpen[id] = false;
-    }
-  }
-
-  addComment(item: WorkItem) {
-    const text = (this.commentDraftMap[item.id] ?? '').trim();
-    if (!text || this.commentSaving[item.id]) return;
-    this.commentSaving[item.id] = true;
-    this.commentSvc.create({ entityType: 'WorkItem', entityId: item.id, text }).subscribe(c => {
-      this.commentsData[item.id] = [...(this.commentsData[item.id] ?? []), c];
-      this.commentDraftMap[item.id] = '';
-      this.commentSaving[item.id] = false;
-    });
-  }
-
-  deleteComment(wiId: string, commentId: string) {
-    this.dialog.open(ConfirmDialogComponent, {
-      width: '360px',
-      data: { title: 'Delete comment?', danger: true }
-    }).afterClosed().subscribe(ok => {
-      if (ok) this.commentSvc.delete(commentId).subscribe(() => {
-        this.commentsData[wiId] = (this.commentsData[wiId] ?? []).filter(c => c.id !== commentId);
-      });
     });
   }
 

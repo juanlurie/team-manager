@@ -10,11 +10,10 @@ import { MemberSprintCard } from '../../../core/models/dashboard.model';
 import { Feature } from '../../../core/models/feature.model';
 import { TeamMember } from '../../../core/models/team-member.model';
 import { WorkItem } from '../../../core/models/work-item.model';
-import { Comment } from '../../../core/models/comment.model';
 import { DashboardService } from '../../../core/services/dashboard.service';
 import { WorkItemService } from '../../../core/services/work-item.service';
 import { LeaveService } from '../../../core/services/leave.service';
-import { CommentService } from '../../../core/services/comment.service';
+import { CommentsComponent } from '../../../shared/comments/comments.component';
 import { WorkItemFormComponent } from '../../dashboard/work-item-form/work-item-form.component';
 import { LeaveFormDialogComponent } from '../../leave/leave-form-dialog/leave-form-dialog.component';
 import { ConfirmDialogComponent } from '../../../shared/components/confirm-dialog/confirm-dialog.component';
@@ -23,7 +22,7 @@ import { CarryOverDialogComponent } from '../carry-over-dialog/carry-over-dialog
 @Component({
   selector: 'app-sprint-member-card',
   standalone: true,
-  imports: [CommonModule, FormsModule, MatButtonModule, MatIconModule, MatDialogModule, MatTooltipModule, MatMenuModule, CarryOverDialogComponent],
+  imports: [CommonModule, FormsModule, MatButtonModule, MatIconModule, MatDialogModule, MatTooltipModule, MatMenuModule, CommentsComponent, CarryOverDialogComponent],
   template: `
     <div class="card">
 
@@ -80,14 +79,6 @@ import { CarryOverDialogComponent } from '../carry-over-dialog/carry-over-dialog
                     <span [class]="wiStatusClass(wi.status)">{{ statusLabel(wi.status) }}</span>
                   </div>
                   <div class="wi-actions">
-                    <button class="action-btn" [class.comment-active]="commentsOpen[wi.id]"
-                            [matTooltip]="commentsOpen[wi.id] ? 'Hide comments' : 'Comments'"
-                            (click)="toggleComments(wi)" style="position:relative">
-                      <mat-icon>{{ commentsOpen[wi.id] ? 'chat_bubble' : 'chat_bubble_outline' }}</mat-icon>
-                      @if (commentCount(wi) > 0) {
-                        <span class="comment-badge">{{ commentCount(wi) }}</span>
-                      }
-                    </button>
                     <button class="action-btn" matTooltip="Edit" (click)="editWorkItem(wi)">
                       <mat-icon>edit</mat-icon>
                     </button>
@@ -105,35 +96,7 @@ import { CarryOverDialogComponent } from '../carry-over-dialog/carry-over-dialog
               @if (wi.status === 'Blocked' && wi.blockedReason) {
                 <div class="blocked-reason">⚠ {{ wi.blockedReason }}</div>
               }
-              @if (commentsOpen[wi.id]) {
-                <div class="comment-section">
-                  @if (commentsLoading[wi.id]) {
-                    <div class="comment-loading">···</div>
-                  } @else {
-                    @for (c of commentsData[wi.id] ?? []; track c.id) {
-                      <div class="comment-row">
-                        <span class="comment-date">{{ c.createdAt | date:'d MMM HH:mm' }}</span>
-                        <span class="comment-text">{{ c.text }}</span>
-                        <button class="action-btn small warn" (click)="deleteComment(wi.id, c.id)">
-                          <mat-icon>close</mat-icon>
-                        </button>
-                      </div>
-                    }
-                    <div class="comment-add">
-                      <input class="comment-input"
-                             [ngModel]="commentDraftMap[wi.id] ?? ''"
-                             (ngModelChange)="commentDraftMap[wi.id] = $event"
-                             placeholder="Add comment…"
-                             (keydown.enter)="addComment(wi)">
-                      <button class="action-btn small"
-                              [disabled]="!(commentDraftMap[wi.id] ?? '').trim() || commentSaving[wi.id]"
-                              (click)="addComment(wi)">
-                        <mat-icon>send</mat-icon>
-                      </button>
-                    </div>
-                  }
-                </div>
-              }
+              <app-comments entityType="WorkItem" [entityId]="wi.id" [initialCount]="wi.commentCount" />
             </div>
           }
         }
@@ -232,11 +195,6 @@ import { CarryOverDialogComponent } from '../carry-over-dialog/carry-over-dialog
     .action-btn:hover { background:rgba(255,255,255,0.1);color:rgba(255,255,255,0.95); }
     .action-btn.warn:hover { background:rgba(244,67,54,0.14);color:#ef5350; }
     .action-btn.small { width:28px;height:28px; }
-    .action-btn.comment-active { color:#64b5f6; }
-    .comment-badge { position:absolute;top:3px;right:3px;min-width:14px;height:14px;border-radius:7px;
-                     background:#64b5f6;color:#0f1923;font-size:0.6rem;font-weight:700;
-                     display:flex;align-items:center;justify-content:center;padding:0 3px;
-                     pointer-events:none;line-height:1; }
     .action-btn mat-icon { font-size:19px;width:19px;height:19px;line-height:19px; }
     .action-btn.small mat-icon { font-size:16px;width:16px;height:16px;line-height:16px; }
     @media (hover:none) { .wi-actions { opacity:1; } }
@@ -257,19 +215,6 @@ import { CarryOverDialogComponent } from '../carry-over-dialog/carry-over-dialog
     .wi-completed       { background:rgba(76,175,80,0.12);color:#4caf50; }
     .wi-readyforrelease { background:rgba(255,193,7,0.15);color:#ffd54f; }
     .wi-released        { background:rgba(255,255,255,0.1);color:#e0e0e0;border:1px solid rgba(255,255,255,0.2); }
-
-    /* ── Comments ── */
-    .comment-section { margin:0 6px 4px;padding:4px 6px 6px;border-top:1px solid rgba(255,255,255,0.06);
-                       background:rgba(255,255,255,0.02);border-radius:0 0 6px 6px; }
-    .comment-loading { font-size:0.72rem;opacity:0.3;padding:4px 0;letter-spacing:0.1em; }
-    .comment-row { display:flex;align-items:flex-start;gap:8px;padding:3px 0;min-height:28px; }
-    .comment-date { font-size:0.68rem;color:rgba(255,255,255,0.3);white-space:nowrap;flex-shrink:0;padding-top:2px; }
-    .comment-text { flex:1;font-size:0.78rem;line-height:1.4;color:rgba(255,255,255,0.75);word-break:break-word; }
-    .comment-add { display:flex;align-items:center;gap:4px;margin-top:6px; }
-    .comment-input { flex:1;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);
-                     border-radius:6px;padding:5px 8px;font-size:0.78rem;color:inherit;outline:none;
-                     font-family:inherit; }
-    .comment-input:focus { border-color:rgba(255,255,255,0.25); }
 
     /* ── Shared section wrapper ── */
     .section { border-top:1px solid rgba(255,255,255,0.06);padding:8px 12px; }
@@ -317,17 +262,10 @@ export class SprintMemberCardComponent {
   private dashSvc = inject(DashboardService);
   private workItemSvc = inject(WorkItemService);
   private leaveSvc = inject(LeaveService);
-  private commentSvc = inject(CommentService);
   private dialog = inject(MatDialog);
 
   editingCapacity = false;
   leaveExpanded = false;
-
-  commentsOpen: Record<string, boolean> = {};
-  commentsLoading: Record<string, boolean> = {};
-  commentsData: Record<string, Comment[]> = {};
-  commentDraftMap: Record<string, string> = {};
-  commentSaving: Record<string, boolean> = {};
 
   groupedWorkItems() {
     const groups = new Map<string | null, { featureId: string | null; featureTitle: string | null; items: WorkItem[] }>();
@@ -362,48 +300,6 @@ export class SprintMemberCardComponent {
     return this.member.leaveRecords
       .map(r => `${r.type}: ${new Date(r.startDate).toLocaleDateString('en-US',{month:'short',day:'numeric'})} – ${new Date(r.endDate).toLocaleDateString('en-US',{month:'short',day:'numeric'})} (${r.daysCount}d)`)
       .join('\n');
-  }
-
-  commentCount(wi: WorkItem): number {
-    return this.commentsData[wi.id]?.length ?? wi.commentCount ?? 0;
-  }
-
-  toggleComments(wi: WorkItem) {
-    const id = wi.id;
-    if (!this.commentsOpen[id]) {
-      this.commentsOpen[id] = true;
-      if (!this.commentsData[id]) {
-        this.commentsLoading[id] = true;
-        this.commentSvc.getComments('WorkItem', id).subscribe(cs => {
-          this.commentsData[id] = cs;
-          this.commentsLoading[id] = false;
-        });
-      }
-    } else {
-      this.commentsOpen[id] = false;
-    }
-  }
-
-  addComment(wi: WorkItem) {
-    const text = (this.commentDraftMap[wi.id] ?? '').trim();
-    if (!text || this.commentSaving[wi.id]) return;
-    this.commentSaving[wi.id] = true;
-    this.commentSvc.create({ entityType: 'WorkItem', entityId: wi.id, text }).subscribe(c => {
-      this.commentsData[wi.id] = [...(this.commentsData[wi.id] ?? []), c];
-      this.commentDraftMap[wi.id] = '';
-      this.commentSaving[wi.id] = false;
-    });
-  }
-
-  deleteComment(wiId: string, commentId: string) {
-    this.dialog.open(ConfirmDialogComponent, {
-      width: '360px',
-      data: { title: 'Delete comment?', danger: true }
-    }).afterClosed().subscribe(ok => {
-      if (ok) this.commentSvc.delete(commentId).subscribe(() => {
-        this.commentsData[wiId] = (this.commentsData[wiId] ?? []).filter(c => c.id !== commentId);
-      });
-    });
   }
 
   toggleCapacity() { this.editingCapacity = !this.editingCapacity; }
