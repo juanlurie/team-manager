@@ -379,24 +379,26 @@ export class LeaveOverviewComponent implements OnInit {
     this.members().map(m => ({ id: m.id, label: `${m.firstName} ${m.lastName}` }))
   );
 
-  private mentionMemberId = computed(() => {
+  private mentionMemberIds = computed(() => {
     const q = this.search().trim();
-    // Match @ followed by name chars (letters, hyphens, apostrophes, spaces)
-    const atMatch = q.match(/@([\w'-]+(?:\s[\w'-]+)*)/);
-    if (!atMatch) return null;
-    const name = atMatch[1].toLowerCase();
-    const found = this.members().find(m =>
-      `${m.firstName} ${m.lastName}`.toLowerCase().includes(name)
-    );
-    return found ? found.id : null;
+    const ids = new Set<string>();
+    const atMatches = q.matchAll(/@([\w'-]+(?:\s[\w'-]+)*)/g);
+    for (const match of atMatches) {
+      const name = match[1].toLowerCase();
+      const found = this.members().find(m =>
+        `${m.firstName} ${m.lastName}`.toLowerCase().includes(name)
+      );
+      if (found) ids.add(found.id);
+    }
+    return [...ids];
   });
 
   filteredRecords = computed(() => {
     const q = this.search().trim().toLowerCase();
-    const mentionId = this.mentionMemberId();
+    const mentionIds = this.mentionMemberIds();
     const records = this.records();
-    if (mentionId) {
-      return records.filter(r => r.teamMemberId === mentionId);
+    if (mentionIds.length > 0) {
+      return records.filter(r => mentionIds.includes(r.teamMemberId));
     }
     if (!q) return records;
     return records.filter(r => {
@@ -517,9 +519,9 @@ export class LeaveOverviewComponent implements OnInit {
   groups = computed<MemberLeaveGroup[]>(() => {
     const map = new Map<string, MemberLeaveGroup>();
     const q = this.search().trim().toLowerCase();
-    const mentionId = this.mentionMemberId();
-    const records = mentionId
-      ? this.records().filter(r => r.teamMemberId === mentionId)
+    const mentionIds = this.mentionMemberIds();
+    const records = mentionIds.length > 0
+      ? this.records().filter(r => mentionIds.includes(r.teamMemberId))
       : q
         ? this.records().filter(r => {
             const member = this.members().find(m => m.id === r.teamMemberId);
