@@ -625,6 +625,8 @@ export class KPickerDialogComponent implements OnInit, AfterViewInit {
 
   // ── Selection ──
   protected toggleMember(member: TeamMember): void {
+    // Clear any pending debounce timer so a stale query doesn't overwrite reset
+    if (this.debounceTimer) clearTimeout(this.debounceTimer);
     const mode = this.data?.mode ?? 'multi';
     const current = this.selectedMembers();
     const isSelected = this.selectedIds().has(member.id);
