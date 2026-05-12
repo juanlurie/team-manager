@@ -18,7 +18,7 @@ import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/c
 import { IconButtonComponent } from '../../shared/components/icon-btn/icon-btn.component';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { DiscussionPointsEditDialogComponent } from './discussion-points-edit-dialog/discussion-points-edit-dialog.component';
-import { FilterBarComponent, FilterGroup, stripMentions } from '../../shared/components/filter-bar/filter-bar.component';
+import { FilterBarComponent, FilterGroup, stripMentions, extractMentionNames } from '../../shared/components/filter-bar/filter-bar.component';
 import { GlobalFilterService } from '../../core/services/global-filter.service';
 
 const STATUS_ORDER = ['Open', 'InProgress', 'Resolved', 'Deferred'] as const;
@@ -248,7 +248,9 @@ export class DiscussionPointsComponent implements OnInit {
   filtered = computed(() => {
     const statuses  = this.filterStatuses();
     const priorities = this.filterPriorities();
-    const q = stripMentions(this.search()).toLowerCase();
+    const raw = this.search();
+    const mentions = extractMentionNames(raw);
+    const q = stripMentions(raw).toLowerCase();
     let list = this.items().slice().sort((a, b) => {
       const pA = PRIORITY_ORDER.indexOf(a.priority as any);
       const pB = PRIORITY_ORDER.indexOf(b.priority as any);
@@ -259,11 +261,15 @@ export class DiscussionPointsComponent implements OnInit {
     });
     if (statuses.length > 0)   list = list.filter(d => statuses.includes(d.status));
     if (priorities.length > 0) list = list.filter(d => priorities.includes(d.priority));
-    if (q) list = list.filter(d =>
-      d.title.toLowerCase().includes(q) ||
-      (d.notes ?? '').toLowerCase().includes(q) ||
-      (d.assigneeName ?? '').toLowerCase().includes(q)
-    );
+    if (mentions.length > 0) {
+      list = list.filter(d => mentions.some(n => (d.assigneeName ?? '').toLowerCase().includes(n)));
+    } else if (q) {
+      list = list.filter(d =>
+        d.title.toLowerCase().includes(q) ||
+        (d.notes ?? '').toLowerCase().includes(q) ||
+        (d.assigneeName ?? '').toLowerCase().includes(q)
+      );
+    }
     return list;
   });
 

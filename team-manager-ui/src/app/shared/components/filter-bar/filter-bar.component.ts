@@ -19,6 +19,11 @@ export function stripMentions(text: string): string {
   return text.replace(/@[\w'-]+(?:\s[\w'-]+)*/g, '').trim();
 }
 
+/** Extract lowercased names from @mention tokens in a search string */
+export function extractMentionNames(text: string): string[] {
+  return [...text.matchAll(/@([\w'-]+(?:\s[\w'-]+)*)/g)].map(m => m[1].toLowerCase());
+}
+
 @Component({
   selector: 'app-filter-bar',
   standalone: true,

@@ -33,7 +33,7 @@ import { SquadFilterComponent } from '../../../shared/components/squad-filter/sq
 import { SearchableSelectComponent } from '../../../shared/components/searchable-select/searchable-select.component';
 import { SearchInputComponent } from '../../../shared/components/search-input/search-input.component';
 import { SprintSettingsDialogComponent } from '../sprint-settings-dialog/sprint-settings-dialog.component';
-import { FilterBarComponent, FilterGroup, stripMentions } from '../../../shared/components/filter-bar/filter-bar.component';
+import { FilterBarComponent, FilterGroup, stripMentions, extractMentionNames } from '../../../shared/components/filter-bar/filter-bar.component';
 import { GlobalFilterService } from '../../../core/services/global-filter.service';
 import { PI } from '../../../core/models/sprint.model';
 import { Router } from '@angular/router';
@@ -334,9 +334,13 @@ export class SprintDetailComponent implements OnInit {
   ];
 
   get filteredMembers() {
-    const q = stripMentions(this.memberSearch()).toLowerCase();
+    const raw = this.memberSearch();
+    const mentions = extractMentionNames(raw);
+    const q = stripMentions(raw).toLowerCase();
     let filtered = this.dashboard()?.members ?? [];
-    if (q) {
+    if (mentions.length > 0) {
+      filtered = filtered.filter(m => mentions.some(n => m.fullName.toLowerCase().includes(n)));
+    } else if (q) {
       filtered = filtered.filter(m => m.fullName.toLowerCase().includes(q));
     }
     const squads = this.squadFilters();
