@@ -25,7 +25,6 @@ import { LeaveImportDialogComponent } from '../leave-import-dialog/leave-import-
 import { ConfirmDialogComponent } from '../../../shared/components/confirm-dialog/confirm-dialog.component';
 import { IconButtonComponent } from '../../../shared/components/icon-btn/icon-btn.component';
 import { FilterBarComponent, FilterGroup } from '../../../shared/components/filter-bar/filter-bar.component';
-import { GlobalFilterService } from '../../../core/services/global-filter.service';
 
 interface MemberLeaveGroup {
   teamMemberId: string;
@@ -364,44 +363,17 @@ export class LeaveOverviewComponent implements OnInit {
   private dialog = inject(MatDialog);
   private globalFilterSvc = inject(GlobalFilterService);
 
-  constructor() {
-    effect(() => {
-      const globalFilters = this.globalFilterSvc.filters();
-      untracked(() => {
-        let changed = false;
-
-        if (globalFilters.squadId !== null && globalFilters.squadId !== this.selectedSquadId) {
-          this.selectedSquadId = globalFilters.squadId;
-          changed = true;
-        }
-        if (globalFilters.leadId !== null && globalFilters.leadId !== this.selectedLeadId) {
-          this.selectedLeadId = globalFilters.leadId;
-          changed = true;
-        }
-
-        // Guard: only call load() if members data is ready (populated in ngOnInit)
-        if (changed && this.members().length > 0) {
-          this.load();
-        }
-      });
-    });
-  }
-
-
   selectedSprintId: string | null = null;
   selectedLeadId: string | null = null;
   selectedSquadId: string | null = null;
   selectedCraft: string | null = null;
+
   constructor() {
-    // Member names from k-picker → write directly into the search bar.
-    // effect() is used (not toObservable+skip) to avoid the race where skip(1)
-    // can swallow the update if the initial async tick hasn't fired yet.
     effect(() => {
       const hint = this.globalFilterSvc.searchHint();
       untracked(() => this.search.set(hint));
     });
 
-    // Squad/lead filter from k-picker → reload from API (skip initial value; ngOnInit handles first load)
     toObservable(this.globalFilterSvc.filters)
       .pipe(skip(1))
       .subscribe(({ squadId }) => {
