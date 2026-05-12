@@ -118,9 +118,9 @@ export class FilterDropdownComponent {
 
   protected displayLabel = (): string => {
     const sid = this.selectedId();
-    if (sid === null) return this.label() + ' ▾';
+    if (sid === null) return this.label();
     const opt = this.options().find(o => o.id === sid);
-    return (opt?.label || this.label()) + ' ▾';
+    return opt?.label || this.label();
   };
 
   toggleOpen(): void {

@@ -491,7 +491,7 @@ export class KPickerDialogComponent implements OnInit, AfterViewInit {
 
   protected helperText = (): string => {
     const modKey = navigator.platform.includes('Mac') ? '⌘K' : 'Ctrl+K';
-    return `${modKey} Press ${modKey} to open the picker · ↑↓ to navigate · ⏎ to add`;
+    return `${modKey} · ↑↓ to navigate · ⏎ to add · Esc to close`;
   };
 
   // ── Debounce ──
@@ -561,11 +561,13 @@ export class KPickerDialogComponent implements OnInit, AfterViewInit {
 
     if (event.key === 'ArrowDown') {
       event.preventDefault();
+      event.stopPropagation();
       if (total > 0) {
         this.activeIndex.update(i => (i + 1) % total);
       }
     } else if (event.key === 'ArrowUp') {
       event.preventDefault();
+      event.stopPropagation();
       if (total > 0) {
         this.activeIndex.update(i => (i <= 0 ? total - 1 : i - 1));
       }
