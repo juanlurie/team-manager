@@ -1,0 +1,130 @@
+    <div class="filter-bar">
+      <div style="flex:1;min-width:0;display:flex;flex-direction:column">
+        <div style="position:relative">
+          <input class="fb-search" type="text"
+                 [placeholder]="searchPlaceholder()"
+                 [value]="search()"
+                 (input)="onSearchInput($any($event.target).value, $event)"
+                 (keydown)="onSearchKeydown($event)" />
+          @if (mentionActive() && filteredMentions().length > 0) {
+            <div style="position:absolute;top:100%;left:0;right:0;margin-top:4px;background:#1e2a3a;border:1px solid rgba(255,255,255,0.12);border-radius:8px;overflow:hidden;z-index:100;box-shadow:0 4px 16px rgba(0,0,0,0.4)">
+              @for (item of filteredMentions(); track item.id; let i = $index) {
+                <div (mousedown)="insertMention(item)"
+                     [style.background]="i === mentionSelectedIndex ? 'rgba(100,181,246,0.15)' : 'transparent'"
+                     style="padding:6px 12px;cursor:pointer;font-size:0.78rem;display:flex;align-items:center;gap:8px"
+                     (mouseenter)="mentionSelectedIndex = i">
+                  <span style="color:#64b5f6;font-weight:500">&#64;</span>
+                  <span>{{ item.label }}</span>
+                </div>
+              }
+            </div>
+          }
+        </div>
+        @if (mentionHint() && !mentionActive() && !search()) {
+          <div class="fb-mention-hint" aria-hidden="true">{{ mentionHint() }}</div>
+        }
+        @if (activeMentions().length > 0) {
+          <div style="display:flex;flex-wrap:wrap;gap:4px;padding:0 10px 8px">
+            @for (m of activeMentions(); track m.id) {
+              <span class="fb-mention-chip">
+                <span>&#64;{{ m.label }}</span>
+                <button class="fb-chip-remove" (mousedown)="removeMention(m); $event.preventDefault()">
+                  <mat-icon>close</mat-icon>
+                </button>
+              </span>
+            }
+          </div>
+        }
+      </div>
+
+      <div class="fb-divider"></div>
+
+      <div class="fb-desktop">
+        @for (group of groups(); track group.key) {
+          @if (group.options.length > 0) {
+            <div class="fb-dd" [matMenuTriggerFor]="menu">
+              <span class="fb-dd-label">{{ group.label }}</span>
+              <span class="fb-dd-value">{{ groupLabel(group.key) }}</span>
+              <mat-icon class="fb-dd-arrow">expand_more</mat-icon>
+            </div>
+            <mat-menu #menu="matMenu" panelClass="fb-menu-panel" xPosition="before">
+              <div class="fb-menu-content" (click)="$event.stopPropagation()" (mousedown)="$event.stopPropagation()">
+                <input class="fb-menu-search" type="text" placeholder="Search…"
+                       [value]="ddSearch()[group.key] ?? ''"
+                       (input)="setDdSearch(group.key, $any($event.target).value)"
+                       (click)="$event.stopPropagation()" (mousedown)="$event.stopPropagation()" />
+                <div class="fb-menu-list">
+                  @for (opt of filteredOptions(group.key); track opt.id) {
+                    <label class="fb-menu-item" (click)="$event.stopPropagation()" (mousedown)="$event.stopPropagation()">
+                      <input type="checkbox" [checked]="isSelected(group.key, opt.id)"
+                             (change)="$event.stopPropagation(); toggleMulti(group.key, opt.id); emitApply()" />
+                      <span>{{ opt.label }}</span>
+                    </label>
+                  }
+                </div>
+                @if (selectedFor(group.key).length > 0) {
+                  <div class="fb-menu-footer">
+                    <button (click)="$event.stopPropagation(); clearFilter(group.key)"><mat-icon>close</mat-icon> Clear</button>
+                  </div>
+                }
+              </div>
+            </mat-menu>
+          }
+        }
+      </div>
+
+      @if (hasGroups()) {
+      <button class="fb-filters-btn" (click)="openSheet()">
+        <mat-icon>filter_list</mat-icon>
+        <span>Filters</span>
+        @if (totalCount() > 0) {
+          <span class="fb-badge">{{ totalCount() }}</span>
+        }
+      </button>
+      }
+    </div>
+
+    @if (sheetOpen()) {
+      <div class="fb-overlay" (click)="sheetOpen.set(false)"></div>
+      <div class="fb-sheet" (click)="$event.stopPropagation()" (mousedown)="$event.stopPropagation()">
+        <div class="fb-sheet-header">
+          <h3>Filters</h3>
+          <button class="fb-sheet-close" (click)="$event.stopPropagation(); sheetOpen.set(false)"><mat-icon>close</mat-icon></button>
+        </div>
+        <div class="fb-sheet-tabs" (click)="$event.stopPropagation()" (mousedown)="$event.stopPropagation()">
+          @for (group of groups(); track group.key) {
+            @if (group.options.length > 0) {
+              <button class="fb-sheet-tab" [class.active]="sheetTab() === group.key"
+                      (click)="$event.stopPropagation(); sheetTab.set(group.key)" (mousedown)="$event.stopPropagation()">
+                <mat-icon>{{ group.icon }}</mat-icon> {{ group.label }}
+                @if (sheetTabCount(group.key) > 0) {
+                  <span class="fb-tab-badge">{{ sheetTabCount(group.key) }}</span>
+                }
+              </button>
+            }
+          }
+        </div>
+        <div class="fb-sheet-body" (click)="$event.stopPropagation()" (mousedown)="$event.stopPropagation()">
+          @for (group of groups(); track group.key) {
+            @if (group.options.length > 0 && sheetTab() === group.key) {
+              <input class="fb-sheet-search" type="text" placeholder="Search…"
+                     [value]="sheetSearch()[group.key] ?? ''"
+                     (input)="setSheetSearch(group.key, $any($event.target).value)" (click)="$event.stopPropagation()" />
+              <div class="fb-checklist" (click)="$event.stopPropagation()" (mousedown)="$event.stopPropagation()">
+                @for (opt of sheetFilteredOptions(group.key); track opt.id) {
+                  <div class="fb-check-item">
+                    <input type="checkbox" [checked]="isSelected(group.key, opt.id)"
+                           (change)="toggleMulti(group.key, opt.id)" />
+                    <span>{{ opt.label }}</span>
+                  </div>
+                }
+              </div>
+            }
+          }
+        </div>
+        <div class="fb-sheet-footer" (click)="$event.stopPropagation()" (mousedown)="$event.stopPropagation()">
+          <button class="fb-sheet-clear" (click)="clearAll()">Clear all</button>
+          <button class="fb-sheet-apply" (click)="emitApply()">Apply</button>
+        </div>
+      </div>
+    }

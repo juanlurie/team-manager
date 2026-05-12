@@ -17,7 +17,7 @@ export interface TaskFormDialogData {
 }
 
 @Component({
-  selector: 'app-task-form-dialog',
+  selector: 'app-member-task-form-dialog',
   standalone: true,
   imports: [CommonModule, FormsModule, MatDialogModule, MatButtonModule, DatePickerComponent],
   template: `
@@ -71,8 +71,8 @@ export interface TaskFormDialogData {
     .meta-value { font-size: 0.82rem; opacity: 0.6; }
   `]
 })
-export class TaskFormDialogComponent {
-  dialogRef = inject(MatDialogRef<TaskFormDialogComponent>);
+export class MemberTaskFormDialogComponent {
+  dialogRef = inject(MatDialogRef<MemberTaskFormDialogComponent>);
   data: TaskFormDialogData = inject(MAT_DIALOG_DATA);
 
   title = this.data.task?.title ?? '';

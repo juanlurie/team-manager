@@ -1,0 +1,206 @@
+    <div class="rf-shell">
+
+      <!-- Top bar -->
+      <div class="rf-topbar">
+        <mat-icon class="rf-bolt">bolt</mat-icon>
+        <span class="rf-title">Rapid Fire</span>
+        <span style="flex:1"></span>
+        <span class="rf-counter">{{ index() + 1 }} / {{ queue().length }}</span>
+        <app-icon-btn icon="close" size="sm" tooltip="Done" (btnClick)="closeDialog()" />
+      </div>
+
+      <!-- Progress bar -->
+      <div class="rf-progbar">
+        <div class="rf-progfill" [style.width.%]="((index() + 1) / queue().length) * 100"></div>
+      </div>
+
+      <!-- Two-column body -->
+      <div class="rf-body">
+
+        <!-- ── Left: current work ── -->
+        <div class="rf-left">
+          <div class="rf-panel-label">What they're working on</div>
+
+          @if (currentWorkItems().length === 0) {
+            <div class="rf-empty">No items yet — add one on the right</div>
+          }
+
+          <div class="rf-work-list">
+            @for (item of currentWorkItems(); track item.id) {
+              <div class="rf-wi-card" [class.rf-wi-saving]="getState(item).saving">
+                @if (item.featureTitle) {
+                  <div class="rf-wi-feature">{{ item.featureTitle }}</div>
+                }
+                <div class="rf-wi-controls">
+                  <select class="rf-sel rf-status-sel"
+                          [ngModel]="getState(item).status"
+                          (ngModelChange)="onStatusChange(item, $event)"
+                          [style.color]="statusColor(getState(item).status)">
+                    <option value="Planned">Planned</option>
+                    <option value="InProgress">In Progress</option>
+                    <option value="Blocked">Blocked</option>
+                    <option value="Completed">Done</option>
+                    <option value="ReadyForRelease">Ready</option>
+                    <option value="Released">Released</option>
+                  </select>
+                  <select class="rf-sel rf-type-sel"
+                          [ngModel]="getState(item).type"
+                          (ngModelChange)="onTypeChange(item, $event)">
+                    <option value="Analysis">Analysis</option>
+                    <option value="Design">Design</option>
+                    <option value="Dev">Dev</option>
+                    <option value="QA">QA</option>
+                    <option value="Bug">Bug</option>
+                    <option value="Task">Task</option>
+                    <option value="Release">Release</option>
+                  </select>
+                </div>
+                <div class="rf-wi-title-row">
+                  <input class="rf-wi-input"
+                         [ngModel]="getState(item).title"
+                         (ngModelChange)="getState(item).title = $event"
+                         (blur)="saveTitle(item)"
+                         (keydown.enter)="saveTitle(item)">
+                  <button class="rf-icon-btn" matTooltip="Carry over to another sprint"
+                          (click)="carryOver(item)">
+                    <mat-icon>move_down</mat-icon>
+                  </button>
+                  @if (getState(item).saving) {
+                    <mat-icon class="rf-saving-spin">sync</mat-icon>
+                  }
+                </div>
+                <app-comments entityType="WorkItem" [entityId]="item.id" [initialCount]="item.commentCount" />
+              </div>
+            }
+          </div>
+        </div>
+
+        <!-- ── Divider ── -->
+        <div class="rf-col-divider"></div>
+
+        <!-- ── Right: member + form ── -->
+        <div class="rf-right">
+
+          <!-- Member display -->
+          <div class="rf-member">
+            <div class="rf-avatar">{{ initials(current().fullName) }}</div>
+            <div>
+              <div class="rf-member-name">{{ current().fullName }}</div>
+              <div style="display:flex;align-items:center;gap:8px;margin-top:2px">
+                @if (current().crafts?.length) {
+                  <div class="rf-crafts">{{ current().crafts.map(craftLabel).join(' · ') }}</div>
+                }
+                @if (isDeferred()) {
+                  <div class="rf-deferred-pill">↩ coming back</div>
+                }
+              </div>
+            </div>
+          </div>
+
+          <mat-divider></mat-divider>
+
+          <!-- Add task form -->
+          <div class="rf-form">
+            <div class="rf-section-label">Add task</div>
+
+            <mat-form-field appearance="outline" style="width:100%;margin-top:8px">
+              <mat-label>Feature <span style="opacity:0.5;font-size:0.85em">(optional)</span></mat-label>
+              <mat-select [(ngModel)]="selectedFeatureId">
+                <mat-option [value]="null">— No feature —</mat-option>
+                @for (f of activeFeatures(); track f.id) {
+                  <mat-option [value]="f.id">
+                    {{ f.externalTicketRef ? f.externalTicketRef + ' · ' : '' }}{{ f.title }}
+                  </mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
+
+            @if (showInlineFeature()) {
+              <div style="display:flex;gap:8px;align-items:center;margin-top:-8px;margin-bottom:4px">
+                <mat-form-field appearance="outline" style="flex:1">
+                  <mat-label>New feature title</mat-label>
+                  <input #newFeatureInput matInput [(ngModel)]="newFeatureTitle"
+                         (keydown.enter)="saveNewFeature()"
+                         (keydown.escape)="showInlineFeature.set(false)">
+                </mat-form-field>
+                <app-icon-btn icon="check" size="sm" tooltip="Save" color="primary" [disabled]="!newFeatureTitle.trim() || newFeatureSaving()" (btnClick)="saveNewFeature()" />
+                <app-icon-btn icon="close" size="sm" tooltip="Cancel" (btnClick)="showInlineFeature.set(false)" />
+              </div>
+            } @else {
+              <button mat-button style="font-size:0.75rem;opacity:0.55;margin-top:-12px;margin-bottom:4px"
+                      (click)="openInlineFeature()">
+                <mat-icon style="font-size:16px;height:16px;width:16px;margin-right:4px">add</mat-icon>
+                Add feature
+              </button>
+            }
+
+            <mat-form-field appearance="outline" style="width:100%">
+              <mat-label>Task title</mat-label>
+              <input #titleInput matInput [(ngModel)]="taskTitle"
+                     placeholder="What needs to be done?"
+                     (keydown.enter)="save()">
+            </mat-form-field>
+
+            <div style="display:flex;gap:12px">
+              <mat-form-field appearance="outline" style="flex:1">
+                <mat-label>Type</mat-label>
+                <mat-select [(ngModel)]="taskType">
+                  <mat-option value="Analysis">Analysis</mat-option>
+                  <mat-option value="Design">Design</mat-option>
+                  <mat-option value="Dev">Dev</mat-option>
+                  <mat-option value="QA">QA</mat-option>
+                  <mat-option value="Bug">Bug</mat-option>
+                  <mat-option value="Task">Task</mat-option>
+                  <mat-option value="Release">Release</mat-option>
+                </mat-select>
+              </mat-form-field>
+              <mat-form-field appearance="outline" style="flex:1">
+                <mat-label>Status</mat-label>
+                <mat-select [(ngModel)]="taskStatus">
+                  <mat-option value="Planned">Planned</mat-option>
+                  <mat-option value="InProgress">In Progress</mat-option>
+                  <mat-option value="Completed">Completed</mat-option>
+                </mat-select>
+              </mat-form-field>
+            </div>
+          </div>
+
+          <!-- Action row -->
+          <div class="rf-actions">
+            <button class="rf-act-btn" (click)="back()" [disabled]="saving() || index() === 0"
+                    title="Previous person">
+              <mat-icon>arrow_back</mat-icon>
+            </button>
+            <button class="rf-act-btn" (click)="skip()" [disabled]="saving()"
+                    title="Skip">
+              <mat-icon>skip_next</mat-icon>
+            </button>
+            <button class="rf-act-btn" (click)="later()" [disabled]="saving() || isDeferred()"
+                    title="Come back to this person at the end">
+              <mat-icon>update</mat-icon>
+            </button>
+            <span style="flex:1"></span>
+            <button mat-raised-button color="accent" (click)="save()"
+                    [disabled]="!taskTitle.trim() || saving()"
+                    style="min-width:130px">
+              <mat-icon>add_task</mat-icon>
+              {{ saving() ? 'Saving…' : 'Add & Next' }}
+            </button>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- All done overlay -->
+      @if (done()) {
+        <div class="rf-done-overlay">
+          <div style="font-size:2.5rem">✅</div>
+          <div style="font-size:1rem;font-weight:600">All {{ queue().length }} members covered!</div>
+          <div style="display:flex;gap:12px">
+            <button mat-stroked-button (click)="restart()">Go again</button>
+            <button mat-raised-button color="primary" mat-dialog-close>Done</button>
+          </div>
+        </div>
+      }
+
+    </div>

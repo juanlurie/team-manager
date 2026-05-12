@@ -1,0 +1,169 @@
+    <div class="ts-wrap">
+      <div class="m-wk-nav">
+        <button class="ts-sb-btn" (click)="prevWeek()"><svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 2L4 7l5 5"/></svg></button>
+        <span>{{ weekRange() }}</span>
+        <button class="ts-sb-btn" (click)="nextWeek()"><svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 2l5 5-5 5"/></svg></button>
+      </div>
+      <div class="m-day-strip">
+        @for (d of week(); track d.getTime()) {
+          <button class="m-day-btn" [class.sel]="isSel(d)" (click)="selectDay(d)">
+            <span class="m-dname">{{ dn(d) }}</span>
+            <span class="m-dnum" [style.background]="isToday(d)?'#64b5f6':'none'" [style.color]="isToday(d)?'#0f1923':''">{{ d.getDate() }}</span>
+            <span class="m-dhrs">{{ dayHrsLabel(d) || '·' }}</span>
+          </button>
+        }
+      </div>
+      <div class="ts-main">
+        <aside class="ts-sidebar">
+          <div class="ts-sb-hdr">
+            <button class="ts-sb-btn" (click)="prevWeek()"><svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 2L4 7l5 5"/></svg></button>
+            <span>{{ monthYear() }}</span>
+            <button class="ts-sb-btn" (click)="nextWeek()"><svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 2l5 5-5 5"/></svg></button>
+          </div>
+          <div class="ts-wk-lbl">{{ weekRange() }}</div>
+          @for (d of week(); track d.getTime()) {
+            <div class="ts-day-row" [class.sel]="isSel(d)" (click)="selectDay(d)">
+              <span class="ts-dname">{{ dn(d) }}</span>
+              <span class="ts-dnum" [style.background]="isToday(d)?'#64b5f6':'none'" [style.color]="isToday(d)?'#0f1923':''">{{ d.getDate() }}</span>
+              <div class="ts-dbar-w" [matTooltip]="getDayStatus(d).error ?? ''" [matTooltipDisabled]="!getDayStatus(d).error"><div class="ts-dbar-t"><div class="ts-dbar-f" [style.width]="dayBarPct(d)+'%'" [style.background]="getDayStatus(d).color"></div></div></div>
+              @if (dayHrsLabel(d)) { <span class="ts-dhrs">{{ dayHrsLabel(d) }}</span> }
+            </div>
+          }
+          <div class="ts-tot">
+            <div class="ts-tot-lbl">This month</div>
+            <div class="ts-tot-val">{{ monthTotal() }}</div>
+            <div class="ts-tot-sub">{{ monthDaysLogged() }} day{{ monthDaysLogged()!==1?'s':'' }} logged</div>
+          </div>
+        </aside>
+        <section class="ts-detail">
+          <div class="ts-det-hdr">
+            <div style="display:flex;align-items:center;gap:9px">
+              <h2 class="ts-date-lbl">{{ selDateLabel() }}</h2>
+              @if (dayTotal()>0) { <span class="ts-day-badge">{{ fmtDur(dayTotal()) }}</span> }
+            </div>
+            <div class="ts-hdr-btns">
+              <button class="ts-cfg-btn" title="Timesheet settings" (click)="openConfig()">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+              </button>
+              <button class="ts-exp-btn" (click)="exportMonth()">
+                <svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M7 2v7M4 6l3 3 3-3M2 11h10"/></svg>
+                Export Excel
+              </button>
+            </div>
+          </div>
+          @if (recents().length>0) {
+            <div class="m-recents">
+              <div class="m-rec-lbl">Quick log</div>
+              <div class="m-rec-grid">
+                @for (r of recents().slice(0,4); track r.project+r.category) {
+                  <div class="m-rec-card" [style.border-left-color]="r.combo?.color??'rgba(255,255,255,0.3)'" (click)="logRecent(r)">
+                    <div style="display:flex;justify-content:space-between;margin-bottom:2px">
+                      <span style="font-size:10px;font-weight:700;text-transform:uppercase" [style.color]="r.combo?.color??'rgba(255,255,255,0.5)'">{{ r.combo?.label??r.category.slice(0,8) }}</span>
+                      <span style="font-size:10px;color:rgba(255,255,255,0.3)">{{ fmtDur(r.durationMins) }}</span>
+                    </div>
+                    <div style="font-size:12px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ r.category }}</div>
+                    <div style="font-size:11px;color:rgba(255,255,255,0.3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ r.project }}</div>
+                  </div>
+                }
+              </div>
+            </div>
+          }
+          <div class="ts-add-panel">
+            <div class="ts-ap-r1">
+              <div class="ts-ap-combos">
+                @for (c of activeQuickActions(); track c.label) {
+                  <button class="ts-chip" [class.sel]="formProject()===c.project&&formCategory()===c.category" (click)="applyCombo(c)">{{ c.label }}</button>
+                }
+              </div>
+              <div class="ts-ap-durs">
+                <div class="ts-dur-row">
+                  @for (d of durChips; track d[0]) {
+                    <button class="ts-dur-chip" [class.sel]="formDurMins()===d[1]" (click)="formDurMins.set(d[1])">{{ d[0] }}</button>
+                  }
+                </div>
+                <div class="ts-dur-row">
+                  <button class="ts-dur-chip" (click)="adjustDuration(-60)">-1h</button>
+                  <button class="ts-dur-chip" (click)="adjustDuration(-15)">-15m</button>
+                  <span style="font-size:14px;font-weight:700;color:rgba(255,255,255,0.8);min-width:60px;text-align:center;margin:0 6px;">{{ fmtDur(formDurMins()) }}</span>
+                  <button class="ts-dur-chip" (click)="adjustDuration(15)">+15m</button>
+                  <button class="ts-dur-chip" (click)="adjustDuration(60)">+1h</button>
+                </div>
+              </div>
+            </div>
+            <div class="ts-ap-r2">
+              <div style="display:flex;flex-direction:column;gap:3px;">
+                <input class="ts-input" placeholder="Search project…" [ngModel]="projectSearch()" (ngModelChange)="projectSearch.set($event)" style="width:180px;padding:4px 8px;font-size:11px;flex-shrink:0;" />
+                <select class="ts-sel ts-sel-proj" [ngModel]="formProject()" (ngModelChange)="setFormProject($event)">
+                  <option value="">Project…</option>
+                  @for (p of filteredProjects(); track p) { <option [value]="p">{{ p }}</option> }
+                </select>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:3px;flex:1.2;min-width:140px;">
+                <input class="ts-input" placeholder="Search category…" [ngModel]="categorySearch()" (ngModelChange)="categorySearch.set($event)" style="padding:4px 8px;font-size:11px;" [disabled]="!formProject()" />
+                <select class="ts-sel ts-sel-cat" [ngModel]="formCategory()" (ngModelChange)="formCategory.set($event);categorySearch.set('')" [disabled]="!formProject()">
+                  <option value="">Category…</option>
+                  @for (c of filteredCategories(); track c) { <option [value]="c">{{ c }}</option> }
+                </select>
+              </div>
+              <input class="ts-input" placeholder="Note (required)" [ngModel]="formNote()" (ngModelChange)="formNote.set($event)" (keydown.enter)="canAdd()&&addEntry()" />
+              <button class="ts-add-btn" [disabled]="!canAdd()" (click)="addEntry()">Add Entry</button>
+            </div>
+          </div>
+          <div class="ts-entries">
+            @if (loading()) {
+              <div style="display:flex;justify-content:center;padding:40px;color:rgba(255,255,255,0.28)">Loading…</div>
+            } @else if (dayEntries().length===0) {
+              <div class="ts-empty">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" opacity="0.4"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
+                <span>No entries yet</span>
+                <span style="font-size:12px">Use the form above to log time</span>
+              </div>
+            } @else {
+              @for (e of dayEntries(); track e.id) {
+                <app-timesheet-entry-card [entry]="e" (saved)="handleSave($event)" (deleted)="deleteEntry($event)" />
+              }
+            }
+          </div>
+          <div class="m-add-bar">
+            @if (!mobileAddOpen()) {
+              <div class="m-add-trigger" (click)="mobileAddOpen.set(true)">
+                <span class="m-add-icon">+</span>
+                <span style="font-size:14px;color:rgba(255,255,255,0.4);flex:1">Log time…</span>
+                <span class="m-add-day">{{ selDateShort() }}</span>
+              </div>
+            } @else {
+              <div class="m-add-form">
+                <div style="display:flex;justify-content:space-between;padding-top:12px">
+                  <span style="font-size:14px;font-weight:600">Log time</span>
+                  <button (click)="mobileAddOpen.set(false)" style="background:none;border:none;color:rgba(255,255,255,0.4);cursor:pointer;font-size:20px;line-height:1">×</button>
+                </div>
+                <div><div class="m-form-lbl">Activity</div><div class="ts-chips">@for (c of activeQuickActions(); track c.label) { <button class="ts-chip" [class.sel]="formProject()===c.project&&formCategory()===c.category" (click)="applyCombo(c)">{{ c.label }}</button> }</div></div>
+                <div>
+                  <div class="m-form-lbl">Duration</div>
+                  <div class="ts-chips" style="display:flex; flex-direction:column; gap:8px;">
+                    <div style="display:flex; justify-content:center; gap:4px; flex-wrap:wrap;">
+                      @for (d of durChips; track d[0]) {
+                        <button class="ts-dur-chip" [class.sel]="formDurMins()===d[1]" (click)="formDurMins.set(d[1])">{{ d[0] }}</button>
+                      }
+                    </div>
+                    <div style="display:flex; align-items:center; justify-content:center; gap:4px;">
+                      <button class="ts-dur-chip" (click)="adjustDuration(-60)">-1h</button>
+                      <button class="ts-dur-chip" (click)="adjustDuration(-15)">-15m</button>
+                      <span style="font-size:16px; color:rgba(255,255,255,0.9); font-weight:700; margin:0 12px; min-width:50px; text-align:center;">{{ fmtDur(formDurMins()) }}</span>
+                      <button class="ts-dur-chip" (click)="adjustDuration(15)">+15m</button>
+                      <button class="ts-dur-chip" (click)="adjustDuration(60)">+1h</button>
+                    </div>
+                  </div>
+                </div>
+                <input class="ts-input" style="width:100%;padding:4px 8px;font-size:11px;margin-bottom:4px;" placeholder="Search project…" [ngModel]="projectSearch()" (ngModelChange)="projectSearch.set($event)" />
+                <select class="ts-sel" style="width:100%" [ngModel]="formProject()" (ngModelChange)="setFormProject($event)"><option value="">Select project…</option>@for (p of filteredProjects(); track p) { <option [value]="p">{{ p }}</option> }</select>
+                <input class="ts-input" style="width:100%;padding:4px 8px;font-size:11px;margin-bottom:4px;" placeholder="Search category…" [ngModel]="categorySearch()" (ngModelChange)="categorySearch.set($event)" [disabled]="!formProject()" />
+                <select class="ts-sel" style="width:100%" [ngModel]="formCategory()" (ngModelChange)="formCategory.set($event);categorySearch.set('')" [disabled]="!formProject()"><option value="">Select category…</option>@for (c of filteredCategories(); track c) { <option [value]="c">{{ c }}</option> }</select>
+                <input class="ts-input" style="width:100%" placeholder="Note (required)" [ngModel]="formNote()" (ngModelChange)="formNote.set($event)" />
+                <button class="m-add-btn" [disabled]="!canAdd()" (click)="addEntry();mobileAddOpen.set(false)">Add Entry</button>
+              </div>
+            }
+          </div>
+        </section>
+      </div>
+    </div>
