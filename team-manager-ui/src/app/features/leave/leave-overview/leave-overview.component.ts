@@ -178,7 +178,9 @@ export class LeaveOverviewComponent implements OnInit {
     const m = month.getMonth();
     const firstDay = new Date(year, m, 1);
     const lastDay = new Date(year, m + 1, 0);
-    const todayStr = new Date().toISOString().slice(0, 10);
+    const toLocalDateStr = (d: Date) =>
+      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const todayStr = toLocalDateStr(new Date());
 
     const startOffset = (firstDay.getDay() + 6) % 7;
     const cur = new Date(firstDay);
@@ -188,7 +190,7 @@ export class LeaveOverviewComponent implements OnInit {
     while (cur <= lastDay || allDays.length % 5 !== 0) {
       const dow = cur.getDay();
       if (dow !== 0 && dow !== 6) {
-        const dateStr = cur.toISOString().slice(0, 10);
+        const dateStr = toLocalDateStr(cur);
         allDays.push({ date: new Date(cur), dateStr, isCurrentMonth: cur.getMonth() === m, isToday: dateStr === todayStr });
       }
       cur.setDate(cur.getDate() + 1);
@@ -280,9 +282,6 @@ export class LeaveOverviewComponent implements OnInit {
     this.squadSvc.getAll().subscribe(s => this.squads.set(s.map(x => ({ id: x.id, name: x.name }))));
     this.sprintSvc.getSprints().subscribe(s => {
       this.sprints.set(s);
-      const today = new Date().toISOString().slice(0, 10);
-      const current = s.find(sp => sp.startDate <= today && sp.endDate >= today);
-      if (current) this.selectedSprintId = current.id;
       this.load();
     });
   }

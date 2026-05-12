@@ -402,6 +402,7 @@ export class AppComponent {
       panelClass: 'k-picker-panel',
       backdropClass: 'k-picker-backdrop',
       disableClose: true,
+      autoFocus: '.k-search-input',
       data: { preSelectedMembers: this.globalFilterSvc.selectedMembers(), mode: 'multi' } as KPickerData,
     });
     dialogRef.afterClosed().subscribe((result: KPickerResult | undefined) => {

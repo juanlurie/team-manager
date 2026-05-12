@@ -129,6 +129,7 @@ export class QuickOpenDialogComponent implements AfterViewInit, OnInit {
   ngOnInit(): void {
     this.teamMemberService.getAll({ isActive: true }).subscribe(members => {
       this.teamMembers.set(members);
+      setTimeout(() => this.searchInput?.nativeElement?.focus());
     });
   }
 

@@ -1,5 +1,5 @@
 import {
-  Component, inject, signal, computed, OnInit, AfterViewInit,
+  Component, inject, signal, computed, OnInit,
   ViewChild, ElementRef, HostListener
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
@@ -40,7 +40,7 @@ import { FilterDropdownComponent } from './filter-dropdown.component';
             <!-- Search input -->
             <input #searchInput class="k-search-input"
                    [placeholder]="searchPlaceholder()"
-                   [disabled]="isLoading() || !!error()"
+                   [disabled]="!!error()"
                    autocomplete="off" spellcheck="false"
                    (input)="onSearchInput($event)"
                    (keydown)="onSearchKeydown($event)" />
@@ -333,7 +333,7 @@ import { FilterDropdownComponent } from './filter-dropdown.component';
     }
   `]
 })
-export class KPickerDialogComponent implements OnInit, AfterViewInit {
+export class KPickerDialogComponent implements OnInit {
   // ── Injected dependencies ──
   private dialogRef = inject(MatDialogRef<KPickerDialogComponent>);
   private data: KPickerData = inject(MAT_DIALOG_DATA);
@@ -497,10 +497,6 @@ export class KPickerDialogComponent implements OnInit, AfterViewInit {
   // ── Lifecycle ──
   ngOnInit(): void {
     this.loadData();
-  }
-
-  ngAfterViewInit(): void {
-    setTimeout(() => this.searchInput?.nativeElement?.focus());
   }
 
   /** Fetch all data from services */
