@@ -65,16 +65,8 @@ import { FilterDropdownComponent } from './filter-dropdown.component';
           </div>
         } @else if (members().length === 0) {
           <div class="k-empty" role="status">No team members found</div>
-        } @else if (noResults()) {
-          <div class="k-empty" role="status">
-            @if (query()) {
-              No results for "{{ query() }}"
-            } @else {
-              No results
-            }
-          </div>
         } @else {
-          <!-- Filter bar (top) -->
+          <!-- Filter bar (top) — always visible when members exist -->
           <div class="k-filter-bar">
             <app-filter-dropdown label="Squad"
                                   [options]="squadFilterOptions()"
@@ -85,17 +77,30 @@ import { FilterDropdownComponent } from './filter-dropdown.component';
                                   [selectedId]="activeLeadFilter()"
                                   (selectionChange)="activeLeadFilter.set($event)" />
           </div>
-          <!-- Member sections -->
-          @for (section of filteredSections(); track section.label; let secIdx = $index) {
-            <div class="k-section-label">{{ section.label }}</div>
-            @for (item of section.items; track item.id; let idx = $index) {
-              <app-member-row [member]="item"
-                              [isActive]="globalActiveIndex() === computeGlobalIndex(secIdx, idx)"
-                              [isSelected]="selectedIds().has(item.id)"
-                              (select)="toggleMember($event)"
-                              (hover)="onRowHover(secIdx, idx)" />
+          <!-- Scrollable results area -->
+          <div class="k-popover-scroll">
+            @if (noResults()) {
+              <div class="k-empty" role="status">
+                @if (query()) {
+                  No results for "{{ query() }}"
+                } @else {
+                  No results
+                }
+              </div>
+            } @else {
+              <!-- Member sections -->
+              @for (section of filteredSections(); track section.label; let secIdx = $index) {
+                <div class="k-section-label">{{ section.label }}</div>
+                @for (item of section.items; track item.id; let idx = $index) {
+                  <app-member-row [member]="item"
+                                  [isActive]="globalActiveIndex() === computeGlobalIndex(secIdx, idx)"
+                                  [isSelected]="selectedIds().has(item.id)"
+                                  (select)="toggleMember($event)"
+                                  (hover)="onRowHover(secIdx, idx)" />
+                }
+              }
             }
-          }
+          </div>
         }
       </div>
     </div>
@@ -229,13 +234,21 @@ import { FilterDropdownComponent } from './filter-dropdown.component';
       padding: 6px;
       min-height: 80px;
       max-height: 360px;
-      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
       position: relative;
       z-index: 10;
     }
 
     .k-popover-no-results {
       min-height: 80px;
+    }
+
+    /* Scrollable results area inside the popover (avoids clipping filter dropdowns) */
+    .k-popover-scroll {
+      overflow-y: auto;
+      flex: 1;
+      min-height: 0;
     }
 
     /* ── Section labels ── */
