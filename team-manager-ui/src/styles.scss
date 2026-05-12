@@ -7,7 +7,7 @@ $theme: mat.define-theme((
     tertiary: mat.$blue-palette,
   ),
   typography: (
-    brand-family: 'Roboto, "Helvetica Neue", sans-serif',
+    brand-family: 'Geist, Roboto, "Helvetica Neue", sans-serif',
   ),
 ));
 
@@ -17,7 +17,10 @@ html {
 }
 
 html, body { height: 100%; margin: 0; }
-body { font-family: Roboto, "Helvetica Neue", sans-serif; background: #0f1117; color: #e0e0e0; }
+body { font-family: 'Geist', Roboto, "Helvetica Neue", sans-serif; background: #0f1117; color: #e0e0e0; }
+
+/* ── Geist font via Google Fonts ── */
+@import url('https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap');
 
 /* Let mat-sidenav-content scroll naturally */
 mat-sidenav-content {
@@ -73,5 +76,51 @@ mat-sidenav-content {
 }
 .danger-btn mat-icon {
   transition: opacity 0.15s ease;
+}
+
+/* ═══════════════════════════════════════════
+   K Picker — Global Dialog / Backdrop Styles
+   ═══════════════════════════════════════════ */
+
+/* Remove MatDialog default surface styling for K picker */
+.k-picker-panel .mat-mdc-dialog-container .mdc-dialog__surface {
+  background: transparent !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  overflow: visible !important;
+  border-radius: 16px !important;
+}
+
+.k-picker-panel .mat-mdc-dialog-container .mdc-dialog__content {
+  padding: 0 !important;
+}
+
+/* Semi-transparent backdrop with blur */
+.k-picker-backdrop {
+  background: rgba(0, 0, 0, 0.6) !important;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+/* Responsive: mobile full-screen */
+@media (max-width: 767px) {
+  .k-picker-panel {
+    max-width: 100vw !important;
+    width: 100vw !important;
+    height: 100vh !important;
+  }
+  .k-picker-panel .mat-mdc-dialog-container .mdc-dialog__surface {
+    border-radius: 0 !important;
+  }
+  .cdk-overlay-pane {
+    width: 100vw !important;
+    max-width: 100vw !important;
+    margin: 0 !important;
+  }
+}
+
+/* Geist font applied to k-picker content */
+.k-picker-panel, .k-picker-panel * {
+  font-family: 'Geist', -apple-system, system-ui, 'Segoe UI', sans-serif;
 }
 

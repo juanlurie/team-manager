@@ -6,6 +6,8 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatDialogModule, MatDialog } from '@angular/material/dialog';
 import { filter } from 'rxjs/operators';
 import { QuickOpenDialogComponent } from './core/components/quick-open-dialog/quick-open-dialog.component';
+import { KPickerData } from './core/components/k-picker/k-picker.types';
+import { TeamMember } from './core/models/team-member.model';
 
 interface NavItem {
   path: string;
@@ -360,6 +362,11 @@ export class AppComponent {
         event.stopPropagation();
         this.openQuickOpen();
       }
+      if ((event.ctrlKey || event.metaKey) && event.key === 'k') {
+        event.preventDefault();
+        event.stopPropagation();
+        this.openKPicker();
+      }
     }, true);
   }
 
@@ -378,6 +385,26 @@ export class AppComponent {
       width: 'auto',
       maxWidth: '90vw',
       panelClass: 'quick-open-panel',
+    });
+  }
+
+  private async openKPicker(): Promise<void> {
+    if (this.dialog.openDialogs.length > 0) return;
+    const { KPickerDialogComponent } = await import(
+      './core/components/k-picker/k-picker-dialog.component'
+    );
+    const dialogRef = this.dialog.open(KPickerDialogComponent, {
+      width: '852px',
+      maxWidth: '95vw',
+      panelClass: 'k-picker-panel',
+      backdropClass: 'k-picker-backdrop',
+      data: { preSelectedMembers: [], mode: 'multi' } as KPickerData,
+    });
+    dialogRef.afterClosed().subscribe((result: TeamMember[] | TeamMember | undefined) => {
+      if (result) {
+        // Calling component handles the result
+        console.log('K picker result:', result);
+      }
     });
   }
 }
