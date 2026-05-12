@@ -46,6 +46,9 @@ export function stripMentions(text: string): string {
             </div>
           }
         </div>
+        @if (mentionHint() && !mentionActive() && !search()) {
+          <div class="fb-mention-hint" aria-hidden="true">{{ mentionHint() }}</div>
+        }
         @if (activeMentions().length > 0) {
           <div style="display:flex;flex-wrap:wrap;gap:4px;padding:0 10px 8px">
             @for (m of activeMentions(); track m.id) {
@@ -179,6 +182,15 @@ export function stripMentions(text: string): string {
     }
     .fb-chip-remove:hover { background:rgba(100,181,246,0.25); color:#64b5f6; }
     .fb-chip-remove mat-icon { font-size:12px; width:12px; height:12px; line-height:12px; }
+    .fb-mention-hint {
+      font-size: 0.65rem;
+      opacity: 0.2;
+      padding: 0 14px 6px;
+      line-height: 1;
+      user-select: none;
+      transition: opacity 0.2s;
+    }
+    .fb-mention-hint:hover { opacity: 0.45; }
 
     .fb-divider {
       width:1px; height:24px; background:rgba(255,255,255,0.1);
@@ -326,6 +338,7 @@ export class FilterBarComponent implements OnInit {
 
   groups = input<FilterGroup[]>([]);
   searchPlaceholder = input('Search…');
+  mentionHint = input('Type @ to mention a team member');
   searchVal = input('');
   selectedValues = input<Record<string, string[]>>({});
 
