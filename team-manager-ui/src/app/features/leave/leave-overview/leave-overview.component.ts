@@ -1,4 +1,6 @@
-import { Component, OnInit, inject, signal, computed } from '@angular/core';
+import { Component, OnInit, inject, signal, computed, effect, untracked } from '@angular/core';
+import { toObservable } from '@angular/core/rxjs-interop';
+import { skip } from 'rxjs';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
@@ -14,6 +16,7 @@ import { LeaveService } from '../../../core/services/leave.service';
 import { SprintService } from '../../../core/services/sprint.service';
 import { TeamMemberService } from '../../../core/services/team-member.service';
 import { SquadService } from '../../../core/services/squad.service';
+import { GlobalFilterService } from '../../../core/services/global-filter.service';
 import { LeaveRecord } from '../../../core/models/leave-record.model';
 import { Sprint } from '../../../core/models/sprint.model';
 import { TeamMember } from '../../../core/models/team-member.model';
@@ -358,11 +361,30 @@ export class LeaveOverviewComponent implements OnInit {
   private memberSvc = inject(TeamMemberService);
   private squadSvc = inject(SquadService);
   private dialog = inject(MatDialog);
+  private globalFilterSvc = inject(GlobalFilterService);
 
   selectedSprintId: string | null = null;
   selectedLeadId: string | null = null;
   selectedSquadId: string | null = null;
   selectedCraft: string | null = null;
+  constructor() {
+    // Member names from k-picker → write directly into the search bar.
+    // effect() is used (not toObservable+skip) to avoid the race where skip(1)
+    // can swallow the update if the initial async tick hasn't fired yet.
+    effect(() => {
+      const hint = this.globalFilterSvc.searchHint();
+      untracked(() => this.search.set(hint));
+    });
+
+    // Squad/lead filter from k-picker → reload from API (skip initial value; ngOnInit handles first load)
+    toObservable(this.globalFilterSvc.filters)
+      .pipe(skip(1))
+      .subscribe(({ squadId }) => {
+        this.selectedSquadId = squadId;
+        this.selectedLeadId = null;
+        this.load();
+      });
+  }
   search = signal('');
   loading = signal(true);
   records = signal<LeaveRecord[]>([]);
@@ -577,10 +599,7 @@ export class LeaveOverviewComponent implements OnInit {
 
   load() {
     this.loading.set(true);
-    const leadId = this.selectedLeadId;
-    const squadId = this.selectedSquadId;
-    const craft = this.selectedCraft;
-    const memberIds = this.getFilteredMemberIds(leadId, squadId, craft);
+    const memberIds = this.getFilteredMemberIds(this.selectedLeadId, this.selectedSquadId, this.selectedCraft);
     this.leaveSvc.getAll(this.selectedSprintId ? { sprintId: this.selectedSprintId } : undefined)
       .subscribe(r => {
         let filtered = r;

@@ -400,8 +400,8 @@ export class FilterBarComponent implements OnInit {
   }
 
   constructor() {
-    effect(() => { untracked(() => this.search.set(this.searchVal())); });
-    effect(() => { untracked(() => this.selected.set({ ...this.selectedValues() })); });
+    effect(() => { const v = this.searchVal(); untracked(() => this.search.set(v)); });
+    effect(() => { const v = this.selectedValues(); untracked(() => this.selected.set({ ...v })); });
     effect(() => {
       const g = this.groups();
       untracked(() => {
