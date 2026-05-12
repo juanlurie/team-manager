@@ -137,6 +137,8 @@ export class TeamListComponent implements OnInit {
   private globalFilterSvc = inject(GlobalFilterService);
 
   constructor() {
+    effect(() => { const h = this.globalFilterSvc.searchHint(); untracked(() => this.memberSearch.set(h)); });
+
     effect(() => {
       const globalFilters = this.globalFilterSvc.filters();
       untracked(() => {

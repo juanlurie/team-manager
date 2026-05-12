@@ -304,6 +304,8 @@ export class AllFeaturesComponent implements OnInit {
   private globalFilterSvc = inject(GlobalFilterService);
 
   constructor() {
+    effect(() => { const h = this.globalFilterSvc.searchHint(); untracked(() => this.search.set(h)); });
+
     effect(() => {
       const globalFilters = this.globalFilterSvc.filters();
       untracked(() => {
