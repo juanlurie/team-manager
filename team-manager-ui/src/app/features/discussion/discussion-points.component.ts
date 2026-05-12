@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, signal, computed } from '@angular/core';
+import { Component, OnInit, inject, signal, computed, effect, untracked } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
@@ -19,6 +19,7 @@ import { IconButtonComponent } from '../../shared/components/icon-btn/icon-btn.c
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { DiscussionPointsEditDialogComponent } from './discussion-points-edit-dialog/discussion-points-edit-dialog.component';
 import { FilterBarComponent, FilterGroup, stripMentions } from '../../shared/components/filter-bar/filter-bar.component';
+import { GlobalFilterService } from '../../core/services/global-filter.service';
 
 const STATUS_ORDER = ['Open', 'InProgress', 'Resolved', 'Deferred'] as const;
 const PRIORITY_ORDER = ['High', 'Medium', 'Low'] as const;
@@ -200,8 +201,13 @@ const PRIORITY_ORDER = ['High', 'Medium', 'Low'] as const;
   `
 })
 export class DiscussionPointsComponent implements OnInit {
-  private svc    = inject(DiscussionPointService);
-  private dialog = inject(MatDialog);
+  private svc             = inject(DiscussionPointService);
+  private dialog          = inject(MatDialog);
+  private globalFilterSvc = inject(GlobalFilterService);
+
+  constructor() {
+    effect(() => { const h = this.globalFilterSvc.searchHint(); untracked(() => this.search.set(h)); });
+  }
 
   loading     = signal(true);
   items       = signal<DiscussionPoint[]>([]);
