@@ -10,7 +10,7 @@ import { TeamMember } from '../../models/team-member.model';
 import { TeamMemberService } from '../../services/team-member.service';
 import { SquadService } from '../../services/squad.service';
 import { SquadSummary } from '../../models/squad.model';
-import { KPickerData, MemberSection, FilterOption } from './k-picker.types';
+import { KPickerData, KPickerResult, MemberSection, FilterOption } from './k-picker.types';
 import { fuzzyMatch, clamp } from './k-picker.utils';
 import { MemberRowComponent } from './member-row.component';
 import { SelectedMemberChipComponent } from './selected-member-chip.component';
@@ -566,6 +566,7 @@ export class KPickerDialogComponent implements OnInit, AfterViewInit {
       }
     } else if (event.key === 'Escape') {
       event.preventDefault();
+      event.stopPropagation();
       this.close();
     } else if (event.key === 'Backspace') {
       const input = event.target as HTMLInputElement;
@@ -589,6 +590,14 @@ export class KPickerDialogComponent implements OnInit, AfterViewInit {
       } else {
         this.activeIndex.update(i => (i <= 0 ? total - 1 : i - 1));
       }
+    }
+  }
+
+  @HostListener('keydown', ['$event'])
+  onHostKeydown(event: KeyboardEvent): void {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      this.close();
     }
   }
 
@@ -624,9 +633,16 @@ export class KPickerDialogComponent implements OnInit, AfterViewInit {
     } else {
       // Select
       if (mode === 'single') {
-        // Single-select: close immediately
+        // Single-select: close immediately with KPickerResult
         this.addToRecent(member.id);
-        this.dialogRef.close(member);
+        this.dialogRef.close({
+          selectedMembers: [member],
+          filters: {
+            squadId: this.activeSquadFilter(),
+            featureId: null,
+            leadId: this.activeLeadFilter(),
+          },
+        });
         return;
       }
       this.selectedMembers.set([...current, member]);
@@ -674,11 +690,14 @@ export class KPickerDialogComponent implements OnInit, AfterViewInit {
 
   // ── Close ──
   protected close(): void {
-    const mode = this.data?.mode ?? 'multi';
-    if (mode === 'single') {
-      this.dialogRef.close(null);
-    } else {
-      this.dialogRef.close(this.selectedMembers());
-    }
+    const result: KPickerResult = {
+      selectedMembers: this.selectedMembers(),
+      filters: {
+        squadId: this.activeSquadFilter(),
+        featureId: null,  // Not implemented yet
+        leadId: this.activeLeadFilter(),
+      },
+    };
+    this.dialogRef.close(result);
   }
 }
