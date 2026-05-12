@@ -9,9 +9,7 @@ import { MatDialogModule, MatDialogRef, MAT_DIALOG_DATA } from '@angular/materia
 import { TeamMember } from '../../models/team-member.model';
 import { TeamMemberService } from '../../services/team-member.service';
 import { SquadService } from '../../services/squad.service';
-import { FeatureService } from '../../services/feature.service';
 import { SquadSummary } from '../../models/squad.model';
-import { Feature } from '../../models/feature.model';
 import { KPickerData, MemberSection, FilterOption } from './k-picker.types';
 import { fuzzyMatch, clamp } from './k-picker.utils';
 import { MemberRowComponent } from './member-row.component';
@@ -52,8 +50,6 @@ import { FilterDropdownComponent } from './filter-dropdown.component';
           </div>
         </div>
         <div class="k-bar-right">
-          <button class="k-rail-btn" title="Recent searches" aria-label="Recent searches">⌕</button>
-          <button class="k-rail-btn" title="Quick action" aria-label="Quick action">ad</button>
           <button class="k-rail-btn" (click)="close()" title="Close (Esc)" aria-label="Close picker">esc</button>
         </div>
       </div>
@@ -78,6 +74,17 @@ import { FilterDropdownComponent } from './filter-dropdown.component';
             }
           </div>
         } @else {
+          <!-- Filter bar (top) -->
+          <div class="k-filter-bar">
+            <app-filter-dropdown label="Squad"
+                                  [options]="squadFilterOptions()"
+                                  [selectedId]="activeSquadFilter()"
+                                  (selectionChange)="activeSquadFilter.set($event)" />
+            <app-filter-dropdown label="Lead"
+                                  [options]="leadFilterOptions()"
+                                  [selectedId]="activeLeadFilter()"
+                                  (selectionChange)="activeLeadFilter.set($event)" />
+          </div>
           <!-- Member sections -->
           @for (section of filteredSections(); track section.label; let secIdx = $index) {
             <div class="k-section-label">{{ section.label }}</div>
@@ -89,21 +96,6 @@ import { FilterDropdownComponent } from './filter-dropdown.component';
                               (hover)="onRowHover(secIdx, idx)" />
             }
           }
-          <!-- Filter bar -->
-          <div class="k-filter-bar">
-            <app-filter-dropdown label="Squad"
-                                  [options]="squadFilterOptions()"
-                                  [selectedId]="activeSquadFilter()"
-                                  (selectionChange)="activeSquadFilter.set($event)" />
-            <app-filter-dropdown label="Feature"
-                                  [options]="featureFilterOptions()"
-                                  [selectedId]="activeFeatureFilter()"
-                                  (selectionChange)="activeFeatureFilter.set($event)" />
-            <app-filter-dropdown label="Lead"
-                                  [options]="leadFilterOptions()"
-                                  [selectedId]="activeLeadFilter()"
-                                  (selectionChange)="activeLeadFilter.set($event)" />
-          </div>
         }
       </div>
     </div>
@@ -334,7 +326,6 @@ export class KPickerDialogComponent implements OnInit, AfterViewInit {
   private data: KPickerData = inject(MAT_DIALOG_DATA);
   private teamMemberService = inject(TeamMemberService);
   private squadService = inject(SquadService);
-  private featureService = inject(FeatureService);
 
   // ── View children ──
   @ViewChild('searchInput') searchInput!: ElementRef<HTMLInputElement>;
@@ -346,9 +337,7 @@ export class KPickerDialogComponent implements OnInit, AfterViewInit {
   protected activeIndex = signal(0);
   protected recentMemberIds = signal<string[]>(this.loadRecentFromStorage());
   protected squads = signal<SquadSummary[]>([]);
-  protected features = signal<Feature[]>([]);
   protected activeSquadFilter = signal<string | null>(null);
-  protected activeFeatureFilter = signal<string | null>(null);
   protected activeLeadFilter = signal<string | null>(null);
   protected isLoading = signal(true);
   protected error = signal<string | null>(null);
@@ -369,7 +358,6 @@ export class KPickerDialogComponent implements OnInit, AfterViewInit {
   protected searchFiltered = computed(() => {
     const q = this.query().toLowerCase().trim();
     const squadId = this.activeSquadFilter();
-    const featureId = this.activeFeatureFilter();
     const leadId = this.activeLeadFilter();
     const selectedIdsSet = this.selectedIds();
 
@@ -395,10 +383,6 @@ export class KPickerDialogComponent implements OnInit, AfterViewInit {
     } else if (leadId === 'tech-lead') {
       list = list.filter(m => m.role === 'TechLead');
     }
-
-    // Feature filter (basic — if member has any matching squad/feature)
-    // For MVP, feature filtering is a no-op since members don't directly map to features.
-    // We keep the filter UI for future integration.
 
     return list;
   });
@@ -472,10 +456,6 @@ export class KPickerDialogComponent implements OnInit, AfterViewInit {
     this.squads().map(s => ({ id: s.id, label: s.name }))
   );
 
-  protected featureFilterOptions = computed((): FilterOption[] =>
-    this.features().map(f => ({ id: f.id, label: f.title }))
-  );
-
   protected leadFilterOptions = computed((): FilterOption[] => [
     { id: 'team-lead', label: 'Team Lead' },
     { id: 'tech-lead', label: 'Tech Lead' },
@@ -531,12 +511,6 @@ export class KPickerDialogComponent implements OnInit, AfterViewInit {
     this.squadService.getAll().subscribe({
       next: (squads) => this.squads.set(squads),
       error: () => { /* Squad filter will be empty */ },
-    });
-
-    // Load features (best-effort)
-    this.featureService.getAllAcrossSprints().subscribe({
-      next: (features) => this.features.set(features),
-      error: () => { /* Feature filter will be empty */ },
     });
   }
 
