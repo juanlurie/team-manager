@@ -401,17 +401,20 @@ export class AppComponent {
       panelClass: 'k-picker-panel',
       backdropClass: 'k-picker-backdrop',
       disableClose: true,
-      data: { preSelectedMembers: [], mode: 'multi' } as KPickerData,
+      data: { preSelectedMembers: this.globalFilterSvc.selectedMembers(), mode: 'multi' } as KPickerData,
     });
     dialogRef.afterClosed().subscribe((result: KPickerResult | undefined) => {
       if (result) {
-        console.log('K picker result:', result.selectedMembers);
-        // Always propagate filter state, including when clearing (setting to null)
-        this.globalFilterSvc.setFilters(result.filters);
-        if (result.filters.squadId || result.filters.leadId) {
-          console.log('Applied global filters:', result.filters);
+        this.globalFilterSvc.setSelectedMembers(result.selectedMembers);
+        if (result.selectedMembers.length > 0) {
+          const hint = result.selectedMembers
+            .map(m => `@${m.firstName} ${m.lastName}`)
+            .join(' ');
+          this.globalFilterSvc.setSearchHint(hint);
+          this.globalFilterSvc.setFilters({ squadId: null, featureId: null, leadId: null });
         } else {
-          console.log('Cleared global filters (or none set)');
+          this.globalFilterSvc.setSearchHint('');
+          this.globalFilterSvc.setFilters(result.filters);
         }
       }
     });
