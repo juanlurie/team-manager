@@ -1,0 +1,20 @@
+    .more-btn { width:28px;height:28px;border:none;border-radius:6px;cursor:pointer;
+                display:flex;align-items:center;justify-content:center;
+                background:transparent;color:rgba(255,255,255,0.4);
+                transition:background 0.15s,color 0.15s; }
+    .more-btn:hover { background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.7); }
+    .wi-type { padding:2px 6px;border-radius:6px;font-size:0.68rem;font-weight:700;text-transform:uppercase; }
+    .type-analysis  { background:rgba(156,39,176,0.15);color:#ce93d8; }
+    .type-design    { background:rgba(0,188,212,0.15);color:#4dd0e1; }
+    .type-dev       { background:rgba(33,150,243,0.15);color:#64b5f6; }
+    .type-qa        { background:rgba(255,152,0,0.15);color:#ff9800; }
+    .type-bug       { background:rgba(244,67,54,0.15);color:#f44336; }
+    .type-task      { background:rgba(158,158,158,0.15);color:#9e9e9e; }
+    .type-release   { background:rgba(76,175,80,0.15);color:#4caf50; }
+    .wi-planned          { padding:2px 6px;border-radius:6px;font-size:0.68rem;font-weight:700;background:rgba(158,158,158,0.12);color:#9e9e9e; }
+    .wi-inprogress       { padding:2px 6px;border-radius:6px;font-size:0.68rem;font-weight:700;background:rgba(33,150,243,0.12);color:#64b5f6; }
+    .wi-completed        { padding:2px 6px;border-radius:6px;font-size:0.68rem;font-weight:700;background:rgba(76,175,80,0.12);color:#4caf50; }
+    .wi-readyforrelease  { padding:2px 6px;border-radius:6px;font-size:0.68rem;font-weight:700;background:rgba(255,193,7,0.15);color:#ffd54f; }
+    .wi-released         { padding:2px 6px;border-radius:6px;font-size:0.68rem;font-weight:700;background:rgba(255,255,255,0.1);color:#e0e0e0;border:1px solid rgba(255,255,255,0.2); }
+    .task-more-btn { width:28px;height:28px;border:none;border-radius:6px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;background:transparent;color:rgba(255,255,255,0.3);transition:background 0.15s,color 0.15s; }
+    .task-more-btn:hover { background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.7); }
