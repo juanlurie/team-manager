@@ -34,6 +34,9 @@ import { MatIconModule } from '@angular/material/icon';
         </button>
       }
     </mat-form-field>
+    @if (mentionHint()) {
+      <div class="si-mention-hint" aria-hidden="true">{{ mentionHint() }}</div>
+    }
   `,
   styles: [`
     .search-prefix { opacity:0.35; font-size:18px; width:18px; height:18px; line-height:18px; }
@@ -46,11 +49,21 @@ import { MatIconModule } from '@angular/material/icon';
     }
     .clear-btn:hover { background:rgba(255,255,255,0.08); color:rgba(255,255,255,0.9); }
     .clear-btn mat-icon { font-size:16px; width:16px; height:16px; line-height:16px; }
+    .si-mention-hint {
+      font-size: 0.65rem;
+      opacity: 0.2;
+      padding: 2px 0 0 2px;
+      line-height: 1;
+      user-select: none;
+      transition: opacity 0.2s;
+    }
+    .si-mention-hint:hover { opacity: 0.45; }
   `]
 })
 export class SearchInputComponent implements ControlValueAccessor {
   label = input('');
   placeholder = input('');
+  mentionHint = input('');
   width = input('200px');
   appearance = input<'outline' | 'fill'>('outline');
 

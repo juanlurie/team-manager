@@ -51,6 +51,22 @@ const STATUS_COLOR: Record<string, string> = {
     .discussion-row:hover { background:rgba(121,134,203,0.1); }
     .retro-row { background:rgba(100,181,246,0.04);transition:background 0.15s; }
     .retro-row:hover { background:rgba(100,181,246,0.09); }
+    .dashboard-hint {
+      text-align: right;
+      padding: 8px 0;
+      font-size: 0.68rem;
+      opacity: 0.25;
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 4px;
+      user-select: none;
+      transition: opacity 0.2s;
+    }
+    .dashboard-hint:hover { opacity: 0.45; }
+    @media (max-width: 767px) {
+      .dashboard-hint { display: none; }
+    }
   `],
   template: `
     <!-- Current Sprint Card -->
@@ -331,6 +347,11 @@ const STATUS_COLOR: Record<string, string> = {
           <span style="font-size:0.85rem;color:#81c784">No blockers this sprint</span>
         </div>
       }
+
+      <div class="dashboard-hint" aria-hidden="true">
+        <mat-icon>keyboard</mat-icon>
+        Ctrl+P / ⌘+P  Quick navigation
+      </div>
     }
 
     @if (!selectedSprintId && !loading()) {

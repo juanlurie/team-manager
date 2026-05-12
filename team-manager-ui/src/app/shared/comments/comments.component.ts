@@ -48,7 +48,7 @@ import { ConfirmDialogComponent } from '../components/confirm-dialog/confirm-dia
                    (ngModelChange)="commentDraft = $event"
                    (input)="onInput($event)"
                    (keydown)="onKeydown($event)"
-                   placeholder="Add comment&#8230;"
+                   placeholder="Add comment&#8230; @name to notify"
                    style="flex:1;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:6px;padding:6px 10px;font-size:0.78rem;color:inherit;outline:none;font-family:inherit">
             @if (mentionActive() && filteredMentions().length > 0) {
               <div style="position:absolute;bottom:100%;left:0;right:0;margin-bottom:4px;background:#1e2a3a;border:1px solid rgba(255,255,255,0.12);border-radius:8px;overflow:hidden;z-index:100;box-shadow:0 4px 16px rgba(0,0,0,0.4)">
