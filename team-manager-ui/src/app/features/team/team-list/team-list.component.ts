@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, signal, computed } from '@angular/core';
+import { Component, OnInit, inject, signal, computed, effect, untracked } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -15,6 +15,7 @@ import { SquadManagerDialogComponent } from '../squad-manager-dialog/squad-manag
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { IconButtonComponent } from '../../../shared/components/icon-btn/icon-btn.component';
 import { FilterBarComponent, FilterGroup, stripMentions } from '../../../shared/components/filter-bar/filter-bar.component';
+import { GlobalFilterService } from '../../../core/services/global-filter.service';
 
 const CRAFT_LABELS: Record<string, string> = {
   DevBE: 'Dev BE', DevFE: 'Dev FE', DevIOS: 'iOS', DevAndroid: 'Android',
@@ -133,6 +134,21 @@ export class TeamListComponent implements OnInit {
   private squadSvc = inject(SquadService);
   private dialog = inject(MatDialog);
   private router = inject(Router);
+  private globalFilterSvc = inject(GlobalFilterService);
+
+  constructor() {
+    effect(() => {
+      const globalFilters = this.globalFilterSvc.filters();
+      untracked(() => {
+        if (globalFilters.squadId !== null) {
+          this.filterSquad.set([globalFilters.squadId]);
+        }
+        if (globalFilters.leadId !== null) {
+          this.filterLead.set([globalFilters.leadId]);
+        }
+      });
+    });
+  }
 
   members: TeamMember[] = [];
   loading = signal(true);
