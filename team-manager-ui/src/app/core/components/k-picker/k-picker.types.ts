@@ -45,3 +45,9 @@ export interface AvatarConfig {
   color: string;
   size?: number;
 }
+
+/** Result returned when k-picker dialog closes */
+export interface KPickerResult {
+  selectedMembers: TeamMember[];
+  filters: FilterState;
+}

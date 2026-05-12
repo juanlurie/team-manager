@@ -142,9 +142,15 @@ export class FilterDropdownComponent {
 
   @HostListener('document:keydown', ['$event'])
   onDocumentKeydown(event: KeyboardEvent): void {
+    // Escape is handled at the host level to allow proper event bubbling
+  }
+
+  @HostListener('keydown', ['$event'])
+  onHostKeydown(event: KeyboardEvent): void {
     if (event.key === 'Escape' && this.isOpen()) {
       this.isOpen.set(false);
       event.stopPropagation();
+      event.preventDefault();
     }
   }
 }

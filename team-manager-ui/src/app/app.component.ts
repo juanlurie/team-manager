@@ -6,8 +6,9 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatDialogModule, MatDialog } from '@angular/material/dialog';
 import { filter } from 'rxjs/operators';
 import { QuickOpenDialogComponent } from './core/components/quick-open-dialog/quick-open-dialog.component';
-import { KPickerData } from './core/components/k-picker/k-picker.types';
+import { KPickerData, KPickerResult } from './core/components/k-picker/k-picker.types';
 import { TeamMember } from './core/models/team-member.model';
+import { GlobalFilterService } from './core/services/global-filter.service';
 
 interface NavItem {
   path: string;
@@ -341,6 +342,7 @@ export class AppComponent {
 
   private router = inject(Router);
   private dialog = inject(MatDialog);
+  private globalFilterSvc = inject(GlobalFilterService);
   private currentUrl = signal(this.router.url);
 
   isMoreActive = computed(() => MORE_NAV.some(item => this.currentUrl().startsWith(item.path)));
@@ -398,12 +400,19 @@ export class AppComponent {
       maxWidth: '95vw',
       panelClass: 'k-picker-panel',
       backdropClass: 'k-picker-backdrop',
+      disableClose: true,
       data: { preSelectedMembers: [], mode: 'multi' } as KPickerData,
     });
-    dialogRef.afterClosed().subscribe((result: TeamMember[] | TeamMember | undefined) => {
+    dialogRef.afterClosed().subscribe((result: KPickerResult | undefined) => {
       if (result) {
-        // Calling component handles the result
-        console.log('K picker result:', result);
+        console.log('K picker result:', result.selectedMembers);
+        // Always propagate filter state, including when clearing (setting to null)
+        this.globalFilterSvc.setFilters(result.filters);
+        if (result.filters.squadId || result.filters.leadId) {
+          console.log('Applied global filters:', result.filters);
+        } else {
+          console.log('Cleared global filters (or none set)');
+        }
       }
     });
   }
