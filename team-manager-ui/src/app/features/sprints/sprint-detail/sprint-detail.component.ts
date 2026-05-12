@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, signal, computed } from '@angular/core';
+import { Component, OnInit, inject, signal, computed, effect, untracked } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
@@ -34,6 +34,7 @@ import { SearchableSelectComponent } from '../../../shared/components/searchable
 import { SearchInputComponent } from '../../../shared/components/search-input/search-input.component';
 import { SprintSettingsDialogComponent } from '../sprint-settings-dialog/sprint-settings-dialog.component';
 import { FilterBarComponent, FilterGroup, stripMentions } from '../../../shared/components/filter-bar/filter-bar.component';
+import { GlobalFilterService } from '../../../core/services/global-filter.service';
 import { PI } from '../../../core/models/sprint.model';
 import { Router } from '@angular/router';
 
@@ -241,6 +242,37 @@ export class SprintDetailComponent implements OnInit {
   private dialog = inject(MatDialog);
   private snack = inject(MatSnackBar);
   private router = inject(Router);
+  private globalFilterSvc = inject(GlobalFilterService);
+
+  constructor() {
+    effect(() => {
+      const globalFilters = this.globalFilterSvc.filters();
+      untracked(() => {
+        // Sync squad filter (client-side, no load() needed)
+        if (globalFilters.squadId !== null) {
+          this.squadFilters.set([globalFilters.squadId]);
+        }
+
+        // Sync feature filter (client-side, no load() needed)
+        if (globalFilters.featureId !== null) {
+          this.featureFilters.set([globalFilters.featureId]);
+        }
+
+        // Sync lead filter – only call load() if lead actually changed and sprintId is ready
+        if (globalFilters.leadId !== null) {
+          const currentLead = this.leadFilters();
+          if (currentLead.length === 0 || currentLead[0] !== globalFilters.leadId) {
+            this.leadFilters.set([globalFilters.leadId]);
+
+            // Guard: sprintId is set in ngOnInit from route params; don't load before that
+            if (this.sprintId && this.sprintId.length > 0) {
+              this.load();
+            }
+          }
+        }
+      });
+    });
+  }
 
   loading = signal(true);
   dashboard = signal<SprintDashboard | null>(null);

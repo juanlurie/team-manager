@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, signal, computed } from '@angular/core';
+import { Component, OnInit, inject, signal, computed, effect, untracked } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
@@ -12,6 +12,7 @@ import { FeatureFormDialogComponent } from '../sprints/feature-form-dialog/featu
 import { TaskFormDialogComponent } from '../../shared/components/task-form-dialog/task-form-dialog.component';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { FilterBarComponent, stripMentions } from '../../shared/components/filter-bar/filter-bar.component';
+import { GlobalFilterService } from '../../core/services/global-filter.service';
 import { CommentsComponent } from '../../shared/comments/comments.component';
 import { WorkItemService } from '../../core/services/work-item.service';
 import { TeamMemberService } from '../../core/services/team-member.service';
@@ -300,6 +301,18 @@ export class AllFeaturesComponent implements OnInit {
   private workItemSvc = inject(WorkItemService);
   private teamMemberSvc = inject(TeamMemberService);
   private squadSvc = inject(SquadService);
+  private globalFilterSvc = inject(GlobalFilterService);
+
+  constructor() {
+    effect(() => {
+      const globalFilters = this.globalFilterSvc.filters();
+      untracked(() => {
+        if (globalFilters.squadId !== null) {
+          this.squadFilters.set([globalFilters.squadId]);
+        }
+      });
+    });
+  }
 
   loading = signal(true);
   all = signal<Feature[]>([]);
