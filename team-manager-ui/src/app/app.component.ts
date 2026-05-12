@@ -357,6 +357,7 @@ export class AppComponent {
     this.router.events.pipe(filter(e => e instanceof NavigationEnd)).subscribe(e => {
       this.currentUrl.set((e as NavigationEnd).urlAfterRedirects);
       this.moreOpen.set(false);
+      this.globalFilterSvc.clearFilters();
     });
     window.addEventListener('keydown', (event) => {
       if ((event.ctrlKey || event.metaKey) && event.key === 'p') {
