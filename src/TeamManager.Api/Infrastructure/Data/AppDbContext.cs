@@ -35,6 +35,9 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<RetroAction> RetroActions => Set<RetroAction>();
     public DbSet<MeetingSession> MeetingSessions => Set<MeetingSession>();
     public DbSet<MeetingSlot> MeetingSlots => Set<MeetingSlot>();
+    public DbSet<WinWeek> WinWeeks => Set<WinWeek>();
+    public DbSet<WinNomination> WinNominations => Set<WinNomination>();
+    public DbSet<WinVote> WinVotes => Set<WinVote>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -67,5 +70,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         modelBuilder.ApplyConfiguration(new MemberTimesheetConfigConfiguration());
         modelBuilder.ApplyConfiguration(new MeetingSessionConfiguration());
         modelBuilder.ApplyConfiguration(new MeetingSlotConfiguration());
+        modelBuilder.ApplyConfiguration(new WinWeekConfiguration());
+        modelBuilder.ApplyConfiguration(new WinNominationConfiguration());
+        modelBuilder.ApplyConfiguration(new WinVoteConfiguration());
     }
 }
