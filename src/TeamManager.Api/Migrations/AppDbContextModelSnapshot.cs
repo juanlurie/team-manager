@@ -1070,6 +1070,122 @@ namespace TeamManager.Api.Migrations
                     b.Navigation("Nominee");
                 });
 modelBuilder.Entity("TeamManager.Api.Domain.Entities.DiscussionTask", b =>                {                    b.HasOne("TeamManager.Api.Domain.Entities.DiscussionPoint", "DiscussionPoint")                        .WithMany()                        .HasForeignKey("DiscussionPointId")                        .OnDelete(DeleteBehavior.Cascade)                        .IsRequired();                    b.HasOne("TeamManager.Api.Domain.Entities.TeamMember", "Assignee")                        .WithMany()                        .HasForeignKey("TeamMemberId")                        .OnDelete(DeleteBehavior.SetNull);                    b.Navigation("DiscussionPoint");                    b.Navigation("Assignee");                });
+
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.MeetingSession", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("CreatedByMemberId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateOnly>("Date")
+                        .HasColumnType("date");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<TimeSpan>("EndTime")
+                        .HasColumnType("interval");
+
+                    b.Property<string>("Location")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<TimeSpan>("StartTime")
+                        .HasColumnType("interval");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedByMemberId");
+
+                    b.ToTable("MeetingSessions");
+                });
+
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.MeetingSlot", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<DateTimeOffset?>("BookedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("MeetingSessionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<Guid?>("TeamMemberId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("MeetingSessionId");
+
+                    b.HasIndex("TeamMemberId");
+
+                    b.ToTable("MeetingSlots");
+                });
+
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.MeetingSession", b =>
+                {
+                    b.HasOne("TeamManager.Api.Domain.Entities.TeamMember", "CreatedBy")
+                        .WithMany()
+                        .HasForeignKey("CreatedByMemberId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("CreatedBy");
+                });
+
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.MeetingSlot", b =>
+                {
+                    b.HasOne("TeamManager.Api.Domain.Entities.MeetingSession", "MeetingSession")
+                        .WithMany("Slots")
+                        .HasForeignKey("MeetingSessionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("TeamManager.Api.Domain.Entities.TeamMember", "TeamMember")
+                        .WithMany()
+                        .HasForeignKey("TeamMemberId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("MeetingSession");
+
+                    b.Navigation("TeamMember");
+                });
+
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.MeetingSession", b =>
+                {
+                    b.Navigation("Slots");
+                });
 #pragma warning restore 612, 618
         }
     }

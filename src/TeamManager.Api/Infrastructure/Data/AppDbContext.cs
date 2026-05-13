@@ -33,6 +33,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<Squad> Squads => Set<Squad>();
     public DbSet<SquadMember> SquadMembers => Set<SquadMember>();
     public DbSet<RetroAction> RetroActions => Set<RetroAction>();
+    public DbSet<MeetingSession> MeetingSessions => Set<MeetingSession>();
+    public DbSet<MeetingSlot> MeetingSlots => Set<MeetingSlot>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -63,5 +65,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         modelBuilder.ApplyConfiguration(new RetroActionConfiguration());
         modelBuilder.ApplyConfiguration(new TimesheetEntryConfiguration());
         modelBuilder.ApplyConfiguration(new MemberTimesheetConfigConfiguration());
+        modelBuilder.ApplyConfiguration(new MeetingSessionConfiguration());
+        modelBuilder.ApplyConfiguration(new MeetingSlotConfiguration());
     }
 }

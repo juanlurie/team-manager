@@ -41,5 +41,9 @@ export const routes: Routes = [
   {
     path: 'progress',
     loadComponent: () => import('./features/progress/progress.component').then(m => m.ProgressComponent)
+  },
+  {
+    path: 'meetings',
+    loadChildren: () => import('./features/meetings/meetings.routes').then(m => m.MEETING_ROUTES)
   }
 ];

@@ -57,6 +57,7 @@ builder.Services.AddScoped<ISprintVoteService, SprintVoteService>();
 builder.Services.AddScoped<IInvitationService, InvitationService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<SquadService>();
+builder.Services.AddScoped<IMeetingSessionService, MeetingSessionService>();
 
 builder.Services.AddHealthChecks()
     .AddDbContextCheck<AppDbContext>();

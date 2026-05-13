@@ -22,6 +22,7 @@ const PRIMARY_NAV: NavItem[] = [
   { path: '/features',   icon: 'view_list',      label: 'Features'   },
   { path: '/progress',   icon: 'track_changes',  label: 'Progress'   },
   { path: '/discussion', icon: 'forum',          label: 'Discussion' },
+  { path: '/meetings',   icon: 'event',          label: 'Meetings'   },
   { path: '/team',       icon: 'people',         label: 'Team'       },
   { path: '/leave',      icon: 'event_busy',     label: 'Leave'      },
 ];
@@ -44,6 +45,7 @@ const MORE_NAV: NavItem[] = [
   { path: '/features',    icon: 'view_list',     label: 'Features'    },
   { path: '/progress',    icon: 'track_changes', label: 'Progress'    },
   { path: '/discussion',  icon: 'forum',         label: 'Discussion'  },
+  { path: '/meetings',    icon: 'event',         label: 'Meetings'    },
   { path: '/export',      icon: 'download',      label: 'Export'      },
   { path: '/leaderboard', icon: 'emoji_events',  label: 'Leaderboard' },
   { path: '/wheel',       icon: 'casino',        label: 'Spin Wheel'  },
