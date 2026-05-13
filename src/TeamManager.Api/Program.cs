@@ -58,6 +58,7 @@ builder.Services.AddScoped<IInvitationService, InvitationService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<SquadService>();
 builder.Services.AddScoped<IMeetingSessionService, MeetingSessionService>();
+builder.Services.AddScoped<IWinOfTheWeekService, WinOfTheWeekService>();
 
 builder.Services.AddHealthChecks()
     .AddDbContextCheck<AppDbContext>();

@@ -45,5 +45,9 @@ export const routes: Routes = [
   {
     path: 'meetings',
     loadChildren: () => import('./features/meetings/meetings.routes').then(m => m.MEETING_ROUTES)
+  },
+  {
+    path: 'win-of-the-week',
+    loadChildren: () => import('./features/win-of-the-week/win-of-the-week.routes').then(m => m.WIN_OF_THE_WEEK_ROUTES)
   }
 ];
