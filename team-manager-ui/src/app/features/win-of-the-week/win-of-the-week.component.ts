@@ -118,7 +118,7 @@ import { WinOfTheMonthComponent } from '../win-of-the-month/win-of-the-month.com
 
       <!-- Admin actions -->
       <div style="display:flex;gap:8px;margin-bottom:16px">
-        @if (currentWeek()?.status === 'Nominating' && (currentWeek()?.nominations.length ?? 0) > 0) {
+        @if (currentWeek()?.status === 'Nominating' && (currentWeek()?.nominations?.length ?? 0) > 0) {
           <button mat-stroked-button color="accent" (click)="openVoting()"
                   style="font-size:0.8rem;height:34px">
             <mat-icon style="font-size:1rem;width:1rem;height:1rem">how_to_vote</mat-icon>

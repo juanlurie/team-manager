@@ -6,9 +6,7 @@ import { MatDialog } from '@angular/material/dialog';
 import { MatDialogModule } from '@angular/material/dialog';
 import { LeaderboardEntry } from '../../core/models/leaderboard.model';
 import { LeaderboardService } from '../../core/services/leaderboard.service';
-import { TeamMemberService } from '../../core/services/team-member.service';
-import { TeamMember } from '../../core/models/team-member.model';
-import { TeamMemberFormComponent } from '../team/team-member-form/team-member-form.component';
+import { MemberPointsHistoryComponent } from './member-points-history.component';
 
 const POS_COLORS: Record<number, { bg: string; text: string; border: string; label: string }> = {
   1: { bg: 'rgba(255,215,0,0.12)',   text: '#FFD700', border: 'rgba(255,215,0,0.4)',   label: 'P1' },
@@ -188,11 +186,9 @@ const SOURCE_COLORS: Record<string, { bg: string; text: string }> = {
 })
 export class LeaderboardComponent implements OnInit {
   private svc = inject(LeaderboardService);
-  private memberSvc = inject(TeamMemberService);
   private dialog = inject(MatDialog);
 
   entries = signal<LeaderboardEntry[]>([]);
-  allMembers = signal<TeamMember[]>([]);
   loading = signal(true);
 
   readonly POS_COLORS = POS_COLORS;
@@ -204,18 +200,19 @@ export class LeaderboardComponent implements OnInit {
       this.entries.set(data);
       this.loading.set(false);
     });
-    this.memberSvc.getAll({ isActive: true }).subscribe(m => this.allMembers.set(m));
   }
 
   openMember(memberId: string) {
-    const member = this.allMembers().find(m => m.id === memberId);
-    if (!member) return;
-    const ref = this.dialog.open(TeamMemberFormComponent, {
+    const entry = this.entries().find(e => e.memberId === memberId);
+    if (!entry) return;
+    this.dialog.open(MemberPointsHistoryComponent, {
       width: '480px',
-      data: { member, allMembers: this.allMembers() }
-    });
-    ref.afterClosed().subscribe(changed => {
-      if (changed) this.svc.getLeaderboard().subscribe(data => this.entries.set(data));
+      data: {
+        memberId: entry.memberId,
+        firstName: entry.firstName,
+        lastName: entry.lastName,
+        totalPoints: entry.totalPoints
+      }
     });
   }
 }

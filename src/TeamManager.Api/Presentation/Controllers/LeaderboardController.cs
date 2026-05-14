@@ -18,6 +18,13 @@ public class LeaderboardController(ILeaderboardService service) : ControllerBase
         return result is null ? NotFound() : Ok(result);
     }
 
+    [HttpGet("member/{memberId:guid}/history")]
+    public async Task<IActionResult> GetMemberHistory(Guid memberId)
+    {
+        var result = await service.GetPointHistoryAsync(memberId);
+        return Ok(result);
+    }
+
     [HttpPost("award")]
     public async Task<IActionResult> Award([FromBody] AwardPointsRequest request)
     {
