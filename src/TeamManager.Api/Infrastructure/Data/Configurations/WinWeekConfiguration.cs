@@ -10,6 +10,9 @@ public class WinWeekConfiguration : IEntityTypeConfiguration<WinWeek>
     {
         builder.HasKey(w => w.Id);
         builder.Property(w => w.Id).HasDefaultValueSql("gen_random_uuid()");
+        builder.Property(w => w.WeekStart).HasColumnName("StartDate");
+        builder.Property(w => w.WeekEnd).HasColumnName("EndDate");
+        builder.Property(w => w.OpenedAt).HasColumnName("CreatedAt");
         builder.HasIndex(w => w.WeekStart).IsUnique();
         builder.Property(w => w.Status)
             .HasConversion<string>()
@@ -19,5 +22,10 @@ public class WinWeekConfiguration : IEntityTypeConfiguration<WinWeek>
             .WithMany()
             .HasForeignKey(w => w.WinnerNominationId)
             .OnDelete(DeleteBehavior.SetNull);
+
+        builder.HasOne(w => w.CreatedBy)
+            .WithMany()
+            .HasForeignKey(w => w.CreatedByMemberId)
+            .OnDelete(DeleteBehavior.Cascade);
     }
 }

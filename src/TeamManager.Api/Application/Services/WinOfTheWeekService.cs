@@ -14,7 +14,7 @@ public class WinOfTheWeekService(AppDbContext db) : IWinOfTheWeekService
 
     public async Task<WinWeekDto> GetCurrentWeekAsync(Guid currentMemberId)
     {
-        var week = await GetOrCreateCurrentWeekAsync();
+        var week = await GetOrCreateCurrentWeekAsync(currentMemberId);
 
         var nominations = await db.WinNominations
             .Include(n => n.TeamMember)
@@ -72,7 +72,7 @@ public class WinOfTheWeekService(AppDbContext db) : IWinOfTheWeekService
 
     public async Task<WinNominationDto> CreateNominationAsync(Guid memberId, CreateNominationRequest request)
     {
-        var week = await GetOrCreateCurrentWeekAsync();
+        var week = await GetOrCreateCurrentWeekAsync(memberId);
 
         if (week.Status != WinWeekStatus.Nominating)
             throw new InvalidOperationException("Nominations are not open for the current week.");
@@ -224,7 +224,7 @@ public class WinOfTheWeekService(AppDbContext db) : IWinOfTheWeekService
         return await GetCurrentWeekAsync(memberId);
     }
 
-    private async Task<WinWeek> GetOrCreateCurrentWeekAsync()
+    private async Task<WinWeek> GetOrCreateCurrentWeekAsync(Guid memberId)
     {
         var today = DateOnly.FromDateTime(DateTimeOffset.UtcNow.Date);
         var weekStart = GetWeekStart(today);
@@ -252,7 +252,9 @@ public class WinOfTheWeekService(AppDbContext db) : IWinOfTheWeekService
         week = new WinWeek
         {
             WeekStart = weekStart,
-            Status = status
+            WeekEnd = weekStart.AddDays(6),
+            Status = status,
+            CreatedByMemberId = memberId
         };
 
         db.WinWeeks.Add(week);
