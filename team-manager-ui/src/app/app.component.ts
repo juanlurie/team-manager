@@ -28,6 +28,7 @@ const PRIMARY_NAV: NavItem[] = [
   { path: '/leave',          icon: 'event_busy',      label: 'Leave'        },
   { path: '/catalog',        icon: 'list_alt',        label: 'Catalog'      },
   { path: '/meeting-series', icon: 'calendar_month',  label: 'Meeting Series' },
+  { path: '/my-meetings',    icon: 'event_available', label: 'My Meetings' },
 ];
 
 const SECONDARY_NAV: NavItem[] = [
@@ -58,6 +59,7 @@ const MORE_NAV: NavItem[] = [
   { path: '/wheel',          icon: 'casino',         label: 'Spin Wheel'    },
   { path: '/catalog',        icon: 'list_alt',       label: 'Catalog'       },
   { path: '/meeting-series', icon: 'calendar_month', label: 'Meeting Series' },
+  { path: '/my-meetings',    icon: 'event_available',label: 'My Meetings'   },
 ];
 
 @Component({

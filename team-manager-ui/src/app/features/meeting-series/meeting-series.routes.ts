@@ -14,6 +14,10 @@ export const MEETING_SERIES_ROUTES: Routes = [
     loadComponent: () => import('./meeting-series-detail.component').then(m => m.MeetingSeriesDetailComponent)
   },
   {
+    path: ':id/availability',
+    loadComponent: () => import('./bulk-availability.component').then(m => m.BulkAvailabilityComponent)
+  },
+  {
     path: ':id/slots',
     loadComponent: () => import('./meeting-series-slots.component').then(m => m.MeetingSeriesSlotsComponent)
   },
@@ -27,6 +31,6 @@ export const MEETING_SERIES_ROUTES: Routes = [
   },
   {
     path: ':id/items/:itemId/availability',
-    loadComponent: () => import('./meeting-series-item-availability.component').then(m => m.MeetingSeriesItemAvailabilityComponent)
+    redirectTo: ':id/availability'
   }
 ];

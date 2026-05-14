@@ -7,6 +7,8 @@ export interface MeetingSeriesSlot {
   locationName?: string;
   locationColor?: string;
   sortOrder: number;
+  isClaimed?: boolean;
+  claimedByItemId?: string;
 }
 
 export interface MeetingSeriesItemParticipant {
@@ -111,4 +113,47 @@ export interface AddMeetingSeriesItemAvailabilityRequest {
   meetingSeriesSlotId: string;
   teamMemberId: string;
   notes?: string;
+}
+
+export interface MyMeetingItem {
+  itemId: string;
+  seriesId: string;
+  seriesTitle: string;
+  itemTitle: string;
+  role: string;
+  isConfirmed: boolean;
+  mandatoryCount: number;
+  mandatoryFilled: number;
+  createdAt: string;
+}
+
+export interface BulkAvailabilityItem {
+  itemId: string;
+  itemTitle: string;
+  isConfirmed: boolean;
+  availableSlotIds: string[];
+}
+
+export interface BulkAvailabilitySlot {
+  slotId: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  locationId?: string;
+  locationName?: string;
+  locationColor?: string;
+  isClaimed: boolean;
+  claimedByItemId?: string;
+}
+
+export interface BulkAvailabilityResponse {
+  seriesId: string;
+  memberId: string;
+  memberName: string;
+  items: BulkAvailabilityItem[];
+  slots: BulkAvailabilitySlot[];
+}
+
+export interface BulkAvailabilityRequest {
+  availabilities: { itemId: string; slotId: string }[];
 }

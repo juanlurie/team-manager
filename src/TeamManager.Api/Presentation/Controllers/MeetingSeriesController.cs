@@ -70,8 +70,15 @@ public class MeetingSeriesController(IMeetingSeriesService service, AppDbContext
     [HttpDelete("{id:guid}/slots/{slotId:guid}")]
     public async Task<IActionResult> DeleteSlot(Guid id, Guid slotId)
     {
-        var success = await service.DeleteSeriesSlotAsync(id, slotId);
-        return success ? NoContent() : NotFound();
+        try
+        {
+            var success = await service.DeleteSeriesSlotAsync(id, slotId);
+            return success ? NoContent() : NotFound();
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new { message = ex.Message });
+        }
     }
 
     // Items
@@ -103,6 +110,51 @@ public class MeetingSeriesController(IMeetingSeriesService service, AppDbContext
         return success ? NoContent() : NotFound();
     }
 
+    [HttpPost("items/{itemId:guid}/unconfirm")]
+    public async Task<IActionResult> UnconfirmItem(Guid itemId)
+    {
+        var result = await service.UnconfirmItemAsync(itemId);
+        return result is null ? NotFound() : Ok(result);
+    }
+
+    // My Meetings
+    [HttpGet("my-meetings")]
+    public async Task<IActionResult> GetMyMeetings()
+    {
+        var memberId = GetCurrentMemberId();
+        var items = await db.Set<TeamManager.Api.Domain.Entities.MeetingSeriesItem>()
+            .Include(i => i.MeetingSeries).ThenInclude(s => s.CreatedBy)
+            .Include(i => i.Participants).ThenInclude(p => p.TeamMember)
+            .Include(i => i.Availabilities)
+            .Where(i => i.Participants.Any(p => p.TeamMemberId == memberId))
+            .OrderByDescending(i => i.MeetingSeries.CreatedAt)
+            .ToListAsync();
+
+        var result = items.Select(i =>
+        {
+            var participant = i.Participants.First(p => p.TeamMemberId == memberId);
+            var mandatoryCount = i.Participants.Count(p => p.Role == "Mandatory");
+            var mandatoryFilled = i.Participants
+                .Where(p => p.Role == "Mandatory")
+                .Count(p => i.Availabilities.Any(a => a.TeamMemberId == p.TeamMemberId));
+
+            return new
+            {
+                itemId = i.Id,
+                seriesId = i.MeetingSeriesId,
+                seriesTitle = i.MeetingSeries.Title,
+                itemTitle = i.Title,
+                role = participant.Role,
+                isConfirmed = i.IsConfirmed,
+                mandatoryCount,
+                mandatoryFilled,
+                createdAt = i.CreatedAt
+            };
+        }).ToList();
+
+        return Ok(result);
+    }
+
     // Availability
     [HttpGet("items/{itemId:guid}/availability")]
     public async Task<IActionResult> GetAvailabilities(Guid itemId)
@@ -123,6 +175,46 @@ public class MeetingSeriesController(IMeetingSeriesService service, AppDbContext
     {
         var result = await service.RemoveItemAvailabilityAsync(itemId, availabilityId);
         return result is null ? NotFound() : Ok(result);
+    }
+
+    // Bulk Availability
+    [HttpGet("{seriesId:guid}/bulk-availability")]
+    public async Task<IActionResult> GetBulkAvailability(Guid seriesId)
+    {
+        var memberId = GetCurrentMemberId();
+        try
+        {
+            var result = await service.GetBulkAvailabilityAsync(seriesId, memberId);
+            return Ok(result);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+    }
+
+    [HttpPost("{seriesId:guid}/bulk-availability")]
+    public async Task<IActionResult> SubmitBulkAvailability(Guid seriesId, [FromBody] BulkAvailabilityRequest request)
+    {
+        var memberId = GetCurrentMemberId();
+        try
+        {
+            var result = await service.SubmitBulkAvailabilityAsync(seriesId, memberId, request);
+            return result is null ? NotFound() : Ok(result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (Microsoft.EntityFrameworkCore.DbUpdateException ex)
+        {
+            if (ex.InnerException?.Message.Contains("UQ_SlotClaim_Series_Slot") == true ||
+                ex.InnerException?.Message.Contains("duplicate key") == true)
+            {
+                return Conflict(new { message = "A slot was claimed by another item while processing your request. Please review and try again." });
+            }
+            return StatusCode(500, new { message = "An error occurred while saving availability." });
+        }
     }
 
     private Guid GetCurrentMemberId()

@@ -27,7 +27,12 @@ public class MeetingSeriesService(AppDbContext db) : IMeetingSeriesService
             .OrderByDescending(s => s.CreatedAt)
             .ToListAsync();
 
-        return series.Select(ToDto).ToList();
+        var results = new List<MeetingSeriesDto>();
+        foreach (var s in series)
+        {
+            results.Add(await MapSeriesWithClaimsAsync(s));
+        }
+        return results;
     }
 
     public async Task<MeetingSeriesDto?> GetByIdAsync(Guid id)
@@ -45,7 +50,7 @@ public class MeetingSeriesService(AppDbContext db) : IMeetingSeriesService
             .FirstOrDefaultAsync(s => s.Id == id);
 
         if (series is null) return null;
-        return ToDto(series);
+        return await MapSeriesWithClaimsAsync(series);
     }
 
     public async Task<MeetingSeriesDto> CreateAsync(CreateMeetingSeriesRequest request, Guid createdByMemberId)
@@ -114,7 +119,11 @@ public class MeetingSeriesService(AppDbContext db) : IMeetingSeriesService
             .ThenBy(s => s.StartTime)
             .ToListAsync();
 
-        return slots.Select(ToDto).ToList();
+        var claims = await db.Set<MeetingSeriesSlotClaim>()
+            .Where(c => c.MeetingSeriesId == seriesId)
+            .ToListAsync();
+
+        return slots.Select(sl => ToDtoWithClaim(sl, claims)).ToList();
     }
 
     public async Task<MeetingSeriesDto?> CreateSeriesSlotsAsync(Guid seriesId, CreateMeetingSeriesSlotsRequest request)
@@ -162,6 +171,13 @@ public class MeetingSeriesService(AppDbContext db) : IMeetingSeriesService
         var slot = await db.Set<MeetingSeriesSlot>()
             .FirstOrDefaultAsync(s => s.Id == slotId && s.MeetingSeriesId == seriesId);
         if (slot is null) return false;
+
+        var claim = await db.Set<MeetingSeriesSlotClaim>()
+            .FirstOrDefaultAsync(c => c.MeetingSeriesId == seriesId && c.MeetingSeriesSlotId == slotId);
+        if (claim is not null)
+        {
+            throw new InvalidOperationException("Cannot delete a slot that is claimed by a confirmed item.");
+        }
 
         db.Set<MeetingSeriesSlot>().Remove(slot);
         await db.SaveChangesAsync();
@@ -225,7 +241,6 @@ public class MeetingSeriesService(AppDbContext db) : IMeetingSeriesService
         item.Description = request.Description;
         item.DurationMinutes = request.DurationMinutes;
 
-        // Update participants: remove existing and add new
         db.Set<MeetingSeriesItemParticipant>().RemoveRange(item.Participants);
         item.Participants = request.Participants.Select(p => new MeetingSeriesItemParticipant
         {
@@ -245,6 +260,23 @@ public class MeetingSeriesService(AppDbContext db) : IMeetingSeriesService
             .Include(i => i.Availabilities)
             .FirstOrDefaultAsync(i => i.Id == itemId && i.MeetingSeriesId == seriesId);
         if (item is null) return false;
+
+        if (item.IsConfirmed && item.ConfirmedSlotId.HasValue)
+        {
+            var claim = await db.Set<MeetingSeriesSlotClaim>()
+                .FirstOrDefaultAsync(c => c.MeetingSeriesItemId == itemId);
+            if (claim is not null)
+            {
+                db.Set<MeetingSeriesSlotClaim>().Remove(claim);
+            }
+
+            var session = await db.Set<MeetingSession>()
+                .FirstOrDefaultAsync(ms => ms.MeetingSeriesItemId == itemId);
+            if (session is not null)
+            {
+                db.Set<MeetingSession>().Remove(session);
+            }
+        }
 
         db.Set<MeetingSeriesItem>().Remove(item);
         await db.SaveChangesAsync();
@@ -276,14 +308,12 @@ public class MeetingSeriesService(AppDbContext db) : IMeetingSeriesService
             .FirstOrDefaultAsync(i => i.Id == itemId);
         if (item is null) return null;
 
-        // Check if availability already exists for this item, slot, and team member
         var exists = await db.Set<MeetingSeriesItemAvailability>()
             .AnyAsync(a => a.MeetingSeriesItemId == itemId &&
                            a.MeetingSeriesSlotId == request.MeetingSeriesSlotId &&
                            a.TeamMemberId == request.TeamMemberId);
         if (exists)
         {
-            // Return the current state without adding duplicate
             return await GetByIdAsync(item.MeetingSeriesId);
         }
 
@@ -296,10 +326,9 @@ public class MeetingSeriesService(AppDbContext db) : IMeetingSeriesService
         };
 
         db.Set<MeetingSeriesItemAvailability>().Add(availability);
-        await db.SaveChangesAsync();
 
-        // After adding availability, check if this confirms the item and create MeetingSession if needed
-        await CheckAndConfirmItemAsync(itemId);
+        await CheckAndConfirmItemAsync(itemId, request.TeamMemberId);
+        await db.SaveChangesAsync();
 
         return await GetByIdAsync(item.MeetingSeriesId);
     }
@@ -318,15 +347,205 @@ public class MeetingSeriesService(AppDbContext db) : IMeetingSeriesService
         var meetingSeriesId = availability.MeetingSeriesItem.MeetingSeriesId;
 
         db.Set<MeetingSeriesItemAvailability>().Remove(availability);
-        await db.SaveChangesAsync();
 
-        // After removing availability, check if this unconfirms the item and delete MeetingSession if needed
         await CheckAndUnconfirmItemAsync(itemId);
+        await db.SaveChangesAsync();
 
         return await GetByIdAsync(meetingSeriesId);
     }
 
-    private async Task CheckAndConfirmItemAsync(Guid itemId)
+    // Bulk Availability
+    public async Task<BulkAvailabilityResponse> GetBulkAvailabilityAsync(Guid seriesId, Guid memberId)
+    {
+        var series = await db.Set<MeetingSeries>()
+            .Include(s => s.Slots)
+                .ThenInclude(sl => sl.Location)
+            .Include(s => s.Items)
+                .ThenInclude(i => i.Participants)
+            .Include(s => s.Items)
+                .ThenInclude(i => i.Availabilities)
+            .FirstOrDefaultAsync(s => s.Id == seriesId);
+
+        if (series is null)
+            throw new KeyNotFoundException($"Series {seriesId} not found.");
+
+        var member = await db.Set<TeamMember>()
+            .FirstOrDefaultAsync(m => m.Id == memberId);
+
+        if (member is null)
+            throw new KeyNotFoundException($"Member {memberId} not found.");
+
+        var claims = await db.Set<MeetingSeriesSlotClaim>()
+            .Where(c => c.MeetingSeriesId == seriesId)
+            .ToListAsync();
+
+        var items = series.Items
+            .Where(i => i.Participants.Any(p => p.TeamMemberId == memberId))
+            .Select(i => new BulkAvailabilityItemDto
+            {
+                ItemId = i.Id,
+                ItemTitle = i.Title,
+                IsConfirmed = i.IsConfirmed,
+                AvailableSlotIds = i.Availabilities
+                    .Where(a => a.TeamMemberId == memberId)
+                    .Select(a => a.MeetingSeriesSlotId)
+                    .ToList()
+            })
+            .ToList();
+
+        var slots = series.Slots
+            .OrderBy(s => s.Date)
+            .ThenBy(s => s.StartTime)
+            .Select(sl =>
+            {
+                var claim = claims.FirstOrDefault(c => c.MeetingSeriesSlotId == sl.Id);
+                return new BulkAvailabilitySlotDto
+                {
+                    SlotId = sl.Id,
+                    Date = sl.Date,
+                    StartTime = sl.StartTime,
+                    EndTime = sl.EndTime,
+                    LocationId = sl.LocationId,
+                    LocationName = sl.Location?.Name,
+                    LocationColor = sl.Location?.Color,
+                    IsClaimed = claim is not null,
+                    ClaimedByItemId = claim?.MeetingSeriesItemId
+                };
+            })
+            .ToList();
+
+        return new BulkAvailabilityResponse
+        {
+            SeriesId = seriesId,
+            MemberId = memberId,
+            MemberName = $"{member.FirstName} {member.LastName}",
+            Items = items,
+            Slots = slots
+        };
+    }
+
+    public async Task<MeetingSeriesDto?> SubmitBulkAvailabilityAsync(Guid seriesId, Guid memberId, BulkAvailabilityRequest request)
+    {
+        var series = await db.Set<MeetingSeries>()
+            .Include(s => s.Items)
+                .ThenInclude(i => i.Participants)
+            .Include(s => s.Items)
+                .ThenInclude(i => i.Availabilities)
+            .Include(s => s.Slots)
+            .FirstOrDefaultAsync(s => s.Id == seriesId);
+
+        if (series is null) return null;
+
+        var member = await db.Set<TeamMember>().FindAsync(memberId);
+        if (member is null) return null;
+
+        var requestedItemIds = request.Availabilities.Select(a => a.ItemId).Distinct().ToList();
+        var requestedSlotIds = request.Availabilities.Select(a => a.SlotId).Distinct().ToList();
+
+        foreach (var itemId in requestedItemIds)
+        {
+            var item = series.Items.FirstOrDefault(i => i.Id == itemId);
+            if (item is null)
+                throw new InvalidOperationException($"Item {itemId} does not belong to series {seriesId}.");
+
+            var participant = item.Participants.FirstOrDefault(p => p.TeamMemberId == memberId);
+            if (participant is null)
+                throw new InvalidOperationException($"Member {memberId} is not a participant of item {itemId}.");
+        }
+
+        foreach (var slotId in requestedSlotIds)
+        {
+            var slot = series.Slots.FirstOrDefault(s => s.Id == slotId);
+            if (slot is null)
+                throw new InvalidOperationException($"Slot {slotId} does not belong to series {seriesId}.");
+        }
+
+        var uniqueAvailabilities = request.Availabilities
+            .GroupBy(a => new { a.ItemId, a.SlotId })
+            .Select(g => g.First())
+            .ToList();
+
+        var existingAvailabilities = await db.Set<MeetingSeriesItemAvailability>()
+            .Where(a => requestedItemIds.Contains(a.MeetingSeriesItemId) &&
+                        a.TeamMemberId == memberId)
+            .ToListAsync();
+
+        var existingSet = new HashSet<(Guid ItemId, Guid SlotId)>(
+            existingAvailabilities.Select(a => (a.MeetingSeriesItemId, a.MeetingSeriesSlotId)));
+
+        var requestedSet = new HashSet<(Guid ItemId, Guid SlotId)>(
+            uniqueAvailabilities.Select(a => (a.ItemId, a.SlotId)));
+
+        var toDelete = existingAvailabilities
+            .Where(a => !requestedSet.Contains((a.MeetingSeriesItemId, a.MeetingSeriesSlotId)))
+            .ToList();
+
+        var toInsert = uniqueAvailabilities
+            .Where(a => !existingSet.Contains((a.ItemId, a.SlotId)))
+            .Select(a => new MeetingSeriesItemAvailability
+            {
+                MeetingSeriesItemId = a.ItemId,
+                MeetingSeriesSlotId = a.SlotId,
+                TeamMemberId = memberId
+            })
+            .ToList();
+
+        if (toDelete.Count > 0)
+            db.Set<MeetingSeriesItemAvailability>().RemoveRange(toDelete);
+
+        if (toInsert.Count > 0)
+            db.Set<MeetingSeriesItemAvailability>().AddRange(toInsert);
+
+        var affectedItemIds = uniqueAvailabilities.Select(a => a.ItemId).Distinct().ToList();
+
+        foreach (var itemId in affectedItemIds.OrderBy(id => id))
+        {
+            var item = series.Items.First(i => i.Id == itemId);
+            if (item.IsConfirmed) continue;
+
+            await CheckAndConfirmItemAsync(itemId, memberId);
+        }
+
+        await db.SaveChangesAsync();
+
+        return await GetByIdAsync(seriesId);
+    }
+
+    // Unconfirm
+    public async Task<MeetingSeriesDto?> UnconfirmItemAsync(Guid itemId)
+    {
+        var item = await db.Set<MeetingSeriesItem>()
+            .Include(i => i.MeetingSeries)
+            .FirstOrDefaultAsync(i => i.Id == itemId);
+
+        if (item is null) return null;
+
+        if (!item.IsConfirmed || !item.ConfirmedSlotId.HasValue)
+            return await GetByIdAsync(item.MeetingSeriesId);
+
+        item.IsConfirmed = false;
+        item.ConfirmedSlotId = null;
+
+        var claim = await db.Set<MeetingSeriesSlotClaim>()
+            .FirstOrDefaultAsync(c => c.MeetingSeriesItemId == itemId);
+        if (claim is not null)
+        {
+            db.Set<MeetingSeriesSlotClaim>().Remove(claim);
+        }
+
+        var session = await db.Set<MeetingSession>()
+            .FirstOrDefaultAsync(ms => ms.MeetingSeriesItemId == itemId);
+        if (session is not null)
+        {
+            db.Set<MeetingSession>().Remove(session);
+        }
+
+        await db.SaveChangesAsync();
+
+        return await GetByIdAsync(item.MeetingSeriesId);
+    }
+
+    private async Task CheckAndConfirmItemAsync(Guid itemId, Guid claimedByMemberId)
     {
         var item = await db.Set<MeetingSeriesItem>()
             .Include(i => i.Participants)
@@ -334,45 +553,68 @@ public class MeetingSeriesService(AppDbContext db) : IMeetingSeriesService
             .Include(i => i.Availabilities)
                 .ThenInclude(a => a.MeetingSeriesSlot)
                     .ThenInclude(s => s.Location)
+            .Include(i => i.MeetingSeries)
             .FirstOrDefaultAsync(i => i.Id == itemId);
 
         if (item is null) return;
 
-        // Get mandatory participant IDs
         var mandatoryParticipantIds = item.Participants
             .Where(p => p.Role.ToLowerInvariant() == "mandatory")
             .Select(p => p.TeamMemberId)
             .ToHashSet();
 
         if (mandatoryParticipantIds.Count == 0)
-        {
-            // No mandatory participants, cannot be confirmed
             return;
-        }
 
-        // Group availabilities by slot
         var availabilitiesBySlot = item.Availabilities
             .GroupBy(a => a.MeetingSeriesSlotId)
             .ToDictionary(g => g.Key, g => g.Select(a => a.TeamMemberId).ToHashSet());
 
-        // Find a slot where all mandatory participants have availability
-        foreach (var slot in item.Availabilities.Select(a => a.MeetingSeriesSlot).Distinct())
+        var existingClaims = await db.Set<MeetingSeriesSlotClaim>()
+            .Where(c => c.MeetingSeriesId == item.MeetingSeriesId)
+            .ToListAsync();
+
+        var slots = item.Availabilities
+            .Select(a => a.MeetingSeriesSlot)
+            .Where(s => s is not null)
+            .Distinct()
+            .OrderBy(s => s!.Date)
+            .ThenBy(s => s!.StartTime)
+            .ToList();
+
+        foreach (var slot in slots)
         {
             if (slot is null) continue;
+
             var attendeeIds = availabilitiesBySlot.GetValueOrDefault(slot.Id, new HashSet<Guid>());
-            if (mandatoryParticipantIds.IsSubsetOf(attendeeIds))
+            if (!mandatoryParticipantIds.IsSubsetOf(attendeeIds))
+                continue;
+
+            var existingClaim = existingClaims.FirstOrDefault(c => c.MeetingSeriesSlotId == slot.Id);
+
+            if (existingClaim is null)
             {
-                // Confirm the item with this slot
                 item.IsConfirmed = true;
                 item.ConfirmedSlotId = slot.Id;
 
-                // Create a MeetingSession from this confirmed item
+                var newClaim = new MeetingSeriesSlotClaim
+                {
+                    MeetingSeriesId = item.MeetingSeriesId,
+                    MeetingSeriesSlotId = slot.Id,
+                    MeetingSeriesItemId = item.Id,
+                    ClaimedByMemberId = claimedByMemberId,
+                    ClaimedAt = DateTimeOffset.UtcNow
+                };
+
+                db.Set<MeetingSeriesSlotClaim>().Add(newClaim);
                 await CreateMeetingSessionFromItemAsync(item, slot);
                 break;
             }
+            else if (existingClaim.MeetingSeriesItemId == item.Id)
+            {
+                break;
+            }
         }
-
-        await db.SaveChangesAsync();
     }
 
     private async Task CheckAndUnconfirmItemAsync(Guid itemId)
@@ -387,7 +629,6 @@ public class MeetingSeriesService(AppDbContext db) : IMeetingSeriesService
 
         if (item is null) return;
 
-        // If the item was confirmed, check if it should be unconfirmed
         if (item.IsConfirmed && item.ConfirmedSlotId.HasValue)
         {
             var mandatoryParticipantIds = item.Participants
@@ -407,11 +648,16 @@ public class MeetingSeriesService(AppDbContext db) : IMeetingSeriesService
                 var attendeeIds = availabilitiesBySlot.GetValueOrDefault(slot.Id, new HashSet<Guid>());
                 if (!mandatoryParticipantIds.IsSubsetOf(attendeeIds))
                 {
-                    // Unconfirm the item
                     item.IsConfirmed = false;
                     item.ConfirmedSlotId = null;
 
-                    // Delete the associated MeetingSession if it exists
+                    var claim = await db.Set<MeetingSeriesSlotClaim>()
+                        .FirstOrDefaultAsync(c => c.MeetingSeriesItemId == itemId);
+                    if (claim is not null)
+                    {
+                        db.Set<MeetingSeriesSlotClaim>().Remove(claim);
+                    }
+
                     var meetingSession = await db.Set<MeetingSession>()
                         .FirstOrDefaultAsync(ms => ms.MeetingSeriesItemId == item.Id);
                     if (meetingSession is not null)
@@ -421,28 +667,23 @@ public class MeetingSeriesService(AppDbContext db) : IMeetingSeriesService
                 }
             }
         }
-
-        await db.SaveChangesAsync();
     }
 
     private async Task CreateMeetingSessionFromItemAsync(MeetingSeriesItem item, MeetingSeriesSlot slot)
     {
-        // Check if a MeetingSession already exists for this item (shouldn't happen if we manage correctly)
         var existingSession = await db.Set<MeetingSession>()
-            .FirstOrDefaultAsync(ms => ms.Title == item.Title && 
-                                       ms.Date == slot.Date && 
-                                       ms.StartTime == slot.StartTime && 
+            .FirstOrDefaultAsync(ms => ms.Title == item.Title &&
+                                       ms.Date == slot.Date &&
+                                       ms.StartTime == slot.StartTime &&
                                        ms.EndTime == slot.EndTime);
 
         if (existingSession is not null)
         {
-            // Update the existing session to link to this item
             existingSession.MeetingSeriesItemId = item.Id;
             existingSession.MeetingSeriesSlotId = slot.Id;
         }
         else
         {
-            // Create a new MeetingSession
             var meetingSession = new MeetingSession
             {
                 Title = item.Title,
@@ -451,8 +692,8 @@ public class MeetingSeriesService(AppDbContext db) : IMeetingSeriesService
                 StartTime = slot.StartTime,
                 EndTime = slot.EndTime,
                 Location = ResolveMeetingLocation(slot.Location),
-                Type = MeetingType.Discussion, // Default type, could be configurable
-                Status = MeetingStatus.Filled, // Since all mandatory participants are available
+                Type = MeetingType.Discussion,
+                Status = MeetingStatus.Filled,
                 CreatedByMemberId = item.MeetingSeries.CreatedByMemberId,
                 MeetingSeriesItemId = item.Id,
                 MeetingSeriesSlotId = slot.Id,
@@ -469,8 +710,6 @@ public class MeetingSeriesService(AppDbContext db) : IMeetingSeriesService
 
             db.Set<MeetingSession>().Add(meetingSession);
         }
-
-        // Note: We don't call SaveChanges here; it will be done by the caller
     }
 
     private static MeetingLocation ResolveMeetingLocation(SlotLocation? location)
@@ -483,6 +722,44 @@ public class MeetingSeriesService(AppDbContext db) : IMeetingSeriesService
         if (name.Contains("onsite") || name.Contains("on-site")) return MeetingLocation.OnSite;
         if (name.Contains("hybrid")) return MeetingLocation.Hybrid;
         return MeetingLocation.OnSite;
+    }
+
+    private async Task<MeetingSeriesDto> MapSeriesWithClaimsAsync(MeetingSeries series)
+    {
+        var claims = await db.Set<MeetingSeriesSlotClaim>()
+            .Where(c => c.MeetingSeriesId == series.Id)
+            .ToListAsync();
+
+        return new MeetingSeriesDto
+        {
+            Id = series.Id,
+            Title = series.Title,
+            Description = series.Description,
+            CreatedByMemberId = series.CreatedByMemberId,
+            CreatedByMemberName = $"{series.CreatedBy.FirstName} {series.CreatedBy.LastName}",
+            IsActive = series.IsActive,
+            CreatedAt = series.CreatedAt,
+            Slots = series.Slots.Select(sl => ToDtoWithClaim(sl, claims)).ToList(),
+            Items = series.Items.Select(i => ToDto(i)).ToList()
+        };
+    }
+
+    private static MeetingSeriesSlotDto ToDtoWithClaim(MeetingSeriesSlot sl, List<MeetingSeriesSlotClaim> claims)
+    {
+        var claim = claims.FirstOrDefault(c => c.MeetingSeriesSlotId == sl.Id);
+        return new MeetingSeriesSlotDto
+        {
+            Id = sl.Id,
+            Date = sl.Date,
+            StartTime = sl.StartTime,
+            EndTime = sl.EndTime,
+            LocationId = sl.LocationId,
+            LocationName = sl.Location?.Name,
+            LocationColor = sl.Location?.Color,
+            SortOrder = sl.SortOrder,
+            IsClaimed = claim is not null,
+            ClaimedByItemId = claim?.MeetingSeriesItemId
+        };
     }
 
     // DTO conversion methods
