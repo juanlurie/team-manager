@@ -3,22 +3,29 @@ import { CommonModule } from '@angular/common';
 import { Router, RouterLink } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MeetingSeriesService } from '../../core/services/meeting-series.service';
 import { MeetingSeries } from '../../core/models/meeting-series.model';
+import { LocationsConfigDialogComponent } from './locations-config-dialog.component';
 
 @Component({
   selector: 'app-meeting-series-list',
   standalone: true,
-  imports: [CommonModule, RouterLink, MatButtonModule, MatIconModule, MatProgressSpinnerModule],
+  imports: [CommonModule, RouterLink, MatButtonModule, MatIconModule, MatDialogModule, MatProgressSpinnerModule],
   template: `
     <div class="page">
       <div class="header">
         <h2>Meeting Series</h2>
-        <button mat-raised-button color="primary" routerLink="create">
-          <mat-icon>add</mat-icon> Create Series
-        </button>
+        <div class="header-actions">
+          <button mat-stroked-button (click)="openLocationsConfig()">
+            <mat-icon>room</mat-icon> Locations
+          </button>
+          <button mat-raised-button color="primary" routerLink="create">
+            <mat-icon>add</mat-icon> Create Series
+          </button>
+        </div>
       </div>
 
       @if (loading()) {
@@ -69,6 +76,7 @@ import { MeetingSeries } from '../../core/models/meeting-series.model';
   styles: [`
     .page { max-width:900px;margin:0 auto;padding:8px; }
     .header { display:flex;justify-content:space-between;align-items:center;margin-bottom:24px; }
+    .header-actions { display:flex;gap:8px; }
     .header h2 { margin:0;font-size:1.3rem;font-weight:700; }
     .spinner-wrap { display:flex;justify-content:center;padding:60px; }
     .empty-state { text-align:center;padding:60px 20px;display:flex;flex-direction:column;align-items:center;gap:8px; }
@@ -98,6 +106,7 @@ import { MeetingSeries } from '../../core/models/meeting-series.model';
 export class MeetingSeriesListComponent implements OnInit {
   private svc = inject(MeetingSeriesService);
   private snack = inject(MatSnackBar);
+  private dialog = inject(MatDialog);
   router = inject(Router);
 
   loading = signal(true);
@@ -128,5 +137,9 @@ export class MeetingSeriesListComponent implements OnInit {
       next: () => { this.snack.open('Series deleted', 'OK', { duration: 2000 }); this.load(); },
       error: () => this.snack.open('Failed to delete', 'OK', { duration: 2000 })
     });
+  }
+
+  openLocationsConfig() {
+    this.dialog.open(LocationsConfigDialogComponent, { width: '600px' });
   }
 }

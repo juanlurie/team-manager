@@ -31,7 +31,6 @@ const PRIMARY_NAV: NavItem[] = [
 ];
 
 const SECONDARY_NAV: NavItem[] = [
-  { path: '/slot-locations',icon: 'room',        label: 'Locations'   },
   { path: '/session-types', icon: 'category',    label: 'Meeting Types'},
   { path: '/export',        icon: 'download',     label: 'Export'      },
   { path: '/leaderboard',   icon: 'emoji_events', label: 'Leaderboard' },
