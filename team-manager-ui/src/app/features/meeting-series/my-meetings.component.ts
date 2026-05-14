@@ -28,7 +28,16 @@ import { MyMeetingItem } from '../../core/models/meeting-series.model';
       } @else {
         @for (group of groupedItems(); track group.seriesId) {
           <div class="series-group">
-            <h3 class="series-title">{{ group.seriesTitle }}</h3>
+            <div class="series-header-row">
+              <h3 class="series-title">{{ group.seriesTitle }}</h3>
+              @if (hasOpenItems(group)) {
+                <button mat-stroked-button class="series-avail-btn"
+                        [routerLink]="['/meeting-series', group.seriesId, 'availability']">
+                  <mat-icon style="font-size:1rem;width:1rem;height:1rem;margin-right:4px">event_available</mat-icon>
+                  Set Availability
+                </button>
+              }
+            </div>
             @for (item of group.items; track item.itemId) {
               <div class="item-card">
                 <div style="flex:1;min-width:0">
@@ -54,10 +63,6 @@ import { MyMeetingItem } from '../../core/models/meeting-series.model';
                     }
                   </div>
                 </div>
-                <button mat-stroked-button style="flex-shrink:0;min-width:0;padding:0 12px;height:32px;font-size:0.78rem"
-                        [routerLink]="['/meeting-series', item.seriesId, 'availability']">
-                  Set Availability
-                </button>
               </div>
             }
           </div>
@@ -74,7 +79,9 @@ import { MyMeetingItem } from '../../core/models/meeting-series.model';
     .empty-state p { font-weight:600;margin:0; }
     .empty-state span { font-size:0.85rem;opacity:0.5; }
     .series-group { margin-bottom:24px; }
-    .series-title { font-size:0.85rem;font-weight:600;color:#64b5f6;margin:0 0 12px;padding-bottom:8px;border-bottom:1px solid rgba(100,181,246,0.2); }
+    .series-header-row { display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid rgba(100,181,246,0.2); }
+    .series-title { font-size:0.85rem;font-weight:600;color:#64b5f6;margin:0; }
+    .series-avail-btn { flex-shrink:0;font-size:0.78rem;height:32px;padding:0 12px; }
     .item-card {
       display:flex;align-items:center;padding:12px 14px;border-radius:8px;gap:12px;
       background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07);
@@ -98,6 +105,10 @@ export class MyMeetingsComponent implements OnInit {
   items = signal<MyMeetingItem[]>([]);
 
   groupedItems = signal<{ seriesId: string; seriesTitle: string; items: MyMeetingItem[] }[]>([]);
+
+  hasOpenItems(group: { items: MyMeetingItem[] }): boolean {
+    return group.items.some(i => !i.isConfirmed);
+  }
 
   ngOnInit() { this.load(); }
 
