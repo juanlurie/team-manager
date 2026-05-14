@@ -415,7 +415,8 @@ export class MeetingSeriesDetailComponent implements OnInit {
     if (!s) return new Set<string>();
     const keys = new Set<string>();
     for (const slot of s.slots) {
-      keys.add(slot.date + '|' + slot.startTime);
+      const time = slot.startTime.includes(':') ? slot.startTime.split(':').slice(0, 2).join(':') : slot.startTime;
+      keys.add(slot.date + '|' + time);
     }
     return keys;
   });
