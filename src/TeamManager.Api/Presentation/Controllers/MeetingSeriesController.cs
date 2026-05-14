@@ -226,6 +226,29 @@ public class MeetingSeriesController(IMeetingSeriesService service, AppDbContext
         }
     }
 
+    [HttpGet("{seriesId:guid}/my-availability")]
+    public async Task<IActionResult> GetMyAvailability(Guid seriesId)
+    {
+        var memberId = GetCurrentMemberId();
+        var result = await service.GetMyAvailabilityAsync(seriesId, memberId);
+        return Ok(result);
+    }
+
+    [HttpPost("{seriesId:guid}/my-availability")]
+    public async Task<IActionResult> SetMyAvailability(Guid seriesId, [FromBody] SetMyAvailabilityRequest request)
+    {
+        var memberId = GetCurrentMemberId();
+        try
+        {
+            await service.SetMyAvailabilityAsync(seriesId, memberId, request);
+            return NoContent();
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+    }
+
     private Guid GetCurrentMemberId()
     {
         var nameIdClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;

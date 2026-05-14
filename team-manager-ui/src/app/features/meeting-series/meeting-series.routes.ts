@@ -15,7 +15,7 @@ export const MEETING_SERIES_ROUTES: Routes = [
   },
   {
     path: ':id/availability',
-    loadComponent: () => import('./bulk-availability.component').then(m => m.BulkAvailabilityComponent)
+    loadComponent: () => import('./my-availability.component').then(m => m.MyAvailabilityComponent)
   },
   {
     path: ':id/slots',

@@ -33,6 +33,10 @@ public interface IMeetingSeriesService
     Task<BulkAvailabilityResponse> GetBulkAvailabilityAsync(Guid seriesId, Guid memberId);
     Task<MeetingSeriesDto?> SubmitBulkAvailabilityAsync(Guid seriesId, Guid memberId, BulkAvailabilityRequest request);
     
+    // My Availability (unified)
+    Task<string[]> GetMyAvailabilityAsync(Guid seriesId, Guid memberId);
+    Task SetMyAvailabilityAsync(Guid seriesId, Guid memberId, SetMyAvailabilityRequest request);
+    
     // Unconfirm
     Task<MeetingSeriesDto?> UnconfirmItemAsync(Guid itemId);
     

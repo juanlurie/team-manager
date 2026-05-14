@@ -168,3 +168,7 @@ export interface MyMeetingSeries {
   role: string;
   createdAt: string;
 }
+
+export interface SetMyAvailabilityRequest {
+  slotIds: string[];
+}
