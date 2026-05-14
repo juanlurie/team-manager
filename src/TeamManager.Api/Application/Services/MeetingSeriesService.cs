@@ -380,7 +380,7 @@ public class MeetingSeriesService(AppDbContext db) : IMeetingSeriesService
             .ToListAsync();
 
         var items = series.Items
-            .Where(i => i.Participants.Any(p => p.TeamMemberId == memberId))
+            .Where(i => i.Participants.Any(p => p.TeamMemberId == memberId) && !i.IsConfirmed)
             .Select(i => new BulkAvailabilityItemDto
             {
                 ItemId = i.Id,
@@ -509,6 +509,46 @@ public class MeetingSeriesService(AppDbContext db) : IMeetingSeriesService
         await db.SaveChangesAsync();
 
         return await GetByIdAsync(seriesId);
+    }
+
+    // My Series
+    public async Task<IReadOnlyList<MyMeetingSeriesDto>> GetMySeriesAsync(Guid memberId)
+    {
+        var series = await db.Set<MeetingSeries>()
+            .Include(s => s.Items)
+                .ThenInclude(i => i.Participants)
+            .Where(s => s.Items.Any(i => i.Participants.Any(p => p.TeamMemberId == memberId)))
+            .OrderByDescending(s => s.CreatedAt)
+            .ToListAsync();
+
+        var result = series.Select(s =>
+        {
+            var userItems = s.Items.Where(i => i.Participants.Any(p => p.TeamMemberId == memberId)).ToList();
+            var totalItems = userItems.Count;
+            var confirmedItems = userItems.Count(i => i.IsConfirmed);
+            var openItems = totalItems - confirmedItems;
+
+            var participantRoles = userItems
+                .SelectMany(i => i.Participants.Where(p => p.TeamMemberId == memberId))
+                .Select(p => p.Role)
+                .ToList();
+
+            var role = participantRoles.Contains("Mandatory") ? "Mandatory" : "Optional";
+
+            return new MyMeetingSeriesDto
+            {
+                SeriesId = s.Id,
+                SeriesTitle = s.Title,
+                SeriesDescription = s.Description,
+                TotalItems = totalItems,
+                OpenItems = openItems,
+                ConfirmedItems = confirmedItems,
+                Role = role,
+                CreatedAt = s.CreatedAt
+            };
+        }).ToList();
+
+        return result;
     }
 
     // Unconfirm

@@ -157,3 +157,14 @@ export interface BulkAvailabilityResponse {
 export interface BulkAvailabilityRequest {
   availabilities: { itemId: string; slotId: string }[];
 }
+
+export interface MyMeetingSeries {
+  seriesId: string;
+  seriesTitle: string;
+  seriesDescription?: string;
+  totalItems: number;
+  openItems: number;
+  confirmedItems: number;
+  role: string;
+  createdAt: string;
+}
