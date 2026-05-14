@@ -10,8 +10,6 @@ import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
     <div class="hub">
       <nav class="hub-tabs" role="tablist">
         <a class="hub-tab" routerLink="win-of-the-week" routerLinkActive="active" role="tab">Win of the Week</a>
-        <a class="hub-tab" routerLink="win-of-the-week/history" routerLinkActive="active" role="tab">History</a>
-        <a class="hub-tab" routerLink="win-of-the-month" routerLinkActive="active" role="tab">Win of the Month</a>
         <a class="hub-tab" routerLink="leaderboard" routerLinkActive="active" role="tab">Leaderboard</a>
         <a class="hub-tab" routerLink="wheel" routerLinkActive="active" role="tab">Spin Wheel</a>
       </nav>

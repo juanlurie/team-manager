@@ -9,7 +9,7 @@ public record WinMonthDto
     public int Month { get; init; }
     public string Status { get; init; } = string.Empty;
     public string MonthName { get; init; } = string.Empty;
-    public DateTimeOffset VotingEndsAt { get; init; }
+    public DateTimeOffset? VotingEndsAt { get; init; }
     public Guid? WinnerNominationId { get; init; }
     public string? WinnerNomineeName { get; init; }
     public string? WinnerTitle { get; init; }

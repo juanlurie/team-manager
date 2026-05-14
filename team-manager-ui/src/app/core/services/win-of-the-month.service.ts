@@ -32,4 +32,8 @@ export class WinOfTheMonthService {
   generateFromWeeks() {
     return this.http.post<WinMonth>(`${this.base}/generate`, {});
   }
+
+  openVoting() {
+    return this.http.post<WinMonth>(`${this.base}/open`, {});
+  }
 }

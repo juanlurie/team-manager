@@ -1,7 +1,6 @@
 import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { MatTooltipModule } from '@angular/material/tooltip';
@@ -16,14 +15,17 @@ import { TeamMemberService } from '../../core/services/team-member.service';
 import { WinWeek, WinNomination, CreateNominationRequest } from '../../core/models/win-week.model';
 import { TeamMember } from '../../core/models/team-member.model';
 import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/confirm-dialog.component';
+import { WinOfTheWeekHistoryComponent } from '../win-of-the-week-history/win-of-the-week-history.component';
+import { WinOfTheMonthComponent } from '../win-of-the-month/win-of-the-month.component';
 
 @Component({
   selector: 'app-win-of-the-week',
   standalone: true,
   imports: [
-    CommonModule, FormsModule, RouterLink, MatIconModule, MatButtonModule,
+    CommonModule, FormsModule, MatIconModule, MatButtonModule,
     MatTooltipModule, MatDialogModule, MatSnackBarModule,
-    MatFormFieldModule, MatSelectModule, MatInputModule
+    MatFormFieldModule, MatSelectModule, MatInputModule,
+    WinOfTheWeekHistoryComponent, WinOfTheMonthComponent
   ],
   template: `
     <div style="max-width:800px;margin:0 auto;padding:0 8px">
@@ -33,17 +35,89 @@ import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/c
           <mat-icon style="font-size:1.6rem;width:1.6rem;height:1.6rem;color:#FFD700">emoji_events</mat-icon>
           <h2 style="margin:0;font-size:1.3rem;font-weight:700">Win of the Week</h2>
         </div>
-
-        <!-- Phase badge -->
-        @let phase = phaseInfo();
-        <span [style.background]="phase.bg" [style.color]="phase.text"
-              style="font-size:0.75rem;font-weight:700;padding:4px 12px;border-radius:20px;text-transform:uppercase;letter-spacing:0.3px">
-          {{phase.label}}
-        </span>
-
         <div style="flex:1"></div>
+      </div>
 
-        <!-- Admin actions -->
+      <!-- Internal tabs -->
+      <nav style="display:flex;gap:0;margin-bottom:16px;border-bottom:1px solid rgba(255,255,255,0.08)">
+        @for (tab of tabs; track tab.id) {
+          <button style="padding:12px 16px;font-size:0.85rem;font-weight:500;border-bottom:2px solid;background:none;border-top:none;border-left:none;border-right:none;cursor:pointer;transition:all 0.15s;font-family:inherit"
+              [style.color]="activeTab() === tab.id ? '#64b5f6' : 'rgba(255,255,255,0.45)'"
+              [style.borderBottomColor]="activeTab() === tab.id ? '#64b5f6' : 'transparent'"
+                  (click)="activeTab.set(tab.id)"
+                  (mouseenter)="tabHover.set(tab.id)"
+                  (mouseleave)="tabHover.set(null)"
+                  [style.background]="tabHover() === tab.id ? 'rgba(255,255,255,0.04)' : 'none'">
+            {{tab.label}}
+          </button>
+        }
+      </nav>
+
+      <!-- Tab content -->
+      @switch (activeTab()) {
+        @case ('current') {
+          <ng-container *ngTemplateOutlet="currentTab"></ng-container>
+        }
+        @case ('history') {
+          <app-win-of-the-week-history />
+        }
+        @case ('month') {
+          <app-win-of-the-month />
+        }
+      }
+    </div>
+
+    <!-- Nominate Dialog -->
+    @if (showDialog()) {
+      <div style="position:fixed;inset:0;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;z-index:1000"
+           (click)="closeDialog()">
+        <div style="background:#1e1e2e;border-radius:16px;padding:24px;width:90%;max-width:440px;border:1px solid rgba(255,255,255,0.1)"
+             (click)="$event.stopPropagation()">
+          <h3 style="margin:0 0 16px;font-size:1.1rem;font-weight:700">Nominate a Win</h3>
+
+          <div style="display:flex;flex-direction:column;gap:12px">
+            <mat-form-field appearance="outline" style="width:100%">
+              <mat-label>Who are you nominating?</mat-label>
+              <mat-select [(ngModel)]="nominateForm.nomineeMemberId">
+                @for (m of allMembers(); track m.id) {
+                  <mat-option [value]="m.id">{{m.firstName}} {{m.lastName}}</mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline" style="width:100%">
+              <mat-label>Title</mat-label>
+              <input matInput [(ngModel)]="nominateForm.title" placeholder="e.g. Fixed the production DB issue" maxlength="200">
+            </mat-form-field>
+
+            <mat-form-field appearance="outline" style="width:100%">
+              <mat-label>Description (optional)</mat-label>
+              <textarea matInput [(ngModel)]="nominateForm.description" rows="3" maxlength="2000"></textarea>
+            </mat-form-field>
+          </div>
+
+          <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
+            <button mat-stroked-button (click)="closeDialog()">Cancel</button>
+            <button mat-raised-button color="primary" (click)="submitNomination()"
+                    [disabled]="!nominateForm.nomineeMemberId || !nominateForm.title.trim() || submitting()">
+              {{ submitting() ? 'Submitting...' : 'Submit' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    }
+
+    <!-- Current tab template -->
+    <ng-template #currentTab>
+      <!-- Phase badge -->
+      @let phase = phaseInfo();
+      <span [style.background]="phase.bg" [style.color]="phase.text"
+            style="font-size:0.75rem;font-weight:700;padding:4px 12px;border-radius:20px;text-transform:uppercase;letter-spacing:0.3px;margin-bottom:16px;display:inline-block">
+        {{phase.label}}
+      </span>
+
+      <!-- Admin actions -->
+      <div style="display:flex;gap:8px;margin-bottom:16px">
         @if (currentWeek()?.status === 'Voting') {
           <button mat-stroked-button color="primary" (click)="closeWeek()"
                   style="font-size:0.8rem;height:34px">
@@ -97,20 +171,6 @@ import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/c
           </div>
           <div style="font-size:0.75rem;opacity:0.45;margin-top:12px">Winner of the Week</div>
         </div>
-      }
-
-      <!-- WoM Banner -->
-      @if (womActive()) {
-        <a routerLink="../win-of-the-month" style="display:block;text-decoration:none;margin-bottom:16px">
-          <div style="background:rgba(37,99,235,0.08);border:1px solid rgba(37,99,235,0.2);border-left:3px solid #2563EB;border-radius:8px;padding:12px 16px;cursor:pointer;transition:background 0.2s"
-               (mouseenter)="womHover.set(true)" (mouseleave)="womHover.set(false)"
-               [style.background]="womHover() ? 'rgba(37,99,235,0.12)' : 'rgba(37,99,235,0.08)'">
-            <div style="display:flex;align-items:center;gap:8px">
-              <mat-icon style="font-size:1.1rem;width:1.1rem;height:1.1rem;color:#64b5f6">emoji_events</mat-icon>
-              <span style="font-size:0.85rem;font-weight:600;color:#64b5f6">Win of the Month voting is open! Vote for your favorite weekly winner →</span>
-            </div>
-          </div>
-        </a>
       }
 
       <!-- User quota chips -->
@@ -223,52 +283,7 @@ import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/c
           }
         </div>
       }
-
-      <!-- View past winners link -->
-      <a routerLink="../win-of-the-week/history" style="display:inline-block;margin-top:16px;color:#64b5f6;font-size:0.85rem;text-decoration:none;font-weight:600">
-        View past winners →
-      </a>
-    </div>
-
-    <!-- Nominate Dialog -->
-    @if (showDialog()) {
-      <div style="position:fixed;inset:0;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;z-index:1000"
-           (click)="closeDialog()">
-        <div style="background:#1e1e2e;border-radius:16px;padding:24px;width:90%;max-width:440px;border:1px solid rgba(255,255,255,0.1)"
-             (click)="$event.stopPropagation()">
-          <h3 style="margin:0 0 16px;font-size:1.1rem;font-weight:700">Nominate a Win</h3>
-
-          <div style="display:flex;flex-direction:column;gap:12px">
-            <mat-form-field appearance="outline" style="width:100%">
-              <mat-label>Who are you nominating?</mat-label>
-              <mat-select [(ngModel)]="nominateForm.nomineeMemberId">
-                @for (m of allMembers(); track m.id) {
-                  <mat-option [value]="m.id">{{m.firstName}} {{m.lastName}}</mat-option>
-                }
-              </mat-select>
-            </mat-form-field>
-
-            <mat-form-field appearance="outline" style="width:100%">
-              <mat-label>Title</mat-label>
-              <input matInput [(ngModel)]="nominateForm.title" placeholder="e.g. Fixed the production DB issue" maxlength="200">
-            </mat-form-field>
-
-            <mat-form-field appearance="outline" style="width:100%">
-              <mat-label>Description (optional)</mat-label>
-              <textarea matInput [(ngModel)]="nominateForm.description" rows="3" maxlength="2000"></textarea>
-            </mat-form-field>
-          </div>
-
-          <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
-            <button mat-stroked-button (click)="closeDialog()">Cancel</button>
-            <button mat-raised-button color="primary" (click)="submitNomination()"
-                    [disabled]="!nominateForm.nomineeMemberId || !nominateForm.title.trim() || submitting()">
-              {{ submitting() ? 'Submitting...' : 'Submit' }}
-            </button>
-          </div>
-        </div>
-      </div>
-    }
+    </ng-template>
   `
 })
 export class WinOfTheWeekComponent implements OnInit {
@@ -279,14 +294,19 @@ export class WinOfTheWeekComponent implements OnInit {
   private snackBar = inject(MatSnackBar);
 
   readonly DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  readonly tabs = [
+    { id: 'current', label: 'Current' },
+    { id: 'history', label: 'History' },
+    { id: 'month', label: 'Win of the Month' }
+  ];
+  activeTab = signal('current');
+  tabHover = signal<string | null>(null);
   currentWeek = signal<WinWeek | null>(null);
   allMembers = signal<TeamMember[]>([]);
   loading = signal(true);
   submitting = signal(false);
   showDialog = signal(false);
   currentUserId = '';
-  womActive = signal(false);
-  womHover = signal(false);
 
   nominateForm: CreateNominationRequest = {
     nomineeMemberId: '',
@@ -320,7 +340,6 @@ export class WinOfTheWeekComponent implements OnInit {
       this.allMembers.set(members.sort((a, b) => a.firstName.localeCompare(b.firstName)));
     });
     this.refresh();
-    this.womSvc.getCurrentMonth().subscribe(m => this.womActive.set(m !== null && m.status === 'Voting'));
   }
 
   private refresh() {

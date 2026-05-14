@@ -31,12 +31,25 @@ import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/c
         @if (month()) {
           <span [style.background]="statusBg()" [style.color]="statusText()"
                 style="font-size:0.75rem;font-weight:700;padding:4px 12px;border-radius:20px;text-transform:uppercase;letter-spacing:0.3px">
-            {{month()!.status === 'Voting' ? 'Voting Open' : 'Closed'}}
+            @if (month()!.status === 'Voting') {
+              Voting Open
+            } @else if (month()!.status === 'Pending') {
+              Pending
+            } @else {
+              Closed
+            }
           </span>
         }
 
         <div style="flex:1"></div>
 
+        @if (month() && month()!.status === 'Pending') {
+          <button mat-flat-button color="primary" (click)="openVoting()"
+                  style="font-size:0.8rem;height:34px">
+            <mat-icon style="font-size:1rem;width:1rem;height:1rem">play_arrow</mat-icon>
+            Open Voting Now
+          </button>
+        }
         @if (month() && month()!.status === 'Voting') {
           <button mat-stroked-button color="primary" (click)="closeMonth()"
                   style="font-size:0.8rem;height:34px">
@@ -231,13 +244,17 @@ export class WinOfTheMonthComponent implements OnInit, OnDestroy {
   readonly statusBg = computed(() => {
     const m = this.month();
     if (!m) return 'rgba(255,255,255,0.1)';
-    return m.status === 'Voting' ? 'rgba(76,175,80,0.15)' : 'rgba(255,255,255,0.06)';
+    if (m.status === 'Voting') return 'rgba(76,175,80,0.15)';
+    if (m.status === 'Pending') return 'rgba(255,193,7,0.15)';
+    return 'rgba(255,255,255,0.06)';
   });
 
   readonly statusText = computed(() => {
     const m = this.month();
     if (!m) return '#fff';
-    return m.status === 'Voting' ? '#4caf50' : 'rgba(255,255,255,0.5)';
+    if (m.status === 'Voting') return '#4caf50';
+    if (m.status === 'Pending') return '#ffc107';
+    return 'rgba(255,255,255,0.5)';
   });
 
   readonly votesBadgeBg = computed(() => {
@@ -283,7 +300,7 @@ export class WinOfTheMonthComponent implements OnInit, OnDestroy {
 
   private updateCountdown() {
     const m = this.month();
-    if (!m || m.status !== 'Voting') {
+    if (!m || m.status !== 'Voting' || !m.votingEndsAt) {
       this.countdown.set('--');
       this.progressPercent.set(0);
       return;
@@ -372,6 +389,19 @@ export class WinOfTheMonthComponent implements OnInit, OnDestroy {
       },
       error: (err) => {
         const msg = err.error?.error || 'Failed to generate month contest';
+        this.snackBar.open(msg, 'Close', { duration: 3000 });
+      }
+    });
+  }
+
+  openVoting() {
+    this.svc.openVoting().subscribe({
+      next: () => {
+        this.snackBar.open('Voting is now open!', 'Close', { duration: 3000 });
+        this.refresh();
+      },
+      error: (err) => {
+        const msg = err.error?.error || 'Failed to open voting';
         this.snackBar.open(msg, 'Close', { duration: 3000 });
       }
     });
