@@ -17,7 +17,8 @@ import {
   MyMeetingItem,
   BulkAvailabilityResponse,
   BulkAvailabilityRequest,
-  MyMeetingSeries
+  MyMeetingSeries,
+  SetMyAvailabilityRequest
 } from '../models/meeting-series.model';
 
 @Injectable({ providedIn: 'root' })
@@ -115,5 +116,13 @@ export class MeetingSeriesService {
 
   getMySeries(): Observable<MyMeetingSeries[]> {
     return this.http.get<MyMeetingSeries[]>(`${this.baseUrl}/my-series`);
+  }
+
+  getMyAvailability(seriesId: string): Observable<string[]> {
+    return this.http.get<string[]>(`${this.baseUrl}/${seriesId}/my-availability`);
+  }
+
+  setMyAvailability(seriesId: string, request: SetMyAvailabilityRequest): Observable<void> {
+    return this.http.post<void>(`${this.baseUrl}/${seriesId}/my-availability`, request);
   }
 }

@@ -511,6 +511,81 @@ public class MeetingSeriesService(AppDbContext db) : IMeetingSeriesService
         return await GetByIdAsync(seriesId);
     }
 
+    // My Availability (unified — one set of slots for all items)
+    public async Task<string[]> GetMyAvailabilityAsync(Guid seriesId, Guid memberId)
+    {
+        var itemIds = await db.Set<MeetingSeriesItem>()
+            .Where(i => i.MeetingSeriesId == seriesId)
+            .Select(i => i.Id)
+            .ToListAsync();
+
+        if (itemIds.Count == 0) return Array.Empty<string>();
+
+        var slotIds = await db.Set<MeetingSeriesItemAvailability>()
+            .Where(a => itemIds.Contains(a.MeetingSeriesItemId) && a.TeamMemberId == memberId)
+            .Select(a => a.MeetingSeriesSlotId)
+            .ToListAsync();
+
+        return slotIds.Distinct().Select(id => id.ToString()).ToArray();
+    }
+
+    public async Task SetMyAvailabilityAsync(Guid seriesId, Guid memberId, SetMyAvailabilityRequest request)
+    {
+        var series = await db.Set<MeetingSeries>()
+            .Include(s => s.Items)
+                .ThenInclude(i => i.Participants)
+            .Include(s => s.Slots)
+            .FirstOrDefaultAsync(s => s.Id == seriesId);
+
+        if (series is null)
+            throw new KeyNotFoundException($"Series {seriesId} not found.");
+
+        var member = await db.Set<TeamMember>().FindAsync(memberId);
+        if (member is null)
+            throw new KeyNotFoundException($"Member {memberId} not found.");
+
+        var itemIds = series.Items.Select(i => i.Id).ToList();
+        if (itemIds.Count == 0) return;
+
+        foreach (var slotIdStr in request.SlotIds)
+        {
+            if (!Guid.TryParse(slotIdStr, out var slotId))
+                throw new InvalidOperationException($"Invalid slot ID: {slotIdStr}");
+            var slot = series.Slots.FirstOrDefault(s => s.Id == slotId);
+            if (slot is null)
+                throw new InvalidOperationException($"Slot {slotId} does not belong to series {seriesId}.");
+        }
+
+        var existing = await db.Set<MeetingSeriesItemAvailability>()
+            .Where(a => itemIds.Contains(a.MeetingSeriesItemId) && a.TeamMemberId == memberId)
+            .ToListAsync();
+
+        if (existing.Count > 0)
+            db.Set<MeetingSeriesItemAvailability>().RemoveRange(existing);
+
+        var slotIds = request.SlotIds.Select(s => Guid.Parse(s)).ToList();
+        var availabilities = itemIds.SelectMany(itemId =>
+            slotIds.Select(slotId => new MeetingSeriesItemAvailability
+            {
+                MeetingSeriesItemId = itemId,
+                MeetingSeriesSlotId = slotId,
+                TeamMemberId = memberId
+            })
+        ).ToList();
+
+        if (availabilities.Count > 0)
+            db.Set<MeetingSeriesItemAvailability>().AddRange(availabilities);
+
+        foreach (var itemId in itemIds.OrderBy(id => id))
+        {
+            var item = series.Items.First(i => i.Id == itemId);
+            if (item.IsConfirmed) continue;
+            await CheckAndConfirmItemAsync(itemId, memberId);
+        }
+
+        await db.SaveChangesAsync();
+    }
+
     // My Series
     public async Task<IReadOnlyList<MyMeetingSeriesDto>> GetMySeriesAsync(Guid memberId)
     {
