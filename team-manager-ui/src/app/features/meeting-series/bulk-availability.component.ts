@@ -29,6 +29,13 @@ import {
           <p>You are not assigned to any meeting items in this series.</p>
           <button mat-stroked-button (click)="goBack()">Back to Series</button>
         </div>
+      } @else if (bulkData()!.items.length === 0) {
+        <div class="empty-state">
+          <mat-icon style="font-size:48px;width:48px;height:48px;opacity:0.3">check_circle</mat-icon>
+          <h2>All sessions confirmed</h2>
+          <p>All meeting items in this series have been confirmed. No availability needed.</p>
+          <button mat-stroked-button (click)="goBack()">Back to Series</button>
+        </div>
       } @else {
         <div class="breadcrumb">
           <a (click)="router.navigate(['/meeting-series'])">Meeting Series</a>
@@ -173,6 +180,9 @@ import {
     .error-state { text-align:center;padding:60px; }
     .error-state h2 { margin:12px 0 8px; }
     .error-state p { opacity:0.5;margin-bottom:16px; }
+    .empty-state { text-align:center;padding:60px; }
+    .empty-state h2 { margin:12px 0 8px;color:#81c784; }
+    .empty-state p { opacity:0.5;margin-bottom:16px; }
     .breadcrumb { font-size:0.75rem;opacity:0.5;margin-bottom:8px; }
     .breadcrumb a { color:#64b5f6;cursor:pointer; }
     .breadcrumb a:hover { text-decoration:underline; }

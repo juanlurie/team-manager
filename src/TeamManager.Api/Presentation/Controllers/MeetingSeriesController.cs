@@ -117,6 +117,15 @@ public class MeetingSeriesController(IMeetingSeriesService service, AppDbContext
         return result is null ? NotFound() : Ok(result);
     }
 
+    // My Series
+    [HttpGet("my-series")]
+    public async Task<IActionResult> GetMySeries()
+    {
+        var memberId = GetCurrentMemberId();
+        var result = await service.GetMySeriesAsync(memberId);
+        return Ok(result);
+    }
+
     // My Meetings
     [HttpGet("my-meetings")]
     public async Task<IActionResult> GetMyMeetings()

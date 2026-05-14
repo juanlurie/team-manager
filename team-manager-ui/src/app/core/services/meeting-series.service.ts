@@ -16,7 +16,8 @@ import {
   MeetingSeriesItemAvailability,
   MyMeetingItem,
   BulkAvailabilityResponse,
-  BulkAvailabilityRequest
+  BulkAvailabilityRequest,
+  MyMeetingSeries
 } from '../models/meeting-series.model';
 
 @Injectable({ providedIn: 'root' })
@@ -110,5 +111,9 @@ export class MeetingSeriesService {
 
   unconfirmItem(itemId: string): Observable<MeetingSeries> {
     return this.http.post<MeetingSeries>(`${this.baseUrl}/items/${itemId}/unconfirm`, {});
+  }
+
+  getMySeries(): Observable<MyMeetingSeries[]> {
+    return this.http.get<MyMeetingSeries[]>(`${this.baseUrl}/my-series`);
   }
 }

@@ -69,5 +69,9 @@ export const routes: Routes = [
   {
     path: 'my-meetings',
     loadComponent: () => import('./features/meeting-series/my-meetings.component').then(m => m.MyMeetingsComponent)
+  },
+  {
+    path: 'my-meeting-series',
+    loadComponent: () => import('./features/meeting-series/my-meeting-series.component').then(m => m.MyMeetingSeriesComponent)
   }
 ];

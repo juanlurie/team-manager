@@ -35,4 +35,7 @@ public interface IMeetingSeriesService
     
     // Unconfirm
     Task<MeetingSeriesDto?> UnconfirmItemAsync(Guid itemId);
+    
+    // My Series
+    Task<IReadOnlyList<MyMeetingSeriesDto>> GetMySeriesAsync(Guid memberId);
 }
