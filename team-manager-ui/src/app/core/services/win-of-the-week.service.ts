@@ -1,6 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { WinWeek, WinNomination, WinVote, CreateNominationRequest, CloseWeekRequest } from '../models/win-week.model';
+import { WinWeek, WinNomination, WinVote, CreateNominationRequest, CloseWeekRequest, WinWeekHistory, WinWeekDetail } from '../models/win-week.model';
 
 @Injectable({ providedIn: 'root' })
 export class WinOfTheWeekService {
@@ -29,5 +29,15 @@ export class WinOfTheWeekService {
 
   openNextWeek() {
     return this.http.post<WinWeek>(`${this.base}/open-next`, {});
+  }
+
+  getHistory(year?: number) {
+    const params: any = {};
+    if (year) params.year = year;
+    return this.http.get<WinWeekHistory[]>(`${this.base}/history`, { params });
+  }
+
+  getWeekDetail(weekId: string) {
+    return this.http.get<WinWeekDetail>(`${this.base}/weeks/${weekId}`);
   }
 }

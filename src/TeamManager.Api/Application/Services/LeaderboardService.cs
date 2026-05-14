@@ -74,7 +74,16 @@ public class LeaderboardService(AppDbContext db) : ILeaderboardService
         {
             var pts = group.Sum(a => a.Achievement.Points);
             badgePoints += pts;
-            breakdown.Add(new PointBreakdownItem("badge", group.Key, pts, group.Count()));
+
+            // WoW category gets its own breakdown source
+            if (group.Key == "wow")
+            {
+                breakdown.Add(new PointBreakdownItem("wow", "Win of the Week", pts, group.Count()));
+            }
+            else
+            {
+                breakdown.Add(new PointBreakdownItem("badge", group.Key, pts, group.Count()));
+            }
         }
 
         // Sprint participation points
