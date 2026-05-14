@@ -118,6 +118,13 @@ import { WinOfTheMonthComponent } from '../win-of-the-month/win-of-the-month.com
 
       <!-- Admin actions -->
       <div style="display:flex;gap:8px;margin-bottom:16px">
+        @if (currentWeek()?.status === 'Nominating' && (currentWeek()?.nominations.length ?? 0) > 0) {
+          <button mat-stroked-button color="accent" (click)="openVoting()"
+                  style="font-size:0.8rem;height:34px">
+            <mat-icon style="font-size:1rem;width:1rem;height:1rem">how_to_vote</mat-icon>
+            Open Voting
+          </button>
+        }
         @if (currentWeek()?.status === 'Voting') {
           <button mat-stroked-button color="primary" (click)="closeWeek()"
                   style="font-size:0.8rem;height:34px">
@@ -479,6 +486,19 @@ export class WinOfTheWeekComponent implements OnInit {
       },
       error: (err) => {
         const msg = err.error?.error || 'Failed to open next week';
+        this.snackBar.open(msg, 'Close', { duration: 3000 });
+      }
+    });
+  }
+
+  openVoting() {
+    this.winSvc.openVoting().subscribe({
+      next: () => {
+        this.snackBar.open('Voting is now open!', 'Close', { duration: 3000 });
+        this.refresh();
+      },
+      error: (err) => {
+        const msg = err.error?.error || 'Failed to open voting';
         this.snackBar.open(msg, 'Close', { duration: 3000 });
       }
     });

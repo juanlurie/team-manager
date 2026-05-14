@@ -10,6 +10,7 @@ public interface IWinOfTheWeekService
     Task<bool> RemoveVoteAsync(Guid memberId, Guid nominationId);
     Task<WinWeekDto> CloseWeekAsync(Guid memberId, CloseWeekRequest request);
     Task<WinWeekDto> OpenNextWeekAsync(Guid memberId);
+    Task<WinWeekDto> OpenVotingAsync(Guid memberId);
     Task<IReadOnlyList<WinWeekHistoryDto>> GetHistoryAsync(int? year = null, int limit = 52);
     Task<WinWeekDetailDto> GetWeekDetailAsync(Guid weekId, Guid memberId);
 }
