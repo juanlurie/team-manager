@@ -10,9 +10,6 @@ export interface MeetingSession {
   status: 'Open' | 'Filled' | 'Cancelled';
   createdByMemberId: string;
   createdByMemberName: string | null;
-  sessionDefinitionSlotId: string | null;
-  sessionDefinitionId: string | null;
-  sessionDefinitionName: string | null;
   slots: MeetingSlot[];
   createdAt: string;
 }

@@ -40,10 +40,6 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<WinWeek> WinWeeks => Set<WinWeek>();
     public DbSet<WinNomination> WinNominations => Set<WinNomination>();
     public DbSet<WinVote> WinVotes => Set<WinVote>();
-    public DbSet<SessionDefinition> SessionDefinitions => Set<SessionDefinition>();
-    public DbSet<SessionDefinitionParticipant> SessionDefinitionParticipants => Set<SessionDefinitionParticipant>();
-    public DbSet<SessionDefinitionSlot> SessionDefinitionSlots => Set<SessionDefinitionSlot>();
-    public DbSet<SessionDefinitionBooking> SessionDefinitionBookings => Set<SessionDefinitionBooking>();
     public DbSet<MeetingSeries> MeetingSeries => Set<MeetingSeries>();
     public DbSet<MeetingSeriesSlot> MeetingSeriesSlots => Set<MeetingSeriesSlot>();
     public DbSet<MeetingSeriesItem> MeetingSeriesItems => Set<MeetingSeriesItem>();
@@ -87,10 +83,6 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         modelBuilder.ApplyConfiguration(new WinWeekConfiguration());
         modelBuilder.ApplyConfiguration(new WinNominationConfiguration());
         modelBuilder.ApplyConfiguration(new WinVoteConfiguration());
-        modelBuilder.ApplyConfiguration(new SessionDefinitionConfiguration());
-        modelBuilder.ApplyConfiguration(new SessionDefinitionParticipantConfiguration());
-        modelBuilder.ApplyConfiguration(new SessionDefinitionSlotConfiguration());
-        modelBuilder.ApplyConfiguration(new SessionDefinitionBookingConfiguration());
         modelBuilder.ApplyConfiguration(new MeetingSeriesConfiguration());
         modelBuilder.ApplyConfiguration(new MeetingSeriesSlotConfiguration());
         modelBuilder.ApplyConfiguration(new MeetingSeriesItemConfiguration());

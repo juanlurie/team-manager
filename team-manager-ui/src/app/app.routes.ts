@@ -59,10 +59,6 @@ export const routes: Routes = [
     loadChildren: () => import('./features/session-types/session-types.routes').then(m => m.SESSION_TYPES_ROUTES)
   },
   {
-    path: 'catalog',
-    loadChildren: () => import('./features/session-catalog/session-catalog.routes').then(m => m.SESSION_CATALOG_ROUTES)
-  },
-  {
     path: 'meeting-series',
     loadChildren: () => import('./features/meeting-series/meeting-series.routes').then(m => m.MEETING_SERIES_ROUTES)
   },

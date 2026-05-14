@@ -45,12 +45,6 @@ import { IconButtonComponent } from '../../../shared/components/icon-btn/icon-bt
               <span>Created by {{ s.createdByMemberName }}</span>
             }
           </div>
-          @if (s.sessionDefinitionId) {
-            <div class="origin-banner">
-              📋 This meeting was created from the catalog session "{{ s.sessionDefinitionName }}".
-              <a class="link" [routerLink]="['/catalog', s.sessionDefinitionId]">View in Catalog →</a>
-            </div>
-          }
           @if (s.description) {
             <div style="margin-top:12px;font-size:0.85rem;opacity:0.7;max-width:600px;line-height:1.5">{{ s.description }}</div>
           }
@@ -209,13 +203,6 @@ import { IconButtonComponent } from '../../../shared/components/icon-btn/icon-bt
       font-size: 0.75rem; font-weight: 600;
     }
     .slot-card.slot-booked .slot-avatar { background: rgba(100,181,246,0.2); }
-    .origin-banner {
-      padding: 10px 14px; border-radius: 8px; margin-bottom: 16px;
-      background: rgba(156, 39, 176, 0.08); border: 1px solid rgba(156, 39, 176, 0.2);
-      font-size: 0.82rem; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
-    }
-    .origin-banner .link { color: #64b5f6; cursor: pointer; font-weight: 500; }
-    .origin-banner .link:hover { text-decoration: underline; }
   `]
 })
 export class MeetingDetailComponent implements OnInit {

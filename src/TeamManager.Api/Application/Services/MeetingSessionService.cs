@@ -13,7 +13,6 @@ public class MeetingSessionService(AppDbContext db) : IMeetingSessionService
     {
         var sessions = await db.Set<MeetingSession>()
             .Include(s => s.CreatedBy)
-            .Include(s => s.SessionDefinition)
             .Include(s => s.Slots).ThenInclude(sl => sl.TeamMember)
             .Include(s => s.Slots).ThenInclude(sl => sl.Location)
             .OrderByDescending(s => s.Date)
@@ -27,7 +26,6 @@ public class MeetingSessionService(AppDbContext db) : IMeetingSessionService
     {
         var session = await db.Set<MeetingSession>()
             .Include(s => s.CreatedBy)
-            .Include(s => s.SessionDefinition)
             .Include(s => s.Slots).ThenInclude(sl => sl.TeamMember)
             .Include(s => s.Slots).ThenInclude(sl => sl.Location)
             .FirstOrDefaultAsync(s => s.Id == id);
@@ -189,9 +187,6 @@ public class MeetingSessionService(AppDbContext db) : IMeetingSessionService
         Status = s.Status.ToString(),
         CreatedByMemberId = s.CreatedByMemberId,
         CreatedByMemberName = $"{s.CreatedBy.FirstName} {s.CreatedBy.LastName}",
-        SessionDefinitionSlotId = s.SessionDefinitionSlotId,
-        SessionDefinitionId = s.SessionDefinitionId,
-        SessionDefinitionName = s.SessionDefinition?.Name,
         CreatedAt = s.CreatedAt,
         Slots = s.Slots.Select(sl => new MeetingSlotDto
         {
