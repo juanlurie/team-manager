@@ -51,23 +51,14 @@ export const routes: Routes = [
     loadChildren: () => import('./features/win-of-the-week/win-of-the-week.routes').then(m => m.WIN_OF_THE_WEEK_ROUTES)
   },
   {
-    path: 'slot-locations',
-    loadChildren: () => import('./features/slot-locations/slot-locations.routes').then(m => m.SLOT_LOCATIONS_ROUTES)
-  },
-  {
     path: 'session-types',
     loadChildren: () => import('./features/session-types/session-types.routes').then(m => m.SESSION_TYPES_ROUTES)
   },
-  {
-    path: 'meeting-series',
-    loadChildren: () => import('./features/meeting-series/meeting-series.routes').then(m => m.MEETING_SERIES_ROUTES)
-  },
-  {
-    path: 'my-meetings',
-    loadComponent: () => import('./features/meeting-series/my-meetings.component').then(m => m.MyMeetingsComponent)
-  },
-  {
-    path: 'my-meeting-series',
-    loadComponent: () => import('./features/meeting-series/my-meeting-series.component').then(m => m.MyMeetingSeriesComponent)
-  }
+  // Backward compatibility redirects
+  { path: 'meeting-series', redirectTo: 'meetings/series', pathMatch: 'full' },
+  { path: 'meeting-series/:id', redirectTo: 'meetings/series/:id', pathMatch: 'full' },
+  { path: 'meeting-series/:id/:rest', redirectTo: 'meetings/series/:id/:rest', pathMatch: 'prefix' },
+  { path: 'my-meetings', redirectTo: 'meetings/my-meetings', pathMatch: 'full' },
+  { path: 'my-meeting-series', redirectTo: 'meetings/my-series', pathMatch: 'full' },
+  { path: 'slot-locations', redirectTo: 'meetings/locations', pathMatch: 'full' }
 ];
