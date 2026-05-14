@@ -8,4 +8,5 @@ public interface ILeaderboardService
     Task<LeaderboardEntryDto?> GetMemberStatsAsync(Guid memberId);
     Task AwardPointsAsync(AwardPointsRequest request);
     Task<bool> RevokePointAwardAsync(Guid pointAwardId);
+    Task<IReadOnlyList<PointHistoryEntryDto>> GetPointHistoryAsync(Guid memberId);
 }

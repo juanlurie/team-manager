@@ -2,6 +2,15 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { LeaderboardEntry } from '../models/leaderboard.model';
 
+export interface PointHistoryEntry {
+  id: string;
+  source: string;
+  label: string;
+  points: number;
+  reason: string;
+  awardedAt: string;
+}
+
 @Injectable({ providedIn: 'root' })
 export class LeaderboardService {
   private http = inject(HttpClient);
@@ -11,6 +20,10 @@ export class LeaderboardService {
 
   getMemberStats(memberId: string) {
     return this.http.get<LeaderboardEntry>(`${this.base}/member/${memberId}`);
+  }
+
+  getMemberHistory(memberId: string) {
+    return this.http.get<PointHistoryEntry[]>(`${this.base}/member/${memberId}/history`);
   }
 
   awardPoints(teamMemberId: string, points: number, reason: string) {
