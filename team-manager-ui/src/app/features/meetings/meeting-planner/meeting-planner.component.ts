@@ -37,9 +37,6 @@ import { ConfirmDialogComponent } from '../../../shared/components/confirm-dialo
         <button mat-stroked-button [class.active-filter]="selectedFilter() === 'open'"
                 style="min-width:0;padding:0 12px;height:32px;font-size:0.8rem"
                 (click)="selectedFilter.set('open')">Open</button>
-        <button mat-stroked-button [class.active-filter]="selectedFilter() === 'mine'"
-                style="min-width:0;padding:0 12px;height:32px;font-size:0.8rem"
-                (click)="selectedFilter.set('mine')">My Sessions</button>
       </div>
 
       <!-- Session list -->
@@ -118,14 +115,13 @@ export class MeetingPlannerComponent implements OnInit {
 
   loading = signal(true);
   sessions = signal<MeetingSession[]>([]);
-  selectedFilter = signal<'all' | 'open' | 'mine'>('all');
+  selectedFilter = signal<'all' | 'open'>('all');
 
   filteredSessions = () => {
     const filter = this.selectedFilter();
     const all = this.sessions();
     switch (filter) {
       case 'open': return all.filter(s => s.status === 'Open');
-      case 'mine': return all.filter(s => false); // TODO: filter by current user
       default: return all;
     }
   };
