@@ -24,8 +24,8 @@ public sealed class TeamMemberClaimsTransformer : IClaimsTransformation
         var id = new ClaimsIdentity(p.Identity.AuthenticationType);
 
         id.AddClaim(new Claim("teamMemberId", member.Id.ToString()));
-        if (member.Role == MemberRole.TeamLead) id.AddClaim(new Claim("role", "TeamLead"));
-        if (member.Role == MemberRole.TechLead) id.AddClaim(new Claim("role", "TechLead"));
+        if (member.Role == MemberRole.TeamLead) id.AddClaim(new Claim(ClaimTypes.Role, "TeamLead"));
+        if (member.Role == MemberRole.TechLead) id.AddClaim(new Claim(ClaimTypes.Role, "TechLead"));
 
         p.AddIdentity(id);
         return p;

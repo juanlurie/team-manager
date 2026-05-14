@@ -162,7 +162,7 @@ const MORE_NAV: NavItem[] = [
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 10px;
+      gap: 0;
       padding: 14px 0;
       border: none;
       border-bottom: 1px solid rgba(255,255,255,0.05);
@@ -194,7 +194,7 @@ const MORE_NAV: NavItem[] = [
       opacity: 0; max-width: 0; overflow: hidden;
       transition: opacity 0.15s, max-width 0.2s;
     }
-    .sidebar.expanded .sidebar-header { justify-content: flex-start; padding: 14px 12px; }
+    .sidebar.expanded .sidebar-header { justify-content: flex-start; padding: 14px 12px; gap: 10px; }
     .sidebar.expanded .brand { opacity: 1; max-width: 160px; }
     .sidebar.expanded .collapse-icon { opacity: 1; max-width: 18px; }
 

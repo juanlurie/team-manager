@@ -11,7 +11,7 @@ public class WinMonth
     public Guid? WinnerNominationId { get; set; }
     public DateTimeOffset OpenedAt { get; set; } = DateTimeOffset.UtcNow;
     public DateTimeOffset? ClosedAt { get; set; }
-    public DateTimeOffset VotingEndsAt { get; set; }
+    public DateTimeOffset? VotingEndsAt { get; set; }
 
     public WinMonthNomination? Winner { get; set; }
     public ICollection<WinMonthNomination> Nominations { get; set; } = [];

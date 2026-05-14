@@ -58,9 +58,9 @@ export interface WinMonth {
   id: string;
   year: number;
   month: number;
-  status: 'Voting' | 'Closed';
+  status: 'Pending' | 'Voting' | 'Closed';
   monthName: string;
-  votingEndsAt: string;
+  votingEndsAt?: string;
   winnerNominationId: string | null;
   winnerNomineeName: string | null;
   winnerTitle: string | null;

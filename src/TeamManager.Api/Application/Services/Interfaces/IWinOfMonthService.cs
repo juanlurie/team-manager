@@ -10,4 +10,5 @@ public interface IWinOfMonthService
     Task<bool> RemoveVoteAsync(Guid memberId, Guid nominationId);
     Task<WinMonthDto> CloseMonthAsync(Guid memberId);
     Task<WinMonthDto> GenerateFromClosedWeeksAsync(Guid memberId);
+    Task<WinMonthDto> OpenVotingAsync(Guid memberId);
 }

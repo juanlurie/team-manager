@@ -97,8 +97,10 @@ if (!string.IsNullOrEmpty(authority) && !string.IsNullOrEmpty(audience))
 }
 else
 {
-    builder.Services.AddAuthentication();
+    builder.Services.AddAuthentication("Development")
+        .AddScheme<AuthenticationSchemeOptions, DevelopmentAuthHandler>("Development", _ => { });
     builder.Services.AddAuthorization();
+    builder.Services.AddScoped<IClaimsTransformation, TeamMemberClaimsTransformer>();
 }
 
 var app = builder.Build();

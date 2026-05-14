@@ -31,7 +31,7 @@ public class WinOfMonthService(AppDbContext db) : IWinOfMonthService
             if (month is null) return null;
         }
 
-        if (month.Status == WinMonthStatus.Voting && month.VotingEndsAt <= now)
+        if (month.Status == WinMonthStatus.Voting && month.VotingEndsAt.HasValue && month.VotingEndsAt <= now)
         {
             month = await CloseMonthInternalAsync(month);
         }
@@ -89,7 +89,7 @@ public class WinOfMonthService(AppDbContext db) : IWinOfMonthService
         if (nomination.WinMonth.Status != WinMonthStatus.Voting)
             throw new InvalidOperationException("Voting is not open for this month.");
 
-        if (nomination.WinMonth.VotingEndsAt <= DateTimeOffset.UtcNow)
+        if (nomination.WinMonth.VotingEndsAt.HasValue && nomination.WinMonth.VotingEndsAt <= DateTimeOffset.UtcNow)
             throw new InvalidOperationException("Voting has closed for this month.");
 
         if (nomination.NomineeMemberId == memberId)
@@ -186,8 +186,8 @@ public class WinOfMonthService(AppDbContext db) : IWinOfMonthService
         {
             Year = currentYear,
             Month = currentMonth,
-            Status = WinMonthStatus.Voting,
-            VotingEndsAt = now.AddDays(VotingDays)
+            Status = WinMonthStatus.Pending,
+            VotingEndsAt = null
         };
 
         db.WinMonths.Add(month);
@@ -225,6 +225,35 @@ public class WinOfMonthService(AppDbContext db) : IWinOfMonthService
         return BuildMonthDto(month, memberId);
     }
 
+    public async Task<WinMonthDto> OpenVotingAsync(Guid memberId)
+    {
+        var now = DateTimeOffset.UtcNow;
+        var currentMonth = now.Month;
+        var currentYear = now.Year;
+
+        var month = await db.WinMonths
+            .Include(m => m.Nominations).ThenInclude(n => n.Nominee)
+            .Include(m => m.Nominations).ThenInclude(n => n.SourceWinWeek)
+            .Include(m => m.Nominations).ThenInclude(n => n.Votes)
+            .FirstOrDefaultAsync(m => m.Year == currentYear && m.Month == currentMonth);
+
+        if (month is null)
+            throw new InvalidOperationException("No month contest found. Generate one first.");
+
+        if (month.Status != WinMonthStatus.Pending)
+            throw new InvalidOperationException("Voting can only be opened for pending contests.");
+
+        if (month.Nominations.Count == 0)
+            throw new InvalidOperationException("Cannot open voting with no nominations.");
+
+        month.Status = WinMonthStatus.Voting;
+        month.VotingEndsAt = now.AddDays(VotingDays);
+
+        await db.SaveChangesAsync();
+
+        return BuildMonthDto(month, memberId);
+    }
+
     private async Task<WinMonth?> TryAutoGenerateAsync(int year, int month, Guid memberId)
     {
         var closedWeeks = await db.WinWeeks
@@ -246,8 +275,8 @@ public class WinOfMonthService(AppDbContext db) : IWinOfMonthService
         {
             Year = year,
             Month = month,
-            Status = WinMonthStatus.Voting,
-            VotingEndsAt = now.AddDays(VotingDays)
+            Status = WinMonthStatus.Pending,
+            VotingEndsAt = null
         };
 
         db.WinMonths.Add(newMonth);

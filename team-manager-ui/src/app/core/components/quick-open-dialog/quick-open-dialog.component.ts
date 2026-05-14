@@ -23,8 +23,10 @@ const QUICK_OPEN_ITEMS: QuickOpenItem[] = [
   { id: 'team', path: '/team', label: 'Team', icon: 'people' },
   { id: 'leave', path: '/leave', label: 'Leave', icon: 'event_busy' },
   { id: 'export', path: '/export', label: 'Export', icon: 'download' },
-  { id: 'leaderboard', path: '/leaderboard', label: 'Leaderboard', icon: 'emoji_events' },
-  { id: 'wheel', path: '/wheel', label: 'Spin Wheel', icon: 'casino' },
+  { id: 'fun', path: '/fun', label: 'Fun Hub', icon: 'casino' },
+  { id: 'win-of-the-week', path: '/fun/win-of-the-week', label: 'Win of the Week', icon: 'emoji_events' },
+  { id: 'leaderboard', path: '/fun/leaderboard', label: 'Leaderboard', icon: 'leaderboard' },
+  { id: 'wheel', path: '/fun/wheel', label: 'Spin Wheel', icon: 'casino' },
 ];
 
 @Component({

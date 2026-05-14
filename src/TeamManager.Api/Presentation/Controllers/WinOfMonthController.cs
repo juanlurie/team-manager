@@ -84,6 +84,22 @@ public class WinOfMonthController(IWinOfMonthService service, AppDbContext db) :
         }
     }
 
+    [HttpPost("open")]
+    [Authorize(Roles = "TeamLead")]
+    public async Task<IActionResult> OpenVoting()
+    {
+        var memberId = GetCurrentMemberId();
+        try
+        {
+            var result = await service.OpenVotingAsync(memberId);
+            return Ok(result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
     private Guid GetCurrentMemberId()
     {
         var nameIdClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
