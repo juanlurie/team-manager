@@ -6,9 +6,13 @@ export interface MeetingSession {
   startTime: string;
   endTime: string;
   location: 'Remote' | 'OnSite' | 'Hybrid';
+  type: 'Workshop' | 'Presentation' | 'Discussion' | 'Social' | 'Standup';
   status: 'Open' | 'Filled' | 'Cancelled';
   createdByMemberId: string;
   createdByMemberName: string | null;
+  sessionDefinitionSlotId: string | null;
+  sessionDefinitionId: string | null;
+  sessionDefinitionName: string | null;
   slots: MeetingSlot[];
   createdAt: string;
 }
@@ -18,20 +22,32 @@ export interface MeetingSlot {
   meetingSessionId: string;
   teamMemberId: string | null;
   teamMemberName: string | null;
+  locationId: string | null;
+  locationName: string | null;
+  locationColor: string | null;
   notes: string | null;
   slotType: 'TeamMember' | 'Facilitator';
+  date: string | null;
+  startTime: string | null;
+  endTime: string | null;
   bookedAt: string | null;
 }
 
 export interface CreateSessionRequest {
   title: string;
   description: string | null;
+  location: string;
+  type: string;
+  slots: SlotDefinition[];
+}
+
+export interface SlotDefinition {
   date: string;
   startTime: string;
   endTime: string;
-  location: string;
-  teamMemberSlotCount: number;
-  facilitatorSlotCount: number;
+  slotType: string;
+  locationId: string | null;
+  teamMemberId?: string | null;
 }
 
 export interface UpdateSessionRequest {

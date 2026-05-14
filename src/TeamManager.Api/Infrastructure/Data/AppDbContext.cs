@@ -35,9 +35,20 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<RetroAction> RetroActions => Set<RetroAction>();
     public DbSet<MeetingSession> MeetingSessions => Set<MeetingSession>();
     public DbSet<MeetingSlot> MeetingSlots => Set<MeetingSlot>();
+    public DbSet<SlotLocation> SlotLocations => Set<SlotLocation>();
+    public DbSet<SessionType> SessionTypes => Set<SessionType>();
     public DbSet<WinWeek> WinWeeks => Set<WinWeek>();
     public DbSet<WinNomination> WinNominations => Set<WinNomination>();
     public DbSet<WinVote> WinVotes => Set<WinVote>();
+    public DbSet<SessionDefinition> SessionDefinitions => Set<SessionDefinition>();
+    public DbSet<SessionDefinitionParticipant> SessionDefinitionParticipants => Set<SessionDefinitionParticipant>();
+    public DbSet<SessionDefinitionSlot> SessionDefinitionSlots => Set<SessionDefinitionSlot>();
+    public DbSet<SessionDefinitionBooking> SessionDefinitionBookings => Set<SessionDefinitionBooking>();
+    public DbSet<MeetingSeries> MeetingSeries => Set<MeetingSeries>();
+    public DbSet<MeetingSeriesSlot> MeetingSeriesSlots => Set<MeetingSeriesSlot>();
+    public DbSet<MeetingSeriesItem> MeetingSeriesItems => Set<MeetingSeriesItem>();
+    public DbSet<MeetingSeriesItemParticipant> MeetingSeriesItemParticipants => Set<MeetingSeriesItemParticipant>();
+    public DbSet<MeetingSeriesItemAvailability> MeetingSeriesItemAvailabilities => Set<MeetingSeriesItemAvailability>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -68,10 +79,21 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         modelBuilder.ApplyConfiguration(new RetroActionConfiguration());
         modelBuilder.ApplyConfiguration(new TimesheetEntryConfiguration());
         modelBuilder.ApplyConfiguration(new MemberTimesheetConfigConfiguration());
+        modelBuilder.ApplyConfiguration(new SlotLocationConfiguration());
+        modelBuilder.ApplyConfiguration(new SessionTypeConfiguration());
         modelBuilder.ApplyConfiguration(new MeetingSessionConfiguration());
         modelBuilder.ApplyConfiguration(new MeetingSlotConfiguration());
         modelBuilder.ApplyConfiguration(new WinWeekConfiguration());
         modelBuilder.ApplyConfiguration(new WinNominationConfiguration());
         modelBuilder.ApplyConfiguration(new WinVoteConfiguration());
+        modelBuilder.ApplyConfiguration(new SessionDefinitionConfiguration());
+        modelBuilder.ApplyConfiguration(new SessionDefinitionParticipantConfiguration());
+        modelBuilder.ApplyConfiguration(new SessionDefinitionSlotConfiguration());
+        modelBuilder.ApplyConfiguration(new SessionDefinitionBookingConfiguration());
+        modelBuilder.ApplyConfiguration(new MeetingSeriesConfiguration());
+        modelBuilder.ApplyConfiguration(new MeetingSeriesSlotConfiguration());
+        modelBuilder.ApplyConfiguration(new MeetingSeriesItemConfiguration());
+        modelBuilder.ApplyConfiguration(new MeetingSeriesItemParticipantConfiguration());
+        modelBuilder.ApplyConfiguration(new MeetingSeriesItemAvailabilityConfiguration());
     }
 }

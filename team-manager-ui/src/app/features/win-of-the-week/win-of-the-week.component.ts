@@ -60,7 +60,7 @@ import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/c
 
       <!-- Winner banner -->
       @let winner = currentWeek();
-      @if (winner?.status === 'Closed' && winner?.winnerNomineeName) {
+      @if (winner && winner.status === 'Closed' && winner.winnerNomineeName) {
         <div style="background:linear-gradient(135deg,rgba(255,215,0,0.12),rgba(255,165,0,0.08));border:1px solid rgba(255,215,0,0.35);border-radius:14px;padding:20px 24px;margin-bottom:20px;text-align:center">
           <div style="font-size:2.4rem;margin-bottom:4px">🏆</div>
           <div style="font-size:1.2rem;font-weight:800;color:#FFD700">{{winner.winnerNomineeName}}</div>

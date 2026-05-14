@@ -3570,19 +3570,19 @@
     ]
   },
   "packageFolders": {
-    "/root/.nuget/packages/": {}
+    "/home/juanlurie/.nuget/packages/": {}
   },
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "/src/TeamManager.Api.csproj",
+      "projectUniqueName": "/opt/services/team-manager/src/TeamManager.Api/TeamManager.Api.csproj",
       "projectName": "TeamManager.Api",
-      "projectPath": "/src/TeamManager.Api.csproj",
-      "packagesPath": "/root/.nuget/packages/",
-      "outputPath": "/src/obj/",
+      "projectPath": "/opt/services/team-manager/src/TeamManager.Api/TeamManager.Api.csproj",
+      "packagesPath": "/home/juanlurie/.nuget/packages/",
+      "outputPath": "/opt/services/team-manager/src/TeamManager.Api/obj/",
       "projectStyle": "PackageReference",
       "configFilePaths": [
-        "/root/.nuget/NuGet/NuGet.Config"
+        "/home/juanlurie/.nuget/NuGet/NuGet.Config"
       ],
       "originalTargetFrameworks": [
         "net9.0"
@@ -3666,7 +3666,7 @@
             "privateAssets": "all"
           }
         },
-        "runtimeIdentifierGraphPath": "/usr/share/dotnet/sdk/9.0.313/PortableRuntimeIdentifierGraph.json"
+        "runtimeIdentifierGraphPath": "/usr/share/dotnet/sdk/9.0.314/PortableRuntimeIdentifierGraph.json"
       }
     }
   }

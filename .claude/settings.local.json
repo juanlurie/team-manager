@@ -6,7 +6,24 @@
       "Bash(~/.opencode/bin/opencode agent *)",
       "Bash(~/.opencode/bin/opencode run *)",
       "Bash(~/.opencode/bin/opencode *)",
-      "Bash(curl -s https://api.github.com/repos/sst/opencode/contents)"
+      "Bash(curl -s https://api.github.com/repos/sst/opencode/contents)",
+      "mcp__team-manager__list_sprints",
+      "mcp__team-manager__get_sprint_dashboard",
+      "mcp__team-manager__create_leave_record",
+      "mcp__team-manager__create_sprint",
+      "Bash(docker compose build *)",
+      "Bash(docker compose up *)",
+      "Bash(curl -s \"http://localhost:5000/api/leave-records\")",
+      "Bash(python3 -m json.tool)",
+      "Bash(curl -v \"http://localhost:5000/api/leave-records\")",
+      "Bash(curl -s \"http://localhost:5000/health\")",
+      "Bash(curl -s \"http://localhost:5000/api/v1/leave-records\")",
+      "Bash(python3 -c \"import json,sys; data=json.load\\(sys.stdin\\); [print\\(r['memberName'], r['type'], r['startDate']\\) for r in data if '2026-05-29' >= r['startDate'] and '2026-05-29' <= r['endDate']]\")",
+      "Bash(python3 -c ' *)",
+      "Bash(docker compose ps *)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)"
     ]
   }
 }

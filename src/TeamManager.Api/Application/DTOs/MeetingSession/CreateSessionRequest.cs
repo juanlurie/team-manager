@@ -11,7 +11,18 @@ public record CreateSessionRequest
     public string? Description { get; init; }
 
     [Required]
-    public DateOnly Date { get; init; }
+    public string Location { get; init; } = string.Empty;
+
+    [Required]
+    public string Type { get; init; } = string.Empty;
+
+    public List<SlotDefinition> Slots { get; init; } = [];
+}
+
+public record SlotDefinition
+{
+    [Required]
+    public string Date { get; init; } = string.Empty;
 
     [Required]
     public string StartTime { get; init; } = string.Empty;
@@ -19,12 +30,9 @@ public record CreateSessionRequest
     [Required]
     public string EndTime { get; init; } = string.Empty;
 
-    [Required]
-    public string Location { get; init; } = string.Empty;
+    public string SlotType { get; init; } = "TeamMember";
 
-    [Range(0, 20)]
-    public int TeamMemberSlotCount { get; init; }
+    public Guid? LocationId { get; init; }
 
-    [Range(0, 10)]
-    public int FacilitatorSlotCount { get; init; }
+    public Guid? TeamMemberId { get; init; }
 }

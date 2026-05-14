@@ -1,12 +1,14 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using TeamManager.Api.Application.DTOs.MeetingSession;
 using TeamManager.Api.Application.Services.Interfaces;
+using TeamManager.Api.Infrastructure.Data;
 
 namespace TeamManager.Api.Presentation.Controllers;
 
 [ApiController]
 [Route("api/v1/meeting-sessions")]
-public class MeetingSessionsController(IMeetingSessionService service) : ControllerBase
+public class MeetingSessionsController(IMeetingSessionService service, AppDbContext db) : ControllerBase
 {
     [HttpGet]
     public async Task<IActionResult> GetAll()
@@ -68,14 +70,16 @@ public class MeetingSessionsController(IMeetingSessionService service) : Control
 
     private Guid GetCurrentMemberId()
     {
-        // Placeholder: In real app, extract from JWT claims or user identity
-        // Try to get from the name identifier claim first
         var nameIdClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
         if (Guid.TryParse(nameIdClaim, out var memberId))
             return memberId;
 
-        // Fallback: use first active member (for development)
-        // This will be replaced once auth is fully wired
-        return Guid.Empty;
+        var firstMember = db.Set<Domain.Entities.TeamMember>()
+            .Where(m => m.IsActive)
+            .OrderBy(m => m.CreatedAt)
+            .Select(m => (Guid?)m.Id)
+            .FirstOrDefault();
+
+        return firstMember ?? Guid.Empty;
     }
 }

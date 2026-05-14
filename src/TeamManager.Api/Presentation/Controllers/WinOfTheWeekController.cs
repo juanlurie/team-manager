@@ -1,12 +1,14 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using TeamManager.Api.Application.DTOs.WinOfTheWeek;
 using TeamManager.Api.Application.Services.Interfaces;
+using TeamManager.Api.Infrastructure.Data;
 
 namespace TeamManager.Api.Presentation.Controllers;
 
 [ApiController]
 [Route("api/v1/win-of-the-week")]
-public class WinOfTheWeekController(IWinOfTheWeekService service) : ControllerBase
+public class WinOfTheWeekController(IWinOfTheWeekService service, AppDbContext db) : ControllerBase
 {
     [HttpGet("current")]
     public async Task<IActionResult> GetCurrent()
@@ -98,6 +100,12 @@ public class WinOfTheWeekController(IWinOfTheWeekService service) : ControllerBa
         if (Guid.TryParse(nameIdClaim, out var memberId))
             return memberId;
 
-        return Guid.Empty;
+        var firstMember = db.Set<Domain.Entities.TeamMember>()
+            .Where(m => m.IsActive)
+            .OrderBy(m => m.CreatedAt)
+            .Select(m => (Guid?)m.Id)
+            .FirstOrDefault();
+
+        return firstMember ?? Guid.Empty;
     }
 }
