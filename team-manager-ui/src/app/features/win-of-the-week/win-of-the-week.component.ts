@@ -1,6 +1,7 @@
 import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { MatTooltipModule } from '@angular/material/tooltip';
@@ -10,6 +11,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatSelectModule } from '@angular/material/select';
 import { MatInputModule } from '@angular/material/input';
 import { WinOfTheWeekService } from '../../core/services/win-of-the-week.service';
+import { WinOfTheMonthService } from '../../core/services/win-of-the-month.service';
 import { TeamMemberService } from '../../core/services/team-member.service';
 import { WinWeek, WinNomination, CreateNominationRequest } from '../../core/models/win-week.model';
 import { TeamMember } from '../../core/models/team-member.model';
@@ -19,7 +21,7 @@ import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/c
   selector: 'app-win-of-the-week',
   standalone: true,
   imports: [
-    CommonModule, FormsModule, MatIconModule, MatButtonModule,
+    CommonModule, FormsModule, RouterLink, MatIconModule, MatButtonModule,
     MatTooltipModule, MatDialogModule, MatSnackBarModule,
     MatFormFieldModule, MatSelectModule, MatInputModule
   ],
@@ -58,6 +60,31 @@ import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/c
         }
       </div>
 
+      <!-- Schedule Bar -->
+      <div style="background:rgba(255,255,255,0.04);border-radius:8px;padding:8px 16px;margin-bottom:16px">
+        <div style="display:flex;justify-content:space-between;font-size:0.7rem;font-weight:500;color:rgba(255,255,255,0.4);margin-bottom:4px">
+          @for (d of DAYS; track d) {
+            <span [style.color]="isCurrentDay(d) ? '#64b5f6' : 'inherit'">{{d}}</span>
+          }
+        </div>
+        <div style="display:flex;height:20px;border-radius:4px;overflow:hidden;background:rgba(255,255,255,0.06)">
+          @for (d of DAYS; track d; let i = $index) {
+            <div [style.flex]="1" [style.background]="daySegmentBg(i)" style="transition:background 0.3s"></div>
+          }
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:0.65rem;margin-top:4px">
+          <span [style.color]="currentWeek()?.status === 'Nominating' ? '#64b5f6' : 'rgba(255,255,255,0.35)'">
+            {{currentWeek()?.status === 'Nominating' ? 'NOMINATIONS OPEN' : 'Nominations Closed'}}
+          </span>
+          <span [style.color]="currentWeek()?.status === 'Voting' ? '#64b5f6' : 'rgba(255,255,255,0.35)'">
+            {{currentWeek()?.status === 'Voting' ? 'VOTING OPEN' : (currentWeek()?.status === 'Nominating' ? 'Voting Opens Friday' : 'Voting Closed')}}
+          </span>
+        </div>
+        @if (isCurrentDayVisible()) {
+          <div style="font-size:0.65rem;color:#64b5f6;margin-top:2px">▲ Current day</div>
+        }
+      </div>
+
       <!-- Winner banner -->
       @let winner = currentWeek();
       @if (winner && winner.status === 'Closed' && winner.winnerNomineeName) {
@@ -65,8 +92,25 @@ import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/c
           <div style="font-size:2.4rem;margin-bottom:4px">🏆</div>
           <div style="font-size:1.2rem;font-weight:800;color:#FFD700">{{winner.winnerNomineeName}}</div>
           <div style="font-size:0.95rem;opacity:0.8;margin-top:4px">{{winner.winnerTitle}}</div>
-          <div style="font-size:0.75rem;opacity:0.45;margin-top:8px">Winner of the Week</div>
+          <div style="margin-top:12px;display:inline-block;background:rgba(255,215,0,0.15);border:1px solid rgba(255,215,0,0.4);border-radius:8px;padding:8px 14px">
+            <span style="font-size:0.85rem;font-weight:700;color:#B8860B">🏅 Weekly Champion +10 points</span>
+          </div>
+          <div style="font-size:0.75rem;opacity:0.45;margin-top:12px">Winner of the Week</div>
         </div>
+      }
+
+      <!-- WoM Banner -->
+      @if (womActive()) {
+        <a routerLink="../win-of-the-month" style="display:block;text-decoration:none;margin-bottom:16px">
+          <div style="background:rgba(37,99,235,0.08);border:1px solid rgba(37,99,235,0.2);border-left:3px solid #2563EB;border-radius:8px;padding:12px 16px;cursor:pointer;transition:background 0.2s"
+               (mouseenter)="womHover.set(true)" (mouseleave)="womHover.set(false)"
+               [style.background]="womHover() ? 'rgba(37,99,235,0.12)' : 'rgba(37,99,235,0.08)'">
+            <div style="display:flex;align-items:center;gap:8px">
+              <mat-icon style="font-size:1.1rem;width:1.1rem;height:1.1rem;color:#64b5f6">emoji_events</mat-icon>
+              <span style="font-size:0.85rem;font-weight:600;color:#64b5f6">Win of the Month voting is open! Vote for your favorite weekly winner →</span>
+            </div>
+          </div>
+        </a>
       }
 
       <!-- User quota chips -->
@@ -89,6 +133,20 @@ import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/c
           </button>
         }
       </div>
+
+      <!-- Info banner during nominating phase -->
+      @if (currentWeek()?.status === 'Nominating') {
+        <div style="background:rgba(100,181,246,0.08);border:1px solid rgba(100,181,246,0.15);border-radius:8px;padding:10px 14px;margin-bottom:16px;font-size:0.8rem;color:#64b5f6">
+          💡 Voting opens Friday. You'll have 3 votes to use.
+        </div>
+      }
+
+      <!-- All votes used banner -->
+      @if (currentWeek()?.status === 'Voting' && (currentWeek()?.userVotesRemaining ?? 0) === 0) {
+        <div style="background:rgba(76,175,80,0.08);border:1px solid rgba(76,175,80,0.2);border-radius:8px;padding:10px 14px;margin-bottom:16px;font-size:0.8rem;color:#4caf50">
+          ✓ All votes cast! Results will be announced Sunday night.
+        </div>
+      }
 
       <!-- Loading -->
       @if (loading()) {
@@ -165,6 +223,11 @@ import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/c
           }
         </div>
       }
+
+      <!-- View past winners link -->
+      <a routerLink="../win-of-the-week/history" style="display:inline-block;margin-top:16px;color:#64b5f6;font-size:0.85rem;text-decoration:none;font-weight:600">
+        View past winners →
+      </a>
     </div>
 
     <!-- Nominate Dialog -->
@@ -210,16 +273,20 @@ import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/c
 })
 export class WinOfTheWeekComponent implements OnInit {
   private winSvc = inject(WinOfTheWeekService);
+  private womSvc = inject(WinOfTheMonthService);
   private memberSvc = inject(TeamMemberService);
   private dialog = inject(MatDialog);
   private snackBar = inject(MatSnackBar);
 
+  readonly DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
   currentWeek = signal<WinWeek | null>(null);
   allMembers = signal<TeamMember[]>([]);
   loading = signal(true);
   submitting = signal(false);
   showDialog = signal(false);
   currentUserId = '';
+  womActive = signal(false);
+  womHover = signal(false);
 
   nominateForm: CreateNominationRequest = {
     nomineeMemberId: '',
@@ -253,6 +320,7 @@ export class WinOfTheWeekComponent implements OnInit {
       this.allMembers.set(members.sort((a, b) => a.firstName.localeCompare(b.firstName)));
     });
     this.refresh();
+    this.womSvc.getCurrentMonth().subscribe(m => this.womActive.set(m !== null && m.status === 'Voting'));
   }
 
   private refresh() {
@@ -260,6 +328,7 @@ export class WinOfTheWeekComponent implements OnInit {
     this.winSvc.getCurrentWeek().subscribe({
       next: (week) => {
         this.currentWeek.set(week);
+        this.currentUserId = week.currentMemberId;
         this.loading.set(false);
       },
       error: () => {
@@ -271,6 +340,31 @@ export class WinOfTheWeekComponent implements OnInit {
 
   getInitials(name: string): string {
     return name.split(' ').map(s => s[0]).join('').toUpperCase().slice(0, 2);
+  }
+
+  isCurrentDay(dayLabel: string): boolean {
+    const jsDay = new Date().getDay();
+    const idx = this.DAYS.indexOf(dayLabel);
+    return idx === (jsDay === 0 ? 6 : jsDay - 1);
+  }
+
+  isCurrentDayVisible(): boolean {
+    const status = this.currentWeek()?.status;
+    return status === 'Nominating' || status === 'Voting';
+  }
+
+  daySegmentBg(index: number): string {
+    const week = this.currentWeek();
+    if (!week) return 'rgba(255,255,255,0.06)';
+    const jsDay = new Date().getDay();
+    const currentDayIndex = jsDay === 0 ? 6 : jsDay - 1;
+
+    if (week.status === 'Nominating') {
+      return index <= 3 ? 'rgba(100,181,246,0.25)' : 'rgba(255,255,255,0.06)';
+    } else if (week.status === 'Voting') {
+      return index >= 4 ? 'rgba(100,181,246,0.25)' : 'rgba(255,255,255,0.06)';
+    }
+    return 'rgba(255,255,255,0.06)';
   }
 
   showNominateDialog() {
@@ -293,7 +387,7 @@ export class WinOfTheWeekComponent implements OnInit {
       next: () => {
         this.submitting.set(false);
         this.showDialog.set(false);
-        this.snackBar.open('Nomination submitted!', 'Close', { duration: 2000 });
+        this.snackBar.open('Nomination submitted! Voting opens Friday.', 'Close', { duration: 3000 });
         this.refresh();
       },
       error: (err) => {
@@ -307,7 +401,8 @@ export class WinOfTheWeekComponent implements OnInit {
   vote(nominationId: string) {
     this.winSvc.vote(nominationId).subscribe({
       next: () => {
-        this.snackBar.open('Vote recorded!', 'Close', { duration: 2000 });
+        const remaining = (this.currentWeek()?.userVotesRemaining ?? 1) - 1;
+        this.snackBar.open(`Vote cast! ${remaining} votes remaining.`, 'Close', { duration: 2000 });
         this.refresh();
       },
       error: (err) => {
@@ -332,7 +427,6 @@ export class WinOfTheWeekComponent implements OnInit {
   closeWeek() {
     const week = this.currentWeek();
     if (!week || week.nominations.length === 0) return;
-    // Pick the one with most votes, or let user pick
     const topNom = [...week.nominations].sort((a, b) => b.voteCount - a.voteCount)[0];
     const ref = this.dialog.open(ConfirmDialogComponent, {
       width: '360px',

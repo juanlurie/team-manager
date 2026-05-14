@@ -1,37 +1,28 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using TeamManager.Api.Application.DTOs.WinOfTheWeek;
 using TeamManager.Api.Application.Services.Interfaces;
 using TeamManager.Api.Infrastructure.Data;
 
 namespace TeamManager.Api.Presentation.Controllers;
 
 [ApiController]
-[Route("api/v1/win-of-the-week")]
-public class WinOfTheWeekController(IWinOfTheWeekService service, AppDbContext db) : ControllerBase
+[Route("api/v1/win-of-the-month")]
+public class WinOfMonthController(IWinOfMonthService service, AppDbContext db) : ControllerBase
 {
     [HttpGet("current")]
     public async Task<IActionResult> GetCurrent()
     {
         var memberId = GetCurrentMemberId();
-        var result = await service.GetCurrentWeekAsync(memberId);
-        return Ok(result);
+        var result = await service.GetCurrentMonthAsync(memberId);
+        return result is null ? Ok((object?)null) : Ok(result);
     }
 
-    [HttpPost("nominations")]
-    public async Task<IActionResult> CreateNomination([FromBody] CreateNominationRequest request)
+    [HttpGet("history")]
+    public async Task<IActionResult> GetHistory([FromQuery] int? year = null)
     {
-        var memberId = GetCurrentMemberId();
-        try
-        {
-            var result = await service.CreateNominationAsync(memberId, request);
-            return Ok(result);
-        }
-        catch (InvalidOperationException ex)
-        {
-            return BadRequest(new { error = ex.Message });
-        }
+        var result = await service.GetHistoryAsync(year);
+        return Ok(result);
     }
 
     [HttpPost("nominations/{nominationId:guid}/vote")]
@@ -63,17 +54,13 @@ public class WinOfTheWeekController(IWinOfTheWeekService service, AppDbContext d
 
     [HttpPost("close")]
     [Authorize(Roles = "TeamLead")]
-    public async Task<IActionResult> CloseWeek([FromBody] CloseWeekRequest request)
+    public async Task<IActionResult> CloseMonth()
     {
         var memberId = GetCurrentMemberId();
         try
         {
-            var result = await service.CloseWeekAsync(memberId, request);
+            var result = await service.CloseMonthAsync(memberId);
             return Ok(result);
-        }
-        catch (KeyNotFoundException)
-        {
-            return NotFound(new { error = "Specified nomination not found in current week." });
         }
         catch (InvalidOperationException ex)
         {
@@ -81,41 +68,19 @@ public class WinOfTheWeekController(IWinOfTheWeekService service, AppDbContext d
         }
     }
 
-    [HttpPost("open-next")]
+    [HttpPost("generate")]
     [Authorize(Roles = "TeamLead")]
-    public async Task<IActionResult> OpenNextWeek()
+    public async Task<IActionResult> Generate()
     {
         var memberId = GetCurrentMemberId();
         try
         {
-            var result = await service.OpenNextWeekAsync(memberId);
+            var result = await service.GenerateFromClosedWeeksAsync(memberId);
             return Ok(result);
         }
         catch (InvalidOperationException ex)
         {
             return BadRequest(new { error = ex.Message });
-        }
-    }
-
-    [HttpGet("history")]
-    public async Task<IActionResult> GetHistory([FromQuery] int? year = null, [FromQuery] int limit = 52)
-    {
-        var result = await service.GetHistoryAsync(year, limit);
-        return Ok(result);
-    }
-
-    [HttpGet("weeks/{weekId:guid}")]
-    public async Task<IActionResult> GetWeekDetail(Guid weekId)
-    {
-        var memberId = GetCurrentMemberId();
-        try
-        {
-            var result = await service.GetWeekDetailAsync(weekId, memberId);
-            return Ok(result);
-        }
-        catch (KeyNotFoundException)
-        {
-            return NotFound(new { error = "Week not found." });
         }
     }
 

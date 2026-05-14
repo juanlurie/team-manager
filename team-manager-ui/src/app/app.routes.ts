@@ -23,8 +23,8 @@ export const routes: Routes = [
     loadChildren: () => import('./features/export/export.routes').then(m => m.EXPORT_ROUTES)
   },
   {
-    path: 'wheel',
-    loadChildren: () => import('./features/wheel/wheel.routes').then(m => m.WHEEL_ROUTES)
+    path: 'fun',
+    loadChildren: () => import('./features/fun/fun.routes').then(m => m.FUN_ROUTES)
   },
   {
     path: 'discussion',
@@ -35,10 +35,6 @@ export const routes: Routes = [
     loadChildren: () => import('./features/all-features/all-features.routes').then(m => m.ALL_FEATURES_ROUTES)
   },
   {
-    path: 'leaderboard',
-    loadComponent: () => import('./features/leaderboard/leaderboard.component').then(m => m.LeaderboardComponent)
-  },
-  {
     path: 'progress',
     loadComponent: () => import('./features/progress/progress.component').then(m => m.ProgressComponent)
   },
@@ -47,14 +43,13 @@ export const routes: Routes = [
     loadChildren: () => import('./features/meetings/meetings.routes').then(m => m.MEETING_ROUTES)
   },
   {
-    path: 'win-of-the-week',
-    loadChildren: () => import('./features/win-of-the-week/win-of-the-week.routes').then(m => m.WIN_OF_THE_WEEK_ROUTES)
-  },
-  {
     path: 'session-types',
     loadChildren: () => import('./features/session-types/session-types.routes').then(m => m.SESSION_TYPES_ROUTES)
   },
   // Backward compatibility redirects
+  { path: 'win-of-the-week', redirectTo: 'fun/win-of-the-week', pathMatch: 'full' },
+  { path: 'leaderboard', redirectTo: 'fun/leaderboard', pathMatch: 'full' },
+  { path: 'wheel', redirectTo: 'fun/wheel', pathMatch: 'full' },
   { path: 'meeting-series', redirectTo: 'meetings/series', pathMatch: 'full' },
   { path: 'meeting-series/:id', redirectTo: 'meetings/series/:id', pathMatch: 'full' },
   { path: 'meeting-series/:id/:rest', redirectTo: 'meetings/series/:id/:rest', pathMatch: 'prefix' },

@@ -23,23 +23,20 @@ const PRIMARY_NAV: NavItem[] = [
   { path: '/progress',       icon: 'track_changes',   label: 'Progress'     },
   { path: '/discussion',     icon: 'forum',           label: 'Discussion'   },
   { path: '/meetings',       icon: 'event',           label: 'Meetings'     },
-  { path: '/win-of-the-week',icon: 'emoji_events',    label: 'Win of Week'  },
+  { path: '/fun',            icon: 'casino',          label: 'Fun Hub'      },
   { path: '/team',           icon: 'people',          label: 'Team'         },
   { path: '/leave',          icon: 'event_busy',      label: 'Leave'        },
 ];
 
 const SECONDARY_NAV: NavItem[] = [
-  { path: '/session-types', icon: 'category',    label: 'Meeting Types'},
-  { path: '/export',        icon: 'download',     label: 'Export'      },
-  { path: '/leaderboard',   icon: 'emoji_events', label: 'Leaderboard' },
-  { path: '/wheel',         icon: 'casino',       label: 'Spin Wheel'  },
+  { path: '/export', icon: 'download', label: 'Export' },
 ];
 
 // Bottom bar: 4 core items + "More" button for the rest
 const BOTTOM_NAV: NavItem[] = [
   { path: '/dashboard',      icon: 'dashboard',      label: 'Dashboard'    },
   { path: '/sprints',        icon: 'directions_run',  label: 'Sprints'      },
-  { path: '/win-of-the-week',icon: 'emoji_events',    label: 'Win of Week'  },
+  { path: '/fun',            icon: 'casino',          label: 'Fun Hub'      },
   { path: '/team',           icon: 'people',          label: 'Team'         },
   { path: '/leave',          icon: 'event_busy',      label: 'Leave'        },
 ];
@@ -49,10 +46,8 @@ const MORE_NAV: NavItem[] = [
   { path: '/progress',       icon: 'track_changes',  label: 'Progress'      },
   { path: '/discussion',     icon: 'forum',          label: 'Discussion'    },
   { path: '/meetings',       icon: 'event',          label: 'Meetings'      },
-  { path: '/win-of-the-week',icon: 'emoji_events',   label: 'Win of Week'   },
+  { path: '/fun',            icon: 'casino',         label: 'Fun Hub'       },
   { path: '/export',         icon: 'download',       label: 'Export'        },
-  { path: '/leaderboard',    icon: 'emoji_events',   label: 'Leaderboard'   },
-  { path: '/wheel',          icon: 'casino',         label: 'Spin Wheel'    },
 ];
 
 @Component({

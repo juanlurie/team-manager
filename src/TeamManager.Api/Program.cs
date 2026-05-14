@@ -60,6 +60,7 @@ builder.Services.AddScoped<SquadService>();
 builder.Services.AddScoped<IMeetingSessionService, MeetingSessionService>();
 builder.Services.AddScoped<IMeetingSeriesService, MeetingSeriesService>();
 builder.Services.AddScoped<IWinOfTheWeekService, WinOfTheWeekService>();
+builder.Services.AddScoped<IWinOfMonthService, WinOfMonthService>();
 
 builder.Services.AddHealthChecks()
     .AddDbContextCheck<AppDbContext>();
