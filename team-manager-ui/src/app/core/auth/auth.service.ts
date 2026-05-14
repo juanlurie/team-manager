@@ -11,10 +11,14 @@ export class AuthService {
   constructor(private oauth: OAuthService) {
     this.oauth.configure(authConfig);
     this.oauth.loadDiscoveryDocumentAndTryLogin()
-      .then(() => this._isDone$.next(true));
+      .then(() => this._isDone$.next(true))
+      .catch(err => {
+        console.error('[Auth] Init failed:', err);
+        this._isDone$.next(true);
+      });
   }
 
-  login()  { this.oauth.initCodeFlow(); }
+  login()  { this.oauth.initImplicitFlow(); }
   logout() { this.oauth.revokeTokenAndLogout(); }
   hasValidToken() { return this.oauth.hasValidAccessToken(); }
 
