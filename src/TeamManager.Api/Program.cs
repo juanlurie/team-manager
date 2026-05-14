@@ -60,6 +60,7 @@ builder.Services.AddScoped<SquadService>();
 builder.Services.AddScoped<IMeetingSessionService, MeetingSessionService>();
 builder.Services.AddScoped<IMeetingSeriesService, MeetingSeriesService>();
 builder.Services.AddScoped<IWinOfTheWeekService, WinOfTheWeekService>();
+builder.Services.AddScoped<IWinOfMonthService, WinOfMonthService>();
 
 builder.Services.AddHealthChecks()
     .AddDbContextCheck<AppDbContext>();
@@ -96,8 +97,10 @@ if (!string.IsNullOrEmpty(authority) && !string.IsNullOrEmpty(audience))
 }
 else
 {
-    builder.Services.AddAuthentication();
+    builder.Services.AddAuthentication("Development")
+        .AddScheme<AuthenticationSchemeOptions, DevelopmentAuthHandler>("Development", _ => { });
     builder.Services.AddAuthorization();
+    builder.Services.AddScoped<IClaimsTransformation, TeamMemberClaimsTransformer>();
 }
 
 var app = builder.Build();

@@ -19,7 +19,7 @@ import { ConfirmDialogComponent } from '../../../shared/components/confirm-dialo
   template: `
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:24px;flex-wrap:wrap">
       <h2 style="margin:0;flex:1;min-width:120px">Meeting Planner</h2>
-      <button mat-raised-button color="primary" routerLink="create">
+      <button mat-raised-button color="primary" routerLink="/meetings/create">
         <mat-icon>add</mat-icon> Create Session
       </button>
     </div>

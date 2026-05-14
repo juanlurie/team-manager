@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using TeamManager.Api.Application.DTOs.WinOfTheWeek;
@@ -61,6 +62,7 @@ public class WinOfTheWeekController(IWinOfTheWeekService service, AppDbContext d
     }
 
     [HttpPost("close")]
+    [Authorize(Roles = "TeamLead")]
     public async Task<IActionResult> CloseWeek([FromBody] CloseWeekRequest request)
     {
         var memberId = GetCurrentMemberId();
@@ -80,6 +82,7 @@ public class WinOfTheWeekController(IWinOfTheWeekService service, AppDbContext d
     }
 
     [HttpPost("open-next")]
+    [Authorize(Roles = "TeamLead")]
     public async Task<IActionResult> OpenNextWeek()
     {
         var memberId = GetCurrentMemberId();
@@ -91,6 +94,44 @@ public class WinOfTheWeekController(IWinOfTheWeekService service, AppDbContext d
         catch (InvalidOperationException ex)
         {
             return BadRequest(new { error = ex.Message });
+        }
+    }
+
+    [HttpPost("open-voting")]
+    [Authorize(Roles = "TeamLead")]
+    public async Task<IActionResult> OpenVoting()
+    {
+        var memberId = GetCurrentMemberId();
+        try
+        {
+            var result = await service.OpenVotingAsync(memberId);
+            return Ok(result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
+    [HttpGet("history")]
+    public async Task<IActionResult> GetHistory([FromQuery] int? year = null, [FromQuery] int limit = 52)
+    {
+        var result = await service.GetHistoryAsync(year, limit);
+        return Ok(result);
+    }
+
+    [HttpGet("weeks/{weekId:guid}")]
+    public async Task<IActionResult> GetWeekDetail(Guid weekId)
+    {
+        var memberId = GetCurrentMemberId();
+        try
+        {
+            var result = await service.GetWeekDetailAsync(weekId, memberId);
+            return Ok(result);
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound(new { error = "Week not found." });
         }
     }
 

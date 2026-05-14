@@ -51,6 +51,7 @@ public class WinOfTheWeekService(AppDbContext db) : IWinOfTheWeekService
             WinnerNomineeName = winner != null ? $"{winner.Nominee.FirstName} {winner.Nominee.LastName}" : null,
             OpenedAt = week.OpenedAt,
             ClosedAt = week.ClosedAt,
+            CurrentMemberId = currentMemberId,
             UserVotesRemaining = MaxVotesPerPerson - userVoteCount,
             UserNominationsRemaining = MaxNominationsPerPerson - userNominationCount,
             Nominations = nominations.Select(n => new WinNominationDto
@@ -64,7 +65,7 @@ public class WinOfTheWeekService(AppDbContext db) : IWinOfTheWeekService
                 Title = n.Title,
                 Description = n.Description,
                 CreatedAt = n.CreatedAt,
-                VoteCount = n.Votes.Count,  // compute from actual votes
+                VoteCount = n.Votes.Count,
                 HasVoted = userVoteNominationIds.Contains(n.Id)
             }).ToList()
         };
@@ -194,6 +195,9 @@ public class WinOfTheWeekService(AppDbContext db) : IWinOfTheWeekService
 
         await db.SaveChangesAsync();
 
+        // Award weekly achievement to the winner
+        await AwardWeeklyAchievementAsync(nomination.NomineeMemberId, week.WeekStart);
+
         return await GetCurrentWeekAsync(memberId);
     }
 
@@ -202,7 +206,6 @@ public class WinOfTheWeekService(AppDbContext db) : IWinOfTheWeekService
         var today = DateOnly.FromDateTime(DateTimeOffset.UtcNow.Date);
         var weekStart = GetWeekStart(today);
 
-        // Check if the current week (by date) is still active
         var currentWeek = await db.WinWeeks
             .FirstOrDefaultAsync(w => w.WeekStart == weekStart);
 
@@ -222,6 +225,153 @@ public class WinOfTheWeekService(AppDbContext db) : IWinOfTheWeekService
         await db.SaveChangesAsync();
 
         return await GetCurrentWeekAsync(memberId);
+    }
+
+    public async Task<WinWeekDto> OpenVotingAsync(Guid memberId)
+    {
+        var today = DateOnly.FromDateTime(DateTimeOffset.UtcNow.Date);
+        var weekStart = GetWeekStart(today);
+
+        var week = await db.WinWeeks
+            .Include(w => w.Nominations)
+            .FirstOrDefaultAsync(w => w.WeekStart == weekStart);
+
+        if (week is null)
+            throw new InvalidOperationException("No week found for the current period. Open next week first.");
+
+        if (week.Status != WinWeekStatus.Nominating)
+            throw new InvalidOperationException("Voting can only be opened during the nominating phase.");
+
+        if (week.Nominations.Count == 0)
+            throw new InvalidOperationException("Cannot open voting with no nominations.");
+
+        week.Status = WinWeekStatus.Voting;
+        await db.SaveChangesAsync();
+
+        return await GetCurrentWeekAsync(memberId);
+    }
+
+    public async Task<IReadOnlyList<WinWeekHistoryDto>> GetHistoryAsync(int? year = null, int limit = 52)
+    {
+        var query = db.WinWeeks
+            .Where(w => w.Status == WinWeekStatus.Closed && w.WinnerNominationId.HasValue)
+            .AsQueryable();
+
+        if (year.HasValue)
+            query = query.Where(w => w.WeekStart.Year == year.Value);
+
+        var weeks = await query
+            .OrderByDescending(w => w.WeekStart)
+            .Take(limit)
+            .ToListAsync();
+
+        var winnerIds = weeks.Where(w => w.WinnerNominationId.HasValue).Select(w => w.WinnerNominationId!.Value).ToList();
+        if (winnerIds.Count == 0) return [];
+
+        var winners = await db.WinNominations
+            .Include(n => n.Nominee)
+            .Include(n => n.Votes)
+            .Where(n => winnerIds.Contains(n.Id))
+            .ToListAsync();
+
+        var winnerLookup = winners.ToDictionary(w => w.Id);
+
+        return weeks.Select(week =>
+        {
+            var winner = week.WinnerNominationId.HasValue && winnerLookup.TryGetValue(week.WinnerNominationId.Value, out var w) ? w : null;
+            return new WinWeekHistoryDto
+            {
+                Id = week.Id,
+                WeekStart = week.WeekStart,
+                WeekEnd = week.WeekEnd,
+                WinnerNomineeName = winner != null ? $"{winner.Nominee.FirstName} {winner.Nominee.LastName}" : null,
+                WinnerTitle = winner?.Title,
+                WinnerDescription = winner?.Description,
+                WinnerVoteCount = winner?.Votes.Count ?? 0,
+                ClosedAt = week.ClosedAt ?? DateTimeOffset.UtcNow
+            };
+        }).ToList();
+    }
+
+    public async Task<WinWeekDetailDto> GetWeekDetailAsync(Guid weekId, Guid memberId)
+    {
+        var week = await db.WinWeeks
+            .FirstOrDefaultAsync(w => w.Id == weekId);
+
+        if (week is null)
+            throw new KeyNotFoundException("Week not found.");
+
+        var nominations = await db.WinNominations
+            .Include(n => n.TeamMember)
+            .Include(n => n.Nominee)
+            .Include(n => n.Votes)
+            .Where(n => n.WinWeekId == weekId)
+            .OrderByDescending(n => n.Votes.Count)
+            .ToListAsync();
+
+        var userVoteIds = await db.WinVotes
+            .Where(v => v.TeamMemberId == memberId && nominations.Select(n => n.Id).Contains(v.WinNominationId))
+            .Select(v => v.WinNominationId)
+            .ToListAsync();
+
+        var winner = nominations.FirstOrDefault(n => n.Id == week.WinnerNominationId);
+
+        return new WinWeekDetailDto
+        {
+            Id = week.Id,
+            WeekStart = week.WeekStart,
+            WeekEnd = week.WeekEnd,
+            WinnerNomineeName = winner != null ? $"{winner.Nominee.FirstName} {winner.Nominee.LastName}" : null,
+            WinnerTitle = winner?.Title,
+            AllNominations = nominations.Select(n => new WinNominationDto
+            {
+                Id = n.Id,
+                WinWeekId = n.WinWeekId,
+                TeamMemberId = n.TeamMemberId,
+                TeamMemberName = $"{n.TeamMember.FirstName} {n.TeamMember.LastName}",
+                NomineeMemberId = n.NomineeMemberId,
+                NomineeName = $"{n.Nominee.FirstName} {n.Nominee.LastName}",
+                Title = n.Title,
+                Description = n.Description,
+                CreatedAt = n.CreatedAt,
+                VoteCount = n.Votes.Count,
+                HasVoted = userVoteIds.Contains(n.Id)
+            }).ToList()
+        };
+    }
+
+    private async Task AwardWeeklyAchievementAsync(Guid winnerMemberId, DateOnly weekStart)
+    {
+        var achievement = await db.Achievements
+            .FirstOrDefaultAsync(a => a.Key == "win-of-the-week");
+
+        if (achievement is null) return;
+
+        var monthLabel = weekStart.ToString("MMMM yyyy");
+        var alreadyAwarded = await db.MemberAchievements
+            .AnyAsync(ma => ma.TeamMemberId == winnerMemberId
+                         && ma.AchievementId == achievement.Id
+                         && ma.Note == monthLabel);
+
+        if (alreadyAwarded) return;
+
+        db.MemberAchievements.Add(new MemberAchievement
+        {
+            TeamMemberId = winnerMemberId,
+            AchievementId = achievement.Id,
+            AwardedAt = DateTimeOffset.UtcNow,
+            Note = monthLabel
+        });
+
+        db.PointAwards.Add(new PointAward
+        {
+            TeamMemberId = winnerMemberId,
+            Points = achievement.Points,
+            Reason = $"Win of the Week Champion — {monthLabel}",
+            AwardedAt = DateTimeOffset.UtcNow
+        });
+
+        await db.SaveChangesAsync();
     }
 
     private async Task<WinWeek> GetOrCreateCurrentWeekAsync(Guid memberId)
@@ -244,7 +394,6 @@ public class WinOfTheWeekService(AppDbContext db) : IWinOfTheWeekService
             return week;
         }
 
-        // Create new week
         var status = today.DayOfWeek >= DayOfWeek.Friday
             ? WinWeekStatus.Voting
             : WinWeekStatus.Nominating;

@@ -1258,6 +1258,112 @@ namespace TeamManager.Api.Migrations
                     b.ToTable("WheelParticipants");
                 });
 
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.WinMonth", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<DateTimeOffset?>("ClosedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Month")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset>("OpenedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<DateTimeOffset>("VotingEndsAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("WinnerNominationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Year")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("WinnerNominationId");
+
+                    b.HasIndex("Year", "Month")
+                        .IsUnique();
+
+                    b.ToTable("WinMonths");
+                });
+
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.WinMonthNomination", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<Guid>("NomineeMemberId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("SourceWinWeekId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<int>("VoteCount")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("WinMonthId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("NomineeMemberId");
+
+                    b.HasIndex("SourceWinWeekId");
+
+                    b.HasIndex("WinMonthId", "NomineeMemberId")
+                        .IsUnique();
+
+                    b.ToTable("WinMonthNominations");
+                });
+
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.WinMonthVote", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<Guid>("TeamMemberId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("VotedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("WinMonthNominationId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TeamMemberId");
+
+                    b.HasIndex("WinMonthNominationId", "TeamMemberId")
+                        .IsUnique();
+
+                    b.ToTable("WinMonthVotes");
+                });
+
             modelBuilder.Entity("TeamManager.Api.Domain.Entities.WinNomination", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1308,7 +1414,8 @@ namespace TeamManager.Api.Migrations
                         .HasColumnType("uuid");
 
                     b.Property<DateTimeOffset>("VotedAt")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("CreatedAt");
 
                     b.Property<Guid>("WinNominationId")
                         .HasColumnType("uuid");
@@ -1333,21 +1440,32 @@ namespace TeamManager.Api.Migrations
                     b.Property<DateTimeOffset?>("ClosedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<Guid>("CreatedByMemberId")
+                        .HasColumnType("uuid");
+
                     b.Property<DateTimeOffset>("OpenedAt")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("CreatedAt");
 
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)");
 
+                    b.Property<DateOnly>("WeekEnd")
+                        .HasColumnType("date")
+                        .HasColumnName("EndDate");
+
                     b.Property<DateOnly>("WeekStart")
-                        .HasColumnType("date");
+                        .HasColumnType("date")
+                        .HasColumnName("StartDate");
 
                     b.Property<Guid?>("WinnerNominationId")
                         .HasColumnType("uuid");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("CreatedByMemberId");
 
                     b.HasIndex("WeekStart")
                         .IsUnique();
@@ -1864,6 +1982,62 @@ namespace TeamManager.Api.Migrations
                     b.Navigation("Wheel");
                 });
 
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.WinMonth", b =>
+                {
+                    b.HasOne("TeamManager.Api.Domain.Entities.WinMonthNomination", "Winner")
+                        .WithMany()
+                        .HasForeignKey("WinnerNominationId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Winner");
+                });
+
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.WinMonthNomination", b =>
+                {
+                    b.HasOne("TeamManager.Api.Domain.Entities.TeamMember", "Nominee")
+                        .WithMany()
+                        .HasForeignKey("NomineeMemberId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("TeamManager.Api.Domain.Entities.WinWeek", "SourceWinWeek")
+                        .WithMany()
+                        .HasForeignKey("SourceWinWeekId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("TeamManager.Api.Domain.Entities.WinMonth", "WinMonth")
+                        .WithMany("Nominations")
+                        .HasForeignKey("WinMonthId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Nominee");
+
+                    b.Navigation("SourceWinWeek");
+
+                    b.Navigation("WinMonth");
+                });
+
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.WinMonthVote", b =>
+                {
+                    b.HasOne("TeamManager.Api.Domain.Entities.TeamMember", "TeamMember")
+                        .WithMany()
+                        .HasForeignKey("TeamMemberId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("TeamManager.Api.Domain.Entities.WinMonthNomination", "Nomination")
+                        .WithMany("Votes")
+                        .HasForeignKey("WinMonthNominationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Nomination");
+
+                    b.Navigation("TeamMember");
+                });
+
             modelBuilder.Entity("TeamManager.Api.Domain.Entities.WinNomination", b =>
                 {
                     b.HasOne("TeamManager.Api.Domain.Entities.TeamMember", "Nominee")
@@ -1912,10 +2086,18 @@ namespace TeamManager.Api.Migrations
 
             modelBuilder.Entity("TeamManager.Api.Domain.Entities.WinWeek", b =>
                 {
+                    b.HasOne("TeamManager.Api.Domain.Entities.TeamMember", "CreatedBy")
+                        .WithMany()
+                        .HasForeignKey("CreatedByMemberId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
                     b.HasOne("TeamManager.Api.Domain.Entities.WinNomination", "Winner")
                         .WithMany()
                         .HasForeignKey("WinnerNominationId")
                         .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("CreatedBy");
 
                     b.Navigation("Winner");
                 });
@@ -2022,6 +2204,16 @@ namespace TeamManager.Api.Migrations
             modelBuilder.Entity("TeamManager.Api.Domain.Entities.Wheel", b =>
                 {
                     b.Navigation("Participants");
+                });
+
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.WinMonth", b =>
+                {
+                    b.Navigation("Nominations");
+                });
+
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.WinMonthNomination", b =>
+                {
+                    b.Navigation("Votes");
                 });
 
             modelBuilder.Entity("TeamManager.Api.Domain.Entities.WinNomination", b =>
