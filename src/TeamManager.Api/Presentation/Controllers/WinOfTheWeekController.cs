@@ -97,6 +97,22 @@ public class WinOfTheWeekController(IWinOfTheWeekService service, AppDbContext d
         }
     }
 
+    [HttpPost("open-voting")]
+    [Authorize(Roles = "TeamLead")]
+    public async Task<IActionResult> OpenVoting()
+    {
+        var memberId = GetCurrentMemberId();
+        try
+        {
+            var result = await service.OpenVotingAsync(memberId);
+            return Ok(result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
     [HttpGet("history")]
     public async Task<IActionResult> GetHistory([FromQuery] int? year = null, [FromQuery] int limit = 52)
     {

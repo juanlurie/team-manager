@@ -31,6 +31,10 @@ export class WinOfTheWeekService {
     return this.http.post<WinWeek>(`${this.base}/open-next`, {});
   }
 
+  openVoting() {
+    return this.http.post<WinWeek>(`${this.base}/open-voting`, {});
+  }
+
   getHistory(year?: number) {
     const params: any = {};
     if (year) params.year = year;

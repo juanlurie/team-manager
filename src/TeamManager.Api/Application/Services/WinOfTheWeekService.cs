@@ -227,6 +227,30 @@ public class WinOfTheWeekService(AppDbContext db) : IWinOfTheWeekService
         return await GetCurrentWeekAsync(memberId);
     }
 
+    public async Task<WinWeekDto> OpenVotingAsync(Guid memberId)
+    {
+        var today = DateOnly.FromDateTime(DateTimeOffset.UtcNow.Date);
+        var weekStart = GetWeekStart(today);
+
+        var week = await db.WinWeeks
+            .Include(w => w.Nominations)
+            .FirstOrDefaultAsync(w => w.WeekStart == weekStart);
+
+        if (week is null)
+            throw new InvalidOperationException("No week found for the current period. Open next week first.");
+
+        if (week.Status != WinWeekStatus.Nominating)
+            throw new InvalidOperationException("Voting can only be opened during the nominating phase.");
+
+        if (week.Nominations.Count == 0)
+            throw new InvalidOperationException("Cannot open voting with no nominations.");
+
+        week.Status = WinWeekStatus.Voting;
+        await db.SaveChangesAsync();
+
+        return await GetCurrentWeekAsync(memberId);
+    }
+
     public async Task<IReadOnlyList<WinWeekHistoryDto>> GetHistoryAsync(int? year = null, int limit = 52)
     {
         var query = db.WinWeeks
