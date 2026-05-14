@@ -1,6 +1,6 @@
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatDialogModule, MatDialog } from '@angular/material/dialog';
@@ -17,18 +17,20 @@ import { IconButtonComponent } from '../../../shared/components/icon-btn/icon-bt
   selector: 'app-meeting-detail',
   standalone: true,
   imports: [CommonModule, MatButtonModule, MatIconModule, MatDialogModule,
-    MatProgressSpinnerModule, MatTooltipModule, IconButtonComponent],
+    MatProgressSpinnerModule, MatTooltipModule, RouterLink, IconButtonComponent],
   template: `
     @if (loading()) {
       <div style="display:flex;justify-content:center;padding:80px">
         <mat-spinner diameter="48"></mat-spinner>
       </div>
-    } @else if (session(); as s) {
+    } @else {
+      @if (session(); as s) {
       <!-- Header -->
       <div style="display:flex;align-items:flex-start;gap:16px;margin-bottom:24px;flex-wrap:wrap">
         <div style="flex:1;min-width:200px">
           <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
             <h2 style="margin:0">{{ s.title }}</h2>
+            <span class="type-badge">{{ s.type }}</span>
             <span class="status-badge" [class.status-open]="s.status === 'Open'"
                   [class.status-filled]="s.status === 'Filled'"
                   [class.status-cancelled]="s.status === 'Cancelled'">
@@ -43,6 +45,12 @@ import { IconButtonComponent } from '../../../shared/components/icon-btn/icon-bt
               <span>Created by {{ s.createdByMemberName }}</span>
             }
           </div>
+          @if (s.sessionDefinitionId) {
+            <div class="origin-banner">
+              📋 This meeting was created from the catalog session "{{ s.sessionDefinitionName }}".
+              <a class="link" [routerLink]="['/catalog', s.sessionDefinitionId]">View in Catalog →</a>
+            </div>
+          }
           @if (s.description) {
             <div style="margin-top:12px;font-size:0.85rem;opacity:0.7;max-width:600px;line-height:1.5">{{ s.description }}</div>
           }
@@ -85,6 +93,11 @@ import { IconButtonComponent } from '../../../shared/components/icon-btn/icon-bt
                     }
                   } @else {
                     <div style="font-size:0.85rem;opacity:0.35">Available</div>
+                  }
+                  @if (slot.startTime && slot.date) {
+                    <div style="font-size:0.7rem;opacity:0.4;margin-top:2px">
+                      {{ formatDateShort(slot.date) }} {{ slot.startTime }}–{{ slot.endTime }}
+                    </div>
                   }
                 </div>
                 @if (slot.teamMemberId === null && s.status === 'Open') {
@@ -133,6 +146,11 @@ import { IconButtonComponent } from '../../../shared/components/icon-btn/icon-bt
                   } @else {
                     <div style="font-size:0.85rem;opacity:0.35">Available</div>
                   }
+                  @if (slot.startTime && slot.date) {
+                    <div style="font-size:0.7rem;opacity:0.4;margin-top:2px">
+                      {{ formatDateShort(slot.date) }} {{ slot.startTime }}–{{ slot.endTime }}
+                    </div>
+                  }
                 </div>
                 @if (slot.teamMemberId === null && s.status === 'Open') {
                   <button mat-stroked-button style="flex-shrink:0;min-width:0;padding:0 12px;height:32px;font-size:0.78rem"
@@ -163,8 +181,14 @@ import { IconButtonComponent } from '../../../shared/components/icon-btn/icon-bt
     } @else {
       <div style="text-align:center;padding:64px;opacity:0.4">Session not found</div>
     }
+    }
   `,
   styles: [`
+    .type-badge {
+      font-size: 0.65rem; font-weight: 600; padding: 3px 10px; border-radius: 10px;
+      text-transform: uppercase; letter-spacing: 0.05em;
+      background: rgba(255,215,0,0.12); color: #FFD700;
+    }
     .status-badge {
       font-size: 0.65rem; font-weight: 600; padding: 3px 10px; border-radius: 10px;
       text-transform: uppercase; letter-spacing: 0.05em;
@@ -185,6 +209,13 @@ import { IconButtonComponent } from '../../../shared/components/icon-btn/icon-bt
       font-size: 0.75rem; font-weight: 600;
     }
     .slot-card.slot-booked .slot-avatar { background: rgba(100,181,246,0.2); }
+    .origin-banner {
+      padding: 10px 14px; border-radius: 8px; margin-bottom: 16px;
+      background: rgba(156, 39, 176, 0.08); border: 1px solid rgba(156, 39, 176, 0.2);
+      font-size: 0.82rem; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    }
+    .origin-banner .link { color: #64b5f6; cursor: pointer; font-weight: 500; }
+    .origin-banner .link:hover { text-decoration: underline; }
   `]
 })
 export class MeetingDetailComponent implements OnInit {
@@ -226,6 +257,11 @@ export class MeetingDetailComponent implements OnInit {
   formatDate(date: string): string {
     const d = new Date(date);
     return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+  }
+
+  formatDateShort(date: string): string {
+    const d = new Date(date + 'T12:00:00');
+    return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
   }
 
   locationIcon(location: string): string {

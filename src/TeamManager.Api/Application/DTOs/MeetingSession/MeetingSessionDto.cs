@@ -9,9 +9,13 @@ public record MeetingSessionDto
     public string StartTime { get; init; } = string.Empty;
     public string EndTime { get; init; } = string.Empty;
     public string Location { get; init; } = string.Empty;
+    public string Type { get; init; } = string.Empty;
     public string Status { get; init; } = string.Empty;
     public Guid CreatedByMemberId { get; init; }
     public string? CreatedByMemberName { get; init; }
     public List<MeetingSlotDto> Slots { get; init; } = [];
+    public Guid? SessionDefinitionSlotId { get; init; }
+    public Guid? SessionDefinitionId { get; init; }
+    public string? SessionDefinitionName { get; init; }
     public DateTimeOffset CreatedAt { get; init; }
 }

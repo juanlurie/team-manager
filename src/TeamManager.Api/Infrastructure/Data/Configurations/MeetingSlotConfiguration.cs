@@ -12,6 +12,7 @@ public class MeetingSlotConfiguration : IEntityTypeConfiguration<MeetingSlot>
         builder.Property(s => s.Id).HasDefaultValueSql("gen_random_uuid()");
         builder.Property(s => s.Type).IsRequired().HasConversion<string>().HasMaxLength(20);
         builder.Property(s => s.Notes).HasMaxLength(500);
+        builder.Property(s => s.Date).IsRequired(false);
 
         builder.HasOne(s => s.MeetingSession)
             .WithMany(ms => ms.Slots)
@@ -22,5 +23,11 @@ public class MeetingSlotConfiguration : IEntityTypeConfiguration<MeetingSlot>
             .WithMany()
             .HasForeignKey(s => s.TeamMemberId)
             .OnDelete(DeleteBehavior.SetNull);
+
+        builder.HasOne(s => s.Location)
+            .WithMany(l => l.Slots)
+            .HasForeignKey(s => s.LocationId)
+            .OnDelete(DeleteBehavior.SetNull)
+            .IsRequired(false);
     }
 }

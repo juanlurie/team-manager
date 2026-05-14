@@ -13,7 +13,9 @@ public class MeetingSessionService(AppDbContext db) : IMeetingSessionService
     {
         var sessions = await db.Set<MeetingSession>()
             .Include(s => s.CreatedBy)
+            .Include(s => s.SessionDefinition)
             .Include(s => s.Slots).ThenInclude(sl => sl.TeamMember)
+            .Include(s => s.Slots).ThenInclude(sl => sl.Location)
             .OrderByDescending(s => s.Date)
             .ThenByDescending(s => s.StartTime)
             .ToListAsync();
@@ -25,7 +27,9 @@ public class MeetingSessionService(AppDbContext db) : IMeetingSessionService
     {
         var session = await db.Set<MeetingSession>()
             .Include(s => s.CreatedBy)
+            .Include(s => s.SessionDefinition)
             .Include(s => s.Slots).ThenInclude(sl => sl.TeamMember)
+            .Include(s => s.Slots).ThenInclude(sl => sl.Location)
             .FirstOrDefaultAsync(s => s.Id == id);
 
         return session is null ? null : ToDto(session);
@@ -34,38 +38,37 @@ public class MeetingSessionService(AppDbContext db) : IMeetingSessionService
     public async Task<MeetingSessionDto> CreateAsync(CreateSessionRequest request, Guid createdByMemberId)
     {
         var location = Enum.Parse<MeetingLocation>(request.Location);
-        var startTime = TimeSpan.Parse(request.StartTime);
-        var endTime = TimeSpan.Parse(request.EndTime);
+        var meetingType = Enum.Parse<MeetingType>(request.Type);
+
+        var slots = request.Slots.Select(s => new MeetingSlot
+        {
+            Date = DateOnly.Parse(s.Date),
+            StartTime = TimeSpan.Parse(s.StartTime),
+            EndTime = TimeSpan.Parse(s.EndTime),
+            Type = Enum.Parse<SlotType>(s.SlotType),
+            LocationId = s.LocationId,
+            TeamMemberId = s.TeamMemberId
+        }).ToList();
+
+        if (slots.Count == 0)
+            throw new InvalidOperationException("At least one slot is required.");
 
         var session = new MeetingSession
         {
             Title = request.Title,
             Description = request.Description,
-            Date = request.Date,
-            StartTime = startTime,
-            EndTime = endTime,
+            Date = slots.Min(s => s.Date!.Value),
+            StartTime = slots.Min(s => s.StartTime!.Value),
+            EndTime = slots.Max(s => s.EndTime!.Value),
             Location = location,
+            Type = meetingType,
             Status = MeetingStatus.Open,
-            CreatedByMemberId = createdByMemberId
+            CreatedByMemberId = createdByMemberId,
+            Slots = slots
         };
 
-        // Create team member slots
-        for (int i = 0; i < request.TeamMemberSlotCount; i++)
-        {
-            session.Slots.Add(new MeetingSlot
-            {
-                Type = SlotType.TeamMember
-            });
-        }
-
-        // Create facilitator slots
-        for (int i = 0; i < request.FacilitatorSlotCount; i++)
-        {
-            session.Slots.Add(new MeetingSlot
-            {
-                Type = SlotType.Facilitator
-            });
-        }
+        if (slots.All(s => s.TeamMemberId.HasValue))
+            session.Status = MeetingStatus.Filled;
 
         db.Set<MeetingSession>().Add(session);
         await db.SaveChangesAsync();
@@ -119,6 +122,7 @@ public class MeetingSessionService(AppDbContext db) : IMeetingSessionService
     {
         var session = await db.Set<MeetingSession>()
             .Include(s => s.Slots).ThenInclude(sl => sl.TeamMember)
+    .Include(s => s.Slots).ThenInclude(sl => sl.Location)
             .Include(s => s.CreatedBy)
             .FirstOrDefaultAsync(s => s.Id == sessionId);
 
@@ -127,9 +131,8 @@ public class MeetingSessionService(AppDbContext db) : IMeetingSessionService
 
         var slot = session.Slots.FirstOrDefault(sl => sl.Id == slotId);
         if (slot is null) return null;
-        if (slot.TeamMemberId.HasValue) return null; // Already booked
+        if (slot.TeamMemberId.HasValue) return null;
 
-        // Check member hasn't already booked another slot in this session
         var alreadyBooked = session.Slots.Any(sl => sl.TeamMemberId == memberId);
         if (alreadyBooked) return null;
 
@@ -137,7 +140,6 @@ public class MeetingSessionService(AppDbContext db) : IMeetingSessionService
         slot.Notes = request.Notes;
         slot.BookedAt = DateTimeOffset.UtcNow;
 
-        // Update session status if all slots are filled
         if (session.Slots.All(sl => sl.TeamMemberId.HasValue))
         {
             session.Status = MeetingStatus.Filled;
@@ -151,6 +153,7 @@ public class MeetingSessionService(AppDbContext db) : IMeetingSessionService
     {
         var session = await db.Set<MeetingSession>()
             .Include(s => s.Slots).ThenInclude(sl => sl.TeamMember)
+    .Include(s => s.Slots).ThenInclude(sl => sl.Location)
             .Include(s => s.CreatedBy)
             .FirstOrDefaultAsync(s => s.Id == sessionId);
 
@@ -158,13 +161,12 @@ public class MeetingSessionService(AppDbContext db) : IMeetingSessionService
 
         var slot = session.Slots.FirstOrDefault(sl => sl.Id == slotId);
         if (slot is null) return null;
-        if (!slot.TeamMemberId.HasValue) return null; // Not booked
+        if (!slot.TeamMemberId.HasValue) return null;
 
         slot.TeamMemberId = null;
         slot.Notes = null;
         slot.BookedAt = null;
 
-        // Revert status to Open if it was Filled
         if (session.Status == MeetingStatus.Filled)
         {
             session.Status = MeetingStatus.Open;
@@ -183,9 +185,13 @@ public class MeetingSessionService(AppDbContext db) : IMeetingSessionService
         StartTime = s.StartTime.ToString(@"hh\:mm"),
         EndTime = s.EndTime.ToString(@"hh\:mm"),
         Location = s.Location.ToString(),
+        Type = s.Type.ToString(),
         Status = s.Status.ToString(),
         CreatedByMemberId = s.CreatedByMemberId,
         CreatedByMemberName = $"{s.CreatedBy.FirstName} {s.CreatedBy.LastName}",
+        SessionDefinitionSlotId = s.SessionDefinitionSlotId,
+        SessionDefinitionId = s.SessionDefinitionId,
+        SessionDefinitionName = s.SessionDefinition?.Name,
         CreatedAt = s.CreatedAt,
         Slots = s.Slots.Select(sl => new MeetingSlotDto
         {
@@ -195,8 +201,14 @@ public class MeetingSessionService(AppDbContext db) : IMeetingSessionService
             TeamMemberName = sl.TeamMember is not null
                 ? $"{sl.TeamMember.FirstName} {sl.TeamMember.LastName}"
                 : null,
+            LocationId = sl.LocationId,
+            LocationName = sl.Location?.Name,
+            LocationColor = sl.Location?.Color,
             Notes = sl.Notes,
             SlotType = sl.Type.ToString(),
+            Date = sl.Date?.ToString("yyyy-MM-dd"),
+            StartTime = sl.StartTime?.ToString(@"hh\:mm"),
+            EndTime = sl.EndTime?.ToString(@"hh\:mm"),
             BookedAt = sl.BookedAt
         }).ToList()
     };

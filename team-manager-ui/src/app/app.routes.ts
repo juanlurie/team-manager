@@ -49,5 +49,21 @@ export const routes: Routes = [
   {
     path: 'win-of-the-week',
     loadChildren: () => import('./features/win-of-the-week/win-of-the-week.routes').then(m => m.WIN_OF_THE_WEEK_ROUTES)
+  },
+  {
+    path: 'slot-locations',
+    loadChildren: () => import('./features/slot-locations/slot-locations.routes').then(m => m.SLOT_LOCATIONS_ROUTES)
+  },
+  {
+    path: 'session-types',
+    loadChildren: () => import('./features/session-types/session-types.routes').then(m => m.SESSION_TYPES_ROUTES)
+  },
+  {
+    path: 'catalog',
+    loadChildren: () => import('./features/session-catalog/session-catalog.routes').then(m => m.SESSION_CATALOG_ROUTES)
+  },
+  {
+    path: 'meeting-series',
+    loadChildren: () => import('./features/meeting-series/meeting-series.routes').then(m => m.MEETING_SERIES_ROUTES)
   }
 ];

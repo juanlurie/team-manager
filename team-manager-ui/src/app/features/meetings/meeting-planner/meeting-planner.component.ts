@@ -1,6 +1,6 @@
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterLink } from '@angular/router';
+import { RouterLink, Router } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatDialogModule, MatDialog } from '@angular/material/dialog';
@@ -19,7 +19,7 @@ import { ConfirmDialogComponent } from '../../../shared/components/confirm-dialo
   template: `
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:24px;flex-wrap:wrap">
       <h2 style="margin:0;flex:1;min-width:120px">Meeting Planner</h2>
-      <button mat-raised-button color="primary" (click)="openCreateDialog()">
+      <button mat-raised-button color="primary" routerLink="create">
         <mat-icon>add</mat-icon> Create Session
       </button>
     </div>
@@ -49,6 +49,7 @@ import { ConfirmDialogComponent } from '../../../shared/components/confirm-dialo
             <div style="flex:1;min-width:0">
               <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
                 <span style="font-weight:500;font-size:0.9rem">{{ s.title }}</span>
+                <span style="font-size:0.68rem;opacity:0.45;margin-left:4px">{{ s.type }}</span>
                 <span class="status-badge" [class.status-open]="s.status === 'Open'"
                       [class.status-filled]="s.status === 'Filled'"
                       [class.status-cancelled]="s.status === 'Cancelled'">
@@ -65,6 +66,14 @@ import { ConfirmDialogComponent } from '../../../shared/components/confirm-dialo
                   <span>· Created by {{ s.createdByMemberName }}</span>
                 }
               </div>
+              @if (s.sessionDefinitionName) {
+                <div style="margin-top:4px">
+                  <span class="catalog-badge" [routerLink]="['/catalog', s.sessionDefinitionId]">
+                    📋 From Catalog: {{ s.sessionDefinitionName }}
+                    <span class="view-link">[View in Catalog →]</span>
+                  </span>
+                </div>
+              }
               <!-- Progress bar -->
               <div class="slot-progress-bar">
                 <div class="slot-progress-fill" [style.width.%]="fillPercent(s)"></div>
@@ -107,12 +116,21 @@ import { ConfirmDialogComponent } from '../../../shared/components/confirm-dialo
     .slot-progress-fill {
       height: 100%; background: rgba(100,181,246,0.5); border-radius: 2px; transition: width 0.3s;
     }
+    .catalog-badge {
+      display: inline-flex; align-items: center; gap: 4px; font-size: 0.68rem; font-weight: 500;
+      padding: 2px 10px 2px 6px; border-radius: 10px;
+      background: rgba(156, 39, 176, 0.15); color: #ce93d8; cursor: pointer;
+      transition: background 0.15s;
+    }
+    .catalog-badge:hover { background: rgba(156, 39, 176, 0.25); }
+    .catalog-badge .view-link { font-size: 0.65rem; color: #64b5f6; margin-left: 4px; }
   `]
 })
 export class MeetingPlannerComponent implements OnInit {
   private svc = inject(MeetingSessionService);
   private dialog = inject(MatDialog);
   private snack = inject(MatSnackBar);
+  private router = inject(Router);
 
   loading = signal(true);
   sessions = signal<MeetingSession[]>([]);
@@ -162,8 +180,7 @@ export class MeetingPlannerComponent implements OnInit {
   }
 
   openCreateDialog() {
-    const ref = this.dialog.open(MeetingFormDialogComponent, { width: '520px' });
-    ref.afterClosed().subscribe(r => { if (r) this.load(); });
+    this.router.navigate(['/meetings', 'create']);
   }
 
   deleteSession(session: MeetingSession) {
