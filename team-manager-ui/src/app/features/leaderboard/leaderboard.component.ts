@@ -6,9 +6,7 @@ import { MatDialog } from '@angular/material/dialog';
 import { MatDialogModule } from '@angular/material/dialog';
 import { LeaderboardEntry } from '../../core/models/leaderboard.model';
 import { LeaderboardService } from '../../core/services/leaderboard.service';
-import { TeamMemberService } from '../../core/services/team-member.service';
-import { TeamMember } from '../../core/models/team-member.model';
-import { TeamMemberFormComponent } from '../team/team-member-form/team-member-form.component';
+import { MemberPointsHistoryComponent } from './member-points-history.component';
 
 const POS_COLORS: Record<number, { bg: string; text: string; border: string; label: string }> = {
   1: { bg: 'rgba(255,215,0,0.12)',   text: '#FFD700', border: 'rgba(255,215,0,0.4)',   label: 'P1' },
@@ -20,6 +18,7 @@ const SOURCE_COLORS: Record<string, { bg: string; text: string }> = {
   badge:  { bg: 'rgba(171,71,188,0.15)', text: '#ce93d8' },
   sprint: { bg: 'rgba(100,181,246,0.15)', text: '#64b5f6' },
   bonus:  { bg: 'rgba(255,167,38,0.15)',  text: '#ffb74d' },
+  wow:    { bg: 'rgba(255,215,0,0.15)',   text: '#FFD700' },
 };
 
 @Component({
@@ -170,10 +169,10 @@ const SOURCE_COLORS: Record<string, { bg: string; text: string }> = {
 
         <!-- Legend -->
         <div style="display:flex;gap:12px;margin-top:20px;flex-wrap:wrap;opacity:0.5;font-size:0.72rem">
-          @for (src of ['badge','sprint','bonus']; track src) {
+          @for (src of ['badge','wow','sprint','bonus']; track src) {
             <span style="display:flex;align-items:center;gap:5px">
               <span style="width:10px;height:10px;border-radius:50%;display:inline-block" [style.background]="sourceStyle(src).text"></span>
-              {{src === 'badge' ? 'Badges' : src === 'sprint' ? 'Sprint participation (5 pts each)' : 'Bonus awards'}}
+              {{src === 'badge' ? 'Badges' : src === 'wow' ? 'Win of the Week' : src === 'sprint' ? 'Sprint participation (5 pts each)' : 'Bonus awards'}}
             </span>
           }
         </div>
@@ -187,11 +186,9 @@ const SOURCE_COLORS: Record<string, { bg: string; text: string }> = {
 })
 export class LeaderboardComponent implements OnInit {
   private svc = inject(LeaderboardService);
-  private memberSvc = inject(TeamMemberService);
   private dialog = inject(MatDialog);
 
   entries = signal<LeaderboardEntry[]>([]);
-  allMembers = signal<TeamMember[]>([]);
   loading = signal(true);
 
   readonly POS_COLORS = POS_COLORS;
@@ -203,18 +200,19 @@ export class LeaderboardComponent implements OnInit {
       this.entries.set(data);
       this.loading.set(false);
     });
-    this.memberSvc.getAll({ isActive: true }).subscribe(m => this.allMembers.set(m));
   }
 
   openMember(memberId: string) {
-    const member = this.allMembers().find(m => m.id === memberId);
-    if (!member) return;
-    const ref = this.dialog.open(TeamMemberFormComponent, {
+    const entry = this.entries().find(e => e.memberId === memberId);
+    if (!entry) return;
+    this.dialog.open(MemberPointsHistoryComponent, {
       width: '480px',
-      data: { member, allMembers: this.allMembers() }
-    });
-    ref.afterClosed().subscribe(changed => {
-      if (changed) this.svc.getLeaderboard().subscribe(data => this.entries.set(data));
+      data: {
+        memberId: entry.memberId,
+        firstName: entry.firstName,
+        lastName: entry.lastName,
+        totalPoints: entry.totalPoints
+      }
     });
   }
 }

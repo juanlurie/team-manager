@@ -23,23 +23,20 @@ const PRIMARY_NAV: NavItem[] = [
   { path: '/progress',       icon: 'track_changes',   label: 'Progress'     },
   { path: '/discussion',     icon: 'forum',           label: 'Discussion'   },
   { path: '/meetings',       icon: 'event',           label: 'Meetings'     },
-  { path: '/win-of-the-week',icon: 'emoji_events',    label: 'Win of Week'  },
+  { path: '/fun',            icon: 'casino',          label: 'Fun Hub'      },
   { path: '/team',           icon: 'people',          label: 'Team'         },
   { path: '/leave',          icon: 'event_busy',      label: 'Leave'        },
 ];
 
 const SECONDARY_NAV: NavItem[] = [
-  { path: '/session-types', icon: 'category',    label: 'Meeting Types'},
-  { path: '/export',        icon: 'download',     label: 'Export'      },
-  { path: '/leaderboard',   icon: 'emoji_events', label: 'Leaderboard' },
-  { path: '/wheel',         icon: 'casino',       label: 'Spin Wheel'  },
+  { path: '/export', icon: 'download', label: 'Export' },
 ];
 
 // Bottom bar: 4 core items + "More" button for the rest
 const BOTTOM_NAV: NavItem[] = [
   { path: '/dashboard',      icon: 'dashboard',      label: 'Dashboard'    },
   { path: '/sprints',        icon: 'directions_run',  label: 'Sprints'      },
-  { path: '/win-of-the-week',icon: 'emoji_events',    label: 'Win of Week'  },
+  { path: '/fun',            icon: 'casino',          label: 'Fun Hub'      },
   { path: '/team',           icon: 'people',          label: 'Team'         },
   { path: '/leave',          icon: 'event_busy',      label: 'Leave'        },
 ];
@@ -49,10 +46,8 @@ const MORE_NAV: NavItem[] = [
   { path: '/progress',       icon: 'track_changes',  label: 'Progress'      },
   { path: '/discussion',     icon: 'forum',          label: 'Discussion'    },
   { path: '/meetings',       icon: 'event',          label: 'Meetings'      },
-  { path: '/win-of-the-week',icon: 'emoji_events',   label: 'Win of Week'   },
+  { path: '/fun',            icon: 'casino',         label: 'Fun Hub'       },
   { path: '/export',         icon: 'download',       label: 'Export'        },
-  { path: '/leaderboard',    icon: 'emoji_events',   label: 'Leaderboard'   },
-  { path: '/wheel',          icon: 'casino',         label: 'Spin Wheel'    },
 ];
 
 @Component({
@@ -167,7 +162,7 @@ const MORE_NAV: NavItem[] = [
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 10px;
+      gap: 0;
       padding: 14px 0;
       border: none;
       border-bottom: 1px solid rgba(255,255,255,0.05);
@@ -199,7 +194,7 @@ const MORE_NAV: NavItem[] = [
       opacity: 0; max-width: 0; overflow: hidden;
       transition: opacity 0.15s, max-width 0.2s;
     }
-    .sidebar.expanded .sidebar-header { justify-content: flex-start; padding: 14px 12px; }
+    .sidebar.expanded .sidebar-header { justify-content: flex-start; padding: 14px 12px; gap: 10px; }
     .sidebar.expanded .brand { opacity: 1; max-width: 160px; }
     .sidebar.expanded .collapse-icon { opacity: 1; max-width: 18px; }
 
