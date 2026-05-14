@@ -21,25 +21,6 @@ public class MeetingSessionConfiguration : IEntityTypeConfiguration<MeetingSessi
             .HasForeignKey(s => s.CreatedByMemberId)
             .OnDelete(DeleteBehavior.Restrict);
 
-        builder.Property(s => s.SessionDefinitionSlotId).IsRequired(false);
-        builder.Property(s => s.SessionDefinitionId).IsRequired(false);
-
-        builder.HasOne(s => s.SessionDefinitionSlot)
-            .WithMany()
-            .HasForeignKey(s => s.SessionDefinitionSlotId)
-            .OnDelete(DeleteBehavior.SetNull);
-
-        builder.HasOne(s => s.SessionDefinition)
-            .WithMany()
-            .HasForeignKey(s => s.SessionDefinitionId)
-            .OnDelete(DeleteBehavior.SetNull);
-
-        builder.HasIndex(s => s.SessionDefinitionSlotId)
-            .IsUnique()
-            .HasFilter("\"SessionDefinitionSlotId\" IS NOT NULL");
-
-        builder.HasIndex(s => s.SessionDefinitionId);
-
         builder.Property(s => s.MeetingSeriesItemId).IsRequired(false);
         builder.Property(s => s.MeetingSeriesSlotId).IsRequired(false);
 

@@ -66,14 +66,6 @@ import { ConfirmDialogComponent } from '../../../shared/components/confirm-dialo
                   <span>· Created by {{ s.createdByMemberName }}</span>
                 }
               </div>
-              @if (s.sessionDefinitionName) {
-                <div style="margin-top:4px">
-                  <span class="catalog-badge" [routerLink]="['/catalog', s.sessionDefinitionId]">
-                    📋 From Catalog: {{ s.sessionDefinitionName }}
-                    <span class="view-link">[View in Catalog →]</span>
-                  </span>
-                </div>
-              }
               <!-- Progress bar -->
               <div class="slot-progress-bar">
                 <div class="slot-progress-fill" [style.width.%]="fillPercent(s)"></div>
@@ -116,14 +108,6 @@ import { ConfirmDialogComponent } from '../../../shared/components/confirm-dialo
     .slot-progress-fill {
       height: 100%; background: rgba(100,181,246,0.5); border-radius: 2px; transition: width 0.3s;
     }
-    .catalog-badge {
-      display: inline-flex; align-items: center; gap: 4px; font-size: 0.68rem; font-weight: 500;
-      padding: 2px 10px 2px 6px; border-radius: 10px;
-      background: rgba(156, 39, 176, 0.15); color: #ce93d8; cursor: pointer;
-      transition: background 0.15s;
-    }
-    .catalog-badge:hover { background: rgba(156, 39, 176, 0.25); }
-    .catalog-badge .view-link { font-size: 0.65rem; color: #64b5f6; margin-left: 4px; }
   `]
 })
 export class MeetingPlannerComponent implements OnInit {

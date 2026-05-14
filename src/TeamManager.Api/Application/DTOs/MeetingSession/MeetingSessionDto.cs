@@ -14,8 +14,5 @@ public record MeetingSessionDto
     public Guid CreatedByMemberId { get; init; }
     public string? CreatedByMemberName { get; init; }
     public List<MeetingSlotDto> Slots { get; init; } = [];
-    public Guid? SessionDefinitionSlotId { get; init; }
-    public Guid? SessionDefinitionId { get; init; }
-    public string? SessionDefinitionName { get; init; }
     public DateTimeOffset CreatedAt { get; init; }
 }
