@@ -86,43 +86,58 @@ type SlotKey = string;
                   </button>
                 }
               </div>
+            </div>
+          }
 
-              <div class="week-nav">
-                <button class="nav-btn" (click)="editWeekOffset.set(editWeekOffset() - 1)">‹</button>
-                <span class="week-label">Week of {{ editWeekLabel() }}</span>
-                <button class="nav-btn" (click)="editWeekOffset.set(editWeekOffset() + 1)">›</button>
+          @if (s.slots.length === 0 && !editMode()) {
+            <div class="empty-slots">
+              <p>No availability slots defined yet.</p>
+              <span>Add time windows so team members can indicate their availability.</span>
+              <div style="margin-top:12px">
+                <button mat-raised-button color="primary" (click)="toggleEditMode()">
+                  <mat-icon>add</mat-icon> Add Slots
+                </button>
               </div>
+            </div>
+          } @else {
+            <div class="week-nav">
+              <button class="nav-btn" (click)="editWeekOffset.set(editWeekOffset() - 1)">‹</button>
+              <span class="week-label">Week of {{ editWeekLabel() }}</span>
+              <button class="nav-btn" (click)="editWeekOffset.set(editWeekOffset() + 1)">›</button>
+            </div>
 
-              <div class="grid-wrap">
-                <div class="grid">
-                  <div class="grid-row header-row">
-                    <div class="grid-cell time-cell"></div>
-                    @for (day of editWeekDays(); track day.date) {
-                      <div class="grid-cell day-header">
-                        <div class="day-name">{{ day.name }}</div>
-                        <div class="day-num">{{ day.num }}</div>
-                      </div>
-                    }
-                  </div>
-                  @for (row of editTimeRows(); track row) {
-                    <div class="grid-row">
-                      <div class="grid-cell time-cell">{{ row }}</div>
-                      @for (day of editWeekDays(); track day.date) {
-                        @let key = day.date + '|' + row;
-                        @let locId = editSelectedSlots().get(key);
-                        @let locColor = locId ? editLocationMap()[locId] : null;
-                        <div class="grid-cell slot-cell"
-                             [class.selected]="!!locId"
-                             [class.existing]="isExistingSlot(key)"
-                             [style.--sel-color]="locColor"
-                             (click)="toggleEditSlot(key)">
-                        </div>
-                      }
+            <div class="grid-wrap">
+              <div class="grid">
+                <div class="grid-row header-row">
+                  <div class="grid-cell time-cell"></div>
+                  @for (day of editWeekDays(); track day.date) {
+                    <div class="grid-cell day-header">
+                      <div class="day-name">{{ day.name }}</div>
+                      <div class="day-num">{{ day.num }}</div>
                     </div>
                   }
                 </div>
+                @for (row of editTimeRows(); track row) {
+                  <div class="grid-row">
+                    <div class="grid-cell time-cell">{{ row }}</div>
+                    @for (day of editWeekDays(); track day.date) {
+                      @let key = day.date + '|' + row;
+                      @let locId = editSelectedSlots().get(key);
+                      @let locColor = locId ? editLocationMap()[locId] : null;
+                      <div class="grid-cell slot-cell"
+                           [class.selected]="!!locId"
+                           [class.existing]="isExistingSlot(key)"
+                           [class.readonly]="!editMode()"
+                           [style.--sel-color]="locColor"
+                           (click)="editMode() && toggleEditSlot(key)">
+                      </div>
+                    }
+                  </div>
+                }
               </div>
+            </div>
 
+            @if (editMode()) {
               <div class="summary">
                 @for (loc of locations(); track loc.id) {
                   @let count = editCountByLocation()[loc.id] ?? 0;
@@ -138,37 +153,7 @@ type SlotKey = string;
                   <span class="save-btn" (click)="saveEditSlots()">Save {{ editSelectedCount() }} new slot(s)</span>
                 }
               </div>
-            </div>
-          }
-
-          @if (s.slots.length === 0 && !editMode()) {
-            <div class="empty-slots">
-              <p>No availability slots defined yet.</p>
-              <span>Add time windows so team members can indicate their availability.</span>
-              <div style="margin-top:12px">
-                <button mat-raised-button color="primary" (click)="toggleEditMode()">
-                  <mat-icon>add</mat-icon> Add Slots
-                </button>
-              </div>
-            </div>
-          } @else if (!editMode()) {
-            <div class="slot-list">
-              @for (slot of s.slots; track slot.id) {
-                <div class="slot-row">
-                  <div class="slot-info">
-                    <span class="slot-date">{{ slot.date }}</span>
-                    <span class="slot-time">{{ slot.startTime }}–{{ slot.endTime }}</span>
-                    @if (slot.locationName) {
-                      <span class="slot-loc-dot" [style.background]="slot.locationColor"></span>
-                      <span class="slot-loc">{{ slot.locationName }}</span>
-                    }
-                  </div>
-                  <button mat-icon-button style="flex-shrink:0" (click)="deleteSlot(slot.id)">
-                    <mat-icon>close</mat-icon>
-                  </button>
-                </div>
-              }
-            </div>
+            }
           }
         </div>
 
@@ -295,6 +280,8 @@ type SlotKey = string;
     .day-name { font-size:0.68rem;text-transform:uppercase;opacity:0.5; }
     .day-num { font-size:0.9rem;font-weight:700; }
     .slot-cell { background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.06);cursor:pointer;transition:all 0.1s; }
+    .slot-cell.readonly { cursor:default; }
+    .slot-cell.readonly:not(.existing):hover { background:rgba(255,255,255,0.04);border-color:rgba(255,255,255,0.06); }
     .slot-cell:hover { background:rgba(100,181,246,0.12);border-color:rgba(100,181,246,0.25); }
     .slot-cell.selected { background:color-mix(in srgb, var(--sel-color) 30%, transparent);border-color:var(--sel-color);box-shadow:inset 0 0 0 1px var(--sel-color); }
     .slot-cell.existing { background:rgba(100,181,246,0.08);border:1px solid rgba(100,181,246,0.2); }
@@ -380,9 +367,23 @@ export class MeetingSeriesDetailComponent implements OnInit {
   load(id: string) {
     this.loading.set(true);
     this.svc.getById(id).subscribe({
-      next: item => { this.series.set(item); this.loading.set(false); },
+      next: item => {
+        this.series.set(item);
+        const dur = this.inferDuration(item.slots);
+        this.editDuration.set(dur);
+        this.loading.set(false);
+      },
       error: () => this.loading.set(false)
     });
+  }
+
+  private inferDuration(slots: { startTime: string; endTime: string }[]): number {
+    if (slots.length === 0) return 30;
+    const [sh, sm] = slots[0].startTime.split(':').map(Number);
+    const [eh, em] = slots[0].endTime.split(':').map(Number);
+    const diff = (eh * 60 + em) - (sh * 60 + sm);
+    const known = [15, 30, 45, 60, 90] as const;
+    return known.includes(diff as any) ? diff : 30;
   }
 
   toggleEditMode() {
@@ -390,6 +391,11 @@ export class MeetingSeriesDetailComponent implements OnInit {
     if (this.editMode()) {
       this.editSelectedSlots.set(new Map());
       this.editWeekOffset.set(0);
+      const s = this.series();
+      if (s) {
+        const dur = this.inferDuration(s.slots);
+        this.editDuration.set(dur);
+      }
     }
   }
 
@@ -404,16 +410,18 @@ export class MeetingSeriesDetailComponent implements OnInit {
     }
   }
 
-  isExistingSlot(key: string): boolean {
+  existingSlotKeys = computed(() => {
     const s = this.series();
-    if (!s) return false;
-    const [date, startTime] = key.split('|');
-    const [h, m] = startTime.split(':').map(Number);
-    const totalMin = h * 60 + m + this.editDuration();
-    const endH = Math.floor(totalMin / 60);
-    const endM = totalMin % 60;
-    const endTime = `${endH.toString().padStart(2, '0')}:${endM.toString().padStart(2, '0')}`;
-    return s.slots.some(slot => slot.date === date && slot.startTime === startTime && slot.endTime === endTime);
+    if (!s) return new Set<string>();
+    const keys = new Set<string>();
+    for (const slot of s.slots) {
+      keys.add(slot.date + '|' + slot.startTime);
+    }
+    return keys;
+  });
+
+  isExistingSlot(key: string): boolean {
+    return this.existingSlotKeys().has(key);
   }
 
   toggleEditSlot(key: SlotKey) {
