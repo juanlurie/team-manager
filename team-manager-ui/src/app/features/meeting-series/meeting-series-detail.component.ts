@@ -133,6 +133,12 @@ import { MeetingSeries, MeetingSeriesItem } from '../../core/models/meeting-seri
             </div>
           }
         </div>
+
+        <div class="section availability-action">
+          <button mat-raised-button color="primary" [routerLink]="['/meeting-series', s.id, 'availability']">
+            <mat-icon>event_available</mat-icon> Set My Availability
+          </button>
+        </div>
       }
     </div>
   `,
@@ -177,6 +183,7 @@ import { MeetingSeries, MeetingSeriesItem } from '../../core/models/meeting-seri
     .item-icon { font-size:1rem; }
     .item-status { font-size:0.65rem;font-weight:600;padding:2px 8px;border-radius:10px;text-transform:uppercase; }
     .item-status.confirmed { background:rgba(76,175,80,0.15);color:#81c784; }
+    .availability-action { display:flex;justify-content:center;padding:20px; }
   `]
 })
 export class MeetingSeriesDetailComponent implements OnInit {

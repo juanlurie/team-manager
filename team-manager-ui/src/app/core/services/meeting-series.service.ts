@@ -13,7 +13,10 @@ import {
   AddMeetingSeriesItemAvailabilityRequest,
   MeetingSeriesSlot,
   MeetingSeriesItem,
-  MeetingSeriesItemAvailability
+  MeetingSeriesItemAvailability,
+  MyMeetingItem,
+  BulkAvailabilityResponse,
+  BulkAvailabilityRequest
 } from '../models/meeting-series.model';
 
 @Injectable({ providedIn: 'root' })
@@ -86,5 +89,26 @@ export class MeetingSeriesService {
 
   removeAvailability(itemId: string, availabilityId: string): Observable<MeetingSeries> {
     return this.http.delete<MeetingSeries>(`${this.baseUrl}/items/${itemId}/availability/${availabilityId}`);
+  }
+
+  getMyMeetings(): Observable<MyMeetingItem[]> {
+    return this.http.get<MyMeetingItem[]>(`${this.baseUrl}/my-meetings`);
+  }
+
+  getBulkAvailability(seriesId: string): Observable<BulkAvailabilityResponse> {
+    return this.http.get<BulkAvailabilityResponse>(
+      `${this.baseUrl}/${seriesId}/bulk-availability`
+    );
+  }
+
+  submitBulkAvailability(seriesId: string, request: BulkAvailabilityRequest): Observable<MeetingSeries> {
+    return this.http.post<MeetingSeries>(
+      `${this.baseUrl}/${seriesId}/bulk-availability`,
+      request
+    );
+  }
+
+  unconfirmItem(itemId: string): Observable<MeetingSeries> {
+    return this.http.post<MeetingSeries>(`${this.baseUrl}/items/${itemId}/unconfirm`, {});
   }
 }

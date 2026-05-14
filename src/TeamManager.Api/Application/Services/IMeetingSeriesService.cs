@@ -28,4 +28,11 @@ public interface IMeetingSeriesService
     Task<IReadOnlyList<MeetingSeriesItemAvailabilityDto>> GetItemAvailabilitiesAsync(Guid itemId);
     Task<MeetingSeriesDto?> AddItemAvailabilityAsync(Guid itemId, AddMeetingSeriesItemAvailabilityRequest request);
     Task<MeetingSeriesDto?> RemoveItemAvailabilityAsync(Guid itemId, Guid availabilityId);
+    
+    // Bulk Availability
+    Task<BulkAvailabilityResponse> GetBulkAvailabilityAsync(Guid seriesId, Guid memberId);
+    Task<MeetingSeriesDto?> SubmitBulkAvailabilityAsync(Guid seriesId, Guid memberId, BulkAvailabilityRequest request);
+    
+    // Unconfirm
+    Task<MeetingSeriesDto?> UnconfirmItemAsync(Guid itemId);
 }

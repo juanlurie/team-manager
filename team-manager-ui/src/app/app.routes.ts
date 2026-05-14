@@ -65,5 +65,9 @@ export const routes: Routes = [
   {
     path: 'meeting-series',
     loadChildren: () => import('./features/meeting-series/meeting-series.routes').then(m => m.MEETING_SERIES_ROUTES)
+  },
+  {
+    path: 'my-meetings',
+    loadComponent: () => import('./features/meeting-series/my-meetings.component').then(m => m.MyMeetingsComponent)
   }
 ];

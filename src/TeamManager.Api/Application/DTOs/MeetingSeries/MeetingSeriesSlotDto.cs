@@ -12,4 +12,6 @@ public record MeetingSeriesSlotDto
     public string? LocationName { get; init; }
     public string? LocationColor { get; init; }
     public int SortOrder { get; init; }
+    public bool IsClaimed { get; init; }
+    public Guid? ClaimedByItemId { get; init; }
 }
