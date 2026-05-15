@@ -79,11 +79,63 @@ public class ConfigurableLeaveFetcher : ILeaveFetcher
 
         if (!response.IsSuccessStatusCode)
             throw new InvalidOperationException($"External API returned {(int)response.StatusCode}.");
-        if (!json.TrimStart().StartsWith('['))
-            throw new InvalidOperationException("External API did not return a JSON array.");
 
-        var records = JsonSerializer.Deserialize<List<JsonElement>>(json) ?? [];
+        var root = JsonDocument.Parse(json).RootElement;
+
+        JsonElement arrayElement;
+        if (!string.IsNullOrWhiteSpace(mapping.ArrayPath))
+        {
+            var segments = ParsePath(mapping.ArrayPath);
+            arrayElement = NavigatePath(root, segments);
+            if (arrayElement.ValueKind != JsonValueKind.Array)
+                throw new InvalidOperationException($"Array path '{mapping.ArrayPath}' does not resolve to an array.");
+        }
+        else if (root.ValueKind == JsonValueKind.Array)
+        {
+            arrayElement = root;
+        }
+        else
+        {
+            throw new InvalidOperationException("Response is not a JSON array and no array path is configured.");
+        }
+
+        var records = JsonSerializer.Deserialize<List<JsonElement>>(arrayElement.GetRawText()) ?? [];
         return records.Select(r => ToImportRecord(r, mapping)).ToList();
+    }
+
+    private static JsonElement NavigatePath(JsonElement element, List<string> segments)
+    {
+        var current = element;
+        foreach (var segment in segments)
+        {
+            if (current.ValueKind == JsonValueKind.Object)
+            {
+                if (current.TryGetProperty(segment, out var next))
+                {
+                    current = next;
+                }
+                else
+                {
+                    return default;
+                }
+            }
+            else if (current.ValueKind == JsonValueKind.Array)
+            {
+                if (int.TryParse(segment, out var index) && index < current.GetArrayLength())
+                {
+                    current = current[index];
+                }
+                else
+                {
+                    return default;
+                }
+            }
+            else
+            {
+                return default;
+            }
+        }
+        return current;
     }
 
     private static string ResolveTemplate(string template, FetchLeaveRequest request)
@@ -115,16 +167,98 @@ public class ConfigurableLeaveFetcher : ILeaveFetcher
     private static string GetProperty(JsonElement element, string path)
     {
         if (string.IsNullOrEmpty(path)) return "";
-        if (element.TryGetProperty(path, out var prop))
+
+        var current = element;
+        var segments = ParsePath(path);
+
+        foreach (var segment in segments)
         {
-            return prop.ValueKind == JsonValueKind.String ? prop.GetString() ?? "" : prop.GetRawText();
+            if (current.ValueKind == JsonValueKind.Object)
+            {
+                if (current.TryGetProperty(segment, out var next))
+                {
+                    current = next;
+                }
+                else
+                {
+                    return "";
+                }
+            }
+            else if (current.ValueKind == JsonValueKind.Array)
+            {
+                if (int.TryParse(segment, out var index) && index < current.GetArrayLength())
+                {
+                    current = current[index];
+                }
+                else
+                {
+                    return "";
+                }
+            }
+            else
+            {
+                return "";
+            }
         }
-        return "";
+
+        return current.ValueKind == JsonValueKind.String ? current.GetString() ?? "" : current.GetRawText();
+    }
+
+    private static List<string> ParsePath(string path)
+    {
+        var segments = new List<string>();
+        var current = "";
+        var i = 0;
+
+        while (i < path.Length)
+        {
+            if (path[i] == '.')
+            {
+                if (!string.IsNullOrEmpty(current))
+                {
+                    segments.Add(current);
+                    current = "";
+                }
+                i++;
+            }
+            else if (path[i] == '[')
+            {
+                if (!string.IsNullOrEmpty(current))
+                {
+                    segments.Add(current);
+                    current = "";
+                }
+                i++;
+                var bracketEnd = path.IndexOf(']', i);
+                if (bracketEnd > i)
+                {
+                    segments.Add(path.Substring(i, bracketEnd - i));
+                    i = bracketEnd + 1;
+                }
+                else
+                {
+                    break;
+                }
+            }
+            else
+            {
+                current += path[i];
+                i++;
+            }
+        }
+
+        if (!string.IsNullOrEmpty(current))
+        {
+            segments.Add(current);
+        }
+
+        return segments;
     }
 }
 
 public class MappingConfig
 {
+    public string ArrayPath { get; set; } = "";
     public string NamePath { get; set; } = "title";
     public string StartPath { get; set; } = "start";
     public string EndPath { get; set; } = "end";

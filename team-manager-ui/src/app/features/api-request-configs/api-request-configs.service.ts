@@ -57,4 +57,18 @@ export class ApiRequestConfigsService {
   import(configs: ApiRequestConfig[]): Observable<{ created: number; updated: number }> {
     return this.http.post<{ created: number; updated: number }>(`${this.baseUrl}/import`, configs);
   }
+
+  testMapping(sampleJson: string, arrayPath: string, fields: Record<string, string>): Observable<TestMappingResult> {
+    return this.http.post<TestMappingResult>(`${this.baseUrl}/test-mapping`, {
+      sampleJson,
+      arrayPath,
+      fields
+    });
+  }
+}
+
+export interface TestMappingResult {
+  availablePaths: string[];
+  testResults: Record<string, string | null>;
+  arrayLength: number;
 }
