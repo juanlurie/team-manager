@@ -1,12 +1,11 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../core/auth/auth.service';
 
 @Component({
   selector: 'app-not-registered',
   standalone: true,
-  imports: [CommonModule, RouterLink],
+  imports: [CommonModule],
   template: `
     <div class="not-registered-page">
       <div class="not-registered-card">
@@ -99,20 +98,10 @@ import { AuthService } from '../../core/auth/auth.service';
     .logout-btn:hover { background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.9); }
   `]
 })
-export class NotRegisteredComponent implements OnInit {
+export class NotRegisteredComponent {
   private auth = inject(AuthService);
-  private router = inject(Router);
-
-  ngOnInit() {
-    // If somehow they have a valid token, redirect to dashboard
-    if (this.auth.hasValidToken()) {
-      this.router.navigate(['/dashboard']);
-    }
-  }
 
   onLogout() {
-    localStorage.clear();
-    sessionStorage.clear();
-    window.location.href = window.location.origin;
+    this.auth.logout();
   }
 }
