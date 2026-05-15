@@ -165,6 +165,194 @@ public class ApiRequestConfigsController : ControllerBase
         return Ok(new { Created = created.Count, Updated = updated.Count });
     }
 
+    [HttpPost("test-mapping")]
+    [Authorize(Roles = "TeamLead")]
+    public async Task<IActionResult> TestMapping([FromBody] TestMappingRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.SampleJson))
+            return BadRequest("Sample JSON required");
+
+        try
+        {
+            var doc = JsonDocument.Parse(request.SampleJson);
+            var root = doc.RootElement;
+
+            JsonElement target;
+            if (!string.IsNullOrWhiteSpace(request.ArrayPath))
+            {
+                var segments = ParsePath(request.ArrayPath);
+                target = NavigatePath(root, segments);
+                if (target.ValueKind != JsonValueKind.Array)
+                    return BadRequest("Array path does not resolve to an array");
+            }
+            else if (root.ValueKind == JsonValueKind.Array)
+            {
+                target = root;
+            }
+            else
+            {
+                return BadRequest("JSON root is not an array and no array path specified");
+            }
+
+            var firstItem = target.GetArrayLength() > 0 ? target[0] : default;
+            var paths = DiscoverPaths(target, 3);
+
+            var testResults = new Dictionary<string, string?>();
+            var fields = request.Fields ?? new Dictionary<string, string>();
+            if (firstItem.ValueKind != JsonValueKind.Undefined)
+            {
+                foreach (var (label, path) in fields)
+                {
+                    if (!string.IsNullOrWhiteSpace(path))
+                    {
+                        var segments = ParsePath(path);
+                        var value = NavigatePath(firstItem, segments);
+                        testResults[label] = value.ValueKind == JsonValueKind.String ? value.GetString() : value.GetRawText();
+                    }
+                    else
+                    {
+                        testResults[label] = null;
+                    }
+                }
+            }
+
+            return Ok(new TestMappingResponse
+            {
+                AvailablePaths = paths,
+                TestResults = testResults,
+                ArrayLength = target.GetArrayLength()
+            });
+        }
+        catch (JsonException ex)
+        {
+            return BadRequest($"Invalid JSON: {ex.Message}");
+        }
+    }
+
+    private static JsonElement NavigatePath(JsonElement element, List<string> segments)
+    {
+        var current = element;
+        foreach (var segment in segments)
+        {
+            if (current.ValueKind == JsonValueKind.Object)
+            {
+                if (current.TryGetProperty(segment, out var next))
+                {
+                    current = next;
+                }
+                else
+                {
+                    return default;
+                }
+            }
+            else if (current.ValueKind == JsonValueKind.Array)
+            {
+                if (int.TryParse(segment, out var index) && index < current.GetArrayLength())
+                {
+                    current = current[index];
+                }
+                else
+                {
+                    return default;
+                }
+            }
+            else
+            {
+                return default;
+            }
+        }
+        return current;
+    }
+
+    private static List<string> ParsePath(string path)
+    {
+        var segments = new List<string>();
+        var current = "";
+        var i = 0;
+
+        while (i < path.Length)
+        {
+            if (path[i] == '.')
+            {
+                if (!string.IsNullOrEmpty(current))
+                {
+                    segments.Add(current);
+                    current = "";
+                }
+                i++;
+            }
+            else if (path[i] == '[')
+            {
+                if (!string.IsNullOrEmpty(current))
+                {
+                    segments.Add(current);
+                    current = "";
+                }
+                i++;
+                var bracketEnd = path.IndexOf(']', i);
+                if (bracketEnd > i)
+                {
+                    segments.Add(path.Substring(i, bracketEnd - i));
+                    i = bracketEnd + 1;
+                }
+                else
+                {
+                    break;
+                }
+            }
+            else
+            {
+                current += path[i];
+                i++;
+            }
+        }
+
+        if (!string.IsNullOrEmpty(current))
+        {
+            segments.Add(current);
+        }
+
+        return segments;
+    }
+
+    private static List<string> DiscoverPaths(JsonElement element, int maxDepth, string prefix = "")
+    {
+        var paths = new List<string>();
+
+        if (maxDepth <= 0) return paths;
+
+        if (element.ValueKind == JsonValueKind.Object)
+        {
+            foreach (var prop in element.EnumerateObject())
+            {
+                var path = string.IsNullOrEmpty(prefix) ? prop.Name : $"{prefix}.{prop.Name}";
+                paths.Add(path);
+                if (prop.Value.ValueKind == JsonValueKind.Object || prop.Value.ValueKind == JsonValueKind.Array)
+                {
+                    paths.AddRange(DiscoverPaths(prop.Value, maxDepth - 1, path));
+                }
+            }
+        }
+        else if (element.ValueKind == JsonValueKind.Array && element.GetArrayLength() > 0)
+        {
+            var first = element[0];
+            if (first.ValueKind == JsonValueKind.Object)
+            {
+                foreach (var prop in first.EnumerateObject())
+                {
+                    var path = string.IsNullOrEmpty(prefix) ? $"[0].{prop.Name}" : $"{prefix}[0].{prop.Name}";
+                    paths.Add(path);
+                    if (prop.Value.ValueKind == JsonValueKind.Object || prop.Value.ValueKind == JsonValueKind.Array)
+                    {
+                        paths.AddRange(DiscoverPaths(prop.Value, maxDepth - 1, path));
+                    }
+                }
+            }
+        }
+
+        return paths;
+    }
+
     private static ApiRequestConfigDto ToDto(ApiRequestConfig config) => new(
         Id: config.Id,
         Name: config.Name,
@@ -177,4 +365,17 @@ public class ApiRequestConfigsController : ControllerBase
         BodyTemplate: config.BodyTemplate,
         Mapping: JsonSerializer.Deserialize<MappingConfigDto>(config.MappingJson) ?? new MappingConfigDto()
     );
+}
+
+public record TestMappingRequest(
+    string SampleJson = "",
+    string? ArrayPath = null,
+    Dictionary<string, string>? Fields = null
+);
+
+public record TestMappingResponse
+{
+    public List<string> AvailablePaths { get; set; } = new();
+    public Dictionary<string, string?> TestResults { get; set; } = new();
+    public int ArrayLength { get; set; }
 }

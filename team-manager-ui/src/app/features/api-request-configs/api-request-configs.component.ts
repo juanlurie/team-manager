@@ -340,7 +340,61 @@ export class ApiRequestConfigsComponent implements OnInit {
 
           <div class="section-header">
             <h3>Response Mapping</h3>
+            <button mat-button color="primary" (click)="showPathPicker.set(!showPathPicker())">
+              <mat-icon>search</mat-icon> Path Picker
+            </button>
           </div>
+
+          @if (showPathPicker()) {
+            <div class="path-picker">
+              <mat-form-field appearance="outline" class="full-width">
+                <mat-label>Paste sample JSON response</mat-label>
+                <textarea matInput [(ngModel)]="sampleJson" rows="6"
+                          placeholder='[{"title":"Leave","start":"2026-01-01"}]'></textarea>
+              </mat-form-field>
+              <div class="path-picker-actions">
+                <button mat-button (click)="discoverPaths()" [disabled]="!sampleJson().trim() || discoveringPaths()">
+                  {{ discoveringPaths() ? 'Discovering...' : 'Discover Paths' }}
+                </button>
+              </div>
+              @if (availablePaths().length > 0) {
+                <div class="path-picker-results">
+                  <div class="path-picker-info">
+                    <span class="path-count">{{ availablePaths().length }} paths found</span>
+                    @if (arrayLength() > 0) {
+                      <span class="array-info">{{ arrayLength() }} items in array</span>
+                    }
+                  </div>
+                  <div class="path-list">
+                    @for (path of availablePaths(); track path) {
+                      <button class="path-chip" (click)="copyPath(path)" matTooltip="Click to copy">
+                        {{ path }}
+                      </button>
+                    }
+                  </div>
+                </div>
+              }
+              @if (hasTestResults) {
+                <div class="test-results">
+                  <h4>Test Results</h4>
+                  @for (entry of testResults() | keyvalue; track entry.key) {
+                    @if (entry.value !== null) {
+                      <div class="test-result-row">
+                        <span class="test-label">{{ entry.key }}</span>
+                        <span class="test-value">{{ entry.value }}</span>
+                      </div>
+                    }
+                  }
+                </div>
+              }
+            </div>
+          }
+
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Array Path (optional)</mat-label>
+            <input matInput [(ngModel)]="data.mapping.arrayPath" placeholder="e.g. data.items or results[0].leaves">
+            <mat-hint>Leave empty if response is a top-level array</mat-hint>
+          </mat-form-field>
 
           <div class="mapping-grid">
             <mat-form-field appearance="outline">
@@ -399,6 +453,21 @@ export class ApiRequestConfigsComponent implements OnInit {
     .remove-btn { margin-top: 4px; }
     .mapping-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
     @media (max-width: 600px) { .mapping-grid { grid-template-columns: repeat(2, 1fr); } }
+
+    .path-picker { padding: 12px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; margin-bottom: 8px; }
+    .path-picker-actions { display: flex; justify-content: flex-end; margin-bottom: 8px; }
+    .path-picker-results { margin-top: 8px; }
+    .path-picker-info { display: flex; gap: 12px; margin-bottom: 8px; }
+    .path-count { font-size: 0.8rem; color: #4caf50; font-weight: 600; }
+    .array-info { font-size: 0.8rem; color: rgba(255,255,255,0.4); }
+    .path-list { display: flex; flex-wrap: wrap; gap: 4px; max-height: 150px; overflow-y: auto; }
+    .path-chip { background: rgba(33,150,243,0.15); color: #64b5f6; border: 1px solid rgba(33,150,243,0.3); padding: 2px 8px; border-radius: 12px; font-size: 0.72rem; cursor: pointer; font-family: monospace; }
+    .path-chip:hover { background: rgba(33,150,243,0.25); }
+    .test-results { margin-top: 12px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.08); }
+    .test-results h4 { font-size: 0.8rem; color: rgba(255,255,255,0.5); margin: 0 0 8px 0; }
+    .test-result-row { display: flex; gap: 8px; font-size: 0.75rem; margin-bottom: 4px; }
+    .test-label { color: rgba(255,255,255,0.4); min-width: 60px; }
+    .test-value { color: #4caf50; font-family: monospace; }
   `]
 })
 export class ApiRequestConfigDialogComponent implements OnInit {
@@ -408,6 +477,17 @@ export class ApiRequestConfigDialogComponent implements OnInit {
   data = inject<any>(MAT_DIALOG_DATA);
   saving = signal(false);
   headerEntries = signal<{key: string, value: string}[]>([]);
+
+  showPathPicker = signal(false);
+  sampleJson = signal('');
+  availablePaths = signal<string[]>([]);
+  testResults = signal<Record<string, string | null>>({});
+  discoveringPaths = signal(false);
+  arrayLength = signal(0);
+
+  get hasTestResults(): boolean {
+    return Object.values(this.testResults()).some(v => v !== null);
+  }
 
   ngOnInit() {
     this.headerEntries.set(Object.entries(this.data.headers || {}).map(([k, v]) => ({ key: k, value: v as string })));
@@ -420,6 +500,39 @@ export class ApiRequestConfigDialogComponent implements OnInit {
 
   removeHeader(key: string) {
     this.headerEntries.set(this.headerEntries().filter(e => e.key !== key));
+  }
+
+  discoverPaths() {
+    const raw = this.sampleJson().trim();
+    if (!raw) return;
+
+    this.discoveringPaths.set(true);
+    const fields: Record<string, string> = {
+      Name: this.data.mapping.namePath,
+      Start: this.data.mapping.startPath,
+      End: this.data.mapping.endPath,
+      Type: this.data.mapping.typePath,
+      Days: this.data.mapping.daysPath,
+      Status: this.data.mapping.statusPath
+    };
+
+    this.svc.testMapping(raw, this.data.mapping.arrayPath || '', fields).subscribe({
+      next: (result) => {
+        this.availablePaths.set(result.availablePaths);
+        this.testResults.set(result.testResults);
+        this.arrayLength.set(result.arrayLength);
+        this.discoveringPaths.set(false);
+      },
+      error: () => {
+        this.snackBar.open('Failed to parse JSON', 'Close', { duration: 3000 });
+        this.discoveringPaths.set(false);
+      }
+    });
+  }
+
+  copyPath(path: string) {
+    navigator.clipboard.writeText(path);
+    this.snackBar.open(`Copied: ${path}`, 'Close', { duration: 2000 });
   }
 
   save() {

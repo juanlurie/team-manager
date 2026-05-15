@@ -14,6 +14,7 @@ public record ApiRequestConfigDto(
 );
 
 public record MappingConfigDto(
+    string ArrayPath = "",
     string NamePath = "title",
     string StartPath = "start",
     string EndPath = "end",
