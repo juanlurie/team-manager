@@ -303,7 +303,8 @@ export class TeamListComponent implements OnInit {
 
   openForm(member?: TeamMember) {
     const ref = this.dialog.open(TeamMemberFormComponent, {
-      width: '480px',
+      width: '560px',
+      maxHeight: '90vh',
       data: { member, allMembers: this.allMembers }
     });
     ref.afterClosed().subscribe(result => { if (result) this.load(); });
