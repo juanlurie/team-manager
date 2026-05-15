@@ -10,8 +10,12 @@ export class AuthService {
 
   constructor(private oauth: OAuthService) {
     this.oauth.configure(authConfig);
+
     this.oauth.loadDiscoveryDocumentAndTryLogin()
-      .then(() => this._isDone$.next(true))
+      .then(() => {
+        console.log('[Auth] Init complete, hasValidToken:', this.hasValidToken());
+        this._isDone$.next(true);
+      })
       .catch(err => {
         console.error('[Auth] Init failed:', err);
         this._isDone$.next(true);
@@ -20,9 +24,9 @@ export class AuthService {
 
   login()  { this.oauth.initImplicitFlow(); }
   logout() { this.oauth.revokeTokenAndLogout(); }
-  hasValidToken() { return this.oauth.hasValidAccessToken(); }
+  hasValidToken() { return this.oauth.hasValidAccessToken() || this.oauth.hasValidIdToken(); }
 
-  get token() { return this.oauth.getAccessToken(); }
+  get token() { return this.oauth.getAccessToken() || this.oauth.getIdToken(); }
 
   get identityClaims() { return this.oauth.getIdentityClaims(); }
 
