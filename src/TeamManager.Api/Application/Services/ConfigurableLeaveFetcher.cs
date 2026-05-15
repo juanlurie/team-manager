@@ -2,53 +2,58 @@ using System.Net.Http.Headers;
 using System.Text.Json;
 using TeamManager.Api.Application.DTOs.LeaveRecord;
 using TeamManager.Api.Application.Services.Interfaces;
+using TeamManager.Api.Infrastructure.Data;
+using Microsoft.EntityFrameworkCore;
 
 namespace TeamManager.Api.Application.Services;
 
 public class ConfigurableLeaveFetcher : ILeaveFetcher
 {
-    private readonly LeaveFetchConfig _config;
-    private readonly IHttpClientFactory _httpClientFactory;
+    private readonly AppDbContext _db;
 
-    public ConfigurableLeaveFetcher(LeaveFetchConfig config, IHttpClientFactory httpClientFactory)
-    {
-        _config = config;
-        _httpClientFactory = httpClientFactory;
-    }
+    public ConfigurableLeaveFetcher(AppDbContext db) => _db = db;
 
-    public bool IsConfigured => _config.Enabled && !string.IsNullOrEmpty(_config.Url);
+    public bool IsConfigured => true; // Config is always available from DB, check Enabled at runtime
 
     public async Task<IReadOnlyList<ImportLeaveRecord>> FetchAsync(FetchLeaveRequest request)
     {
+        var config = await _db.LeaveFetchConfigs.FirstOrDefaultAsync();
+        if (config == null || !config.Enabled)
+            throw new InvalidOperationException("Leave fetching is not configured or disabled. Configure it in Settings.");
+
+        var headers = JsonSerializer.Deserialize<Dictionary<string, string>>(config.HeadersJson) ?? new();
+        var mapping = JsonSerializer.Deserialize<MappingConfig>(config.MappingJson) ?? new MappingConfig();
+
         var client = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
         client.DefaultRequestHeaders.Accept.ParseAdd("application/json, text/javascript, */*; q=0.01");
 
-        foreach (var (key, value) in _config.Headers)
+        foreach (var (key, value) in headers)
         {
             var resolved = ResolveTemplate(value, request);
             client.DefaultRequestHeaders.Add(key, resolved);
         }
 
         HttpResponseMessage response;
-        if (_config.Method.Equals("POST", StringComparison.OrdinalIgnoreCase))
+        var url = ResolveTemplate(config.Url, request);
+
+        if (config.Method.Equals("POST", StringComparison.OrdinalIgnoreCase))
         {
-            var body = ResolveTemplate(_config.BodyTemplate, request);
-            if (_config.IsFormUrlEncoded)
+            var body = ResolveTemplate(config.BodyTemplate, request);
+            if (config.IsFormUrlEncoded)
             {
                 var content = new StringContent(body);
                 content.Headers.ContentType = new MediaTypeHeaderValue("application/x-www-form-urlencoded");
-                response = await client.PostAsync(_config.Url, content);
+                response = await client.PostAsync(url, content);
             }
             else
             {
                 var content = new StringContent(body);
                 content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
-                response = await client.PostAsync(_config.Url, content);
+                response = await client.PostAsync(url, content);
             }
         }
         else
         {
-            var url = ResolveTemplate(_config.Url, request);
             response = await client.GetAsync(url);
         }
 
@@ -60,10 +65,10 @@ public class ConfigurableLeaveFetcher : ILeaveFetcher
             throw new InvalidOperationException("External API did not return a JSON array.");
 
         var records = JsonSerializer.Deserialize<List<JsonElement>>(json) ?? [];
-        return records.Select(ToImportRecord).ToList();
+        return records.Select(r => ToImportRecord(r, mapping)).ToList();
     }
 
-    private string ResolveTemplate(string template, FetchLeaveRequest request)
+    private static string ResolveTemplate(string template, FetchLeaveRequest request)
     {
         return template
             .Replace("{cookie}", request.Cookie ?? "")
@@ -72,9 +77,8 @@ public class ConfigurableLeaveFetcher : ILeaveFetcher
             .Replace("{teamIds}", string.Join(",", request.TeamIds));
     }
 
-    private ImportLeaveRecord ToImportRecord(JsonElement r)
+    private static ImportLeaveRecord ToImportRecord(JsonElement r, MappingConfig mapping)
     {
-        var mapping = _config.Mapping;
         var name = GetProperty(r, mapping.NamePath);
         var start = GetProperty(r, mapping.StartPath);
         var end = GetProperty(r, mapping.EndPath);
@@ -99,4 +103,15 @@ public class ConfigurableLeaveFetcher : ILeaveFetcher
         }
         return "";
     }
+}
+
+public class MappingConfig
+{
+    public string NamePath { get; set; } = "title";
+    public string StartPath { get; set; } = "start";
+    public string EndPath { get; set; } = "end";
+    public string TypePath { get; set; } = "type";
+    public string DaysPath { get; set; } = "totalDays";
+    public string StatusPath { get; set; } = "status";
+    public string NameTransform { get; set; } = "ExtractBeforeDash";
 }

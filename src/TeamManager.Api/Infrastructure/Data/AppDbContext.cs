@@ -50,6 +50,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<MeetingSeriesItemAvailability> MeetingSeriesItemAvailabilities => Set<MeetingSeriesItemAvailability>();
     public DbSet<MeetingSeriesSlotClaim> MeetingSeriesSlotClaims => Set<MeetingSeriesSlotClaim>();
     public DbSet<ApiKey> ApiKeys => Set<ApiKey>();
+    public DbSet<LeaveFetchConfig> LeaveFetchConfigs => Set<LeaveFetchConfig>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

@@ -3,7 +3,6 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
-using TeamManager.Api.Application.DTOs.LeaveRecord;
 using TeamManager.Api.Application.Services;
 using TeamManager.Api.Application.Services.Interfaces;
 using TeamManager.Api.Infrastructure.Data;
@@ -25,9 +24,6 @@ if (args.Contains("--migrate"))
 }
 
 var builder = WebApplication.CreateBuilder(args);
-
-// Load optional leave fetch config
-builder.Configuration.AddJsonFile("appsettings.LeaveFetch.json", optional: true, reloadOnChange: true);
 
 builder.Services.AddControllers()
     .AddJsonOptions(o => o.JsonSerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter()));
@@ -65,9 +61,6 @@ builder.Services.AddScoped<IMeetingSeriesService, MeetingSeriesService>();
 builder.Services.AddScoped<IWinOfTheWeekService, WinOfTheWeekService>();
 builder.Services.AddScoped<IWinOfMonthService, WinOfMonthService>();
 
-var leaveFetchConfig = new LeaveFetchConfig();
-builder.Configuration.GetSection("LeaveFetch").Bind(leaveFetchConfig);
-builder.Services.AddSingleton(leaveFetchConfig);
 builder.Services.AddScoped<ILeaveFetcher, ConfigurableLeaveFetcher>();
 
 builder.Services.AddHealthChecks()
