@@ -1,4 +1,3 @@
-using System.Net.Http.Headers;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using TeamManager.Api.Application.DTOs.LeaveRecord;
@@ -9,7 +8,7 @@ using TeamManager.Api.Infrastructure.Data;
 
 namespace TeamManager.Api.Application.Services;
 
-public class LeaveService(AppDbContext db, IHttpClientFactory httpClientFactory) : ILeaveService
+public class LeaveService(AppDbContext db, ILeaveFetcher leaveFetcher) : ILeaveService
 {
     public async Task<IReadOnlyList<LeaveRecordDto>> GetAllAsync(Guid? teamMemberId, Guid? sprintId, DateOnly? from = null, DateOnly? to = null)
     {
@@ -164,61 +163,21 @@ public class LeaveService(AppDbContext db, IHttpClientFactory httpClientFactory)
         return new ImportLeaveResult(newCount, overrideCount, skipCount, unknownNames.ToList());
     }
 
+    private static string ExtractName(string title) =>
+        title.Split(" - ")[0].Trim();
+
     public async Task<IReadOnlyList<ImportLeaveRecord>> FetchPreviewAsync(FetchLeaveRequest request)
     {
-        var client = BuildEntelectClient(request.Cookie);
+        if (!leaveFetcher.IsConfigured)
+            throw new InvalidOperationException("Leave fetching is not configured. Add a LeaveFetch section to appsettings.json.");
 
-        var formParts = request.TeamIds.Select(id => $"teamId={id}").ToList();
-        formParts.Add($"start={request.Start}");
-        formParts.Add($"end={request.End}");
-        var body = new StringContent(string.Join("&", formParts));
-        body.Headers.ContentType = new MediaTypeHeaderValue("application/x-www-form-urlencoded");
-
-        var response = await client.PostAsync(
-            "https://employee.entelect.co.za/LeaveCalendar/GetLeaveCalenderEvents", body);
-
-        var json = await response.Content.ReadAsStringAsync();
-        ValidateEntelectResponse(response, json);
-
-        var records = JsonSerializer.Deserialize<List<JsonElement>>(json) ?? [];
-        return records.Select(ToImportRecord).ToList();
+        return await leaveFetcher.FetchAsync(request);
     }
 
     public async Task<ImportLeaveResult> FetchAndImportAsync(FetchLeaveRequest request)
     {
         var records = await FetchPreviewAsync(request);
         return await ImportAsync(new ImportLeaveRequest(records));
-    }
-
-    private static string ExtractName(string title) =>
-        title.Split(" - ")[0].Trim();
-
-    private static ImportLeaveRecord ToImportRecord(JsonElement r) => new(
-        r.TryGetProperty("title",     out var t)  ? t.GetString()  ?? "" : "",
-        r.TryGetProperty("start",     out var s)  ? s.GetString()  ?? "" : "",
-        r.TryGetProperty("end",       out var e)  ? e.GetString()  ?? "" : "",
-        r.TryGetProperty("type",      out var ty) ? ty.GetString() ?? "Other" : "Other",
-        r.TryGetProperty("totalDays", out var d)  ? d.GetString()  ?? "1" : "1",
-        r.TryGetProperty("status",    out var st) ? st.GetString() ?? "" : ""
-    );
-
-    private HttpClient BuildEntelectClient(string cookie)
-    {
-        var client = httpClientFactory.CreateClient("entelect");
-        var cookieValue  = cookie.TrimStart();
-        var cookieHeader = cookieValue.StartsWith(".AspNet.Cookies=") ? cookieValue : $".AspNet.Cookies={cookieValue}";
-        client.DefaultRequestHeaders.Add("Cookie", cookieHeader);
-        client.DefaultRequestHeaders.Add("Accept", "application/json, text/javascript, */*; q=0.01");
-        client.DefaultRequestHeaders.Add("X-Requested-With", "XMLHttpRequest");
-        return client;
-    }
-
-    private static void ValidateEntelectResponse(HttpResponseMessage response, string json)
-    {
-        if (!response.IsSuccessStatusCode)
-            throw new InvalidOperationException($"Entelect returned {(int)response.StatusCode}. Your session cookie may have expired.");
-        if (!json.TrimStart().StartsWith('['))
-            throw new InvalidOperationException("Entelect did not return JSON data. Your session cookie may have expired or is invalid.");
     }
 
     private static LeaveType ParseLeaveType(string type) => type.Replace(" ", "") switch
