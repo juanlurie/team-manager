@@ -57,6 +57,10 @@ export const routes: Routes = [
         path: 'session-types',
         loadChildren: () => import('./features/session-types/session-types.routes').then(m => m.SESSION_TYPES_ROUTES)
       },
+      {
+        path: 'showcase',
+        loadComponent: () => import('./features/showcase/features-showcase.component').then(m => m.FeaturesShowcaseComponent)
+      },
     ]
   },
   // Backward compatibility redirects
