@@ -26,6 +26,9 @@ if (args.Contains("--migrate"))
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Load optional leave fetch config
+builder.Configuration.AddJsonFile("appsettings.LeaveFetch.json", optional: true, reloadOnChange: true);
+
 builder.Services.AddControllers()
     .AddJsonOptions(o => o.JsonSerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter()));
 builder.Services.AddEndpointsApiExplorer();
@@ -42,10 +45,6 @@ builder.Services.AddScoped<IWorkItemService, WorkItemService>();
 builder.Services.AddScoped<IFeatureService, FeatureService>();
 builder.Services.AddScoped<ILeaveService, LeaveService>();
 builder.Services.AddHttpClient();
-builder.Services.AddScoped<IPIService, PIService>();
-builder.Services.AddScoped<ISprintService, SprintService>();
-builder.Services.AddScoped<IWorkItemService, WorkItemService>();
-builder.Services.AddScoped<IFeatureService, FeatureService>();
 builder.Services.AddScoped<IDashboardService, DashboardService>();
 builder.Services.AddScoped<IPptxExportService, PptxExportService>();
 builder.Services.AddScoped<IDiscussionPointService, DiscussionPointService>();
