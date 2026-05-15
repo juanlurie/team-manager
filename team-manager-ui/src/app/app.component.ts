@@ -63,7 +63,7 @@ const MORE_NAV: NavItem[] = [
     <div class="shell" [class.mobile]="isMobile()">
 
       <!-- ── Mobile bottom nav ── -->
-      @if (isMobile()) {
+      @if (isMobile() && !isLoginPage()) {
         <!-- Bottom nav bar -->
         <nav class="bottom-nav">
           @for (item of bottomNav; track item.path) {
@@ -102,7 +102,7 @@ const MORE_NAV: NavItem[] = [
       }
 
       <!-- ── Desktop sidebar ── -->
-      @if (!isMobile()) {
+      @if (!isMobile() && !isLoginPage()) {
         <nav class="sidebar" [class.expanded]="expanded()">
 
           <button class="sidebar-header" (click)="toggleExpanded()"
@@ -386,6 +386,7 @@ export class AppComponent {
   private currentUrl = signal(this.router.url);
 
   isMoreActive = computed(() => MORE_NAV.some(item => this.currentUrl().startsWith(item.path)));
+  isLoginPage = computed(() => this.currentUrl() === '/login');
 
   expanded = signal(localStorage.getItem('nav-expanded') === 'true');
 
