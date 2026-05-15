@@ -29,6 +29,34 @@ import { LeaveFetchConfigService, LeaveFetchConfig, MappingConfig } from './leav
         <div class="loading">Loading...</div>
       } @else {
         <div class="config-form">
+          <!-- Curl import -->
+          <div class="curl-section">
+            <button mat-stroked-button (click)="showCurlInput.set(!showCurlInput())"
+                    [color]="showCurlInput() ? 'primary' : ''">
+              <mat-icon>terminal</mat-icon>
+              {{ showCurlInput() ? 'Hide' : 'Import from curl' }}
+            </button>
+            @if (showCurlInput()) {
+              <div class="curl-input-area">
+                <mat-form-field appearance="outline" class="full-width">
+                  <mat-label>Paste curl command</mat-label>
+                  <textarea matInput [(ngModel)]="curlCommand" rows="4"
+                            placeholder="curl -X POST 'https://...' -H 'Cookie: ...' -d 'teamId=...'"></textarea>
+                </mat-form-field>
+                <div class="curl-actions">
+                  <button mat-button (click)="showCurlInput.set(false); curlCommand.set('')">Cancel</button>
+                  <button mat-raised-button color="primary" (click)="parseCurl()" [disabled]="!curlCommand().trim()">
+                    Parse
+                  </button>
+                </div>
+                <div class="curl-hint">
+                  The URL, method, headers, and body will be extracted automatically.
+                  You can then adjust the body template to use variables like <code>{cookie}</code>, <code>{start}</code>, etc.
+                </div>
+              </div>
+            }
+          </div>
+
           <!-- Enabled toggle -->
           <div class="field-row">
             <label class="field-label">Enabled</label>
@@ -152,6 +180,12 @@ import { LeaveFetchConfigService, LeaveFetchConfig, MappingConfig } from './leav
     .full-width { width: 100%; }
     .half-width { flex: 1; }
 
+    .curl-section { margin-bottom: 8px; }
+    .curl-input-area { margin-top: 12px; padding: 16px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; }
+    .curl-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 8px; }
+    .curl-hint { font-size: 0.75rem; color: rgba(255,255,255,0.4); margin-top: 8px; line-height: 1.4; }
+    .curl-hint code { background: rgba(100,181,246,0.1); color: #64b5f6; padding: 1px 5px; border-radius: 3px; font-size: 0.72rem; }
+
     .field-row { display: flex; align-items: center; gap: 16px; padding: 8px 0; }
     .field-label { font-size: 0.85rem; color: rgba(255,255,255,0.6); min-width: 140px; }
 
@@ -192,6 +226,67 @@ export class LeaveFetchConfigComponent implements OnInit {
   });
 
   headerEntries = signal<{key: string, value: string}[]>([]);
+  showCurlInput = signal(false);
+  curlCommand = signal('');
+
+  parseCurl() {
+    const raw = this.curlCommand().trim();
+    if (!raw) return;
+
+    let cmd = raw;
+    // Remove leading 'curl ' if present
+    if (cmd.startsWith('curl ')) cmd = cmd.slice(5);
+    else if (cmd.startsWith('curl\t')) cmd = cmd.slice(4);
+
+    // Extract URL (first non-flag argument)
+    const urlMatch = cmd.match(/(?:^|\s)(https?:\/\/\S+?)(?:\s|$)/);
+    if (urlMatch) {
+      this.config().url = urlMatch[1];
+    }
+
+    // Extract method (-X or --request)
+    const methodMatch = cmd.match(/-X\s+(\w+)|--request\s+(\w+)/);
+    if (methodMatch) {
+      this.config().method = (methodMatch[1] || methodMatch[2]).toUpperCase();
+    }
+
+    // Extract headers (-H or --header)
+    const headerRegex = /-H\s+"([^"]+)"|--header\s+"([^"]+)"/g;
+    const headers: Record<string, string> = {};
+    let hMatch;
+    while ((hMatch = headerRegex.exec(cmd)) !== null) {
+      const rawHeader = hMatch[1] || hMatch[2];
+      const colonIdx = rawHeader.indexOf(':');
+      if (colonIdx > 0) {
+        const key = rawHeader.slice(0, colonIdx).trim();
+        const value = rawHeader.slice(colonIdx + 1).trim();
+        headers[key] = value;
+      }
+    }
+    this.config().headers = headers;
+    this.headerEntries.set(Object.entries(headers).map(([k, v]) => ({ key: k, value: v })));
+
+    // Detect form URL encoded (--data-urlencode or -d with content-type header)
+    const hasUrlEncoded = cmd.includes('--data-urlencode') ||
+      headers['Content-Type']?.includes('application/x-www-form-urlencoded');
+    if (hasUrlEncoded) {
+      this.config().isFormUrlEncoded = true;
+    }
+
+    // Extract body (-d or --data)
+    const dataMatch = cmd.match(/-d\s+"([^"]+)"|--data\s+"([^"]+)"/);
+    if (dataMatch) {
+      this.config().bodyTemplate = dataMatch[1] || dataMatch[2];
+    }
+
+    // If no method specified but has data, default to POST
+    if (!methodMatch && (dataMatch || cmd.includes('--data'))) {
+      this.config().method = 'POST';
+    }
+
+    this.curlCommand.set('');
+    this.showCurlInput.set(false);
+  }
 
   ngOnInit() {
     this.load();
