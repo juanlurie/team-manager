@@ -14,10 +14,10 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
   })).pipe(
     catchError((err: HttpErrorResponse) => {
       if (err.status === 403) {
-        // Not a team member — clear tokens and redirect to login
+        // Not a team member — clear tokens and redirect to not-registered page
         localStorage.clear();
         sessionStorage.clear();
-        router.navigate(['/login']);
+        router.navigate(['/not-registered']);
       }
       return throwError(() => err);
     })
