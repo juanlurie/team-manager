@@ -1,23 +1,3 @@
-export interface SystemStats {
-  teamMembers: number;
-  activeMembers: number;
-  sprints: number;
-  activeSprints: number;
-  pis: number;
-  squads: number;
-  features: number;
-  workItems: number;
-  meetingSeries: number;
-  meetingSessions: number;
-  discussionPoints: number;
-  wheels: number;
-  achievements: number;
-  mcpTools: number;
-  tuiScreens: number;
-  searchComponents: number;
-  uiRoutes: number;
-}
-
 export interface SearchCapability {
   name: string;
   icon: string;
@@ -64,6 +44,6 @@ export interface FeatureCard {
   icon: string;
   color: string;
   route: string;
-  stats: { label: string; value: string | number }[];
+  tags?: string[];
   description: string;
 }

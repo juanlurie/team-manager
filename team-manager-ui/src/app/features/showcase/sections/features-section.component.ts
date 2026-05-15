@@ -1,9 +1,9 @@
-import { Component, inject, input, computed } from '@angular/core';
+import { Component, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
 import { RouterLink } from '@angular/router';
 import { ShowcaseDataService } from '../services/showcase-data.service';
-import { FeatureCard, SystemStats } from '../models/showcase.model';
+import { FeatureCard } from '../models/showcase.model';
 
 @Component({
   selector: 'app-features-section',
@@ -13,19 +13,18 @@ import { FeatureCard, SystemStats } from '../models/showcase.model';
     <div class="section">
       <h2 class="section-title">System Features</h2>
       <div class="feature-grid">
-        @for (card of featureCards(); track card.domain) {
+        @for (card of featureCards; track card.domain) {
           <a class="feature-card" [routerLink]="card.route" [style.border-left-color]="card.color">
             <mat-icon class="card-icon" [style.color]="card.color">{{ card.icon }}</mat-icon>
             <span class="card-domain">{{ card.domain }}</span>
             <p class="card-desc">{{ card.description }}</p>
-            <div class="card-stats">
-              @for (stat of card.stats; track stat.label) {
-                <span class="stat-pill">
-                  <span class="stat-value">{{ stat.value }}</span>
-                  <span class="stat-label">{{ stat.label }}</span>
-                </span>
-              }
-            </div>
+            @if (card.tags && card.tags.length) {
+              <div class="card-tags">
+                @for (tag of card.tags; track tag) {
+                  <span class="tag">{{ tag }}</span>
+                }
+              </div>
+            }
           </a>
         }
       </div>
@@ -55,18 +54,14 @@ import { FeatureCard, SystemStats } from '../models/showcase.model';
     .card-domain { font-size: 0.85rem; font-weight: 600; color: rgba(255,255,255,0.8); margin-bottom: 4px; }
     .card-desc { font-size: 0.72rem; color: rgba(255,255,255,0.4); margin: 0 0 12px; line-height: 1.3; }
 
-    .card-stats { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
-    .stat-pill {
-      display: flex; flex-direction: column; align-items: center;
-      background: rgba(255,255,255,0.04); border-radius: 6px; padding: 4px 8px;
-      min-width: 50px;
+    .card-tags { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
+    .tag {
+      font-size: 0.62rem; color: rgba(255,255,255,0.45); text-transform: uppercase; letter-spacing: 0.03em;
+      background: rgba(255,255,255,0.06); border-radius: 4px; padding: 3px 8px;
     }
-    .stat-value { font-size: 0.85rem; font-weight: 700; color: #64b5f6; }
-    .stat-label { font-size: 0.62rem; color: rgba(255,255,255,0.35); text-transform: uppercase; letter-spacing: 0.03em; }
   `],
 })
 export class FeaturesSectionComponent {
   private svc = inject(ShowcaseDataService);
-  stats = input.required<SystemStats>();
-  featureCards = computed(() => this.svc.getFeatureCards(this.stats()));
+  featureCards: FeatureCard[] = this.svc.getFeatureCards();
 }

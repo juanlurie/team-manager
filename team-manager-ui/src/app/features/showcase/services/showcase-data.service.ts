@@ -1,9 +1,8 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { forkJoin, map, catchError, of, Observable } from 'rxjs';
+import { catchError, of, Observable } from 'rxjs';
 import { API_BASE } from '../../../core/services/api.config';
 import {
-  SystemStats,
   SearchCapability,
   ServerSideFilter,
   TuiScreen,
@@ -15,47 +14,6 @@ import {
 @Injectable({ providedIn: 'root' })
 export class ShowcaseDataService {
   private http = inject(HttpClient);
-
-  getSystemStats(): Observable<SystemStats> {
-    const defaults: SystemStats = {
-      teamMembers: 0, activeMembers: 0, sprints: 0, activeSprints: 0,
-      pis: 0, squads: 0, features: 0, workItems: 0,
-      meetingSeries: 0, meetingSessions: 0, discussionPoints: 0,
-      wheels: 0, achievements: 0,
-      mcpTools: 130, tuiScreens: 4, searchComponents: 6, uiRoutes: 20,
-    };
-
-    const calls = {
-      teamMembers: this.http.get<any[]>(`${API_BASE}/team-members`).pipe(map(r => r.length), catchError(() => of(0))),
-      activeMembers: this.http.get<any[]>(`${API_BASE}/team-members?isActive=true`).pipe(map(r => r.length), catchError(() => of(0))),
-      sprints: this.http.get<any[]>(`${API_BASE}/sprints`).pipe(map(r => r.length), catchError(() => of(0))),
-      pis: this.http.get<any[]>(`${API_BASE}/pis`).pipe(map(r => r.length), catchError(() => of(0))),
-      squads: this.http.get<any[]>(`${API_BASE}/squads`).pipe(map(r => r.length), catchError(() => of(0))),
-      features: this.http.get<any[]>(`${API_BASE}/features`).pipe(map(r => r.length), catchError(() => of(0))),
-      meetingSeries: this.http.get<any[]>(`${API_BASE}/meeting-series`).pipe(map(r => r.length), catchError(() => of(0))),
-      meetingSessions: this.http.get<any[]>(`${API_BASE}/meeting-sessions`).pipe(map(r => r.length), catchError(() => of(0))),
-      discussionPoints: this.http.get<any[]>(`${API_BASE}/discussion-points`).pipe(map(r => r.length), catchError(() => of(0))),
-      wheels: this.http.get<any[]>(`${API_BASE}/wheels`).pipe(map(r => r.length), catchError(() => of(0))),
-      achievements: this.http.get<any[]>(`${API_BASE}/achievements`).pipe(map(r => r.length), catchError(() => of(0))),
-    };
-
-    return forkJoin(calls).pipe(
-      map(results => ({
-        ...defaults,
-        teamMembers: results.teamMembers,
-        activeMembers: results.activeMembers,
-        sprints: results.sprints,
-        pis: results.pis,
-        squads: results.squads,
-        features: results.features,
-        meetingSeries: results.meetingSeries,
-        meetingSessions: results.meetingSessions,
-        discussionPoints: results.discussionPoints,
-        wheels: results.wheels,
-        achievements: results.achievements,
-      }))
-    );
-  }
 
   getSearchCapabilities(): SearchCapability[] {
     return [
@@ -362,26 +320,26 @@ export class ShowcaseDataService {
     ];
   }
 
-  getFeatureCards(stats: SystemStats): FeatureCard[] {
+  getFeatureCards(): FeatureCard[] {
     return [
-      { domain: 'PIs', icon: 'account_tree', color: '#42a5f5', route: '/sprints', stats: [{ label: 'Total', value: stats.pis }], description: 'Program Increments grouping sprints' },
-      { domain: 'Sprints', icon: 'directions_run', color: '#42a5f5', route: '/sprints', stats: [{ label: 'Total', value: stats.sprints }], description: 'Sprint planning and tracking' },
-      { domain: 'Team Members', icon: 'people', color: '#66bb6a', route: '/team', stats: [{ label: 'Total', value: stats.teamMembers }, { label: 'Active', value: stats.activeMembers }], description: 'Team member management' },
-      { domain: 'Squads', icon: 'groups', color: '#66bb6a', route: '/team', stats: [{ label: 'Total', value: stats.squads }], description: 'Squad organization' },
-      { domain: 'Work Items', icon: 'task_alt', color: '#42a5f5', route: '/sprints', stats: [{ label: 'Total', value: stats.features }], description: 'Tasks, bugs, analysis, dev, QA' },
-      { domain: 'Meetings', icon: 'event', color: '#ab47bc', route: '/meetings', stats: [{ label: 'Series', value: stats.meetingSeries }, { label: 'Sessions', value: stats.meetingSessions }], description: 'Meeting series, sessions, availability' },
-      { domain: 'Discussion', icon: 'forum', color: '#7e57c2', route: '/discussion', stats: [{ label: 'Points', value: stats.discussionPoints }], description: 'Discussion points and tasks' },
-      { domain: 'Timesheets', icon: 'schedule', color: '#26a69a', route: '/team', stats: [{ label: 'Config', value: 'Per member' }], description: 'Time tracking and export' },
-      { domain: 'Leave', icon: 'event_busy', color: '#26a69a', route: '/leave', stats: [{ label: 'Import', value: 'Supported' }], description: 'Leave records management' },
-      { domain: 'Win Week/Month', icon: 'emoji_events', color: '#ffa726', route: '/fun', stats: [{ label: 'Voting', value: 'Active' }], description: 'Win of the week and month' },
-      { domain: 'Leaderboard', icon: 'leaderboard', color: '#ffa726', route: '/fun/leaderboard', stats: [{ label: 'Points', value: 'Ranked' }], description: 'Points rankings and history' },
-      { domain: 'Achievements', icon: 'trophy', color: '#ffa726', route: '/fun', stats: [{ label: 'Types', value: stats.achievements }], description: 'Achievement awards' },
-      { domain: 'Wheels', icon: 'casino', color: '#ffa726', route: '/fun/wheel', stats: [{ label: 'Wheels', value: stats.wheels }], description: 'Random assignment wheels' },
-      { domain: 'Export', icon: 'download', color: '#78909c', route: '/export', stats: [{ label: 'Format', value: 'PPTX' }], description: 'PowerPoint export' },
-      { domain: 'Progress', icon: 'show_chart', color: '#78909c', route: '/progress', stats: [{ label: 'View', value: 'PI/Sprint' }], description: 'Progress tracking timeline' },
-      { domain: 'Comments', icon: 'comment', color: '#78909c', route: '/dashboard', stats: [{ label: 'Scope', value: 'Any entity' }], description: 'Comments on any entity' },
-      { domain: 'Session Types', icon: 'settings', color: '#78909c', route: '/session-types', stats: [{ label: 'Config', value: 'Customizable' }], description: 'Session type definitions' },
-      { domain: 'Auth', icon: 'lock', color: '#78909c', route: '/profile', stats: [{ label: 'Users', value: 'Linked' }], description: 'API keys, user linking' },
+      { domain: 'PIs', icon: 'account_tree', color: '#42a5f5', route: '/sprints', tags: ['Program Increments', 'Sprint grouping'], description: 'Program Increments grouping sprints' },
+      { domain: 'Sprints', icon: 'directions_run', color: '#42a5f5', route: '/sprints', tags: ['Planning', 'Tracking', 'Retro'], description: 'Sprint planning and tracking' },
+      { domain: 'Team Members', icon: 'people', color: '#66bb6a', route: '/team', tags: ['CRUD', 'Skills', 'Notes'], description: 'Team member management' },
+      { domain: 'Squads', icon: 'groups', color: '#66bb6a', route: '/team', tags: ['Organization', 'Multi-membership'], description: 'Squad organization' },
+      { domain: 'Work Items', icon: 'task_alt', color: '#42a5f5', route: '/sprints', tags: ['Tasks', 'Bugs', 'QA', 'Dev'], description: 'Tasks, bugs, analysis, dev, QA' },
+      { domain: 'Meetings', icon: 'event', color: '#ab47bc', route: '/meetings', tags: ['Series', 'Sessions', 'Availability'], description: 'Meeting series, sessions, availability' },
+      { domain: 'Discussion', icon: 'forum', color: '#7e57c2', route: '/discussion', tags: ['Points', 'Tasks', 'Toggle'], description: 'Discussion points and tasks' },
+      { domain: 'Timesheets', icon: 'schedule', color: '#26a69a', route: '/team', tags: ['Tracking', 'Export', 'Config'], description: 'Time tracking and export' },
+      { domain: 'Leave', icon: 'event_busy', color: '#26a69a', route: '/leave', tags: ['Records', 'Import', 'Types'], description: 'Leave records management' },
+      { domain: 'Win Week/Month', icon: 'emoji_events', color: '#ffa726', route: '/fun', tags: ['Nominations', 'Voting'], description: 'Win of the week and month' },
+      { domain: 'Leaderboard', icon: 'leaderboard', color: '#ffa726', route: '/fun/leaderboard', tags: ['Points', 'Rankings', 'History'], description: 'Points rankings and history' },
+      { domain: 'Achievements', icon: 'trophy', color: '#ffa726', route: '/fun', tags: ['Awards', 'Types'], description: 'Achievement awards' },
+      { domain: 'Wheels', icon: 'casino', color: '#ffa726', route: '/fun/wheel', tags: ['Random', 'Participants'], description: 'Random assignment wheels' },
+      { domain: 'Export', icon: 'download', color: '#78909c', route: '/export', tags: ['PPTX', 'Presentation'], description: 'PowerPoint export' },
+      { domain: 'Progress', icon: 'show_chart', color: '#78909c', route: '/progress', tags: ['Timeline', 'PI view'], description: 'Progress tracking timeline' },
+      { domain: 'Comments', icon: 'comment', color: '#78909c', route: '/dashboard', tags: ['Any entity', 'Threaded'], description: 'Comments on any entity' },
+      { domain: 'Session Types', icon: 'settings', color: '#78909c', route: '/session-types', tags: ['Configurable', 'Duration'], description: 'Session type definitions' },
+      { domain: 'Auth', icon: 'lock', color: '#78909c', route: '/profile', tags: ['OAuth', 'User linking'], description: 'API keys, user linking' },
     ];
   }
 }
