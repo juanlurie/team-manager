@@ -16,6 +16,7 @@ export interface TuiScreen {
 
 export interface TuiKeyBinding {
   key: string;
+  macKey?: string;
   action: string;
 }
 

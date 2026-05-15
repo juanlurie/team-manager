@@ -12,6 +12,7 @@ import { FeatureCard } from '../models/showcase.model';
   template: `
     <div class="section">
       <h2 class="section-title">System Features</h2>
+      <p class="section-desc">Every major capability of the Team Manager platform, organized by domain. Click any card to explore it directly.</p>
       <div class="feature-grid">
         @for (card of featureCards; track card.domain) {
           <a class="feature-card" [routerLink]="card.route" [style.border-left-color]="card.color">
@@ -32,7 +33,8 @@ import { FeatureCard } from '../models/showcase.model';
   `,
   styles: [`
     .section { padding: 8px 0; }
-    .section-title { font-size: 1.1rem; font-weight: 600; color: rgba(255,255,255,0.85); margin: 0 0 20px; }
+    .section-title { font-size: 1.1rem; font-weight: 600; color: rgba(255,255,255,0.85); margin: 0 0 6px; }
+    .section-desc { font-size: 0.82rem; color: rgba(255,255,255,0.45); margin: 0 0 20px; line-height: 1.5; }
 
     .feature-grid {
       display: grid;

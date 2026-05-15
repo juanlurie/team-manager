@@ -11,6 +11,7 @@ import { SearchCapability } from '../models/showcase.model';
   template: `
     <div class="section">
       <h2 class="section-title">Search Capabilities</h2>
+      <p class="section-desc">Multiple search and navigation patterns throughout the app so you can find what you need as fast as possible.</p>
       <div class="cards-grid">
         @for (cap of capabilities; track cap.name) {
           <div class="card">
@@ -34,7 +35,8 @@ import { SearchCapability } from '../models/showcase.model';
   `,
   styles: [`
     .section { padding: 8px 0; }
-    .section-title { font-size: 1.1rem; font-weight: 600; color: rgba(255,255,255,0.85); margin: 0 0 20px; }
+    .section-title { font-size: 1.1rem; font-weight: 600; color: rgba(255,255,255,0.85); margin: 0 0 6px; }
+    .section-desc { font-size: 0.82rem; color: rgba(255,255,255,0.45); margin: 0 0 20px; line-height: 1.5; }
 
     .cards-grid {
       display: grid;
