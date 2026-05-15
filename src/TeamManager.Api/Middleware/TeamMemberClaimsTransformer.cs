@@ -19,9 +19,30 @@ public class TeamMemberClaimsTransformer(AppDbContext db, ILogger<TeamMemberClai
         logger.LogInformation("ClaimsTransformer: sub={Sub}, all claims={Claims}", sub, string.Join(", ", principal.Claims.Select(c => $"{c.Type}={c.Value}")));
         if (string.IsNullOrWhiteSpace(sub)) return principal;
 
+        // 1. Try exact ExternalSubjectId match
         var tm = await db.TeamMembers
-                         .AsNoTracking()
                          .SingleOrDefaultAsync(m => m.ExternalSubjectId == sub && m.IsActive);
+
+        // 2. Auto-link by email if sub doesn't match but email does
+        if (tm == null)
+        {
+            var email = principal.FindFirst("email")?.Value
+                       ?? principal.FindFirst(ClaimTypes.Email)?.Value;
+
+            if (!string.IsNullOrWhiteSpace(email))
+            {
+                var byEmail = await db.TeamMembers
+                                      .SingleOrDefaultAsync(m => m.Email.ToLower() == email.ToLower() && m.IsActive);
+
+                if (byEmail != null)
+                {
+                    byEmail.ExternalSubjectId = sub;
+                    await db.SaveChangesAsync();
+                    tm = byEmail;
+                    logger.LogInformation("ClaimsTransformer: Auto-linked {Email} to {FirstName} {LastName} (sub={Sub})", email, tm.FirstName, tm.LastName, sub);
+                }
+            }
+        }
 
         if (tm == null)
         {
