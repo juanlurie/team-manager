@@ -41,6 +41,7 @@ public class ApiRequestConfigsController : ControllerBase
     {
         var config = new ApiRequestConfig
         {
+            Action = dto.Action,
             Name = dto.Name,
             Description = dto.Description,
             Enabled = dto.Enabled,
@@ -64,6 +65,7 @@ public class ApiRequestConfigsController : ControllerBase
         var config = await _db.ApiRequestConfigs.FindAsync(id);
         if (config == null) return NotFound();
 
+        config.Action = dto.Action;
         config.Name = dto.Name;
         config.Description = dto.Description;
         config.Enabled = dto.Enabled;
@@ -128,9 +130,11 @@ public class ApiRequestConfigsController : ControllerBase
 
         foreach (var dto in dtos)
         {
-            var existing = await _db.ApiRequestConfigs.FirstOrDefaultAsync(c => c.Name == dto.Name);
+            var existing = await _db.ApiRequestConfigs.FirstOrDefaultAsync(c => c.Action == dto.Action && c.Name == dto.Name);
             if (existing != null)
             {
+                existing.Action = dto.Action;
+                existing.Name = dto.Name;
                 existing.Description = dto.Description;
                 existing.Enabled = dto.Enabled;
                 existing.Url = dto.Url;
@@ -146,6 +150,7 @@ public class ApiRequestConfigsController : ControllerBase
             {
                 var config = new ApiRequestConfig
                 {
+                    Action = dto.Action,
                     Name = dto.Name,
                     Description = dto.Description,
                     Enabled = dto.Enabled,
@@ -355,6 +360,7 @@ public class ApiRequestConfigsController : ControllerBase
 
     private static ApiRequestConfigDto ToDto(ApiRequestConfig config) => new(
         Id: config.Id,
+        Action: config.Action,
         Name: config.Name,
         Description: config.Description,
         Enabled: config.Enabled,

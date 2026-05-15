@@ -17,7 +17,7 @@ const CONFIG_CARDS: ConfigCard[] = [
   {
     icon: 'api',
     label: 'Request Configs',
-    description: 'Manage API request templates with mapping, headers, and body',
+    description: 'API request templates tied to actions: fetch leave, add timesheet, etc.',
     path: '/request-configs',
     color: '#2196f3'
   },
@@ -34,20 +34,6 @@ const CONFIG_CARDS: ConfigCard[] = [
     description: 'Manage physical or virtual meeting locations',
     path: '/slot-locations',
     color: '#ff9800'
-  },
-  {
-    icon: 'calendar_month',
-    label: 'Meeting Series',
-    description: 'Configure recurring meeting series and schedules',
-    path: '/meeting-series',
-    color: '#4caf50'
-  },
-  {
-    icon: 'event_busy',
-    label: 'Leave Fetch Config',
-    description: 'Configure external leave API integration',
-    path: '/leave/config',
-    color: '#f44336'
   },
 ];
 

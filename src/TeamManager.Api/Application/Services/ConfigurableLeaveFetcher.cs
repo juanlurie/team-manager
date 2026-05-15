@@ -17,7 +17,7 @@ public class ConfigurableLeaveFetcher : ILeaveFetcher
 
     public async Task<IReadOnlyList<ImportLeaveRecord>> FetchAsync(FetchLeaveRequest request)
     {
-        var config = await _db.ApiRequestConfigs.FirstOrDefaultAsync(c => c.Name == "Leave Fetch");
+        var config = await _db.ApiRequestConfigs.FirstOrDefaultAsync(c => c.Action == "FetchLeave" && c.Enabled);
         if (config == null)
         {
             var legacyConfig = await _db.LeaveFetchConfigs.FirstOrDefaultAsync();
