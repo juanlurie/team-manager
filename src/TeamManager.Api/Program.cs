@@ -122,6 +122,9 @@ app.UseSwaggerUI();
 
 app.UseCors("AllowAll");
 
+app.UseWebSockets(new WebSocketOptions { KeepAliveInterval = TimeSpan.FromMinutes(2) });
+app.UseMiddleware<WebSocketMiddleware>();
+
 app.UseAuthentication();
 app.UseMiddleware<TeamMemberRequiredMiddleware>();
 app.UseAuthorization();
