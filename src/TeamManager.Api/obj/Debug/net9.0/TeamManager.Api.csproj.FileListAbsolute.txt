@@ -429,4 +429,3 @@
 /opt/services/team-manager/src/TeamManager.Api/obj/Debug/net9.0/TeamMana.F280EA7E.Up2Date
 /opt/services/team-manager/src/TeamManager.Api/obj/Debug/net9.0/TeamManager.Api.genruntimeconfig.cache
 /opt/services/team-manager/src/TeamManager.Api/obj/Debug/net9.0/ref/TeamManager.Api.dll
-/opt/services/team-manager/src/TeamManager.Api/bin/Debug/net9.0/appsettings.LeaveFetch.json

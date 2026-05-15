@@ -1587,6 +1587,23 @@ namespace TeamManager.Api.Migrations
                     b.Navigation("TeamMember");
                 });
 
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.LeaveFetchConfig", b =>
+                {
+                    b.Property<Guid>("Id");
+                    b.Property<bool>("Enabled");
+                    b.Property<string>("Url");
+                    b.Property<string>("Method");
+                    b.Property<bool>("IsFormUrlEncoded");
+                    b.Property<string>("HeadersJson");
+                    b.Property<string>("BodyTemplate");
+                    b.Property<string>("MappingJson");
+                    b.Property<DateTimeOffset>("CreatedAt");
+                    b.Property<DateTimeOffset>("UpdatedAt");
+
+                    b.HasKey("Id");
+                    b.ToTable("LeaveFetchConfigs");
+                });
+
             modelBuilder.Entity("TeamManager.Api.Domain.Entities.DiscussionPoint", b =>
                 {
                     b.HasOne("TeamManager.Api.Domain.Entities.TeamMember", "Assignee")
