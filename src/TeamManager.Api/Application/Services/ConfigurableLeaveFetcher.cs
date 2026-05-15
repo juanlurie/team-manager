@@ -17,9 +17,27 @@ public class ConfigurableLeaveFetcher : ILeaveFetcher
 
     public async Task<IReadOnlyList<ImportLeaveRecord>> FetchAsync(FetchLeaveRequest request)
     {
-        var config = await _db.LeaveFetchConfigs.FirstOrDefaultAsync();
-        if (config == null || !config.Enabled)
-            throw new InvalidOperationException("Leave fetching is not configured or disabled. Configure it in Settings.");
+        var config = await _db.ApiRequestConfigs.FirstOrDefaultAsync(c => c.Name == "Leave Fetch");
+        if (config == null)
+        {
+            var legacyConfig = await _db.LeaveFetchConfigs.FirstOrDefaultAsync();
+            if (legacyConfig == null || !legacyConfig.Enabled)
+                throw new InvalidOperationException("Leave fetching is not configured or disabled. Configure it in Settings.");
+            config = new Domain.Entities.ApiRequestConfig
+            {
+                Enabled = legacyConfig.Enabled,
+                Url = legacyConfig.Url,
+                Method = legacyConfig.Method,
+                IsFormUrlEncoded = legacyConfig.IsFormUrlEncoded,
+                HeadersJson = legacyConfig.HeadersJson,
+                BodyTemplate = legacyConfig.BodyTemplate,
+                MappingJson = legacyConfig.MappingJson
+            };
+        }
+        else if (!config.Enabled)
+        {
+            throw new InvalidOperationException("Leave fetching is disabled. Configure it in Settings.");
+        }
 
         var headers = JsonSerializer.Deserialize<Dictionary<string, string>>(config.HeadersJson) ?? new();
         var mapping = JsonSerializer.Deserialize<MappingConfig>(config.MappingJson) ?? new MappingConfig();

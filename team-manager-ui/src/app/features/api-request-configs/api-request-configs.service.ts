@@ -1,0 +1,60 @@
+import { Injectable, inject } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { Observable } from 'rxjs';
+
+export interface MappingConfig {
+  namePath: string;
+  startPath: string;
+  endPath: string;
+  typePath: string;
+  daysPath: string;
+  statusPath: string;
+  nameTransform: string;
+}
+
+export interface ApiRequestConfig {
+  id?: string;
+  name: string;
+  description?: string;
+  enabled: boolean;
+  url: string;
+  method: string;
+  isFormUrlEncoded: boolean;
+  headers: Record<string, string>;
+  bodyTemplate: string;
+  mapping: MappingConfig;
+}
+
+@Injectable({ providedIn: 'root' })
+export class ApiRequestConfigsService {
+  private http = inject(HttpClient);
+  private baseUrl = '/api/v1/request-configs';
+
+  list(): Observable<ApiRequestConfig[]> {
+    return this.http.get<ApiRequestConfig[]>(this.baseUrl);
+  }
+
+  get(id: string): Observable<ApiRequestConfig> {
+    return this.http.get<ApiRequestConfig>(`${this.baseUrl}/${id}`);
+  }
+
+  create(config: ApiRequestConfig): Observable<ApiRequestConfig> {
+    return this.http.post<ApiRequestConfig>(this.baseUrl, config);
+  }
+
+  update(id: string, config: ApiRequestConfig): Observable<ApiRequestConfig> {
+    return this.http.put<ApiRequestConfig>(`${this.baseUrl}/${id}`, config);
+  }
+
+  delete(id: string): Observable<void> {
+    return this.http.delete<void>(`${this.baseUrl}/${id}`);
+  }
+
+  export(): Observable<Blob> {
+    return this.http.get(`${this.baseUrl}/export`, { responseType: 'blob' });
+  }
+
+  import(configs: ApiRequestConfig[]): Observable<{ created: number; updated: number }> {
+    return this.http.post<{ created: number; updated: number }>(`${this.baseUrl}/import`, configs);
+  }
+}
