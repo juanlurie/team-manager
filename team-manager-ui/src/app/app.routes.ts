@@ -66,6 +66,10 @@ export const routes: Routes = [
         path: 'request-configs',
         loadComponent: () => import('./features/api-request-configs/api-request-configs.component').then(m => m.ApiRequestConfigsComponent)
       },
+      {
+        path: 'settings',
+        loadComponent: () => import('./features/settings/settings.component').then(m => m.SettingsComponent)
+      },
     ]
   },
   // Backward compatibility redirects

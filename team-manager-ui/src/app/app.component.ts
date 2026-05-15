@@ -30,7 +30,7 @@ const PRIMARY_NAV: NavItem[] = [
 ];
 
 const SECONDARY_NAV: NavItem[] = [
-  { path: '/request-configs', icon: 'api', label: 'Request Configs' },
+  { path: '/settings', icon: 'settings', label: 'Settings' },
   { path: '/export', icon: 'download', label: 'Export' },
   { path: '/profile', icon: 'person', label: 'Profile' },
 ];
@@ -51,7 +51,7 @@ const MORE_NAV: NavItem[] = [
   { path: '/meetings',       icon: 'event',          label: 'Meetings'      },
   { path: '/fun',            icon: 'casino',         label: 'Fun Hub'       },
   { path: '/showcase',       icon: 'auto_awesome',   label: 'Showcase'      },
-  { path: '/request-configs', icon: 'api',           label: 'Configs'       },
+  { path: '/settings',       icon: 'settings',       label: 'Settings'      },
   { path: '/export',         icon: 'download',       label: 'Export'        },
   { path: '/profile',        icon: 'person',         label: 'Profile'       },
   { path: '/leave',          icon: 'event_busy',     label: 'Leave'         },
