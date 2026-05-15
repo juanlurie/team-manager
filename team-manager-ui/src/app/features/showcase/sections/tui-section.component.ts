@@ -16,7 +16,7 @@ import { TuiScreen, TuiKeyBinding } from '../models/showcase.model';
       </div>
       <div class="meta-bar">
         <span class="meta-item"><mat-icon>code</mat-icon> Framework: Textual (Python)</span>
-        <span class="meta-item"><mat-icon>terminal</mat-icon> Entry: <code>cd tui && bash install.sh</code></span>
+        <span class="meta-item"><mat-icon>terminal</mat-icon> Install: <code>curl -sSL https://raw.githubusercontent.com/juanlurie/team-manager-tui/main/install.sh | bash</code></span>
         <span class="meta-item"><mat-icon>link</mat-icon> API: <code>TEAM_MANAGER_API_URL</code> env var</span>
       </div>
 

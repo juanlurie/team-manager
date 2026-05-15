@@ -2,14 +2,20 @@
 set -euo pipefail
 
 # ── Team Manager TUI Installer ──────────────────────────────────────────────
-# Run from the tui/ directory: bash install.sh
+# One-liner install:
+#   curl -sSL https://raw.githubusercontent.com/juanlurie/team-manager-tui/main/install.sh | bash
 #
-# Installs to ~/.team-manager-tui and creates a `team-manager-tui` CLI command.
+# Or clone and run locally:
+#   git clone git@github.com:juanlurie/team-manager-tui.git
+#   cd team-manager-tui && bash install.sh --local
 # ─────────────────────────────────────────────────────────────────────────────
 
+REPO="juanlurie/team-manager-tui"
+BRANCH="main"
 INSTALL_DIR="${HOME}/.team-manager-tui"
 BIN_DIR="${HOME}/.local/bin"
 CLI_BIN="${BIN_DIR}/team-manager-tui"
+USE_LOCAL=0
 
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
@@ -20,6 +26,13 @@ info()  { echo -e "${GREEN}✓${NC} $1"; }
 warn()  { echo -e "${YELLOW}!${NC} $1"; }
 error() { echo -e "${RED}✗${NC} $1" >&2; }
 
+# ── Parse args ──────────────────────────────────────────────────────────────
+for arg in "$@"; do
+    case "$arg" in
+        --local) USE_LOCAL=1 ;;
+    esac
+done
+
 # ── Pre-flight checks ───────────────────────────────────────────────────────
 command -v python3 >/dev/null 2>&1 || { error "python3 is required but not installed."; exit 1; }
 
@@ -27,12 +40,6 @@ PYTHON_VERSION=$(python3 -c 'import sys; print(f"{sys.version_info.major}.{sys.v
 MIN_VERSION="3.10"
 if [ "$(printf '%s\n' "$MIN_VERSION" "$PYTHON_VERSION" | sort -V | head -n1)" != "$MIN_VERSION" ]; then
     error "Python $MIN_VERSION or higher is required (found $PYTHON_VERSION)."
-    exit 1
-fi
-
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-if [ ! -f "${SCRIPT_DIR}/app.py" ]; then
-    error "Run this script from the tui/ directory (cannot find app.py)."
     exit 1
 fi
 
@@ -45,12 +52,40 @@ echo ""
 mkdir -p "$INSTALL_DIR/screens"
 mkdir -p "$BIN_DIR"
 
-# ── Copy source files ───────────────────────────────────────────────────────
-info "Copying TUI source files..."
-cp "${SCRIPT_DIR}/app.py" "${INSTALL_DIR}/app.py"
-cp "${SCRIPT_DIR}/api.py" "${INSTALL_DIR}/api.py"
-cp "${SCRIPT_DIR}/requirements.txt" "${INSTALL_DIR}/requirements.txt"
-cp "${SCRIPT_DIR}/screens/"*.py "${INSTALL_DIR}/screens/"
+# ── Get source files ────────────────────────────────────────────────────────
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+if [ "$USE_LOCAL" -eq 1 ]; then
+    info "Installing from local source..."
+    TUI_SRC="$SCRIPT_DIR"
+    if [ ! -f "${TUI_SRC}/app.py" ]; then
+        error "Cannot find app.py in ${TUI_SRC}. Run from the tui/ directory."
+        exit 1
+    fi
+    cp "${TUI_SRC}/app.py" "${INSTALL_DIR}/app.py"
+    cp "${TUI_SRC}/api.py" "${INSTALL_DIR}/api.py"
+    cp "${TUI_SRC}/requirements.txt" "${INSTALL_DIR}/requirements.txt"
+    cp "${TUI_SRC}/screens/"*.py "${INSTALL_DIR}/screens/"
+else
+    command -v git >/dev/null 2>&1  || { error "git is required but not installed."; exit 1; }
+
+    info "Cloning TUI repository (shallow)..."
+    TMP_DIR=$(mktemp -d)
+    git clone --depth 1 --branch "$BRANCH" "https://github.com/${REPO}.git" "$TMP_DIR"
+
+    TUI_SRC="$TMP_DIR"
+    if [ ! -f "${TUI_SRC}/app.py" ]; then
+        error "Could not find TUI source files after clone."
+        rm -rf "$TMP_DIR"
+        exit 1
+    fi
+
+    cp "${TUI_SRC}/app.py" "${INSTALL_DIR}/app.py"
+    cp "${TUI_SRC}/api.py" "${INSTALL_DIR}/api.py"
+    cp "${TUI_SRC}/requirements.txt" "${INSTALL_DIR}/requirements.txt"
+    cp "${TUI_SRC}/screens/"*.py "${INSTALL_DIR}/screens/"
+    rm -rf "$TMP_DIR"
+fi
 
 # ── Create/update venv ──────────────────────────────────────────────────────
 if [ -d "${INSTALL_DIR}/venv" ]; then
@@ -103,4 +138,7 @@ echo "    team-manager-tui"
 echo ""
 echo "  Connect to a remote API:"
 echo "    TEAM_MANAGER_API_URL=https://your-api.com team-manager-tui"
+echo ""
+echo "  Update to the latest version:"
+echo "    curl -sSL https://raw.githubusercontent.com/${REPO}/${BRANCH}/install.sh | bash"
 echo ""
