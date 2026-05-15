@@ -387,7 +387,7 @@ export class AppComponent {
 
   isMoreActive = computed(() => MORE_NAV.some(item => this.currentUrl().startsWith(item.path)));
   isLoginPage = computed(() => this.currentUrl() === '/login');
-  isAuthorized = signal(false);
+  isAuthorized = signal<boolean | null>(null);
 
   expanded = signal(localStorage.getItem('nav-expanded') === 'true');
 
