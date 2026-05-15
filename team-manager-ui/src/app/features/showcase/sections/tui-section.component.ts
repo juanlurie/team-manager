@@ -54,15 +54,6 @@ import { TuiScreen, TuiKeyBinding } from '../models/showcase.model';
             }
           </div>
         </div>
-
-        <div class="api-endpoints">
-          <h3 class="subsection-title">API Endpoints Used</h3>
-          <div class="endpoint-list">
-            @for (ep of apiEndpoints; track ep) {
-              <code class="endpoint">{{ ep }}</code>
-            }
-          </div>
-        </div>
       </div>
     </div>
   `,
@@ -106,8 +97,7 @@ import { TuiScreen, TuiKeyBinding } from '../models/showcase.model';
       padding: 3px 8px; border-radius: 4px; font-family: 'SF Mono', 'Fira Code', monospace;
     }
 
-    .bottom-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-    @media (max-width: 900px) { .bottom-grid { grid-template-columns: 1fr; } }
+    .bottom-grid { display: grid; grid-template-columns: 1fr; gap: 20px; max-width: 600px; }
 
     .key-table {
       background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06);
@@ -129,18 +119,10 @@ import { TuiScreen, TuiKeyBinding } from '../models/showcase.model';
     .key-or { font-size: 0.7rem; color: rgba(255,255,255,0.3); }
     .key-label { flex: 0 0 80px; font-size: 0.82rem; color: rgba(255,255,255,0.7); }
     .key-action { flex: 1; font-size: 0.8rem; color: rgba(255,255,255,0.55); }
-
-    .endpoint-list { display: flex; flex-direction: column; gap: 6px; }
-    .endpoint {
-      font-size: 0.75rem; color: rgba(100,181,246,0.8); background: rgba(100,181,246,0.06);
-      padding: 6px 12px; border-radius: 5px; font-family: 'SF Mono', 'Fira Code', monospace;
-      border: 1px solid rgba(100,181,246,0.1);
-    }
   `],
 })
 export class TuiSectionComponent {
   private svc = inject(ShowcaseDataService);
   screens: TuiScreen[] = this.svc.getTuiScreens();
   keyBindings: TuiKeyBinding[] = this.svc.getTuiKeyBindings();
-  apiEndpoints: string[] = this.svc.getTuiApiEndpoints();
 }
