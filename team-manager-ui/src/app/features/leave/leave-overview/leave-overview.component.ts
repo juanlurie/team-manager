@@ -3,6 +3,7 @@ import { toObservable } from '@angular/core/rxjs-interop';
 import { skip } from 'rxjs';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import { MatCardModule } from '@angular/material/card';
 import { MatExpansionModule } from '@angular/material/expansion';
 import { MatIconModule } from '@angular/material/icon';
@@ -52,7 +53,7 @@ interface WeekRow {
   selector: 'app-leave-overview',
   standalone: true,
   imports: [
-    CommonModule, FormsModule,
+    CommonModule, FormsModule, RouterLink,
     MatCardModule, MatExpansionModule,
     MatIconModule, MatButtonModule, MatProgressSpinnerModule, MatTooltipModule,
     MatDialogModule, MatChipsModule, MatMenuModule, IconButtonComponent, FilterBarComponent

@@ -6,6 +6,10 @@
           <mat-icon>more_vert</mat-icon>
         </button>
         <mat-menu #settingsMenu="matMenu">
+          <button mat-menu-item routerLink="/leave/config">
+            <mat-icon>settings</mat-icon>
+            <span>Fetch configuration</span>
+          </button>
           <button mat-menu-item (click)="openImport()">
             <mat-icon>upload</mat-icon>
             <span>Import leave</span>
