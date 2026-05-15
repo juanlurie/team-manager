@@ -62,6 +62,10 @@ export const routes: Routes = [
         path: 'showcase',
         loadComponent: () => import('./features/showcase/features-showcase.component').then(m => m.FeaturesShowcaseComponent)
       },
+      {
+        path: 'request-configs',
+        loadComponent: () => import('./features/api-request-configs/api-request-configs.component').then(m => m.ApiRequestConfigsComponent)
+      },
     ]
   },
   // Backward compatibility redirects
