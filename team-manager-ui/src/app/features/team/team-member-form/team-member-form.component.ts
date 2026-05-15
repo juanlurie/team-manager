@@ -38,7 +38,7 @@ const CATEGORY_COLORS: Record<string, { bg: string; text: string }> = {
     MatIconModule, MatTooltipModule, DatePipe, IconButtonComponent],
   template: `
     <h2 mat-dialog-title>{{ data.member ? 'Edit' : 'Add' }} Team Member</h2>
-    <mat-dialog-content style="max-height:80vh">
+    <mat-dialog-content style="max-height:75vh;overflow-y:auto">
       <form [formGroup]="form" style="display:flex;flex-direction:column;gap:12px;padding-top:8px">
         <div style="display:flex;gap:12px">
           <mat-form-field appearance="outline" style="flex:1">
