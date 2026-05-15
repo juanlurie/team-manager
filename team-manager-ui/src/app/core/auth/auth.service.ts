@@ -45,7 +45,20 @@ export class AuthService {
   }
 
   login()  { if (!this.devMode) this.oauth.initCodeFlow(); }
-  logout() { if (!this.devMode) this.oauth.revokeTokenAndLogout(); }
+
+  logout() {
+    if (this.devMode) {
+      // Dev mode: just reload the page to "logout"
+      window.location.reload();
+      return;
+    }
+    try {
+      this.oauth.revokeTokenAndLogout();
+    } catch {
+      // If revoke fails (e.g. no token), clear storage and redirect
+      this.oauth.logOut();
+    }
+  }
 
   hasValidToken(): boolean {
     if (this.devMode) return true;
