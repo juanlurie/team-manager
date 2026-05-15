@@ -76,9 +76,11 @@ export class LoginComponent implements OnInit {
   private router = inject(Router);
 
   ngOnInit() {
-    this.auth.isAuthorized$.subscribe(authorized => {
-      if (authorized) {
+    this.auth.authStatus$.subscribe(status => {
+      if (status === 'authorized') {
         this.router.navigate(['/dashboard']);
+      } else if (status === 'unauthorized') {
+        this.router.navigate(['/not-registered']);
       }
     });
   }
