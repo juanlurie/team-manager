@@ -26,6 +26,7 @@ const PRIMARY_NAV: NavItem[] = [
   { path: '/fun',            icon: 'casino',          label: 'Fun Hub'      },
   { path: '/team',           icon: 'people',          label: 'Team'         },
   { path: '/leave',          icon: 'event_busy',      label: 'Leave'        },
+  { path: '/showcase',       icon: 'auto_awesome',    label: 'Showcase'     },
 ];
 
 const SECONDARY_NAV: NavItem[] = [
@@ -39,7 +40,7 @@ const BOTTOM_NAV: NavItem[] = [
   { path: '/sprints',        icon: 'directions_run',  label: 'Sprints'      },
   { path: '/fun',            icon: 'casino',          label: 'Fun Hub'      },
   { path: '/team',           icon: 'people',          label: 'Team'         },
-  { path: '/leave',          icon: 'event_busy',      label: 'Leave'        },
+  { path: '/showcase',       icon: 'auto_awesome',    label: 'Showcase'     },
 ];
 
 const MORE_NAV: NavItem[] = [
@@ -48,6 +49,7 @@ const MORE_NAV: NavItem[] = [
   { path: '/discussion',     icon: 'forum',          label: 'Discussion'    },
   { path: '/meetings',       icon: 'event',          label: 'Meetings'      },
   { path: '/fun',            icon: 'casino',         label: 'Fun Hub'       },
+  { path: '/showcase',       icon: 'auto_awesome',   label: 'Showcase'      },
   { path: '/export',         icon: 'download',       label: 'Export'        },
   { path: '/profile',        icon: 'person',         label: 'Profile'       },
 ];
