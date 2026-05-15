@@ -66,17 +66,6 @@ export class ShowcaseDataService {
     ];
   }
 
-  getTuiApiEndpoints(): string[] {
-    return [
-      'GET /api/v1/sprints',
-      'GET /api/v1/dashboard/sprint/{id}',
-      'GET /api/v1/dashboard/sprint/{id}/blockers',
-      'GET /api/v1/dashboard/sprint/{id}/leave-summary',
-      'GET /api/v1/sprint-members/{id}/work-items',
-      'POST /api/v1/sprints/{id}/features',
-    ];
-  }
-
   getMcpDomains(): McpDomain[] {
     return [
       {
