@@ -7,11 +7,6 @@ export interface SearchCapability {
   details: string;
 }
 
-export interface ServerSideFilter {
-  entity: string;
-  filters: string[];
-}
-
 export interface TuiScreen {
   name: string;
   file: string;

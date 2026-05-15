@@ -1,10 +1,6 @@
-import { Injectable, inject } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
-import { catchError, of, Observable } from 'rxjs';
-import { API_BASE } from '../../../core/services/api.config';
+import { Injectable } from '@angular/core';
 import {
   SearchCapability,
-  ServerSideFilter,
   TuiScreen,
   TuiKeyBinding,
   McpDomain,
@@ -13,8 +9,6 @@ import {
 
 @Injectable({ providedIn: 'root' })
 export class ShowcaseDataService {
-  private http = inject(HttpClient);
-
   getSearchCapabilities(): SearchCapability[] {
     return [
       {
@@ -49,16 +43,6 @@ export class ShowcaseDataService {
         features: ['Single-select with search', 'Multi-select with chips', 'Fuzzy matching'],
         details: 'Used in feature forms, sprint member selection, and meeting availability',
       },
-    ];
-  }
-
-  getServerSideFilters(): ServerSideFilter[] {
-    return [
-      { entity: 'Team Members', filters: ['role', 'teamLeadId', 'isActive'] },
-      { entity: 'Sprints', filters: ['piId', 'from date', 'to date'] },
-      { entity: 'Leave Records', filters: ['teamMemberId', 'sprintId', 'from', 'to'] },
-      { entity: 'Features', filters: ['status', 'piId'] },
-      { entity: 'Retro Actions', filters: ['sprintId'] },
     ];
   }
 
