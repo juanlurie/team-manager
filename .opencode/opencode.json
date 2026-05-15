@@ -13,5 +13,15 @@
         }
       }
     }
+  },
+  "mcp": {
+    "team-manager": {
+      "type": "local",
+      "command": ["python3", "/opt/services/team-manager/mcp-server/server.py"],
+      "environment": {
+        "TEAM_MANAGER_API_URL": "https://team.media.juanlurie.com",
+        "TEAM_MANAGER_API_KEY": "tm_1j3jqGdgtS00sY5g-YUv4rOgKKpthp9neMDL8MTVhKE"
+      }
+    }
   }
 }

@@ -49,6 +49,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<MeetingSeriesItemParticipant> MeetingSeriesItemParticipants => Set<MeetingSeriesItemParticipant>();
     public DbSet<MeetingSeriesItemAvailability> MeetingSeriesItemAvailabilities => Set<MeetingSeriesItemAvailability>();
     public DbSet<MeetingSeriesSlotClaim> MeetingSeriesSlotClaims => Set<MeetingSeriesSlotClaim>();
+    public DbSet<ApiKey> ApiKeys => Set<ApiKey>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -95,5 +96,6 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         modelBuilder.ApplyConfiguration(new MeetingSeriesItemParticipantConfiguration());
         modelBuilder.ApplyConfiguration(new MeetingSeriesItemAvailabilityConfiguration());
         modelBuilder.ApplyConfiguration(new MeetingSeriesSlotClaimConfiguration());
+        modelBuilder.ApplyConfiguration(new ApiKeyConfiguration());
     }
 }

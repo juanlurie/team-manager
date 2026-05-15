@@ -66,25 +66,6 @@ namespace TeamManager.Api.Migrations
                 oldType: "boolean",
                 oldDefaultValue: true);
 
-            migrationBuilder.AddColumn<decimal>(
-                name: "EstimatedDays",
-                table: "Features",
-                type: "numeric(6,1)",
-                nullable: true);
-
-            migrationBuilder.AddColumn<bool>(
-                name: "IsUnplanned",
-                table: "Features",
-                type: "boolean",
-                nullable: false,
-                defaultValue: false);
-
-            migrationBuilder.AddColumn<DateOnly>(
-                name: "StartDate",
-                table: "Features",
-                type: "date",
-                nullable: true);
-
             migrationBuilder.AlterColumn<bool>(
                 name: "IsCompleted",
                 table: "DiscussionTasks",
@@ -93,93 +74,6 @@ namespace TeamManager.Api.Migrations
                 oldClrType: typeof(bool),
                 oldType: "boolean",
                 oldDefaultValue: false);
-
-            migrationBuilder.AddColumn<Guid>(
-                name: "TeamMemberId",
-                table: "DiscussionPoints",
-                type: "uuid",
-                nullable: true);
-
-            migrationBuilder.CreateTable(
-                name: "Achievements",
-                columns: table => new
-                {
-                    Id = table.Column<Guid>(type: "uuid", nullable: false, defaultValueSql: "gen_random_uuid()"),
-                    Key = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: false),
-                    Name = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
-                    Description = table.Column<string>(type: "text", nullable: false),
-                    Icon = table.Column<string>(type: "character varying(10)", maxLength: 10, nullable: false),
-                    Category = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: false),
-                    Points = table.Column<int>(type: "integer", nullable: false)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_Achievements", x => x.Id);
-                });
-
-            migrationBuilder.CreateTable(
-                name: "Comments",
-                columns: table => new
-                {
-                    Id = table.Column<Guid>(type: "uuid", nullable: false, defaultValueSql: "gen_random_uuid()"),
-                    EntityType = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: false),
-                    EntityId = table.Column<Guid>(type: "uuid", nullable: false),
-                    Text = table.Column<string>(type: "character varying(2000)", maxLength: 2000, nullable: false),
-                    AuthorName = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: true),
-                    CreatedAt = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_Comments", x => x.Id);
-                });
-
-            migrationBuilder.CreateTable(
-                name: "PointAwards",
-                columns: table => new
-                {
-                    Id = table.Column<Guid>(type: "uuid", nullable: false, defaultValueSql: "gen_random_uuid()"),
-                    TeamMemberId = table.Column<Guid>(type: "uuid", nullable: false),
-                    Points = table.Column<int>(type: "integer", nullable: false),
-                    Reason = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: false),
-                    AwardedAt = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_PointAwards", x => x.Id);
-                    table.ForeignKey(
-                        name: "FK_PointAwards_TeamMembers_TeamMemberId",
-                        column: x => x.TeamMemberId,
-                        principalTable: "TeamMembers",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
-                });
-
-            migrationBuilder.CreateTable(
-                name: "MemberAchievements",
-                columns: table => new
-                {
-                    Id = table.Column<Guid>(type: "uuid", nullable: false, defaultValueSql: "gen_random_uuid()"),
-                    TeamMemberId = table.Column<Guid>(type: "uuid", nullable: false),
-                    AchievementId = table.Column<Guid>(type: "uuid", nullable: false),
-                    AwardedAt = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
-                    Note = table.Column<string>(type: "text", nullable: true)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_MemberAchievements", x => x.Id);
-                    table.ForeignKey(
-                        name: "FK_MemberAchievements_Achievements_AchievementId",
-                        column: x => x.AchievementId,
-                        principalTable: "Achievements",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
-                    table.ForeignKey(
-                        name: "FK_MemberAchievements_TeamMembers_TeamMemberId",
-                        column: x => x.TeamMemberId,
-                        principalTable: "TeamMembers",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
-                });
 
             migrationBuilder.CreateTable(
                 name: "WinNominations",
@@ -243,9 +137,7 @@ namespace TeamManager.Api.Migrations
                     Id = table.Column<Guid>(type: "uuid", nullable: false, defaultValueSql: "gen_random_uuid()"),
                     WeekStart = table.Column<DateOnly>(type: "date", nullable: false),
                     Status = table.Column<string>(type: "character varying(20)", maxLength: 20, nullable: false),
-                    WinnerNominationId = table.Column<Guid>(type: "uuid", nullable: true),
-                    OpenedAt = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
-                    ClosedAt = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true)
+                    WinnerNominationId = table.Column<Guid>(type: "uuid", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -262,37 +154,6 @@ namespace TeamManager.Api.Migrations
                 name: "IX_SprintVotes_VoterSprintMemberId",
                 table: "SprintVotes",
                 column: "VoterSprintMemberId");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_DiscussionPoints_TeamMemberId",
-                table: "DiscussionPoints",
-                column: "TeamMemberId");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_Achievements_Key",
-                table: "Achievements",
-                column: "Key",
-                unique: true);
-
-            migrationBuilder.CreateIndex(
-                name: "IX_Comments_EntityType_EntityId",
-                table: "Comments",
-                columns: new[] { "EntityType", "EntityId" });
-
-            migrationBuilder.CreateIndex(
-                name: "IX_MemberAchievements_AchievementId",
-                table: "MemberAchievements",
-                column: "AchievementId");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_MemberAchievements_TeamMemberId",
-                table: "MemberAchievements",
-                column: "TeamMemberId");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_PointAwards_TeamMemberId",
-                table: "PointAwards",
-                column: "TeamMemberId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_WinNominations_NomineeMemberId",
@@ -332,14 +193,6 @@ namespace TeamManager.Api.Migrations
                 column: "WinnerNominationId");
 
             migrationBuilder.AddForeignKey(
-                name: "FK_DiscussionPoints_TeamMembers_TeamMemberId",
-                table: "DiscussionPoints",
-                column: "TeamMemberId",
-                principalTable: "TeamMembers",
-                principalColumn: "Id",
-                onDelete: ReferentialAction.SetNull);
-
-            migrationBuilder.AddForeignKey(
                 name: "FK_WinNominations_WinWeeks_WinWeekId",
                 table: "WinNominations",
                 column: "WinWeekId",
@@ -352,27 +205,11 @@ namespace TeamManager.Api.Migrations
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropForeignKey(
-                name: "FK_DiscussionPoints_TeamMembers_TeamMemberId",
-                table: "DiscussionPoints");
-
-            migrationBuilder.DropForeignKey(
                 name: "FK_WinNominations_WinWeeks_WinWeekId",
                 table: "WinNominations");
 
             migrationBuilder.DropTable(
-                name: "Comments");
-
-            migrationBuilder.DropTable(
-                name: "MemberAchievements");
-
-            migrationBuilder.DropTable(
-                name: "PointAwards");
-
-            migrationBuilder.DropTable(
                 name: "WinVotes");
-
-            migrationBuilder.DropTable(
-                name: "Achievements");
 
             migrationBuilder.DropTable(
                 name: "WinWeeks");
@@ -383,10 +220,6 @@ namespace TeamManager.Api.Migrations
             migrationBuilder.DropIndex(
                 name: "IX_SprintVotes_VoterSprintMemberId",
                 table: "SprintVotes");
-
-            migrationBuilder.DropIndex(
-                name: "IX_DiscussionPoints_TeamMemberId",
-                table: "DiscussionPoints");
 
             migrationBuilder.DropColumn(
                 name: "Date",
@@ -403,22 +236,6 @@ namespace TeamManager.Api.Migrations
             migrationBuilder.DropColumn(
                 name: "Type",
                 table: "MeetingSessions");
-
-            migrationBuilder.DropColumn(
-                name: "EstimatedDays",
-                table: "Features");
-
-            migrationBuilder.DropColumn(
-                name: "IsUnplanned",
-                table: "Features");
-
-            migrationBuilder.DropColumn(
-                name: "StartDate",
-                table: "Features");
-
-            migrationBuilder.DropColumn(
-                name: "TeamMemberId",
-                table: "DiscussionPoints");
 
             migrationBuilder.AlterColumn<string>(
                 name: "BlockedReason",

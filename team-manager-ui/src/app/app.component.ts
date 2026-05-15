@@ -30,6 +30,7 @@ const PRIMARY_NAV: NavItem[] = [
 
 const SECONDARY_NAV: NavItem[] = [
   { path: '/export', icon: 'download', label: 'Export' },
+  { path: '/profile', icon: 'person', label: 'Profile' },
 ];
 
 // Bottom bar: 4 core items + "More" button for the rest
@@ -48,6 +49,7 @@ const MORE_NAV: NavItem[] = [
   { path: '/meetings',       icon: 'event',          label: 'Meetings'      },
   { path: '/fun',            icon: 'casino',         label: 'Fun Hub'       },
   { path: '/export',         icon: 'download',       label: 'Export'        },
+  { path: '/profile',        icon: 'person',         label: 'Profile'       },
 ];
 
 @Component({
