@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { API_BASE } from '../core/services/api.config';
+import { API_BASE } from '../../core/services/api.config';
 
 export interface LeaveFetchConfig {
   id?: string;
