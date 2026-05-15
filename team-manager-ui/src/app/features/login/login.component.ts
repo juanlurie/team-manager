@@ -1,8 +1,6 @@
 import { Component, OnInit, inject } from '@angular/core';
 import { Router } from '@angular/router';
-import { OAuthService } from 'angular-oauth2-oidc';
 import { AuthService } from '../../core/auth/auth.service';
-import { firstValueFrom } from 'rxjs';
 
 @Component({
   selector: 'app-login',
@@ -33,16 +31,9 @@ import { firstValueFrom } from 'rxjs';
 })
 export class LoginComponent implements OnInit {
   private auth = inject(AuthService);
-  private oauth = inject(OAuthService);
   private router = inject(Router);
 
-  async ngOnInit() {
-    await firstValueFrom(this.auth.isDone$);
-    if (this.auth.hasValidToken()) {
-      this.router.navigate(['/dashboard']);
-      return;
-    }
-    await this.oauth.tryLogin();
+  ngOnInit() {
     if (this.auth.hasValidToken()) {
       this.router.navigate(['/dashboard']);
     }
