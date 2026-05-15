@@ -2,7 +2,7 @@ import { HttpInterceptorFn, HttpErrorResponse } from '@angular/common/http';
 import { inject } from '@angular/core';
 import { OAuthService } from 'angular-oauth2-oidc';
 import { Router } from '@angular/router';
-import { catchError, throwError } from 'rxjs';
+import { catchError, EMPTY, throwError } from 'rxjs';
 
 export const authInterceptor: HttpInterceptorFn = (req, next) => {
   const oauth = inject(OAuthService);
@@ -14,10 +14,10 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
   })).pipe(
     catchError((err: HttpErrorResponse) => {
       if (err.status === 403) {
-        // Not a team member — clear tokens and redirect to not-registered page
         localStorage.clear();
         sessionStorage.clear();
         router.navigate(['/not-registered']);
+        return EMPTY;
       }
       return throwError(() => err);
     })
