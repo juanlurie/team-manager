@@ -1,11 +1,13 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using TeamManager.Api.Infrastructure.Data;
 
 namespace TeamManager.Api.Presentation.Controllers;
 
 [ApiController]
 [AllowAnonymous]
-public class AuthModeController(IConfiguration configuration, IHttpClientFactory httpClientFactory) : ControllerBase
+public class AuthModeController(IConfiguration configuration, IHttpClientFactory httpClientFactory, AppDbContext db) : ControllerBase
 {
     [HttpGet("api/auth-mode")]
     public IActionResult Get()
@@ -13,6 +15,28 @@ public class AuthModeController(IConfiguration configuration, IHttpClientFactory
         var authRequired = !string.IsNullOrEmpty(configuration["Jwt:Authority"])
                         && !string.IsNullOrEmpty(configuration["Jwt:Audience"]);
         return Ok(new { authRequired });
+    }
+
+    [HttpGet("api/auth/me")]
+    [Authorize]
+    public async Task<IActionResult> Me()
+    {
+        var tmid = User.FindFirst("TMID")?.Value;
+        if (string.IsNullOrEmpty(tmid))
+            return Forbid();
+
+        var member = await db.TeamMembers.FindAsync(Guid.Parse(tmid));
+        if (member == null || !member.IsActive)
+            return Forbid();
+
+        return Ok(new
+        {
+            id = member.Id,
+            firstName = member.FirstName,
+            lastName = member.LastName,
+            email = member.Email,
+            role = member.Role
+        });
     }
 
     // The browser sends the authorization code here (form-encoded, same format

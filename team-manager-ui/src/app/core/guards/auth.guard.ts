@@ -7,12 +7,13 @@ export const authGuard: CanActivateFn = () => {
   const auth = inject(AuthService);
   const router = inject(Router);
 
-  // Wait for auth initialisation to finish before deciding.
-  // This keeps the URL (including ?code=…) intact while tryLogin()
-  // exchanges the OAuth authorisation code for tokens.
-  return auth.isDone$.pipe(
-    filter(Boolean),
+  // Wait for auth initialisation + membership verification to finish
+  return auth.isAuthorized$.pipe(
+    filter(val => val !== null && auth.isDone$),
     take(1),
-    map(() => auth.hasValidToken() || router.createUrlTree(['/login'])),
+    map(isAuthorized => {
+      if (isAuthorized) return true;
+      return router.createUrlTree(['/not-registered']);
+    }),
   );
 };

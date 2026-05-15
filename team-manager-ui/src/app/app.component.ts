@@ -63,7 +63,7 @@ const MORE_NAV: NavItem[] = [
     <div class="shell" [class.mobile]="isMobile()">
 
       <!-- ── Mobile bottom nav ── -->
-      @if (isMobile() && !isLoginPage()) {
+      @if (isMobile() && !isLoginPage() && isAuthorized()) {
         <!-- Bottom nav bar -->
         <nav class="bottom-nav">
           @for (item of bottomNav; track item.path) {
@@ -102,7 +102,7 @@ const MORE_NAV: NavItem[] = [
       }
 
       <!-- ── Desktop sidebar ── -->
-      @if (!isMobile() && !isLoginPage()) {
+      @if (!isMobile() && !isLoginPage() && isAuthorized()) {
         <nav class="sidebar" [class.expanded]="expanded()">
 
           <button class="sidebar-header" (click)="toggleExpanded()"
@@ -387,6 +387,7 @@ export class AppComponent {
 
   isMoreActive = computed(() => MORE_NAV.some(item => this.currentUrl().startsWith(item.path)));
   isLoginPage = computed(() => this.currentUrl() === '/login');
+  isAuthorized = signal(false);
 
   expanded = signal(localStorage.getItem('nav-expanded') === 'true');
 
@@ -395,6 +396,7 @@ export class AppComponent {
 
   constructor() {
     this.checkMobile();
+    this.auth.isAuthorized$.subscribe(v => this.isAuthorized.set(v));
     this.router.events.pipe(filter(e => e instanceof NavigationEnd)).subscribe(e => {
       this.currentUrl.set((e as NavigationEnd).urlAfterRedirects);
       this.moreOpen.set(false);
