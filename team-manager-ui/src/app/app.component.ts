@@ -9,6 +9,7 @@ import { QuickOpenDialogComponent } from './core/components/quick-open-dialog/qu
 import { KPickerData, KPickerResult } from './core/components/k-picker/k-picker.types';
 import { TeamMember } from './core/models/team-member.model';
 import { GlobalFilterService } from './core/services/global-filter.service';
+import { AuthService } from './core/auth/auth.service';
 
 interface NavItem {
   path: string;
@@ -26,7 +27,6 @@ const PRIMARY_NAV: NavItem[] = [
   { path: '/fun',            icon: 'casino',          label: 'Fun Hub'      },
   { path: '/team',           icon: 'people',          label: 'Team'         },
   { path: '/leave',          icon: 'event_busy',      label: 'Leave'        },
-  { path: '/showcase',       icon: 'auto_awesome',    label: 'Showcase'     },
 ];
 
 const SECONDARY_NAV: NavItem[] = [
@@ -40,7 +40,7 @@ const BOTTOM_NAV: NavItem[] = [
   { path: '/sprints',        icon: 'directions_run',  label: 'Sprints'      },
   { path: '/fun',            icon: 'casino',          label: 'Fun Hub'      },
   { path: '/team',           icon: 'people',          label: 'Team'         },
-  { path: '/showcase',       icon: 'auto_awesome',    label: 'Showcase'     },
+  { path: '/leave',          icon: 'event_busy',      label: 'Leave'        },
 ];
 
 const MORE_NAV: NavItem[] = [
@@ -52,6 +52,7 @@ const MORE_NAV: NavItem[] = [
   { path: '/showcase',       icon: 'auto_awesome',   label: 'Showcase'      },
   { path: '/export',         icon: 'download',       label: 'Export'        },
   { path: '/profile',        icon: 'person',         label: 'Profile'       },
+  { path: '/leave',          icon: 'event_busy',     label: 'Leave'         },
 ];
 
 @Component({
@@ -91,6 +92,10 @@ const MORE_NAV: NavItem[] = [
                   <span>{{ item.label }}</span>
                 </a>
               }
+              <button class="more-item more-logout" (click)="onLogout()">
+                <mat-icon class="more-icon">logout</mat-icon>
+                <span>Logout</span>
+              </button>
             </div>
           </div>
         }
@@ -128,6 +133,12 @@ const MORE_NAV: NavItem[] = [
               </a>
             }
           </div>
+
+          <button class="sidebar-logout" (click)="onLogout()"
+                  [matTooltip]="expanded() ? '' : 'Logout'" matTooltipPosition="right">
+            <mat-icon class="nav-icon">logout</mat-icon>
+            <span class="nav-label">Logout</span>
+          </button>
 
         </nav>
       }
@@ -253,6 +264,27 @@ const MORE_NAV: NavItem[] = [
       flex-shrink: 0;
     }
 
+    .sidebar-logout {
+      display: flex;
+      align-items: center;
+      gap: 0;
+      padding: 12px 0;
+      justify-content: center;
+      color: rgba(255,255,255,0.35);
+      background: none;
+      border: none;
+      border-top: 1px solid rgba(255,255,255,0.05);
+      cursor: pointer;
+      width: 100%;
+      transition: background 0.15s, color 0.15s;
+      white-space: nowrap;
+      overflow: hidden;
+      flex-shrink: 0;
+      font-family: inherit;
+    }
+    .sidebar-logout:hover { background: rgba(239,83,80,0.1); color: #ef5350; }
+    .sidebar.expanded .sidebar-logout { padding: 12px 16px; justify-content: flex-start; gap: 12px; }
+
     /* ── Bottom nav ── */
     .bottom-nav {
       position: fixed;
@@ -331,6 +363,8 @@ const MORE_NAV: NavItem[] = [
     .more-item:hover { background: rgba(255,255,255,0.07); color: rgba(255,255,255,0.9); }
     .more-item.active { background: rgba(100,181,246,0.12); color: #64b5f6; }
     .more-icon { font-size: 26px; width: 26px; height: 26px; line-height: 26px; }
+    .more-logout { color: rgba(239,83,80,0.7); }
+    .more-logout:hover { background: rgba(239,83,80,0.1); color: #ef5350; }
 
     /* ── Main content ── */
     .content { flex: 1; overflow-y: auto; min-width: 0; }
@@ -348,6 +382,7 @@ export class AppComponent {
   private router = inject(Router);
   private dialog = inject(MatDialog);
   private globalFilterSvc = inject(GlobalFilterService);
+  private auth = inject(AuthService);
   private currentUrl = signal(this.router.url);
 
   isMoreActive = computed(() => MORE_NAV.some(item => this.currentUrl().startsWith(item.path)));
@@ -385,6 +420,10 @@ export class AppComponent {
     const next = !this.expanded();
     this.expanded.set(next);
     localStorage.setItem('nav-expanded', String(next));
+  }
+
+  onLogout() {
+    this.auth.logout();
   }
 
   private openQuickOpen(): void {
