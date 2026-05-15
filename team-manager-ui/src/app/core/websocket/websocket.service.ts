@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
-import { BehaviorSubject, Observable, retry, timer } from 'rxjs';
-import { AuthService } from './auth/auth.service';
+import { BehaviorSubject } from 'rxjs';
+import { timer } from 'rxjs';
 
 export interface WsMessage {
   type: 'vote_cast' | 'vote_removed' | 'voting_opened' | 'voting_closed';
@@ -12,11 +12,10 @@ export class WebSocketService {
   private ws: WebSocket | null = null;
   private _messages$ = new BehaviorSubject<WsMessage | null>(null);
   private _connected$ = new BehaviorSubject<boolean>(false);
+  private reconnectTimer: any;
 
   messages$ = this._messages$.asObservable();
   connected$ = this._connected$.asObservable();
-
-  constructor(private auth: AuthService) {}
 
   connect(): void {
     if (this.ws?.readyState === WebSocket.OPEN) return;
@@ -42,8 +41,9 @@ export class WebSocketService {
 
     this.ws.onclose = () => {
       this._connected$.next(false);
+      this.ws = null;
       // Reconnect after 3 seconds
-      timer(3000).subscribe(() => this.connect());
+      this.reconnectTimer = setTimeout(() => this.connect(), 3000);
     };
 
     this.ws.onerror = () => {
@@ -52,6 +52,7 @@ export class WebSocketService {
   }
 
   disconnect(): void {
+    clearTimeout(this.reconnectTimer);
     this.ws?.close();
     this.ws = null;
   }
