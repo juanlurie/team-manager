@@ -13,6 +13,7 @@ import { McpDomain, McpTool } from '../models/showcase.model';
     <div class="section">
       <div class="section-header">
         <h2 class="section-title">Model Context Protocol (MCP) Server</h2>
+        <p class="section-desc">Expose the entire Team Manager API to AI assistants like Claude, Cursor, and Windsurf. Let AI agents read your sprint data, create work items, and manage meetings through natural language.</p>
       </div>
       <div class="meta-bar">
         <span class="meta-item"><mat-icon>code</mat-icon> Server: <code>mcp-server/server.py</code></span>
@@ -59,7 +60,8 @@ import { McpDomain, McpTool } from '../models/showcase.model';
   `,
   styles: [`
     .section { padding: 8px 0; }
-    .section-title { font-size: 1.1rem; font-weight: 600; color: rgba(255,255,255,0.85); margin: 0 0 12px; }
+    .section-title { font-size: 1.1rem; font-weight: 600; color: rgba(255,255,255,0.85); margin: 0 0 6px; }
+    .section-desc { font-size: 0.82rem; color: rgba(255,255,255,0.45); margin: 0 0 12px; line-height: 1.5; }
 
     .meta-bar {
       display: flex; flex-wrap: wrap; gap: 16px; margin-bottom: 16px;

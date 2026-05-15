@@ -13,34 +13,34 @@ export class ShowcaseDataService {
     return [
       {
         name: 'Quick Open',
-        icon: 'quick_reference',
-        trigger: 'Ctrl+P',
-        description: 'Navigate to any page or team member',
-        features: ['13 pages indexed', 'All active members', 'Keyboard navigation', 'Arrow keys, Enter, Escape'],
+        icon: 'find_in_page',
+        trigger: 'Ctrl+P / Cmd+P',
+        description: 'Instantly navigate to any page or team member across the entire application. Opens a command-palette style search bar where you can type to filter results in real-time.',
+        features: ['All 13+ pages indexed', 'Active team members included', 'Keyboard navigation with arrow keys', 'Enter to select, Escape to close'],
         details: 'Command-palette style navigation',
       },
       {
         name: 'K-Picker',
         icon: 'group_add',
-        trigger: 'Ctrl+K',
-        description: 'Multi-select team members with fuzzy search',
-        features: ['Squad filter', 'Lead filter', 'Recent selections (localStorage)', 'Single or multi-select mode'],
+        trigger: 'Ctrl+K / Cmd+K',
+        description: 'Quickly search and select team members from anywhere in the app. Supports fuzzy matching so you can type partial names or initials to find the right person fast.',
+        features: ['Fuzzy name matching', 'Filter by squad or team lead', 'Remembers recent selections', 'Single or multi-select mode'],
         details: 'Used across all forms and filter bars',
       },
       {
         name: 'Filter Bar',
         icon: 'filter_list',
         trigger: 'Inline',
-        description: 'Column-based filtering on data tables',
-        features: ['Status, Assignee, Squad filters', '@mention support for assignee names', 'Clear all with Escape'],
+        description: 'Powerful column-based filtering on data tables throughout the app. Type to search within any column, use @ mentions for assignee names, and clear all filters with a single Escape key.',
+        features: ['Status, assignee, and squad filters', '@mention support for quick name lookup', 'Clear all filters with Escape', 'Real-time results as you type'],
         details: 'Available on dashboard and list views',
       },
       {
         name: 'Searchable Selects',
         icon: 'search',
         trigger: 'Dropdown',
-        description: 'Single and multi-select dropdowns with search',
-        features: ['Single-select with search', 'Multi-select with chips', 'Fuzzy matching'],
+        description: 'Every dropdown in the app is searchable. Instead of scrolling through long lists, simply start typing to find the option you need. Supports both single and multi-select with visual chips.',
+        features: ['Single-select with live search', 'Multi-select with removable chips', 'Fuzzy matching for partial inputs', 'Used in forms and meeting availability'],
         details: 'Used in feature forms, sprint member selection, and meeting availability',
       },
     ];
@@ -57,12 +57,12 @@ export class ShowcaseDataService {
 
   getTuiKeyBindings(): TuiKeyBinding[] {
     return [
-      { key: '[ / ]', action: 'Navigate between sprints' },
-      { key: 'n', action: 'Add new feature' },
-      { key: 'Enter', action: 'Open feature detail / work items' },
-      { key: 'r', action: 'Refresh data' },
-      { key: 'b / Esc', action: 'Go back' },
-      { key: 'q', action: 'Quit' },
+      { key: '[ / ]', macKey: '[ / ]', action: 'Navigate between sprints' },
+      { key: 'n', macKey: 'n', action: 'Add new feature' },
+      { key: 'Enter', macKey: 'Return', action: 'Open feature detail / work items' },
+      { key: 'r', macKey: 'r', action: 'Refresh data' },
+      { key: 'b / Esc', macKey: 'b / Esc', action: 'Go back' },
+      { key: 'q', macKey: 'q', action: 'Quit' },
     ];
   }
 

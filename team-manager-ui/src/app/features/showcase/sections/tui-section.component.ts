@@ -12,6 +12,7 @@ import { TuiScreen, TuiKeyBinding } from '../models/showcase.model';
     <div class="section">
       <div class="section-header">
         <h2 class="section-title">Terminal UI (TUI)</h2>
+        <p class="section-desc">A full-featured terminal application for managing sprints directly from your command line. Perfect for quick updates, standup prep, or when you prefer keyboard-driven workflows.</p>
       </div>
       <div class="meta-bar">
         <span class="meta-item"><mat-icon>code</mat-icon> Framework: Textual (Python)</span>
@@ -41,7 +42,13 @@ import { TuiScreen, TuiKeyBinding } from '../models/showcase.model';
             </div>
             @for (kb of keyBindings; track kb.key) {
               <div class="key-row">
-                <kbd class="key-chord">{{ kb.key }}</kbd>
+                <span class="key-chords">
+                  <kbd class="key-chord">{{ kb.key }}</kbd>
+                  @if (kb.macKey && kb.macKey !== kb.key) {
+                    <span class="key-or">or</span>
+                    <kbd class="key-chord mac">{{ kb.macKey }}</kbd>
+                  }
+                </span>
                 <span class="key-action">{{ kb.action }}</span>
               </div>
             }
@@ -61,7 +68,8 @@ import { TuiScreen, TuiKeyBinding } from '../models/showcase.model';
   `,
   styles: [`
     .section { padding: 8px 0; }
-    .section-title { font-size: 1.1rem; font-weight: 600; color: rgba(255,255,255,0.85); margin: 0 0 12px; }
+    .section-title { font-size: 1.1rem; font-weight: 600; color: rgba(255,255,255,0.85); margin: 0 0 6px; }
+    .section-desc { font-size: 0.82rem; color: rgba(255,255,255,0.45); margin: 0 0 12px; line-height: 1.5; }
 
     .meta-bar {
       display: flex; flex-wrap: wrap; gap: 16px; margin-bottom: 24px;
@@ -111,11 +119,14 @@ import { TuiScreen, TuiKeyBinding } from '../models/showcase.model';
     }
     .key-row:last-child { border-bottom: none; }
     .key-row:first-child { background: rgba(255,255,255,0.03); font-weight: 600; }
+    .key-chords { flex: 0 0 160px; display: flex; align-items: center; gap: 6px; }
     .key-chord {
       font-size: 0.78rem; font-weight: 600; color: #64b5f6;
       background: rgba(100,181,246,0.12); padding: 3px 10px; border-radius: 4px;
-      font-family: 'SF Mono', 'Fira Code', monospace; min-width: 60px; text-align: center;
+      font-family: 'SF Mono', 'Fira Code', monospace; text-align: center;
     }
+    .key-chord.mac { color: #81c784; background: rgba(129,199,132,0.12); }
+    .key-or { font-size: 0.7rem; color: rgba(255,255,255,0.3); }
     .key-label { flex: 0 0 80px; font-size: 0.82rem; color: rgba(255,255,255,0.7); }
     .key-action { flex: 1; font-size: 0.8rem; color: rgba(255,255,255,0.55); }
 
