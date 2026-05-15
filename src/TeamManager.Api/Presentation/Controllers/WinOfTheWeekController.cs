@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using TeamManager.Api.Application.DTOs.WinOfTheWeek;
 using TeamManager.Api.Application.Services.Interfaces;
 using TeamManager.Api.Infrastructure.Data;
+using TeamManager.Api.Middleware;
 
 namespace TeamManager.Api.Presentation.Controllers;
 
@@ -41,6 +42,7 @@ public class WinOfTheWeekController(IWinOfTheWeekService service, AppDbContext d
         try
         {
             var result = await service.VoteAsync(memberId, nominationId);
+            _ = WebSocketMiddleware.BroadcastAsync("vote_cast", new { nominationId, voterId = memberId, voteCount = result?.GetType().GetProperty("VoteCount")?.GetValue(result) });
             return Ok(result);
         }
         catch (KeyNotFoundException)
@@ -58,6 +60,8 @@ public class WinOfTheWeekController(IWinOfTheWeekService service, AppDbContext d
     {
         var memberId = GetCurrentMemberId();
         var success = await service.RemoveVoteAsync(memberId, nominationId);
+        if (success)
+            _ = WebSocketMiddleware.BroadcastAsync("vote_removed", new { nominationId, voterId = memberId });
         return success ? NoContent() : NotFound();
     }
 
@@ -69,6 +73,7 @@ public class WinOfTheWeekController(IWinOfTheWeekService service, AppDbContext d
         try
         {
             var result = await service.CloseWeekAsync(memberId, request);
+            _ = WebSocketMiddleware.BroadcastAsync("voting_closed", new { weekId = result?.GetType().GetProperty("Id")?.GetValue(result), winnerId = request.WinnerNominationId });
             return Ok(result);
         }
         catch (KeyNotFoundException)
@@ -105,6 +110,7 @@ public class WinOfTheWeekController(IWinOfTheWeekService service, AppDbContext d
         try
         {
             var result = await service.OpenVotingAsync(memberId);
+            _ = WebSocketMiddleware.BroadcastAsync("voting_opened", new { });
             return Ok(result);
         }
         catch (InvalidOperationException ex)

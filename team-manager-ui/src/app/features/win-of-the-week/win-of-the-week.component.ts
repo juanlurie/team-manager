@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, signal, computed } from '@angular/core';
+import { Component, OnInit, inject, signal, computed, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
@@ -9,9 +9,11 @@ import { MatSnackBarModule, MatSnackBar } from '@angular/material/snack-bar';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatSelectModule } from '@angular/material/select';
 import { MatInputModule } from '@angular/material/input';
+import { Subscription } from 'rxjs';
 import { WinOfTheWeekService } from '../../core/services/win-of-the-week.service';
 import { WinOfTheMonthService } from '../../core/services/win-of-the-month.service';
 import { TeamMemberService } from '../../core/services/team-member.service';
+import { WebSocketService } from '../../core/websocket/websocket.service';
 import { WinWeek, WinNomination, CreateNominationRequest } from '../../core/models/win-week.model';
 import { TeamMember } from '../../core/models/team-member.model';
 import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/confirm-dialog.component';
@@ -293,12 +295,14 @@ import { WinOfTheMonthComponent } from '../win-of-the-month/win-of-the-month.com
     </ng-template>
   `
 })
-export class WinOfTheWeekComponent implements OnInit {
+export class WinOfTheWeekComponent implements OnInit, OnDestroy {
   private winSvc = inject(WinOfTheWeekService);
   private womSvc = inject(WinOfTheMonthService);
   private memberSvc = inject(TeamMemberService);
+  private wsSvc = inject(WebSocketService);
   private dialog = inject(MatDialog);
   private snackBar = inject(MatSnackBar);
+  private wsSub: Subscription | null = null;
 
   readonly DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
   readonly tabs = [
@@ -347,6 +351,27 @@ export class WinOfTheWeekComponent implements OnInit {
       this.allMembers.set(members.sort((a, b) => a.firstName.localeCompare(b.firstName)));
     });
     this.refresh();
+
+    // Connect to WebSocket for real-time updates
+    this.wsSvc.connect();
+    this.wsSub = this.wsSvc.messages$.subscribe(msg => {
+      if (!msg || this.activeTab() !== 'current') return;
+      switch (msg.type) {
+        case 'vote_cast':
+        case 'vote_removed':
+          // Refresh nominations to get updated vote counts
+          this.refresh();
+          break;
+        case 'voting_opened':
+        case 'voting_closed':
+          this.refresh();
+          break;
+      }
+    });
+  }
+
+  ngOnDestroy() {
+    this.wsSub?.unsubscribe();
   }
 
   private refresh() {
