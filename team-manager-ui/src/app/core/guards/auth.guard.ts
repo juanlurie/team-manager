@@ -7,9 +7,8 @@ export const authGuard: CanActivateFn = () => {
   const auth = inject(AuthService);
   const router = inject(Router);
 
-  // Wait for auth initialisation + membership verification to finish
   return auth.isAuthorized$.pipe(
-    filter(val => val !== null && auth.isDone$),
+    filter(v => v !== null),
     take(1),
     map(isAuthorized => {
       if (isAuthorized) return true;

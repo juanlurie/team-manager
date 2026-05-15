@@ -18,7 +18,7 @@ export class AuthService {
   private _isDone$ = new BehaviorSubject<boolean>(false);
   isDone$ = this._isDone$.asObservable();
 
-  private _isAuthorized$ = new BehaviorSubject<boolean>(false);
+  private _isAuthorized$ = new BehaviorSubject<boolean | null>(null);
   isAuthorized$ = this._isAuthorized$.asObservable();
 
   private _me$ = new BehaviorSubject<MeResponse | null>(null);
