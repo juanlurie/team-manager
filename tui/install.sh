@@ -2,15 +2,14 @@
 set -euo pipefail
 
 # ── Team Manager TUI Installer ──────────────────────────────────────────────
-# Usage: curl -sSL https://raw.githubusercontent.com/juanlurie/team-manager/main/tui/install.sh | bash
+# Run from the tui/ directory: bash install.sh
+#
+# Installs to ~/.team-manager-tui and creates a `team-manager-tui` CLI command.
 # ─────────────────────────────────────────────────────────────────────────────
 
-REPO="juanlurie/team-manager"
-BRANCH="main"
 INSTALL_DIR="${HOME}/.team-manager-tui"
 BIN_DIR="${HOME}/.local/bin"
 CLI_BIN="${BIN_DIR}/team-manager-tui"
-API_URL="${TEAM_MANAGER_API_URL:-http://localhost:5000}"
 
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
@@ -23,12 +22,17 @@ error() { echo -e "${RED}✗${NC} $1" >&2; }
 
 # ── Pre-flight checks ───────────────────────────────────────────────────────
 command -v python3 >/dev/null 2>&1 || { error "python3 is required but not installed."; exit 1; }
-command -v curl >/dev/null 2>&1  || { error "curl is required but not installed."; exit 1; }
 
 PYTHON_VERSION=$(python3 -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')
 MIN_VERSION="3.10"
 if [ "$(printf '%s\n' "$MIN_VERSION" "$PYTHON_VERSION" | sort -V | head -n1)" != "$MIN_VERSION" ]; then
     error "Python $MIN_VERSION or higher is required (found $PYTHON_VERSION)."
+    exit 1
+fi
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ ! -f "${SCRIPT_DIR}/app.py" ]; then
+    error "Run this script from the tui/ directory (cannot find app.py)."
     exit 1
 fi
 
@@ -41,14 +45,12 @@ echo ""
 mkdir -p "$INSTALL_DIR/screens"
 mkdir -p "$BIN_DIR"
 
-# ── Download source files ───────────────────────────────────────────────────
-BASE_URL="https://raw.githubusercontent.com/${REPO}/${BRANCH}/tui"
-
-info "Downloading TUI source files..."
-
-for file in app.py api.py requirements.txt screens/__init__.py screens/dashboard.py screens/feature_detail.py screens/work_items.py screens/add_feature.py; do
-    curl -sSf "${BASE_URL}/${file}" -o "${INSTALL_DIR}/${file}"
-done
+# ── Copy source files ───────────────────────────────────────────────────────
+info "Copying TUI source files..."
+cp "${SCRIPT_DIR}/app.py" "${INSTALL_DIR}/app.py"
+cp "${SCRIPT_DIR}/api.py" "${INSTALL_DIR}/api.py"
+cp "${SCRIPT_DIR}/requirements.txt" "${INSTALL_DIR}/requirements.txt"
+cp "${SCRIPT_DIR}/screens/"*.py "${INSTALL_DIR}/screens/"
 
 # ── Create/update venv ──────────────────────────────────────────────────────
 if [ -d "${INSTALL_DIR}/venv" ]; then
@@ -101,7 +103,4 @@ echo "    team-manager-tui"
 echo ""
 echo "  Connect to a remote API:"
 echo "    TEAM_MANAGER_API_URL=https://your-api.com team-manager-tui"
-echo ""
-echo "  Update to the latest version:"
-echo "    curl -sSL ${BASE_URL}/install.sh | bash"
 echo ""
