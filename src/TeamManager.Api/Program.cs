@@ -41,6 +41,7 @@ builder.Services.AddScoped<ISprintService, SprintService>();
 builder.Services.AddScoped<IWorkItemService, WorkItemService>();
 builder.Services.AddScoped<IFeatureService, FeatureService>();
 builder.Services.AddScoped<ILeaveService, LeaveService>();
+builder.Services.AddHttpClient();
 builder.Services.AddScoped<IPIService, PIService>();
 builder.Services.AddScoped<ISprintService, SprintService>();
 builder.Services.AddScoped<IWorkItemService, WorkItemService>();
