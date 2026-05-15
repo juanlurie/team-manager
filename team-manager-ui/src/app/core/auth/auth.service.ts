@@ -47,17 +47,13 @@ export class AuthService {
   login()  { if (!this.devMode) this.oauth.initCodeFlow(); }
 
   logout() {
-    if (this.devMode) {
-      // Dev mode: just reload the page to "logout"
-      window.location.reload();
-      return;
-    }
-    try {
-      this.oauth.revokeTokenAndLogout();
-    } catch {
-      // If revoke fails (e.g. no token), clear storage and redirect
-      this.oauth.logOut();
-    }
+    // Remove OAuth tokens from localStorage (angular-oauth2-oidc storage)
+    ['access_token', 'id_token', 'access_token_stored_at', 'granted_scopes', 'nonce'].forEach(k => {
+      localStorage.removeItem(k);
+      sessionStorage.removeItem(k);
+    });
+    // Hard redirect to origin — app will detect no token and start login flow
+    window.location.href = window.location.origin;
   }
 
   hasValidToken(): boolean {
