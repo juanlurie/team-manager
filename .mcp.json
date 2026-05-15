@@ -4,7 +4,8 @@
       "command": "python3",
       "args": ["/opt/services/team-manager/mcp-server/server.py"],
       "env": {
-        "TEAM_MANAGER_API_URL": "http://localhost:5000"
+        "TEAM_MANAGER_API_URL": "http://localhost:5000",
+        "TEAM_MANAGER_API_KEY": ""
       }
     }
   }

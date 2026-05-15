@@ -86,20 +86,30 @@ if (!string.IsNullOrEmpty(authority) && !string.IsNullOrEmpty(audience))
                 NameClaimType = "name",
                 RoleClaimType = "role"
             };
-        });
+        })
+        .AddScheme<AuthenticationSchemeOptions, ApiKeyAuthenticationHandler>("ApiKey", _ => { });
 
     builder.Services.AddAuthorization(o =>
-        o.FallbackPolicy = new AuthorizationPolicyBuilder()
+    {
+        o.FallbackPolicy = new AuthorizationPolicyBuilder(JwtBearerDefaults.AuthenticationScheme, "ApiKey")
             .RequireAuthenticatedUser()
-            .Build());
+            .Build();
+        o.DefaultPolicy = new AuthorizationPolicyBuilder(JwtBearerDefaults.AuthenticationScheme, "ApiKey")
+            .RequireAuthenticatedUser()
+            .Build();
+    });
 
     builder.Services.AddScoped<IClaimsTransformation, TeamMemberClaimsTransformer>();
 }
 else
 {
     builder.Services.AddAuthentication("Development")
-        .AddScheme<AuthenticationSchemeOptions, DevelopmentAuthHandler>("Development", _ => { });
-    builder.Services.AddAuthorization();
+        .AddScheme<AuthenticationSchemeOptions, DevelopmentAuthHandler>("Development", _ => { })
+        .AddScheme<AuthenticationSchemeOptions, ApiKeyAuthenticationHandler>("ApiKey", _ => { });
+    builder.Services.AddAuthorization(o =>
+        o.FallbackPolicy = new AuthorizationPolicyBuilder("Development", "ApiKey")
+            .RequireAuthenticatedUser()
+            .Build());
     builder.Services.AddScoped<IClaimsTransformation, TeamMemberClaimsTransformer>();
 }
 
@@ -111,8 +121,9 @@ app.UseSwagger();
 app.UseSwaggerUI();
 
 app.UseCors("AllowAll");
-app.UseAuthentication();   // <-- add
-app.UseAuthorization();    // <-- add
+
+app.UseAuthentication();
+app.UseAuthorization();
 app.MapHealthChecks("/health").AllowAnonymous();
 app.MapControllers();
 

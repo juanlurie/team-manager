@@ -50,6 +50,10 @@ export const routes: Routes = [
         loadChildren: () => import('./features/meetings/meetings.routes').then(m => m.MEETING_ROUTES)
       },
       {
+        path: 'profile',
+        loadComponent: () => import('./features/profile/profile.component').then(m => m.ProfileComponent)
+      },
+      {
         path: 'session-types',
         loadChildren: () => import('./features/session-types/session-types.routes').then(m => m.SESSION_TYPES_ROUTES)
       },
