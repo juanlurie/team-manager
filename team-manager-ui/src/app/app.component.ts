@@ -387,7 +387,7 @@ export class AppComponent {
 
   isMoreActive = computed(() => MORE_NAV.some(item => this.currentUrl().startsWith(item.path)));
   isLoginPage = computed(() => this.currentUrl() === '/login');
-  isAuthorized = signal<boolean | null>(null);
+  isAuthorized = signal(false);
 
   expanded = signal(localStorage.getItem('nav-expanded') === 'true');
 
@@ -396,7 +396,7 @@ export class AppComponent {
 
   constructor() {
     this.checkMobile();
-    this.auth.isAuthorized$.subscribe(v => this.isAuthorized.set(v));
+    this.auth.authStatus$.subscribe(status => this.isAuthorized.set(status === 'authorized'));
     this.router.events.pipe(filter(e => e instanceof NavigationEnd)).subscribe(e => {
       this.currentUrl.set((e as NavigationEnd).urlAfterRedirects);
       this.moreOpen.set(false);

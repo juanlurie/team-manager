@@ -18,8 +18,9 @@ export class AuthService {
   private _isDone$ = new BehaviorSubject<boolean>(false);
   isDone$ = this._isDone$.asObservable();
 
-  private _isAuthorized$ = new BehaviorSubject<boolean | null>(null);
-  isAuthorized$ = this._isAuthorized$.asObservable();
+  // null = still checking, 'unauthenticated' = no token, 'unauthorized' = token but not a member, 'authorized' = good
+  private _authStatus$ = new BehaviorSubject<'checking' | 'unauthenticated' | 'unauthorized' | 'authorized'>('checking');
+  authStatus$ = this._authStatus$.asObservable();
 
   private _me$ = new BehaviorSubject<MeResponse | null>(null);
   me$ = this._me$.asObservable();
@@ -34,8 +35,7 @@ export class AuthService {
         if (!authRequired) {
           // Backend dev mode: no OAuth needed, proceed immediately.
           this.devMode = true;
-          // In dev mode, we can't verify membership server-side, so allow through
-          this._isAuthorized$.next(true);
+          this._authStatus$.next('authorized');
           this._isDone$.next(true);
         } else {
           this.initOAuth();
@@ -54,28 +54,26 @@ export class AuthService {
       .then(() => {
         console.log('[Auth] Init complete, hasValidToken:', this.hasValidToken());
         if (this.hasValidToken()) {
-          // Verify membership by calling /api/auth/me
           this.http.get<MeResponse>('/api/auth/me').pipe(
             map(me => {
               this._me$.next(me);
-              this._isAuthorized$.next(true);
+              this._authStatus$.next('authorized');
               this._isDone$.next(true);
             }),
             catchError(() => {
-              // 403 or error — not a team member
-              this._isAuthorized$.next(false);
+              this._authStatus$.next('unauthorized');
               this._isDone$.next(true);
               return of(null);
             })
           ).subscribe();
         } else {
-          this._isAuthorized$.next(false);
+          this._authStatus$.next('unauthenticated');
           this._isDone$.next(true);
         }
       })
       .catch(err => {
         console.error('[Auth] Init failed:', err);
-        this._isAuthorized$.next(false);
+        this._authStatus$.next('unauthenticated');
         this._isDone$.next(true);
       });
   }
