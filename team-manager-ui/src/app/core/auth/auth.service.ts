@@ -10,24 +10,19 @@ export class AuthService {
 
   constructor(private oauth: OAuthService) {
     this.oauth.configure(authConfig);
+    this.oauth.loadDiscoveryDocumentAndTryLogin()
+      .then(() => {
+        console.log('[Auth] Init complete, hasValidToken:', this.hasValidToken());
+        this._isDone$.next(true);
+      })
+      .catch(err => {
+        console.error('[Auth] Init failed:', err);
+        this.oauth.tryLogin().catch(() => {});
+        this._isDone$.next(true);
+      });
   }
 
-  async init(): Promise<void> {
-    try {
-      await this.oauth.loadDiscoveryDocumentAndTryLogin();
-    } catch (err) {
-      console.error('[Auth] Discovery failed, trying login anyway:', err);
-      try {
-        await this.oauth.tryLogin();
-      } catch {
-        // ignore
-      }
-    }
-    console.log('[Auth] Init complete, hasValidToken:', this.hasValidToken());
-    this._isDone$.next(true);
-  }
-
-  login()  { this.oauth.initImplicitFlow(); }
+  login()  { this.oauth.initCodeFlow(); }
   logout() { this.oauth.revokeTokenAndLogout(); }
   hasValidToken() { return this.oauth.hasValidAccessToken() || this.oauth.hasValidIdToken(); }
 
