@@ -123,6 +123,7 @@ app.UseSwaggerUI();
 app.UseCors("AllowAll");
 
 app.UseAuthentication();
+app.UseMiddleware<TeamMemberRequiredMiddleware>();
 app.UseAuthorization();
 app.MapHealthChecks("/health").AllowAnonymous();
 app.MapControllers();
