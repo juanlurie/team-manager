@@ -87,8 +87,8 @@ import { LeaveFetchConfigService, LeaveFetchConfig, MappingConfig } from './leav
           <mat-form-field appearance="outline" class="full-width">
             <mat-label>Body Template</mat-label>
             <textarea matInput [(ngModel)]="config().bodyTemplate" rows="3"
-                      placeholder="teamId={teamIds}&start={start}&end={end}"></textarea>
-            <mat-hint>Variables: {cookie}, {start}, {end}, {teamIds}</mat-hint>
+                      placeholder="teamId={teamIds}&amp;start={start}&amp;end={end}"></textarea>
+            <mat-hint>Variables: &#123;cookie&#125;, &#123;start&#125;, &#123;end&#125;, &#123;teamIds&#125;</mat-hint>
           </mat-form-field>
 
           <!-- Mapping -->
