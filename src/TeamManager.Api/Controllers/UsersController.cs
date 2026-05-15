@@ -30,8 +30,8 @@ public class UsersController : ControllerBase
         // call the identity-provider SDK (Auth0 Management API, MS Graph, …)
         var allUsers = new[]
         {
-            new { Sub = "auth0|60a", Email = "newbie@entelect.co.za", Name = "Newbie" },
-            new { Sub = "auth0|60b", Email = "other@entelect.co.za",  Name = "Other"  }
+            new { Sub = "auth0|60a", Email = "newbie@example.com", Name = "Newbie" },
+            new { Sub = "auth0|60b", Email = "other@example.com",  Name = "Other"  }
 };
 
         var unlinked = allUsers.Where(u => !linked.Contains(u.Sub));

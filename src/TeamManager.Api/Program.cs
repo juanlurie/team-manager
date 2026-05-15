@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using TeamManager.Api.Application.DTOs.LeaveRecord;
 using TeamManager.Api.Application.Services;
 using TeamManager.Api.Application.Services.Interfaces;
 using TeamManager.Api.Infrastructure.Data;
@@ -40,8 +41,10 @@ builder.Services.AddScoped<ISprintService, SprintService>();
 builder.Services.AddScoped<IWorkItemService, WorkItemService>();
 builder.Services.AddScoped<IFeatureService, FeatureService>();
 builder.Services.AddScoped<ILeaveService, LeaveService>();
-builder.Services.AddHttpClient("entelect").ConfigurePrimaryHttpMessageHandler(() =>
-    new HttpClientHandler { AllowAutoRedirect = false });
+builder.Services.AddScoped<IPIService, PIService>();
+builder.Services.AddScoped<ISprintService, SprintService>();
+builder.Services.AddScoped<IWorkItemService, WorkItemService>();
+builder.Services.AddScoped<IFeatureService, FeatureService>();
 builder.Services.AddScoped<IDashboardService, DashboardService>();
 builder.Services.AddScoped<IPptxExportService, PptxExportService>();
 builder.Services.AddScoped<IDiscussionPointService, DiscussionPointService>();
@@ -61,6 +64,11 @@ builder.Services.AddScoped<IMeetingSessionService, MeetingSessionService>();
 builder.Services.AddScoped<IMeetingSeriesService, MeetingSeriesService>();
 builder.Services.AddScoped<IWinOfTheWeekService, WinOfTheWeekService>();
 builder.Services.AddScoped<IWinOfMonthService, WinOfMonthService>();
+
+var leaveFetchConfig = new LeaveFetchConfig();
+builder.Configuration.GetSection("LeaveFetch").Bind(leaveFetchConfig);
+builder.Services.AddSingleton(leaveFetchConfig);
+builder.Services.AddScoped<ILeaveFetcher, ConfigurableLeaveFetcher>();
 
 builder.Services.AddHealthChecks()
     .AddDbContextCheck<AppDbContext>();
