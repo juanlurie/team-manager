@@ -41,7 +41,7 @@ import { LeaveFetchConfigService, LeaveFetchConfig, MappingConfig } from './leav
                 <mat-form-field appearance="outline" class="full-width">
                   <mat-label>Paste curl command</mat-label>
                   <textarea matInput [(ngModel)]="curlCommand" rows="4"
-                            placeholder="curl -X POST 'https://...' -H 'Cookie: ...' -d 'teamId=...'"></textarea>
+                            placeholder="curl -X POST https://... -H 'Cookie: ...' -d 'teamId=...'"></textarea>
                 </mat-form-field>
                 <div class="curl-actions">
                   <button mat-button (click)="showCurlInput.set(false); curlCommand.set('')">Cancel</button>
@@ -51,7 +51,7 @@ import { LeaveFetchConfigService, LeaveFetchConfig, MappingConfig } from './leav
                 </div>
                 <div class="curl-hint">
                   The URL, method, headers, and body will be extracted automatically.
-                  You can then adjust the body template to use variables like <code>{cookie}</code>, <code>{start}</code>, etc.
+                  You can then adjust the body template to use variables like <code>&#123;cookie&#125;</code>, <code>&#123;start&#125;</code>, etc.
                 </div>
               </div>
             }
@@ -103,7 +103,7 @@ import { LeaveFetchConfigService, LeaveFetchConfig, MappingConfig } from './leav
               </mat-form-field>
               <mat-form-field appearance="outline" class="half-width">
                 <mat-label>Value</mat-label>
-                <input matInput [(ngModel)]="entry.value" placeholder="{cookie}">
+                <input matInput [(ngModel)]="entry.value" placeholder="&#123;cookie&#125;">
               </mat-form-field>
               <button mat-icon-button color="warn" (click)="removeHeader(entry.key)" class="remove-btn">
                 <mat-icon>delete</mat-icon>
