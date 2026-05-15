@@ -115,4 +115,87 @@ UI runs at `http://localhost:4200`
 | `{{SUMMARY_IN_PROGRESS_COUNT}}` | (summary slide) in-progress items |
 | `{{SUMMARY_PLANNED_COUNT}}` | (summary slide) planned items |
 | `{{SUMMARY_TOTAL_LEAVE_DAYS}}` | (summary slide) total leave days |
-# team-manager
+
+---
+
+## Self-Hosting with Docker
+
+### Prerequisites
+
+- Docker & Docker Compose
+- A Linux server (Ubuntu 22.04+ recommended)
+
+### 1. Clone the repo
+
+```bash
+git clone git@github.com:juanlurie/team-manager.git
+cd team-manager
+```
+
+### 2. Configure environment
+
+```bash
+cp .env.example .env
+nano .env
+```
+
+Set your database password and Google OAuth client secret in `.env`.
+
+### 3. Start the stack
+
+```bash
+docker compose up -d --build
+```
+
+This launches 4 containers:
+- **PostgreSQL** — database with persistent volume
+- **migrate** — runs EF Core migrations, then exits
+- **api** — .NET backend on port 5000
+- **ui** — Angular frontend on port 80
+
+### 4. Access the app
+
+Open `http://<server-ip>` in your browser. Sign in with Google.
+
+### 5. (Optional) Add a reverse proxy
+
+For HTTPS, put nginx, Caddy, or Traefik in front of port 80. Example with Caddy:
+
+```
+your-domain.com {
+    reverse_proxy localhost:80
+}
+```
+
+### Updating
+
+```bash
+git pull
+docker compose up -d --build
+```
+
+---
+
+## Terminal UI (TUI)
+
+A terminal dashboard for quick sprint check-ins. Install on any machine with Python 3.10+:
+
+```bash
+curl -sSL https://raw.githubusercontent.com/juanlurie/team-manager-tui/main/install.sh | bash
+```
+
+Then run from anywhere:
+
+```bash
+# Local (no auth needed)
+team-manager-tui
+
+# Remote server with API key
+TEAM_MANAGER_API_URL=https://your-domain.com \
+TEAM_MANAGER_API_KEY=your-key \
+team-manager-tui
+```
+
+Generate an API key in the web app: **Profile → API Keys**.
+
+Full docs: [team-manager-tui](https://github.com/juanlurie/team-manager-tui)
