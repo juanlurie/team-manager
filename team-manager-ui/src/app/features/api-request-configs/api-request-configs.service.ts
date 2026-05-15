@@ -3,6 +3,7 @@ import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 
 export interface MappingConfig {
+  arrayPath: string;
   namePath: string;
   startPath: string;
   endPath: string;
@@ -14,6 +15,7 @@ export interface MappingConfig {
 
 export interface ApiRequestConfig {
   id?: string;
+  action: string;
   name: string;
   description?: string;
   enabled: boolean;
@@ -24,6 +26,11 @@ export interface ApiRequestConfig {
   bodyTemplate: string;
   mapping: MappingConfig;
 }
+
+export const REQUEST_ACTIONS = [
+  { value: 'FetchLeave', label: 'Fetch Leave', icon: 'event_busy' },
+  { value: 'AddTimesheetEntry', label: 'Add Timesheet Entry', icon: 'schedule' },
+] as const;
 
 @Injectable({ providedIn: 'root' })
 export class ApiRequestConfigsService {

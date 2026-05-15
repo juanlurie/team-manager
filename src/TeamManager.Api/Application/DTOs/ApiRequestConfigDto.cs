@@ -2,6 +2,7 @@ namespace TeamManager.Api.Application.DTOs;
 
 public record ApiRequestConfigDto(
     Guid? Id = null,
+    string Action = "",
     string Name = "",
     string? Description = null,
     bool Enabled = false,

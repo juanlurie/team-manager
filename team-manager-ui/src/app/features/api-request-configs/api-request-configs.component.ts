@@ -14,7 +14,8 @@ import { FormsModule } from '@angular/forms';
 import {
   ApiRequestConfigsService,
   ApiRequestConfig,
-  MappingConfig
+  MappingConfig,
+  REQUEST_ACTIONS
 } from './api-request-configs.service';
 
 @Component({
@@ -56,6 +57,16 @@ import {
           </div>
         } @else {
           <table mat-table [dataSource]="configs()" class="configs-table">
+            <ng-container matColumnDef="action">
+              <th mat-header-cell *matHeaderCellDef>Action</th>
+              <td mat-cell *matCellDef="let config">
+                <span class="action-badge">
+                  <mat-icon class="action-icon">{{ getActionIcon(config.action) }}</mat-icon>
+                  {{ getActionLabel(config.action) }}
+                </span>
+              </td>
+            </ng-container>
+
             <ng-container matColumnDef="name">
               <th mat-header-cell *matHeaderCellDef>Name</th>
               <td mat-cell *matCellDef="let config">
@@ -101,8 +112,8 @@ import {
               </td>
             </ng-container>
 
-            <tr mat-header-row *matHeaderRowDef="['name', 'enabled', 'method', 'url', 'actions']"></tr>
-            <tr mat-row *matRowDef="let row; columns: ['name', 'enabled', 'method', 'url', 'actions']"></tr>
+            <tr mat-header-row *matHeaderRowDef="['action', 'name', 'enabled', 'method', 'url', 'actions']"></tr>
+            <tr mat-row *matRowDef="let row; columns: ['action', 'name', 'enabled', 'method', 'url', 'actions']"></tr>
           </table>
         }
       }
@@ -137,6 +148,8 @@ import {
     .method-badge { padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 700; }
     .method-badge.post { background: rgba(33,150,243,0.2); color: #2196f3; }
     .method-badge.get { background: rgba(76,175,80,0.2); color: #4caf50; }
+    .action-badge { display: flex; align-items: center; gap: 6px; font-size: 0.8rem; font-weight: 600; color: rgba(255,255,255,0.7); }
+    .action-icon { font-size: 18px; width: 18px; height: 18px; color: #64b5f6; }
   `]
 })
 export class ApiRequestConfigsComponent implements OnInit {
@@ -163,6 +176,14 @@ export class ApiRequestConfigsComponent implements OnInit {
         this.snackBar.open('Failed to load configs', 'Close', { duration: 3000 });
       }
     });
+  }
+
+  getActionIcon(action: string): string {
+    return REQUEST_ACTIONS.find(a => a.value === action)?.icon ?? 'api';
+  }
+
+  getActionLabel(action: string): string {
+    return REQUEST_ACTIONS.find(a => a.value === action)?.label ?? action;
   }
 
   openDialog(config?: ApiRequestConfig) {
@@ -238,6 +259,7 @@ export class ApiRequestConfigsComponent implements OnInit {
 
   private newConfig(): ApiRequestConfig {
     return {
+      action: 'FetchLeave',
       name: '',
       description: '',
       enabled: false,
@@ -247,6 +269,7 @@ export class ApiRequestConfigsComponent implements OnInit {
       headers: {},
       bodyTemplate: '',
       mapping: {
+        arrayPath: '',
         namePath: 'title',
         startPath: 'start',
         endPath: 'end',
@@ -273,8 +296,20 @@ export class ApiRequestConfigsComponent implements OnInit {
       <mat-dialog-content>
         <div class="form-grid">
           <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Action</mat-label>
+            <mat-select [(ngModel)]="data.action">
+              @for (action of actions; track action.value) {
+                <mat-option [value]="action.value">
+                  <mat-icon class="action-option-icon">{{ action.icon }}</mat-icon>
+                  {{ action.label }}
+                </mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="full-width">
             <mat-label>Name</mat-label>
-            <input matInput [(ngModel)]="data.name" placeholder="e.g. Leave Fetch, HR System">
+            <input matInput [(ngModel)]="data.name" placeholder="e.g. Primary, Backup">
           </mat-form-field>
 
           <mat-form-field appearance="outline" class="full-width">
@@ -462,6 +497,7 @@ export class ApiRequestConfigsComponent implements OnInit {
     .array-info { font-size: 0.8rem; color: rgba(255,255,255,0.4); }
     .path-list { display: flex; flex-wrap: wrap; gap: 4px; max-height: 150px; overflow-y: auto; }
     .path-chip { background: rgba(33,150,243,0.15); color: #64b5f6; border: 1px solid rgba(33,150,243,0.3); padding: 2px 8px; border-radius: 12px; font-size: 0.72rem; cursor: pointer; font-family: monospace; }
+    .action-option-icon { font-size: 18px; width: 18px; height: 18px; margin-right: 8px; vertical-align: middle; }
     .path-chip:hover { background: rgba(33,150,243,0.25); }
     .test-results { margin-top: 12px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.08); }
     .test-results h4 { font-size: 0.8rem; color: rgba(255,255,255,0.5); margin: 0 0 8px 0; }
@@ -477,6 +513,7 @@ export class ApiRequestConfigDialogComponent implements OnInit {
   data = inject<any>(MAT_DIALOG_DATA);
   saving = signal(false);
   headerEntries = signal<{key: string, value: string}[]>([]);
+  actions = REQUEST_ACTIONS;
 
   showPathPicker = signal(false);
   sampleJson = signal('');
