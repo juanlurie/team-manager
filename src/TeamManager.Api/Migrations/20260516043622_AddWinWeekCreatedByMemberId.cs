@@ -45,11 +45,5 @@ namespace TeamManager.Api.Migrations
                 name: "CreatedByMemberId",
                 table: "WinWeeks");
         }
-
-        /// <inheritdoc />
-        protected override void Down(MigrationBuilder migrationBuilder)
-        {
-
-        }
     }
 }
