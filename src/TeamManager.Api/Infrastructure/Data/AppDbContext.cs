@@ -52,6 +52,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<ApiKey> ApiKeys => Set<ApiKey>();
     public DbSet<LeaveFetchConfig> LeaveFetchConfigs => Set<LeaveFetchConfig>();
     public DbSet<ApiRequestConfig> ApiRequestConfigs => Set<ApiRequestConfig>();
+    public DbSet<WorkItemEvent> WorkItemEvents => Set<WorkItemEvent>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

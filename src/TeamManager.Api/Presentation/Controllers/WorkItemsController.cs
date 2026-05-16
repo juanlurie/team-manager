@@ -1,11 +1,14 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using TeamManager.Api.Application.DTOs.WorkItem;
 using TeamManager.Api.Application.Services.Interfaces;
+using TeamManager.Api.Domain.Entities;
+using TeamManager.Api.Infrastructure.Data;
 
 namespace TeamManager.Api.Presentation.Controllers;
 
 [ApiController]
-public class WorkItemsController(IWorkItemService service) : ControllerBase
+public class WorkItemsController(IWorkItemService service, AppDbContext db) : ControllerBase
 {
     [HttpGet("api/v1/sprint-members/{sprintMemberId:guid}/work-items")]
     public async Task<IActionResult> GetBySprintMember(Guid sprintMemberId)
@@ -51,5 +54,31 @@ public class WorkItemsController(IWorkItemService service) : ControllerBase
     {
         var success = await service.DeleteAsync(id);
         return success ? NoContent() : NotFound();
+    }
+
+    [HttpGet("api/v1/work-items/{id:guid}/events")]
+    public async Task<IActionResult> GetEvents(Guid id)
+    {
+        var exists = await db.WorkItems.AnyAsync(w => w.Id == id);
+        if (!exists) return NotFound();
+
+        var rawEvents = await db.WorkItemEvents
+            .Where(e => e.WorkItemId == id)
+            .OrderBy(e => e.CreatedAt)
+            .ToListAsync();
+
+        var events = rawEvents.Select(e => new
+        {
+            e.Id,
+            e.WorkItemId,
+            EventType = e.EventType.ToString(),
+            e.FromValue,
+            e.ToValue,
+            e.ActorId,
+            e.CreatedAt,
+            Metadata = System.Text.Json.JsonDocument.Parse(e.MetadataJson)
+        });
+
+        return Ok(events);
     }
 }
