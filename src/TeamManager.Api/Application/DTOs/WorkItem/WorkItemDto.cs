@@ -10,6 +10,8 @@ public record WorkItemDto
     public Guid SprintMemberId { get; init; }
     public Guid? FeatureId { get; init; }
     public string? FeatureTitle { get; init; }
+    public Guid? MilestoneId { get; init; }
+    public string? MilestoneTitle { get; init; }
     public string? ExternalTicketRef { get; init; }
     public decimal? EstimatedPoints { get; init; }
     public decimal? ActualPoints { get; init; }

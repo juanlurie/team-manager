@@ -202,6 +202,7 @@ export class WorkItemFormComponent implements OnInit {
         title: val.title!, description: val.description ?? null,
         type: val.type!, status: val.status!,
         featureId,
+        milestoneId: null,
         externalTicketRef: val.externalTicketRef ?? null,
         estimatedPoints: null, actualPoints: null, completedDate: null,
         blockedReason: val.status === 'Blocked' ? (val.blockedReason ?? null) : null

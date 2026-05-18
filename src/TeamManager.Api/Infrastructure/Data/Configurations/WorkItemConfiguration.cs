@@ -26,5 +26,10 @@ public class WorkItemConfiguration : IEntityTypeConfiguration<WorkItem>
             .WithMany(f => f.WorkItems)
             .HasForeignKey(w => w.FeatureId)
             .OnDelete(DeleteBehavior.SetNull);
+
+        builder.HasOne(w => w.Milestone)
+            .WithMany(m => m.WorkItems)
+            .HasForeignKey(w => w.MilestoneId)
+            .OnDelete(DeleteBehavior.SetNull);
     }
 }

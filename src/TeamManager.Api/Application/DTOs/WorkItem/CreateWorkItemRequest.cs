@@ -9,6 +9,7 @@ public record CreateWorkItemRequest(
     [Required] WorkItemType Type,
     [Required] WorkItemStatus Status,
     Guid? FeatureId,
+    Guid? MilestoneId,
     [MaxLength(50)] string? ExternalTicketRef,
     [Range(0.0, 9999.0)] decimal? EstimatedPoints,
     [Range(0.0, 9999.0)] decimal? ActualPoints,

@@ -84,7 +84,7 @@ const STATUS_COLOR: Record<string, string> = {
             <div style="font-weight:500;font-size:0.9rem">{{ s.name }}</div>
             <div style="font-size:0.78rem;opacity:0.5;margin-top:1px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
               <span>{{ s.startDate | date:'d MMM' }} – {{ s.endDate | date:'d MMM yyyy' }}</span>
-              @if (s.piName) { <span>· {{ s.piName }}</span> }
+              @if (s.piName) { <span>· <a [routerLink]="['/pis', s.piId]" style="color:inherit;text-decoration:none" (click)="$event.stopPropagation()">{{ s.piName }}</a></span> }
               <span [style.color]="daysLeft(s) <= 3 ? '#ffb74d' : 'rgba(255,255,255,0.4)'"
                     [style.font-weight]="daysLeft(s) <= 3 ? '600' : '400'">
                 {{ daysLeft(s) === 0 ? 'ends today' : daysLeft(s) + 'd left' }}
@@ -123,7 +123,7 @@ const STATUS_COLOR: Record<string, string> = {
                   <div style="font-weight:500;font-size:0.88rem">{{ s.name }}</div>
                   <div style="font-size:0.75rem;opacity:0.5;margin-top:1px">
                     {{ s.startDate | date:'d MMM' }} – {{ s.endDate | date:'d MMM yyyy' }}
-                    @if (s.piName) { · {{ s.piName }} }
+                    @if (s.piName) { · <a [routerLink]="['/pis', s.piId]" style="color:inherit;text-decoration:none" (click)="$event.stopPropagation()">{{ s.piName }}</a> }
                   </div>
                 </div>
                 @if (s.isInnovationSprint) {

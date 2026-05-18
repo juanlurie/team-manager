@@ -47,8 +47,12 @@ export const routes: Routes = [
         loadComponent: () => import('./features/progress/progress.component').then(m => m.ProgressComponent)
       },
       {
-        path: 'meetings',
-        loadChildren: () => import('./features/meetings/meetings.routes').then(m => m.MEETING_ROUTES)
+        path: 'pis',
+        loadChildren: () => import('./features/pi-detail/pi-detail.routes').then(m => m.PI_DETAIL_ROUTES)
+      },
+      {
+        path: 'milestones',
+        loadChildren: () => import('./features/milestones/milestones.routes').then(m => m.MILESTONE_ROUTES)
       },
       {
         path: 'profile',

@@ -13,6 +13,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<SprintMember> SprintMembers => Set<SprintMember>();
     public DbSet<WorkItem> WorkItems => Set<WorkItem>();
     public DbSet<Feature> Features => Set<Feature>();
+    public DbSet<Milestone> Milestones => Set<Milestone>();
+    public DbSet<MilestoneCriterion> MilestoneCriteria => Set<MilestoneCriterion>();
     public DbSet<LeaveRecord> LeaveRecords => Set<LeaveRecord>();
     public DbSet<DiscussionPoint> DiscussionPoints => Set<DiscussionPoint>();
     public DbSet<DiscussionTask> DiscussionTasks => Set<DiscussionTask>();
@@ -62,6 +64,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         modelBuilder.ApplyConfiguration(new SprintMemberConfiguration());
         modelBuilder.ApplyConfiguration(new WorkItemConfiguration());
         modelBuilder.ApplyConfiguration(new FeatureConfiguration());
+        modelBuilder.ApplyConfiguration(new MilestoneConfiguration());
+        modelBuilder.ApplyConfiguration(new MilestoneCriterionConfiguration());
         modelBuilder.ApplyConfiguration(new LeaveRecordConfiguration());
         modelBuilder.ApplyConfiguration(new DiscussionPointConfiguration());
         modelBuilder.ApplyConfiguration(new DiscussionTaskConfiguration());
