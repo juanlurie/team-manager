@@ -11,8 +11,13 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatDividerModule } from '@angular/material/divider';
 import { WorkItem } from '../../../core/models/work-item.model';
 import { Feature } from '../../../core/models/feature.model';
+import { Sprint } from '../../../core/models/sprint.model';
+import { Milestone } from '../../../core/models/milestone.model';
 import { WorkItemService } from '../../../core/services/work-item.service';
 import { FeatureService } from '../../../core/services/feature.service';
+import { MilestoneService } from '../../../core/services/milestone.service';
+import { HttpClient } from '@angular/common/http';
+import { API_BASE } from '../../../core/services/api.config';
 import { CommentsComponent } from '../../../shared/comments/comments.component';
 
 const NEW_FEATURE_KEY = '__new__';
@@ -61,6 +66,17 @@ const NEW_FEATURE_KEY = '__new__';
             </mat-form-field>
           </div>
         }
+
+        <!-- Milestone selector -->
+        <mat-form-field appearance="outline">
+          <mat-label>Milestone <span style="opacity:0.5;font-size:0.85em">(optional)</span></mat-label>
+          <mat-select [(ngModel)]="selectedMilestoneId">
+            <mat-option [value]="null">— No milestone —</mat-option>
+            @for (m of milestones; track m.id) {
+              <mat-option [value]="m.id">{{ m.title }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
 
         <mat-divider></mat-divider>
 
@@ -144,11 +160,15 @@ export class WorkItemFormComponent implements OnInit {
   private fb = inject(FormBuilder);
   private svc = inject(WorkItemService);
   private featureSvc = inject(FeatureService);
+  private milestoneSvc = inject(MilestoneService);
   private dialogRef = inject(MatDialogRef<WorkItemFormComponent>);
   private dialog = inject(MatDialog);
+  private http = inject(HttpClient);
   data: { sprintId?: string; sprintMemberId: string; workItem?: WorkItem; features?: Feature[]; memberCrafts?: string[] } = inject(MAT_DIALOG_DATA);
 
   selectedFeatureId: string | null = null;
+  selectedMilestoneId: string | null = null;
+  milestones: Milestone[] = [];
   newFeatureTitle = '';
   newFeatureRef = '';
   creatingFeature = signal(false);
@@ -168,11 +188,22 @@ export class WorkItemFormComponent implements OnInit {
     if (this.data.workItem) {
       this.form.patchValue({ ...this.data.workItem, blockedReason: this.data.workItem.blockedReason });
       this.selectedFeatureId = this.data.workItem.featureId;
+      this.selectedMilestoneId = this.data.workItem.milestoneId;
     } else if (this.data.memberCrafts?.length) {
       const craft = this.data.memberCrafts[0];
       const type = craft.startsWith('Dev') ? 'Dev' : craft;
       this.form.patchValue({ type });
     }
+    this.loadMilestones();
+  }
+
+  private loadMilestones() {
+    if (!this.data.sprintId) return;
+    this.http.get<Sprint>(`${API_BASE}/sprints/${this.data.sprintId}`).subscribe(sprint => {
+      if (sprint.piId) {
+        this.milestoneSvc.getByPI(sprint.piId).subscribe(ms => this.milestones = ms);
+      }
+    });
   }
 
   onFeatureChange(value: string | null) {
@@ -202,7 +233,7 @@ export class WorkItemFormComponent implements OnInit {
         title: val.title!, description: val.description ?? null,
         type: val.type!, status: val.status!,
         featureId,
-        milestoneId: null,
+        milestoneId: this.selectedMilestoneId,
         externalTicketRef: val.externalTicketRef ?? null,
         estimatedPoints: null, actualPoints: null, completedDate: null,
         blockedReason: val.status === 'Blocked' ? (val.blockedReason ?? null) : null

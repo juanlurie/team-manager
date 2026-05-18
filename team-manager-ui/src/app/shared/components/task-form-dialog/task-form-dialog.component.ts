@@ -12,8 +12,10 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { WorkItem } from '../../../core/models/work-item.model';
 import { Feature } from '../../../core/models/feature.model';
 import { Milestone } from '../../../core/models/milestone.model';
+import { Sprint } from '../../../core/models/sprint.model';
 import { WorkItemService } from '../../../core/services/work-item.service';
 import { FeatureService } from '../../../core/services/feature.service';
+import { MilestoneService } from '../../../core/services/milestone.service';
 import { HttpClient } from '@angular/common/http';
 import { API_BASE } from '../../../core/services/api.config';
 import { CommentsComponent } from '../../comments/comments.component';
@@ -155,6 +157,7 @@ export class TaskFormDialogComponent implements OnInit {
   private http = inject(HttpClient);
   private svc = inject(WorkItemService);
   private featureSvc = inject(FeatureService);
+  private milestoneSvc = inject(MilestoneService);
   private dialogRef = inject(MatDialogRef<TaskFormDialogComponent>);
   data: TaskFormData = inject(MAT_DIALOG_DATA);
 
@@ -191,6 +194,23 @@ export class TaskFormDialogComponent implements OnInit {
           this.members.set(members);
           if (members.length > 0) this.selectedMemberId = members[0].id;
         });
+    }
+
+    this.loadMilestones();
+  }
+
+  private loadMilestones() {
+    if (this.data.milestones && this.data.milestones.length > 0) return;
+    const piId = this.data.piId;
+    if (piId) {
+      this.milestoneSvc.getByPI(piId).subscribe(ms => this.data.milestones = ms);
+    } else if (this.data.sprintId) {
+      this.http.get<Sprint>(`${API_BASE}/sprints/${this.data.sprintId}`).subscribe(sprint => {
+        if (sprint.piId) {
+          this.data.piId = sprint.piId;
+          this.milestoneSvc.getByPI(sprint.piId).subscribe(ms => this.data.milestones = ms);
+        }
+      });
     }
   }
 
