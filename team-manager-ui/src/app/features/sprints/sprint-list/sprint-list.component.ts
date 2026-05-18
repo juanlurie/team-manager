@@ -65,9 +65,9 @@ const STATUS_COLOR: Record<string, string> = {
               style="min-width:0;padding:0 12px;height:32px;font-size:0.8rem"
               (click)="selectedPI.set(null)">All</button>
       @for (pi of pis(); track pi.id) {
-        <button mat-stroked-button [class.active-filter]="selectedPI() === pi.id"
-                style="min-width:0;padding:0 12px;height:32px;font-size:0.8rem"
-                (click)="selectedPI.set(pi.id)">{{ pi.name }}</button>
+        <a mat-stroked-button [class.active-filter]="selectedPI() === pi.id"
+                style="min-width:0;padding:0 12px;height:32px;font-size:0.8rem;text-decoration:none"
+                [routerLink]="['/pis', pi.id]">{{ pi.name }}</a>
       }
       @if (hasUngrouped()) {
         <button mat-stroked-button [class.active-filter]="selectedPI() === 'none'"
