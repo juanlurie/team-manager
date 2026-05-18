@@ -11,6 +11,7 @@ import { MatDividerModule } from '@angular/material/divider';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { WorkItem } from '../../../core/models/work-item.model';
 import { Feature } from '../../../core/models/feature.model';
+import { Milestone } from '../../../core/models/milestone.model';
 import { WorkItemService } from '../../../core/services/work-item.service';
 import { FeatureService } from '../../../core/services/feature.service';
 import { HttpClient } from '@angular/common/http';
@@ -26,6 +27,8 @@ export interface TaskFormData {
   sprintId: string | null;
   workItem?: WorkItem | null;
   features?: Feature[];
+  milestones?: Milestone[];
+  piId?: string | null;
 }
 
 @Component({
@@ -76,6 +79,17 @@ export interface TaskFormData {
             </div>
           </div>
         }
+
+        <!-- Milestone selector -->
+        <mat-form-field appearance="outline">
+          <mat-label>Milestone <span style="opacity:0.5;font-size:0.85em">(optional)</span></mat-label>
+          <mat-select [(ngModel)]="selectedMilestoneId">
+            <mat-option [value]="null">— No milestone —</mat-option>
+            @for (m of data.milestones ?? []; track m.id) {
+              <mat-option [value]="m.id">{{ m.title }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
 
         <!-- Title -->
         <mat-form-field appearance="outline">
@@ -147,6 +161,7 @@ export class TaskFormDialogComponent implements OnInit {
   isEdit = !!this.data.workItem;
 
   selectedFeatureId: string | null = this.data.featureId;
+  selectedMilestoneId: string | null = null;
   taskTitle = '';
   taskType = 'Dev';
   taskStatus = 'Planned';
@@ -167,6 +182,7 @@ export class TaskFormDialogComponent implements OnInit {
       this.taskType = this.data.workItem.type;
       this.taskStatus = this.data.workItem.status;
       this.selectedFeatureId = this.data.workItem.featureId;
+      this.selectedMilestoneId = this.data.workItem.milestoneId;
     }
 
     if (!this.isEdit && this.data.sprintId) {
@@ -216,6 +232,7 @@ export class TaskFormDialogComponent implements OnInit {
     this.saving.set(true);
 
     const doSave = (featureId: string | null) => {
+      const milestoneId = this.selectedMilestoneId;
       if (this.isEdit && this.data.workItem) {
         this.svc.update(this.data.workItem.id, {
           title: this.taskTitle.trim(),
@@ -223,6 +240,7 @@ export class TaskFormDialogComponent implements OnInit {
           type: this.taskType,
           status: this.taskStatus,
           featureId,
+          milestoneId,
           externalTicketRef: this.data.workItem.externalTicketRef,
           estimatedPoints: this.data.workItem.estimatedPoints,
           actualPoints: this.data.workItem.actualPoints,
@@ -236,6 +254,7 @@ export class TaskFormDialogComponent implements OnInit {
           type: this.taskType,
           status: this.taskStatus,
           featureId,
+          milestoneId,
           externalTicketRef: null,
           estimatedPoints: null,
           actualPoints: null,

@@ -13,6 +13,7 @@ public class WorkItemService(AppDbContext db, WorkItemEventRecorder events) : IW
     {
         var items = await db.WorkItems
             .Include(w => w.Feature)
+            .Include(w => w.Milestone)
             .Where(w => w.SprintMemberId == sprintMemberId)
             .OrderBy(w => w.Status)
             .ThenBy(w => w.Title)
@@ -22,7 +23,7 @@ public class WorkItemService(AppDbContext db, WorkItemEventRecorder events) : IW
 
     public async Task<WorkItemDto?> GetByIdAsync(Guid id)
     {
-        var item = await db.WorkItems.Include(w => w.Feature).FirstOrDefaultAsync(w => w.Id == id);
+        var item = await db.WorkItems.Include(w => w.Feature).Include(w => w.Milestone).FirstOrDefaultAsync(w => w.Id == id);
         return item is null ? null : ToDto(item);
     }
 
@@ -35,6 +36,7 @@ public class WorkItemService(AppDbContext db, WorkItemEventRecorder events) : IW
             Type = request.Type,
             SprintMemberId = sprintMemberId,
             FeatureId = request.FeatureId,
+            MilestoneId = request.MilestoneId,
             ExternalTicketRef = request.ExternalTicketRef,
             EstimatedPoints = request.EstimatedPoints,
             ActualPoints = request.ActualPoints,
@@ -47,17 +49,19 @@ public class WorkItemService(AppDbContext db, WorkItemEventRecorder events) : IW
         events.Append(item.Id, WorkItemEventType.TASK_CREATED, toValue: item.Status.ToString(), metadata: new { item.Type, item.Title });
 
         await db.Entry(item).Reference(w => w.Feature).LoadAsync();
+        await db.Entry(item).Reference(w => w.Milestone).LoadAsync();
         return ToDto(item);
     }
 
     public async Task<WorkItemDto?> UpdateAsync(Guid id, CreateWorkItemRequest request)
     {
-        var item = await db.WorkItems.Include(w => w.Feature).FirstOrDefaultAsync(w => w.Id == id);
+        var item = await db.WorkItems.Include(w => w.Feature).Include(w => w.Milestone).FirstOrDefaultAsync(w => w.Id == id);
         if (item is null) return null;
 
         var oldStatus = item.Status;
         var oldBlockedReason = item.BlockedReason;
         var oldFeatureId = item.FeatureId;
+        var oldMilestoneId = item.MilestoneId;
         var oldTitle = item.Title;
         var oldDescription = item.Description;
         var oldEstimatedPoints = item.EstimatedPoints;
@@ -67,6 +71,7 @@ public class WorkItemService(AppDbContext db, WorkItemEventRecorder events) : IW
         item.Description = request.Description;
         item.Type = request.Type;
         item.FeatureId = request.FeatureId;
+        item.MilestoneId = request.MilestoneId;
         item.ExternalTicketRef = request.ExternalTicketRef;
         item.EstimatedPoints = request.EstimatedPoints;
         item.ActualPoints = request.ActualPoints;
@@ -92,12 +97,13 @@ public class WorkItemService(AppDbContext db, WorkItemEventRecorder events) : IW
 
         await db.SaveChangesAsync();
         await db.Entry(item).Reference(w => w.Feature).LoadAsync();
+        await db.Entry(item).Reference(w => w.Milestone).LoadAsync();
         return ToDto(item);
     }
 
     public async Task<WorkItemDto?> UpdateStatusAsync(Guid id, WorkItemStatus status)
     {
-        var item = await db.WorkItems.Include(w => w.Feature).FirstOrDefaultAsync(w => w.Id == id);
+        var item = await db.WorkItems.Include(w => w.Feature).Include(w => w.Milestone).FirstOrDefaultAsync(w => w.Id == id);
         if (item is null) return null;
 
         var oldStatus = item.Status;
@@ -163,6 +169,7 @@ public class WorkItemService(AppDbContext db, WorkItemEventRecorder events) : IW
             SprintMemberId = targetMember.Id,
             FeatureId = null,
             ExternalTicketRef = source.ExternalTicketRef,
+            MilestoneId = source.MilestoneId,
             EstimatedPoints = source.EstimatedPoints,
             ActualPoints = null,
             CompletedDate = null,
@@ -195,6 +202,8 @@ public class WorkItemService(AppDbContext db, WorkItemEventRecorder events) : IW
         SprintMemberId = w.SprintMemberId,
         FeatureId = w.FeatureId,
         FeatureTitle = w.Feature?.Title,
+        MilestoneId = w.MilestoneId,
+        MilestoneTitle = w.Milestone?.Title,
         ExternalTicketRef = w.ExternalTicketRef,
         EstimatedPoints = w.EstimatedPoints,
         ActualPoints = w.ActualPoints,

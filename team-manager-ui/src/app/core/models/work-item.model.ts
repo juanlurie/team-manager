@@ -10,6 +10,8 @@ export interface WorkItem {
   sprintMemberId: string;
   featureId: string | null;
   featureTitle: string | null;
+  milestoneId: string | null;
+  milestoneTitle: string | null;
   externalTicketRef: string | null;
   estimatedPoints: number | null;
   actualPoints: number | null;
@@ -25,6 +27,7 @@ export interface CreateWorkItemRequest {
   type: string;
   status: string;
   featureId: string | null;
+  milestoneId: string | null;
   externalTicketRef: string | null;
   estimatedPoints: number | null;
   actualPoints: number | null;

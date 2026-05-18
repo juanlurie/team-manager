@@ -19,6 +19,9 @@ public class WorkItem
     public DateTimeOffset? BlockedAt { get; set; }
     public string? BlockedReason { get; set; }
 
+    public Guid? MilestoneId { get; set; }
+
     public SprintMember SprintMember { get; set; } = null!;
     public Feature? Feature { get; set; }
+    public Milestone? Milestone { get; set; }
 }

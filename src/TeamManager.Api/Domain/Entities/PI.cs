@@ -9,4 +9,5 @@ public class PI
     public string? Description { get; set; }
 
     public ICollection<Sprint> Sprints { get; set; } = [];
+    public ICollection<Milestone> Milestones { get; set; } = [];
 }
