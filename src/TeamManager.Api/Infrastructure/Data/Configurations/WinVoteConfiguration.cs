@@ -10,7 +10,7 @@ public class WinVoteConfiguration : IEntityTypeConfiguration<WinVote>
     {
         builder.HasKey(v => v.Id);
         builder.Property(v => v.Id).HasDefaultValueSql("gen_random_uuid()");
-        builder.Property(v => v.VotedAt).HasColumnName("CreatedAt");
+        builder.Property(v => v.VotedAt);
 
         builder.HasIndex(v => new { v.WinNominationId, v.TeamMemberId }).IsUnique();
 

@@ -160,6 +160,117 @@ namespace TeamManager.Api.Migrations
                     b.ToTable("ApiRequestConfigs");
                 });
 
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.CoffeeRun", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset?>("ClosedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("InitiatorId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("InitiatorId");
+
+                    b.ToTable("CoffeeRuns");
+                });
+
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.CoffeeRunMenuItem", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<Guid>("CoffeeRunId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<decimal>("Price")
+                        .HasColumnType("decimal(10,2)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CoffeeRunId");
+
+                    b.ToTable("CoffeeRunMenuItems");
+                });
+
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.CoffeeRunOrder", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<Guid>("CoffeeRunId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<Guid>("TeamMemberId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TeamMemberId");
+
+                    b.HasIndex("CoffeeRunId", "TeamMemberId")
+                        .IsUnique();
+
+                    b.ToTable("CoffeeRunOrders");
+                });
+
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.CoffeeRunOrderItem", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<Guid>("CoffeeRunMenuItemId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CoffeeRunOrderId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Quantity")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CoffeeRunMenuItemId");
+
+                    b.HasIndex("CoffeeRunOrderId");
+
+                    b.ToTable("CoffeeRunOrderItems");
+                });
+
             modelBuilder.Entity("TeamManager.Api.Domain.Entities.Comment", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1625,8 +1736,7 @@ namespace TeamManager.Api.Migrations
                         .HasColumnType("uuid");
 
                     b.Property<DateTimeOffset>("VotedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("CreatedAt");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<Guid>("WinNominationId")
                         .HasColumnType("uuid");
@@ -1655,8 +1765,7 @@ namespace TeamManager.Api.Migrations
                         .HasColumnType("uuid");
 
                     b.Property<DateTimeOffset>("OpenedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("CreatedAt");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("Status")
                         .IsRequired()
@@ -1664,12 +1773,10 @@ namespace TeamManager.Api.Migrations
                         .HasColumnType("character varying(20)");
 
                     b.Property<DateOnly>("WeekEnd")
-                        .HasColumnType("date")
-                        .HasColumnName("EndDate");
+                        .HasColumnType("date");
 
                     b.Property<DateOnly>("WeekStart")
-                        .HasColumnType("date")
-                        .HasColumnName("StartDate");
+                        .HasColumnType("date");
 
                     b.Property<Guid?>("WinnerNominationId")
                         .HasColumnType("uuid");
@@ -1794,6 +1901,66 @@ namespace TeamManager.Api.Migrations
                         .IsRequired();
 
                     b.Navigation("TeamMember");
+                });
+
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.CoffeeRun", b =>
+                {
+                    b.HasOne("TeamManager.Api.Domain.Entities.TeamMember", "Initiator")
+                        .WithMany()
+                        .HasForeignKey("InitiatorId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Initiator");
+                });
+
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.CoffeeRunMenuItem", b =>
+                {
+                    b.HasOne("TeamManager.Api.Domain.Entities.CoffeeRun", "CoffeeRun")
+                        .WithMany("MenuItems")
+                        .HasForeignKey("CoffeeRunId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("CoffeeRun");
+                });
+
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.CoffeeRunOrder", b =>
+                {
+                    b.HasOne("TeamManager.Api.Domain.Entities.CoffeeRun", "CoffeeRun")
+                        .WithMany("Orders")
+                        .HasForeignKey("CoffeeRunId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("TeamManager.Api.Domain.Entities.TeamMember", "TeamMember")
+                        .WithMany()
+                        .HasForeignKey("TeamMemberId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("CoffeeRun");
+
+                    b.Navigation("TeamMember");
+                });
+
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.CoffeeRunOrderItem", b =>
+                {
+                    b.HasOne("TeamManager.Api.Domain.Entities.CoffeeRunMenuItem", "MenuItem")
+                        .WithMany("OrderItems")
+                        .HasForeignKey("CoffeeRunMenuItemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("TeamManager.Api.Domain.Entities.CoffeeRunOrder", "Order")
+                        .WithMany("Items")
+                        .HasForeignKey("CoffeeRunOrderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("MenuItem");
+
+                    b.Navigation("Order");
                 });
 
             modelBuilder.Entity("TeamManager.Api.Domain.Entities.DiscussionPoint", b =>
@@ -2425,6 +2592,23 @@ namespace TeamManager.Api.Migrations
             modelBuilder.Entity("TeamManager.Api.Domain.Entities.Achievement", b =>
                 {
                     b.Navigation("MemberAchievements");
+                });
+
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.CoffeeRun", b =>
+                {
+                    b.Navigation("MenuItems");
+
+                    b.Navigation("Orders");
+                });
+
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.CoffeeRunMenuItem", b =>
+                {
+                    b.Navigation("OrderItems");
+                });
+
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.CoffeeRunOrder", b =>
+                {
+                    b.Navigation("Items");
                 });
 
             modelBuilder.Entity("TeamManager.Api.Domain.Entities.Feature", b =>

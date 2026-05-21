@@ -12,6 +12,7 @@ import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
         <a class="hub-tab" routerLink="win-of-the-week" routerLinkActive="active" role="tab">Win of the Week</a>
         <a class="hub-tab" routerLink="leaderboard" routerLinkActive="active" role="tab">Leaderboard</a>
         <a class="hub-tab" routerLink="wheel" routerLinkActive="active" role="tab">Spin Wheel</a>
+        <a class="hub-tab" routerLink="coffee-run" routerLinkActive="active" role="tab">Coffee Run</a>
       </nav>
       <div class="hub-content">
         <router-outlet />

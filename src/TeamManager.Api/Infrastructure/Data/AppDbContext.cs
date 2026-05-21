@@ -55,6 +55,12 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<LeaveFetchConfig> LeaveFetchConfigs => Set<LeaveFetchConfig>();
     public DbSet<ApiRequestConfig> ApiRequestConfigs => Set<ApiRequestConfig>();
     public DbSet<WorkItemEvent> WorkItemEvents => Set<WorkItemEvent>();
+    public DbSet<CoffeeRun> CoffeeRuns => Set<CoffeeRun>();
+    public DbSet<CoffeeRunMenuItem> CoffeeRunMenuItems => Set<CoffeeRunMenuItem>();
+    public DbSet<CoffeeRunOrder> CoffeeRunOrders => Set<CoffeeRunOrder>();
+    public DbSet<CoffeeRunOrderItem> CoffeeRunOrderItems => Set<CoffeeRunOrderItem>();
+    public DbSet<CoffeeRunMenuTemplate> CoffeeRunMenuTemplates => Set<CoffeeRunMenuTemplate>();
+    public DbSet<CoffeeRunMenuTemplateItem> CoffeeRunMenuTemplateItems => Set<CoffeeRunMenuTemplateItem>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -104,5 +110,11 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         modelBuilder.ApplyConfiguration(new MeetingSeriesItemAvailabilityConfiguration());
         modelBuilder.ApplyConfiguration(new MeetingSeriesSlotClaimConfiguration());
         modelBuilder.ApplyConfiguration(new ApiKeyConfiguration());
+        modelBuilder.ApplyConfiguration(new CoffeeRunConfiguration());
+        modelBuilder.ApplyConfiguration(new CoffeeRunMenuItemConfiguration());
+        modelBuilder.ApplyConfiguration(new CoffeeRunOrderConfiguration());
+        modelBuilder.ApplyConfiguration(new CoffeeRunOrderItemConfiguration());
+        modelBuilder.ApplyConfiguration(new CoffeeRunMenuTemplateConfiguration());
+        modelBuilder.ApplyConfiguration(new CoffeeRunMenuTemplateItemConfiguration());
     }
 }

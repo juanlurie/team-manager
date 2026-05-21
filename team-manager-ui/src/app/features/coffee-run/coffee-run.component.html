@@ -1,0 +1,322 @@
+<h2 style="margin:0 0 20px;font-size:1.2rem">Coffee Run</h2>
+
+@if (loading()) {
+  <div style="display:flex;justify-content:center;padding:80px">
+    <mat-spinner diameter="48"></mat-spinner>
+  </div>
+} @else {
+
+  <!-- ── LIST VIEW ──────────────────────────────── -->
+  @if (view() === 'list') {
+
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;gap:8px;flex-wrap:wrap">
+      <span style="font-size:0.8rem;opacity:0.45">{{ runs().length }} run{{ runs().length === 1 ? '' : 's' }}</span>
+      <div style="display:flex;align-items:center;gap:6px">
+        @if (runsWithMenu().length > 0) {
+          <select class="inline-input" [(ngModel)]="copyMenuRunId"
+                  (change)="copyFromTemplateId = null"
+                  style="font-size:0.78rem;padding:6px 8px;min-width:130px">
+            <option [ngValue]="null">Blank menu</option>
+            @for (r of runsWithMenu(); track r.id) {
+              <option [ngValue]="r.id">{{ r.initiatorName }}'s menu</option>
+            }
+          </select>
+        }
+        <button mat-stroked-button [disabled]="saving()" (click)="createRun()"
+                style="font-size:0.82rem">
+          <mat-icon style="font-size:18px;height:18px;width:18px;margin-right:4px">coffee</mat-icon>
+          {{ saving() ? 'Starting\u2026' : 'Start a Coffee Run' }}
+        </button>
+      </div>
+    </div>
+
+    @if (runs().length === 0) {
+      <div style="display:flex;flex-direction:column;align-items:center;padding:40px 20px;
+                  border:2px dashed rgba(255,255,255,0.08);border-radius:12px;
+                  background:rgba(255,255,255,0.02)">
+        <mat-icon style="font-size:56px;width:56px;height:56px;opacity:0.12;margin-bottom:12px">coffee</mat-icon>
+        <div style="font-size:1rem;font-weight:500;opacity:0.22;margin-bottom:4px">No coffee runs yet</div>
+        <div style="font-size:0.78rem;opacity:0.14">Start one to collect orders from the team</div>
+      </div>
+    } @else {
+      @if (openRuns().length > 0) {
+        <div style="margin-bottom:8px">
+          <div class="section-label">Open</div>
+          @for (run of openRuns(); track run.id) {
+            <div class="run-card open" (click)="viewDetail(run.id)">
+              <div class="run-card-info">
+                <div class="run-card-title">{{ run.initiatorName }}&#39;s run</div>
+                <div class="run-card-meta">{{ run.menuItemCount }} items · {{ run.orderCount }} orders · {{ run.createdAt | date:'shortDate' }}</div>
+              </div>
+              <span class="status-badge open">Open</span>
+            </div>
+          }
+        </div>
+      }
+
+      @if (closedRuns().length > 0) {
+        <div>
+          <div class="section-label">Closed</div>
+          @for (run of closedRuns(); track run.id) {
+            <div class="run-card closed" (click)="viewDetail(run.id)">
+              <div class="run-card-info">
+                <div class="run-card-title">{{ run.initiatorName }}&#39;s run</div>
+                <div class="run-card-meta">{{ run.menuItemCount }} items · {{ run.orderCount }} orders · {{ run.createdAt | date:'shortDate' }}</div>
+              </div>
+              <span class="status-badge closed">Closed</span>
+            </div>
+          }
+        </div>
+      }
+    }
+  }
+
+  <!-- ── DETAIL VIEW ──────────────────────────────── -->
+  @if (view() === 'detail') {
+    @if (detailLoading()) {
+      <div style="display:flex;justify-content:center;padding:60px">
+        <mat-spinner diameter="40"></mat-spinner>
+      </div>
+    } @else if (detail()) {
+      @let run = this.detail()!;
+
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
+        <button class="icon-btn" (click)="viewList()" matTooltip="Back to list">
+          <mat-icon style="font-size:20px;height:20px;width:20px">arrow_back</mat-icon>
+        </button>
+        <span style="font-size:1rem;font-weight:600;flex:1">{{ run.initiatorName }}&#39;s Coffee Run</span>
+        <span class="status-badge" [class.open]="run.status === 'Open'" [class.closed]="run.status === 'Closed'">{{ run.status }}</span>
+        @if (isInitiator() && isOpen()) {
+          <button class="icon-btn" style="color:rgba(239,83,80,0.7)" matTooltip="Delete run"
+                  (click)="deleteRun()">
+            <mat-icon style="font-size:18px;height:18px;width:18px">delete</mat-icon>
+          </button>
+        }
+      </div>
+
+      <!-- ── MENU SECTION ────────────────────────── -->
+      <div class="section">
+        <div class="section-header">
+          <mat-icon style="font-size:18px;height:18px;width:18px;opacity:0.5">restaurant_menu</mat-icon>
+          <span style="font-size:0.85rem;font-weight:600;flex:1">Menu</span>
+          @if (isInitiator() && run.menuItems.length > 0) {
+            <button class="icon-btn" style="color:rgba(100,181,246,0.6);padding:2px 6px;width:auto;font-size:0.72rem;gap:3px"
+                    (click)="saveAsTemplate()" matTooltip="Save menu as template">
+              <mat-icon style="font-size:14px;height:14px;width:14px">bookmark_add</mat-icon>
+              Save
+            </button>
+          }
+        </div>
+
+        @if (run.menuItems.length === 0) {
+          <div class="empty-hint">
+            <mat-icon style="font-size:32px;width:32px;height:32px;opacity:0.12">local_cafe</mat-icon>
+            @if (isInitiator() && isOpen()) {
+              <span>Add menu items for people to order</span>
+            } @else {
+              <span>Waiting for initiator to add menu items</span>
+            }
+          </div>
+        }
+
+        @for (item of run.menuItems; track item.id) {
+          <div class="menu-item-row">
+            @if (editingMenuItemId() === item.id) {
+              <input class="inline-input" [(ngModel)]="editingMenuItemName" placeholder="Name"
+                     style="flex:1" (keydown.enter)="saveEditMenuItem(item)">
+              <input class="inline-input" [(ngModel)]="editingMenuItemPrice" placeholder="Price"
+                     style="width:80px;text-align:right" type="number" step="0.01" min="0"
+                     (keydown.enter)="saveEditMenuItem(item)">
+              <button class="icon-btn" style="color:rgba(100,181,246,0.8)" (click)="saveEditMenuItem(item)"
+                      matTooltip="Save">
+                <mat-icon style="font-size:16px;height:16px;width:16px">check</mat-icon>
+              </button>
+              <button class="icon-btn" style="color:rgba(255,255,255,0.4)" (click)="cancelEditMenuItem()"
+                      matTooltip="Cancel">
+                <mat-icon style="font-size:16px;height:16px;width:16px">close</mat-icon>
+              </button>
+            } @else {
+              <span style="flex:1;font-size:0.82rem">{{ item.name }}</span>
+              <span style="font-size:0.82rem;opacity:0.5;margin-right:8px">R{{ item.price.toFixed(2) }}</span>
+              @if (isInitiator() && isOpen()) {
+                <button class="icon-btn" style="color:rgba(255,255,255,0.4)" (click)="startEditMenuItem(item)"
+                        matTooltip="Edit">
+                  <mat-icon style="font-size:16px;height:16px;width:16px">edit</mat-icon>
+                </button>
+                <button class="icon-btn" style="color:rgba(239,83,80,0.6)" (click)="deleteMenuItem(item)"
+                        matTooltip="Delete">
+                  <mat-icon style="font-size:16px;height:16px;width:16px">delete</mat-icon>
+                </button>
+              }
+            }
+          </div>
+        }
+
+        @if (isInitiator() && isOpen()) {
+          <div class="add-item-row">
+            <input class="inline-input" [(ngModel)]="newItemName" placeholder="Item name…"
+                   style="flex:1" (keydown.enter)="addMenuItem()">
+            <input class="inline-input" [(ngModel)]="newItemPrice" placeholder="Price"
+                   style="width:80px;text-align:right" type="number" step="0.01" min="0"
+                   (keydown.enter)="addMenuItem()">
+            <button class="icon-btn" style="color:rgba(100,181,246,0.8)"
+                    [disabled]="!newItemName.trim() || !newItemPrice || saving()"
+                    (click)="addMenuItem()" matTooltip="Add item">
+              <mat-icon style="font-size:16px;height:16px;width:16px">add_circle</mat-icon>
+            </button>
+          </div>
+        }
+      </div>
+
+      <!-- ── ORDER SECTION ────────────────────────── -->
+      <div class="section">
+        <div class="section-header">
+          <mat-icon style="font-size:18px;height:18px;width:18px;opacity:0.5">receipt_long</mat-icon>
+          <span style="font-size:0.85rem;font-weight:600">Orders</span>
+          <span style="font-size:0.75rem;opacity:0.35">{{ run.orders.length }}</span>
+        </div>
+
+        @if (run.orders.length === 0) {
+          <div class="empty-hint">
+            <mat-icon style="font-size:32px;width:32px;height:32px;opacity:0.12">receipt_long</mat-icon>
+            <span>No orders yet</span>
+          </div>
+        }
+
+        @for (order of run.orders; track order.id) {
+          <div class="order-card" [class.my-order]="order.id === run.currentUserOrderId">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+              <span style="font-size:0.82rem;font-weight:600">{{ order.teamMemberName }}</span>
+              <span style="font-size:0.82rem;opacity:0.5">R{{ order.total.toFixed(2) }}</span>
+            </div>
+            @for (item of order.items; track item.id) {
+              <div style="display:flex;font-size:0.75rem;opacity:0.6;margin-bottom:2px">
+                <span style="flex:1">{{ item.quantity }}x {{ item.menuItemName }}</span>
+                <span>R{{ item.lineTotal.toFixed(2) }}</span>
+              </div>
+            }
+            @if (order.notes) {
+              <div style="font-size:0.72rem;opacity:0.35;margin-top:4px;font-style:italic">{{ order.notes }}</div>
+            }
+          </div>
+        }
+      </div>
+
+      <!-- ── YOUR ORDER SECTION ───────────────────── -->
+      @if (isOpen()) {
+        <div class="section" style="border-color:rgba(100,181,246,0.2)">
+          <div class="section-header" style="color:#64b5f6">
+            <mat-icon style="font-size:18px;height:18px;width:18px">shopping_cart</mat-icon>
+            <span style="font-size:0.85rem;font-weight:600">
+              @if (hasOrder()) { Your Order } @else { Place Your Order }
+            </span>
+          </div>
+
+          @if (run.menuItems.length === 0) {
+            <div class="empty-hint">
+              <span>No menu items available to order</span>
+            </div>
+          } @else if (hasOrder() && !editingOrder()) {
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0">
+              <span style="font-size:0.82rem;opacity:0.5">You have an order</span>
+              <div style="display:flex;gap:6px">
+                <button mat-stroked-button style="font-size:0.75rem;height:32px"
+                        (click)="startEditOrder()">
+                  <mat-icon style="font-size:14px;height:14px;width:14px;margin-right:2px">edit</mat-icon>
+                  Edit
+                </button>
+                <button mat-stroked-button style="font-size:0.75rem;height:32px;color:#ef5350"
+                        (click)="deleteOrder()">
+                  <mat-icon style="font-size:14px;height:14px;width:14px;margin-right:2px">delete</mat-icon>
+                  Delete
+                </button>
+              </div>
+            </div>
+          } @else {
+            @for (item of run.menuItems; track item.id) {
+              <div class="menu-item-row">
+                <span style="flex:1;font-size:0.82rem">{{ item.name }}</span>
+                <span style="font-size:0.78rem;opacity:0.4;margin-right:8px">R{{ item.price.toFixed(2) }}</span>
+                <div class="qty-stepper">
+                  <button class="stepper-btn" (click)="adjustQuantity(item.id, -1)">-</button>
+                  <span class="stepper-val">{{ getQuantity(item.id) }}</span>
+                  <button class="stepper-btn" (click)="adjustQuantity(item.id, 1)">+</button>
+                </div>
+              </div>
+            }
+
+            <div style="margin-top:8px">
+              <input class="inline-input" [(ngModel)]="orderNotes" placeholder="Add notes (optional)…"
+                     style="width:100%;box-sizing:border-box;margin-bottom:8px">
+            </div>
+
+            <div style="display:flex;align-items:center;justify-content:space-between">
+              <div>
+                <span style="font-size:0.8rem;opacity:0.5">Total: </span>
+                <span style="font-size:0.9rem;font-weight:600;color:#64b5f6">R{{ getOrderTotal().toFixed(2) }}</span>
+              </div>
+              <div style="display:flex;gap:6px">
+                @if (hasOrder()) {
+                  <button class="icon-btn" style="color:rgba(255,255,255,0.4);padding:4px 8px"
+                          (click)="cancelEditOrder()">
+                    Cancel
+                  </button>
+                  <button mat-stroked-button style="font-size:0.78rem;height:34px"
+                          [disabled]="!hasAnyQuantity() || saving()"
+                          (click)="updateOrder()">
+                    {{ saving() ? 'Saving\u2026' : 'Update Order' }}
+                  </button>
+                } @else {
+                  <button mat-stroked-button color="primary" style="font-size:0.78rem;height:34px"
+                          [disabled]="!hasAnyQuantity() || saving()"
+                          (click)="placeOrder()">
+                    {{ saving() ? 'Placing\u2026' : 'Place Order' }}
+                  </button>
+                }
+              </div>
+            </div>
+          }
+        </div>
+      }
+
+      <!-- ── CLOSE BUTTON ─────────────────────────── -->
+      @if (isInitiator() && isOpen()) {
+        <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
+          <button mat-stroked-button style="color:#ff9800;border-color:rgba(255,152,0,0.4)"
+                  (click)="closeRun()">
+            <mat-icon style="font-size:16px;height:16px;width:16px;margin-right:4px">lock</mat-icon>
+            Close Run
+          </button>
+        </div>
+      }
+
+      @if (!isOpen()) {
+        <div style="display:flex;align-items:center;justify-content:center;gap:6px;
+                    padding:12px;border-radius:8px;background:rgba(255,255,255,0.03);
+                    border:1px solid rgba(255,255,255,0.06);margin-top:16px">
+          <mat-icon style="font-size:16px;height:16px;width:16px;opacity:0.4">lock</mat-icon>
+          <span style="font-size:0.8rem;opacity:0.4">This coffee run is closed. Orders are read-only.</span>
+        </div>
+      }
+      }
+    }
+
+    @if (templates().length > 0) {
+      <div style="margin-top:16px">
+        <div class="section-label">Saved Menus</div>
+        @for (t of templates(); track t.id) {
+          <div class="run-card" style="display:flex;align-items:center"
+               (click)="copyFromTemplateId = t.id; copyMenuRunId = null; createRun()">
+            <div class="run-card-info" style="flex:1">
+              <div style="font-size:0.82rem;font-weight:500">{{ t.name }}</div>
+              <div style="font-size:0.7rem;opacity:0.3">{{ t.itemCount }} items</div>
+            </div>
+            <button class="icon-btn" style="color:rgba(239,83,80,0.5)" (click)="$event.stopPropagation(); deleteTemplate(t.id)"
+                    matTooltip="Delete template">
+              <mat-icon style="font-size:16px;height:16px;width:16px">delete</mat-icon>
+            </button>
+          </div>
+        }
+      </div>
+    }
+  }

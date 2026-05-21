@@ -26,6 +26,10 @@ export const FUN_ROUTES: Routes = [
       {
         path: 'wheel',
         loadChildren: () => import('../wheel/wheel.routes').then(m => m.WHEEL_ROUTES)
+      },
+      {
+        path: 'coffee-run',
+        loadChildren: () => import('../coffee-run/coffee-run.routes').then(m => m.COFFEE_RUN_ROUTES)
       }
     ]
   }
