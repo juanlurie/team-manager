@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using TeamManager.Api.Infrastructure.Data;
@@ -11,9 +12,11 @@ using TeamManager.Api.Infrastructure.Data;
 namespace TeamManager.Api.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260521173329_AddCoffeeRun")]
+    partial class AddCoffeeRun
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -168,9 +171,6 @@ namespace TeamManager.Api.Migrations
                         .HasDefaultValueSql("gen_random_uuid()");
 
                     b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<DateTimeOffset?>("ClosedAt")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<Guid>("InitiatorId")
@@ -1736,7 +1736,8 @@ namespace TeamManager.Api.Migrations
                         .HasColumnType("uuid");
 
                     b.Property<DateTimeOffset>("VotedAt")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("CreatedAt");
 
                     b.Property<Guid>("WinNominationId")
                         .HasColumnType("uuid");
@@ -1765,7 +1766,8 @@ namespace TeamManager.Api.Migrations
                         .HasColumnType("uuid");
 
                     b.Property<DateTimeOffset>("OpenedAt")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("CreatedAt");
 
                     b.Property<string>("Status")
                         .IsRequired()
@@ -1773,10 +1775,12 @@ namespace TeamManager.Api.Migrations
                         .HasColumnType("character varying(20)");
 
                     b.Property<DateOnly>("WeekEnd")
-                        .HasColumnType("date");
+                        .HasColumnType("date")
+                        .HasColumnName("EndDate");
 
                     b.Property<DateOnly>("WeekStart")
-                        .HasColumnType("date");
+                        .HasColumnType("date")
+                        .HasColumnName("StartDate");
 
                     b.Property<Guid?>("WinnerNominationId")
                         .HasColumnType("uuid");

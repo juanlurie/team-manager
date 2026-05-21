@@ -73,7 +73,7 @@ import { WinOfTheMonthComponent } from '../win-of-the-month/win-of-the-month.com
     @if (showDialog()) {
       <div style="position:fixed;inset:0;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;z-index:1000"
            (click)="closeDialog()">
-        <div style="background:#1e1e2e;border-radius:16px;padding:24px;width:90%;max-width:440px;border:1px solid rgba(255,255,255,0.1)"
+        <div style="background:#1e1e2e;border-radius:16px;padding:24px;width:90%;max-width:440px;max-height:85dvh;overflow-y:auto;overscroll-behavior:contain;border:1px solid rgba(255,255,255,0.1);-webkit-overflow-scrolling:touch"
              (click)="$event.stopPropagation()">
           <h3 style="margin:0 0 16px;font-size:1.1rem;font-weight:700">Nominate a Win</h3>
 
@@ -98,7 +98,7 @@ import { WinOfTheMonthComponent } from '../win-of-the-month/win-of-the-month.com
             </mat-form-field>
           </div>
 
-          <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
+          <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px;position:sticky;bottom:0;background:#1e1e2e;padding-top:8px">
             <button mat-stroked-button (click)="closeDialog()">Cancel</button>
             <button mat-raised-button color="primary" (click)="submitNomination()"
                     [disabled]="!nominateForm.nomineeMemberId || !nominateForm.title.trim() || submitting()">
