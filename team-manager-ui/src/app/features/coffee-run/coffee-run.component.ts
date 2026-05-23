@@ -130,10 +130,9 @@ export class CoffeeRunComponent implements OnInit, OnDestroy {
       this.loadTemplates();
 
       this.route.queryParams.subscribe(params => {
-        const runId = params['runId'];
+        const runId = params['run'];
         if (runId) {
           this.viewDetail(runId);
-          this.router.navigate([], { queryParams: {}, replaceUrl: true });
         }
       });
     });
@@ -733,7 +732,9 @@ export class CoffeeRunComponent implements OnInit, OnDestroy {
   }
 
   copyShareLink() {
-    const url = `${window.location.origin}/fun/coffee-run`;
+    const run = this.detail();
+    if (!run) return;
+    const url = `${window.location.origin}/fun/coffee-run?run=${run.id}`;
     navigator.clipboard.writeText(url).then(() => {
       this.snackBar.open('Link copied! Share on WhatsApp ☕', 'Close', { duration: 3000 });
     }).catch(() => {

@@ -1,9 +1,11 @@
 <div style="max-width:800px;margin:0 auto;padding:0 8px;overflow-x:hidden">
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;gap:8px;flex-wrap:wrap">
     <h2 style="margin:0;font-size:1.2rem">Coffee Run</h2>
-    <button class="icon-btn" (click)="copyShareLink()" matTooltip="Copy share link">
-      <mat-icon style="font-size:20px;height:20px;width:20px">share</mat-icon>
-    </button>
+    @if (view() === 'detail' && detail()) {
+      <button class="icon-btn" (click)="copyShareLink()" matTooltip="Copy share link">
+        <mat-icon style="font-size:20px;height:20px;width:20px">share</mat-icon>
+      </button>
+    }
   </div>
 
 @if (loading()) {
