@@ -187,7 +187,7 @@ import { WinOfTheMonthComponent } from '../win-of-the-month/win-of-the-month.com
 
       <!-- User quota chips -->
       <div style="display:flex;gap:12px;margin-bottom:16px;font-size:0.8rem;flex-wrap:wrap">
-        @if (currentWeek()?.status === 'Nominating') {
+        @if (currentWeek()?.status === 'Nominating' || currentWeek()?.status === 'Voting') {
           <span style="opacity:0.6">
             Nominations remaining: <strong>{{currentWeek()?.userNominationsRemaining ?? 0}}</strong>/3
           </span>
@@ -197,7 +197,7 @@ import { WinOfTheMonthComponent } from '../win-of-the-month/win-of-the-month.com
             Votes remaining: <strong>{{currentWeek()?.userVotesRemaining ?? 0}}</strong>/3
           </span>
         }
-        @if (currentWeek()?.status === 'Nominating' && (currentWeek()?.userNominationsRemaining ?? 0) > 0) {
+        @if ((currentWeek()?.status === 'Nominating' || currentWeek()?.status === 'Voting') && (currentWeek()?.userNominationsRemaining ?? 0) > 0) {
           <button mat-stroked-button color="accent" (click)="showNominateDialog()"
                   style="font-size:0.8rem;height:30px;margin-left:auto">
             <mat-icon style="font-size:1rem;width:1rem;height:1rem">add</mat-icon>

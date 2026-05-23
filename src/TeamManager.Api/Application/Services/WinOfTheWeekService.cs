@@ -75,7 +75,7 @@ public class WinOfTheWeekService(AppDbContext db) : IWinOfTheWeekService
     {
         var week = await GetOrCreateCurrentWeekAsync(memberId);
 
-        if (week.Status != WinWeekStatus.Nominating)
+        if (week.Status != WinWeekStatus.Nominating && week.Status != WinWeekStatus.Voting)
             throw new InvalidOperationException("Nominations are not open for the current week.");
 
         var count = await db.WinNominations
