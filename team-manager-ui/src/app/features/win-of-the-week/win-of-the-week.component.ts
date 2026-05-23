@@ -127,12 +127,15 @@ import { WinOfTheMonthComponent } from '../win-of-the-month/win-of-the-month.com
             Open Voting
           </button>
         }
-        @if (currentWeek()?.status === 'Voting') {
+        @if (currentWeek()?.status === 'Voting' && (currentWeek()?.nominations?.length ?? 0) > 0) {
           <button mat-stroked-button color="primary" (click)="closeWeek()"
                   style="font-size:0.8rem;height:34px">
             <mat-icon style="font-size:1rem;width:1rem;height:1rem">lock</mat-icon>
             Close & Pick Winner
           </button>
+        }
+        @if (currentWeek()?.status === 'Voting' && (currentWeek()?.nominations?.length ?? 0) === 0) {
+          <span style="font-size:0.75rem;opacity:0.35;font-style:italic">No nominations yet — cannot close</span>
         }
         @if (currentWeek()?.status === 'Closed') {
           <button mat-stroked-button color="primary" (click)="openNextWeek()"
