@@ -267,27 +267,23 @@ import { WinOfTheMonthComponent } from '../win-of-the-month/win-of-the-month.com
                 <div style="font-size:0.6rem;opacity:0.4;text-transform:uppercase">votes</div>
 
                 @if (currentWeek()?.status === 'Voting') {
-                  @if (nom.teamMemberId !== currentUserId) {
-                    @if (nom.hasVoted) {
-                      <button mat-stroked-button color="warn" (click)="removeVote(nom.id)"
+                  @if (nom.hasVoted) {
+                    <button mat-stroked-button color="warn" (click)="removeVote(nom.id)"
+                            style="font-size:0.7rem;height:28px;line-height:28px;min-width:0;padding:0 10px">
+                      Voted ✓
+                    </button>
+                  } @else {
+                    @if ((currentWeek()?.userVotesRemaining ?? 0) > 0) {
+                      <button mat-stroked-button color="primary" (click)="vote(nom.id)"
                               style="font-size:0.7rem;height:28px;line-height:28px;min-width:0;padding:0 10px">
-                        Voted ✓
+                        Vote
                       </button>
                     } @else {
-                      @if ((currentWeek()?.userVotesRemaining ?? 0) > 0) {
-                        <button mat-stroked-button color="primary" (click)="vote(nom.id)"
-                                style="font-size:0.7rem;height:28px;line-height:28px;min-width:0;padding:0 10px">
-                          Vote
-                        </button>
-                      } @else {
-                        <button mat-stroked-button disabled
-                                style="font-size:0.7rem;height:28px;line-height:28px;min-width:0;padding:0 10px">
-                          Max votes
-                        </button>
-                      }
+                      <button mat-stroked-button disabled
+                              style="font-size:0.7rem;height:28px;line-height:28px;min-width:0;padding:0 10px">
+                        Max votes
+                      </button>
                     }
-                  } @else {
-                    <span style="font-size:0.65rem;opacity:0.35;text-align:center">Your<br>nomination</span>
                   }
                 }
               </div>
