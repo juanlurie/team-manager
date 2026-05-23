@@ -17,6 +17,13 @@ public interface ICoffeeRunService
     Task<CoffeeRunDetailDto?> DeleteOrderAsync(Guid runId, Guid orderId, Guid currentUserId);
 
     Task<IReadOnlyList<CoffeeRunMenuTemplateListDto>> GetTemplatesAsync();
+    Task<CoffeeRunMenuTemplateDetailDto> GetTemplateDetailAsync(Guid templateId, Guid memberId);
     Task<CoffeeRunMenuTemplateDetailDto> CreateTemplateAsync(Guid memberId, CreateMenuTemplateRequest request);
+    Task<CoffeeRunMenuTemplateDetailDto> ImportTemplateAsync(Guid memberId, ImportMenuTemplateRequest request);
+    Task<CoffeeRunMenuTemplateDetailDto> UpdateTemplateAsync(Guid templateId, Guid memberId, UpdateMenuTemplateRequest request);
     Task<bool> DeleteTemplateAsync(Guid templateId, Guid memberId);
+
+    Task<CoffeeRunMenuTemplateDetailDto> AddTemplateItemAsync(Guid templateId, Guid memberId, CreateTemplateItemRequest request);
+    Task<CoffeeRunMenuTemplateDetailDto> UpdateTemplateItemAsync(Guid templateId, Guid itemId, Guid memberId, UpdateTemplateItemRequest request);
+    Task<bool> DeleteTemplateItemAsync(Guid templateId, Guid itemId, Guid memberId);
 }

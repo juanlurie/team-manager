@@ -43,7 +43,7 @@ public class CoffeeRunService(AppDbContext db) : ICoffeeRunService
             run.MenuItems = sourceItems.Select(m => new CoffeeRunMenuItem
             {
                 Name = m.Name,
-                Price = m.Price
+                Price = m.Price ?? 0
             }).ToList();
         }
         else if (copyMenuFromRunId.HasValue)
@@ -299,7 +299,7 @@ public class CoffeeRunService(AppDbContext db) : ICoffeeRunService
         return new CoffeeRunMenuTemplateDetailDto(
             template.Id,
             template.Name,
-            template.Items.Select(i => new CoffeeRunMenuItemDto(i.Id, i.Name, i.Price)).ToList(),
+            template.Items.Select(i => new TemplateItemDto(i.Id, i.Name, i.Price)).ToList(),
             template.CreatedAt
         );
     }
@@ -313,5 +313,131 @@ public class CoffeeRunService(AppDbContext db) : ICoffeeRunService
         db.CoffeeRunMenuTemplates.Remove(template);
         await db.SaveChangesAsync();
         return true;
+    }
+
+    public async Task<CoffeeRunMenuTemplateDetailDto> GetTemplateDetailAsync(Guid templateId, Guid memberId)
+    {
+        var template = await db.CoffeeRunMenuTemplates
+            .Include(t => t.Items)
+            .FirstOrDefaultAsync(t => t.Id == templateId);
+
+        if (template is null) throw new KeyNotFoundException("Template not found.");
+
+        return new CoffeeRunMenuTemplateDetailDto(
+            template.Id,
+            template.Name,
+            template.Items.OrderBy(i => i.Name).Select(i => new TemplateItemDto(i.Id, i.Name, i.Price)).ToList(),
+            template.CreatedAt
+        );
+    }
+
+    public async Task<CoffeeRunMenuTemplateDetailDto> ImportTemplateAsync(Guid memberId, ImportMenuTemplateRequest request)
+    {
+        var template = new CoffeeRunMenuTemplate
+        {
+            Name = request.Name,
+            CreatedByMemberId = memberId,
+            Items = request.Items.Select(i => new CoffeeRunMenuTemplateItem
+            {
+                Name = i.Name,
+                Price = i.Price
+            }).ToList()
+        };
+
+        db.CoffeeRunMenuTemplates.Add(template);
+        await db.SaveChangesAsync();
+
+        return new CoffeeRunMenuTemplateDetailDto(
+            template.Id,
+            template.Name,
+            template.Items.Select(i => new TemplateItemDto(i.Id, i.Name, i.Price)).ToList(),
+            template.CreatedAt
+        );
+    }
+
+    public async Task<CoffeeRunMenuTemplateDetailDto> UpdateTemplateAsync(Guid templateId, Guid memberId, UpdateMenuTemplateRequest request)
+    {
+        var template = await db.CoffeeRunMenuTemplates
+            .Include(t => t.Items)
+            .FirstOrDefaultAsync(t => t.Id == templateId);
+
+        if (template is null) throw new KeyNotFoundException("Template not found.");
+        if (template.CreatedByMemberId != memberId) throw new UnauthorizedAccessException("Not the template owner.");
+
+        if (request.Name is not null)
+            template.Name = request.Name;
+
+        await db.SaveChangesAsync();
+
+        return new CoffeeRunMenuTemplateDetailDto(
+            template.Id,
+            template.Name,
+            template.Items.OrderBy(i => i.Name).Select(i => new TemplateItemDto(i.Id, i.Name, i.Price)).ToList(),
+            template.CreatedAt
+        );
+    }
+
+    public async Task<CoffeeRunMenuTemplateDetailDto> AddTemplateItemAsync(Guid templateId, Guid memberId, CreateTemplateItemRequest request)
+    {
+        var template = await db.CoffeeRunMenuTemplates.FindAsync(templateId);
+        if (template is null) throw new KeyNotFoundException("Template not found.");
+        if (template.CreatedByMemberId != memberId) throw new UnauthorizedAccessException("Not the template owner.");
+
+        var item = new CoffeeRunMenuTemplateItem
+        {
+            TemplateId = templateId,
+            Name = request.Name,
+            Price = request.Price
+        };
+
+        db.CoffeeRunMenuTemplateItems.Add(item);
+        await db.SaveChangesAsync();
+
+        return await BuildTemplateDetail(templateId);
+    }
+
+    public async Task<CoffeeRunMenuTemplateDetailDto> UpdateTemplateItemAsync(Guid templateId, Guid itemId, Guid memberId, UpdateTemplateItemRequest request)
+    {
+        var template = await db.CoffeeRunMenuTemplates.FindAsync(templateId);
+        if (template is null) throw new KeyNotFoundException("Template not found.");
+        if (template.CreatedByMemberId != memberId) throw new UnauthorizedAccessException("Not the template owner.");
+
+        var item = await db.CoffeeRunMenuTemplateItems.FirstOrDefaultAsync(i => i.Id == itemId && i.TemplateId == templateId);
+        if (item is null) throw new KeyNotFoundException("Item not found.");
+
+        if (request.Name is not null) item.Name = request.Name;
+        if (request.Price.HasValue) item.Price = request.Price;
+
+        await db.SaveChangesAsync();
+
+        return await BuildTemplateDetail(templateId);
+    }
+
+    public async Task<bool> DeleteTemplateItemAsync(Guid templateId, Guid itemId, Guid memberId)
+    {
+        var template = await db.CoffeeRunMenuTemplates.FindAsync(templateId);
+        if (template is null) return false;
+        if (template.CreatedByMemberId != memberId) return false;
+
+        var item = await db.CoffeeRunMenuTemplateItems.FirstOrDefaultAsync(i => i.Id == itemId && i.TemplateId == templateId);
+        if (item is null) return false;
+
+        db.CoffeeRunMenuTemplateItems.Remove(item);
+        await db.SaveChangesAsync();
+        return true;
+    }
+
+    private async Task<CoffeeRunMenuTemplateDetailDto> BuildTemplateDetail(Guid templateId)
+    {
+        var template = await db.CoffeeRunMenuTemplates
+            .Include(t => t.Items)
+            .FirstAsync(t => t.Id == templateId);
+
+        return new CoffeeRunMenuTemplateDetailDto(
+            template.Id,
+            template.Name,
+            template.Items.OrderBy(i => i.Name).Select(i => new TemplateItemDto(i.Id, i.Name, i.Price)).ToList(),
+            template.CreatedAt
+        );
     }
 }

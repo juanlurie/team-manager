@@ -134,6 +134,24 @@ public class CoffeeRunsController(ICoffeeRunService service) : ControllerBase
     public async Task<IActionResult> GetTemplates()
         => Ok(await service.GetTemplatesAsync());
 
+    [HttpGet("/api/v1/coffee-run-menu-templates/{templateId:guid}")]
+    public async Task<IActionResult> GetTemplateDetail(Guid templateId)
+    {
+        var tmid = User.FindFirst("TMID")?.Value;
+        if (tmid is null || !Guid.TryParse(tmid, out var memberId))
+            return Unauthorized();
+
+        try
+        {
+            var result = await service.GetTemplateDetailAsync(templateId, memberId);
+            return Ok(result);
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound();
+        }
+    }
+
     [HttpPost("/api/v1/coffee-run-menu-templates")]
     public async Task<IActionResult> CreateTemplate([FromBody] CreateMenuTemplateRequest request)
     {
@@ -145,6 +163,39 @@ public class CoffeeRunsController(ICoffeeRunService service) : ControllerBase
         return Created("", result);
     }
 
+    [HttpPost("/api/v1/coffee-run-menu-templates/import")]
+    public async Task<IActionResult> ImportTemplate([FromBody] ImportMenuTemplateRequest request)
+    {
+        var tmid = User.FindFirst("TMID")?.Value;
+        if (tmid is null || !Guid.TryParse(tmid, out var memberId))
+            return Unauthorized();
+
+        var result = await service.ImportTemplateAsync(memberId, request);
+        return Created("", result);
+    }
+
+    [HttpPut("/api/v1/coffee-run-menu-templates/{templateId:guid}")]
+    public async Task<IActionResult> UpdateTemplate(Guid templateId, [FromBody] UpdateMenuTemplateRequest request)
+    {
+        var tmid = User.FindFirst("TMID")?.Value;
+        if (tmid is null || !Guid.TryParse(tmid, out var memberId))
+            return Unauthorized();
+
+        try
+        {
+            var result = await service.UpdateTemplateAsync(templateId, memberId, request);
+            return Ok(result);
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound();
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Forbid();
+        }
+    }
+
     [HttpDelete("/api/v1/coffee-run-menu-templates/{templateId:guid}")]
     public async Task<IActionResult> DeleteTemplate(Guid templateId)
     {
@@ -153,6 +204,61 @@ public class CoffeeRunsController(ICoffeeRunService service) : ControllerBase
             return Unauthorized();
 
         var success = await service.DeleteTemplateAsync(templateId, memberId);
+        return success ? NoContent() : NotFound();
+    }
+
+    [HttpPost("/api/v1/coffee-run-menu-templates/{templateId:guid}/items")]
+    public async Task<IActionResult> AddTemplateItem(Guid templateId, [FromBody] CreateTemplateItemRequest request)
+    {
+        var tmid = User.FindFirst("TMID")?.Value;
+        if (tmid is null || !Guid.TryParse(tmid, out var memberId))
+            return Unauthorized();
+
+        try
+        {
+            var result = await service.AddTemplateItemAsync(templateId, memberId, request);
+            return Created("", result);
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound();
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Forbid();
+        }
+    }
+
+    [HttpPut("/api/v1/coffee-run-menu-templates/{templateId:guid}/items/{itemId:guid}")]
+    public async Task<IActionResult> UpdateTemplateItem(Guid templateId, Guid itemId, [FromBody] UpdateTemplateItemRequest request)
+    {
+        var tmid = User.FindFirst("TMID")?.Value;
+        if (tmid is null || !Guid.TryParse(tmid, out var memberId))
+            return Unauthorized();
+
+        try
+        {
+            var result = await service.UpdateTemplateItemAsync(templateId, itemId, memberId, request);
+            return Ok(result);
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound();
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Forbid();
+        }
+    }
+
+    [HttpDelete("/api/v1/coffee-run-menu-templates/{templateId:guid}/items/{itemId:guid}")]
+    public async Task<IActionResult> DeleteTemplateItem(Guid templateId, Guid itemId)
+    {
+        var tmid = User.FindFirst("TMID")?.Value;
+        if (tmid is null || !Guid.TryParse(tmid, out var memberId))
+            return Unauthorized();
+
+        var success = await service.DeleteTemplateItemAsync(templateId, itemId, memberId);
         return success ? NoContent() : NotFound();
     }
 }

@@ -7,6 +7,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatDialogModule, MatDialog } from '@angular/material/dialog';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { ActivatedRoute, Router } from '@angular/router';
 import { CoffeeRunService } from '../../core/services/coffee-run.service';
 import { CoffeeRunList, CoffeeRunDetail, CoffeeRunMenuItem, CreateOrderRequest, OrderItemEntry, MenuTemplateList, CreateMenuTemplateRequest } from '../../core/models/coffee-run.model';
 import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/confirm-dialog.component';
@@ -24,6 +25,8 @@ export class CoffeeRunComponent implements OnInit {
   private teamMemberSvc = inject(TeamMemberService);
   private dialog = inject(MatDialog);
   private snackBar = inject(MatSnackBar);
+  private router = inject(Router);
+  private route = inject(ActivatedRoute);
 
   loading = signal(true);
   runs = signal<CoffeeRunList[]>([]);
@@ -52,6 +55,10 @@ export class CoffeeRunComponent implements OnInit {
 
   saving = signal(false);
 
+  navigateToManageMenus() {
+    this.router.navigate(['/fun/manage-menus']);
+  }
+
   ngOnInit() {
     this.teamMemberSvc.getMe().subscribe(profile => {
       this.currentUserId.set(profile.id);
@@ -60,6 +67,14 @@ export class CoffeeRunComponent implements OnInit {
         this.coffeeRunSvc.getTemplates().subscribe(tmpl => {
           this.templates.set(tmpl);
           this.loading.set(false);
+
+          this.route.queryParams.subscribe(params => {
+            const runId = params['runId'];
+            if (runId) {
+              this.viewDetail(runId);
+              this.router.navigate([], { queryParams: {}, replaceUrl: true });
+            }
+          });
         });
       });
     });
