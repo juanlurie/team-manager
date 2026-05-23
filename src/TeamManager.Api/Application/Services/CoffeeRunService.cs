@@ -514,6 +514,7 @@ public class CoffeeRunService(AppDbContext db) : ICoffeeRunService
         if (run is null) return null;
 
         var currentOrder = run.Orders.FirstOrDefault(o => o.TeamMemberId == currentUserId);
+        var isInitiator = run.InitiatorId == currentUserId;
 
         return new CoffeeRunDetailDto
         {
@@ -545,25 +546,31 @@ public class CoffeeRunService(AppDbContext db) : ICoffeeRunService
                         m.MaxQuantity, remaining, m.IsAvailable, m.SortOrder
                     );
                 }).ToList(),
-            Orders = run.Orders.OrderBy(o => o.CreatedAt).Select(o => new CoffeeRunOrderDto
+            Orders = run.Orders.OrderBy(o => o.CreatedAt).Select(o =>
             {
-                Id = o.Id,
-                TeamMemberId = o.TeamMemberId,
-                TeamMemberName = $"{o.TeamMember.FirstName} {o.TeamMember.LastName}",
-                Status = o.Status.ToString(),
-                Notes = o.Notes,
-                TotalAmount = o.TotalAmount,
-                CreatedAt = o.CreatedAt,
-                UpdatedAt = o.UpdatedAt,
-                Items = o.Items.Select(i => new CoffeeRunOrderItemDto
+                var isOwnOrder = o.TeamMemberId == currentUserId;
+                return new CoffeeRunOrderDto
                 {
-                    Id = i.Id,
-                    MenuItemId = i.MenuItem.Id,
-                    MenuItemName = i.MenuItem.Name,
-                    UnitPrice = i.UnitPrice,
-                    Quantity = i.Quantity,
-                    LineTotal = i.LineTotal
-                }).ToList()
+                    Id = o.Id,
+                    TeamMemberId = o.TeamMemberId,
+                    TeamMemberName = $"{o.TeamMember.FirstName} {o.TeamMember.LastName}",
+                    Status = o.Status.ToString(),
+                    Notes = isInitiator || isOwnOrder ? o.Notes : null,
+                    TotalAmount = o.TotalAmount,
+                    CreatedAt = o.CreatedAt,
+                    UpdatedAt = o.UpdatedAt,
+                    Items = isInitiator || isOwnOrder
+                        ? o.Items.Select(i => new CoffeeRunOrderItemDto
+                        {
+                            Id = i.Id,
+                            MenuItemId = i.MenuItem.Id,
+                            MenuItemName = i.MenuItem.Name,
+                            UnitPrice = i.UnitPrice,
+                            Quantity = i.Quantity,
+                            LineTotal = i.LineTotal
+                        }).ToList()
+                        : []
+                };
             }).ToList()
         };
     }
