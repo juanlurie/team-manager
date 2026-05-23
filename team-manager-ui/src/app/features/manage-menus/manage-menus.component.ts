@@ -54,7 +54,7 @@ export class ManageMenusComponent implements OnInit {
   loadTemplates() {
     this.loading.set(true);
     this.coffeeRunSvc.getTemplates().subscribe({
-      next: t => { this.templates.set(t); this.loading.set(false); },
+      next: result => { this.templates.set(result.items); this.loading.set(false); },
       error: () => this.loading.set(false)
     });
   }
@@ -74,7 +74,7 @@ export class ManageMenusComponent implements OnInit {
   createTemplate() {
     const name = this.newName.trim();
     if (!name) return;
-    this.coffeeRunSvc.createTemplate({ name, copyFromRunId: '' }).subscribe({
+    this.coffeeRunSvc.createTemplate({ name }).subscribe({
       next: () => {
         this.newName = '';
         this.loadTemplates();
@@ -228,7 +228,7 @@ export class ManageMenusComponent implements OnInit {
   }
 
   startRunWithTemplate(templateId: string) {
-    this.coffeeRunSvc.create(templateId).subscribe({
+    this.coffeeRunSvc.create({ templateId }).subscribe({
       next: d => {
         this.router.navigate(['/fun/coffee-run'], { queryParams: { runId: d.id } });
       },

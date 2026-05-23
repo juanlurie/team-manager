@@ -10,8 +10,9 @@ public class CoffeeRunMenuItemConfiguration : IEntityTypeConfiguration<CoffeeRun
     {
         builder.HasKey(m => m.Id);
         builder.Property(m => m.Id).HasDefaultValueSql("gen_random_uuid()");
-        builder.Property(m => m.Name).IsRequired().HasMaxLength(100);
+        builder.Property(m => m.Name).IsRequired().HasMaxLength(150);
         builder.Property(m => m.Price).HasColumnType("decimal(10,2)");
+        builder.Property(m => m.Category).HasMaxLength(50);
 
         builder.HasOne(m => m.CoffeeRun)
             .WithMany(r => r.MenuItems)

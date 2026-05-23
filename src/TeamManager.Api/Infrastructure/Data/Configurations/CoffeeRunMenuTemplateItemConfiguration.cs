@@ -12,5 +12,6 @@ public class CoffeeRunMenuTemplateItemConfiguration : IEntityTypeConfiguration<C
         builder.Property(i => i.Id).HasDefaultValueSql("gen_random_uuid()");
         builder.Property(i => i.Name).IsRequired().HasMaxLength(150);
         builder.Property(i => i.Price).HasColumnType("decimal(10,2)");
+        builder.Property(i => i.Category).HasMaxLength(50);
     }
 }

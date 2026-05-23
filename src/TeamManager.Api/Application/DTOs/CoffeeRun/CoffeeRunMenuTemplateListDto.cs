@@ -3,6 +3,9 @@ namespace TeamManager.Api.Application.DTOs.CoffeeRun;
 public record CoffeeRunMenuTemplateListDto(
     Guid Id,
     string Name,
+    string Scope,
     int ItemCount,
-    DateTimeOffset CreatedAt
+    string CreatedByName,
+    DateTimeOffset CreatedAt,
+    bool IsArchived
 );

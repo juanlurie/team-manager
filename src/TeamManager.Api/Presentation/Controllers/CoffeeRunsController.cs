@@ -9,17 +9,36 @@ namespace TeamManager.Api.Presentation.Controllers;
 public class CoffeeRunsController(ICoffeeRunService service) : ControllerBase
 {
     [HttpGet]
-    public async Task<IActionResult> GetAll()
-        => Ok(await service.GetAllAsync());
+    public async Task<IActionResult> GetAll(
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20,
+        [FromQuery] string? status = null,
+        [FromQuery] Guid? initiatorId = null,
+        [FromQuery] DateTime? from = null,
+        [FromQuery] DateTime? to = null)
+        => Ok(await service.GetAllAsync(page, pageSize, status, initiatorId, from, to));
 
     [HttpPost]
-    public async Task<IActionResult> Create([FromQuery] Guid? copyMenuFromRunId, [FromQuery] Guid? fromTemplateId)
+    public async Task<IActionResult> Create([FromBody] CreateRunRequest? body = null, [FromQuery] Guid? copyMenuFromRunId = null, [FromQuery] Guid? fromTemplateId = null)
     {
         var tmid = User.FindFirst("TMID")?.Value;
         if (tmid is null || !Guid.TryParse(tmid, out var initiatorId))
             return Unauthorized();
 
-        var result = await service.CreateAsync(initiatorId, copyMenuFromRunId, fromTemplateId);
+        // Backward compatibility: support old query-param style
+        if (body is null && (copyMenuFromRunId.HasValue || fromTemplateId.HasValue))
+        {
+            body = new CreateRunRequest(
+                Title: null,
+                Description: null,
+                Location: null,
+                OrderDeadline: null,
+                TemplateId: fromTemplateId,
+                CopyMenuFromRunId: copyMenuFromRunId
+            );
+        }
+
+        var result = await service.CreateAsync(initiatorId, body);
         return Created("", result);
     }
 
@@ -31,6 +50,18 @@ public class CoffeeRunsController(ICoffeeRunService service) : ControllerBase
             return Unauthorized();
 
         var result = await service.GetByIdAsync(id, currentUserId);
+        return result is null ? NotFound() : Ok(result);
+    }
+
+    [HttpPatch("{id:guid}")]
+    public async Task<IActionResult> Update(Guid id, [FromBody] UpdateRunRequest request)
+    {
+        var tmid = User.FindFirst("TMID")?.Value;
+        if (tmid is null || !Guid.TryParse(tmid, out var currentUserId))
+            return Unauthorized();
+
+        var isTeamLead = User.IsInRole("TeamLead");
+        var result = await service.UpdateAsync(id, request, currentUserId, isTeamLead);
         return result is null ? NotFound() : Ok(result);
     }
 
@@ -46,6 +77,17 @@ public class CoffeeRunsController(ICoffeeRunService service) : ControllerBase
         return success ? NoContent() : NotFound();
     }
 
+    [HttpPost("{id:guid}/publish")]
+    public async Task<IActionResult> Publish(Guid id)
+    {
+        var tmid = User.FindFirst("TMID")?.Value;
+        if (tmid is null || !Guid.TryParse(tmid, out var currentUserId))
+            return Unauthorized();
+
+        var result = await service.PublishAsync(id, currentUserId);
+        return result is null ? NotFound() : Ok(result);
+    }
+
     [HttpPost("{id:guid}/close")]
     public async Task<IActionResult> Close(Guid id)
     {
@@ -54,6 +96,29 @@ public class CoffeeRunsController(ICoffeeRunService service) : ControllerBase
             return Unauthorized();
 
         var result = await service.CloseAsync(id, currentUserId);
+        return result is null ? NotFound() : Ok(result);
+    }
+
+    [HttpPost("{id:guid}/cancel")]
+    public async Task<IActionResult> Cancel(Guid id)
+    {
+        var tmid = User.FindFirst("TMID")?.Value;
+        if (tmid is null || !Guid.TryParse(tmid, out var currentUserId))
+            return Unauthorized();
+
+        var isTeamLead = User.IsInRole("TeamLead");
+        var result = await service.CancelAsync(id, currentUserId, isTeamLead);
+        return result is null ? NotFound() : Ok(result);
+    }
+
+    [HttpGet("{id:guid}/summary")]
+    public async Task<IActionResult> GetSummary(Guid id)
+    {
+        var tmid = User.FindFirst("TMID")?.Value;
+        if (tmid is null || !Guid.TryParse(tmid, out var currentUserId))
+            return Unauthorized();
+
+        var result = await service.GetSummaryAsync(id, currentUserId);
         return result is null ? NotFound() : Ok(result);
     }
 
@@ -79,6 +144,17 @@ public class CoffeeRunsController(ICoffeeRunService service) : ControllerBase
         return result is null ? NotFound() : Ok(result);
     }
 
+    [HttpPatch("{id:guid}/menu-items/{itemId:guid}/availability")]
+    public async Task<IActionResult> ToggleAvailability(Guid id, Guid itemId)
+    {
+        var tmid = User.FindFirst("TMID")?.Value;
+        if (tmid is null || !Guid.TryParse(tmid, out var currentUserId))
+            return Unauthorized();
+
+        var result = await service.ToggleMenuItemAvailabilityAsync(id, itemId, currentUserId);
+        return result is null ? NotFound() : Ok(result);
+    }
+
     [HttpDelete("{id:guid}/menu-items/{itemId:guid}")]
     public async Task<IActionResult> DeleteMenuItem(Guid id, Guid itemId)
     {
@@ -90,7 +166,7 @@ public class CoffeeRunsController(ICoffeeRunService service) : ControllerBase
         return result switch
         {
             DeleteMenuItemResult.NotFound => NotFound(),
-            DeleteMenuItemResult.HasOrders => BadRequest("Cannot delete a menu item that has been ordered."),
+            DeleteMenuItemResult.HasOrders => Conflict("Cannot delete a menu item that has been ordered."),
             DeleteMenuItemResult.Success => NoContent(),
             _ => NotFound()
         };
@@ -130,9 +206,25 @@ public class CoffeeRunsController(ICoffeeRunService service) : ControllerBase
         return result is null ? NotFound() : NoContent();
     }
 
+    [HttpPatch("{id:guid}/orders/{orderId:guid}/status")]
+    public async Task<IActionResult> UpdateOrderStatus(Guid id, Guid orderId, [FromBody] UpdateOrderStatusRequest request)
+    {
+        var tmid = User.FindFirst("TMID")?.Value;
+        if (tmid is null || !Guid.TryParse(tmid, out var currentUserId))
+            return Unauthorized();
+
+        var result = await service.UpdateOrderStatusAsync(id, orderId, request, currentUserId);
+        return result is null ? NotFound() : Ok(result);
+    }
+
+    // ── Template endpoints (kept for backward compatibility, also in MenuTemplatesController) ──
+
     [HttpGet("/api/v1/coffee-run-menu-templates")]
     public async Task<IActionResult> GetTemplates()
-        => Ok(await service.GetTemplatesAsync());
+    {
+        var pagedResult = await service.GetTemplatesAsync();
+        return Ok(pagedResult.Items);
+    }
 
     [HttpGet("/api/v1/coffee-run-menu-templates/{templateId:guid}")]
     public async Task<IActionResult> GetTemplateDetail(Guid templateId)
@@ -203,7 +295,8 @@ public class CoffeeRunsController(ICoffeeRunService service) : ControllerBase
         if (tmid is null || !Guid.TryParse(tmid, out var memberId))
             return Unauthorized();
 
-        var success = await service.DeleteTemplateAsync(templateId, memberId);
+        var isTeamLead = User.IsInRole("TeamLead");
+        var success = await service.DeleteTemplateAsync(templateId, memberId, isTeamLead);
         return success ? NoContent() : NotFound();
     }
 

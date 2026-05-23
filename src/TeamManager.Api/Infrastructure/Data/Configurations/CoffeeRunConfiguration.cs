@@ -11,6 +11,13 @@ public class CoffeeRunConfiguration : IEntityTypeConfiguration<CoffeeRun>
         builder.HasKey(r => r.Id);
         builder.Property(r => r.Id).HasDefaultValueSql("gen_random_uuid()");
         builder.Property(r => r.Status).IsRequired().HasConversion<string>().HasMaxLength(20);
+        builder.Property(r => r.Title).HasMaxLength(200);
+        builder.Property(r => r.Description).HasMaxLength(1000);
+        builder.Property(r => r.Location).HasMaxLength(200);
+
+        builder.HasIndex(r => r.CreatedAt).HasDatabaseName("IX_CoffeeRun_CreatedAt");
+        builder.HasIndex(r => r.Status).HasDatabaseName("IX_CoffeeRun_Status");
+        builder.HasIndex(r => r.InitiatorId).HasDatabaseName("IX_CoffeeRun_InitiatorId");
 
         builder.HasOne(r => r.Initiator)
             .WithMany()
