@@ -731,4 +731,13 @@ export class CoffeeRunComponent implements OnInit, OnDestroy {
       default: return '#6b7280';
     }
   }
+
+  copyShareLink() {
+    const url = `${window.location.origin}/fun/coffee-run`;
+    navigator.clipboard.writeText(url).then(() => {
+      this.snackBar.open('Link copied! Share on WhatsApp ☕', 'Close', { duration: 3000 });
+    }).catch(() => {
+      this.snackBar.open('Failed to copy link', 'Close', { duration: 3000 });
+    });
+  }
 }
