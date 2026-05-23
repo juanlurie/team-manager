@@ -4,6 +4,12 @@ export interface CoffeeRunMenuItem {
   price: number;
 }
 
+export interface TemplateItem {
+  id: string;
+  name: string;
+  price: number | null;
+}
+
 export interface CoffeeRunOrderItem {
   id: string;
   menuItemId: string;
@@ -78,11 +84,30 @@ export interface MenuTemplateList {
 export interface MenuTemplateDetail {
   id: string;
   name: string;
-  items: CoffeeRunMenuItem[];
+  items: TemplateItem[];
   createdAt: string;
 }
 
 export interface CreateMenuTemplateRequest {
   name: string;
   copyFromRunId: string;
+}
+
+export interface ImportMenuTemplateRequest {
+  name: string;
+  items: { name: string; price?: number | null }[];
+}
+
+export interface UpdateMenuTemplateRequest {
+  name?: string;
+}
+
+export interface CreateTemplateItemRequest {
+  name: string;
+  price?: number | null;
+}
+
+export interface UpdateTemplateItemRequest {
+  name?: string;
+  price?: number | null;
 }

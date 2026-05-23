@@ -30,6 +30,10 @@ export const FUN_ROUTES: Routes = [
       {
         path: 'coffee-run',
         loadChildren: () => import('../coffee-run/coffee-run.routes').then(m => m.COFFEE_RUN_ROUTES)
+      },
+      {
+        path: 'manage-menus',
+        loadChildren: () => import('../manage-menus/manage-menus.routes').then(m => m.MANAGE_MENUS_ROUTES)
       }
     ]
   }

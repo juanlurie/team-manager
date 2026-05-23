@@ -1976,6 +1976,105 @@ TOOLS = [
             "required": ["user_id"],
         },
     ),
+
+    # ═══════════════════════════════════════════════════════════
+    # Coffee Run Menu Templates
+    # ═══════════════════════════════════════════════════════════
+    types.Tool(
+        name="list_menu_templates",
+        description="List all coffee run menu templates.",
+        inputSchema={"type": "object", "properties": {}, "required": []},
+    ),
+    types.Tool(
+        name="get_menu_template",
+        description="Get a menu template detail by ID.",
+        inputSchema={
+            "type": "object",
+            "properties": {"template_id": {"type": "string", "description": "Template UUID"}},
+            "required": ["template_id"],
+        },
+    ),
+    types.Tool(
+        name="create_menu_template",
+        description="Create a new menu template from an existing coffee run.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "name": {"type": "string"},
+                "copy_from_run_id": {"type": "string", "description": "Coffee run ID to copy menu from"},
+            },
+            "required": ["name", "copy_from_run_id"],
+        },
+    ),
+    types.Tool(
+        name="import_menu_template",
+        description="Import a menu template from a JSON array of items.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "name": {"type": "string"},
+                "items": {"type": "array", "items": {"type": "object"}, "description": "Array of {name, price?} objects"},
+            },
+            "required": ["name", "items"],
+        },
+    ),
+    types.Tool(
+        name="update_menu_template",
+        description="Update a menu template name.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "template_id": {"type": "string"},
+                "name": {"type": "string"},
+            },
+            "required": ["template_id", "name"],
+        },
+    ),
+    types.Tool(
+        name="delete_menu_template",
+        description="Delete a menu template.",
+        inputSchema={
+            "type": "object",
+            "properties": {"template_id": {"type": "string"}},
+            "required": ["template_id"],
+        },
+    ),
+    types.Tool(
+        name="add_menu_template_item",
+        description="Add an item to a menu template.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "template_id": {"type": "string"},
+                "name": {"type": "string"},
+                "price": {"type": "number", "description": "Optional price"},
+            },
+            "required": ["template_id", "name"],
+        },
+    ),
+    types.Tool(
+        name="update_menu_template_item",
+        description="Update an item in a menu template.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "template_id": {"type": "string"},
+                "item_id": {"type": "string"},
+                "name": {"type": "string"},
+                "price": {"type": "number", "description": "Optional price"},
+            },
+            "required": ["template_id", "item_id"],
+        },
+    ),
+    types.Tool(
+        name="delete_menu_template_item",
+        description="Delete an item from a menu template.",
+        inputSchema={
+            "type": "object",
+            "properties": {"template_id": {"type": "string"}, "item_id": {"type": "string"}},
+            "required": ["template_id", "item_id"],
+        },
+    ),
 ]
 
 
@@ -2676,6 +2775,42 @@ async def call_tool(name: str, arguments: dict) -> list[types.TextContent]:
                 })
             case "toggle_user_active":
                 return await _patch(f"/api/users/{arguments['user_id']}/toggle", {})
+
+            # ── Coffee Run Menu Templates ──
+            case "list_menu_templates":
+                return await _get("/api/v1/coffee-run-menu-templates")
+            case "get_menu_template":
+                return await _get(f"/api/v1/coffee-run-menu-templates/{arguments['template_id']}")
+            case "create_menu_template":
+                return await _post("/api/v1/coffee-run-menu-templates", {
+                    "name": arguments["name"],
+                    "copyFromRunId": arguments["copy_from_run_id"],
+                })
+            case "import_menu_template":
+                return await _post("/api/v1/coffee-run-menu-templates/import", {
+                    "name": arguments["name"],
+                    "items": arguments["items"],
+                })
+            case "update_menu_template":
+                return await _put(f"/api/v1/coffee-run-menu-templates/{arguments['template_id']}", {
+                    "name": arguments.get("name"),
+                })
+            case "delete_menu_template":
+                return await _delete(f"/api/v1/coffee-run-menu-templates/{arguments['template_id']}")
+            case "add_menu_template_item":
+                body = {"name": arguments["name"]}
+                if "price" in arguments:
+                    body["price"] = arguments["price"]
+                return await _post(f"/api/v1/coffee-run-menu-templates/{arguments['template_id']}/items", body)
+            case "update_menu_template_item":
+                body = {}
+                if "name" in arguments:
+                    body["name"] = arguments["name"]
+                if "price" in arguments:
+                    body["price"] = arguments["price"]
+                return await _put(f"/api/v1/coffee-run-menu-templates/{arguments['template_id']}/items/{arguments['item_id']}", body)
+            case "delete_menu_template_item":
+                return await _delete(f"/api/v1/coffee-run-menu-templates/{arguments['template_id']}/items/{arguments['item_id']}")
 
             case _:
                 return _err(f"Unknown tool: {name}")
