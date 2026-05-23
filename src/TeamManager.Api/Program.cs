@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using TeamManager.Api.Application.Services;
 using TeamManager.Api.Application.Services.Interfaces;
+using TeamManager.Api.BackgroundServices;
 using TeamManager.Api.Infrastructure.Data;
 using TeamManager.Api.Middleware;
 
@@ -64,6 +65,7 @@ builder.Services.AddScoped<IMeetingSeriesService, MeetingSeriesService>();
 builder.Services.AddScoped<IWinOfTheWeekService, WinOfTheWeekService>();
 builder.Services.AddScoped<IWinOfMonthService, WinOfMonthService>();
 builder.Services.AddScoped<ICoffeeRunService, CoffeeRunService>();
+builder.Services.AddHostedService<RunDeadlineWorker>();
 
 builder.Services.AddScoped<ILeaveFetcher, ConfigurableLeaveFetcher>();
 

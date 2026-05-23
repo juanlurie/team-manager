@@ -11,6 +11,9 @@ public class CoffeeRunMenuTemplateConfiguration : IEntityTypeConfiguration<Coffe
         builder.HasKey(t => t.Id);
         builder.Property(t => t.Id).HasDefaultValueSql("gen_random_uuid()");
         builder.Property(t => t.Name).IsRequired().HasMaxLength(200);
+        builder.Property(t => t.Scope).IsRequired().HasConversion<string>().HasMaxLength(20);
+
+        builder.HasIndex(t => new { t.Scope, t.IsArchived }).HasDatabaseName("IX_Menu_Template_Scope_Archived");
 
         builder.HasOne(t => t.CreatedBy)
             .WithMany()

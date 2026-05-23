@@ -11,6 +11,8 @@ public class CoffeeRunOrderItemConfiguration : IEntityTypeConfiguration<CoffeeRu
         builder.HasKey(i => i.Id);
         builder.Property(i => i.Id).HasDefaultValueSql("gen_random_uuid()");
         builder.Property(i => i.Quantity).IsRequired();
+        builder.Property(i => i.UnitPrice).HasColumnType("decimal(10,2)").IsRequired();
+        builder.Property(i => i.LineTotal).HasColumnType("decimal(10,2)").IsRequired();
 
         builder.HasOne(i => i.Order)
             .WithMany(o => o.Items)

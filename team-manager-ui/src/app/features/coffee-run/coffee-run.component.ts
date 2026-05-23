@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, signal, computed } from '@angular/core';
+import { Component, OnInit, OnDestroy, inject, signal, computed, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
@@ -7,76 +7,162 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatDialogModule, MatDialog } from '@angular/material/dialog';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { MatSelectModule } from '@angular/material/select';
+import { MatInputModule } from '@angular/material/input';
 import { ActivatedRoute, Router } from '@angular/router';
+import { Subscription, interval } from 'rxjs';
 import { CoffeeRunService } from '../../core/services/coffee-run.service';
-import { CoffeeRunList, CoffeeRunDetail, CoffeeRunMenuItem, CreateOrderRequest, OrderItemEntry, MenuTemplateList, CreateMenuTemplateRequest } from '../../core/models/coffee-run.model';
+import { CoffeeRunList, CoffeeRunDetail, CoffeeRunMenuItem, CreateOrderRequest, OrderItemEntry, MenuTemplateList, CreateMenuTemplateRequest, RunSummaryDetail, PagedResult } from '../../core/models/coffee-run.model';
 import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/confirm-dialog.component';
 import { TeamMemberService } from '../../core/services/team-member.service';
+import { WebSocketService } from '../../core/websocket/websocket.service';
 
 @Component({
   selector: 'app-coffee-run',
   standalone: true,
-  imports: [CommonModule, FormsModule, MatButtonModule, MatIconModule, MatTooltipModule, MatDialogModule, MatProgressSpinnerModule, MatSnackBarModule],
+  imports: [CommonModule, FormsModule, MatButtonModule, MatIconModule, MatTooltipModule, MatDialogModule, MatProgressSpinnerModule, MatSnackBarModule, MatSelectModule, MatInputModule],
   templateUrl: './coffee-run.component.html',
   styleUrls: ['./coffee-run.component.scss']
 })
-export class CoffeeRunComponent implements OnInit {
+export class CoffeeRunComponent implements OnInit, OnDestroy {
   private coffeeRunSvc = inject(CoffeeRunService);
   private teamMemberSvc = inject(TeamMemberService);
+  private ws = inject(WebSocketService);
   private dialog = inject(MatDialog);
   private snackBar = inject(MatSnackBar);
   private router = inject(Router);
   private route = inject(ActivatedRoute);
+
+  private wsSub?: Subscription;
+  private countdownInterval?: Subscription;
 
   loading = signal(true);
   runs = signal<CoffeeRunList[]>([]);
   templates = signal<MenuTemplateList[]>([]);
   currentUserId = signal<string | null>(null);
 
+  // Pagination
+  currentPage = signal(1);
+  pageSize = 10;
+  totalRuns = signal(0);
+  totalPages = signal(1);
+
+  // Filters
+  statusFilter = signal<string>('');
+  searchQuery = signal('');
+  menuSearchQuery = signal('');
+
   openRuns = computed(() => this.runs().filter(r => r.status === 'Open'));
   closedRuns = computed(() => this.runs().filter(r => r.status === 'Closed'));
+  draftRuns = computed(() => this.runs().filter(r => r.status === 'Draft'));
+  cancelledRuns = computed(() => this.runs().filter(r => r.status === 'Cancelled'));
   runsWithMenu = computed(() => this.runs().filter(r => r.menuItemCount > 0));
 
   copyMenuRunId: string | null = null;
   copyFromTemplateId: string | null = null;
-  templateName = '';
 
   view = signal<'list' | 'detail'>('list');
   detail = signal<CoffeeRunDetail | null>(null);
   detailLoading = signal(false);
   editingOrder = signal(false);
+  showSummary = signal(false);
+  runSummary = signal<RunSummaryDetail | null>(null);
+  summaryLoading = signal(false);
 
+  // Countdown
+  deadlineRemaining = signal<string | null>(null);
+
+  // Menu editing
   newItemName = '';
   newItemPrice = '';
+  newItemCategory = '';
+  newItemMaxQty = '';
 
   editingMenuItemId = signal<string | null>(null);
   editingMenuItemName = '';
   editingMenuItemPrice = '';
+  editingMenuItemCategory = '';
 
   saving = signal(false);
+
+  // Template dialog
+  showTemplateDialog = signal(false);
+  templateName = '';
+  templateScope = 'Personal';
+
+  // Run creation dialog
+  showCreateDialog = signal(false);
+  newRunTitle = '';
+  newRunLocation = '';
+  newRunDeadline = '';
+  newRunTemplateId: string | null = null;
 
   navigateToManageMenus() {
     this.router.navigate(['/fun/manage-menus']);
   }
 
   ngOnInit() {
+    this.ws.connect();
+    this.wsSub = this.ws.messages$.subscribe(msg => {
+      if (!msg) return;
+      const type = msg.type as string;
+      if (type === 'coffee_run_status_changed' || type === 'coffee_order_placed' ||
+          type === 'coffee_order_updated' || type === 'coffee_order_deleted' ||
+          type === 'coffee_menu_updated' || type === 'coffee_item_availability_changed') {
+        const runId = (msg.data as any)?.runId;
+        if (runId && this.detail()?.id === runId) {
+          this.viewDetail(runId);
+        }
+        if (this.view() === 'list') {
+          this.loadRuns();
+        }
+      }
+      if (type === 'coffee_run_created') {
+        this.loadRuns();
+        const initiatorName = (msg.data as any)?.initiatorName;
+        if (initiatorName) this.snackBar.open(`${initiatorName} started a coffee run!`, 'Close', { duration: 4000 });
+      }
+    });
+
     this.teamMemberSvc.getMe().subscribe(profile => {
       this.currentUserId.set(profile.id);
-      this.coffeeRunSvc.getAll().subscribe(runs => {
-        this.runs.set(runs);
-        this.coffeeRunSvc.getTemplates().subscribe(tmpl => {
-          this.templates.set(tmpl);
-          this.loading.set(false);
+      this.loadRuns();
+      this.loadTemplates();
 
-          this.route.queryParams.subscribe(params => {
-            const runId = params['runId'];
-            if (runId) {
-              this.viewDetail(runId);
-              this.router.navigate([], { queryParams: {}, replaceUrl: true });
-            }
-          });
-        });
+      this.route.queryParams.subscribe(params => {
+        const runId = params['runId'];
+        if (runId) {
+          this.viewDetail(runId);
+          this.router.navigate([], { queryParams: {}, replaceUrl: true });
+        }
       });
+    });
+  }
+
+  ngOnDestroy() {
+    this.wsSub?.unsubscribe();
+    this.countdownInterval?.unsubscribe();
+  }
+
+  loadRuns() {
+    this.loading.set(true);
+    this.coffeeRunSvc.getAll(this.currentPage(), this.pageSize, this.statusFilter() || undefined).subscribe({
+      next: (result: PagedResult<CoffeeRunList>) => {
+        this.runs.set(result.items);
+        this.totalRuns.set(result.totalCount);
+        this.totalPages.set(result.totalPages);
+        this.loading.set(false);
+      },
+      error: () => this.loading.set(false)
+    });
+  }
+
+  loadTemplates() {
+    this.coffeeRunSvc.getTemplates().subscribe({
+      next: (result: PagedResult<MenuTemplateList>) => {
+        this.templates.set(result.items.filter(t => !t.isArchived));
+      },
+      error: () => {}
     });
   }
 
@@ -84,8 +170,24 @@ export class CoffeeRunComponent implements OnInit {
     return this.detail()?.initiatorId === this.currentUserId();
   }
 
+  isStatus(status: string): boolean {
+    return this.detail()?.status === status;
+  }
+
   isOpen(): boolean {
-    return this.detail()?.status === 'Open';
+    return this.isStatus('Open');
+  }
+
+  isDraft(): boolean {
+    return this.isStatus('Draft');
+  }
+
+  isClosed(): boolean {
+    return this.isStatus('Closed');
+  }
+
+  isCancelled(): boolean {
+    return this.isStatus('Cancelled');
   }
 
   hasOrder(): boolean {
@@ -96,34 +198,106 @@ export class CoffeeRunComponent implements OnInit {
     return this.detail()?.orders.find(o => o.id === this.detail()?.currentUserOrderId) ?? null;
   }
 
+  /* ── Countdown ──────────────────────────────────── */
+
+  startCountdown() {
+    this.countdownInterval?.unsubscribe();
+    const deadline = this.detail()?.orderDeadline;
+    if (!deadline) {
+      this.deadlineRemaining.set(null);
+      return;
+    }
+
+    const updateCountdown = () => {
+      const diff = new Date(deadline).getTime() - Date.now();
+      if (diff <= 0) {
+        this.deadlineRemaining.set('Deadline passed');
+        this.countdownInterval?.unsubscribe();
+        if (this.isInitiator() && this.isOpen()) {
+          this.viewDetail(this.detail()!.id);
+        }
+        return;
+      }
+      const hours = Math.floor(diff / 3600000);
+      const minutes = Math.floor((diff % 3600000) / 60000);
+      const seconds = Math.floor((diff % 60000) / 1000);
+      if (hours > 0) {
+        this.deadlineRemaining.set(`${hours}h ${minutes}m`);
+      } else {
+        this.deadlineRemaining.set(`${minutes}m ${seconds}s`);
+      }
+    };
+
+    updateCountdown();
+    this.countdownInterval = interval(1000).subscribe(updateCountdown);
+  }
+
   /* ── Navigation ──────────────────────────────────── */
 
-  viewList() { this.view.set('list'); this.detail.set(null); }
+  viewList() {
+    this.view.set('list');
+    this.detail.set(null);
+    this.showSummary.set(false);
+    this.runSummary.set(null);
+    this.countdownInterval?.unsubscribe();
+    this.loadRuns();
+  }
 
   viewDetail(runId: string) {
     this.detailLoading.set(true);
     this.view.set('detail');
+    this.showSummary.set(false);
+    this.runSummary.set(null);
     this.coffeeRunSvc.getById(runId).subscribe({
-      next: d => { this.detail.set(d); this.detailLoading.set(false); },
+      next: d => {
+        this.detail.set(d);
+        this.detailLoading.set(false);
+        this.startCountdown();
+      },
       error: () => { this.detailLoading.set(false); this.viewList(); this.snackBar.open('Failed to load coffee run', 'Close', { duration: 4000 }); }
     });
   }
 
   /* ── Run actions ──────────────────────────────────── */
 
+  openCreateDialog() {
+    this.showCreateDialog.set(true);
+    this.newRunTitle = '';
+    this.newRunLocation = '';
+    this.newRunDeadline = '';
+    this.newRunTemplateId = null;
+    this.copyFromTemplateId = null;
+    this.copyMenuRunId = null;
+  }
+
+  closeCreateDialog() {
+    this.showCreateDialog.set(false);
+  }
+
   createRun() {
     if (this.saving()) return;
     this.saving.set(true);
-    this.coffeeRunSvc.create(this.copyFromTemplateId ?? undefined, this.copyMenuRunId ?? undefined).subscribe({
+
+    const req: any = {};
+    if (this.newRunTitle.trim()) req.title = this.newRunTitle.trim();
+    if (this.newRunLocation.trim()) req.location = this.newRunLocation.trim();
+    if (this.newRunDeadline) req.orderDeadline = this.newRunDeadline;
+    if (this.copyFromTemplateId) req.templateId = this.copyFromTemplateId;
+    if (this.copyMenuRunId) req.copyMenuFromRunId = this.copyMenuRunId;
+
+    this.coffeeRunSvc.create(req).subscribe({
       next: d => {
         this.runs.update(list => [{
-          id: d.id, initiatorName: d.initiatorName, status: d.status,
-          menuItemCount: 0, orderCount: 0, createdAt: d.createdAt
+          id: d.id, initiatorName: d.initiatorName, title: d.title, status: d.status,
+          menuItemCount: 0, orderCount: 0, totalAmount: 0, createdAt: d.createdAt,
+          orderDeadline: d.orderDeadline, closedAt: d.closedAt, location: d.location
         }, ...list]);
         this.saving.set(false);
+        this.showCreateDialog.set(false);
         this.snackBar.open('Coffee run started!', 'Close', { duration: 4000 });
         this.detail.set(d);
         this.view.set('detail');
+        this.startCountdown();
       },
       error: () => { this.saving.set(false); this.snackBar.open('Failed to start coffee run', 'Close', { duration: 4000 }); }
     });
@@ -148,22 +322,98 @@ export class CoffeeRunComponent implements OnInit {
     });
   }
 
-  closeRun() {
+  publishRun() {
     const run = this.detail();
     if (!run) return;
     this.dialog.open(ConfirmDialogComponent, {
       width: '360px',
-      data: { title: 'Close coffee run?', message: `Orders will be locked and no further changes allowed.`, confirmLabel: 'Close Run' }
+      data: { title: 'Publish this run?', message: 'The team will be notified and can start ordering.', confirmLabel: 'Publish' }
+    }).afterClosed().subscribe(ok => {
+      if (!ok) return;
+      this.coffeeRunSvc.publish(run.id).subscribe({
+        next: d => {
+          this.detail.set(d);
+          this.runs.update(list => list.map(r => r.id === d.id ? { ...r, status: d.status } : r));
+          this.snackBar.open('Run is live! Team members can now order.', 'Close', { duration: 3000 });
+          this.startCountdown();
+        },
+        error: () => this.snackBar.open('Failed to publish', 'Close', { duration: 4000 })
+      });
+    });
+  }
+
+  closeRun() {
+    const run = this.detail();
+    if (!run) return;
+    const orderCount = run.orders.length;
+    const total = run.orders.reduce((sum, o) => sum + o.totalAmount, 0);
+    this.dialog.open(ConfirmDialogComponent, {
+      width: '360px',
+      data: { title: 'Close coffee run?', message: `${orderCount} orders · R${total.toFixed(2)} total. Orders will be locked.`, confirmLabel: 'Close Run' }
     }).afterClosed().subscribe(ok => {
       if (!ok) return;
       this.coffeeRunSvc.close(run.id).subscribe({
         next: d => {
           this.detail.set(d);
           this.runs.update(list => list.map(r => r.id === d.id ? { ...r, status: d.status } : r));
-          this.snackBar.open('Coffee run closed', 'Close', { duration: 3000 });
+          this.countdownInterval?.unsubscribe();
+          this.deadlineRemaining.set(null);
+          this.snackBar.open(`Run closed. ${orderCount} orders · R${total.toFixed(2)} total.`, 'Close', { duration: 4000 });
         },
         error: () => this.snackBar.open('Failed to close', 'Close', { duration: 4000 })
       });
+    });
+  }
+
+  cancelRun() {
+    const run = this.detail();
+    if (!run) return;
+    this.dialog.open(ConfirmDialogComponent, {
+      width: '360px',
+      data: { title: 'Cancel this run?', message: `All orders will be removed. This cannot be undone.`, danger: true, confirmLabel: 'Cancel Run' }
+    }).afterClosed().subscribe(ok => {
+      if (!ok) return;
+      this.coffeeRunSvc.cancel(run.id).subscribe({
+        next: d => {
+          this.detail.set(d);
+          this.runs.update(list => list.map(r => r.id === d.id ? { ...r, status: d.status } : r));
+          this.countdownInterval?.unsubscribe();
+          this.deadlineRemaining.set(null);
+          this.snackBar.open('Run cancelled. All orders have been removed.', 'Close', { duration: 4000 });
+        },
+        error: () => this.snackBar.open('Failed to cancel', 'Close', { duration: 4000 })
+      });
+    });
+  }
+
+  /* ── Summary ──────────────────────────────────── */
+
+  loadSummary() {
+    const run = this.detail();
+    if (!run) return;
+    this.summaryLoading.set(true);
+    this.coffeeRunSvc.getSummary(run.id).subscribe({
+      next: s => { this.runSummary.set(s); this.summaryLoading.set(false); },
+      error: () => this.summaryLoading.set(false)
+    });
+  }
+
+  copyTotals() {
+    const summary = this.runSummary();
+    if (!summary) return;
+    let text = `Coffee Run Summary\n`;
+    text += `Grand Total: R${summary.grandTotal.toFixed(2)}\n`;
+    text += `Total Items: ${summary.totalItems}\n\n`;
+    text += `Per Person:\n`;
+    for (const p of summary.people) {
+      text += `  ${p.memberName}: R${p.total.toFixed(2)} (${p.itemCount} items)\n`;
+    }
+    text += `\nPer Item:\n`;
+    for (const i of summary.items) {
+      text += `  ${i.name}: ${i.totalQuantity}x = R${i.totalAmount.toFixed(2)}\n`;
+    }
+    navigator.clipboard.writeText(text).then(() => {
+      this.snackBar.open('Order summary copied to clipboard.', 'Close', { duration: 3000 });
     });
   }
 
@@ -178,9 +428,20 @@ export class CoffeeRunComponent implements OnInit {
     const run = this.detail();
     if (!run) return;
 
+    const req: any = { name, price };
+    if (this.newItemCategory.trim()) req.category = this.newItemCategory.trim();
+    if (this.newItemMaxQty && parseInt(this.newItemMaxQty) > 0) req.maxQuantity = parseInt(this.newItemMaxQty);
+
     this.saving.set(true);
-    this.coffeeRunSvc.addMenuItem(run.id, { name, price }).subscribe({
-      next: d => { this.detail.set(d); this.newItemName = ''; this.newItemPrice = ''; this.saving.set(false); },
+    this.coffeeRunSvc.addMenuItem(run.id, req).subscribe({
+      next: d => {
+        this.detail.set(d);
+        this.newItemName = '';
+        this.newItemPrice = '';
+        this.newItemCategory = '';
+        this.newItemMaxQty = '';
+        this.saving.set(false);
+      },
       error: () => { this.saving.set(false); this.snackBar.open('Failed to add item', 'Close', { duration: 4000 }); }
     });
   }
@@ -189,6 +450,7 @@ export class CoffeeRunComponent implements OnInit {
     this.editingMenuItemId.set(item.id);
     this.editingMenuItemName = item.name;
     this.editingMenuItemPrice = item.price.toString();
+    this.editingMenuItemCategory = item.category || '';
   }
 
   saveEditMenuItem(item: CoffeeRunMenuItem) {
@@ -198,13 +460,25 @@ export class CoffeeRunComponent implements OnInit {
     const price = parseFloat(this.editingMenuItemPrice);
     if (!name || isNaN(price) || price <= 0) return;
 
-    this.coffeeRunSvc.updateMenuItem(run.id, item.id, { name, price }).subscribe({
+    const req: any = { name, price };
+    if (this.editingMenuItemCategory) req.category = this.editingMenuItemCategory;
+
+    this.coffeeRunSvc.updateMenuItem(run.id, item.id, req).subscribe({
       next: d => { this.detail.set(d); this.editingMenuItemId.set(null); },
       error: () => this.snackBar.open('Failed to update item', 'Close', { duration: 4000 })
     });
   }
 
   cancelEditMenuItem() { this.editingMenuItemId.set(null); }
+
+  toggleItemAvailability(item: CoffeeRunMenuItem) {
+    const run = this.detail();
+    if (!run) return;
+    this.coffeeRunSvc.toggleMenuItemAvailability(run.id, item.id).subscribe({
+      next: d => this.detail.set(d),
+      error: () => this.snackBar.open('Failed to toggle availability', 'Close', { duration: 4000 })
+    });
+  }
 
   deleteMenuItem(item: CoffeeRunMenuItem) {
     const run = this.detail();
@@ -215,10 +489,35 @@ export class CoffeeRunComponent implements OnInit {
     }).afterClosed().subscribe(ok => {
       if (!ok) return;
       this.coffeeRunSvc.deleteMenuItem(run.id, item.id).subscribe({
-        next: d => this.detail.set(d),
-        error: () => this.snackBar.open('Failed to delete item', 'Close', { duration: 4000 })
+        next: () => this.viewDetail(run.id),
+        error: (err) => {
+          const msg = err?.error || 'Failed to delete item';
+          this.snackBar.open(msg, 'Close', { duration: 4000 });
+        }
       });
     });
+  }
+
+  /* ── Menu categories ────────────────────────────── */
+
+  menuCategories = computed(() => {
+    const items = this.detail()?.menuItems || [];
+    const cats = new Set<string>();
+    for (const item of items) {
+      cats.add(item.category || 'Uncategorized');
+    }
+    return Array.from(cats).sort();
+  });
+
+  filteredMenuItems = computed(() => {
+    const items = this.detail()?.menuItems || [];
+    const q = this.menuSearchQuery().toLowerCase();
+    if (!q) return items;
+    return items.filter(i => i.name.toLowerCase().includes(q) || (i.category || '').toLowerCase().includes(q));
+  });
+
+  getMenuItemsByCategory(category: string) {
+    return this.filteredMenuItems().filter(i => (i.category || 'Uncategorized') === category);
   }
 
   /* ── Order actions ────────────────────────────────── */
@@ -330,29 +629,57 @@ export class CoffeeRunComponent implements OnInit {
     }).afterClosed().subscribe(ok => {
       if (!ok) return;
       this.coffeeRunSvc.deleteOrder(run.id, order.id).subscribe({
-        next: d => { this.detail.set(d); this.orderQuantities = {}; this.editingOrder.set(false); },
+        next: () => { this.viewDetail(run.id); this.orderQuantities = {}; this.editingOrder.set(false); },
         error: () => this.snackBar.open('Failed to delete order', 'Close', { duration: 4000 })
       });
     });
   }
 
+  updateOrderStatus(orderId: string, status: string) {
+    const run = this.detail();
+    if (!run) return;
+    this.coffeeRunSvc.updateOrderStatus(run.id, orderId, { status }).subscribe({
+      next: d => this.detail.set(d),
+      error: () => this.snackBar.open('Failed to update status', 'Close', { duration: 4000 })
+    });
+  }
+
   /* ── Template actions ─────────────────────────────── */
+
+  openSaveTemplateDialog() {
+    this.showTemplateDialog.set(true);
+    this.templateName = '';
+    this.templateScope = 'Personal';
+  }
+
+  closeSaveTemplateDialog() {
+    this.showTemplateDialog.set(false);
+  }
 
   saveAsTemplate() {
     const run = this.detail();
     if (!run || run.menuItems.length === 0) return;
+    if (!this.templateName.trim()) return;
 
-    const name = prompt('Save menu as template. Name:');
-    if (!name || !name.trim()) return;
-
-    const req: CreateMenuTemplateRequest = { name: name.trim(), copyFromRunId: run.id };
+    const req: CreateMenuTemplateRequest = { name: this.templateName.trim(), scope: this.templateScope, copyFromRunId: run.id };
     this.coffeeRunSvc.createTemplate(req).subscribe({
       next: tmpl => {
-        this.templates.update(list => [...list, { id: tmpl.id, name: tmpl.name, itemCount: tmpl.items.length, createdAt: tmpl.createdAt }]);
+        this.templates.update(list => [...list, {
+          id: tmpl.id, name: tmpl.name, scope: tmpl.scope,
+          itemCount: tmpl.items.length, createdByName: tmpl.createdByName,
+          createdAt: tmpl.createdAt, isArchived: false
+        }]);
+        this.showTemplateDialog.set(false);
         this.snackBar.open('Menu saved as template!', 'Close', { duration: 3000 });
       },
       error: () => this.snackBar.open('Failed to save template', 'Close', { duration: 4000 })
     });
+  }
+
+  useTemplate(t: MenuTemplateList) {
+    this.copyFromTemplateId = t.id;
+    this.copyMenuRunId = null;
+    this.openCreateDialog();
   }
 
   deleteTemplate(id: string) {
@@ -366,5 +693,42 @@ export class CoffeeRunComponent implements OnInit {
         error: () => this.snackBar.open('Failed to delete', 'Close', { duration: 4000 })
       });
     });
+  }
+
+  /* ── Pagination ──────────────────────────────────── */
+
+  goToPage(page: number) {
+    if (page < 1 || page > this.totalPages()) return;
+    this.currentPage.set(page);
+    this.loadRuns();
+  }
+
+  /* ── Filters ──────────────────────────────────── */
+
+  applyFilter() {
+    this.currentPage.set(1);
+    this.loadRuns();
+  }
+
+  /* ── Helpers ──────────────────────────────────── */
+
+  statusColor(status: string): string {
+    switch (status) {
+      case 'Open': return '#22c55e';
+      case 'Draft': return '#eab308';
+      case 'Closing': return '#f97316';
+      case 'Closed': return '#6b7280';
+      case 'Cancelled': return '#ef4444';
+      default: return '#6b7280';
+    }
+  }
+
+  orderStatusColor(status: string): string {
+    switch (status) {
+      case 'Placed': return '#22c55e';
+      case 'Confirmed': return '#3b82f6';
+      case 'PickedUp': return '#22c55e';
+      default: return '#6b7280';
+    }
   }
 }

@@ -11,6 +11,8 @@ public class CoffeeRunOrderConfiguration : IEntityTypeConfiguration<CoffeeRunOrd
         builder.HasKey(o => o.Id);
         builder.Property(o => o.Id).HasDefaultValueSql("gen_random_uuid()");
         builder.Property(o => o.Notes).HasMaxLength(500);
+        builder.Property(o => o.Status).IsRequired().HasConversion<string>().HasMaxLength(20);
+        builder.Property(o => o.TotalAmount).HasColumnType("decimal(10,2)");
 
         builder.HasOne(o => o.CoffeeRun)
             .WithMany(r => r.Orders)
