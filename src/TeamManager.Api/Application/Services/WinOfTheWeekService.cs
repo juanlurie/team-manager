@@ -127,9 +127,6 @@ public class WinOfTheWeekService(AppDbContext db) : IWinOfTheWeekService
         if (nomination.WinWeek.Status != WinWeekStatus.Voting)
             throw new InvalidOperationException("Voting is not open for the current week.");
 
-        if (nomination.TeamMemberId == memberId)
-            throw new InvalidOperationException("You cannot vote for your own nomination.");
-
         var existingVote = await db.WinVotes
             .FirstOrDefaultAsync(v => v.WinNominationId == nominationId && v.TeamMemberId == memberId);
 
