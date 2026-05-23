@@ -30,7 +30,7 @@ import { WinOfTheMonthComponent } from '../win-of-the-month/win-of-the-month.com
     WinOfTheWeekHistoryComponent, WinOfTheMonthComponent
   ],
   template: `
-    <div style="max-width:800px;margin:0 auto;padding:0 8px">
+    <div style="max-width:800px;margin:0 auto;padding:0 8px;overflow-x:hidden">
       <!-- Header -->
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap">
         <div style="display:flex;align-items:center;gap:10px">
@@ -38,6 +38,9 @@ import { WinOfTheMonthComponent } from '../win-of-the-month/win-of-the-month.com
           <h2 style="margin:0;font-size:1.3rem;font-weight:700">Win of the Week</h2>
         </div>
         <div style="flex:1"></div>
+        <button class="icon-btn" (click)="copyShareLink()" matTooltip="Copy share link">
+          <mat-icon style="font-size:20px;height:20px;width:20px">share</mat-icon>
+        </button>
       </div>
 
       <!-- Internal tabs -->
@@ -525,6 +528,15 @@ export class WinOfTheWeekComponent implements OnInit, OnDestroy {
         const msg = err.error?.error || 'Failed to open voting';
         this.snackBar.open(msg, 'Close', { duration: 3000 });
       }
+    });
+  }
+
+  copyShareLink() {
+    const url = `${window.location.origin}/fun/win-of-the-week`;
+    navigator.clipboard.writeText(url).then(() => {
+      this.snackBar.open('Link copied! Share on WhatsApp 📱', 'Close', { duration: 3000 });
+    }).catch(() => {
+      this.snackBar.open('Failed to copy link', 'Close', { duration: 3000 });
     });
   }
 }
