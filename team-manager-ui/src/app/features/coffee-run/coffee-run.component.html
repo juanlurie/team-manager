@@ -1,11 +1,28 @@
-<div style="max-width:800px;margin:0 auto;padding:0 8px;overflow-x:hidden">
+<div style="max-width:800px;margin:0 auto;padding:0 8px;touch-action:pan-y">
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;gap:8px;flex-wrap:wrap">
     <h2 style="margin:0;font-size:1.2rem">Coffee Run</h2>
-    @if (view() === 'detail' && detail()) {
-      <button class="icon-btn" (click)="copyShareLink()" matTooltip="Copy share link">
-        <mat-icon style="font-size:20px;height:20px;width:20px">share</mat-icon>
-      </button>
-    }
+    <div style="display:flex;align-items:center;gap:4px">
+      @if (view() === 'detail' && detail()) {
+        <button class="icon-btn" (click)="copyShareLink()" matTooltip="Copy share link">
+          <mat-icon style="font-size:20px;height:20px;width:20px">share</mat-icon>
+        </button>
+      }
+      @if (view() === 'list') {
+        <button mat-icon-button [matMenuTriggerFor]="settingsMenu" matTooltip="Settings">
+          <mat-icon>more_vert</mat-icon>
+        </button>
+        <mat-menu #settingsMenu="matMenu">
+          <button mat-menu-item (click)="openCreateDialog()">
+            <mat-icon>add_circle</mat-icon>
+            <span>New Run</span>
+          </button>
+          <button mat-menu-item (click)="navigateToManageMenus()">
+            <mat-icon>restaurant_menu</mat-icon>
+            <span>Manage Menus</span>
+          </button>
+        </mat-menu>
+      }
+    </div>
   </div>
 
 @if (loading()) {
@@ -15,34 +32,7 @@
 } @else {
 
   <!-- ── LIST VIEW ──────────────────────────────── -->
-  @if (view() === 'list') {
-
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;gap:8px;flex-wrap:wrap">
-      <span style="font-size:0.8rem;opacity:0.45">{{ totalRuns() }} run{{ totalRuns() === 1 ? '' : 's' }}</span>
-      <div style="display:flex;align-items:center;gap:6px">
-        <button mat-stroked-button (click)="navigateToManageMenus()" style="font-size:0.78rem">
-          <mat-icon style="font-size:16px;height:16px;width:16px;margin-right:4px">restaurant_menu</mat-icon>
-          Manage Menus
-        </button>
-        <button mat-flat-button color="primary" (click)="openCreateDialog()"
-                style="font-size:0.82rem">
-          <mat-icon style="font-size:18px;height:18px;width:18px;margin-right:4px">coffee</mat-icon>
-          New Run
-        </button>
-      </div>
-    </div>
-
-    <!-- Filters -->
-    <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;align-items:center">
-      <div style="display:flex;gap:4px">
-        <button mat-button [color]="!statusFilter() ? 'primary' : ''" (click)="statusFilter.set(''); applyFilter()" style="font-size:0.78rem">All</button>
-        <button mat-button [color]="statusFilter() === 'Open' ? 'primary' : ''" (click)="statusFilter.set('Open'); applyFilter()" style="font-size:0.78rem">Open</button>
-        <button mat-button [color]="statusFilter() === 'Draft' ? 'primary' : ''" (click)="statusFilter.set('Draft'); applyFilter()" style="font-size:0.78rem">Draft</button>
-        <button mat-button [color]="statusFilter() === 'Closed' ? 'primary' : ''" (click)="statusFilter.set('Closed'); applyFilter()" style="font-size:0.78rem">Closed</button>
-      </div>
-      <input class="inline-input" [(ngModel)]="searchQuery" placeholder="Search runs..."
-             (ngModelChange)="applyFilter()" style="font-size:0.78rem;padding:6px 10px;min-width:180px">
-    </div>
+    @if (view() === 'list') {
 
     @if (runs().length === 0) {
       <div style="display:flex;flex-direction:column;align-items:center;padding:40px 20px;
@@ -64,7 +54,6 @@
                 </div>
                 <div class="run-card-meta">
                   by {{ run.initiatorName }} · {{ run.menuItemCount }} items · {{ run.orderCount }} orders
-                  @if (run.totalAmount > 0) { · R{{ run.totalAmount.toFixed(2) }} }
                   @if (run.location) { · 📍 {{ run.location }} }
                 </div>
                 @if (run.orderDeadline) {
@@ -95,26 +84,36 @@
       }
 
       @if (closedRuns().length > 0) {
-        <div>
-          <div class="section-label">Closed</div>
-          @for (run of closedRuns(); track run.id) {
-            <div class="run-card closed" (click)="viewDetail(run.id)">
-              <div class="run-card-info">
-                <div class="run-card-title">
-                  @if (run.title) { {{ run.title }} } @else { {{ run.initiatorName }}'s run }
-                </div>
-                <div class="run-card-meta">
-                  by {{ run.initiatorName }} · {{ run.menuItemCount }} items · {{ run.orderCount }} orders
-                  @if (run.totalAmount > 0) { · R{{ run.totalAmount.toFixed(2) }} }
-                </div>
-                @if (run.closedAt) {
-                  <div class="run-card-meta">Closed {{ run.closedAt | date:'short' }}</div>
-                }
-              </div>
-              <span class="status-badge" [style.background]="statusColor(run.status)">{{ run.status }}</span>
+        @if (!showClosed()) {
+          <div style="margin-top:8px">
+            <button mat-button style="font-size:0.75rem;opacity:0.4;padding:4px 8px" (click)="showClosed.set(true)">
+              Show {{ closedRuns().length }} closed run{{ closedRuns().length === 1 ? '' : 's' }}
+            </button>
+          </div>
+        } @else {
+          <div>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+              <div class="section-label" style="margin:0">Closed</div>
+              <button mat-button style="font-size:0.7rem;opacity:0.4;padding:2px 6px" (click)="showClosed.set(false)">Hide</button>
             </div>
-          }
-        </div>
+            @for (run of closedRuns(); track run.id) {
+              <div class="run-card closed" (click)="viewDetail(run.id)">
+                <div class="run-card-info">
+                  <div class="run-card-title">
+                    @if (run.title) { {{ run.title }} } @else { {{ run.initiatorName }}'s run }
+                  </div>
+                  <div class="run-card-meta">
+                    by {{ run.initiatorName }} · {{ run.menuItemCount }} items · {{ run.orderCount }} orders
+                  </div>
+                  @if (run.closedAt) {
+                    <div class="run-card-meta">Closed {{ run.closedAt | date:'short' }}</div>
+                  }
+                </div>
+                <span class="status-badge" [style.background]="statusColor(run.status)">{{ run.status }}</span>
+              </div>
+            }
+          </div>
+        }
       }
     }
 
@@ -187,21 +186,20 @@
           </div>
 
           <div style="text-align:center;padding:20px 0">
-            <div style="font-size:2rem;font-weight:700;color:#64b5f6">R{{ summary.grandTotal.toFixed(2) }}</div>
-            <div style="font-size:0.8rem;opacity:0.5;margin-top:4px">Total to Collect</div>
+            <div style="font-size:2rem;font-weight:700;color:#64b5f6">{{ summary.totalItems }}</div>
+            <div style="font-size:0.8rem;opacity:0.5;margin-top:4px">Total Items</div>
             <button mat-stroked-button style="margin-top:12px;font-size:0.75rem" (click)="copyTotals()">
               <mat-icon style="font-size:14px;height:14px;width:14px;margin-right:4px">content_copy</mat-icon>
-              Copy Totals
+              Copy Summary
             </button>
           </div>
 
           <div style="margin-top:16px">
-            <div style="font-size:0.8rem;font-weight:600;margin-bottom:8px;opacity:0.7">Who Owes What</div>
+            <div style="font-size:0.8rem;font-weight:600;margin-bottom:8px;opacity:0.7">Who Ordered What</div>
             @for (p of summary.people; track p.memberId) {
               <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.05)">
                 <span style="font-size:0.82rem">{{ p.memberName }}</span>
                 <span style="font-size:0.82rem;opacity:0.6">{{ p.itemCount }} items</span>
-                <span style="font-size:0.82rem;font-weight:600;color:#64b5f6">R{{ p.total.toFixed(2) }}</span>
               </div>
             }
           </div>
@@ -212,7 +210,6 @@
               <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.05)">
                 <span style="font-size:0.82rem">{{ item.name }}</span>
                 <span style="font-size:0.82rem;opacity:0.6">{{ item.totalQuantity }}x</span>
-                <span style="font-size:0.82rem;font-weight:600">R{{ item.totalAmount.toFixed(2) }}</span>
               </div>
             }
             <div style="font-size:0.78rem;opacity:0.4;margin-top:8px">Total items: {{ summary.totalItems }}</div>
@@ -227,161 +224,8 @@
         </div>
       }
 
-      <!-- ── MENU SECTION ────────────────────────── -->
-      @if (!showSummary()) {
-        <div class="section">
-          <div class="section-header">
-            <mat-icon style="font-size:18px;height:18px;width:18px;opacity:0.5">restaurant_menu</mat-icon>
-            <span style="font-size:0.85rem;font-weight:600;flex:1">Menu</span>
-            <input class="inline-input" [(ngModel)]="menuSearchQuery" placeholder="Search items..."
-                   style="font-size:0.72rem;padding:4px 8px;width:140px">
-            @if (isInitiator() && run.menuItems.length > 0 && !isDraft()) {
-              <button class="icon-btn" style="color:rgba(100,181,246,0.6);padding:2px 6px;width:auto;font-size:0.72rem;gap:3px"
-                      (click)="openSaveTemplateDialog()" matTooltip="Save menu as template">
-                <mat-icon style="font-size:14px;height:14px;width:14px">bookmark_add</mat-icon>
-                Save
-              </button>
-            }
-          </div>
-
-          @if (run.menuItems.length === 0) {
-            <div class="empty-hint">
-              <mat-icon style="font-size:32px;width:32px;height:32px;opacity:0.12">local_cafe</mat-icon>
-              @if (isInitiator() && (isDraft() || isOpen())) {
-                <span>Add menu items for people to order</span>
-              } @else {
-                <span>Waiting for initiator to add menu items</span>
-              }
-            </div>
-          }
-
-          @for (cat of menuCategories(); track cat) {
-            <div style="margin-bottom:8px">
-              <div style="font-size:0.75rem;font-weight:600;opacity:0.4;margin-bottom:4px;text-transform:uppercase">
-                {{ cat }} ({{ getMenuItemsByCategory(cat).length }})
-              </div>
-              @for (item of getMenuItemsByCategory(cat); track item.id) {
-                <div class="menu-item-row" [style.opacity]="!item.isAvailable ? '0.4' : '1'">
-                  @if (editingMenuItemId() === item.id) {
-                    <input class="inline-input" [(ngModel)]="editingMenuItemName" placeholder="Name"
-                           style="flex:1" (keydown.enter)="saveEditMenuItem(item)">
-                    <input class="inline-input" [(ngModel)]="editingMenuItemPrice" placeholder="Price"
-                           style="width:70px;text-align:right" type="number" step="0.01" min="0"
-                           (keydown.enter)="saveEditMenuItem(item)">
-                    <button class="icon-btn" style="color:rgba(100,181,246,0.8)" (click)="saveEditMenuItem(item)" matTooltip="Save">
-                      <mat-icon style="font-size:16px;height:16px;width:16px">check</mat-icon>
-                    </button>
-                    <button class="icon-btn" style="color:rgba(255,255,255,0.4)" (click)="cancelEditMenuItem()" matTooltip="Cancel">
-                      <mat-icon style="font-size:16px;height:16px;width:16px">close</mat-icon>
-                    </button>
-                  } @else {
-                    <span style="flex:1;font-size:0.82rem">
-                      {{ item.name }}
-                      @if (!item.isAvailable) { <span style="opacity:0.4;font-size:0.7rem">(Unavailable)</span> }
-                    </span>
-                    <span style="font-size:0.82rem;opacity:0.5;margin-right:4px">R{{ item.price.toFixed(2) }}</span>
-                    @if (item.remainingQuantity !== null) {
-                      <span style="font-size:0.72rem;margin-right:4px"
-                            [style.color]="item.remainingQuantity! > 5 ? '#22c55e' : item.remainingQuantity! > 0 ? '#fbbf24' : '#ef4444'">
-                        {{ item.remainingQuantity }} left
-                      </span>
-                    }
-                    @if (isInitiator() && (isDraft() || isOpen())) {
-                      <button class="icon-btn" [style.color]="item.isAvailable ? 'rgba(100,181,246,0.6)' : 'rgba(255,255,255,0.3)'"
-                              (click)="toggleItemAvailability(item)" matTooltip="Toggle availability"
-                              style="font-size:0.65rem;padding:2px 4px">
-                        {{ item.isAvailable ? '🟢' : '🔴' }}
-                      </button>
-                      <button class="icon-btn" style="color:rgba(255,255,255,0.4)" (click)="startEditMenuItem(item)" matTooltip="Edit">
-                        <mat-icon style="font-size:16px;height:16px;width:16px">edit</mat-icon>
-                      </button>
-                      <button class="icon-btn" style="color:rgba(239,83,80,0.6)" (click)="deleteMenuItem(item)" matTooltip="Delete">
-                        <mat-icon style="font-size:16px;height:16px;width:16px">delete</mat-icon>
-                      </button>
-                    }
-                  }
-                </div>
-              }
-            </div>
-          }
-
-          @if (isInitiator() && (isDraft() || isOpen())) {
-            <div class="add-item-row">
-              <input class="inline-input" [(ngModel)]="newItemName" placeholder="Item name…"
-                     style="flex:1" (keydown.enter)="addMenuItem()">
-              <input class="inline-input" [(ngModel)]="newItemPrice" placeholder="Price"
-                     style="width:70px;text-align:right" type="number" step="0.01" min="0"
-                     (keydown.enter)="addMenuItem()">
-              <input class="inline-input" [(ngModel)]="newItemCategory" placeholder="Category"
-                     style="width:90px" (keydown.enter)="addMenuItem()">
-              <input class="inline-input" [(ngModel)]="newItemMaxQty" placeholder="Max qty"
-                     style="width:60px" type="number" min="1" (keydown.enter)="addMenuItem()">
-              <button class="icon-btn" style="color:rgba(100,181,246,0.8)"
-                      [disabled]="!newItemName.trim() || !newItemPrice || saving()"
-                      (click)="addMenuItem()" matTooltip="Add item">
-                <mat-icon style="font-size:16px;height:16px;width:16px">add_circle</mat-icon>
-              </button>
-            </div>
-          }
-        </div>
-
-        <!-- ── ORDER SECTION ────────────────────────── -->
-        <div class="section">
-          <div class="section-header">
-            <mat-icon style="font-size:18px;height:18px;width:18px;opacity:0.5">receipt_long</mat-icon>
-            <span style="font-size:0.85rem;font-weight:600">Orders</span>
-            <span style="font-size:0.75rem;opacity:0.35">{{ run.orders.length }}</span>
-          </div>
-
-          @if (run.orders.length === 0) {
-            <div class="empty-hint">
-              <mat-icon style="font-size:32px;width:32px;height:32px;opacity:0.12">receipt_long</mat-icon>
-              <span>No orders yet</span>
-            </div>
-          }
-
-          @for (order of run.orders; track order.id) {
-            <div class="order-card" [class.my-order]="order.id === run.currentUserOrderId">
-              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
-                <div style="display:flex;align-items:center;gap:6px">
-                  <span style="font-size:0.82rem;font-weight:600">{{ order.teamMemberName }}</span>
-                  <span style="font-size:0.65rem;padding:2px 6px;border-radius:4px"
-                        [style.background]="orderStatusColor(order.status) + '22'"
-                        [style.color]="orderStatusColor(order.status)">
-                    {{ order.status }}
-                  </span>
-                </div>
-                <span style="font-size:0.82rem;opacity:0.5">R{{ order.totalAmount.toFixed(2) }}</span>
-              </div>
-              @for (item of order.items; track item.id) {
-                <div style="display:flex;font-size:0.75rem;opacity:0.6;margin-bottom:2px">
-                  <span style="flex:1">{{ item.quantity }}x {{ item.menuItemName }}</span>
-                  <span>R{{ item.lineTotal.toFixed(2) }}</span>
-                </div>
-              }
-              @if (order.notes) {
-                <div style="font-size:0.72rem;opacity:0.35;margin-top:4px;font-style:italic">{{ order.notes }}</div>
-              }
-              @if (isInitiator() && isOpen()) {
-                <div style="margin-top:6px;display:flex;gap:4px">
-                  <button mat-button style="font-size:0.68rem;height:24px;padding:0 8px"
-                          (click)="updateOrderStatus(order.id, 'Confirmed')"
-                          [disabled]="order.status === 'Confirmed' || order.status === 'PickedUp'">
-                    Confirm
-                  </button>
-                  <button mat-button style="font-size:0.68rem;height:24px;padding:0 8px"
-                          (click)="updateOrderStatus(order.id, 'PickedUp')"
-                          [disabled]="order.status === 'PickedUp'">
-                    Picked Up
-                  </button>
-                </div>
-              }
-            </div>
-          }
-        </div>
-
-        <!-- ── YOUR ORDER SECTION ───────────────────── -->
-        @if (isOpen()) {
+      <!-- ── YOUR ORDER SECTION ───────────────────── -->
+      @if (isOpen()) {
           <div class="section" style="border-color:rgba(100,181,246,0.2)">
             <div class="section-header" style="color:#64b5f6">
               <mat-icon style="font-size:18px;height:18px;width:18px">shopping_cart</mat-icon>
@@ -407,18 +251,42 @@
                 </div>
               </div>
             } @else {
-              @for (item of run.menuItems; track item.id) {
-                @if (item.isAvailable) {
-                  <div class="menu-item-row">
-                    <span style="flex:1;font-size:0.82rem">{{ item.name }}</span>
-                    <span style="font-size:0.78rem;opacity:0.4;margin-right:8px">R{{ item.price.toFixed(2) }}</span>
-                    <div class="qty-stepper">
-                      <button class="stepper-btn" (click)="adjustQuantity(item.id, -1)">-</button>
-                      <span class="stepper-val">{{ getQuantity(item.id) }}</span>
-                      <button class="stepper-btn" (click)="adjustQuantity(item.id, 1)">+</button>
-                    </div>
+              <!-- Search -->
+              <input class="inline-input" [(ngModel)]="orderSearchQuery" placeholder="Search menu..."
+                     style="width:100%;box-sizing:border-box;margin-bottom:12px;font-size:0.78rem;padding:6px 10px">
+
+              @if (filteredOrderItems().length === 0) {
+                <div style="text-align:center;padding:20px;opacity:0.4;font-size:0.82rem">No items match your search</div>
+              }
+
+              @for (cat of orderItemCategories(); track cat) {
+                <div style="margin-bottom:12px">
+                  <div style="font-size:0.75rem;font-weight:600;opacity:0.4;margin-bottom:6px;text-transform:uppercase">
+                    {{ cat }}
                   </div>
-                }
+                  @for (item of getOrderItemsByCategory(cat); track item.id) {
+                    <div style="padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.04)">
+                      <div style="font-size:0.82rem">{{ item.name }}</div>
+                      <div style="display:flex;align-items:center;justify-content:space-between;margin-top:4px">
+                        @if (item.sizes) {
+                          <select class="inline-input" [(ngModel)]="orderSizes[item.id]"
+                                  style="font-size:0.72rem;padding:2px 4px;width:auto;max-width:140px">
+                            @for (size of parseSizes(item.sizes); track size.name) {
+                              <option [ngValue]="size.name">{{ size.name }}</option>
+                            }
+                          </select>
+                        } @else {
+                          <span></span>
+                        }
+                        <div class="qty-stepper">
+                          <button class="stepper-btn" (click)="adjustQuantity(item.id, -1)">-</button>
+                          <span class="stepper-val">{{ getQuantity(item.id) }}</span>
+                          <button class="stepper-btn" (click)="adjustQuantity(item.id, 1)">+</button>
+                        </div>
+                      </div>
+                    </div>
+                  }
+                </div>
               }
 
               <div style="margin-top:8px">
@@ -426,11 +294,7 @@
                        style="width:100%;box-sizing:border-box;margin-bottom:8px">
               </div>
 
-              <div style="display:flex;align-items:center;justify-content:space-between">
-                <div>
-                  <span style="font-size:0.8rem;opacity:0.5">Total: </span>
-                  <span style="font-size:0.9rem;font-weight:600;color:#64b5f6">R{{ getOrderTotal().toFixed(2) }}</span>
-                </div>
+              <div style="display:flex;align-items:center;justify-content:flex-end">
                 <div style="display:flex;gap:6px">
                   @if (hasOrder()) {
                     <button class="icon-btn" style="color:rgba(255,255,255,0.4);padding:4px 8px" (click)="cancelEditOrder()">Cancel</button>
@@ -486,34 +350,7 @@
         }
       }
     }
-
-    @if (templates().length > 0 && view() === 'list') {
-      <div style="margin-top:16px">
-        <div class="section-label">Saved Menus (click to start a run)</div>
-        @for (t of templates(); track t.id) {
-          <div class="run-card" style="display:flex;align-items:center;cursor:pointer"
-               (click)="useTemplate(t)">
-            <div class="run-card-info" style="flex:1">
-              <div style="font-size:0.82rem;font-weight:500">
-                {{ t.name }}
-                <span style="font-size:0.65rem;padding:1px 5px;border-radius:3px;margin-left:6px"
-                      [style.background]="t.scope === 'Team' ? 'rgba(59,130,246,0.2)' : 'rgba(255,255,255,0.05)'"
-                      [style.color]="t.scope === 'Team' ? '#3b82f6' : 'rgba(255,255,255,0.4)'">
-                  {{ t.scope }}
-                </span>
-              </div>
-              <div style="font-size:0.7rem;opacity:0.3">{{ t.itemCount }} items · by {{ t.createdByName }}</div>
-            </div>
-            <button class="icon-btn" style="color:rgba(239,83,80,0.5)" (click)="$event.stopPropagation(); deleteTemplate(t.id)"
-                    matTooltip="Delete template">
-              <mat-icon style="font-size:16px;height:16px;width:16px">delete</mat-icon>
-            </button>
-          </div>
-        }
-      </div>
-    }
   }
-}
 
 <!-- ── CREATE RUN DIALOG ────────────────────────── -->
 @if (showCreateDialog()) {

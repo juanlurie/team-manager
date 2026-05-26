@@ -61,6 +61,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<CoffeeRunOrderItem> CoffeeRunOrderItems => Set<CoffeeRunOrderItem>();
     public DbSet<CoffeeRunMenuTemplate> CoffeeRunMenuTemplates => Set<CoffeeRunMenuTemplate>();
     public DbSet<CoffeeRunMenuTemplateItem> CoffeeRunMenuTemplateItems => Set<CoffeeRunMenuTemplateItem>();
+    public DbSet<AccessRequest> AccessRequests => Set<AccessRequest>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

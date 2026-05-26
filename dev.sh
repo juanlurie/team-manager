@@ -13,7 +13,8 @@ case "${1:-up}" in
     docker compose -p tm-dev -f docker-compose.dev.yml down
     ;;
   build)
-    docker compose -p tm-dev -f docker-compose.dev.yml build
+    shift
+    docker compose -p tm-dev -f docker-compose.dev.yml build "$@"
     ;;
   logs)
     docker compose -p tm-dev -f docker-compose.dev.yml logs -f "${2:-}"

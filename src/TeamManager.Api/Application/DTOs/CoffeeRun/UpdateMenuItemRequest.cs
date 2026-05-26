@@ -8,5 +8,6 @@ public record UpdateMenuItemRequest(
     [MaxLength(50)] string? Category,
     int? MaxQuantity,
     bool? IsAvailable,
-    int? SortOrder
+    int? SortOrder,
+    string? Sizes
 );

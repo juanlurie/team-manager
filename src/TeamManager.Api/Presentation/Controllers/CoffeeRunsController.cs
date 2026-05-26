@@ -16,7 +16,14 @@ public class CoffeeRunsController(ICoffeeRunService service) : ControllerBase
         [FromQuery] Guid? initiatorId = null,
         [FromQuery] DateTime? from = null,
         [FromQuery] DateTime? to = null)
-        => Ok(await service.GetAllAsync(page, pageSize, status, initiatorId, from, to));
+    {
+        Guid? currentUserId = null;
+        var tmid = User.FindFirst("TMID")?.Value;
+        if (tmid is not null && Guid.TryParse(tmid, out var uid))
+            currentUserId = uid;
+
+        return Ok(await service.GetAllAsync(page, pageSize, status, initiatorId, from, to, currentUserId));
+    }
 
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] CreateRunRequest? body = null, [FromQuery] Guid? copyMenuFromRunId = null, [FromQuery] Guid? fromTemplateId = null)

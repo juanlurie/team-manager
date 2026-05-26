@@ -18,10 +18,20 @@ public class ApiKeysController(AppDbContext db) : ControllerBase
     [HttpGet]
     public async Task<IActionResult> List()
     {
-        var keys = await db.ApiKeys
+        var tmid = User.FindFirst("TMID")?.Value
+                ?? User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+        var isTeamLead = User.IsInRole("TeamLead");
+
+        var query = db.ApiKeys
             .IgnoreQueryFilters()
             .Include(k => k.TeamMember)
-            .Where(k => k.TeamMember.IsActive)
+            .Where(k => k.TeamMember.IsActive);
+
+        if (!isTeamLead && !string.IsNullOrWhiteSpace(tmid) && Guid.TryParse(tmid, out var userId))
+            query = query.Where(k => k.TeamMemberId == userId);
+
+        var keys = await query
             .Select(k => new ApiKeyResponse(
                 k.Id,
                 k.Name,

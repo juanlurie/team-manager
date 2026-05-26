@@ -17,6 +17,11 @@ public class CoffeeRunOrderItem
     /// </summary>
     public decimal LineTotal { get; set; }
 
+    /// <summary>
+    /// Selected size option (e.g. "Small", "Large"). Null if item has no sizes.
+    /// </summary>
+    public string? SelectedSize { get; set; }
+
     public CoffeeRunOrder Order { get; set; } = null!;
     public CoffeeRunMenuItem MenuItem { get; set; } = null!;
 }

@@ -30,7 +30,7 @@ import { WinOfTheMonthComponent } from '../win-of-the-month/win-of-the-month.com
     WinOfTheWeekHistoryComponent, WinOfTheMonthComponent
   ],
   template: `
-    <div style="max-width:800px;margin:0 auto;padding:0 8px;overflow-x:hidden">
+    <div style="max-width:800px;margin:0 auto;padding:0 8px 80px;overflow-x:hidden">
       <!-- Header -->
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap">
         <div style="display:flex;align-items:center;gap:10px">

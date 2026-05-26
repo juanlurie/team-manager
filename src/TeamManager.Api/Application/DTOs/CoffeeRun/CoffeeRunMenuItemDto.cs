@@ -8,5 +8,6 @@ public record CoffeeRunMenuItemDto(
     int? MaxQuantity,
     int? RemainingQuantity,
     bool IsAvailable,
-    int SortOrder
+    int SortOrder,
+    string? Sizes
 );

@@ -12,7 +12,7 @@ import { WinWeekHistory, WinWeekDetail, WinNomination } from '../../core/models/
   standalone: true,
   imports: [CommonModule, MatIconModule, MatButtonModule, MatSelectModule, MatFormFieldModule],
   template: `
-    <div style="max-width:1000px;margin:0 auto;padding:0 8px">
+    <div style="max-width:1000px;margin:0 auto;padding:0 8px 80px">
       <!-- Header -->
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;flex-wrap:wrap">
         <div style="display:flex;align-items:center;gap:10px">

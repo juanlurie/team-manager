@@ -8,4 +8,5 @@ public record CoffeeRunOrderItemDto
     public decimal UnitPrice { get; init; }
     public int Quantity { get; init; }
     public decimal LineTotal { get; init; }
+    public string? SelectedSize { get; init; }
 }

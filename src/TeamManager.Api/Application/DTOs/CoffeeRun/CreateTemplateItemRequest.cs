@@ -6,5 +6,6 @@ public record CreateTemplateItemRequest(
     [Required][MaxLength(150)] string Name,
     [Range(0.00, 9999.99)] decimal? Price,
     [MaxLength(50)] string? Category,
-    int SortOrder = 0
+    int SortOrder = 0,
+    string? Sizes = null
 );

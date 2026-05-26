@@ -8,9 +8,11 @@ using TeamManager.Api.Infrastructure.Data;
 
 namespace TeamManager.Api.Application.Services;
 
+public record SizeOption(string Name, decimal PriceAdjust);
+
 public class CoffeeRunService(AppDbContext db) : ICoffeeRunService
 {
-    public async Task<PagedResult<CoffeeRunListDto>> GetAllAsync(int page = 1, int pageSize = 20, string? status = null, Guid? initiatorId = null, DateTime? from = null, DateTime? to = null)
+    public async Task<PagedResult<CoffeeRunListDto>> GetAllAsync(int page = 1, int pageSize = 20, string? status = null, Guid? initiatorId = null, DateTime? from = null, DateTime? to = null, Guid? currentUserId = null)
     {
         var query = db.CoffeeRuns
             .Include(r => r.Initiator)
@@ -29,6 +31,10 @@ public class CoffeeRunService(AppDbContext db) : ICoffeeRunService
             query = query.Where(r => r.CreatedAt >= from.Value);
         if (to.HasValue)
             query = query.Where(r => r.CreatedAt <= to.Value);
+
+        // Hide closed/cancelled runs from non-initiators
+        if (currentUserId.HasValue)
+            query = query.Where(r => r.Status != CoffeeRunStatus.Closed && r.Status != CoffeeRunStatus.Cancelled || r.InitiatorId == currentUserId.Value);
 
         var totalCount = await query.CountAsync();
         var totalPages = (int)Math.Ceiling((double)totalCount / pageSize);
@@ -81,7 +87,8 @@ public class CoffeeRunService(AppDbContext db) : ICoffeeRunService
                 Name = m.Name,
                 Price = m.Price ?? 0,
                 Category = m.Category,
-                SortOrder = m.SortOrder
+                SortOrder = m.SortOrder,
+                Sizes = m.Sizes
             }).ToList();
         }
         else if (request?.CopyMenuFromRunId.HasValue == true)
@@ -97,7 +104,8 @@ public class CoffeeRunService(AppDbContext db) : ICoffeeRunService
                 Price = m.Price,
                 Category = m.Category,
                 MaxQuantity = m.MaxQuantity,
-                SortOrder = m.SortOrder
+                SortOrder = m.SortOrder,
+                Sizes = m.Sizes
             }).ToList();
         }
 
@@ -234,7 +242,8 @@ public class CoffeeRunService(AppDbContext db) : ICoffeeRunService
             Price = request.Price,
             Category = request.Category,
             MaxQuantity = request.MaxQuantity,
-            SortOrder = request.SortOrder > 0 ? request.SortOrder : maxSortOrder + 1
+            SortOrder = request.SortOrder > 0 ? request.SortOrder : maxSortOrder + 1,
+            Sizes = request.Sizes
         };
         db.CoffeeRunMenuItems.Add(item);
         await db.SaveChangesAsync();
@@ -256,6 +265,7 @@ public class CoffeeRunService(AppDbContext db) : ICoffeeRunService
         if (request.MaxQuantity is not null) item.MaxQuantity = request.MaxQuantity;
         if (request.IsAvailable is not null) item.IsAvailable = request.IsAvailable.Value;
         if (request.SortOrder is not null) item.SortOrder = request.SortOrder.Value;
+        if (request.Sizes is not null) item.Sizes = request.Sizes;
 
         await db.SaveChangesAsync();
         return await BuildDetailDto(runId, currentUserId);
@@ -326,6 +336,15 @@ public class CoffeeRunService(AppDbContext db) : ICoffeeRunService
                 var menuItem = await db.CoffeeRunMenuItems.FindAsync(entry.MenuItemId);
                 if (menuItem is null || !menuItem.IsAvailable) continue;
 
+                var unitPrice = menuItem.Price;
+                if (!string.IsNullOrWhiteSpace(menuItem.Sizes) && !string.IsNullOrWhiteSpace(entry.Size))
+                {
+                    var sizes = System.Text.Json.JsonSerializer.Deserialize<List<SizeOption>>(menuItem.Sizes);
+                    var selectedSize = sizes?.FirstOrDefault(s => s.Name == entry.Size);
+                    if (selectedSize != null)
+                        unitPrice = menuItem.Price + selectedSize.PriceAdjust;
+                }
+
                 // Check stock limits
                 if (menuItem.MaxQuantity.HasValue)
                 {
@@ -337,7 +356,6 @@ public class CoffeeRunService(AppDbContext db) : ICoffeeRunService
                     if (remaining <= 0) continue;
 
                     var adjustedQty = Math.Min(entry.Quantity, remaining);
-                    var unitPrice = menuItem.Price;
                     var lineTotal = unitPrice * adjustedQty;
 
                     orderItems.Add(new CoffeeRunOrderItem
@@ -345,13 +363,13 @@ public class CoffeeRunService(AppDbContext db) : ICoffeeRunService
                         CoffeeRunMenuItemId = menuItem.Id,
                         Quantity = adjustedQty,
                         UnitPrice = unitPrice,
-                        LineTotal = lineTotal
+                        LineTotal = lineTotal,
+                        SelectedSize = entry.Size
                     });
                     totalAmount += lineTotal;
                 }
                 else
                 {
-                    var unitPrice = menuItem.Price;
                     var lineTotal = unitPrice * entry.Quantity;
 
                     orderItems.Add(new CoffeeRunOrderItem
@@ -359,7 +377,8 @@ public class CoffeeRunService(AppDbContext db) : ICoffeeRunService
                         CoffeeRunMenuItemId = menuItem.Id,
                         Quantity = entry.Quantity,
                         UnitPrice = unitPrice,
-                        LineTotal = lineTotal
+                        LineTotal = lineTotal,
+                        SelectedSize = entry.Size
                     });
                     totalAmount += lineTotal;
                 }
@@ -419,6 +438,15 @@ public class CoffeeRunService(AppDbContext db) : ICoffeeRunService
                 var menuItem = await db.CoffeeRunMenuItems.FindAsync(entry.MenuItemId);
                 if (menuItem is null || !menuItem.IsAvailable) continue;
 
+                var unitPrice = menuItem.Price;
+                if (!string.IsNullOrWhiteSpace(menuItem.Sizes) && !string.IsNullOrWhiteSpace(entry.Size))
+                {
+                    var sizes = System.Text.Json.JsonSerializer.Deserialize<List<SizeOption>>(menuItem.Sizes);
+                    var selectedSize = sizes?.FirstOrDefault(s => s.Name == entry.Size);
+                    if (selectedSize != null)
+                        unitPrice = menuItem.Price + selectedSize.PriceAdjust;
+                }
+
                 if (menuItem.MaxQuantity.HasValue)
                 {
                     var orderedQty = await db.CoffeeRunOrderItems
@@ -429,7 +457,6 @@ public class CoffeeRunService(AppDbContext db) : ICoffeeRunService
                     if (remaining <= 0) continue;
 
                     var adjustedQty = Math.Min(entry.Quantity, remaining);
-                    var unitPrice = menuItem.Price;
                     var lineTotal = unitPrice * adjustedQty;
 
                     newItems.Add(new CoffeeRunOrderItem
@@ -438,13 +465,13 @@ public class CoffeeRunService(AppDbContext db) : ICoffeeRunService
                         CoffeeRunMenuItemId = menuItem.Id,
                         Quantity = adjustedQty,
                         UnitPrice = unitPrice,
-                        LineTotal = lineTotal
+                        LineTotal = lineTotal,
+                        SelectedSize = entry.Size
                     });
                     totalAmount += lineTotal;
                 }
                 else
                 {
-                    var unitPrice = menuItem.Price;
                     var lineTotal = unitPrice * entry.Quantity;
 
                     newItems.Add(new CoffeeRunOrderItem
@@ -453,7 +480,8 @@ public class CoffeeRunService(AppDbContext db) : ICoffeeRunService
                         CoffeeRunMenuItemId = menuItem.Id,
                         Quantity = entry.Quantity,
                         UnitPrice = unitPrice,
-                        LineTotal = lineTotal
+                        LineTotal = lineTotal,
+                        SelectedSize = entry.Size
                     });
                     totalAmount += lineTotal;
                 }
@@ -543,7 +571,7 @@ public class CoffeeRunService(AppDbContext db) : ICoffeeRunService
                     }
                     return new CoffeeRunMenuItemDto(
                         m.Id, m.Name, m.Price, m.Category,
-                        m.MaxQuantity, remaining, m.IsAvailable, m.SortOrder
+                        m.MaxQuantity, remaining, m.IsAvailable, m.SortOrder, m.Sizes
                     );
                 }).ToList(),
             Orders = run.Orders.OrderBy(o => o.CreatedAt).Select(o =>
@@ -567,7 +595,8 @@ public class CoffeeRunService(AppDbContext db) : ICoffeeRunService
                             MenuItemName = i.MenuItem.Name,
                             UnitPrice = i.UnitPrice,
                             Quantity = i.Quantity,
-                            LineTotal = i.LineTotal
+                            LineTotal = i.LineTotal,
+                            SelectedSize = i.SelectedSize
                         }).ToList()
                         : []
                 };
@@ -630,7 +659,8 @@ public class CoffeeRunService(AppDbContext db) : ICoffeeRunService
                 Name = m.Name,
                 Price = m.Price,
                 Category = m.Category,
-                SortOrder = m.SortOrder
+                SortOrder = m.SortOrder,
+                Sizes = m.Sizes
             }).ToList();
         }
         else if (request.CopyFromTemplateId.HasValue)
@@ -645,7 +675,8 @@ public class CoffeeRunService(AppDbContext db) : ICoffeeRunService
                 Name = i.Name,
                 Price = i.Price,
                 Category = i.Category,
-                SortOrder = i.SortOrder
+                SortOrder = i.SortOrder,
+                Sizes = i.Sizes
             }).ToList();
         }
 
@@ -706,7 +737,7 @@ public class CoffeeRunService(AppDbContext db) : ICoffeeRunService
             $"{template.CreatedBy.FirstName} {template.CreatedBy.LastName}",
             template.CreatedAt,
             template.UpdatedAt,
-            template.Items.OrderBy(i => i.SortOrder).ThenBy(i => i.Name).Select(i => new TemplateItemDto(i.Id, i.Name, i.Price, i.Category, i.SortOrder)).ToList()
+            template.Items.OrderBy(i => i.SortOrder).ThenBy(i => i.Name).Select(i => new TemplateItemDto(i.Id, i.Name, i.Price, i.Category, i.SortOrder, i.Sizes)).ToList()
         );
     }
 
@@ -754,7 +785,7 @@ public class CoffeeRunService(AppDbContext db) : ICoffeeRunService
             $"{template.CreatedBy.FirstName} {template.CreatedBy.LastName}",
             template.CreatedAt,
             template.UpdatedAt,
-            template.Items.OrderBy(i => i.SortOrder).ThenBy(i => i.Name).Select(i => new TemplateItemDto(i.Id, i.Name, i.Price, i.Category, i.SortOrder)).ToList()
+            template.Items.OrderBy(i => i.SortOrder).ThenBy(i => i.Name).Select(i => new TemplateItemDto(i.Id, i.Name, i.Price, i.Category, i.SortOrder, i.Sizes)).ToList()
         );
     }
 
@@ -774,7 +805,8 @@ public class CoffeeRunService(AppDbContext db) : ICoffeeRunService
             Name = request.Name,
             Price = request.Price,
             Category = request.Category,
-            SortOrder = request.SortOrder > 0 ? request.SortOrder : maxSortOrder + 1
+            SortOrder = request.SortOrder > 0 ? request.SortOrder : maxSortOrder + 1,
+            Sizes = request.Sizes
         };
 
         db.CoffeeRunMenuTemplateItems.Add(item);
@@ -796,6 +828,7 @@ public class CoffeeRunService(AppDbContext db) : ICoffeeRunService
         if (request.Price.HasValue) item.Price = request.Price;
         if (request.Category is not null) item.Category = request.Category;
         if (request.SortOrder is not null) item.SortOrder = request.SortOrder.Value;
+        if (request.Sizes is not null) item.Sizes = request.Sizes;
 
         await db.SaveChangesAsync();
 
@@ -830,7 +863,7 @@ public class CoffeeRunService(AppDbContext db) : ICoffeeRunService
             $"{template.CreatedBy.FirstName} {template.CreatedBy.LastName}",
             template.CreatedAt,
             template.UpdatedAt,
-            template.Items.OrderBy(i => i.SortOrder).ThenBy(i => i.Name).Select(i => new TemplateItemDto(i.Id, i.Name, i.Price, i.Category, i.SortOrder)).ToList()
+            template.Items.OrderBy(i => i.SortOrder).ThenBy(i => i.Name).Select(i => new TemplateItemDto(i.Id, i.Name, i.Price, i.Category, i.SortOrder, i.Sizes)).ToList()
         );
     }
 }

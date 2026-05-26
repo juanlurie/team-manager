@@ -5,7 +5,7 @@ namespace TeamManager.Api.Application.Services.Interfaces;
 
 public interface ICoffeeRunService
 {
-    Task<PagedResult<CoffeeRunListDto>> GetAllAsync(int page = 1, int pageSize = 20, string? status = null, Guid? initiatorId = null, DateTime? from = null, DateTime? to = null);
+    Task<PagedResult<CoffeeRunListDto>> GetAllAsync(int page = 1, int pageSize = 20, string? status = null, Guid? initiatorId = null, DateTime? from = null, DateTime? to = null, Guid? currentUserId = null);
     Task<CoffeeRunDetailDto> CreateAsync(Guid initiatorId, CreateRunRequest? request = null);
     Task<CoffeeRunDetailDto?> GetByIdAsync(Guid id, Guid currentUserId);
     Task<CoffeeRunDetailDto?> UpdateAsync(Guid id, UpdateRunRequest request, Guid currentUserId, bool isTeamLead);

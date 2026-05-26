@@ -3,8 +3,11 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
-import { MatMenuModule } from '@angular/material/menu';
+import { MatMenuModule, MatMenuTrigger } from '@angular/material/menu';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { TeamMemberService } from '../../../core/services/team-member.service';
+import { GlobalFilterService } from '../../../core/services/global-filter.service';
+import { KPickerData, KPickerResult } from '../../../core/components/k-picker/k-picker.types';
 
 export interface FilterOption { id: string; label: string; }
 export interface FilterGroup { key: string; label: string; icon: string; options: FilterOption[]; }
@@ -27,12 +30,14 @@ export function extractMentionNames(text: string): string[] {
 @Component({
   selector: 'app-filter-bar',
   standalone: true,
-  imports: [CommonModule, FormsModule, MatIconModule, MatButtonModule, MatMenuModule],
+  imports: [CommonModule, FormsModule, MatIconModule, MatButtonModule, MatMenuModule, MatDialogModule],
   templateUrl: './filter-bar.component.html',
   styleUrls: ['./filter-bar.component.scss']
 })
 export class FilterBarComponent implements OnInit {
   private teamMemberSvc = inject(TeamMemberService);
+  private dialog = inject(MatDialog);
+  private globalFilterSvc = inject(GlobalFilterService);
 
   groups = input<FilterGroup[]>([]);
   searchPlaceholder = input('Search…');
@@ -194,6 +199,35 @@ export class FilterBarComponent implements OnInit {
         id: m.id,
         label: `${m.firstName} ${m.lastName}`
       })));
+    });
+  }
+
+  async openKPicker() {
+    if (this.dialog.openDialogs.length > 0) return;
+    const { KPickerDialogComponent } = await import('../../../core/components/k-picker/k-picker-dialog.component');
+    const dialogRef = this.dialog.open(KPickerDialogComponent, {
+      width: '852px',
+      maxWidth: '95vw',
+      panelClass: 'k-picker-panel',
+      backdropClass: 'k-picker-backdrop',
+      disableClose: true,
+      autoFocus: '.k-search-input',
+      data: { preSelectedMembers: this.globalFilterSvc.selectedMembers(), mode: 'multi' } as KPickerData,
+    });
+    dialogRef.afterClosed().subscribe((result: KPickerResult | undefined) => {
+      if (result) {
+        this.globalFilterSvc.setSelectedMembers(result.selectedMembers);
+        if (result.selectedMembers.length > 0) {
+          const hint = result.selectedMembers
+            .map(m => `@${m.firstName} ${m.lastName}`)
+            .join(' ');
+          this.globalFilterSvc.setSearchHint(hint);
+          this.globalFilterSvc.setFilters({ squadId: null, featureId: null, leadId: null });
+        } else {
+          this.globalFilterSvc.setSearchHint('');
+          this.globalFilterSvc.setFilters(result.filters);
+        }
+      }
     });
   }
 

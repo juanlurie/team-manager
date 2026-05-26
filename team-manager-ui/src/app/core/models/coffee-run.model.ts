@@ -7,6 +7,7 @@ export interface CoffeeRunMenuItem {
   remainingQuantity: number | null;
   isAvailable: boolean;
   sortOrder: number;
+  sizes: string | null;
 }
 
 export interface TemplateItem {
@@ -24,6 +25,7 @@ export interface CoffeeRunOrderItem {
   unitPrice: number;
   quantity: number;
   lineTotal: number;
+  selectedSize: string | null;
 }
 
 export interface CoffeeRunOrder {
@@ -102,6 +104,7 @@ export interface PagedResult<T> {
 export interface OrderItemEntry {
   menuItemId: string;
   quantity: number;
+  size?: string;
 }
 
 export interface CreateMenuItemRequest {

@@ -12,6 +12,11 @@ public class CoffeeRunMenuItem
     public int SortOrder { get; set; }
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
 
+    /// <summary>
+    /// JSON array of size options, e.g. [{"name":"Small","priceAdjust":0},{"name":"Large","priceAdjust":5}]
+    /// </summary>
+    public string? Sizes { get; set; }
+
     public CoffeeRun CoffeeRun { get; set; } = null!;
     public ICollection<CoffeeRunOrderItem> OrderItems { get; set; } = new List<CoffeeRunOrderItem>();
 }

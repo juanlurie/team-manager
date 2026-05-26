@@ -4,7 +4,8 @@ namespace TeamManager.Api.Application.DTOs.CoffeeRun;
 
 public record OrderItemEntry(
     [Required] Guid MenuItemId,
-    [Required][Range(1, 99)] int Quantity
+    [Required][Range(1, 99)] int Quantity,
+    string? Size
 );
 
 public record CreateOrderRequest(
