@@ -2,6 +2,7 @@ import { Component, OnInit, OnDestroy, inject, signal, computed, effect } from '
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
+import { MatMenuModule } from '@angular/material/menu';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatDialogModule, MatDialog } from '@angular/material/dialog';
@@ -20,7 +21,7 @@ import { WebSocketService } from '../../core/websocket/websocket.service';
 @Component({
   selector: 'app-coffee-run',
   standalone: true,
-  imports: [CommonModule, FormsModule, MatButtonModule, MatIconModule, MatTooltipModule, MatDialogModule, MatProgressSpinnerModule, MatSnackBarModule, MatSelectModule, MatInputModule],
+  imports: [CommonModule, FormsModule, MatButtonModule, MatIconModule, MatTooltipModule, MatDialogModule, MatProgressSpinnerModule, MatSnackBarModule, MatSelectModule, MatInputModule, MatMenuModule],
   templateUrl: './coffee-run.component.html',
   styleUrls: ['./coffee-run.component.scss']
 })
@@ -50,7 +51,9 @@ export class CoffeeRunComponent implements OnInit, OnDestroy {
   // Filters
   statusFilter = signal<string>('');
   searchQuery = signal('');
+  showClosed = signal(false);
   menuSearchQuery = signal('');
+  orderSearchQuery = signal('');
 
   openRuns = computed(() => this.runs().filter(r => r.status === 'Open'));
   closedRuns = computed(() => this.runs().filter(r => r.status === 'Closed'));
@@ -169,6 +172,10 @@ export class CoffeeRunComponent implements OnInit, OnDestroy {
     return this.detail()?.initiatorId === this.currentUserId();
   }
 
+  canViewMenuAndOrders(): boolean {
+    return this.isInitiator() || (!this.isClosed() && !this.isCancelled());
+  }
+
   isStatus(status: string): boolean {
     return this.detail()?.status === status;
   }
@@ -237,6 +244,7 @@ export class CoffeeRunComponent implements OnInit, OnDestroy {
     this.view.set('list');
     this.detail.set(null);
     this.showSummary.set(false);
+    this.showClosed.set(false);
     this.runSummary.set(null);
     this.countdownInterval?.unsubscribe();
     this.loadRuns();
@@ -251,6 +259,8 @@ export class CoffeeRunComponent implements OnInit, OnDestroy {
       next: d => {
         this.detail.set(d);
         this.detailLoading.set(false);
+        console.log('Menu items with sizes:', d.menuItems.filter(m => m.sizes).map(m => ({ name: m.name, sizes: m.sizes })));
+        this.initOrderSizes();
         this.startCountdown();
       },
       error: () => { this.detailLoading.set(false); this.viewList(); this.snackBar.open('Failed to load coffee run', 'Close', { duration: 4000 }); }
@@ -420,14 +430,11 @@ export class CoffeeRunComponent implements OnInit, OnDestroy {
 
   addMenuItem() {
     const name = this.newItemName.trim();
-    const priceStr = String(this.newItemPrice).trim();
-    if (!name || !priceStr || this.saving()) return;
-    const price = parseFloat(priceStr);
-    if (isNaN(price) || price <= 0) return;
+    if (!name || this.saving()) return;
     const run = this.detail();
     if (!run) return;
 
-    const req: any = { name, price };
+    const req: any = { name, price: 0 };
     if (this.newItemCategory.trim()) req.category = this.newItemCategory.trim();
     if (this.newItemMaxQty && parseInt(this.newItemMaxQty) > 0) req.maxQuantity = parseInt(this.newItemMaxQty);
 
@@ -456,10 +463,9 @@ export class CoffeeRunComponent implements OnInit, OnDestroy {
     const run = this.detail();
     if (!run) return;
     const name = this.editingMenuItemName.trim();
-    const price = parseFloat(this.editingMenuItemPrice);
-    if (!name || isNaN(price) || price <= 0) return;
+    if (!name) return;
 
-    const req: any = { name, price };
+    const req: any = { name, price: 0 };
     if (this.editingMenuItemCategory) req.category = this.editingMenuItemCategory;
 
     this.coffeeRunSvc.updateMenuItem(run.id, item.id, req).subscribe({
@@ -519,13 +525,35 @@ export class CoffeeRunComponent implements OnInit, OnDestroy {
     return this.filteredMenuItems().filter(i => (i.category || 'Uncategorized') === category);
   }
 
+  filteredOrderItems = computed(() => {
+    const items = this.detail()?.menuItems || [];
+    const q = this.orderSearchQuery().toLowerCase();
+    if (!q) return items.filter(i => i.isAvailable);
+    return items.filter(i => i.isAvailable && (i.name.toLowerCase().includes(q) || (i.category || '').toLowerCase().includes(q)));
+  });
+
+  orderItemCategories = computed(() => {
+    const items = this.filteredOrderItems();
+    const cats = new Set<string>();
+    for (const item of items) {
+      cats.add(item.category || 'Uncategorized');
+    }
+    return Array.from(cats).sort();
+  });
+
+  getOrderItemsByCategory(category: string) {
+    return this.filteredOrderItems().filter(i => (i.category || 'Uncategorized') === category);
+  }
+
   /* ── Order actions ────────────────────────────────── */
 
   orderQuantities: { [menuItemId: string]: number } = {};
+  orderSizes: { [menuItemId: string]: string } = {};
   orderNotes = '';
 
   initOrderForm() {
     this.orderQuantities = {};
+    this.orderSizes = {};
     this.orderNotes = '';
     this.editingOrder.set(true);
     const existing = this.getUserOrder();
@@ -533,12 +561,34 @@ export class CoffeeRunComponent implements OnInit, OnDestroy {
       this.orderNotes = existing.notes ?? '';
       for (const item of existing.items) {
         this.orderQuantities[item.menuItemId] = item.quantity;
+        if (item.selectedSize) this.orderSizes[item.menuItemId] = item.selectedSize;
       }
     }
     const run = this.detail();
     if (run) {
       for (const mi of run.menuItems) {
         if (!(mi.id in this.orderQuantities)) this.orderQuantities[mi.id] = 0;
+        if (mi.sizes && !this.orderSizes[mi.id]) {
+          try {
+            const sizes = JSON.parse(mi.sizes) as { name: string }[];
+            const midIndex = Math.floor(sizes.length / 2);
+            this.orderSizes[mi.id] = sizes[midIndex].name;
+          } catch {}
+        }
+      }
+    }
+  }
+
+  initOrderSizes() {
+    const run = this.detail();
+    if (!run) return;
+    for (const mi of run.menuItems) {
+      if (mi.sizes && !this.orderSizes[mi.id]) {
+        try {
+          const sizes = JSON.parse(mi.sizes) as { name: string }[];
+          const midIndex = Math.floor(sizes.length / 2);
+          this.orderSizes[mi.id] = sizes[midIndex].name;
+        } catch {}
       }
     }
   }
@@ -557,14 +607,34 @@ export class CoffeeRunComponent implements OnInit, OnDestroy {
     return Object.values(this.orderQuantities).some(q => q > 0);
   }
 
+  getItemPrice(mi: CoffeeRunMenuItem): number {
+    const selectedSize = this.orderSizes[mi.id];
+    if (!mi.sizes || !selectedSize) return mi.price;
+    try {
+      const sizes = JSON.parse(mi.sizes) as { name: string; priceAdjust: number }[];
+      const size = sizes.find(s => s.name === selectedSize);
+      return mi.price + (size?.priceAdjust ?? 0);
+    } catch {
+      return mi.price;
+    }
+  }
+
   getOrderTotal(): number {
     const run = this.detail();
     if (!run) return 0;
     let total = 0;
     for (const mi of run.menuItems) {
-      total += mi.price * this.getQuantity(mi.id);
+      total += this.getItemPrice(mi) * this.getQuantity(mi.id);
     }
     return total;
+  }
+
+  parseSizes(sizesJson: string): { name: string; priceAdjust: number }[] {
+    try {
+      return JSON.parse(sizesJson);
+    } catch {
+      return [];
+    }
   }
 
   placeOrder() {
@@ -573,7 +643,7 @@ export class CoffeeRunComponent implements OnInit, OnDestroy {
     const items: OrderItemEntry[] = [];
     for (const mi of run.menuItems) {
       const qty = this.getQuantity(mi.id);
-      if (qty > 0) items.push({ menuItemId: mi.id, quantity: qty });
+      if (qty > 0) items.push({ menuItemId: mi.id, quantity: qty, size: this.orderSizes[mi.id] || undefined });
     }
     if (items.length === 0) return;
 
@@ -600,7 +670,7 @@ export class CoffeeRunComponent implements OnInit, OnDestroy {
     const items: OrderItemEntry[] = [];
     for (const mi of run.menuItems) {
       const qty = this.getQuantity(mi.id);
-      if (qty > 0) items.push({ menuItemId: mi.id, quantity: qty });
+      if (qty > 0) items.push({ menuItemId: mi.id, quantity: qty, size: this.orderSizes[mi.id] || undefined });
     }
 
     this.coffeeRunSvc.updateOrder(run.id, order.id, {
@@ -614,6 +684,7 @@ export class CoffeeRunComponent implements OnInit, OnDestroy {
 
   cancelEditOrder() {
     this.orderQuantities = {};
+    this.orderSizes = {};
     this.editingOrder.set(false);
   }
 

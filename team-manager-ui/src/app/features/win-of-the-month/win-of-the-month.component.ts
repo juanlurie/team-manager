@@ -14,7 +14,7 @@ import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/c
   standalone: true,
   imports: [CommonModule, RouterLink, MatIconModule, MatButtonModule, MatSnackBarModule, MatDialogModule],
   template: `
-    <div style="max-width:800px;margin:0 auto;padding:0 8px">
+    <div style="max-width:800px;margin:0 auto;padding:0 8px 80px">
       <!-- Header -->
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap">
         <div style="display:flex;align-items:center;gap:10px">

@@ -3,6 +3,11 @@
     .leave-sick   { background:rgba(244,67,54,0.15);color:#f44336; }
     .leave-other  { background:rgba(255,152,0,0.15);color:#ff9800; }
 
+    :host {
+      display: block;
+      padding-bottom: 80px;
+    }
+
     ::ng-deep .mat-expansion-panel-header {
       height: auto !important;
       min-height: 48px;

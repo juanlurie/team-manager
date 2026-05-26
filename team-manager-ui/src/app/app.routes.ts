@@ -74,6 +74,10 @@ export const routes: Routes = [
         path: 'settings',
         loadComponent: () => import('./features/settings/settings.component').then(m => m.SettingsComponent)
       },
+      {
+        path: 'access-requests',
+        loadComponent: () => import('./features/access-requests/access-requests.component').then(m => m.AccessRequestsComponent)
+      },
     ]
   },
   // Backward compatibility redirects

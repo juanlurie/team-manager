@@ -208,3 +208,8 @@
   max-height: 90vh;
   overflow-y: auto;
 }
+
+:host {
+  display: block;
+  padding-bottom: 80px;
+}

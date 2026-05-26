@@ -5,7 +5,8 @@
                  [placeholder]="searchPlaceholder()"
                  [value]="search()"
                  (input)="onSearchInput($any($event.target).value, $event)"
-                 (keydown)="onSearchKeydown($event)" />
+                 (keydown)="onSearchKeydown($event)"
+                 (click)="openKPicker()" />
           @if (mentionActive() && filteredMentions().length > 0) {
             <div style="position:absolute;top:100%;left:0;right:0;margin-top:4px;background:#1e2a3a;border:1px solid rgba(255,255,255,0.12);border-radius:8px;overflow:hidden;z-index:100;box-shadow:0 4px 16px rgba(0,0,0,0.4)">
               @for (item of filteredMentions(); track item.id; let i = $index) {

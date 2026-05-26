@@ -30,6 +30,7 @@ const PRIMARY_NAV: NavItem[] = [
 ];
 
 const SECONDARY_NAV: NavItem[] = [
+  { path: '/access-requests', icon: 'person_add', label: 'Access Requests' },
   { path: '/settings', icon: 'settings', label: 'Settings' },
   { path: '/export', icon: 'download', label: 'Export' },
   { path: '/profile', icon: 'person', label: 'Profile' },
@@ -51,6 +52,7 @@ const MORE_NAV: NavItem[] = [
   { path: '/meetings',       icon: 'event',          label: 'Meetings'      },
   { path: '/fun',            icon: 'casino',         label: 'Fun Hub'       },
   { path: '/showcase',       icon: 'auto_awesome',   label: 'Showcase'      },
+  { path: '/access-requests',icon: 'person_add',     label: 'Access Requests' },
   { path: '/settings',       icon: 'settings',       label: 'Settings'      },
   { path: '/export',         icon: 'download',       label: 'Export'        },
   { path: '/profile',        icon: 'person',         label: 'Profile'       },
@@ -369,10 +371,10 @@ const MORE_NAV: NavItem[] = [
     .more-logout:hover { background: rgba(239,83,80,0.1); color: #ef5350; }
 
     /* ── Main content ── */
-    .content { flex: 1; overflow-y: auto; min-width: 0; }
+    .content { flex: 1; overflow-y: auto; min-width: 0; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
     .shell.mobile .content { padding-bottom: 60px; }
     .page-wrap { padding: 24px; max-width: 1200px; margin: 0 auto; }
-    .shell.mobile .page-wrap { padding: 0 4px; }
+    .shell.mobile .page-wrap { padding: 0 4px 72px; }
   `]
 })
 export class AppComponent {
