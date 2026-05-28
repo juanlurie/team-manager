@@ -13,110 +13,137 @@
     </mat-card-header>
 
     <mat-card-content>
-      <form [formGroup]="expenseForm">
-        <div formArrayName="items">
-          <!-- Desktop table layout -->
-          <table class="expense-table desktop-table">
-            <thead>
-              <tr>
-                <th class="col-description">Description</th>
-                <th class="col-place">Place of Purchase</th>
-                <th class="col-amount">Amount</th>
-                <th class="col-actions"></th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr *ngFor="let item of items.controls; let i = index" [formGroupName]="i">
-                <td class="col-description">
-                  <mat-form-field appearance="outline" class="full-width">
-                    <input matInput formControlName="description" placeholder="Enter description" />
-                    <mat-error *ngIf="item.get('description')?.invalid && item.get('description')?.touched">
-                      Description is required
-                    </mat-error>
-                  </mat-form-field>
-                </td>
-                <td class="col-place">
-                  <mat-form-field appearance="outline" class="full-width">
-                    <input matInput formControlName="placeOfPurchase" placeholder="Enter place of purchase" />
-                    <mat-error *ngIf="item.get('placeOfPurchase')?.invalid && item.get('placeOfPurchase')?.touched">
-                      Place of purchase is required
-                    </mat-error>
-                  </mat-form-field>
-                </td>
-                <td class="col-amount">
-                  <mat-form-field appearance="outline" class="full-width">
-                    <input matInput type="number" formControlName="amount" placeholder="0.00" min="0" step="0.01" />
-                    <mat-error *ngIf="item.get('amount')?.invalid && item.get('amount')?.touched">
-                      Valid amount is required
-                    </mat-error>
-                  </mat-form-field>
-                </td>
-                <td class="col-actions">
-                  <button mat-icon-button color="warn" (click)="removeItem(i)" [disabled]="items.length <= 1" type="button">
-                    <mat-icon>delete</mat-icon>
-                  </button>
-                </td>
-              </tr>
-            </tbody>
-          </table>
+      <!-- Desktop table layout -->
+      <table class="expense-table desktop-table">
+        <thead>
+          <tr>
+            <th class="col-description">Description</th>
+            <th class="col-place">Place of Purchase</th>
+            <th class="col-amount">Amount</th>
+            <th class="col-actions"></th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (item of items(); let i = $index; track i) {
+            <tr>
+              <td class="col-description">{{ item.description }}</td>
+              <td class="col-place">{{ item.placeOfPurchase }}</td>
+              <td class="col-amount">{{ item.amount | number: '1.2-2' }}</td>
+              <td class="col-actions">
+                <button mat-icon-button (click)="openEditDialog(i)" type="button" matTooltip="Edit">
+                  <mat-icon style="font-size:18px;width:18px;height:18px">edit</mat-icon>
+                </button>
+                <button mat-icon-button color="warn" (click)="removeItem(i)" type="button" matTooltip="Delete">
+                  <mat-icon style="font-size:18px;width:18px;height:18px">delete</mat-icon>
+                </button>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
 
-          <!-- Mobile card layout -->
-          <div class="mobile-items">
-            <div *ngFor="let item of items.controls; let i = index" [formGroupName]="i" class="mobile-item-card">
-              <div class="mobile-item-header">
-                <span class="mobile-item-number">Item {{ i + 1 }}</span>
-                <button mat-icon-button color="warn" (click)="removeItem(i)" [disabled]="items.length <= 1" type="button">
-                  <mat-icon>delete</mat-icon>
+      <!-- Mobile card layout -->
+      <div class="mobile-items">
+        @for (item of items(); let i = $index; track i) {
+          <div class="mobile-item-card">
+            <div class="mobile-item-header">
+              <span class="mobile-item-number">Item {{ i + 1 }}</span>
+              <div class="mobile-item-actions">
+                <button mat-icon-button (click)="openEditDialog(i)" type="button">
+                  <mat-icon style="font-size:18px;width:18px;height:18px">edit</mat-icon>
+                </button>
+                <button mat-icon-button color="warn" (click)="removeItem(i)" type="button">
+                  <mat-icon style="font-size:18px;width:18px;height:18px">delete</mat-icon>
                 </button>
               </div>
-              <mat-form-field appearance="outline" class="full-width">
-                <mat-label>Description</mat-label>
-                <input matInput formControlName="description" placeholder="Enter description" />
-                <mat-error *ngIf="item.get('description')?.invalid && item.get('description')?.touched">
-                  Description is required
-                </mat-error>
-              </mat-form-field>
-              <mat-form-field appearance="outline" class="full-width">
-                <mat-label>Place of Purchase</mat-label>
-                <input matInput formControlName="placeOfPurchase" placeholder="Enter place of purchase" />
-                <mat-error *ngIf="item.get('placeOfPurchase')?.invalid && item.get('placeOfPurchase')?.touched">
-                  Place of purchase is required
-                </mat-error>
-              </mat-form-field>
-              <mat-form-field appearance="outline" class="full-width">
-                <mat-label>Amount</mat-label>
-                <input matInput type="number" formControlName="amount" placeholder="0.00" min="0" step="0.01" />
-                <mat-error *ngIf="item.get('amount')?.invalid && item.get('amount')?.touched">
-                  Valid amount is required
-                </mat-error>
-              </mat-form-field>
+            </div>
+            <div class="mobile-item-row">
+              <span class="mobile-label">Description:</span>
+              <span class="mobile-value">{{ item.description }}</span>
+            </div>
+            <div class="mobile-item-row">
+              <span class="mobile-label">Place of Purchase:</span>
+              <span class="mobile-value">{{ item.placeOfPurchase }}</span>
+            </div>
+            <div class="mobile-item-row">
+              <span class="mobile-label">Amount:</span>
+              <span class="mobile-value amount">{{ item.amount | number: '1.2-2' }}</span>
             </div>
           </div>
-        </div>
+        }
+      </div>
 
-        <div class="actions-row">
-          <button mat-stroked-button color="primary" (click)="addItem()" type="button">
-            <mat-icon>add</mat-icon>
-            Add Item
-          </button>
+      @if (items().length === 0) {
+        <div class="empty-state">
+          <mat-icon style="font-size:3rem;width:3rem;height:3rem;opacity:0.3">receipt_long</mat-icon>
+          <p>No expense items added yet</p>
         </div>
+      }
 
-        <div class="total-row">
-          <span class="total-label">TOTAL CLAIM</span>
-          <span class="total-value">{{ getTotal() | number: '1.2-2' }}</span>
-        </div>
+      <div class="actions-row">
+        <button mat-stroked-button color="primary" (click)="openAddDialog()" type="button">
+          <mat-icon>add</mat-icon>
+          Add Item
+        </button>
+      </div>
 
-        <div class="signature-row">
-          <span class="signature-text">Employee Sign: {{ employeeName }}</span>
-        </div>
+      <div class="total-row">
+        <span class="total-label">TOTAL CLAIM</span>
+        <span class="total-value">{{ getTotal() | number: '1.2-2' }}</span>
+      </div>
 
-        <div class="download-row">
-          <button mat-flat-button color="primary" (click)="generateAndDownload()" type="button">
-            <mat-icon>download</mat-icon>
-            Download Expense Claim
-          </button>
-        </div>
-      </form>
+      <div class="signature-row">
+        <span class="signature-text">Employee Sign: {{ employeeName }}</span>
+      </div>
+
+      <div class="download-row">
+        <button mat-flat-button color="primary" (click)="generateAndDownload()" type="button">
+          <mat-icon>download</mat-icon>
+          Download Expense Claim
+        </button>
+      </div>
     </mat-card-content>
   </mat-card>
+
+  <!-- Add/Edit Item Dialog -->
+  @if (showItemDialog()) {
+    <div class="dialog-overlay" (click)="closeDialog()">
+      <div class="dialog-content" (click)="$event.stopPropagation()">
+        <h3>{{ editingIndex() !== null ? 'Edit Item' : 'Add Expense Item' }}</h3>
+
+        <form [formGroup]="itemForm">
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Description</mat-label>
+            <input matInput formControlName="description" placeholder="Enter description" />
+            <mat-error *ngIf="itemForm.get('description')?.invalid && itemForm.get('description')?.touched">
+              Description is required
+            </mat-error>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Place of Purchase</mat-label>
+            <input matInput formControlName="placeOfPurchase" placeholder="Enter place of purchase" />
+            <mat-error *ngIf="itemForm.get('placeOfPurchase')?.invalid && itemForm.get('placeOfPurchase')?.touched">
+              Place of purchase is required
+            </mat-error>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Amount</mat-label>
+            <input matInput type="number" formControlName="amount" placeholder="0.00" min="0" step="0.01" />
+            <mat-error *ngIf="itemForm.get('amount')?.invalid && itemForm.get('amount')?.touched">
+              Valid amount is required
+            </mat-error>
+          </mat-form-field>
+        </form>
+
+        <div class="dialog-actions">
+          <button mat-stroked-button (click)="closeDialog()" type="button">Cancel</button>
+          <button mat-flat-button color="primary" (click)="saveItem()" type="button">
+            {{ editingIndex() !== null ? 'Save' : 'Add' }}
+          </button>
+        </div>
+      </div>
+    </div>
+  }
 </div>
