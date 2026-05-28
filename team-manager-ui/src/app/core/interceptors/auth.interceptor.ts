@@ -13,16 +13,11 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
     setHeaders: { Authorization: `Bearer ${token}` }
   })).pipe(
     catchError((err: HttpErrorResponse) => {
-      if (err.status === 403) {
-        if (req.url.includes('/api/auth/me')) {
-          localStorage.clear();
-          sessionStorage.clear();
-          router.navigate(['/not-registered']);
-          return EMPTY;
-        }
-        if (err.error?.error === 'feature_disabled') {
-          return EMPTY;
-        }
+      if (err.status === 403 && req.url.includes('/api/auth/me')) {
+        localStorage.clear();
+        sessionStorage.clear();
+        router.navigate(['/not-registered']);
+        return EMPTY;
       }
       return throwError(() => err);
     })
