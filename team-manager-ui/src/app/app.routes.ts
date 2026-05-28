@@ -1,5 +1,6 @@
 import { Routes } from '@angular/router';
 import { authGuard } from './core/guards/auth.guard';
+import { featureGuard } from './core/guards/feature.guard';
 
 export const routes: Routes = [
   { path: 'login', loadComponent: () => import('./features/login/login.component').then(m => m.LoginComponent) },
@@ -7,7 +8,7 @@ export const routes: Routes = [
   {
     path: '',
     canActivate: [authGuard],
-    canActivateChild: [authGuard],
+    canActivateChild: [authGuard, featureGuard],
     children: [
       { path: '', redirectTo: 'dashboard', pathMatch: 'full' },
       {
