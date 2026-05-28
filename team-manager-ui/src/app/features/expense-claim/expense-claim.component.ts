@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, inject, OnInit, signal, AfterViewInit, ViewChild, ElementRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
@@ -48,6 +48,8 @@ export class ExpenseClaimComponent implements OnInit {
   editingIndex = signal<number | null>(null);
   itemForm!: FormGroup;
 
+  @ViewChild('descInput') descInput!: ElementRef<HTMLInputElement>;
+
   ngOnInit(): void {
     this.currentDate = new Date().toLocaleDateString('en-ZA', {
       day: '2-digit',
@@ -76,6 +78,7 @@ export class ExpenseClaimComponent implements OnInit {
     this.editingIndex.set(null);
     this.itemForm.reset({ description: '', placeOfPurchase: '', amount: 0 });
     this.showItemDialog.set(true);
+    setTimeout(() => this.descInput?.nativeElement?.focus(), 100);
   }
 
   openEditDialog(index: number): void {
@@ -83,6 +86,7 @@ export class ExpenseClaimComponent implements OnInit {
     const item = this.items()[index];
     this.itemForm.patchValue(item);
     this.showItemDialog.set(true);
+    setTimeout(() => this.descInput?.nativeElement?.focus(), 100);
   }
 
   closeDialog(): void {
