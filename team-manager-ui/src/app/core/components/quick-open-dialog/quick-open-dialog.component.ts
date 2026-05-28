@@ -22,11 +22,26 @@ const QUICK_OPEN_ITEMS: QuickOpenItem[] = [
   { id: 'discussion', path: '/discussion', label: 'Discussion', icon: 'forum' },
   { id: 'team', path: '/team', label: 'Team', icon: 'people' },
   { id: 'leave', path: '/leave', label: 'Leave', icon: 'event_busy' },
+  { id: 'meetings', path: '/meetings', label: 'Meetings', icon: 'event' },
   { id: 'export', path: '/export', label: 'Export', icon: 'download' },
   { id: 'fun', path: '/fun', label: 'Fun Hub', icon: 'casino' },
   { id: 'win-of-the-week', path: '/fun/win-of-the-week', label: 'Win of the Week', icon: 'emoji_events' },
+  { id: 'win-of-the-month', path: '/fun/win-of-the-week#month', label: 'Win of the Month', icon: 'workspace_premium' },
   { id: 'leaderboard', path: '/fun/leaderboard', label: 'Leaderboard', icon: 'leaderboard' },
   { id: 'wheel', path: '/fun/wheel', label: 'Spin Wheel', icon: 'casino' },
+  { id: 'coffee-run', path: '/fun/coffee-run', label: 'Coffee Run', icon: 'local_cafe' },
+  { id: 'scrum-poker', path: '/fun/scrum-poker', label: 'Scrum Poker', icon: 'style' },
+  { id: 'expense-claim', path: '/expense-claim', label: 'Expense Claim', icon: 'receipt_long' },
+  { id: 'showcase', path: '/showcase', label: 'Showcase', icon: 'auto_awesome' },
+  { id: 'milestones', path: '/milestones', label: 'Milestones', icon: 'flag' },
+  { id: 'pis', path: '/pis', label: 'Program Increments', icon: 'view_quilt' },
+  { id: 'session-types', path: '/session-types', label: 'Session Types', icon: 'category' },
+  { id: 'slot-locations', path: '/meetings/locations', label: 'Slot Locations', icon: 'location_on' },
+  { id: 'access-requests', path: '/access-requests', label: 'Access Requests', icon: 'person_add' },
+  { id: 'settings', path: '/settings', label: 'Settings', icon: 'settings' },
+  { id: 'api-keys', path: '/settings/api-keys', label: 'API Keys', icon: 'vpn_key' },
+  { id: 'feature-permissions', path: '/settings/feature-permissions', label: 'Feature Permissions', icon: 'admin_panel_settings' },
+  { id: 'profile', path: '/profile', label: 'Profile', icon: 'person' },
 ];
 
 @Component({
@@ -149,10 +164,10 @@ export class QuickOpenDialogComponent implements AfterViewInit, OnInit {
   filtered = computed(() => {
     const q = this.query().toLowerCase().trim();
     const items = this.allItems();
-    if (!q) return items.slice(0, 5);
+    if (!q) return items.slice(0, 15);
     return items.filter(i =>
       i.label.toLowerCase().includes(q) || i.path.toLowerCase().includes(q)
-    ).slice(0, 5);
+    ).slice(0, 15);
   });
 
   ngAfterViewInit(): void {
