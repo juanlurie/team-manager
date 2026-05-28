@@ -70,16 +70,28 @@ public class FeaturePermissionService : IFeaturePermissionService
             .Where(o => o.TeamMemberId == memberId)
             .ToListAsync();
 
+        var rolePermissions = await db.FeaturePermissions
+            .Where(p => p.Role == role)
+            .ToListAsync();
+
+        var roleMap = rolePermissions.ToDictionary(p => p.FeatureKey, p => p.IsEnabled);
         var overrideMap = overrides.ToDictionary(o => o.FeatureKey, o => o.IsEnabled);
 
-        var result = allFeatures.Select(f => new MemberFeatureOverrideDto(
-            overrideMap.ContainsKey(f.Key) ? overrides.First(o => o.FeatureKey == f.Key).Id : Guid.Empty,
-            f.Key,
-            f.Category,
-            f.Label,
-            overrideMap.ContainsKey(f.Key) ? overrideMap[f.Key] : true,
-            !overrideMap.ContainsKey(f.Key)
-        )).ToList();
+        var result = allFeatures.Select(f =>
+        {
+            var hasOverride = overrideMap.ContainsKey(f.Key);
+            var hasRolePerm = roleMap.TryGetValue(f.Key, out var roleEnabled);
+            var effectiveEnabled = hasOverride ? overrideMap[f.Key] : (hasRolePerm && roleEnabled);
+
+            return new MemberFeatureOverrideDto(
+                hasOverride ? overrides.First(o => o.FeatureKey == f.Key).Id : Guid.Empty,
+                f.Key,
+                f.Category,
+                f.Label,
+                effectiveEnabled,
+                !hasOverride
+            );
+        }).ToList();
 
         return result;
     }
