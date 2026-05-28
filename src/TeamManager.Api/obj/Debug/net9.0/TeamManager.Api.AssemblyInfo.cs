@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("TeamManager.Api")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+433072a2365c0437c8e1ee2a56879cc47a60ea14")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+b947b7187abe42d8f42763a76e7c7152cdf41700")]
 [assembly: System.Reflection.AssemblyProductAttribute("TeamManager.Api")]
 [assembly: System.Reflection.AssemblyTitleAttribute("TeamManager.Api")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

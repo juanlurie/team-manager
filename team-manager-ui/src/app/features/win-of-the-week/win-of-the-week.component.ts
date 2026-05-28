@@ -169,9 +169,6 @@ import { WinOfTheMonthComponent } from '../win-of-the-month/win-of-the-month.com
             {{currentWeek()?.status === 'Voting' ? 'VOTING OPEN' : (currentWeek()?.status === 'Nominating' ? 'Voting Opens Friday' : 'Voting Closed')}}
           </span>
         </div>
-        @if (isCurrentDayVisible()) {
-          <div style="font-size:0.65rem;color:#64b5f6;margin-top:2px">▲ Current day</div>
-        }
       </div>
 
       <!-- Winner banner -->
