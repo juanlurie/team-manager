@@ -9,7 +9,6 @@ using TeamManager.Api.Infrastructure.Data;
 namespace TeamManager.Api.Presentation.Controllers;
 
 [ApiController]
-[RequireFeature("settings")]
 [Route("api/v1/leave-fetch-config")]
 [Authorize]
 public class LeaveFetchConfigController : ControllerBase

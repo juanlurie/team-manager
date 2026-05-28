@@ -7,7 +7,6 @@ using TeamManager.Api.Infrastructure.Data;
 namespace TeamManager.Api.Presentation.Controllers;
 
 [ApiController]
-[RequireFeature("sprints")]
 [Route("api/v1/sprint-members")]
 public class SprintMembersController(AppDbContext db) : ControllerBase
 {

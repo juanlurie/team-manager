@@ -6,7 +6,6 @@ using TeamManager.Api.Application.Services.Interfaces;
 namespace TeamManager.Api.Presentation.Controllers;
 
 [ApiController]
-[RequireFeature("discussion")]
 [Route("api/v1/retro-actions")]
 public class RetroActionsController(IRetroActionService service) : ControllerBase
 {

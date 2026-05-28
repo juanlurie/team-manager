@@ -6,7 +6,6 @@ using TeamManager.Api.Application.Services.Interfaces;
 namespace TeamManager.Api.Presentation.Controllers;
 
 [ApiController]
-[RequireFeature("wheel")]
 [Route("api/v1/wheels")]
 public class WheelsController(IWheelService service) : ControllerBase
 {

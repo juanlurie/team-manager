@@ -8,7 +8,6 @@ using TeamManager.Api.Infrastructure.Data;
 namespace TeamManager.Api.Presentation.Controllers;
 
 [ApiController]
-[RequireFeature("discussion")]
 [Route("api/v1/comments")]
 public class CommentsController(AppDbContext db) : ControllerBase
 {

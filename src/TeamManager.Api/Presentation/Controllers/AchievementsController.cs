@@ -6,7 +6,6 @@ using TeamManager.Api.Application.Services.Interfaces;
 namespace TeamManager.Api.Presentation.Controllers;
 
 [ApiController]
-[RequireFeature("fun-hub")]
 [Route("api/v1/achievements")]
 public class AchievementsController(IAchievementService service) : ControllerBase
 {
