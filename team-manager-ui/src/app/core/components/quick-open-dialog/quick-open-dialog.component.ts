@@ -6,41 +6,43 @@ import { MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { Router } from '@angular/router';
 import { TeamMemberService } from '../../services/team-member.service';
 import { TeamMember } from '../../models/team-member.model';
+import { FeatureAccessService } from '../../services/feature-access.service';
 
 interface QuickOpenItem {
   id: string;
   path: string;
   label: string;
   icon: string;
+  featureKey?: string;
 }
 
 const QUICK_OPEN_ITEMS: QuickOpenItem[] = [
-  { id: 'dashboard', path: '/dashboard', label: 'Dashboard', icon: 'dashboard' },
-  { id: 'sprints', path: '/sprints', label: 'Sprints', icon: 'directions_run' },
-  { id: 'features', path: '/features', label: 'Features', icon: 'view_list' },
-  { id: 'progress', path: '/progress', label: 'Progress', icon: 'track_changes' },
-  { id: 'discussion', path: '/discussion', label: 'Discussion', icon: 'forum' },
-  { id: 'team', path: '/team', label: 'Team', icon: 'people' },
-  { id: 'leave', path: '/leave', label: 'Leave', icon: 'event_busy' },
-  { id: 'meetings', path: '/meetings', label: 'Meetings', icon: 'event' },
-  { id: 'export', path: '/export', label: 'Export', icon: 'download' },
-  { id: 'fun', path: '/fun', label: 'Fun Hub', icon: 'casino' },
-  { id: 'win-of-the-week', path: '/fun/win-of-the-week', label: 'Win of the Week', icon: 'emoji_events' },
-  { id: 'win-of-the-month', path: '/fun/win-of-the-week#month', label: 'Win of the Month', icon: 'workspace_premium' },
-  { id: 'leaderboard', path: '/fun/leaderboard', label: 'Leaderboard', icon: 'leaderboard' },
-  { id: 'wheel', path: '/fun/wheel', label: 'Spin Wheel', icon: 'casino' },
-  { id: 'coffee-run', path: '/fun/coffee-run', label: 'Coffee Run', icon: 'local_cafe' },
-  { id: 'scrum-poker', path: '/fun/scrum-poker', label: 'Scrum Poker', icon: 'style' },
+  { id: 'dashboard', path: '/dashboard', label: 'Dashboard', icon: 'dashboard', featureKey: 'dashboard' },
+  { id: 'sprints', path: '/sprints', label: 'Sprints', icon: 'directions_run', featureKey: 'sprints' },
+  { id: 'features', path: '/features', label: 'Features', icon: 'view_list', featureKey: 'features' },
+  { id: 'progress', path: '/progress', label: 'Progress', icon: 'track_changes', featureKey: 'progress' },
+  { id: 'discussion', path: '/discussion', label: 'Discussion', icon: 'forum', featureKey: 'discussion' },
+  { id: 'team', path: '/team', label: 'Team', icon: 'people', featureKey: 'team' },
+  { id: 'leave', path: '/leave', label: 'Leave', icon: 'event_busy', featureKey: 'leave' },
+  { id: 'meetings', path: '/meetings', label: 'Meetings', icon: 'event', featureKey: 'meetings' },
+  { id: 'export', path: '/export', label: 'Export', icon: 'download', featureKey: 'export' },
+  { id: 'fun', path: '/fun', label: 'Fun Hub', icon: 'casino', featureKey: 'fun-hub' },
+  { id: 'win-of-the-week', path: '/fun/win-of-the-week', label: 'Win of the Week', icon: 'emoji_events', featureKey: 'win-of-week' },
+  { id: 'win-of-the-month', path: '/fun/win-of-the-week#month', label: 'Win of the Month', icon: 'workspace_premium', featureKey: 'win-of-week' },
+  { id: 'leaderboard', path: '/fun/leaderboard', label: 'Leaderboard', icon: 'leaderboard', featureKey: 'leaderboard' },
+  { id: 'wheel', path: '/fun/wheel', label: 'Spin Wheel', icon: 'casino', featureKey: 'wheel' },
+  { id: 'coffee-run', path: '/fun/coffee-run', label: 'Coffee Run', icon: 'local_cafe', featureKey: 'coffee-run' },
+  { id: 'scrum-poker', path: '/fun/scrum-poker', label: 'Scrum Poker', icon: 'style', featureKey: 'scrum-poker' },
   { id: 'expense-claim', path: '/expense-claim', label: 'Expense Claim', icon: 'receipt_long' },
   { id: 'showcase', path: '/showcase', label: 'Showcase', icon: 'auto_awesome' },
   { id: 'milestones', path: '/milestones', label: 'Milestones', icon: 'flag' },
   { id: 'pis', path: '/pis', label: 'Program Increments', icon: 'view_quilt' },
   { id: 'session-types', path: '/session-types', label: 'Session Types', icon: 'category' },
-  { id: 'slot-locations', path: '/meetings/locations', label: 'Slot Locations', icon: 'location_on' },
-  { id: 'access-requests', path: '/access-requests', label: 'Access Requests', icon: 'person_add' },
-  { id: 'settings', path: '/settings', label: 'Settings', icon: 'settings' },
-  { id: 'api-keys', path: '/settings/api-keys', label: 'API Keys', icon: 'vpn_key' },
-  { id: 'feature-permissions', path: '/settings/feature-permissions', label: 'Feature Permissions', icon: 'admin_panel_settings' },
+  { id: 'slot-locations', path: '/meetings/locations', label: 'Slot Locations', icon: 'location_on', featureKey: 'meetings' },
+  { id: 'access-requests', path: '/access-requests', label: 'Access Requests', icon: 'person_add', featureKey: 'access-requests' },
+  { id: 'settings', path: '/settings', label: 'Settings', icon: 'settings', featureKey: 'settings' },
+  { id: 'api-keys', path: '/settings/api-keys', label: 'API Keys', icon: 'vpn_key', featureKey: 'api-keys' },
+  { id: 'feature-permissions', path: '/settings/feature-permissions', label: 'Feature Permissions', icon: 'admin_panel_settings', featureKey: 'settings' },
   { id: 'profile', path: '/profile', label: 'Profile', icon: 'person' },
 ];
 
@@ -136,6 +138,7 @@ const QUICK_OPEN_ITEMS: QuickOpenItem[] = [
 export class QuickOpenDialogComponent implements AfterViewInit, OnInit {
   private router = inject(Router);
   private teamMemberService = inject(TeamMemberService);
+  private featureAccess = inject(FeatureAccessService);
   dialogRef = inject(MatDialogRef<QuickOpenDialogComponent>);
   query = signal('');
   selectedIndex = signal(0);
@@ -158,7 +161,11 @@ export class QuickOpenDialogComponent implements AfterViewInit, OnInit {
       label: `${m.firstName} ${m.lastName}`,
       icon: 'person'
     }));
-    return [...QUICK_OPEN_ITEMS, ...memberItems];
+    const filtered = QUICK_OPEN_ITEMS.filter(item => {
+      if (!item.featureKey) return true;
+      return this.featureAccess.hasAccess(item.featureKey);
+    });
+    return [...filtered, ...memberItems];
   });
 
   filtered = computed(() => {
