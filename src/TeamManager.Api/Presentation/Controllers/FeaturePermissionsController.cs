@@ -9,6 +9,7 @@ namespace TeamManager.Api.Presentation.Controllers;
 
 [ApiController]
 [Authorize]
+[RequireFeature("settings")]
 [Route("api/v1/feature-permissions")]
 public class FeaturePermissionsController : ControllerBase
 {

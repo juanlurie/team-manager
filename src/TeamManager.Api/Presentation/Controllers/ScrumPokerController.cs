@@ -8,6 +8,7 @@ namespace TeamManager.Api.Presentation.Controllers;
 
 [ApiController]
 [Authorize]
+[RequireFeature("scrum-poker")]
 [Route("api/scrum-poker")]
 public class ScrumPokerController : ControllerBase
 {

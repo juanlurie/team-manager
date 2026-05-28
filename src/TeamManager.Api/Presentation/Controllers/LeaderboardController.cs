@@ -6,6 +6,7 @@ using TeamManager.Api.Application.Services.Interfaces;
 namespace TeamManager.Api.Presentation.Controllers;
 
 [ApiController]
+[RequireFeature("leaderboard")]
 [Route("api/v1/leaderboard")]
 public class LeaderboardController(ILeaderboardService service) : ControllerBase
 {

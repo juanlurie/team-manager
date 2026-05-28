@@ -6,6 +6,7 @@ using TeamManager.Api.Application.Services.Interfaces;
 namespace TeamManager.Api.Presentation.Controllers;
 
 [ApiController]
+[RequireFeature("scrum-poker")]
 [Route("api/v1/sprints/{sprintId:guid}/votes")]
 public class SprintVotesController(ISprintVoteService service) : ControllerBase
 {

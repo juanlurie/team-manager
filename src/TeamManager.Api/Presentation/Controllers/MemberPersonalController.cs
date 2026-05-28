@@ -6,6 +6,7 @@ using TeamManager.Api.Application.Services.Interfaces;
 namespace TeamManager.Api.Presentation.Controllers;
 
 [ApiController]
+[RequireFeature("team")]
 [Route("api/v1/team-members/{memberId:guid}")]
 public class MemberPersonalController(IMemberPersonalService service) : ControllerBase
 {

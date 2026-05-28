@@ -6,6 +6,7 @@ using TeamManager.Api.Application.Services.Interfaces;
 namespace TeamManager.Api.Presentation.Controllers;
 
 [ApiController]
+[RequireFeature("leave")]
 [Route("api/v1/leave-records")]
 public class LeaveRecordsController(ILeaveService service) : ControllerBase
 {
