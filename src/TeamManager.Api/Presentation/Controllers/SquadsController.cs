@@ -1,3 +1,4 @@
+using TeamManager.Api.Middleware;
 using Microsoft.AspNetCore.Mvc;
 using TeamManager.Api.Application.DTOs.Squad;
 using TeamManager.Api.Application.Services;
@@ -5,6 +6,7 @@ using TeamManager.Api.Application.Services;
 namespace TeamManager.Api.Presentation.Controllers;
 
 [ApiController]
+[RequireFeature("team")]
 public class SquadsController(SquadService service) : ControllerBase
 {
     [HttpGet("api/v1/squads")]

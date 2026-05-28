@@ -1,9 +1,11 @@
+using TeamManager.Api.Middleware;
 using Microsoft.AspNetCore.Mvc;
 using TeamManager.Api.Application.Services.Interfaces;
 
 namespace TeamManager.Api.Presentation.Controllers;
 
 [ApiController]
+[RequireFeature("export")]
 [Route("api/v1/export")]
 public class ExportController(IDashboardService dashboardService, IPptxExportService exportService) : ControllerBase
 {

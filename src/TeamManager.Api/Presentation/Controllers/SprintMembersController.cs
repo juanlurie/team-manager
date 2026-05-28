@@ -1,3 +1,4 @@
+using TeamManager.Api.Middleware;
 using System.ComponentModel.DataAnnotations;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -6,6 +7,7 @@ using TeamManager.Api.Infrastructure.Data;
 namespace TeamManager.Api.Presentation.Controllers;
 
 [ApiController]
+[RequireFeature("sprints")]
 [Route("api/v1/sprint-members")]
 public class SprintMembersController(AppDbContext db) : ControllerBase
 {

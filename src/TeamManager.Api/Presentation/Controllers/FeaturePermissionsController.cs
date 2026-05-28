@@ -2,6 +2,8 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using TeamManager.Api.Application.DTOs.FeaturePermissions;
 using TeamManager.Api.Application.Services.Interfaces;
+using TeamManager.Api.Infrastructure.Data;
+using TeamManager.Api.Middleware;
 
 namespace TeamManager.Api.Presentation.Controllers;
 
@@ -11,10 +13,12 @@ namespace TeamManager.Api.Presentation.Controllers;
 public class FeaturePermissionsController : ControllerBase
 {
     private readonly IFeaturePermissionService service;
+    private readonly AppDbContext db;
 
-    public FeaturePermissionsController(IFeaturePermissionService service)
+    public FeaturePermissionsController(IFeaturePermissionService service, AppDbContext db)
     {
         this.service = service;
+        this.db = db;
     }
 
     [HttpGet("roles")]
@@ -55,6 +59,37 @@ public class FeaturePermissionsController : ControllerBase
     [HttpGet("members/{memberId}/check/{featureKey}")]
     public async Task<IActionResult> CheckFeatureAccess(Guid memberId, string featureKey)
     {
+        var enabled = await service.IsFeatureEnabledForMemberAsync(memberId, featureKey);
+        return Ok(new { featureKey, isEnabled = enabled });
+    }
+
+    [HttpGet("me")]
+    public async Task<IActionResult> GetMyPermissions()
+    {
+        var memberId = HttpContext.GetCurrentMemberId();
+        if (memberId == Guid.Empty)
+            return Unauthorized();
+
+        var member = await db.TeamMembers.FindAsync(memberId);
+        if (member == null)
+            return NotFound(new { error = "Team member not found." });
+
+        var permissions = await service.GetMemberOverridesAsync(memberId);
+        return Ok(new
+        {
+            memberId,
+            role = member.Role.ToString(),
+            permissions = permissions.Select(p => new { p.FeatureKey, p.IsEnabled })
+        });
+    }
+
+    [HttpGet("me/check/{featureKey}")]
+    public async Task<IActionResult> CheckMyFeatureAccess(string featureKey)
+    {
+        var memberId = HttpContext.GetCurrentMemberId();
+        if (memberId == Guid.Empty)
+            return Unauthorized();
+
         var enabled = await service.IsFeatureEnabledForMemberAsync(memberId, featureKey);
         return Ok(new { featureKey, isEnabled = enabled });
     }

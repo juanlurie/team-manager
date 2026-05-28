@@ -1,3 +1,4 @@
+using TeamManager.Api.Middleware;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using TeamManager.Api.Application.DTOs.SessionType;
@@ -7,6 +8,7 @@ using TeamManager.Api.Infrastructure.Data;
 namespace TeamManager.Api.Presentation.Controllers;
 
 [ApiController]
+[RequireFeature("settings")]
 [Route("api/v1/session-types")]
 public class SessionTypesController(AppDbContext db) : ControllerBase
 {

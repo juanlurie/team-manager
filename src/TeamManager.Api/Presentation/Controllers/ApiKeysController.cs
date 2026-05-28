@@ -1,3 +1,4 @@
+using TeamManager.Api.Middleware;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
@@ -11,6 +12,7 @@ using TeamManager.Api.Infrastructure.Data;
 namespace TeamManager.Api.Presentation.Controllers;
 
 [ApiController]
+[RequireFeature("api-keys")]
 [Route("api/v1/api-keys")]
 [Authorize]
 public class ApiKeysController(AppDbContext db) : ControllerBase
