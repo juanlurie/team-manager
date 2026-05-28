@@ -6,7 +6,6 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
-import { MatTableModule } from '@angular/material/table';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { AuthService } from '../../core/auth/auth.service';
 import * as ExcelJS from 'exceljs';
@@ -28,7 +27,6 @@ interface ExpenseItem {
     MatInputModule,
     MatButtonModule,
     MatIconModule,
-    MatTableModule,
     MatSnackBarModule,
   ],
   templateUrl: './expense-claim.component.html',
@@ -42,7 +40,6 @@ export class ExpenseClaimComponent implements OnInit {
   expenseForm!: FormGroup;
   employeeName = '';
   currentDate = '';
-  displayedColumns = ['description', 'placeOfPurchase', 'amount', 'actions'];
 
   ngOnInit(): void {
     this.currentDate = new Date().toLocaleDateString('en-ZA', {
@@ -103,146 +100,157 @@ export class ExpenseClaimComponent implements OnInit {
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet('Expense Claim');
 
-    worksheet.columns = [
-      { width: 2 },
-      { width: 2 },
-      { width: 40 },
-      { width: 40 },
-      { width: 15 },
-      { width: 2 },
-      { width: 2 },
-      { width: 2 },
-      { width: 2 },
-    ];
+    // Column widths matching original exactly
+    worksheet.getColumn(1).width = 1.83;
+    worksheet.getColumn(2).width = 0.83;
+    worksheet.getColumn(3).width = 57.83;
+    worksheet.getColumn(4).width = 29.5;
+    worksheet.getColumn(5).width = 36.66;
+    worksheet.getColumn(6).width = 0.83;
+    worksheet.getColumn(7).width = 6.33;
 
-    const headerFont: Partial<ExcelJS.Font> = { bold: true, size: 16, color: { argb: 'FF000000' } };
-    const headerAlign: Partial<ExcelJS.Alignment> = { horizontal: 'center', vertical: 'middle' };
+    // Row heights matching original exactly
+    const rowHeights: Record<number, number> = {
+      1: 20, 2: 20, 3: 10.5, 4: 20, 5: 12.75,
+      6: 14.25, 7: 14.25, 8: 25.5, 9: 22.5,
+    };
+    for (let r = 1; r <= 23; r++) {
+      worksheet.getRow(r).height = rowHeights[r] || 20;
+    }
+    worksheet.getRow(24).height = 20;
+    worksheet.getRow(25).height = 20;
+    worksheet.getRow(26).height = 20;
+    worksheet.getRow(27).height = 21.75;
+    worksheet.getRow(28).height = 6.75;
 
-    const labelFont: Partial<ExcelJS.Font> = { size: 11, color: { argb: 'FF000000' } };
-    const labelAlign: Partial<ExcelJS.Alignment> = { vertical: 'middle' };
-
-    const cellFont: Partial<ExcelJS.Font> = { size: 11, color: { argb: 'FF000000' } };
-    const cellAlign: Partial<ExcelJS.Alignment> = { vertical: 'middle' };
-    const cellBorder: Partial<ExcelJS.Borders> = {
+    // Thin border style
+    const thinBorder: Partial<ExcelJS.Borders> = {
       top: { style: 'thin' },
       left: { style: 'thin' },
       bottom: { style: 'thin' },
       right: { style: 'thin' },
     };
 
-    const columnHeaderFont: Partial<ExcelJS.Font> = { bold: true, size: 11, color: { argb: 'FF000000' } };
-    const columnHeaderAlign: Partial<ExcelJS.Alignment> = { vertical: 'middle', horizontal: 'center' };
-
-    const totalFont: Partial<ExcelJS.Font> = { bold: true, size: 11, color: { argb: 'FF000000' } };
-    const totalAlign: Partial<ExcelJS.Alignment> = { vertical: 'middle', horizontal: 'right' };
-
-    const footerFont: Partial<ExcelJS.Font> = { size: 10, color: { argb: 'FF000000' } };
-    const footerAlign: Partial<ExcelJS.Alignment> = { vertical: 'middle' };
-
-    const noteFont: Partial<ExcelJS.Font> = { size: 9, italic: true, color: { argb: 'FF666666' } };
-    const noteAlign: Partial<ExcelJS.Alignment> = { vertical: 'middle' };
-
-    for (let i = 1; i <= 5; i++) {
-      worksheet.getRow(i).height = 20;
-    }
-
-    worksheet.getRow(6).height = 30;
+    // Row 6-7: Title (merged C6:E7)
+    worksheet.mergeCells('C6:E7');
     const titleCell = worksheet.getCell('C6');
     titleCell.value = 'EXPENSE CLAIM FORM';
-    titleCell.font = headerFont;
-    titleCell.alignment = headerAlign;
-    worksheet.mergeCells('C6:E6');
+    titleCell.font = { bold: true, size: 18, color: { argb: 'FF000000' } };
+    titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
 
-    worksheet.getRow(8).height = 25;
+    // Row 8: Employee name and date
     const nameCell = worksheet.getCell('C8');
     nameCell.value = `Name of Employee:  ${this.employeeName}`;
-    nameCell.font = labelFont;
-    nameCell.alignment = labelAlign;
+    nameCell.font = { bold: true, size: 14, color: { argb: 'FF000000' } };
+    nameCell.alignment = { vertical: 'middle' };
 
     const dateCell = worksheet.getCell('E8');
     dateCell.value = `Date: ${this.currentDate}`;
-    dateCell.font = labelFont;
-    dateCell.alignment = { ...labelAlign, horizontal: 'right' };
+    dateCell.font = { bold: true, size: 14, color: { argb: 'FF000000' } };
+    dateCell.alignment = { vertical: 'middle' };
 
-    worksheet.getRow(9).height = 25;
-    const headers = ['Description', 'Place of Purchase', 'Amount'];
-    const headerCols = ['C', 'D', 'E'];
-    headers.forEach((h, i) => {
-      const cell = worksheet.getCell(`${headerCols[i]}9`);
-      cell.value = h;
-      cell.font = columnHeaderFont;
-      cell.alignment = columnHeaderAlign;
-      cell.border = cellBorder;
+    // Row 9: Column headers with borders
+    const headerFont: Partial<ExcelJS.Font> = { bold: true, size: 14, color: { argb: 'FF000000' } };
+    const headerAlign: Partial<ExcelJS.Alignment> = { vertical: 'middle' };
+
+    ['C9', 'D9', 'E9'].forEach(coord => {
+      const cell = worksheet.getCell(coord);
+      cell.font = headerFont;
+      cell.alignment = headerAlign;
+      cell.border = thinBorder;
     });
+    worksheet.getCell('C9').value = 'Description';
+    worksheet.getCell('D9').value = 'Place of Purchase';
+    worksheet.getCell('E9').value = 'Amount';
 
-    const items = this.items.controls.map(ctrl => ctrl.value as ExpenseItem);
-    const startRow = 10;
-    const endRow = 23;
+    // Rows 10-23: Data rows
+    const dataFont: Partial<ExcelJS.Font> = { size: 10, color: { argb: 'FF000000' } };
+    const dataAlign: Partial<ExcelJS.Alignment> = { vertical: 'middle' };
 
-    for (let row = startRow; row <= endRow; row++) {
-      worksheet.getRow(row).height = 25;
-      const itemIndex = row - startRow;
+    const expenseItems = this.items.controls.map(ctrl => ctrl.value as ExpenseItem);
 
-      if (itemIndex < items.length) {
-        const item = items[itemIndex];
-        ['C', 'D', 'E'].forEach((col, idx) => {
-          const cell = worksheet.getCell(`${col}${row}`);
-          if (idx === 0) cell.value = item.description;
-          else if (idx === 1) cell.value = item.placeOfPurchase;
-          else {
-            cell.value = item.amount;
-            cell.numFmt = '#,##0.00';
-          }
-          cell.font = cellFont;
-          cell.alignment = cellAlign;
-          cell.border = cellBorder;
-        });
+    for (let row = 10; row <= 23; row++) {
+      const itemIndex = row - 10;
+      if (itemIndex < expenseItems.length) {
+        const item = expenseItems[itemIndex];
+        const cCell = worksheet.getCell(`C${row}`);
+        cCell.value = item.description;
+        cCell.font = dataFont;
+        cCell.alignment = dataAlign;
+        cCell.border = thinBorder;
+
+        const dCell = worksheet.getCell(`D${row}`);
+        dCell.value = item.placeOfPurchase;
+        dCell.font = dataFont;
+        dCell.alignment = dataAlign;
+        dCell.border = thinBorder;
+
+        const eCell = worksheet.getCell(`E${row}`);
+        eCell.value = item.amount;
+        eCell.numFmt = '#,##0.00';
+        eCell.font = dataFont;
+        eCell.alignment = { ...dataAlign, horizontal: 'right' };
+        eCell.border = thinBorder;
       } else {
         ['C', 'D', 'E'].forEach(col => {
-          const cell = worksheet.getCell(`${col}${row}`);
-          cell.border = cellBorder;
+          worksheet.getCell(`${col}${row}`).border = thinBorder;
         });
       }
     }
 
-    const totalRow = 24;
-    worksheet.getRow(totalRow).height = 25;
+    // Row 24: Total
     const totalLabelCell = worksheet.getCell('D24');
     totalLabelCell.value = 'TOTAL CLAIM';
-    totalLabelCell.font = totalFont;
-    totalLabelCell.alignment = { ...totalAlign, horizontal: 'right' };
-    totalLabelCell.border = cellBorder;
+    totalLabelCell.font = { bold: true, size: 14, color: { argb: 'FF000000' } };
+    totalLabelCell.alignment = { horizontal: 'right', vertical: 'middle' };
 
     const totalValueCell = worksheet.getCell('E24');
     totalValueCell.value = this.getTotal();
     totalValueCell.numFmt = '#,##0.00';
-    totalValueCell.font = { ...totalFont, bold: true };
-    totalValueCell.alignment = totalAlign;
-    totalValueCell.border = cellBorder;
+    totalValueCell.font = { size: 10, color: { argb: 'FF000000' } };
+    totalValueCell.alignment = { horizontal: 'right', vertical: 'middle' };
+    totalValueCell.border = thinBorder;
 
-    worksheet.getRow(25).height = 25;
+    // Row 25: Employee sign
     const signCell = worksheet.getCell('C25');
     signCell.value = `Employee Sign: ${this.employeeName}`;
-    signCell.font = footerFont;
-    signCell.alignment = footerAlign;
+    signCell.font = { bold: true, size: 12, color: { argb: 'FF000000' } };
+    signCell.alignment = { vertical: 'middle' };
 
-    worksheet.getRow(26).height = 25;
+    // Row 26: Authorised signature and name
     const authSigCell = worksheet.getCell('C26');
     authSigCell.value = 'Authorised Signature:________________________';
-    authSigCell.font = footerFont;
-    authSigCell.alignment = footerAlign;
+    authSigCell.font = { bold: true, size: 12, color: { argb: 'FF000000' } };
+    authSigCell.alignment = { vertical: 'middle' };
 
+    worksheet.mergeCells('D26:E26');
     const authNameCell = worksheet.getCell('D26');
     authNameCell.value = 'Authorised Name:____________________';
-    authNameCell.font = footerFont;
-    authNameCell.alignment = footerAlign;
+    authNameCell.font = { bold: true, size: 12, color: { argb: 'FF000000' } };
+    authNameCell.alignment = { horizontal: 'center', vertical: 'middle' };
 
-    worksheet.getRow(27).height = 25;
+    // Row 27: Note
     const noteCell = worksheet.getCell('C27');
     noteCell.value = 'PLEASE NOTE THAT ALL EXPENSE CLAIMS WILL BE PAID INTO ACCOUNT THAT YOUR SALARY IS DEPOSITED INTO.';
-    noteCell.font = noteFont;
-    noteCell.alignment = noteAlign;
+    noteCell.font = { bold: true, size: 10, color: { argb: 'FF000000' } };
+    noteCell.alignment = { vertical: 'middle' };
     worksheet.mergeCells('C27:E27');
+
+    // Add logo image
+    try {
+      const logoResp = await fetch('/assets/expense-claim/logo.jpeg');
+      const logoBuffer = await logoResp.arrayBuffer();
+      const logoId = workbook.addImage({
+        buffer: Buffer.from(logoBuffer),
+        extension: 'jpeg',
+      });
+      worksheet.addImage(logoId, {
+        tl: { col: 2, row: 0 },
+        ext: { width: 300, height: 100 },
+      });
+    } catch {
+      // Logo not available, skip
+    }
 
     const buffer = await workbook.xlsx.writeBuffer();
     const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
