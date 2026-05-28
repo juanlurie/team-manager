@@ -30,7 +30,10 @@ public class RequireFeatureAttribute : Attribute, IAsyncActionFilter
 
         if (!enabled)
         {
-            context.Result = new ForbidResult();
+            context.HttpContext.Response.StatusCode = StatusCodes.Status403Forbidden;
+            context.HttpContext.Response.ContentType = "application/json";
+            await context.HttpContext.Response.WriteAsJsonAsync(new { error = "feature_disabled", featureKey = FeatureKey });
+            context.Result = new EmptyResult();
             return;
         }
 
