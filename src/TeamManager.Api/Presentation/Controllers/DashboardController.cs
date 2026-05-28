@@ -5,6 +5,7 @@ using TeamManager.Api.Application.Services.Interfaces;
 namespace TeamManager.Api.Presentation.Controllers;
 
 [ApiController]
+[RequireFeature("dashboard")]
 [Route("api/v1/dashboard")]
 public class DashboardController(IDashboardService service) : ControllerBase
 {

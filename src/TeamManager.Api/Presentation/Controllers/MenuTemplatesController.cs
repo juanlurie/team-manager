@@ -6,6 +6,7 @@ using TeamManager.Api.Application.Services.Interfaces;
 namespace TeamManager.Api.Presentation.Controllers;
 
 [ApiController]
+[RequireFeature("coffee-run")]
 [Route("api/v1/menu-templates")]
 public class MenuTemplatesController(ICoffeeRunService service) : ControllerBase
 {

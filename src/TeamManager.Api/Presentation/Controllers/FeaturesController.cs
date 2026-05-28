@@ -6,6 +6,7 @@ using TeamManager.Api.Application.Services.Interfaces;
 namespace TeamManager.Api.Presentation.Controllers;
 
 [ApiController]
+[RequireFeature("features")]
 [Route("api/v1/sprints/{sprintId:guid}/features")]
 public class FeaturesController(IFeatureService service) : ControllerBase
 {

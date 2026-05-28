@@ -8,6 +8,7 @@ using TeamManager.Api.Infrastructure.Data;
 namespace TeamManager.Api.Presentation.Controllers;
 
 [ApiController]
+[RequireFeature("access-requests")]
 [Route("api/[controller]")]
 public class AccessRequestsController(AppDbContext db) : ControllerBase
 {

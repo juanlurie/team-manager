@@ -10,6 +10,7 @@ using TeamManager.Api.Infrastructure.Data;
 namespace TeamManager.Api.Presentation.Controllers;
 
 [ApiController]
+[RequireFeature("meetings")]
 [Route("api/v1/meeting-series")]
 public class MeetingSeriesController(IMeetingSeriesService service, AppDbContext db) : ControllerBase
 {

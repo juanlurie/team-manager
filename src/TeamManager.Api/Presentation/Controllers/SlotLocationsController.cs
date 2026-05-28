@@ -8,6 +8,7 @@ using TeamManager.Api.Infrastructure.Data;
 namespace TeamManager.Api.Presentation.Controllers;
 
 [ApiController]
+[RequireFeature("meetings")]
 [Route("api/v1/slot-locations")]
 public class SlotLocationsController(AppDbContext db) : ControllerBase
 {
