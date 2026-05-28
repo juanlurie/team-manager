@@ -9,6 +9,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { AuthService } from '../../core/auth/auth.service';
 import * as ExcelJS from 'exceljs';
+import { LOGO_BASE64 } from './logo.base64';
 
 interface ExpenseItem {
   description: string;
@@ -100,7 +101,6 @@ export class ExpenseClaimComponent implements OnInit {
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet('Expense Claim');
 
-    // Column widths matching original exactly
     worksheet.getColumn(1).width = 1.83;
     worksheet.getColumn(2).width = 0.83;
     worksheet.getColumn(3).width = 57.83;
@@ -109,7 +109,6 @@ export class ExpenseClaimComponent implements OnInit {
     worksheet.getColumn(6).width = 0.83;
     worksheet.getColumn(7).width = 6.33;
 
-    // Row heights matching original exactly
     const rowHeights: Record<number, number> = {
       1: 20, 2: 20, 3: 10.5, 4: 20, 5: 12.75,
       6: 14.25, 7: 14.25, 8: 25.5, 9: 22.5,
@@ -123,7 +122,6 @@ export class ExpenseClaimComponent implements OnInit {
     worksheet.getRow(27).height = 21.75;
     worksheet.getRow(28).height = 6.75;
 
-    // Thin border style
     const thinBorder: Partial<ExcelJS.Borders> = {
       top: { style: 'thin' },
       left: { style: 'thin' },
@@ -131,14 +129,31 @@ export class ExpenseClaimComponent implements OnInit {
       right: { style: 'thin' },
     };
 
-    // Row 6-7: Title (merged C6:E7)
+    // White background for logo area (rows 1-5, cols C-E)
+    const whiteFill: ExcelJS.Fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFFFF' } };
+    for (let r = 1; r <= 5; r++) {
+      for (const col of ['C', 'D', 'E']) {
+        worksheet.getCell(`${col}${r}`).fill = whiteFill;
+      }
+    }
+
+    // Add logo image
+    const logoBytes = Uint8Array.from(atob(LOGO_BASE64), c => c.charCodeAt(0));
+    const logoId = workbook.addImage({
+      buffer: logoBytes,
+      extension: 'jpeg',
+    });
+    worksheet.addImage(logoId, {
+      tl: { col: 2, row: 0 },
+      ext: { width: 280, height: 93 },
+    });
+
     worksheet.mergeCells('C6:E7');
     const titleCell = worksheet.getCell('C6');
     titleCell.value = 'EXPENSE CLAIM FORM';
     titleCell.font = { bold: true, size: 18, color: { argb: 'FF000000' } };
     titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
 
-    // Row 8: Employee name and date
     const nameCell = worksheet.getCell('C8');
     nameCell.value = `Name of Employee:  ${this.employeeName}`;
     nameCell.font = { bold: true, size: 14, color: { argb: 'FF000000' } };
@@ -149,7 +164,6 @@ export class ExpenseClaimComponent implements OnInit {
     dateCell.font = { bold: true, size: 14, color: { argb: 'FF000000' } };
     dateCell.alignment = { vertical: 'middle' };
 
-    // Row 9: Column headers with borders
     const headerFont: Partial<ExcelJS.Font> = { bold: true, size: 14, color: { argb: 'FF000000' } };
     const headerAlign: Partial<ExcelJS.Alignment> = { vertical: 'middle' };
 
@@ -163,7 +177,6 @@ export class ExpenseClaimComponent implements OnInit {
     worksheet.getCell('D9').value = 'Place of Purchase';
     worksheet.getCell('E9').value = 'Amount';
 
-    // Rows 10-23: Data rows
     const dataFont: Partial<ExcelJS.Font> = { size: 10, color: { argb: 'FF000000' } };
     const dataAlign: Partial<ExcelJS.Alignment> = { vertical: 'middle' };
 
@@ -198,7 +211,6 @@ export class ExpenseClaimComponent implements OnInit {
       }
     }
 
-    // Row 24: Total
     const totalLabelCell = worksheet.getCell('D24');
     totalLabelCell.value = 'TOTAL CLAIM';
     totalLabelCell.font = { bold: true, size: 14, color: { argb: 'FF000000' } };
@@ -211,13 +223,11 @@ export class ExpenseClaimComponent implements OnInit {
     totalValueCell.alignment = { horizontal: 'right', vertical: 'middle' };
     totalValueCell.border = thinBorder;
 
-    // Row 25: Employee sign
     const signCell = worksheet.getCell('C25');
     signCell.value = `Employee Sign: ${this.employeeName}`;
     signCell.font = { bold: true, size: 12, color: { argb: 'FF000000' } };
     signCell.alignment = { vertical: 'middle' };
 
-    // Row 26: Authorised signature and name
     const authSigCell = worksheet.getCell('C26');
     authSigCell.value = 'Authorised Signature:________________________';
     authSigCell.font = { bold: true, size: 12, color: { argb: 'FF000000' } };
@@ -229,28 +239,11 @@ export class ExpenseClaimComponent implements OnInit {
     authNameCell.font = { bold: true, size: 12, color: { argb: 'FF000000' } };
     authNameCell.alignment = { horizontal: 'center', vertical: 'middle' };
 
-    // Row 27: Note
     const noteCell = worksheet.getCell('C27');
     noteCell.value = 'PLEASE NOTE THAT ALL EXPENSE CLAIMS WILL BE PAID INTO ACCOUNT THAT YOUR SALARY IS DEPOSITED INTO.';
     noteCell.font = { bold: true, size: 10, color: { argb: 'FF000000' } };
     noteCell.alignment = { vertical: 'middle' };
     worksheet.mergeCells('C27:E27');
-
-    // Add logo image
-    try {
-      const logoResp = await fetch('/assets/expense-claim/logo.jpeg');
-      const logoBuffer = await logoResp.arrayBuffer();
-      const logoId = workbook.addImage({
-        buffer: Buffer.from(logoBuffer),
-        extension: 'jpeg',
-      });
-      worksheet.addImage(logoId, {
-        tl: { col: 2, row: 0 },
-        ext: { width: 300, height: 100 },
-      });
-    } catch {
-      // Logo not available, skip
-    }
 
     const buffer = await workbook.xlsx.writeBuffer();
     const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
