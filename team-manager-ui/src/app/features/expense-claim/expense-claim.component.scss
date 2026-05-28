@@ -225,6 +225,15 @@
   justify-content: center;
   z-index: 1000;
   padding: 16px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.dialog-overlay::before {
+  content: '';
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
 }
 
 .dialog-content {
@@ -233,9 +242,9 @@
   padding: 24px;
   width: 100%;
   max-width: 440px;
-  max-height: 85dvh;
-  overflow-y: auto;
   border: 1px solid rgba(255, 255, 255, 0.1);
+  position: relative;
+  z-index: 1;
 }
 
 .dialog-content h3 {
