@@ -22,6 +22,11 @@ public class CoffeeRunOrderItem
     /// </summary>
     public string? SelectedSize { get; set; }
 
+    /// <summary>
+    /// JSON object of selected additions, e.g. {"Milk":"Oat","Syrup":"Vanilla"}. Null if no additions selected.
+    /// </summary>
+    public string? SelectedAdditions { get; set; }
+
     public CoffeeRunOrder Order { get; set; } = null!;
     public CoffeeRunMenuItem MenuItem { get; set; } = null!;
 }

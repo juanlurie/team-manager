@@ -17,6 +17,11 @@ public class CoffeeRunMenuItem
     /// </summary>
     public string? Sizes { get; set; }
 
+    /// <summary>
+    /// JSON array of addition categories, e.g. [{"name":"Milk","options":["Whole","Oat","Almond"]},{"name":"Syrup","options":["Vanilla","Caramel"]}]
+    /// </summary>
+    public string? Additions { get; set; }
+
     public CoffeeRun CoffeeRun { get; set; } = null!;
     public ICollection<CoffeeRunOrderItem> OrderItems { get; set; } = new List<CoffeeRunOrderItem>();
 }

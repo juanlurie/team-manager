@@ -9,5 +9,6 @@ public record CoffeeRunMenuItemDto(
     int? RemainingQuantity,
     bool IsAvailable,
     int SortOrder,
-    string? Sizes
+    string? Sizes,
+    string? Additions
 );

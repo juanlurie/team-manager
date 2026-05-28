@@ -79,6 +79,43 @@
             </button>
           }
         </div>
+        @if (editingItemId() === item.id) {
+          <div style="margin:4px 0 12px 16px;padding:8px;background:rgba(255,255,255,0.03);border-radius:8px;border:1px solid rgba(255,255,255,0.06)">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+              <span style="font-size:0.75rem;font-weight:600;opacity:0.6">Additions (syrups, milk, etc.)</span>
+              <button class="icon-btn" style="color:rgba(100,181,246,0.7)" (click)="addAdditionCategory()" matTooltip="Add category">
+                <mat-icon style="font-size:16px;height:16px;width:16px">add_circle</mat-icon>
+              </button>
+            </div>
+            @for (cat of editingItemAdditions; track cat; let ci = $index) {
+              <div style="margin-bottom:8px;padding:6px;background:rgba(255,255,255,0.02);border-radius:6px">
+                <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+                  <input class="inline-input" [(ngModel)]="cat.name" placeholder="Category name (e.g., Milk)"
+                         style="flex:1;font-size:0.72rem;padding:4px 6px">
+                  <button class="icon-btn" style="color:rgba(239,83,80,0.5)" (click)="removeAdditionCategory(ci)" matTooltip="Remove">
+                    <mat-icon style="font-size:14px;height:14px;width:14px">close</mat-icon>
+                  </button>
+                </div>
+                <div style="display:flex;flex-wrap:wrap;gap:4px;align-items:center">
+                  @for (opt of cat.options; track opt; let oi = $index) {
+                    <span style="font-size:0.7rem;padding:2px 8px;background:rgba(100,181,246,0.15);border-radius:12px;display:flex;align-items:center;gap:4px">
+                      {{ opt }}
+                      <button class="icon-btn" style="color:rgba(255,255,255,0.4);padding:0;height:14px;width:14px" (click)="removeAdditionOption(ci, oi)">
+                        <mat-icon style="font-size:12px;height:12px;width:12px">close</mat-icon>
+                      </button>
+                    </span>
+                  }
+                  <button class="icon-btn" style="color:rgba(100,181,246,0.6)" (click)="addAdditionOption(ci)" matTooltip="Add option">
+                    <mat-icon style="font-size:14px;height:14px;width:14px">add</mat-icon>
+                  </button>
+                </div>
+              </div>
+            }
+            @if (editingItemAdditions.length === 0) {
+              <div style="font-size:0.72rem;opacity:0.3;text-align:center;padding:8px">No additions configured</div>
+            }
+          </div>
+        }
       }
 
       <!-- Add item -->

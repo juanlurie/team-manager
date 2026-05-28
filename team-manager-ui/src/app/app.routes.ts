@@ -75,8 +75,20 @@ export const routes: Routes = [
         loadComponent: () => import('./features/settings/settings.component').then(m => m.SettingsComponent)
       },
       {
+        path: 'settings/api-keys',
+        loadChildren: () => import('./features/settings/api-keys/api-keys.routes').then(m => m.API_KEYS_ROUTES)
+      },
+      {
+        path: 'settings/feature-permissions',
+        loadChildren: () => import('./features/settings/feature-permissions/feature-permissions.routes').then(m => m.FEATURE_PERMISSIONS_ROUTES)
+      },
+      {
         path: 'access-requests',
         loadComponent: () => import('./features/access-requests/access-requests.component').then(m => m.AccessRequestsComponent)
+      },
+      {
+        path: 'expense-claim',
+        loadComponent: () => import('./features/expense-claim/expense-claim.component').then(m => m.ExpenseClaimComponent)
       },
     ]
   },

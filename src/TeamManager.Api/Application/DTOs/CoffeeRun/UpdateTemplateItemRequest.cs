@@ -7,5 +7,6 @@ public record UpdateTemplateItemRequest(
     [Range(0.00, 9999.99)] decimal? Price,
     [MaxLength(50)] string? Category,
     int? SortOrder,
-    string? Sizes
+    string? Sizes,
+    string? Additions
 );

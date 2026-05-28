@@ -8,6 +8,7 @@ export interface CoffeeRunMenuItem {
   isAvailable: boolean;
   sortOrder: number;
   sizes: string | null;
+  additions: string | null;
 }
 
 export interface TemplateItem {
@@ -16,6 +17,8 @@ export interface TemplateItem {
   price: number | null;
   category: string | null;
   sortOrder: number;
+  sizes: string | null;
+  additions: string | null;
 }
 
 export interface CoffeeRunOrderItem {
@@ -26,6 +29,7 @@ export interface CoffeeRunOrderItem {
   quantity: number;
   lineTotal: number;
   selectedSize: string | null;
+  selectedAdditions: string | null;
 }
 
 export interface CoffeeRunOrder {
@@ -105,6 +109,7 @@ export interface OrderItemEntry {
   menuItemId: string;
   quantity: number;
   size?: string;
+  additions?: Record<string, string>;
 }
 
 export interface CreateMenuItemRequest {
@@ -196,6 +201,8 @@ export interface CreateTemplateItemRequest {
   price?: number | null;
   category?: string;
   sortOrder?: number;
+  sizes?: string | null;
+  additions?: string | null;
 }
 
 export interface UpdateTemplateItemRequest {
@@ -203,4 +210,6 @@ export interface UpdateTemplateItemRequest {
   price?: number | null;
   category?: string;
   sortOrder?: number;
+  sizes?: string | null;
+  additions?: string | null;
 }

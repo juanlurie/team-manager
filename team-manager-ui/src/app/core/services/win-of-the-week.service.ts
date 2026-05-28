@@ -15,6 +15,14 @@ export class WinOfTheWeekService {
     return this.http.post<WinNomination>(`${this.base}/nominations`, request);
   }
 
+  updateNomination(nominationId: string, request: CreateNominationRequest) {
+    return this.http.put<WinNomination>(`${this.base}/nominations/${nominationId}`, request);
+  }
+
+  deleteNomination(nominationId: string) {
+    return this.http.delete(`${this.base}/nominations/${nominationId}`);
+  }
+
   vote(nominationId: string) {
     return this.http.post<WinVote>(`${this.base}/nominations/${nominationId}/vote`, {});
   }

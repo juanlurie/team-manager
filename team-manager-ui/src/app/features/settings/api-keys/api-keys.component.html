@@ -1,0 +1,72 @@
+<div style="max-width:800px;margin:0 auto;padding:0 8px;overflow-x:hidden">
+  <!-- Header -->
+  <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">
+    <button class="icon-btn" routerLink="/settings" matTooltip="Back to Settings">
+      <mat-icon style="font-size:20px;height:20px;width:20px">arrow_back</mat-icon>
+    </button>
+    <mat-icon style="font-size:1.6rem;width:1.6rem;height:1.6rem;color:#64b5f6">key</mat-icon>
+    <h2 style="margin:0;font-size:1.3rem;font-weight:700">API Keys</h2>
+    <span style="flex:1"></span>
+    <button mat-flat-button color="primary" (click)="openCreateDialog()" style="font-size:0.78rem;height:36px">
+      <mat-icon style="font-size:16px;height:16px;width:16px;margin-right:4px">add</mat-icon>
+      Create Key
+    </button>
+  </div>
+
+  <!-- New key display -->
+  @if (newlyCreatedKey) {
+    <div style="padding:16px;margin-bottom:16px;background:rgba(76,175,80,0.1);border:1px solid rgba(76,175,80,0.3);border-radius:12px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+        <mat-icon style="color:#4caf50;font-size:20px;height:20px;width:20px">check_circle</mat-icon>
+        <span style="font-size:0.85rem;font-weight:600">Your new API key has been created. <strong>Copy it now — you won't see it again.</strong></span>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <code style="flex:1;font-size:0.78rem;padding:8px;background:rgba(0,0,0,0.3);border-radius:6px;word-break:break-all;overflow:hidden">{{ newlyCreatedKey.rawKey }}</code>
+        <button class="icon-btn" style="color:#64b5f6" (click)="copyKey(newlyCreatedKey.rawKey)" matTooltip="Copy key">
+          <mat-icon style="font-size:18px;height:18px;width:18px">content_copy</mat-icon>
+        </button>
+        <button class="icon-btn" style="color:rgba(255,255,255,0.4)" (click)="dismissNewKey()" matTooltip="Dismiss">
+          <mat-icon style="font-size:18px;height:18px;width:18px">close</mat-icon>
+        </button>
+      </div>
+    </div>
+  }
+
+  <!-- Keys list -->
+  @if (loading()) {
+    <div style="display:flex;justify-content:center;padding:40px">
+      <mat-spinner diameter="32"></mat-spinner>
+    </div>
+  } @else if (keys().length === 0) {
+    <div style="text-align:center;padding:40px 20px;border:2px dashed rgba(255,255,255,0.08);border-radius:12px;background:rgba(255,255,255,0.02)">
+      <mat-icon style="font-size:40px;width:40px;height:40px;opacity:0.12;margin-bottom:8px">key</mat-icon>
+      <div style="font-size:0.9rem;font-weight:500;opacity:0.22;margin-bottom:4px">No API keys yet</div>
+      <div style="font-size:0.78rem;opacity:0.14">Create one to get started</div>
+    </div>
+  } @else {
+    <div class="section">
+      <div class="section-header">
+        <mat-icon style="font-size:18px;height:18px;width:18px;opacity:0.5">key</mat-icon>
+        <span style="font-size:0.85rem;font-weight:600;flex:1">Your Keys ({{ keys().length }})</span>
+      </div>
+
+      @for (key of keys(); track key.id) {
+        <div style="display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid rgba(255,255,255,0.05)">
+          <mat-icon style="font-size:20px;height:20px;width:20px;color:#64b5f6;flex-shrink:0">key</mat-icon>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:0.85rem;font-weight:600">{{ key.name }}</div>
+            <div style="font-size:0.72rem;opacity:0.4">
+              Created {{ formatDate(key.createdAt) }}
+              @if (key.lastUsedAt) { · Used {{ formatDate(key.lastUsedAt) }} }
+              @if (key.expiresAt) { · Expires {{ formatDate(key.expiresAt) }} }
+            </div>
+          </div>
+          <button class="icon-btn" style="color:rgba(239,83,80,0.6)" [disabled]="!key.isActive"
+                  (click)="revokeKey(key.id, key.name)" matTooltip="Revoke key">
+            <mat-icon style="font-size:18px;height:18px;width:18px">delete_outline</mat-icon>
+          </button>
+        </div>
+      }
+    </div>
+  }
+</div>

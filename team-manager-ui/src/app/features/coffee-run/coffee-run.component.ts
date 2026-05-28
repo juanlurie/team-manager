@@ -549,11 +549,13 @@ export class CoffeeRunComponent implements OnInit, OnDestroy {
 
   orderQuantities: { [menuItemId: string]: number } = {};
   orderSizes: { [menuItemId: string]: string } = {};
+  orderAdditions: { [menuItemId: string]: Record<string, string> } = {};
   orderNotes = '';
 
   initOrderForm() {
     this.orderQuantities = {};
     this.orderSizes = {};
+    this.orderAdditions = {};
     this.orderNotes = '';
     this.editingOrder.set(true);
     const existing = this.getUserOrder();
@@ -562,6 +564,11 @@ export class CoffeeRunComponent implements OnInit, OnDestroy {
       for (const item of existing.items) {
         this.orderQuantities[item.menuItemId] = item.quantity;
         if (item.selectedSize) this.orderSizes[item.menuItemId] = item.selectedSize;
+        if (item.selectedAdditions) {
+          try {
+            this.orderAdditions[item.menuItemId] = JSON.parse(item.selectedAdditions);
+          } catch {}
+        }
       }
     }
     const run = this.detail();
@@ -637,13 +644,40 @@ export class CoffeeRunComponent implements OnInit, OnDestroy {
     }
   }
 
+  parseAdditions(additionsJson: string | null): { name: string; options: string[] }[] {
+    if (!additionsJson) return [];
+    try {
+      return JSON.parse(additionsJson);
+    } catch {
+      return [];
+    }
+  }
+
+  getSelectedAddition(menuItemId: string, categoryName: string): string {
+    return this.orderAdditions[menuItemId]?.[categoryName] || '';
+  }
+
+  setSelectedAddition(menuItemId: string, categoryName: string, value: string) {
+    if (!this.orderAdditions[menuItemId]) this.orderAdditions[menuItemId] = {};
+    if (value) {
+      this.orderAdditions[menuItemId][categoryName] = value;
+    } else {
+      delete this.orderAdditions[menuItemId][categoryName];
+    }
+  }
+
   placeOrder() {
     const run = this.detail();
     if (!run || !this.hasAnyQuantity()) return;
     const items: OrderItemEntry[] = [];
     for (const mi of run.menuItems) {
       const qty = this.getQuantity(mi.id);
-      if (qty > 0) items.push({ menuItemId: mi.id, quantity: qty, size: this.orderSizes[mi.id] || undefined });
+      if (qty > 0) {
+        const entry: OrderItemEntry = { menuItemId: mi.id, quantity: qty, size: this.orderSizes[mi.id] || undefined };
+        const adds = this.orderAdditions[mi.id];
+        if (adds && Object.keys(adds).length > 0) entry.additions = adds;
+        items.push(entry);
+      }
     }
     if (items.length === 0) return;
 
@@ -670,7 +704,12 @@ export class CoffeeRunComponent implements OnInit, OnDestroy {
     const items: OrderItemEntry[] = [];
     for (const mi of run.menuItems) {
       const qty = this.getQuantity(mi.id);
-      if (qty > 0) items.push({ menuItemId: mi.id, quantity: qty, size: this.orderSizes[mi.id] || undefined });
+      if (qty > 0) {
+        const entry: OrderItemEntry = { menuItemId: mi.id, quantity: qty, size: this.orderSizes[mi.id] || undefined };
+        const adds = this.orderAdditions[mi.id];
+        if (adds && Object.keys(adds).length > 0) entry.additions = adds;
+        items.push(entry);
+      }
     }
 
     this.coffeeRunSvc.updateOrder(run.id, order.id, {
@@ -685,6 +724,7 @@ export class CoffeeRunComponent implements OnInit, OnDestroy {
   cancelEditOrder() {
     this.orderQuantities = {};
     this.orderSizes = {};
+    this.orderAdditions = {};
     this.editingOrder.set(false);
   }
 

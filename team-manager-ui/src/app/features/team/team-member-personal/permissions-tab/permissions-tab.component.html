@@ -1,0 +1,48 @@
+<div style="padding-top:8px">
+  <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
+    <span style="font-size:0.8rem;opacity:0.4">
+      Role: <strong>{{ memberRole }}</strong> — toggle to override defaults, click again to reset
+    </span>
+    @if (!loading() && hasOverrides()) {
+      <span style="font-size:0.72rem;padding:2px 8px;background:rgba(255,152,0,0.15);border-radius:10px;color:#ffb74d">
+        {{ overrideCount() }} override{{ overrideCount() === 1 ? '' : 's' }}
+      </span>
+    }
+  </div>
+
+  @if (loading()) {
+    <div style="display:flex;justify-content:center;padding:40px">
+      <mat-spinner diameter="32"></mat-spinner>
+    </div>
+  } @else {
+    @for (cat of categories(); track cat) {
+      <div class="section" style="margin-bottom:12px">
+        <div class="section-header">
+          <mat-icon style="font-size:18px;height:18px;width:18px;opacity:0.5">folder</mat-icon>
+          <span style="font-size:0.85rem;font-weight:600;flex:1">{{ cat }}</span>
+        </div>
+
+        @for (item of groupedOverrides()[cat]; track item.featureKey) {
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border-bottom:1px solid rgba(255,255,255,0.03)">
+            <div style="flex:1;min-width:0">
+              <div style="font-size:0.82rem;font-weight:500">{{ item.label }}</div>
+              @if (!item.roleDefault) {
+                <div style="font-size:0.7rem;color:#ffb74d">Overridden</div>
+              } @else {
+                <div style="font-size:0.7rem;opacity:0.3">Role default</div>
+              }
+            </div>
+            <button class="icon-btn" [style.color]="item.isEnabled ? '#4caf50' : 'rgba(255,255,255,0.2)'"
+                    (click)="toggleOverride(item.featureKey, item.isEnabled, item.roleDefault)"
+                    [disabled]="isSaving(item.featureKey)"
+                    matTooltip="{{ item.isEnabled ? 'Enabled' : 'Disabled' }}">
+              <mat-icon style="font-size:20px;height:20px;width:20px">
+                {{ isSaving(item.featureKey) ? 'hourglass_empty' : (item.isEnabled ? 'toggle_on' : 'toggle_off') }}
+              </mat-icon>
+            </button>
+          </div>
+        }
+      </div>
+    }
+  }
+</div>

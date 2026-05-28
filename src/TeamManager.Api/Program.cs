@@ -65,6 +65,8 @@ builder.Services.AddScoped<IMeetingSeriesService, MeetingSeriesService>();
 builder.Services.AddScoped<IWinOfTheWeekService, WinOfTheWeekService>();
 builder.Services.AddScoped<IWinOfMonthService, WinOfMonthService>();
 builder.Services.AddScoped<ICoffeeRunService, CoffeeRunService>();
+builder.Services.AddScoped<IScrumPokerService, ScrumPokerService>();
+builder.Services.AddScoped<IFeaturePermissionService, FeaturePermissionService>();
 builder.Services.AddHostedService<RunDeadlineWorker>();
 
 builder.Services.AddScoped<ILeaveFetcher, ConfigurableLeaveFetcher>();

@@ -18,8 +18,8 @@ public class ApiKeysController(AppDbContext db) : ControllerBase
     [HttpGet]
     public async Task<IActionResult> List()
     {
-        var tmid = User.FindFirst("TMID")?.Value
-                ?? User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        var memberId = GetMemberId();
+        if (memberId == null) return Unauthorized();
 
         var isTeamLead = User.IsInRole("TeamLead");
 
@@ -28,8 +28,9 @@ public class ApiKeysController(AppDbContext db) : ControllerBase
             .Include(k => k.TeamMember)
             .Where(k => k.TeamMember.IsActive);
 
-        if (!isTeamLead && !string.IsNullOrWhiteSpace(tmid) && Guid.TryParse(tmid, out var userId))
-            query = query.Where(k => k.TeamMemberId == userId);
+        // Non-TeamLeads can only see their own keys
+        if (!isTeamLead)
+            query = query.Where(k => k.TeamMemberId == memberId.Value);
 
         var keys = await query
             .Select(k => new ApiKeyResponse(
@@ -51,32 +52,10 @@ public class ApiKeysController(AppDbContext db) : ControllerBase
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] CreateApiKeyRequest request)
     {
-        // Derive team member ID from authenticated user's claims
-        var tmid = User.FindFirst("TMID")?.Value
-                ?? User.FindFirst(ClaimTypes.NameIdentifier)?.Value
-                ?? User.FindFirst("sub")?.Value;
+        var memberId = GetMemberId();
+        if (memberId == null) return Unauthorized();
 
-        Guid memberGuid;
-        if (!string.IsNullOrWhiteSpace(tmid) && Guid.TryParse(tmid, out memberGuid))
-        {
-            // TMID claim is a GUID (added by claims transformer)
-        }
-        else
-        {
-            // Fallback: find by external subject ID
-            var sub = User.FindFirst("sub")?.Value ?? User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            if (string.IsNullOrWhiteSpace(sub))
-                return Unauthorized("Unable to identify authenticated user.");
-
-            var fallbackMember = await db.TeamMembers
-                .FirstOrDefaultAsync(m => m.ExternalSubjectId == sub && m.IsActive);
-            if (fallbackMember == null)
-                return Unauthorized("User not found in team members.");
-
-            memberGuid = fallbackMember.Id;
-        }
-
-        var member = await db.TeamMembers.FindAsync(memberGuid);
+        var member = await db.TeamMembers.FindAsync(memberId.Value);
         if (member == null || !member.IsActive)
             return NotFound("Team member not found or inactive.");
 
@@ -112,18 +91,37 @@ public class ApiKeysController(AppDbContext db) : ControllerBase
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> Revoke(Guid id)
     {
+        var memberId = GetMemberId();
+        if (memberId == null) return Unauthorized();
+
         var apiKey = await db.ApiKeys.IgnoreQueryFilters().FirstOrDefaultAsync(k => k.Id == id);
         if (apiKey == null)
             return NotFound();
 
         // TeamLead can revoke any key, others only their own
-        var tmid = User.FindFirst("TMID")?.Value ?? User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (!User.IsInRole("TeamLead") && apiKey.TeamMemberId.ToString() != tmid)
+        if (!User.IsInRole("TeamLead") && apiKey.TeamMemberId != memberId.Value)
             return Forbid();
 
         apiKey.IsActive = false;
         await db.SaveChangesAsync();
         return NoContent();
+    }
+
+    private Guid? GetMemberId()
+    {
+        var tmid = User.FindFirst("TMID")?.Value;
+        if (!string.IsNullOrWhiteSpace(tmid) && Guid.TryParse(tmid, out var id))
+            return id;
+
+        // Fallback: find by external subject ID
+        var sub = User.FindFirst("sub")?.Value ?? User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrWhiteSpace(sub))
+            return null;
+
+        var member = db.TeamMembers
+            .FirstOrDefault(m => m.ExternalSubjectId == sub && m.IsActive);
+
+        return member?.Id;
     }
 
     private static string GenerateKey()

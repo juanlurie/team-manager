@@ -72,13 +72,13 @@ import { WinOfTheMonthComponent } from '../win-of-the-month/win-of-the-month.com
       }
     </div>
 
-    <!-- Nominate Dialog -->
+    <!-- Nominate/Edit Dialog -->
     @if (showDialog()) {
       <div style="position:fixed;inset:0;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;z-index:1000"
            (click)="closeDialog()">
         <div style="background:#1e1e2e;border-radius:16px;padding:24px;width:90%;max-width:440px;max-height:85dvh;overflow-y:auto;overscroll-behavior:contain;border:1px solid rgba(255,255,255,0.1);-webkit-overflow-scrolling:touch"
              (click)="$event.stopPropagation()">
-          <h3 style="margin:0 0 16px;font-size:1.1rem;font-weight:700">Nominate a Win</h3>
+          <h3 style="margin:0 0 16px;font-size:1.1rem;font-weight:700">{{editingNominationId() ? 'Edit Nomination' : 'Nominate a Win'}}</h3>
 
           <div style="display:flex;flex-direction:column;gap:12px">
             <mat-form-field appearance="outline" style="width:100%">
@@ -105,7 +105,7 @@ import { WinOfTheMonthComponent } from '../win-of-the-month/win-of-the-month.com
             <button mat-stroked-button (click)="closeDialog()">Cancel</button>
             <button mat-raised-button color="primary" (click)="submitNomination()"
                     [disabled]="!nominateForm.nomineeMemberId || !nominateForm.title.trim() || submitting()">
-              {{ submitting() ? 'Submitting...' : 'Submit' }}
+              {{ submitting() ? 'Submitting...' : (editingNominationId() ? 'Save Changes' : 'Submit') }}
             </button>
           </div>
         </div>
@@ -212,7 +212,7 @@ import { WinOfTheMonthComponent } from '../win-of-the-month/win-of-the-month.com
       <!-- Info banner during nominating phase -->
       @if (currentWeek()?.status === 'Nominating') {
         <div style="background:rgba(100,181,246,0.08);border:1px solid rgba(100,181,246,0.15);border-radius:8px;padding:10px 14px;margin-bottom:16px;font-size:0.8rem;color:#64b5f6">
-          💡 Voting opens Friday. You'll have 3 votes to use.
+          💡 You can edit or delete your nominations before voting opens.
         </div>
       }
 
@@ -263,6 +263,18 @@ import { WinOfTheMonthComponent } from '../win-of-the-month/win-of-the-month.com
                   Nominated by {{nom.teamMemberName}}
                 </div>
               </div>
+
+              <!-- Edit/Delete buttons (owner only, during nominating phase) -->
+              @if (nom.teamMemberId === currentUserId && currentWeek()?.status === 'Nominating') {
+                <div style="display:flex;gap:4px;flex-shrink:0">
+                  <button mat-icon-button style="width:32px;height:32px;line-height:32px" matTooltip="Edit nomination" (click)="showEditDialog(nom)">
+                    <mat-icon style="font-size:18px;width:18px;height:18px;color:rgba(255,255,255,0.4)">edit</mat-icon>
+                  </button>
+                  <button mat-icon-button style="width:32px;height:32px;line-height:32px" matTooltip="Delete nomination" (click)="deleteNomination(nom.id)">
+                    <mat-icon style="font-size:18px;width:18px;height:18px;color:rgba(239,83,80,0.6)">delete</mat-icon>
+                  </button>
+                </div>
+              }
 
               <!-- Vote section -->
               <div style="display:flex;flex-direction:column;align-items:center;gap:4px;flex-shrink:0;min-width:60px">
@@ -319,6 +331,7 @@ export class WinOfTheWeekComponent implements OnInit, OnDestroy {
   loading = signal(true);
   submitting = signal(false);
   showDialog = signal(false);
+  editingNominationId = signal<string | null>(null);
   currentUserId = '';
 
   nominateForm: CreateNominationRequest = {
@@ -354,14 +367,12 @@ export class WinOfTheWeekComponent implements OnInit, OnDestroy {
     });
     this.refresh();
 
-    // Connect to WebSocket for real-time updates
     this.wsSvc.connect();
     this.wsSub = this.wsSvc.messages$.subscribe(msg => {
       if (!msg || this.activeTab() !== 'current') return;
       switch (msg.type) {
         case 'vote_cast':
         case 'vote_removed':
-          // Refresh nominations to get updated vote counts
           this.refresh();
           break;
         case 'voting_opened':
@@ -421,33 +432,93 @@ export class WinOfTheWeekComponent implements OnInit, OnDestroy {
   }
 
   showNominateDialog() {
+    this.editingNominationId.set(null);
     this.nominateForm = { nomineeMemberId: '', title: '', description: '' };
+    this.showDialog.set(true);
+  }
+
+  showEditDialog(nom: WinNomination) {
+    this.editingNominationId.set(nom.id);
+    this.nominateForm = {
+      nomineeMemberId: nom.nomineeMemberId,
+      title: nom.title,
+      description: nom.description || ''
+    };
     this.showDialog.set(true);
   }
 
   closeDialog() {
     this.showDialog.set(false);
+    this.editingNominationId.set(null);
   }
 
   submitNomination() {
     if (!this.nominateForm.nomineeMemberId || !this.nominateForm.title.trim()) return;
     this.submitting.set(true);
-    this.winSvc.createNomination({
-      nomineeMemberId: this.nominateForm.nomineeMemberId,
-      title: this.nominateForm.title.trim(),
-      description: this.nominateForm.description?.trim() || undefined
-    }).subscribe({
-      next: () => {
-        this.submitting.set(false);
-        this.showDialog.set(false);
-        this.snackBar.open('Nomination submitted! Voting opens Friday.', 'Close', { duration: 3000 });
-        this.refresh();
-      },
-      error: (err) => {
-        this.submitting.set(false);
-        const msg = err.error?.error || 'Failed to submit nomination';
-        this.snackBar.open(msg, 'Close', { duration: 3000 });
+
+    const editId = this.editingNominationId();
+    if (editId) {
+      this.winSvc.updateNomination(editId, {
+        nomineeMemberId: this.nominateForm.nomineeMemberId,
+        title: this.nominateForm.title.trim(),
+        description: this.nominateForm.description?.trim() || undefined
+      }).subscribe({
+        next: () => {
+          this.submitting.set(false);
+          this.showDialog.set(false);
+          this.editingNominationId.set(null);
+          this.snackBar.open('Nomination updated!', 'Close', { duration: 3000 });
+          this.refresh();
+        },
+        error: (err) => {
+          this.submitting.set(false);
+          const msg = err.error?.error || 'Failed to update nomination';
+          this.snackBar.open(msg, 'Close', { duration: 3000 });
+        }
+      });
+    } else {
+      this.winSvc.createNomination({
+        nomineeMemberId: this.nominateForm.nomineeMemberId,
+        title: this.nominateForm.title.trim(),
+        description: this.nominateForm.description?.trim() || undefined
+      }).subscribe({
+        next: () => {
+          this.submitting.set(false);
+          this.showDialog.set(false);
+          this.snackBar.open('Nomination submitted! Voting opens Friday.', 'Close', { duration: 3000 });
+          this.refresh();
+        },
+        error: (err) => {
+          this.submitting.set(false);
+          const msg = err.error?.error || 'Failed to submit nomination';
+          this.snackBar.open(msg, 'Close', { duration: 3000 });
+        }
+      });
+    }
+  }
+
+  deleteNomination(nominationId: string) {
+    const ref = this.dialog.open(ConfirmDialogComponent, {
+      width: '360px',
+      data: {
+        title: 'Delete nomination?',
+        message: 'This cannot be undone.',
+        confirmLabel: 'Delete',
+        danger: true
       }
+    });
+    ref.afterClosed().subscribe(ok => {
+      if (!ok) return;
+      this.winSvc.deleteNomination(nominationId).subscribe({
+        next: () => {
+          this.snackBar.open('Nomination deleted', 'Close', { duration: 3000 });
+          this.refresh();
+        },
+        error: (err) => {
+          const msg = err.error?.error || 'Failed to delete nomination';
+          this.snackBar.open(msg, 'Close', { duration: 3000 });
+        }
+      });
     });
   }
 

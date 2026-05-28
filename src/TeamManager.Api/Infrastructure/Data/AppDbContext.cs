@@ -62,6 +62,10 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<CoffeeRunMenuTemplate> CoffeeRunMenuTemplates => Set<CoffeeRunMenuTemplate>();
     public DbSet<CoffeeRunMenuTemplateItem> CoffeeRunMenuTemplateItems => Set<CoffeeRunMenuTemplateItem>();
     public DbSet<AccessRequest> AccessRequests => Set<AccessRequest>();
+    public DbSet<ScrumPokerSession> ScrumPokerSessions => Set<ScrumPokerSession>();
+    public DbSet<ScrumPokerVote> ScrumPokerVotes => Set<ScrumPokerVote>();
+    public DbSet<FeaturePermission> FeaturePermissions => Set<FeaturePermission>();
+    public DbSet<MemberFeatureOverride> MemberFeatureOverrides => Set<MemberFeatureOverride>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -117,5 +121,9 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         modelBuilder.ApplyConfiguration(new CoffeeRunOrderItemConfiguration());
         modelBuilder.ApplyConfiguration(new CoffeeRunMenuTemplateConfiguration());
         modelBuilder.ApplyConfiguration(new CoffeeRunMenuTemplateItemConfiguration());
+        modelBuilder.ApplyConfiguration(new ScrumPokerSessionConfiguration());
+        modelBuilder.ApplyConfiguration(new ScrumPokerVoteConfiguration());
+        modelBuilder.ApplyConfiguration(new FeaturePermissionConfiguration());
+        modelBuilder.ApplyConfiguration(new MemberFeatureOverrideConfiguration());
     }
 }

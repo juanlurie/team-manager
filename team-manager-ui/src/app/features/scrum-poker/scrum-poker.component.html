@@ -1,0 +1,183 @@
+<div style="max-width:800px;margin:0 auto;padding:0 8px;overflow-x:hidden">
+  <!-- Header -->
+  <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">
+    <mat-icon style="font-size:1.6rem;width:1.6rem;height:1.6rem;color:#64b5f6">groups</mat-icon>
+    <h2 style="margin:0;font-size:1.3rem;font-weight:700">Scrum Poker</h2>
+    <span style="flex:1"></span>
+    @if (!selectedSession()) {
+      <button mat-raised-button color="primary" (click)="openCreateDialog()" style="font-size:0.78rem;height:34px">
+        <mat-icon style="font-size:16px;height:16px;width:16px;margin-right:4px">add</mat-icon>
+        New Session
+      </button>
+    }
+  </div>
+
+  @if (loading()) {
+    <div style="display:flex;justify-content:center;padding:80px">
+      <mat-spinner diameter="48"></mat-spinner>
+    </div>
+  } @else {
+
+    <!-- Session list view -->
+    @if (!selectedSession()) {
+      @if (sessions().length === 0) {
+        <div style="display:flex;flex-direction:column;align-items:center;padding:40px 20px;
+                    border:2px dashed rgba(255,255,255,0.08);border-radius:12px;
+                    background:rgba(255,255,255,0.02)">
+          <mat-icon style="font-size:56px;width:56px;height:56px;opacity:0.12;margin-bottom:12px">groups</mat-icon>
+          <div style="font-size:1rem;font-weight:500;opacity:0.22;margin-bottom:4px">No active sessions</div>
+          <div style="font-size:0.78rem;opacity:0.14">Create a new session to start planning</div>
+        </div>
+      } @else {
+        <div class="section">
+          <div class="section-header">
+            <mat-icon style="font-size:18px;height:18px;width:18px;opacity:0.5">timeline</mat-icon>
+            <span style="font-size:0.85rem;font-weight:600;flex:1">Active Sessions</span>
+          </div>
+
+          @for (session of sessions(); track session.id) {
+            <div class="run-card" (click)="selectSession(session)" style="cursor:pointer;margin-bottom:8px">
+              <div class="run-card-info">
+                <div class="run-card-title">{{ session.title }}</div>
+                <div class="run-card-meta">
+                  by {{ session.createdByMemberName }} · {{ session.scale }}
+                  @if (session.storyTitle) { · {{ session.storyTitle }} }
+                </div>
+              </div>
+              @if (session.revealed) {
+                <span class="status-badge" style="background:rgba(100,181,246,0.2)">Revealed</span>
+              } @else {
+                <span class="status-badge" style="background:rgba(255,152,0,0.2)">Active</span>
+              }
+            </div>
+          }
+        </div>
+      }
+    }
+
+    <!-- Session detail view -->
+    @if (selectedSessionLoading()) {
+      <div style="display:flex;justify-content:center;padding:60px">
+        <mat-spinner diameter="40"></mat-spinner>
+      </div>
+    } @else if (selectedSession()) {
+      @let session = selectedSession()!;
+
+      <!-- Header -->
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;flex-wrap:wrap">
+        <button class="icon-btn" (click)="backToList()" matTooltip="Back to sessions">
+          <mat-icon style="font-size:20px;height:20px;width:20px">arrow_back</mat-icon>
+        </button>
+        <span style="font-size:1rem;font-weight:600;flex:1">{{ session.title }}</span>
+        @if (session.revealed) {
+          <span class="status-badge" style="background:rgba(100,181,246,0.2)">Revealed</span>
+        } @else {
+          <span class="status-badge" style="background:rgba(255,152,0,0.2)">Active</span>
+        }
+        <button class="icon-btn" style="color:rgba(239,83,80,0.7)" (click)="deleteSession()" matTooltip="Delete session">
+          <mat-icon style="font-size:18px;height:18px;width:18px">delete</mat-icon>
+        </button>
+      </div>
+
+      @if (session.storyTitle || session.description) {
+        <div style="font-size:0.8rem;opacity:0.5;margin-bottom:12px">
+          @if (session.storyTitle) { 📖 {{ session.storyTitle }} }
+          @if (session.description) { · {{ session.description }} }
+        </div>
+      }
+
+      <!-- Action buttons -->
+      <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">
+        @if (!session.revealed) {
+          <button mat-stroked-button color="primary" style="font-size:0.75rem" (click)="revealVotes()">
+            <mat-icon style="font-size:14px;height:14px;width:14px;margin-right:4px">visibility</mat-icon>
+            Reveal Votes
+          </button>
+        }
+        <button mat-stroked-button style="font-size:0.75rem;color:#ff9800;border-color:rgba(255,152,0,0.4)" (click)="resetSession()">
+          <mat-icon style="font-size:14px;height:14px;width:14px;margin-right:4px">refresh</mat-icon>
+          Reset
+        </button>
+      </div>
+
+      <!-- Voting cards -->
+      <div class="section">
+        <div class="section-header">
+          <mat-icon style="font-size:18px;height:18px;width:18px;opacity:0.5">vote</mat-icon>
+          <span style="font-size:0.85rem;font-weight:600;flex:1">Votes ({{ session.votes.length }})</span>
+        </div>
+
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:12px;margin-bottom:16px">
+          @for (vote of session.votes; track vote.memberId) {
+            <div style="text-align:center;padding:16px 8px;background:rgba(255,255,255,0.03);border-radius:8px;border:1px solid rgba(255,255,255,0.06)">
+              <div style="font-size:0.72rem;opacity:0.5;margin-bottom:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ vote.memberName }}</div>
+              @if (vote.value) {
+                <div style="font-size:1.5rem;font-weight:700;color:#64b5f6">{{ vote.value }}</div>
+              } @else {
+                <div style="font-size:1.5rem;font-weight:700;opacity:0.2">?</div>
+              }
+            </div>
+          }
+        </div>
+
+        @if (session.votes.length === 0) {
+          <div class="empty-hint"><span>No votes yet</span></div>
+        }
+      </div>
+
+      <!-- Vote selector -->
+      @if (!session.revealed) {
+        <div class="section" style="border-color:rgba(100,181,246,0.2)">
+          <div class="section-header" style="color:#64b5f6">
+            <mat-icon style="font-size:18px;height:18px;width:18px">touch_app</mat-icon>
+            <span style="font-size:0.85rem;font-weight:600">Cast Your Vote</span>
+          </div>
+
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(60px,1fr));gap:8px">
+            @for (val of getScaleValues(session.scale); track val) {
+              <button mat-stroked-button style="font-size:1rem;height:48px;min-width:0;padding:8px" (click)="castVote(val)">
+                {{ val }}
+              </button>
+            }
+          </div>
+        </div>
+      }
+    }
+  }
+</div>
+
+<!-- Create session dialog -->
+@if (showCreateDialog()) {
+  <div class="dialog-backdrop" (click)="closeCreateDialog()">
+    <div class="dialog-content" (click)="$event.stopPropagation()" style="max-width:420px">
+      <h3 style="margin:0 0 16px;font-size:1rem">New Scrum Poker Session</h3>
+
+      <label style="font-size:0.78rem;opacity:0.6;display:block;margin-bottom:4px">Title *</label>
+      <input class="inline-input" [(ngModel)]="newSessionTitle" placeholder="e.g., Sprint Planning #5"
+             style="width:100%;box-sizing:border-box;margin-bottom:12px">
+
+      <label style="font-size:0.78rem;opacity:0.6;display:block;margin-bottom:4px">Story Title (optional)</label>
+      <input class="inline-input" [(ngModel)]="newSessionStoryTitle" placeholder="e.g., User authentication feature"
+             style="width:100%;box-sizing:border-box;margin-bottom:12px">
+
+      <label style="font-size:0.78rem;opacity:0.6;display:block;margin-bottom:4px">Description (optional)</label>
+      <input class="inline-input" [(ngModel)]="newSessionDescription" placeholder="Additional context..."
+             style="width:100%;box-sizing:border-box;margin-bottom:12px">
+
+      <label style="font-size:0.78rem;opacity:0.6;display:block;margin-bottom:4px">Scale</label>
+      <select class="inline-input" [(ngModel)]="newSessionScale"
+              style="width:100%;box-sizing:border-box;margin-bottom:16px">
+        @for (scale of scales; track scale) {
+          <option [ngValue]="scale">{{ scale }}</option>
+        }
+      </select>
+
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button mat-button (click)="closeCreateDialog()" style="font-size:0.78rem">Cancel</button>
+        <button mat-flat-button color="primary" [disabled]="!newSessionTitle.trim()" (click)="createSession()" style="font-size:0.78rem">
+          Create Session
+        </button>
+      </div>
+    </div>
+  </div>
+}

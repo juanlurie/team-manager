@@ -13,6 +13,7 @@ import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
         <a class="hub-tab" routerLink="leaderboard" routerLinkActive="active" role="tab">Leaderboard</a>
         <a class="hub-tab" routerLink="wheel" routerLinkActive="active" role="tab">Spin Wheel</a>
         <a class="hub-tab" routerLink="coffee-run" routerLinkActive="active" role="tab">Coffee Run</a>
+        <a class="hub-tab" routerLink="scrum-poker" routerLinkActive="active" role="tab">Scrum Poker</a>
       </nav>
       <div class="hub-content">
         <router-outlet />

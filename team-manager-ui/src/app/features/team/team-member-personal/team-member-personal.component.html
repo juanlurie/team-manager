@@ -295,6 +295,15 @@
           <app-timesheet-tab [memberId]="memberId" />
         </mat-tab>
 
+        <!-- Permissions -->
+        <mat-tab>
+          <ng-template mat-tab-label>
+            <mat-icon style="font-size:18px;margin-right:6px;vertical-align:middle">shield</mat-icon>
+            <span class="tab-label">Permissions</span>
+          </ng-template>
+          <app-permissions-tab [memberId]="memberId" [memberRole]="member()?.role || ''" />
+        </mat-tab>
+
       </mat-tab-group>
       } <!-- end @else -->
     </div>

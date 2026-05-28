@@ -284,6 +284,21 @@
                           <button class="stepper-btn" (click)="adjustQuantity(item.id, 1)">+</button>
                         </div>
                       </div>
+                      @let adds = parseAdditions(item.additions);
+                      @if (adds.length > 0 && getQuantity(item.id) > 0) {
+                        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px">
+                          @for (addCat of adds; track addCat.name) {
+                            <select class="inline-input" [ngModel]="getSelectedAddition(item.id, addCat.name)"
+                                    (ngModelChange)="setSelectedAddition(item.id, addCat.name, $event)"
+                                    style="font-size:0.7rem;padding:2px 4px;width:auto;max-width:120px">
+                              <option [ngValue]="''">{{ addCat.name }}</option>
+                              @for (opt of addCat.options; track opt) {
+                                <option [ngValue]="opt">{{ opt }}</option>
+                              }
+                            </select>
+                          }
+                        </div>
+                      }
                     </div>
                   }
                 </div>
