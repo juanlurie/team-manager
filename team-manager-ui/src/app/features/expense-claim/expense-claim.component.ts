@@ -1,12 +1,13 @@
-import { Component, inject, OnInit } from '@angular/core';
+import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ReactiveFormsModule, FormBuilder, FormGroup, FormArray, Validators } from '@angular/forms';
+import { ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { MatDialogModule, MatDialog } from '@angular/material/dialog';
 import { AuthService } from '../../core/auth/auth.service';
 import * as ExcelJS from 'exceljs';
 import { LOGO_BASE64 } from './logo.base64';
@@ -29,6 +30,7 @@ interface ExpenseItem {
     MatButtonModule,
     MatIconModule,
     MatSnackBarModule,
+    MatDialogModule,
   ],
   templateUrl: './expense-claim.component.html',
   styleUrls: ['./expense-claim.component.scss'],
@@ -37,10 +39,14 @@ export class ExpenseClaimComponent implements OnInit {
   private fb = inject(FormBuilder);
   private auth = inject(AuthService);
   private snackBar = inject(MatSnackBar);
+  private dialog = inject(MatDialog);
 
-  expenseForm!: FormGroup;
   employeeName = '';
   currentDate = '';
+  items = signal<ExpenseItem[]>([]);
+  showItemDialog = signal(false);
+  editingIndex = signal<number | null>(null);
+  itemForm!: FormGroup;
 
   ngOnInit(): void {
     this.currentDate = new Date().toLocaleDateString('en-ZA', {
@@ -55,46 +61,59 @@ export class ExpenseClaimComponent implements OnInit {
       }
     });
 
-    this.expenseForm = this.fb.group({
-      items: this.fb.array([]),
-    });
-
-    this.addItem();
-  }
-
-  get items(): FormArray {
-    return this.expenseForm.get('items') as FormArray;
-  }
-
-  createItem(): FormGroup {
-    return this.fb.group({
+    this.itemForm = this.fb.group({
       description: ['', Validators.required],
       placeOfPurchase: ['', Validators.required],
       amount: [0, [Validators.required, Validators.min(0)]],
     });
   }
 
-  addItem(): void {
-    this.items.push(this.createItem());
+  getTotal(): number {
+    return this.items().reduce((sum, item) => sum + item.amount, 0);
+  }
+
+  openAddDialog(): void {
+    this.editingIndex.set(null);
+    this.itemForm.reset({ description: '', placeOfPurchase: '', amount: 0 });
+    this.showItemDialog.set(true);
+  }
+
+  openEditDialog(index: number): void {
+    this.editingIndex.set(index);
+    const item = this.items()[index];
+    this.itemForm.patchValue(item);
+    this.showItemDialog.set(true);
+  }
+
+  closeDialog(): void {
+    this.showItemDialog.set(false);
+    this.editingIndex.set(null);
+  }
+
+  saveItem(): void {
+    if (this.itemForm.invalid) {
+      this.itemForm.markAllAsTouched();
+      return;
+    }
+    const value = this.itemForm.value as ExpenseItem;
+    const idx = this.editingIndex();
+    if (idx !== null) {
+      const updated = [...this.items()];
+      updated[idx] = value;
+      this.items.set(updated);
+    } else {
+      this.items.set([...this.items(), value]);
+    }
+    this.closeDialog();
   }
 
   removeItem(index: number): void {
-    if (this.items.length > 1) {
-      this.items.removeAt(index);
-    }
-  }
-
-  getTotal(): number {
-    return this.items.controls.reduce((sum, ctrl) => {
-      const val = ctrl.get('amount')?.value;
-      return sum + (typeof val === 'number' ? val : 0);
-    }, 0);
+    this.items.set(this.items().filter((_, i) => i !== index));
   }
 
   async generateAndDownload(): Promise<void> {
-    if (this.expenseForm.invalid) {
-      this.expenseForm.markAllAsTouched();
-      this.snackBar.open('Please fill in all required fields', 'Close', { duration: 3000 });
+    if (this.items().length === 0) {
+      this.snackBar.open('Please add at least one expense item', 'Close', { duration: 3000 });
       return;
     }
 
@@ -129,7 +148,6 @@ export class ExpenseClaimComponent implements OnInit {
       right: { style: 'thin' },
     };
 
-    // White background for logo area (rows 1-5, cols C-E)
     const whiteFill: ExcelJS.Fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFFFF' } };
     for (let r = 1; r <= 5; r++) {
       for (const col of ['C', 'D', 'E']) {
@@ -137,7 +155,6 @@ export class ExpenseClaimComponent implements OnInit {
       }
     }
 
-    // Add logo image
     const logoBytes = Uint8Array.from(atob(LOGO_BASE64), c => c.charCodeAt(0));
     const logoId = workbook.addImage({
       buffer: logoBytes,
@@ -180,7 +197,7 @@ export class ExpenseClaimComponent implements OnInit {
     const dataFont: Partial<ExcelJS.Font> = { size: 10, color: { argb: 'FF000000' } };
     const dataAlign: Partial<ExcelJS.Alignment> = { vertical: 'middle' };
 
-    const expenseItems = this.items.controls.map(ctrl => ctrl.value as ExpenseItem);
+    const expenseItems = this.items();
 
     for (let row = 10; row <= 23; row++) {
       const itemIndex = row - 10;

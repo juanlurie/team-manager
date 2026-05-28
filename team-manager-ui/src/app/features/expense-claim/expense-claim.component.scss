@@ -1,7 +1,7 @@
 .expense-claim-page {
   max-width: 900px;
   margin: 0 auto;
-  padding: 0 8px;
+  padding: 0 8px 120px;
 }
 
 .page-title {
@@ -59,8 +59,10 @@
 }
 
 .expense-table tbody td {
-  padding: 8px 12px;
-  vertical-align: top;
+  padding: 12px;
+  vertical-align: middle;
+  font-size: 0.9rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
 }
 
 .col-description {
@@ -137,6 +139,17 @@
   padding-top: 8px;
 }
 
+.empty-state {
+  text-align: center;
+  padding: 48px 16px;
+  opacity: 0.35;
+}
+
+.empty-state p {
+  margin-top: 12px;
+  font-weight: 600;
+}
+
 /* Mobile card layout */
 .mobile-items {
   display: none;
@@ -163,6 +176,80 @@
   color: rgba(255, 255, 255, 0.5);
   text-transform: uppercase;
   letter-spacing: 0.05em;
+}
+
+.mobile-item-actions {
+  display: flex;
+  gap: 0;
+}
+
+.mobile-item-actions button {
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+}
+
+.mobile-item-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 6px 0;
+  gap: 8px;
+}
+
+.mobile-label {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.4);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  flex-shrink: 0;
+}
+
+.mobile-value {
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.87);
+  text-align: right;
+}
+
+.mobile-value.amount {
+  font-weight: 700;
+}
+
+/* Dialog overlay */
+.dialog-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 16px;
+}
+
+.dialog-content {
+  background: #1e1e2e;
+  border-radius: 16px;
+  padding: 24px;
+  width: 100%;
+  max-width: 440px;
+  max-height: 85dvh;
+  overflow-y: auto;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.dialog-content h3 {
+  margin: 0 0 16px;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.dialog-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 16px;
 }
 
 /* Responsive */
@@ -201,5 +288,9 @@
 }
 
 ::ng-deep .form-card .mat-mdc-form-field-subscript-wrapper {
+  display: none;
+}
+
+::ng-deep .dialog-content .mat-mdc-form-field-subscript-wrapper {
   display: none;
 }
