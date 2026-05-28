@@ -20,6 +20,7 @@ if (args.Contains("--migrate"))
     using var migrateScope = migrateApp.Services.CreateScope();
     var migrateDb = migrateScope.ServiceProvider.GetRequiredService<AppDbContext>();
     migrateDb.Database.Migrate();
+    await SeedFeaturePermissionsAsync(migrateDb);
     Console.WriteLine("Migrations applied.");
     return;
 }
@@ -141,3 +142,51 @@ app.MapHealthChecks("/health").AllowAnonymous();
 app.MapControllers();
 
 app.Run();
+
+static async Task SeedFeaturePermissionsAsync(AppDbContext db)
+{
+    var features = new List<(string Key, string Category, string Label)>
+    {
+        ("dashboard", "Core", "Dashboard"),
+        ("sprints", "Core", "Sprints"),
+        ("features", "Core", "Features"),
+        ("progress", "Core", "Progress"),
+        ("discussion", "Collaboration", "Discussion"),
+        ("meetings", "Collaboration", "Meetings"),
+        ("fun-hub", "Fun Hub", "Fun Hub"),
+        ("coffee-run", "Fun Hub", "Coffee Run"),
+        ("scrum-poker", "Fun Hub", "Scrum Poker"),
+        ("wheel", "Fun Hub", "Spin Wheel"),
+        ("leaderboard", "Fun Hub", "Leaderboard"),
+        ("win-of-week", "Fun Hub", "Win of the Week"),
+        ("team", "Team", "Team Management"),
+        ("leave", "Team", "Leave"),
+        ("export", "Admin", "Export"),
+        ("settings", "Admin", "Settings"),
+        ("api-keys", "Admin", "API Keys"),
+        ("access-requests", "Admin", "Access Requests"),
+    };
+
+    var roles = new[] { "Member", "TeamLead", "TechLead" };
+
+    foreach (var (key, category, label) in features)
+    {
+        foreach (var role in roles)
+        {
+            var exists = await db.FeaturePermissions.AnyAsync(p => p.FeatureKey == key && p.Role == role);
+            if (!exists)
+            {
+                db.FeaturePermissions.Add(new TeamManager.Api.Domain.Entities.FeaturePermission
+                {
+                    FeatureKey = key,
+                    Category = category,
+                    Label = label,
+                    Role = role,
+                    IsEnabled = true,
+                });
+            }
+        }
+    }
+
+    await db.SaveChangesAsync();
+}
