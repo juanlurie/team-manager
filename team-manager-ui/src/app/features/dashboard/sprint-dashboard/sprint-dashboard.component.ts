@@ -6,7 +6,8 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
-import { forkJoin } from 'rxjs';
+import { forkJoin, of } from 'rxjs';
+import { catchError } from 'rxjs/operators';
 import { Sprint } from '../../../core/models/sprint.model';
 import { SprintSummary, Blocker, DashboardLeaveSummary } from '../../../core/models/dashboard.model';
 import { Feature } from '../../../core/models/feature.model';
@@ -159,14 +160,14 @@ export class SprintDashboardComponent implements OnInit {
     this.selectedSprintId = sprint.id;
     this.loading.set(true);
     const requests: Record<string, any> = {
-      summary:      this.dashSvc.getSprintSummary(sprint.id),
-      blockers:     this.dashSvc.getBlockers(sprint.id),
-      discussions:  this.discussionSvc.getAll(),
-      retroActions: this.retroActionSvc.getBySprintId(sprint.id),
-      leaveSummary: this.dashSvc.getLeaveSummary(sprint.id),
+      summary:      this.dashSvc.getSprintSummary(sprint.id).pipe(catchError(() => of(null))),
+      blockers:     this.dashSvc.getBlockers(sprint.id).pipe(catchError(() => of([]))),
+      discussions:  this.discussionSvc.getAll().pipe(catchError(() => of([]))),
+      retroActions: this.retroActionSvc.getBySprintId(sprint.id).pipe(catchError(() => of([]))),
+      leaveSummary: this.dashSvc.getLeaveSummary(sprint.id).pipe(catchError(() => of(null))),
     };
     if (sprint.piId) {
-      requests['piFeatures'] = this.featureSvc.getAllAcrossSprints({ piId: sprint.piId });
+      requests['piFeatures'] = this.featureSvc.getAllAcrossSprints({ piId: sprint.piId }).pipe(catchError(() => of([])));
     }
 
     forkJoin(requests).subscribe((res: any) => {
