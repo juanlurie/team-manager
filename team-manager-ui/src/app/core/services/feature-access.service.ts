@@ -1,6 +1,7 @@
 import { Injectable, inject, signal, computed } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpContext } from '@angular/common/http';
 import { API_BASE } from './api.config';
+import { SKIP_ERROR_TOAST } from '../interceptors/error.interceptor';
 
 export interface FeaturePermission {
   featureKey: string;
@@ -22,7 +23,9 @@ export class FeatureAccessService {
   private loaded = signal(false);
 
   loadPermissions() {
-    this.http.get<MyPermissionsResponse>(`${this.base}/me`).subscribe({
+    this.http.get<MyPermissionsResponse>(`${this.base}/me`, {
+      context: new HttpContext().set(SKIP_ERROR_TOAST, true)
+    }).subscribe({
       next: (data) => {
         const map = new Map<string, boolean>();
         for (const p of data.permissions) {
