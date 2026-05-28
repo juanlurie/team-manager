@@ -14,5 +14,10 @@ public class CoffeeRunMenuTemplateItem
     /// </summary>
     public string? Sizes { get; set; }
 
+    /// <summary>
+    /// JSON array of addition categories, e.g. [{"name":"Milk","options":["Whole","Oat","Almond"]},{"name":"Syrup","options":["Vanilla","Caramel"]}]
+    /// </summary>
+    public string? Additions { get; set; }
+
     public CoffeeRunMenuTemplate Template { get; set; } = null!;
 }

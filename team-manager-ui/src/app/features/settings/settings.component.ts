@@ -15,6 +15,20 @@ interface ConfigCard {
 
 const CONFIG_CARDS: ConfigCard[] = [
   {
+    icon: 'shield',
+    label: 'Feature Permissions',
+    description: 'Control which features are available to each role',
+    path: '/settings/feature-permissions',
+    color: '#64b5f6'
+  },
+  {
+    icon: 'key',
+    label: 'API Keys',
+    description: 'Manage your personal API keys for programmatic access',
+    path: '/settings/api-keys',
+    color: '#4caf50'
+  },
+  {
     icon: 'api',
     label: 'Request Configs',
     description: 'API request templates tied to actions: fetch leave, add timesheet, etc.',

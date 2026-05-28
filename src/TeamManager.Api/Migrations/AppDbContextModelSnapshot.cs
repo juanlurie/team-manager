@@ -291,6 +291,9 @@ namespace TeamManager.Api.Migrations
                     b.Property<string>("Sizes")
                         .HasColumnType("text");
 
+                    b.Property<string?>("Additions")
+                        .HasColumnType("text");
+
                     b.Property<int>("SortOrder")
                         .HasColumnType("integer");
 
@@ -360,6 +363,9 @@ namespace TeamManager.Api.Migrations
                         .HasColumnType("decimal(10,2)");
 
                     b.Property<string>("Sizes")
+                        .HasColumnType("text");
+
+                    b.Property<string?>("Additions")
                         .HasColumnType("text");
 
                     b.Property<int>("SortOrder")
@@ -436,6 +442,9 @@ namespace TeamManager.Api.Migrations
                         .HasColumnType("integer");
 
                     b.Property<string>("SelectedSize")
+                        .HasColumnType("text");
+
+                    b.Property<string?>("SelectedAdditions")
                         .HasColumnType("text");
 
                     b.Property<decimal>("UnitPrice")
@@ -2826,9 +2835,191 @@ namespace TeamManager.Api.Migrations
                     b.Navigation("Items");
                 });
 
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.ScrumPokerSession", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<Guid>("CreatedByMemberId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string?>("StoryTitle")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string?>("Description")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<string>("Scale")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<bool>("Revealed")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset?>("RevealedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset?>("ResetAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedByMemberId")
+                        .HasDatabaseName("IX_ScrumPokerSession_CreatedByMemberId");
+
+                    b.HasIndex("CreatedAt")
+                        .HasDatabaseName("IX_ScrumPokerSession_CreatedAt");
+
+                    b.ToTable("ScrumPokerSessions");
+
+                    b.HasOne("TeamManager.Api.Domain.Entities.TeamMember", "CreatedByMember")
+                        .WithMany()
+                        .HasForeignKey("CreatedByMemberId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("CreatedByMember");
+
+                    b.Navigation("Votes");
+                });
+
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.ScrumPokerVote", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<Guid>("SessionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("MemberId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string?>("Value")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<DateTimeOffset>("VotedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("MemberId")
+                        .HasDatabaseName("IX_ScrumPokerVote_MemberId");
+
+                    b.HasIndex("SessionId")
+                        .HasDatabaseName("IX_ScrumPokerVote_SessionId");
+
+                    b.HasIndex(new[] { "SessionId", "MemberId" })
+                        .IsUnique()
+                        .HasDatabaseName("IX_ScrumPokerVote_SessionId_MemberId");
+
+                    b.ToTable("ScrumPokerVotes");
+
+                    b.HasOne("TeamManager.Api.Domain.Entities.ScrumPokerSession", "Session")
+                        .WithMany("Votes")
+                        .HasForeignKey("SessionId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.HasOne("TeamManager.Api.Domain.Entities.TeamMember", "Member")
+                        .WithMany()
+                        .HasForeignKey("MemberId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Member");
+
+                    b.Navigation("Session");
+                });
+
             modelBuilder.Entity("TeamManager.Api.Domain.Entities.Feature", b =>
                 {
                     b.Navigation("WorkItems");
+                });
+
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.FeaturePermission", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<string>("FeatureKey")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("Category")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("Label")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("Role")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<bool>("IsEnabled")
+                        .HasColumnType("boolean");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex(new[] { "FeatureKey", "Role" })
+                        .IsUnique()
+                        .HasDatabaseName("IX_FeaturePermission_FeatureKey_Role");
+
+                    b.ToTable("FeaturePermissions");
+                });
+
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.MemberFeatureOverride", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<Guid>("TeamMemberId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("FeatureKey")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<bool>("IsEnabled")
+                        .HasColumnType("boolean");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex(new[] { "TeamMemberId", "FeatureKey" })
+                        .IsUnique()
+                        .HasDatabaseName("IX_MemberFeatureOverride_MemberId_FeatureKey");
+
+                    b.ToTable("MemberFeatureOverrides");
+
+                    b.HasOne("TeamManager.Api.Domain.Entities.TeamMember", "TeamMember")
+                        .WithMany()
+                        .HasForeignKey("TeamMemberId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.Navigation("TeamMember");
                 });
 
             modelBuilder.Entity("TeamManager.Api.Domain.Entities.MeetingSeries", b =>
@@ -2894,6 +3085,11 @@ namespace TeamManager.Api.Migrations
             modelBuilder.Entity("TeamManager.Api.Domain.Entities.Squad", b =>
                 {
                     b.Navigation("Members");
+                });
+
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.ScrumPokerSession", b =>
+                {
+                    b.Navigation("Votes");
                 });
 
             modelBuilder.Entity("TeamManager.Api.Domain.Entities.TeamMember", b =>

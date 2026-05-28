@@ -1,0 +1,141 @@
+.expense-claim-page {
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.page-title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.87);
+  margin: 0 0 24px;
+}
+
+.form-card {
+  background: #131e2b;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.form-card .mat-mdc-card-header {
+  margin-bottom: 16px;
+}
+
+.form-card .mat-mdc-card-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.87);
+}
+
+.form-card .mat-mdc-card-subtitle {
+  color: rgba(255, 255, 255, 0.45);
+  margin-top: 4px;
+}
+
+.info-row {
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.info-item {
+  font-size: 0.9rem;
+}
+
+.expense-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 16px;
+}
+
+.expense-table thead th {
+  text-align: left;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.4);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 8px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.expense-table tbody td {
+  padding: 8px 12px;
+  vertical-align: top;
+}
+
+.col-description {
+  width: 35%;
+}
+
+.col-place {
+  width: 35%;
+}
+
+.col-amount {
+  width: 20%;
+}
+
+.col-actions {
+  width: 10%;
+  text-align: center;
+}
+
+.full-width {
+  width: 100%;
+}
+
+.full-width .mat-mdc-form-field-flex {
+  --mdc-outlined-text-field-outline-color: rgba(255, 255, 255, 0.12);
+}
+
+.full-width input {
+  color: rgba(255, 255, 255, 0.87);
+}
+
+.actions-row {
+  margin-bottom: 24px;
+}
+
+.total-row {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  margin-bottom: 16px;
+}
+
+.total-label {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.6);
+  text-transform: uppercase;
+}
+
+.total-value {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.87);
+}
+
+.signature-row {
+  padding: 12px 0;
+  margin-bottom: 16px;
+}
+
+.signature-text {
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.5);
+  font-style: italic;
+}
+
+.download-row {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 8px;
+}
+
+::ng-deep .form-card .mat-mdc-form-field-subscript-wrapper {
+  display: none;
+}

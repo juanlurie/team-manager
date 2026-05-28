@@ -115,6 +115,66 @@ public class WinOfTheWeekService(AppDbContext db) : IWinOfTheWeekService
         };
     }
 
+    public async Task<WinNominationDto> UpdateNominationAsync(Guid memberId, Guid nominationId, CreateNominationRequest request)
+    {
+        var nomination = await db.WinNominations
+            .Include(n => n.TeamMember)
+            .Include(n => n.Nominee)
+            .Include(n => n.WinWeek)
+            .FirstOrDefaultAsync(n => n.Id == nominationId);
+
+        if (nomination is null)
+            throw new KeyNotFoundException("Nomination not found.");
+
+        if (nomination.TeamMemberId != memberId)
+            throw new InvalidOperationException("You can only edit your own nominations.");
+
+        if (nomination.WinWeek.Status != WinWeekStatus.Nominating)
+            throw new InvalidOperationException("Nominations can only be edited before voting opens.");
+
+        nomination.Title = request.Title;
+        nomination.Description = request.Description;
+        nomination.NomineeMemberId = request.NomineeMemberId;
+
+        await db.SaveChangesAsync();
+
+        return new WinNominationDto
+        {
+            Id = nomination.Id,
+            WinWeekId = nomination.WinWeekId,
+            TeamMemberId = nomination.TeamMemberId,
+            TeamMemberName = $"{nomination.TeamMember.FirstName} {nomination.TeamMember.LastName}",
+            NomineeMemberId = nomination.NomineeMemberId,
+            NomineeName = $"{nomination.Nominee.FirstName} {nomination.Nominee.LastName}",
+            Title = nomination.Title,
+            Description = nomination.Description,
+            CreatedAt = nomination.CreatedAt,
+            VoteCount = nomination.Votes.Count,
+            HasVoted = false
+        };
+    }
+
+    public async Task<bool> DeleteNominationAsync(Guid memberId, Guid nominationId)
+    {
+        var nomination = await db.WinNominations
+            .Include(n => n.WinWeek)
+            .FirstOrDefaultAsync(n => n.Id == nominationId);
+
+        if (nomination is null)
+            throw new KeyNotFoundException("Nomination not found.");
+
+        if (nomination.TeamMemberId != memberId)
+            throw new InvalidOperationException("You can only delete your own nominations.");
+
+        if (nomination.WinWeek.Status != WinWeekStatus.Nominating)
+            throw new InvalidOperationException("Nominations can only be deleted before voting opens.");
+
+        db.WinNominations.Remove(nomination);
+        await db.SaveChangesAsync();
+
+        return true;
+    }
+
     public async Task<WinVoteDto> VoteAsync(Guid memberId, Guid nominationId)
     {
         var nomination = await db.WinNominations

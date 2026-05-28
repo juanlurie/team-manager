@@ -9,4 +9,5 @@ public record CoffeeRunOrderItemDto
     public int Quantity { get; init; }
     public decimal LineTotal { get; init; }
     public string? SelectedSize { get; init; }
+    public string? SelectedAdditions { get; init; }
 }

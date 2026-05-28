@@ -42,6 +42,10 @@ export class ManageMenusComponent implements OnInit {
   editingItemId = signal<string | null>(null);
   editingItemName = '';
   editingItemPrice = '';
+  editingItemAdditions: { name: string; options: string[] }[] = [];
+
+  newItemAdditions: { name: string; options: string[] } = { name: '', options: [] };
+  newItemAdditionOption = '';
 
   importText = '';
   importName = '';
@@ -142,6 +146,11 @@ export class ManageMenusComponent implements OnInit {
     this.editingItemId.set(item.id);
     this.editingItemName = item.name;
     this.editingItemPrice = item.price?.toString() ?? '';
+    try {
+      this.editingItemAdditions = item.additions ? JSON.parse(item.additions) : [];
+    } catch {
+      this.editingItemAdditions = [];
+    }
   }
 
   saveEditItem(item: TemplateItem) {
@@ -153,7 +162,8 @@ export class ManageMenusComponent implements OnInit {
     const priceStr = String(this.editingItemPrice).trim();
     const req: UpdateTemplateItemRequest = {
       name,
-      price: priceStr ? parseFloat(priceStr) : null
+      price: priceStr ? parseFloat(priceStr) : null,
+      additions: JSON.stringify(this.editingItemAdditions.filter(a => a.name.trim() && a.options.length > 0))
     };
 
     this.coffeeRunSvc.updateTemplateItem(t.id, item.id, req).subscribe({
@@ -168,6 +178,25 @@ export class ManageMenusComponent implements OnInit {
 
   cancelEditItem() {
     this.editingItemId.set(null);
+  }
+
+  addAdditionCategory() {
+    this.editingItemAdditions.push({ name: '', options: [] });
+  }
+
+  removeAdditionCategory(index: number) {
+    this.editingItemAdditions.splice(index, 1);
+  }
+
+  addAdditionOption(categoryIndex: number) {
+    const option = prompt('Option name:');
+    if (option && option.trim()) {
+      this.editingItemAdditions[categoryIndex].options.push(option.trim());
+    }
+  }
+
+  removeAdditionOption(categoryIndex: number, optionIndex: number) {
+    this.editingItemAdditions[categoryIndex].options.splice(optionIndex, 1);
   }
 
   deleteItem(item: TemplateItem) {

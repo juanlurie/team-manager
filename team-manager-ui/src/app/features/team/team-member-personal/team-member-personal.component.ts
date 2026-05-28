@@ -16,6 +16,7 @@ import { ConfirmDialogComponent } from '../../../shared/components/confirm-dialo
 import { IconButtonComponent } from '../../../shared/components/icon-btn/icon-btn.component';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { TimesheetTabComponent } from './timesheet-tab/timesheet-tab.component';
+import { PermissionsTabComponent } from './permissions-tab/permissions-tab.component';
 
 const SKILL_CATEGORIES = ['Technical', 'Soft Skills'];
 const SKILL_FILTERS = ['All', ...SKILL_CATEGORIES];
@@ -38,7 +39,7 @@ const MAP_CATEGORIES: MapCategory[] = [
 @Component({
   selector: 'app-team-member-personal',
   standalone: true,
-  imports: [CommonModule, FormsModule, MatIconModule, MatButtonModule, MatTooltipModule, MatTabsModule, MatDialogModule, MatProgressSpinnerModule, TimesheetTabComponent, IconButtonComponent],
+  imports: [CommonModule, FormsModule, MatIconModule, MatButtonModule, MatTooltipModule, MatTabsModule, MatDialogModule, MatProgressSpinnerModule, TimesheetTabComponent, PermissionsTabComponent, IconButtonComponent],
   templateUrl: './team-member-personal.component.html',
   styleUrls: ['./team-member-personal.component.scss']
 })

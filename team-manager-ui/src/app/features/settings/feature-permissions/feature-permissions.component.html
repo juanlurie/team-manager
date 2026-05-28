@@ -1,0 +1,85 @@
+<div style="max-width:900px;margin:0 auto;padding:0 8px;overflow-x:hidden">
+  <!-- Header -->
+  <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">
+    <button class="icon-btn" routerLink="/settings" matTooltip="Back to Settings">
+      <mat-icon style="font-size:20px;height:20px;width:20px">arrow_back</mat-icon>
+    </button>
+    <mat-icon style="font-size:1.6rem;width:1.6rem;height:1.6rem;color:#64b5f6">shield</mat-icon>
+    <h2 style="margin:0;font-size:1.3rem;font-weight:700">Feature Permissions</h2>
+  </div>
+
+  <p style="font-size:0.82rem;opacity:0.5;margin-bottom:20px">
+    Control which features are available to each role. Toggle switches off to disable a feature for that role.
+  </p>
+
+  @if (loading()) {
+    <div style="display:flex;justify-content:center;padding:40px">
+      <mat-spinner diameter="32"></mat-spinner>
+    </div>
+  } @else {
+    @for (group of matrixGroups(); track group.category) {
+      <div class="section" style="margin-bottom:16px">
+        <div class="section-header">
+          <mat-icon style="font-size:18px;height:18px;width:18px;opacity:0.5">folder</mat-icon>
+          <span style="font-size:0.85rem;font-weight:600;flex:1">{{ group.category }}</span>
+        </div>
+
+        <div style="overflow-x:auto">
+          <table style="width:100%;border-collapse:collapse;font-size:0.82rem;table-layout:fixed">
+            <colgroup>
+              <col style="width:auto">
+              <col style="width:90px">
+              <col style="width:90px">
+              <col style="width:90px">
+            </colgroup>
+            <thead>
+              <tr style="border-bottom:1px solid rgba(255,255,255,0.06)">
+                <th style="text-align:left;padding:8px 12px;font-weight:600;opacity:0.5;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.05em">Feature</th>
+                <th style="text-align:center;padding:8px 12px;font-weight:600;opacity:0.5;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.05em">Member</th>
+                <th style="text-align:center;padding:8px 12px;font-weight:600;opacity:0.5;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.05em">TeamLead</th>
+                <th style="text-align:center;padding:8px 12px;font-weight:600;opacity:0.5;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.05em">TechLead</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (row of group.rows; track row.featureKey) {
+                <tr style="border-bottom:1px solid rgba(255,255,255,0.03)">
+                  <td style="padding:8px 12px;font-weight:500">{{ row.label }}</td>
+                  <td style="text-align:center;padding:8px 12px">
+                    <button class="icon-btn" [style.color]="row.roleEnabled['Member'] ? '#4caf50' : 'rgba(255,255,255,0.2)'"
+                            (click)="togglePermission(row.featureKey, 'Member', row.roleEnabled['Member'] ?? true)"
+                            [disabled]="isSaving(row.featureKey, 'Member')"
+                            [matTooltip]="(row.roleEnabled['Member'] ?? true) ? 'Enabled - click to disable' : 'Disabled - click to enable'">
+                      <mat-icon style="font-size:20px;height:20px;width:20px">
+                        {{ isSaving(row.featureKey, 'Member') ? 'hourglass_empty' : ((row.roleEnabled['Member'] ?? true) ? 'toggle_on' : 'toggle_off') }}
+                      </mat-icon>
+                    </button>
+                  </td>
+                  <td style="text-align:center;padding:8px 12px">
+                    <button class="icon-btn" [style.color]="row.roleEnabled['TeamLead'] ? '#4caf50' : 'rgba(255,255,255,0.2)'"
+                            (click)="togglePermission(row.featureKey, 'TeamLead', row.roleEnabled['TeamLead'] ?? true)"
+                            [disabled]="isSaving(row.featureKey, 'TeamLead')"
+                            [matTooltip]="(row.roleEnabled['TeamLead'] ?? true) ? 'Enabled - click to disable' : 'Disabled - click to enable'">
+                      <mat-icon style="font-size:20px;height:20px;width:20px">
+                        {{ isSaving(row.featureKey, 'TeamLead') ? 'hourglass_empty' : ((row.roleEnabled['TeamLead'] ?? true) ? 'toggle_on' : 'toggle_off') }}
+                      </mat-icon>
+                    </button>
+                  </td>
+                  <td style="text-align:center;padding:8px 12px">
+                    <button class="icon-btn" [style.color]="row.roleEnabled['TechLead'] ? '#4caf50' : 'rgba(255,255,255,0.2)'"
+                            (click)="togglePermission(row.featureKey, 'TechLead', row.roleEnabled['TechLead'] ?? true)"
+                            [disabled]="isSaving(row.featureKey, 'TechLead')"
+                            [matTooltip]="(row.roleEnabled['TechLead'] ?? true) ? 'Enabled - click to disable' : 'Disabled - click to enable'">
+                      <mat-icon style="font-size:20px;height:20px;width:20px">
+                        {{ isSaving(row.featureKey, 'TechLead') ? 'hourglass_empty' : ((row.roleEnabled['TechLead'] ?? true) ? 'toggle_on' : 'toggle_off') }}
+                      </mat-icon>
+                    </button>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+    }
+  }
+</div>

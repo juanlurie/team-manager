@@ -8,5 +8,6 @@ public record CreateMenuItemRequest(
     [MaxLength(50)] string? Category,
     int? MaxQuantity,
     int SortOrder = 0,
-    string? Sizes = null
+    string? Sizes = null,
+    string? Additions = null
 );

@@ -31,6 +31,7 @@ const PRIMARY_NAV: NavItem[] = [
 
 const SECONDARY_NAV: NavItem[] = [
   { path: '/access-requests', icon: 'person_add', label: 'Access Requests' },
+  { path: '/expense-claim', icon: 'receipt_long', label: 'Expense Claim' },
   { path: '/settings', icon: 'settings', label: 'Settings' },
   { path: '/export', icon: 'download', label: 'Export' },
   { path: '/profile', icon: 'person', label: 'Profile' },
@@ -50,13 +51,12 @@ const MORE_NAV: NavItem[] = [
   { path: '/progress',       icon: 'track_changes',  label: 'Progress'      },
   { path: '/discussion',     icon: 'forum',          label: 'Discussion'    },
   { path: '/meetings',       icon: 'event',          label: 'Meetings'      },
-  { path: '/fun',            icon: 'casino',         label: 'Fun Hub'       },
   { path: '/showcase',       icon: 'auto_awesome',   label: 'Showcase'      },
   { path: '/access-requests',icon: 'person_add',     label: 'Access Requests' },
+  { path: '/expense-claim',  icon: 'receipt_long',   label: 'Expense Claim' },
   { path: '/settings',       icon: 'settings',       label: 'Settings'      },
   { path: '/export',         icon: 'download',       label: 'Export'        },
   { path: '/profile',        icon: 'person',         label: 'Profile'       },
-  { path: '/leave',          icon: 'event_busy',     label: 'Leave'         },
 ];
 
 @Component({

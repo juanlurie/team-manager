@@ -35,6 +35,44 @@ public class WinOfTheWeekController(IWinOfTheWeekService service, AppDbContext d
         }
     }
 
+    [HttpPut("nominations/{nominationId:guid}")]
+    public async Task<IActionResult> UpdateNomination(Guid nominationId, [FromBody] CreateNominationRequest request)
+    {
+        var memberId = GetCurrentMemberId();
+        try
+        {
+            var result = await service.UpdateNominationAsync(memberId, nominationId, request);
+            return Ok(result);
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound(new { error = "Nomination not found." });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
+    [HttpDelete("nominations/{nominationId:guid}")]
+    public async Task<IActionResult> DeleteNomination(Guid nominationId)
+    {
+        var memberId = GetCurrentMemberId();
+        try
+        {
+            await service.DeleteNominationAsync(memberId, nominationId);
+            return NoContent();
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound(new { error = "Nomination not found." });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
     [HttpPost("nominations/{nominationId:guid}/vote")]
     public async Task<IActionResult> Vote(Guid nominationId)
     {

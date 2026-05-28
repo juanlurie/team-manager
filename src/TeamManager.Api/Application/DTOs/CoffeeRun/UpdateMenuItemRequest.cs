@@ -9,5 +9,6 @@ public record UpdateMenuItemRequest(
     int? MaxQuantity,
     bool? IsAvailable,
     int? SortOrder,
-    string? Sizes
+    string? Sizes,
+    string? Additions
 );

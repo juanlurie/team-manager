@@ -34,6 +34,10 @@ export const FUN_ROUTES: Routes = [
       {
         path: 'manage-menus',
         loadChildren: () => import('../manage-menus/manage-menus.routes').then(m => m.MANAGE_MENUS_ROUTES)
+      },
+      {
+        path: 'scrum-poker',
+        loadChildren: () => import('../scrum-poker/scrum-poker.routes').then(m => m.SCRUM_POKER_ROUTES)
       }
     ]
   }

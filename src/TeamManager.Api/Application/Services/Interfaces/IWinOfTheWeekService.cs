@@ -6,6 +6,8 @@ public interface IWinOfTheWeekService
 {
     Task<WinWeekDto> GetCurrentWeekAsync(Guid currentMemberId);
     Task<WinNominationDto> CreateNominationAsync(Guid memberId, CreateNominationRequest request);
+    Task<WinNominationDto> UpdateNominationAsync(Guid memberId, Guid nominationId, CreateNominationRequest request);
+    Task<bool> DeleteNominationAsync(Guid memberId, Guid nominationId);
     Task<WinVoteDto> VoteAsync(Guid memberId, Guid nominationId);
     Task<bool> RemoveVoteAsync(Guid memberId, Guid nominationId);
     Task<WinWeekDto> CloseWeekAsync(Guid memberId, CloseWeekRequest request);
