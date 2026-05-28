@@ -1,6 +1,21 @@
-import { Component } from '@angular/core';
+import { Component, inject, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { FeatureAccessService } from '../../core/services/feature-access.service';
+
+interface FunTab {
+  label: string;
+  route: string;
+  featureKey: string;
+}
+
+const FUN_TABS: FunTab[] = [
+  { label: 'Win of the Week', route: 'win-of-the-week', featureKey: 'win-of-week' },
+  { label: 'Leaderboard', route: 'leaderboard', featureKey: 'leaderboard' },
+  { label: 'Spin Wheel', route: 'wheel', featureKey: 'wheel' },
+  { label: 'Coffee Run', route: 'coffee-run', featureKey: 'coffee-run' },
+  { label: 'Scrum Poker', route: 'scrum-poker', featureKey: 'scrum-poker' },
+];
 
 @Component({
   selector: 'app-fun-hub',
@@ -9,11 +24,9 @@ import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
   template: `
     <div class="hub">
       <nav class="hub-tabs" role="tablist">
-        <a class="hub-tab" routerLink="win-of-the-week" routerLinkActive="active" role="tab">Win of the Week</a>
-        <a class="hub-tab" routerLink="leaderboard" routerLinkActive="active" role="tab">Leaderboard</a>
-        <a class="hub-tab" routerLink="wheel" routerLinkActive="active" role="tab">Spin Wheel</a>
-        <a class="hub-tab" routerLink="coffee-run" routerLinkActive="active" role="tab">Coffee Run</a>
-        <a class="hub-tab" routerLink="scrum-poker" routerLinkActive="active" role="tab">Scrum Poker</a>
+        @for (tab of visibleTabs(); track tab.route) {
+          <a class="hub-tab" [routerLink]="tab.route" routerLinkActive="active" role="tab">{{ tab.label }}</a>
+        }
       </nav>
       <div class="hub-content">
         <router-outlet />
@@ -42,4 +55,7 @@ import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
     .hub-content { min-height:200px; }
   `]
 })
-export class FunHubComponent {}
+export class FunHubComponent {
+  private featureAccess = inject(FeatureAccessService);
+  visibleTabs = computed(() => FUN_TABS.filter(t => this.featureAccess.hasAccess(t.featureKey)));
+}
