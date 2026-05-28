@@ -9,7 +9,6 @@ using TeamManager.Api.Middleware;
 namespace TeamManager.Api.Presentation.Controllers;
 
 [ApiController]
-[RequireFeature("win-of-week")]
 [Route("api/v1/win-of-the-week")]
 public class WinOfTheWeekController(IWinOfTheWeekService service, AppDbContext db) : ControllerBase
 {

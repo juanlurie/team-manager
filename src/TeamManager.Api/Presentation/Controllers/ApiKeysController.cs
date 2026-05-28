@@ -12,7 +12,6 @@ using TeamManager.Api.Infrastructure.Data;
 namespace TeamManager.Api.Presentation.Controllers;
 
 [ApiController]
-[RequireFeature("api-keys")]
 [Route("api/v1/api-keys")]
 [Authorize]
 public class ApiKeysController(AppDbContext db) : ControllerBase

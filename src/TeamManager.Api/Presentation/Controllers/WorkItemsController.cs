@@ -9,7 +9,6 @@ using TeamManager.Api.Infrastructure.Data;
 namespace TeamManager.Api.Presentation.Controllers;
 
 [ApiController]
-[RequireFeature("sprints")]
 public class WorkItemsController(IWorkItemService service, AppDbContext db) : ControllerBase
 {
     [HttpGet("api/v1/sprint-members/{sprintMemberId:guid}/work-items")]

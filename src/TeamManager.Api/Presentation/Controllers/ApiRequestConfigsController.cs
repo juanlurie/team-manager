@@ -10,7 +10,6 @@ using TeamManager.Api.Infrastructure.Data;
 namespace TeamManager.Api.Presentation.Controllers;
 
 [ApiController]
-[RequireFeature("settings")]
 [Route("api/v1/request-configs")]
 [Authorize]
 public class ApiRequestConfigsController : ControllerBase
