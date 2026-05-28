@@ -1,6 +1,7 @@
 .expense-claim-page {
   max-width: 900px;
   margin: 0 auto;
+  padding: 0 8px;
 }
 
 .page-title {
@@ -134,6 +135,69 @@
   display: flex;
   justify-content: flex-end;
   padding-top: 8px;
+}
+
+/* Mobile card layout */
+.mobile-items {
+  display: none;
+}
+
+.mobile-item-card {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 12px;
+}
+
+.mobile-item-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.mobile-item-number {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.5);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .page-title {
+    font-size: 1.2rem;
+    margin-bottom: 16px;
+  }
+
+  .info-row {
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .desktop-table {
+    display: none;
+  }
+
+  .mobile-items {
+    display: block;
+  }
+
+  .total-row {
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+  }
+
+  .download-row {
+    justify-content: stretch;
+  }
+
+  .download-row button {
+    width: 100%;
+  }
 }
 
 ::ng-deep .form-card .mat-mdc-form-field-subscript-wrapper {
