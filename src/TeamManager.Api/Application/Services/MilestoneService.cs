@@ -9,17 +9,88 @@ namespace TeamManager.Api.Application.Services;
 
 public class MilestoneService(AppDbContext db) : IMilestoneService
 {
-    public async Task<IReadOnlyList<MilestoneDto>> GetByPIAsync(Guid piId)
+    public async Task<IReadOnlyList<MilestoneDto>> GetByPIAsync(Guid piId, string? scope = null, Guid? squadId = null)
     {
-        var milestones = await db.Milestones
+        var query = db.Milestones
             .Include(m => m.WorkItems)
             .Include(m => m.Criteria)
-            .Where(m => m.PIId == piId)
+            .Include(m => m.Squad)
+            .Where(m => m.PIId == piId);
+
+        if (!string.IsNullOrEmpty(scope) && scope != "All")
+        {
+            if (Enum.TryParse<MilestoneScope>(scope, true, out var parsedScope))
+            {
+                query = query.Where(m => m.Scope == parsedScope);
+            }
+        }
+
+        if (squadId.HasValue)
+        {
+            query = query.Where(m => m.SquadId == squadId.Value);
+        }
+
+        var milestones = await query
             .OrderBy(m => m.Position)
             .ThenBy(m => m.TargetDate)
             .ToListAsync();
 
         return milestones.Select(ToDto).ToList();
+    }
+
+    public async Task<MilestoneRoadmapDto> GetRoadmapAsync(Guid piId)
+    {
+        var pi = await db.PIs.FindAsync(piId);
+        var milestones = await db.Milestones
+            .Include(m => m.WorkItems)
+            .Include(m => m.Criteria)
+            .Include(m => m.Squad)
+            .Where(m => m.PIId == piId)
+            .OrderBy(m => m.TargetDate)
+            .ThenBy(m => m.Position)
+            .ToListAsync();
+
+        var items = milestones.Select(m =>
+        {
+            var taskCount = m.WorkItems.Count;
+            var completedTaskCount = m.WorkItems.Count(w => w.Status == WorkItemStatus.Completed);
+            var progressPercent = taskCount == 0 ? 0m : Math.Round((decimal)completedTaskCount / taskCount * 100, 1);
+            var daysUntilTarget = m.TargetDate.HasValue
+                ? (m.TargetDate.Value.ToDateTime(TimeOnly.MinValue) - DateTime.Today).Days
+                : 0;
+
+            return new MilestoneRoadmapItemDto
+            {
+                Id = m.Id,
+                Title = m.Title,
+                Scope = m.Scope.ToString(),
+                SquadName = m.Squad?.Name,
+                SquadColor = m.Squad?.Color,
+                Status = m.Status.ToString(),
+                TargetDate = m.TargetDate,
+                ProgressPercent = progressPercent,
+                DaysUntilTarget = daysUntilTarget,
+                CriteriaTotal = m.Criteria.Count,
+                CriteriaCompleted = m.Criteria.Count(c => c.Completed)
+            };
+        }).ToList();
+
+        var completedCount = milestones.Count(m => m.Status == MilestoneStatus.Done);
+        var inProgressCount = milestones.Count(m => m.Status == MilestoneStatus.InProgress);
+        var upcomingCount = milestones.Count(m => m.Status == MilestoneStatus.Upcoming);
+        var overallProgress = milestones.Count == 0 ? 0m : Math.Round((decimal)completedCount / milestones.Count * 100, 1);
+
+        return new MilestoneRoadmapDto
+        {
+            PIId = piId,
+            PIName = pi?.Name ?? string.Empty,
+            TotalMilestones = milestones.Count,
+            CompletedMilestones = completedCount,
+            InProgressMilestones = inProgressCount,
+            UpcomingMilestones = upcomingCount,
+            OverallProgressPercent = overallProgress,
+            Milestones = items
+        };
     }
 
     public async Task<MilestoneDetailDto?> GetByIdAsync(Guid id)
@@ -32,6 +103,7 @@ public class MilestoneService(AppDbContext db) : IMilestoneService
             .Include(m => m.WorkItems)
                 .ThenInclude(w => w.SprintMember)
                 .ThenInclude(sm => sm.Sprint)
+            .Include(m => m.Squad)
             .FirstOrDefaultAsync(m => m.Id == id);
 
         if (milestone is null) return null;
@@ -68,6 +140,10 @@ public class MilestoneService(AppDbContext db) : IMilestoneService
             Description = milestone.Description,
             TargetDate = milestone.TargetDate,
             Status = milestone.Status.ToString(),
+            Scope = milestone.Scope.ToString(),
+            SquadId = milestone.SquadId,
+            SquadName = milestone.Squad?.Name,
+            SquadColor = milestone.Squad?.Color,
             Position = milestone.Position,
             CreatedAt = milestone.CreatedAt,
             UpdatedAt = milestone.UpdatedAt,
@@ -84,6 +160,11 @@ public class MilestoneService(AppDbContext db) : IMilestoneService
 
     public async Task<MilestoneDto> CreateAsync(Guid piId, CreateMilestoneRequest request)
     {
+        if (request.Scope == MilestoneScope.Squad && !request.SquadId.HasValue)
+        {
+            throw new ArgumentException("SquadId is required when scope is Squad");
+        }
+
         var milestone = new Milestone
         {
             PIId = piId,
@@ -91,6 +172,8 @@ public class MilestoneService(AppDbContext db) : IMilestoneService
             Description = request.Description,
             TargetDate = request.TargetDate,
             Status = request.Status,
+            Scope = request.Scope,
+            SquadId = request.SquadId,
             Position = request.Position,
             CreatedAt = DateTimeOffset.UtcNow,
             UpdatedAt = DateTimeOffset.UtcNow
@@ -110,6 +193,11 @@ public class MilestoneService(AppDbContext db) : IMilestoneService
         if (request.TargetDate is not null) milestone.TargetDate = request.TargetDate;
         if (request.Status.HasValue) milestone.Status = request.Status.Value;
         if (request.Position.HasValue) milestone.Position = request.Position.Value;
+        if (request.Scope.HasValue) milestone.Scope = request.Scope.Value;
+        if (request.SquadId.HasValue || (request.Scope.HasValue && request.Scope.Value == MilestoneScope.Global))
+        {
+            milestone.SquadId = request.SquadId;
+        }
         milestone.UpdatedAt = DateTimeOffset.UtcNow;
 
         await db.SaveChangesAsync();
@@ -188,7 +276,7 @@ public class MilestoneService(AppDbContext db) : IMilestoneService
         }
     }
 
-    private static MilestoneDto ToDto(Milestone m)
+    private MilestoneDto ToDto(Milestone m)
     {
         var taskCount = m.WorkItems.Count;
         var completedTaskCount = m.WorkItems.Count(w => w.Status == WorkItemStatus.Completed);
@@ -204,6 +292,10 @@ public class MilestoneService(AppDbContext db) : IMilestoneService
             Description = m.Description,
             TargetDate = m.TargetDate,
             Status = m.Status.ToString(),
+            Scope = m.Scope.ToString(),
+            SquadId = m.SquadId,
+            SquadName = m.Squad?.Name,
+            SquadColor = m.Squad?.Color,
             Position = m.Position,
             CreatedAt = m.CreatedAt,
             UpdatedAt = m.UpdatedAt,

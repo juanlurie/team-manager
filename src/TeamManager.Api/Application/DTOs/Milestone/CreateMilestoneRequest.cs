@@ -8,5 +8,7 @@ public record CreateMilestoneRequest(
     [MaxLength(4000)] string? Description,
     DateOnly? TargetDate,
     MilestoneStatus Status = MilestoneStatus.Upcoming,
-    int Position = 0
+    int Position = 0,
+    MilestoneScope Scope = MilestoneScope.Global,
+    Guid? SquadId = null
 );

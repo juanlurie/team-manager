@@ -4,8 +4,9 @@ namespace TeamManager.Api.Application.Services.Interfaces;
 
 public interface IMilestoneService
 {
-    Task<IReadOnlyList<MilestoneDto>> GetByPIAsync(Guid piId);
+    Task<IReadOnlyList<MilestoneDto>> GetByPIAsync(Guid piId, string? scope = null, Guid? squadId = null);
     Task<MilestoneDetailDto?> GetByIdAsync(Guid id);
+    Task<MilestoneRoadmapDto> GetRoadmapAsync(Guid piId);
     Task<MilestoneDto> CreateAsync(Guid piId, CreateMilestoneRequest request);
     Task<MilestoneDto?> UpdateAsync(Guid id, UpdateMilestoneRequest request);
     Task<bool> DeleteAsync(Guid id);

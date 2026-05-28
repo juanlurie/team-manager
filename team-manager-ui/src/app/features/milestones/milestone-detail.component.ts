@@ -26,6 +26,7 @@ import {
 } from '../../core/models/milestone.model';
 import { StatusLabelPipe } from '../../core/pipes/status-label.pipe';
 import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/confirm-dialog.component';
+import { MilestoneScopeBadgeComponent } from '../../shared/components/milestone-scope-badge.component';
 
 @Component({
   selector: 'app-milestone-detail',
@@ -35,7 +36,7 @@ import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/c
     MatButtonModule, MatIconModule, MatDialogModule, MatSelectModule, MatFormFieldModule,
     MatInputModule, MatCheckboxModule, MatTooltipModule, MatMenuModule,
     MatCardModule, MatProgressBarModule, MatChipsModule, MatBadgeModule, MatDividerModule,
-    StatusLabelPipe
+    StatusLabelPipe, MilestoneScopeBadgeComponent
   ],
   template: `
     @if (loading()) {
@@ -58,6 +59,7 @@ import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/c
             <span [class]="statusClass(m.status)" style="padding:2px 10px;border-radius:10px;font-size:0.72rem;font-weight:600">
               {{ m.status }}
             </span>
+            <app-milestone-scope-badge [scope]="m.scope" [squadName]="m.squadName" [squadColor]="m.squadColor" />
           </div>
           @if (m.description) {
             <p style="opacity:0.55;margin:8px 0 0;font-size:0.9rem">{{ m.description }}</p>
@@ -103,7 +105,43 @@ import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/c
           style="height:8px;border-radius:4px"
           [color]="m.progressPercent >= 100 ? 'primary' : 'accent'">
         </mat-progress-bar>
+        @if (m.progressPercent >= 75 && m.progressPercent < 100) {
+          <div style="margin-top:6px;font-size:0.78rem;color:#4caf50">Almost there!</div>
+        }
+        @if (m.progressPercent === 100) {
+          <div style="margin-top:6px;font-size:0.78rem;color:#4caf50;font-weight:600">Milestone complete!</div>
+        }
       </div>
+
+      <!-- What's next (for non-Done milestones) -->
+      @if (m.status !== 'Done' && remainingTasks().length > 0) {
+        <div style="margin-bottom:24px;padding:16px;border-radius:10px;background:rgba(33,150,243,0.06);border:1px solid rgba(33,150,243,0.12)">
+          <h3 style="margin:0 0 8px;font-size:0.9rem;font-weight:600;color:#64b5f6">What's next</h3>
+          <div style="font-size:0.78rem;opacity:0.6;margin-bottom:8px">
+            {{ remainingTasks().length }} task{{ remainingTasks().length === 1 ? '' : 's' }} remaining to complete this milestone:
+          </div>
+          @for (t of remainingTasks(); track t.id) {
+            <div style="display:flex;align-items:center;gap:8px;padding:4px 0;font-size:0.82rem">
+              <span [class]="statusClass(t.status)" style="padding:1px 6px;border-radius:4px;font-size:0.65rem;font-weight:600">{{ t.status | statusLabel }}</span>
+              <span style="flex:1">{{ t.title }}</span>
+              <span style="opacity:0.5;font-size:0.75rem">{{ t.assignee }}</span>
+            </div>
+          }
+          @if (remainingCriteria().length > 0) {
+            <div style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.06)">
+              <div style="font-size:0.78rem;opacity:0.6;margin-bottom:4px">
+                {{ remainingCriteria().length }} criterion remaining:
+              </div>
+              @for (c of remainingCriteria(); track c.id) {
+                <div style="display:flex;align-items:center;gap:6px;padding:2px 0;font-size:0.82rem;opacity:0.7">
+                  <span style="width:12px;height:12px;border:1px solid rgba(255,255,255,0.3);border-radius:2px;flex-shrink:0"></span>
+                  {{ c.label }}
+                </div>
+              }
+            </div>
+          }
+        </div>
+      }
 
       <div style="display:flex;gap:24px;flex-wrap:wrap">
         <!-- Left column: Completion criteria -->
@@ -248,6 +286,18 @@ export class MilestoneDetailComponent implements OnInit {
   loading = signal(true);
   milestone = signal<MilestoneDetail | null>(null);
   newCriterionLabel = signal('');
+
+  remainingTasks = computed(() => {
+    const m = this.milestone();
+    if (!m) return [];
+    return m.tasks.filter(t => t.status !== 'Completed');
+  });
+
+  remainingCriteria = computed(() => {
+    const m = this.milestone();
+    if (!m) return [];
+    return m.criteria.filter(c => !c.completed);
+  });
 
   ngOnInit() {
     this.milestoneId = this.route.snapshot.paramMap.get('id')!;

@@ -12,6 +12,8 @@ public class MilestoneConfiguration : IEntityTypeConfiguration<Milestone>
         builder.Property(m => m.Id).HasDefaultValueSql("gen_random_uuid()");
         builder.Property(m => m.Title).IsRequired().HasMaxLength(255);
         builder.Property(m => m.Status).HasConversion<string>();
+        builder.Property(m => m.Scope).HasConversion<string>().HasDefaultValue("Global");
+        builder.Property(m => m.SquadId).IsRequired(false);
         builder.Property(m => m.CreatedAt).HasDefaultValueSql("now()");
         builder.Property(m => m.UpdatedAt).HasDefaultValueSql("now()");
 
@@ -19,5 +21,10 @@ public class MilestoneConfiguration : IEntityTypeConfiguration<Milestone>
             .WithMany(p => p.Milestones)
             .HasForeignKey(m => m.PIId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        builder.HasOne(m => m.Squad)
+            .WithMany()
+            .HasForeignKey(m => m.SquadId)
+            .OnDelete(DeleteBehavior.SetNull);
     }
 }

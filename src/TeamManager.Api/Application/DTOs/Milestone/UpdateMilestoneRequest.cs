@@ -8,5 +8,7 @@ public record UpdateMilestoneRequest(
     [MaxLength(4000)] string? Description,
     DateOnly? TargetDate,
     MilestoneStatus? Status,
-    int? Position
+    int? Position,
+    MilestoneScope? Scope,
+    Guid? SquadId
 );

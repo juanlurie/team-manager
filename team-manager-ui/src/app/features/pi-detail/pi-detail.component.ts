@@ -4,17 +4,39 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { MatDialogModule, MatDialog } from '@angular/material/dialog';
+import { MatDialogModule, MatDialog, MAT_DIALOG_DATA } from '@angular/material/dialog';
+import { MatButtonToggleModule } from '@angular/material/button-toggle';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInputModule } from '@angular/material/input';
+import { MatSelectModule } from '@angular/material/select';
+import { MatRadioModule } from '@angular/material/radio';
+import { FormsModule } from '@angular/forms';
 import { SprintService } from '../../core/services/sprint.service';
 import { MilestoneService } from '../../core/services/milestone.service';
+import { SquadService } from '../../core/services/squad.service';
 import { PI } from '../../core/models/sprint.model';
 import { Sprint } from '../../core/models/sprint.model';
-import { Milestone, CreateMilestoneRequest } from '../../core/models/milestone.model';
+import { Milestone, CreateMilestoneRequest, MilestoneScope } from '../../core/models/milestone.model';
+import { SquadSummary } from '../../core/models/squad.model';
+import { MilestoneScopeBadgeComponent } from '../../shared/components/milestone-scope-badge.component';
+
+interface MilestoneCreateDialogData {
+  title: string;
+  description: string | null;
+  targetDate: string | null;
+  scope: MilestoneScope;
+  squadId: string | null;
+}
 
 @Component({
   selector: 'app-pi-detail',
   standalone: true,
-  imports: [CommonModule, RouterLink, MatButtonModule, MatIconModule, MatTooltipModule, MatDialogModule],
+  imports: [
+    CommonModule, RouterLink, FormsModule,
+    MatButtonModule, MatIconModule, MatTooltipModule, MatDialogModule,
+    MatButtonToggleModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatRadioModule,
+    MilestoneScopeBadgeComponent
+  ],
   template: `
     @if (loading()) {
       <div style="text-align:center;padding:64px;opacity:0.35">Loading…</div>
@@ -44,17 +66,37 @@ import { Milestone, CreateMilestoneRequest } from '../../core/models/milestone.m
       <div style="margin-bottom:32px">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
           <h3 style="margin:0;font-size:0.95rem;font-weight:600">Milestones</h3>
-          <span style="font-size:0.75rem;opacity:0.4"> · {{ milestones().length }}</span>
+          <span style="font-size:0.75rem;opacity:0.4"> · {{ filteredMilestones().length }}</span>
           <span style="flex:1"></span>
+          <a mat-button [routerLink]="['/pis', piId, 'roadmap']" style="font-size:0.8rem">
+            <mat-icon style="font-size:16px;width:16px;height:16px;line-height:16px;margin-right:4px">map</mat-icon>
+            Road to Product
+          </a>
           <button mat-stroked-button color="primary" (click)="addMilestone()" style="font-size:0.8rem">
             <mat-icon style="font-size:16px;width:16px;height:16px;line-height:16px;margin-right:4px">add</mat-icon>
             Add milestone
           </button>
         </div>
 
+        <!-- Filter Bar -->
+        @if (userSquads().length > 0) {
+          <div style="margin-bottom:16px">
+            <mat-button-toggle-group [value]="scopeFilter()" (change)="scopeFilter.set($event.value)" style="font-size:0.78rem">
+              <mat-button-toggle value="All">All</mat-button-toggle>
+              <mat-button-toggle value="Global">Global</mat-button-toggle>
+              <mat-button-toggle value="MySquads">My Squads</mat-button-toggle>
+            </mat-button-toggle-group>
+          </div>
+        }
+
         @if (milestones().length === 0) {
           <div style="text-align:center;padding:48px;opacity:0.25;font-size:0.85rem;font-style:italic">
             No milestones yet — add one to start tracking outcomes within this PI
+          </div>
+        } @else if (filteredMilestones().length === 0) {
+          <div style="text-align:center;padding:48px;opacity:0.25;font-size:0.85rem">
+            No squad-specific milestones yet<br>
+            <span style="font-size:0.78rem">Global milestones are shown for everyone — create squad milestones to track your squad's progress</span>
           </div>
         } @else {
           <div style="position:relative;overflow-x:auto;padding:16px 0">
@@ -62,11 +104,17 @@ import { Milestone, CreateMilestoneRequest } from '../../core/models/milestone.m
             <div style="position:absolute;top:38px;left:0;right:0;height:2px;background:rgba(255,255,255,0.1)"></div>
 
             <div style="display:flex;gap:24px;min-width:max-content;align-items:flex-start">
-              @for (m of milestones(); track m.id; let i = $index) {
+              @for (m of filteredMilestones(); track m.id; let i = $index) {
                 <div style="display:flex;flex-direction:column;align-items:center;position:relative;min-width:140px;max-width:200px">
+                  <!-- Scope badge -->
+                  <div style="margin-bottom:6px">
+                    <app-milestone-scope-badge [scope]="m.scope" [squadName]="m.squadName" [squadColor]="m.squadColor" />
+                  </div>
+
                   <!-- Diamond node -->
                   <div [routerLink]="['/milestones', m.id]"
                        [class]="'timeline-node ' + nodeClass(m.status)"
+                       [style.border-color]="m.scope === 'Squad' && m.squadColor ? m.squadColor : undefined"
                        style="cursor:pointer;transition:all 0.2s"
                        [matTooltip]="m.title + ' — ' + m.progressPercent + '%'">
                   </div>
@@ -157,12 +205,28 @@ export class PIDetailComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private sprintSvc = inject(SprintService);
   private milestoneSvc = inject(MilestoneService);
+  private squadSvc = inject(SquadService);
+  private dialog = inject(MatDialog);
 
   piId = '';
   loading = signal(true);
   pi = signal<PI | null>(null);
   sprints = signal<Sprint[]>([]);
   milestones = signal<Milestone[]>([]);
+  userSquads = signal<SquadSummary[]>([]);
+  scopeFilter = signal<string>('All');
+
+  filteredMilestones = computed(() => {
+    const filter = this.scopeFilter();
+    const ms = this.milestones();
+    if (filter === 'All') return ms;
+    if (filter === 'Global') return ms.filter(m => m.scope === 'Global');
+    if (filter === 'MySquads') {
+      const squadIds = new Set(this.userSquads().map(s => s.id));
+      return ms.filter(m => m.scope === 'Squad' && m.squadId && squadIds.has(m.squadId));
+    }
+    return ms;
+  });
 
   ngOnInit() {
     this.piId = this.route.snapshot.paramMap.get('id')!;
@@ -181,6 +245,9 @@ export class PIDetailComponent implements OnInit {
     this.milestoneSvc.getByPI(this.piId).subscribe(ms => {
       this.milestones.set(ms);
     });
+    this.squadSvc.getAll().subscribe(squads => {
+      this.userSquads.set(squads);
+    });
   }
 
   nodeClass(status: string): string {
@@ -192,14 +259,91 @@ export class PIDetailComponent implements OnInit {
   }
 
   addMilestone() {
-    const title = prompt('Milestone title:');
-    if (title?.trim()) {
-      this.milestoneSvc.create(this.piId, {
-        title: title.trim(),
-        description: null,
-        targetDate: null,
-        position: this.milestones().length
-      }).subscribe(() => this.load());
-    }
+    const dialogRef = this.dialog.open(MilestoneCreateDialogComponent, {
+      width: '420px',
+      data: {
+        squads: this.userSquads()
+      }
+    });
+
+    dialogRef.afterClosed().subscribe((result: MilestoneCreateDialogData | undefined) => {
+      if (result?.title?.trim()) {
+        this.milestoneSvc.create(this.piId, {
+          title: result.title.trim(),
+          description: result.description,
+          targetDate: result.targetDate,
+          position: this.milestones().length,
+          scope: result.scope,
+          squadId: result.squadId
+        }).subscribe(() => this.load());
+      }
+    });
   }
+}
+
+@Component({
+  selector: 'app-milestone-create-dialog',
+  standalone: true,
+  imports: [
+    CommonModule, FormsModule,
+    MatDialogModule, MatButtonModule, MatIconModule,
+    MatFormFieldModule, MatInputModule, MatSelectModule, MatRadioModule
+  ],
+  template: `
+    <h2 mat-dialog-title style="margin:0 0 16px;font-size:1.1rem">{{ data.isEdit ? 'Edit milestone' : 'Add milestone' }}</h2>
+    <mat-dialog-content style="min-width:360px">
+      <div style="display:flex;flex-direction:column;gap:16px;padding:8px 0">
+        <mat-form-field appearance="outline" style="width:100%">
+          <mat-label>Title</mat-label>
+          <input matInput [(ngModel)]="form.title" placeholder="Milestone title" />
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" style="width:100%">
+          <mat-label>Description</mat-label>
+          <textarea matInput [(ngModel)]="form.description" rows="2" placeholder="Optional description"></textarea>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" style="width:100%">
+          <mat-label>Target date</mat-label>
+          <input matInput type="date" [(ngModel)]="form.targetDate" />
+        </mat-form-field>
+
+        <div>
+          <div style="font-size:0.75rem;opacity:0.5;margin-bottom:8px">Scope</div>
+          <mat-radio-group [(ngModel)]="form.scope" style="display:flex;gap:16px">
+            <mat-radio-button value="Global">Global</mat-radio-button>
+            <mat-radio-button value="Squad">Squad</mat-radio-button>
+          </mat-radio-group>
+        </div>
+
+        @if (form.scope === 'Squad') {
+          <mat-form-field appearance="outline" style="width:100%">
+            <mat-label>Squad</mat-label>
+            <mat-select [(ngModel)]="form.squadId">
+              @for (s of data.squads; track s.id) {
+                <mat-option [value]="s.id">{{ s.name }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+        }
+      </div>
+    </mat-dialog-content>
+    <mat-dialog-actions align="end">
+      <button mat-button mat-dialog-close>Cancel</button>
+      <button mat-flat-button color="primary" [mat-dialog-close]="form" [disabled]="!form.title.trim() || (form.scope === 'Squad' && !form.squadId)">
+        {{ data.isEdit ? 'Save' : 'Create' }}
+      </button>
+    </mat-dialog-actions>
+  `
+})
+export class MilestoneCreateDialogComponent {
+  form: MilestoneCreateDialogData = {
+    title: '',
+    description: null,
+    targetDate: null,
+    scope: 'Global',
+    squadId: null
+  };
+
+  data = inject<{ squads: SquadSummary[]; isEdit?: boolean }>(MAT_DIALOG_DATA);
 }
