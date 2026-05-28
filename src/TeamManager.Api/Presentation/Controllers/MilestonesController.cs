@@ -1,3 +1,4 @@
+using TeamManager.Api.Middleware;
 using Microsoft.AspNetCore.Mvc;
 using TeamManager.Api.Application.DTOs.Milestone;
 using TeamManager.Api.Application.Services.Interfaces;
@@ -5,6 +6,7 @@ using TeamManager.Api.Application.Services.Interfaces;
 namespace TeamManager.Api.Presentation.Controllers;
 
 [ApiController]
+[RequireFeature("sprints")]
 [Route("api/v1/pis/{piId:guid}/milestones")]
 public class PIMilestonesController(IMilestoneService service) : ControllerBase
 {
@@ -21,6 +23,7 @@ public class PIMilestonesController(IMilestoneService service) : ControllerBase
 }
 
 [ApiController]
+[RequireFeature("sprints")]
 [Route("api/v1/milestones/{id:guid}")]
 public class MilestonesController(IMilestoneService service) : ControllerBase
 {
@@ -58,6 +61,7 @@ public class MilestonesController(IMilestoneService service) : ControllerBase
 }
 
 [ApiController]
+[RequireFeature("sprints")]
 [Route("api/v1/criteria/{id:guid}")]
 public class CriteriaController(IMilestoneService service) : ControllerBase
 {

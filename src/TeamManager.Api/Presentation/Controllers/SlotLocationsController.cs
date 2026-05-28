@@ -1,3 +1,4 @@
+using TeamManager.Api.Middleware;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using TeamManager.Api.Application.DTOs.SlotLocation;
@@ -7,6 +8,7 @@ using TeamManager.Api.Infrastructure.Data;
 namespace TeamManager.Api.Presentation.Controllers;
 
 [ApiController]
+[RequireFeature("settings")]
 [Route("api/v1/slot-locations")]
 public class SlotLocationsController(AppDbContext db) : ControllerBase
 {

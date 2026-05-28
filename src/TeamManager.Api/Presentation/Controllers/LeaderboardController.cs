@@ -1,3 +1,4 @@
+using TeamManager.Api.Middleware;
 using Microsoft.AspNetCore.Mvc;
 using TeamManager.Api.Application.DTOs.Leaderboard;
 using TeamManager.Api.Application.Services.Interfaces;
@@ -5,6 +6,7 @@ using TeamManager.Api.Application.Services.Interfaces;
 namespace TeamManager.Api.Presentation.Controllers;
 
 [ApiController]
+[RequireFeature("leaderboard")]
 [Route("api/v1/leaderboard")]
 public class LeaderboardController(ILeaderboardService service) : ControllerBase
 {

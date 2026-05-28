@@ -10,53 +10,54 @@ import { KPickerData, KPickerResult } from './core/components/k-picker/k-picker.
 import { TeamMember } from './core/models/team-member.model';
 import { GlobalFilterService } from './core/services/global-filter.service';
 import { AuthService } from './core/auth/auth.service';
+import { FeatureAccessService } from './core/services/feature-access.service';
 
 interface NavItem {
   path: string;
   icon: string;
   label: string;
+  featureKey?: string;
 }
 
-const PRIMARY_NAV: NavItem[] = [
-  { path: '/dashboard',      icon: 'dashboard',      label: 'Dashboard'    },
-  { path: '/sprints',        icon: 'directions_run',  label: 'Sprints'      },
-  { path: '/features',       icon: 'view_list',       label: 'Features'     },
-  { path: '/progress',       icon: 'track_changes',   label: 'Progress'     },
-  { path: '/discussion',     icon: 'forum',           label: 'Discussion'   },
-  { path: '/meetings',       icon: 'event',           label: 'Meetings'     },
-  { path: '/fun',            icon: 'casino',          label: 'Fun Hub'      },
-  { path: '/team',           icon: 'people',          label: 'Team'         },
-  { path: '/leave',          icon: 'event_busy',      label: 'Leave'        },
+const ALL_PRIMARY_NAV: NavItem[] = [
+  { path: '/dashboard',      icon: 'dashboard',      label: 'Dashboard',    featureKey: 'dashboard' },
+  { path: '/sprints',        icon: 'directions_run',  label: 'Sprints',      featureKey: 'sprints' },
+  { path: '/features',       icon: 'view_list',       label: 'Features',     featureKey: 'features' },
+  { path: '/progress',       icon: 'track_changes',   label: 'Progress',     featureKey: 'progress' },
+  { path: '/discussion',     icon: 'forum',           label: 'Discussion',   featureKey: 'discussion' },
+  { path: '/meetings',       icon: 'event',           label: 'Meetings',     featureKey: 'meetings' },
+  { path: '/fun',            icon: 'casino',          label: 'Fun Hub',      featureKey: 'fun-hub' },
+  { path: '/team',           icon: 'people',          label: 'Team',         featureKey: 'team' },
+  { path: '/leave',          icon: 'event_busy',      label: 'Leave',        featureKey: 'leave' },
 ];
 
-const SECONDARY_NAV: NavItem[] = [
-  { path: '/access-requests', icon: 'person_add', label: 'Access Requests' },
+const ALL_SECONDARY_NAV: NavItem[] = [
+  { path: '/access-requests', icon: 'person_add', label: 'Access Requests', featureKey: 'access-requests' },
   { path: '/expense-claim', icon: 'receipt_long', label: 'Expense Claim' },
-  { path: '/settings', icon: 'settings', label: 'Settings' },
-  { path: '/export', icon: 'download', label: 'Export' },
+  { path: '/settings', icon: 'settings', label: 'Settings', featureKey: 'settings' },
+  { path: '/export', icon: 'download', label: 'Export', featureKey: 'export' },
   { path: '/profile', icon: 'person', label: 'Profile' },
 ];
 
-// Bottom bar: 4 core items + "More" button for the rest
-const BOTTOM_NAV: NavItem[] = [
-  { path: '/dashboard',      icon: 'dashboard',      label: 'Dashboard'    },
-  { path: '/sprints',        icon: 'directions_run',  label: 'Sprints'      },
-  { path: '/fun',            icon: 'casino',          label: 'Fun Hub'      },
-  { path: '/team',           icon: 'people',          label: 'Team'         },
-  { path: '/leave',          icon: 'event_busy',      label: 'Leave'        },
+const ALL_BOTTOM_NAV: NavItem[] = [
+  { path: '/dashboard',      icon: 'dashboard',      label: 'Dashboard',    featureKey: 'dashboard' },
+  { path: '/sprints',        icon: 'directions_run',  label: 'Sprints',      featureKey: 'sprints' },
+  { path: '/fun',            icon: 'casino',          label: 'Fun Hub',      featureKey: 'fun-hub' },
+  { path: '/team',           icon: 'people',          label: 'Team',         featureKey: 'team' },
+  { path: '/leave',          icon: 'event_busy',      label: 'Leave',        featureKey: 'leave' },
 ];
 
-const MORE_NAV: NavItem[] = [
-  { path: '/features',       icon: 'view_list',      label: 'Features'      },
-  { path: '/progress',       icon: 'track_changes',  label: 'Progress'      },
-  { path: '/discussion',     icon: 'forum',          label: 'Discussion'    },
-  { path: '/meetings',       icon: 'event',          label: 'Meetings'      },
-  { path: '/showcase',       icon: 'auto_awesome',   label: 'Showcase'      },
-  { path: '/access-requests',icon: 'person_add',     label: 'Access Requests' },
+const ALL_MORE_NAV: NavItem[] = [
+  { path: '/features',       icon: 'view_list',      label: 'Features',      featureKey: 'features' },
+  { path: '/progress',       icon: 'track_changes',  label: 'Progress',      featureKey: 'progress' },
+  { path: '/discussion',     icon: 'forum',          label: 'Discussion',    featureKey: 'discussion' },
+  { path: '/meetings',       icon: 'event',          label: 'Meetings',      featureKey: 'meetings' },
+  { path: '/showcase',       icon: 'auto_awesome',   label: 'Showcase' },
+  { path: '/access-requests',icon: 'person_add',     label: 'Access Requests', featureKey: 'access-requests' },
   { path: '/expense-claim',  icon: 'receipt_long',   label: 'Expense Claim' },
-  { path: '/settings',       icon: 'settings',       label: 'Settings'      },
-  { path: '/export',         icon: 'download',       label: 'Export'        },
-  { path: '/profile',        icon: 'person',         label: 'Profile'       },
+  { path: '/settings',       icon: 'settings',       label: 'Settings',      featureKey: 'settings' },
+  { path: '/export',         icon: 'download',       label: 'Export',        featureKey: 'export' },
+  { path: '/profile',        icon: 'person',         label: 'Profile' },
 ];
 
 @Component({
@@ -70,7 +71,7 @@ const MORE_NAV: NavItem[] = [
       @if (isMobile() && !isLoginPage() && isAuthorized()) {
         <!-- Bottom nav bar -->
         <nav class="bottom-nav">
-          @for (item of bottomNav; track item.path) {
+          @for (item of bottomNav(); track item.path) {
             <a class="bnav-item" [routerLink]="item.path" routerLinkActive="active">
               <mat-icon class="bnav-icon">{{ item.icon }}</mat-icon>
               <span class="bnav-label">{{ item.label }}</span>
@@ -89,7 +90,7 @@ const MORE_NAV: NavItem[] = [
           <div class="more-sheet">
             <div class="more-handle"></div>
             <div class="more-grid">
-              @for (item of moreNav; track item.path) {
+              @for (item of moreNav(); track item.path) {
                 <a class="more-item" [routerLink]="item.path" routerLinkActive="active"
                    (click)="moreOpen.set(false)">
                   <mat-icon class="more-icon">{{ item.icon }}</mat-icon>
@@ -119,7 +120,7 @@ const MORE_NAV: NavItem[] = [
           </button>
 
           <div class="nav-items">
-            @for (item of primaryNav; track item.path) {
+            @for (item of primaryNav(); track item.path) {
               <a class="nav-link" [routerLink]="item.path" routerLinkActive="active"
                  [matTooltip]="expanded() ? '' : item.label" matTooltipPosition="right">
                 <mat-icon class="nav-icon">{{ item.icon }}</mat-icon>
@@ -129,7 +130,7 @@ const MORE_NAV: NavItem[] = [
 
             <div class="nav-divider"></div>
 
-            @for (item of secondaryNav; track item.path) {
+            @for (item of secondaryNav(); track item.path) {
               <a class="nav-link nav-secondary" [routerLink]="item.path" routerLinkActive="active"
                  [matTooltip]="expanded() ? '' : item.label" matTooltipPosition="right">
                 <mat-icon class="nav-icon">{{ item.icon }}</mat-icon>
@@ -378,18 +379,26 @@ const MORE_NAV: NavItem[] = [
   `]
 })
 export class AppComponent {
-  readonly primaryNav   = PRIMARY_NAV;
-  readonly secondaryNav = SECONDARY_NAV;
-  readonly bottomNav    = BOTTOM_NAV;
-  readonly moreNav      = MORE_NAV;
-
   private router = inject(Router);
   private dialog = inject(MatDialog);
   private globalFilterSvc = inject(GlobalFilterService);
   private auth = inject(AuthService);
+  private featureAccess = inject(FeatureAccessService);
   private currentUrl = signal(this.router.url);
 
-  isMoreActive = computed(() => MORE_NAV.some(item => this.currentUrl().startsWith(item.path)));
+  primaryNav = computed(() => this.filterNav(ALL_PRIMARY_NAV));
+  secondaryNav = computed(() => this.filterNav(ALL_SECONDARY_NAV));
+  bottomNav = computed(() => this.filterNav(ALL_BOTTOM_NAV));
+  moreNav = computed(() => this.filterNav(ALL_MORE_NAV));
+
+  private filterNav(items: NavItem[]): NavItem[] {
+    return items.filter(item => {
+      if (!item.featureKey) return true;
+      return this.featureAccess.hasAccess(item.featureKey);
+    });
+  }
+
+  isMoreActive = computed(() => ALL_MORE_NAV.some(item => this.currentUrl().startsWith(item.path)));
   isLoginPage = computed(() => this.currentUrl() === '/login');
   isAuthorized = signal(false);
 
@@ -400,7 +409,12 @@ export class AppComponent {
 
   constructor() {
     this.checkMobile();
-    this.auth.authStatus$.subscribe(status => this.isAuthorized.set(status === 'authorized'));
+    this.auth.authStatus$.subscribe(status => {
+      this.isAuthorized.set(status === 'authorized');
+      if (status === 'authorized') {
+        this.featureAccess.loadPermissions();
+      }
+    });
     this.router.events.pipe(filter(e => e instanceof NavigationEnd)).subscribe(e => {
       this.currentUrl.set((e as NavigationEnd).urlAfterRedirects);
       this.moreOpen.set(false);

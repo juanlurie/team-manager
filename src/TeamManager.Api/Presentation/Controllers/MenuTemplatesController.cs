@@ -1,3 +1,4 @@
+using TeamManager.Api.Middleware;
 using Microsoft.AspNetCore.Mvc;
 using TeamManager.Api.Application.DTOs.CoffeeRun;
 using TeamManager.Api.Application.Services.Interfaces;
@@ -5,6 +6,7 @@ using TeamManager.Api.Application.Services.Interfaces;
 namespace TeamManager.Api.Presentation.Controllers;
 
 [ApiController]
+[RequireFeature("coffee-run")]
 [Route("api/v1/menu-templates")]
 public class MenuTemplatesController(ICoffeeRunService service) : ControllerBase
 {

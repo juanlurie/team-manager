@@ -1,3 +1,4 @@
+using TeamManager.Api.Middleware;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using TeamManager.Api.Application.DTOs.ScrumPoker;
@@ -6,6 +7,7 @@ using TeamManager.Api.Application.Services.Interfaces;
 namespace TeamManager.Api.Presentation.Controllers;
 
 [ApiController]
+[RequireFeature("scrum-poker")]
 [Authorize]
 [Route("api/scrum-poker")]
 public class ScrumPokerController : ControllerBase

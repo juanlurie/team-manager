@@ -1,3 +1,4 @@
+using TeamManager.Api.Middleware;
 using Microsoft.AspNetCore.Mvc;
 using TeamManager.Api.Application.DTOs.DiscussionPoint;
 using TeamManager.Api.Application.DTOs.DiscussionTask;
@@ -6,6 +7,7 @@ using TeamManager.Api.Application.Services.Interfaces;
 namespace TeamManager.Api.Presentation.Controllers;
 
 [ApiController]
+[RequireFeature("discussion")]
 [Route("api/v1/discussion-points")]
 public class DiscussionPointsController(IDiscussionPointService service) : ControllerBase
 {
