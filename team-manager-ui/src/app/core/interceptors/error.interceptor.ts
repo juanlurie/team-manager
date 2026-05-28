@@ -10,6 +10,9 @@ export const errorInterceptor: HttpInterceptorFn = (req, next) => {
   return next(req).pipe(
     catchError(error => {
       if (!req.context.get(SKIP_ERROR_TOAST)) {
+        if (error?.status === 403 && error?.error?.error === 'feature_disabled') {
+          return throwError(() => error);
+        }
         let message: string;
         if (error?.status === 0) {
           message = 'Connection lost. Please check your network and try again.';
