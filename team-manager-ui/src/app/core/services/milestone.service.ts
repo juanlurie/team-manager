@@ -1,10 +1,11 @@
 import { Injectable, inject } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import {
   Milestone,
   MilestoneDetail,
   MilestoneCriterion,
+  MilestoneRoadmap,
   CreateMilestoneRequest,
   UpdateMilestoneRequest,
   CreateMilestoneCriterionRequest,
@@ -16,8 +17,15 @@ import { API_BASE } from './api.config';
 export class MilestoneService {
   private http = inject(HttpClient);
 
-  getByPI(piId: string): Observable<Milestone[]> {
-    return this.http.get<Milestone[]>(`${API_BASE}/pis/${piId}/milestones`);
+  getByPI(piId: string, scope?: string, squadId?: string): Observable<Milestone[]> {
+    let params = new HttpParams();
+    if (scope) params = params.set('scope', scope);
+    if (squadId) params = params.set('squadId', squadId);
+    return this.http.get<Milestone[]>(`${API_BASE}/pis/${piId}/milestones`, { params });
+  }
+
+  getRoadmap(piId: string): Observable<MilestoneRoadmap> {
+    return this.http.get<MilestoneRoadmap>(`${API_BASE}/pis/${piId}/milestones/roadmap`);
   }
 
   getById(id: string): Observable<MilestoneDetail> {

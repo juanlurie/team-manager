@@ -17,6 +17,10 @@ public record MilestoneDto
     public string? Description { get; init; }
     public DateOnly? TargetDate { get; init; }
     public string Status { get; init; } = string.Empty;
+    public string Scope { get; init; } = string.Empty;
+    public Guid? SquadId { get; init; }
+    public string? SquadName { get; init; }
+    public string? SquadColor { get; init; }
     public int Position { get; init; }
     public DateTimeOffset CreatedAt { get; init; }
     public DateTimeOffset UpdatedAt { get; init; }
@@ -26,6 +30,33 @@ public record MilestoneDto
     public decimal ProgressPercent { get; init; }
     public int CriteriaCount { get; init; }
     public int CompletedCriteriaCount { get; init; }
+}
+
+public record MilestoneRoadmapDto
+{
+    public Guid PIId { get; init; }
+    public string PIName { get; init; } = string.Empty;
+    public int TotalMilestones { get; init; }
+    public int CompletedMilestones { get; init; }
+    public int InProgressMilestones { get; init; }
+    public int UpcomingMilestones { get; init; }
+    public decimal OverallProgressPercent { get; init; }
+    public IReadOnlyList<MilestoneRoadmapItemDto> Milestones { get; init; } = [];
+}
+
+public record MilestoneRoadmapItemDto
+{
+    public Guid Id { get; init; }
+    public string Title { get; init; } = string.Empty;
+    public string Scope { get; init; } = string.Empty;
+    public string? SquadName { get; init; }
+    public string? SquadColor { get; init; }
+    public string Status { get; init; } = string.Empty;
+    public DateOnly? TargetDate { get; init; }
+    public decimal ProgressPercent { get; init; }
+    public int DaysUntilTarget { get; init; }
+    public int CriteriaTotal { get; init; }
+    public int CriteriaCompleted { get; init; }
 }
 
 public record MilestoneDetailDto : MilestoneDto

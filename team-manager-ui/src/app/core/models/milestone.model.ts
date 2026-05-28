@@ -1,4 +1,5 @@
 export type MilestoneStatus = 'Upcoming' | 'InProgress' | 'Done';
+export type MilestoneScope = 'Global' | 'Squad';
 
 export interface MilestoneCriterion {
   id: string;
@@ -15,6 +16,10 @@ export interface Milestone {
   description: string | null;
   targetDate: string | null;
   status: MilestoneStatus;
+  scope: MilestoneScope;
+  squadId: string | null;
+  squadName: string | null;
+  squadColor: string | null;
   position: number;
   createdAt: string;
   updatedAt: string;
@@ -47,12 +52,39 @@ export interface MilestoneSprint {
   name: string;
 }
 
+export interface MilestoneRoadmap {
+  piId: string;
+  piName: string;
+  totalMilestones: number;
+  completedMilestones: number;
+  inProgressMilestones: number;
+  upcomingMilestones: number;
+  overallProgressPercent: number;
+  milestones: MilestoneRoadmapItem[];
+}
+
+export interface MilestoneRoadmapItem {
+  id: string;
+  title: string;
+  scope: MilestoneScope;
+  squadName: string | null;
+  squadColor: string | null;
+  status: MilestoneStatus;
+  targetDate: string | null;
+  progressPercent: number;
+  daysUntilTarget: number;
+  criteriaTotal: number;
+  criteriaCompleted: number;
+}
+
 export interface CreateMilestoneRequest {
   title: string;
   description: string | null;
   targetDate: string | null;
   status?: MilestoneStatus;
   position?: number;
+  scope?: MilestoneScope;
+  squadId?: string | null;
 }
 
 export interface UpdateMilestoneRequest {
@@ -61,6 +93,8 @@ export interface UpdateMilestoneRequest {
   targetDate?: string | null;
   status?: MilestoneStatus;
   position?: number;
+  scope?: MilestoneScope;
+  squadId?: string | null;
 }
 
 export interface CreateMilestoneCriterionRequest {

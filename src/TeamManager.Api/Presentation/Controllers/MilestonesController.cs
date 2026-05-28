@@ -11,8 +11,8 @@ namespace TeamManager.Api.Presentation.Controllers;
 public class PIMilestonesController(IMilestoneService service) : ControllerBase
 {
     [HttpGet]
-    public async Task<IActionResult> GetAll(Guid piId)
-        => Ok(await service.GetByPIAsync(piId));
+    public async Task<IActionResult> GetAll(Guid piId, [FromQuery] string? scope = null, [FromQuery] Guid? squadId = null)
+        => Ok(await service.GetByPIAsync(piId, scope, squadId));
 
     [HttpPost]
     public async Task<IActionResult> Create(Guid piId, [FromBody] CreateMilestoneRequest request)
@@ -57,6 +57,15 @@ public class MilestonesController(IMilestoneService service) : ControllerBase
         var result = await service.AddCriterionAsync(id, request);
         return Created("", result);
     }
+}
+
+[ApiController]
+[Route("api/v1/pis/{piId:guid}/milestones/roadmap")]
+public class MilestoneRoadmapController(IMilestoneService service) : ControllerBase
+{
+    [HttpGet]
+    public async Task<IActionResult> GetRoadmap(Guid piId)
+        => Ok(await service.GetRoadmapAsync(piId));
 }
 
 [ApiController]
