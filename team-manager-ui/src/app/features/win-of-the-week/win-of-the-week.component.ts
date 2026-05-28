@@ -187,7 +187,7 @@ import { WinOfTheMonthComponent } from '../win-of-the-month/win-of-the-month.com
 
       <!-- User quota chips -->
       <div style="display:flex;gap:12px;margin-bottom:16px;font-size:0.8rem;flex-wrap:wrap">
-        @if (currentWeek()?.status === 'Nominating' || currentWeek()?.status === 'Voting') {
+        @if (currentWeek()?.status === 'Nominating') {
           <span style="opacity:0.6">
             Nominations remaining: <strong>{{currentWeek()?.userNominationsRemaining ?? 0}}</strong>/3
           </span>
@@ -197,7 +197,7 @@ import { WinOfTheMonthComponent } from '../win-of-the-month/win-of-the-month.com
             Votes remaining: <strong>{{currentWeek()?.userVotesRemaining ?? 0}}</strong>/3
           </span>
         }
-        @if ((currentWeek()?.status === 'Nominating' || currentWeek()?.status === 'Voting') && (currentWeek()?.userNominationsRemaining ?? 0) > 0) {
+        @if (currentWeek()?.status === 'Nominating' && (currentWeek()?.userNominationsRemaining ?? 0) > 0) {
           <button mat-stroked-button color="accent" (click)="showNominateDialog()"
                   style="font-size:0.8rem;height:30px;margin-left:auto">
             <mat-icon style="font-size:1rem;width:1rem;height:1rem">add</mat-icon>
@@ -273,32 +273,34 @@ import { WinOfTheMonthComponent } from '../win-of-the-month/win-of-the-month.com
                 </div>
               }
 
-              <!-- Vote section -->
-              <div style="display:flex;flex-direction:column;align-items:center;gap:4px;flex-shrink:0;min-width:60px">
-                <div style="font-size:1.1rem;font-weight:800;opacity:0.8">{{nom.voteCount}}</div>
-                <div style="font-size:0.6rem;opacity:0.4;text-transform:uppercase">votes</div>
+              <!-- Vote section (only visible during Voting and Closed phases) -->
+              @if (currentWeek()?.status === 'Voting' || currentWeek()?.status === 'Closed') {
+                <div style="display:flex;flex-direction:column;align-items:center;gap:4px;flex-shrink:0;min-width:60px">
+                  <div style="font-size:1.1rem;font-weight:800;opacity:0.8">{{nom.voteCount}}</div>
+                  <div style="font-size:0.6rem;opacity:0.4;text-transform:uppercase">votes</div>
 
-                @if (currentWeek()?.status === 'Voting') {
-                  @if (nom.hasVoted) {
-                    <button mat-stroked-button color="warn" (click)="removeVote(nom.id)"
-                            style="font-size:0.7rem;height:28px;line-height:28px;min-width:0;padding:0 10px">
-                      Voted ✓
-                    </button>
-                  } @else {
-                    @if ((currentWeek()?.userVotesRemaining ?? 0) > 0) {
-                      <button mat-stroked-button color="primary" (click)="vote(nom.id)"
+                  @if (currentWeek()?.status === 'Voting') {
+                    @if (nom.hasVoted) {
+                      <button mat-stroked-button color="warn" (click)="removeVote(nom.id)"
                               style="font-size:0.7rem;height:28px;line-height:28px;min-width:0;padding:0 10px">
-                        Vote
+                        Voted ✓
                       </button>
                     } @else {
-                      <button mat-stroked-button disabled
-                              style="font-size:0.7rem;height:28px;line-height:28px;min-width:0;padding:0 10px">
-                        Max votes
-                      </button>
+                      @if ((currentWeek()?.userVotesRemaining ?? 0) > 0) {
+                        <button mat-stroked-button color="primary" (click)="vote(nom.id)"
+                                style="font-size:0.7rem;height:28px;line-height:28px;min-width:0;padding:0 10px">
+                          Vote
+                        </button>
+                      } @else {
+                        <button mat-stroked-button disabled
+                                style="font-size:0.7rem;height:28px;line-height:28px;min-width:0;padding:0 10px">
+                          Max votes
+                        </button>
+                      }
                     }
                   }
-                }
-              </div>
+                </div>
+              }
             </div>
           }
         </div>
@@ -355,7 +357,11 @@ export class WinOfTheWeekComponent implements OnInit, OnDestroy {
   readonly sortedNominations = computed(() => {
     const week = this.currentWeek();
     if (!week) return [];
-    return [...week.nominations].sort((a, b) => b.voteCount - a.voteCount || new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    const sorted = [...week.nominations];
+    if (week.status === 'Voting' || week.status === 'Closed') {
+      return sorted.sort((a, b) => b.voteCount - a.voteCount || new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    }
+    return sorted.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   });
 
   ngOnInit() {
