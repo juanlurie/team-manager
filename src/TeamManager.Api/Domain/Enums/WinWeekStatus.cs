@@ -4,5 +4,6 @@ public enum WinWeekStatus
 {
     Nominating,
     Voting,
+    SuddenDeath,
     Closed
 }

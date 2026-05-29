@@ -13,5 +13,6 @@ public record WinWeekDto
     public Guid CurrentMemberId { get; init; }
     public int UserVotesRemaining { get; init; }
     public int UserNominationsRemaining { get; init; }
+    public List<Guid> TiedNominationIds { get; init; } = [];
     public List<WinNominationDto> Nominations { get; init; } = [];
 }

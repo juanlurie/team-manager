@@ -1,17 +1,18 @@
-import { Component, inject, Input, OnInit, signal } from '@angular/core';
+import { Component, inject, Input, OnInit, signal, OnDestroy } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { debounceTime, Subject } from 'rxjs';
+import { debounceTime, Subject, Subscription } from 'rxjs';
 import { Sprint } from '../../../core/models/sprint.model';
 import { SprintService } from '../../../core/services/sprint.service';
 import { RetroAction, CreateRetroActionRequest } from '../../../core/models/retro-action.model';
 import { RetroActionService } from '../../../core/services/retro-action.service';
 import { ConfirmDialogComponent } from '../../../shared/components/confirm-dialog/confirm-dialog.component';
 import { IconButtonComponent } from '../../../shared/components/icon-btn/icon-btn.component';
+import { WebSocketService } from '../../../core/websocket/websocket.service';
 
 const TEXT_COLS = [
   { key: 'wentWell',    label: '✅ Went Well',      color: '#4caf50', placeholder: 'What went well this sprint?' },
@@ -160,12 +161,13 @@ const TEXT_COLS = [
     </div>
   `
 })
-export class SprintRetroComponent implements OnInit {
+export class SprintRetroComponent implements OnInit, OnDestroy {
   @Input({ required: true }) sprintId!: string;
   @Input() sprint: Sprint | null = null;
 
   private svc        = inject(SprintService);
   private actionsSvc = inject(RetroActionService);
+  private wsSvc      = inject(WebSocketService);
 
   saving    = false;
   readonly textCols = TEXT_COLS;
@@ -179,6 +181,7 @@ export class SprintRetroComponent implements OnInit {
 
   private retro = { wentWell: null as string | null, didntGoWell: null as string | null };
   private change$ = new Subject<void>();
+  private wsSub: Subscription | null = null;
 
   ngOnInit() {
     if (this.sprint) {
@@ -189,6 +192,21 @@ export class SprintRetroComponent implements OnInit {
     }
     this.change$.pipe(debounceTime(1200)).subscribe(() => this.saveNow());
     this.actionsSvc.getBySprintId(this.sprintId).subscribe(a => this.actions.set(a));
+
+    this.wsSvc.connect();
+    this.wsSub = this.wsSvc.messages$.subscribe(msg => {
+      if (!msg) return;
+      if (msg.type === 'retro_action_created' || msg.type === 'retro_action_updated' || msg.type === 'retro_action_deleted') {
+        const data = msg.data as { sprintId?: string };
+        if (data.sprintId === this.sprintId) {
+          this.actionsSvc.getBySprintId(this.sprintId).subscribe(a => this.actions.set(a));
+        }
+      }
+    });
+  }
+
+  ngOnDestroy() {
+    this.wsSub?.unsubscribe();
   }
 
   getValue(key: string): string { return (this.retro as any)[key] ?? ''; }

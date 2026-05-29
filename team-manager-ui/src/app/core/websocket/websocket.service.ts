@@ -3,7 +3,7 @@ import { BehaviorSubject } from 'rxjs';
 import { timer } from 'rxjs';
 
 export interface WsMessage {
-  type: 'vote_cast' | 'vote_removed' | 'voting_opened' | 'voting_closed';
+  type: 'vote_cast' | 'vote_removed' | 'voting_opened' | 'voting_closed' | 'sudden_death_started' | 'nomination_created' | 'nomination_updated' | 'nomination_deleted' | 'retro_action_created' | 'retro_action_updated' | 'retro_action_deleted';
   data: Record<string, unknown>;
 }
 

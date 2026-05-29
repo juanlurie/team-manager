@@ -9,6 +9,8 @@ import { MatSnackBarModule, MatSnackBar } from '@angular/material/snack-bar';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatSelectModule } from '@angular/material/select';
 import { MatInputModule } from '@angular/material/input';
+import { MatMenuModule } from '@angular/material/menu';
+import { MatDividerModule } from '@angular/material/divider';
 import { Subscription } from 'rxjs';
 import { WinOfTheWeekService } from '../../core/services/win-of-the-week.service';
 import { WinOfTheMonthService } from '../../core/services/win-of-the-month.service';
@@ -26,13 +28,13 @@ import { WinOfTheMonthComponent } from '../win-of-the-month/win-of-the-month.com
   imports: [
     CommonModule, FormsModule, MatIconModule, MatButtonModule,
     MatTooltipModule, MatDialogModule, MatSnackBarModule,
-    MatFormFieldModule, MatSelectModule, MatInputModule,
+    MatFormFieldModule, MatSelectModule, MatInputModule, MatMenuModule, MatDividerModule,
     WinOfTheWeekHistoryComponent, WinOfTheMonthComponent
   ],
   template: `
     <div style="max-width:800px;margin:0 auto;padding:0 8px 80px;overflow-x:hidden">
       <!-- Header -->
-      <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;flex-wrap:wrap">
         <div style="display:flex;align-items:center;gap:10px">
           <mat-icon style="font-size:1.6rem;width:1.6rem;height:1.6rem;color:#FFD700">emoji_events</mat-icon>
           <h2 style="margin:0;font-size:1.3rem;font-weight:700">Win of the Week</h2>
@@ -55,8 +57,41 @@ import { WinOfTheMonthComponent } from '../win-of-the-month/win-of-the-month.com
                   [style.background]="tabHover() === tab.id ? 'rgba(255,255,255,0.04)' : 'none'">
             {{tab.label}}
           </button>
-        }
-      </nav>
+          <mat-divider></mat-divider>
+          <button mat-menu-item (click)="activeTab.set('history')">
+            <mat-icon>history</mat-icon><span>History</span>
+          </button>
+          <button mat-menu-item (click)="activeTab.set('month')">
+            <mat-icon>emoji_events</mat-icon><span>Win of the Month</span>
+          </button>
+          <mat-divider></mat-divider>
+          @if (currentWeek()?.status === 'Nominating' && (currentWeek()?.nominations?.length ?? 0) > 0) {
+            <button mat-menu-item (click)="openVoting()">
+              <mat-icon>how_to_vote</mat-icon><span>Open Voting</span>
+            </button>
+          }
+          @if (currentWeek()?.status === 'Voting' && (currentWeek()?.nominations?.length ?? 0) > 0) {
+            <button mat-menu-item (click)="showCloseWeekOptions()">
+              <mat-icon>lock</mat-icon><span>Close & Pick Winner</span>
+            </button>
+          }
+          @if (currentWeek()?.status === 'SuddenDeath') {
+            <button mat-menu-item disabled>
+              <mat-icon>flash_on</mat-icon><span>Sudden Death Active</span>
+            </button>
+          }
+          @if (currentWeek()?.status === 'Voting' && (currentWeek()?.nominations?.length ?? 0) === 0) {
+            <button mat-menu-item disabled>
+              <mat-icon>lock</mat-icon><span>No nominations yet</span>
+            </button>
+          }
+          @if (currentWeek()?.status === 'Closed') {
+            <button mat-menu-item (click)="openNextWeek()">
+              <mat-icon>add_circle</mat-icon><span>Open Next Week</span>
+            </button>
+          }
+        </mat-menu>
+      </div>
 
       <!-- Tab content -->
       @switch (activeTab()) {
@@ -74,7 +109,7 @@ import { WinOfTheMonthComponent } from '../win-of-the-month/win-of-the-month.com
 
     <!-- Nominate/Edit Dialog -->
     @if (showDialog()) {
-      <div style="position:fixed;inset:0;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;z-index:1000"
+      <div style="position:fixed;inset:0;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;z-index:1000;overflow-y:auto;padding:20px 0"
            (click)="closeDialog()">
         <div style="background:#1e1e2e;border-radius:16px;padding:24px;width:90%;max-width:440px;max-height:85dvh;overflow-y:auto;overscroll-behavior:contain;border:1px solid rgba(255,255,255,0.1);-webkit-overflow-scrolling:touch"
              (click)="$event.stopPropagation()">
@@ -150,16 +185,38 @@ import { WinOfTheMonthComponent } from '../win-of-the-month/win-of-the-month.com
       </div>
 
       <!-- Schedule Bar -->
-      <div style="background:rgba(255,255,255,0.04);border-radius:8px;padding:8px 16px;margin-bottom:16px">
-        <div style="display:flex;justify-content:space-between;font-size:0.7rem;font-weight:500;color:rgba(255,255,255,0.4);margin-bottom:4px">
-          @for (d of DAYS; track d) {
-            <span [style.color]="isCurrentDay(d) ? '#64b5f6' : 'inherit'">{{d}}</span>
-          }
+      @if (currentWeek()?.status !== 'Closed') {
+        <div style="background:rgba(255,255,255,0.04);border-radius:8px;padding:10px 16px;margin-bottom:16px">
+          <div style="display:flex;justify-content:space-between;font-size:0.7rem;font-weight:500;color:rgba(255,255,255,0.4);margin-bottom:4px">
+            @for (d of DAYS; track d) {
+              <span [style.color]="isCurrentDay(d) ? '#64b5f6' : 'inherit'"
+                    [style.fontWeight]="isCurrentDay(d) ? '700' : '500'">{{d}}</span>
+            }
+          </div>
+          <div style="display:flex;height:6px;border-radius:3px;overflow:hidden;background:rgba(255,255,255,0.06)">
+            @for (d of DAYS; track d; let i = $index) {
+              <div [style.flex]="1" [style.background]="daySegmentBg(i)" style="transition:background 0.3s"></div>
+            }
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;gap:8px">
+            <div style="display:flex;align-items:center;gap:4px;font-size:0.7rem">
+              <div style="width:8px;height:8px;border-radius:2px;background:rgba(100,181,246,0.6)"></div>
+              <span style="color:rgba(255,255,255,0.5)">Nominations</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:4px;font-size:0.7rem">
+              <div style="width:8px;height:8px;border-radius:2px;background:rgba(76,175,80,0.6)"></div>
+              <span style="color:rgba(255,255,255,0.5)">Voting</span>
+            </div>
+          </div>
         </div>
-        <div style="display:flex;height:20px;border-radius:4px;overflow:hidden;background:rgba(255,255,255,0.06)">
-          @for (d of DAYS; track d; let i = $index) {
-            <div [style.flex]="1" [style.background]="daySegmentBg(i)" style="transition:background 0.3s"></div>
-          }
+      }
+
+      <!-- Sudden death banner -->
+      @let week = currentWeek();
+      @if (week && week.status === 'SuddenDeath') {
+        <div style="background:linear-gradient(135deg,rgba(255,69,0,0.15),rgba(255,0,0,0.1));border:1px solid rgba(255,69,0,0.4);border-radius:14px;padding:16px 20px;margin-bottom:16px;text-align:center">
+          <div style="font-size:1.1rem;font-weight:800;color:#ff4500">⚡ SUDDEN DEATH</div>
+          <div style="font-size:0.8rem;opacity:0.7;margin-top:4px">Tied nominations — first to get an extra vote wins!</div>
         </div>
         <div style="display:flex;justify-content:space-between;font-size:0.65rem;margin-top:4px">
           <span [style.color]="currentWeek()?.status === 'Nominating' ? '#64b5f6' : 'rgba(255,255,255,0.35)'">
@@ -172,12 +229,11 @@ import { WinOfTheMonthComponent } from '../win-of-the-month/win-of-the-month.com
       </div>
 
       <!-- Winner banner -->
-      @let winner = currentWeek();
-      @if (winner && winner.status === 'Closed' && winner.winnerNomineeName) {
+      @if (week && week.status === 'Closed' && week.winnerNomineeName) {
         <div style="background:linear-gradient(135deg,rgba(255,215,0,0.12),rgba(255,165,0,0.08));border:1px solid rgba(255,215,0,0.35);border-radius:14px;padding:20px 24px;margin-bottom:20px;text-align:center">
           <div style="font-size:2.4rem;margin-bottom:4px">🏆</div>
-          <div style="font-size:1.2rem;font-weight:800;color:#FFD700">{{winner.winnerNomineeName}}</div>
-          <div style="font-size:0.95rem;opacity:0.8;margin-top:4px">{{winner.winnerTitle}}</div>
+          <div style="font-size:1.2rem;font-weight:800;color:#FFD700">{{week.winnerNomineeName}}</div>
+          <div style="font-size:0.95rem;opacity:0.8;margin-top:4px">{{week.winnerTitle}}</div>
           <div style="margin-top:12px;display:inline-block;background:rgba(255,215,0,0.15);border:1px solid rgba(255,215,0,0.4);border-radius:8px;padding:8px 14px">
             <span style="font-size:0.85rem;font-weight:700;color:#B8860B">🏅 Weekly Champion +10 points</span>
           </div>
@@ -185,23 +241,23 @@ import { WinOfTheMonthComponent } from '../win-of-the-month/win-of-the-month.com
         </div>
       }
 
-      <!-- User quota chips -->
-      <div style="display:flex;gap:12px;margin-bottom:16px;font-size:0.8rem;flex-wrap:wrap">
+      <!-- User quota + nominate button -->
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;font-size:0.8rem;flex-wrap:wrap">
         @if (currentWeek()?.status === 'Nominating') {
           <span style="opacity:0.6">
-            Nominations remaining: <strong>{{currentWeek()?.userNominationsRemaining ?? 0}}</strong>/3
+            Nominations: <strong>{{currentWeek()?.userNominationsRemaining ?? 0}}</strong>/3
           </span>
         }
         @if (currentWeek()?.status === 'Voting') {
           <span style="opacity:0.6">
-            Votes remaining: <strong>{{currentWeek()?.userVotesRemaining ?? 0}}</strong>/3
+            Votes: <strong>{{currentWeek()?.userVotesRemaining ?? 0}}</strong>/3
           </span>
         }
         @if (currentWeek()?.status === 'Nominating' && (currentWeek()?.userNominationsRemaining ?? 0) > 0) {
           <button mat-stroked-button color="accent" (click)="showNominateDialog()"
-                  style="font-size:0.8rem;height:30px;margin-left:auto">
+                  style="font-size:0.75rem;height:28px;margin-left:auto">
             <mat-icon style="font-size:1rem;width:1rem;height:1rem">add</mat-icon>
-            Nominate a Win
+            Nominate
           </button>
         }
       </div>
@@ -243,7 +299,11 @@ import { WinOfTheMonthComponent } from '../win-of-the-month/win-of-the-month.com
       @if (!loading() && currentWeek() && currentWeek()!.nominations.length > 0) {
         <div style="display:flex;flex-direction:column;gap:10px">
           @for (nom of sortedNominations(); track nom.id) {
-            <div style="display:flex;align-items:flex-start;gap:14px;padding:16px;border-radius:12px;border:1px solid rgba(255,255,255,0.08);background:rgba(255,255,255,0.03)">
+            @let isTied = currentWeek()?.status === 'SuddenDeath' && currentWeek()?.tiedNominationIds?.includes(nom.id);
+            <div style="display:flex;align-items:flex-start;gap:14px;padding:16px;border-radius:12px;border:1px solid rgba(255,255,255,0.08);background:rgba(255,255,255,0.03);position:relative"
+                 [style.borderLeft]="isTied ? '3px solid #ff4500' : '1px solid rgba(255,255,255,0.08)'"
+                 [style.background]="isTied ? 'rgba(255,69,0,0.08)' : 'rgba(255,255,255,0.03)'">
+              <!-- Status chip -->
               <!-- Avatar -->
               <div style="width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:0.85rem;font-weight:700;background:rgba(255,215,0,0.12);color:#FFD700;border:1px solid rgba(255,215,0,0.3)">
                 {{getInitials(nom.nomineeName)}}
@@ -286,17 +346,10 @@ import { WinOfTheMonthComponent } from '../win-of-the-month/win-of-the-month.com
                         Voted ✓
                       </button>
                     } @else {
-                      @if ((currentWeek()?.userVotesRemaining ?? 0) > 0) {
-                        <button mat-stroked-button color="primary" (click)="vote(nom.id)"
-                                style="font-size:0.7rem;height:28px;line-height:28px;min-width:0;padding:0 10px">
-                          Vote
-                        </button>
-                      } @else {
-                        <button mat-stroked-button disabled
-                                style="font-size:0.7rem;height:28px;line-height:28px;min-width:0;padding:0 10px">
-                          Max votes
-                        </button>
-                      }
+                      <button mat-stroked-button color="primary" (click)="vote(nom.id)"
+                              style="font-size:0.7rem;height:28px;line-height:28px;min-width:0;padding:0 10px">
+                        Vote
+                      </button>
                     }
                   }
                 </div>
@@ -317,14 +370,8 @@ export class WinOfTheWeekComponent implements OnInit, OnDestroy {
   private snackBar = inject(MatSnackBar);
   private wsSub: Subscription | null = null;
 
-  readonly DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-  readonly tabs = [
-    { id: 'current', label: 'Current' },
-    { id: 'history', label: 'History' },
-    { id: 'month', label: 'Win of the Month' }
-  ];
+  readonly DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
   activeTab = signal('current');
-  tabHover = signal<string | null>(null);
   currentWeek = signal<WinWeek | null>(null);
   allMembers = signal<TeamMember[]>([]);
   loading = signal(true);
@@ -338,21 +385,6 @@ export class WinOfTheWeekComponent implements OnInit, OnDestroy {
     title: '',
     description: ''
   };
-
-  readonly phaseInfo = computed(() => {
-    const week = this.currentWeek();
-    if (!week) return { label: 'Loading', text: '#fff', bg: 'rgba(255,255,255,0.1)' };
-    switch (week.status) {
-      case 'Nominating':
-        return { label: 'Nominations Open', text: '#FFD700', bg: 'rgba(255,215,0,0.15)' };
-      case 'Voting':
-        return { label: 'Voting Open', text: '#4caf50', bg: 'rgba(76,175,80,0.15)' };
-      case 'Closed':
-        return { label: 'Closed', text: 'rgba(255,255,255,0.5)', bg: 'rgba(255,255,255,0.06)' };
-      default:
-        return { label: week.status, text: '#fff', bg: 'rgba(255,255,255,0.1)' };
-    }
-  });
 
   readonly sortedNominations = computed(() => {
     const week = this.currentWeek();
@@ -376,10 +408,14 @@ export class WinOfTheWeekComponent implements OnInit, OnDestroy {
       switch (msg.type) {
         case 'vote_cast':
         case 'vote_removed':
+        case 'nomination_created':
+        case 'nomination_updated':
+        case 'nomination_deleted':
           this.refresh();
           break;
         case 'voting_opened':
         case 'voting_closed':
+        case 'sudden_death_started':
           this.refresh();
           break;
       }
@@ -415,11 +451,6 @@ export class WinOfTheWeekComponent implements OnInit, OnDestroy {
     return idx === (jsDay === 0 ? 6 : jsDay - 1);
   }
 
-  isCurrentDayVisible(): boolean {
-    const status = this.currentWeek()?.status;
-    return status === 'Nominating' || status === 'Voting';
-  }
-
   daySegmentBg(index: number): string {
     const week = this.currentWeek();
     if (!week) return 'rgba(255,255,255,0.06)';
@@ -427,9 +458,9 @@ export class WinOfTheWeekComponent implements OnInit, OnDestroy {
     const currentDayIndex = jsDay === 0 ? 6 : jsDay - 1;
 
     if (week.status === 'Nominating') {
-      return index <= 3 ? 'rgba(100,181,246,0.25)' : 'rgba(255,255,255,0.06)';
+      return index <= currentDayIndex ? 'rgba(100,181,246,0.6)' : 'rgba(255,255,255,0.06)';
     } else if (week.status === 'Voting') {
-      return index >= 4 ? 'rgba(100,181,246,0.25)' : 'rgba(255,255,255,0.06)';
+      return index >= 4 ? 'rgba(76,175,80,0.6)' : (index <= currentDayIndex ? 'rgba(100,181,246,0.6)' : 'rgba(255,255,255,0.06)');
     }
     return 'rgba(255,255,255,0.06)';
   }
@@ -551,10 +582,46 @@ export class WinOfTheWeekComponent implements OnInit, OnDestroy {
     });
   }
 
-  closeWeek() {
+  showCloseWeekOptions() {
     const week = this.currentWeek();
     if (!week || week.nominations.length === 0) return;
-    const topNom = [...week.nominations].sort((a, b) => b.voteCount - a.voteCount)[0];
+    const sorted = [...week.nominations].sort((a, b) => b.voteCount - a.voteCount);
+    const topVotes = sorted[0].voteCount;
+    const tied = sorted.filter(n => n.voteCount === topVotes);
+
+    if (tied.length > 1) {
+      const ref = this.dialog.open(ConfirmDialogComponent, {
+        width: '420px',
+        data: {
+          title: 'Tie detected!',
+          message: `${tied.length} nominations are tied with ${topVotes} votes:\n${tied.map(n => `• ${n.nomineeName} — ${n.title}`).join('\n')}\n\nStart Sudden Death to let everyone vote again, or close now and pick the first one as winner.`,
+          confirmLabel: 'Sudden Death',
+          danger: false
+        }
+      });
+      ref.afterClosed().subscribe(ok => {
+        if (!ok) return;
+        this.startSuddenDeath(tied.map(n => n.id));
+      });
+    } else {
+      this.closeWeekWithNomination(sorted[0]);
+    }
+  }
+
+  startSuddenDeath(tiedIds: string[]) {
+    this.winSvc.startSuddenDeath({ tiedNominationIds: tiedIds }).subscribe({
+      next: () => {
+        this.snackBar.open('Sudden death started! Everyone can vote again.', 'Close', { duration: 3000 });
+        this.refresh();
+      },
+      error: (err) => {
+        const msg = err.error?.error || 'Failed to start sudden death';
+        this.snackBar.open(msg, 'Close', { duration: 3000 });
+      }
+    });
+  }
+
+  closeWeekWithNomination(topNom: WinNomination) {
     const ref = this.dialog.open(ConfirmDialogComponent, {
       width: '360px',
       data: {
@@ -577,6 +644,13 @@ export class WinOfTheWeekComponent implements OnInit, OnDestroy {
         }
       });
     });
+  }
+
+  closeWeek() {
+    const week = this.currentWeek();
+    if (!week || week.nominations.length === 0) return;
+    const sorted = [...week.nominations].sort((a, b) => b.voteCount - a.voteCount);
+    this.closeWeekWithNomination(sorted[0]);
   }
 
   openNextWeek() {

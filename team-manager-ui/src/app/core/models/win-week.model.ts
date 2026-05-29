@@ -22,7 +22,7 @@ export interface WinVote {
 export interface WinWeek {
   id: string;
   weekStart: string;
-  status: 'Nominating' | 'Voting' | 'Closed';
+  status: 'Nominating' | 'Voting' | 'SuddenDeath' | 'Closed';
   winnerNominationId: string | null;
   winnerTitle: string | null;
   winnerNomineeName: string | null;
@@ -31,6 +31,7 @@ export interface WinWeek {
   currentMemberId: string;
   userVotesRemaining: number;
   userNominationsRemaining: number;
+  tiedNominationIds: string[];
   nominations: WinNomination[];
 }
 
@@ -100,4 +101,8 @@ export interface CreateNominationRequest {
 
 export interface CloseWeekRequest {
   winnerNominationId: string;
+}
+
+export interface StartSuddenDeathRequest {
+  tiedNominationIds: string[];
 }
