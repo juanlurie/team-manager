@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, signal, computed, effect } from '@angular/core';
+import { Component, OnInit, inject, signal, computed, effect, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink, Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
@@ -6,7 +6,7 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
-import { forkJoin, of } from 'rxjs';
+import { forkJoin, of, Subscription } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 import { Sprint } from '../../../core/models/sprint.model';
 import { SprintSummary, Blocker, DashboardLeaveSummary } from '../../../core/models/dashboard.model';
@@ -26,6 +26,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { IconButtonComponent } from '../../../shared/components/icon-btn/icon-btn.component';
 import { CurrentSprintCardComponent } from '../../../shared/components/current-sprint-card/current-sprint-card.component';
 import { LeaveSummaryCardComponent } from '../leave-summary-card/leave-summary-card.component';
+import { WebSocketService } from '../../../core/websocket/websocket.service';
 
 const STATUS_ORDER  = ['Released', 'ReadyForRelease', 'InProgress', 'Completed', 'Planned'] as const;
 const STATUS_LABEL: Record<string, string> = {
@@ -46,7 +47,7 @@ const STATUS_COLOR: Record<string, string> = {
   templateUrl: './sprint-dashboard.component.html',
   styleUrls: ['./sprint-dashboard.component.scss']
 })
-export class SprintDashboardComponent implements OnInit {
+export class SprintDashboardComponent implements OnInit, OnDestroy {
   private sprintSvc      = inject(SprintService);
   private dashSvc        = inject(DashboardService);
   private featureSvc     = inject(FeatureService);
@@ -54,8 +55,10 @@ export class SprintDashboardComponent implements OnInit {
   private workItemSvc    = inject(WorkItemService);
   private discussionSvc  = inject(DiscussionPointService);
   private retroActionSvc = inject(RetroActionService);
+  private wsSvc          = inject(WebSocketService);
   private dialog         = inject(MatDialog);
   private router         = inject(Router);
+  private wsSub: Subscription | null = null;
 
   readonly statusOrder = STATUS_ORDER;
 
@@ -152,6 +155,21 @@ export class SprintDashboardComponent implements OnInit {
         this.load();
       }
     });
+
+    this.wsSvc.connect();
+    this.wsSub = this.wsSvc.messages$.subscribe(msg => {
+      if (!msg) return;
+      if (msg.type === 'retro_action_created' || msg.type === 'retro_action_updated' || msg.type === 'retro_action_deleted') {
+        const sprint = this.currentSprint();
+        if (sprint) {
+          this.retroActionSvc.getBySprintId(sprint.id).subscribe(a => this.retroActions.set(a));
+        }
+      }
+    });
+  }
+
+  ngOnDestroy() {
+    this.wsSub?.unsubscribe();
   }
 
   load() {

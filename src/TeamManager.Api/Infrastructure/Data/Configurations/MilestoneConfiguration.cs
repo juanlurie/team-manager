@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using TeamManager.Api.Domain.Entities;
+using TeamManager.Api.Domain.Enums;
 
 namespace TeamManager.Api.Infrastructure.Data.Configurations;
 
@@ -12,7 +13,7 @@ public class MilestoneConfiguration : IEntityTypeConfiguration<Milestone>
         builder.Property(m => m.Id).HasDefaultValueSql("gen_random_uuid()");
         builder.Property(m => m.Title).IsRequired().HasMaxLength(255);
         builder.Property(m => m.Status).HasConversion<string>();
-        builder.Property(m => m.Scope).HasConversion<string>().HasDefaultValue("Global");
+        builder.Property(m => m.Scope).HasConversion<string>().HasDefaultValue(MilestoneScope.Global);
         builder.Property(m => m.SquadId).IsRequired(false);
         builder.Property(m => m.CreatedAt).HasDefaultValueSql("now()");
         builder.Property(m => m.UpdatedAt).HasDefaultValueSql("now()");

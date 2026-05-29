@@ -9,6 +9,7 @@ public class WinWeek
     public DateOnly WeekEnd { get; set; }
     public WinWeekStatus Status { get; set; } = WinWeekStatus.Nominating;
     public Guid? WinnerNominationId { get; set; }
+    public string? TiedNominationIds { get; set; }
     public DateTimeOffset OpenedAt { get; set; } = DateTimeOffset.UtcNow;
     public DateTimeOffset? ClosedAt { get; set; }
     public Guid CreatedByMemberId { get; set; }

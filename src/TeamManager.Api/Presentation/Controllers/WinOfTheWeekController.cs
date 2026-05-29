@@ -28,6 +28,7 @@ public class WinOfTheWeekController(IWinOfTheWeekService service, AppDbContext d
         try
         {
             var result = await service.CreateNominationAsync(memberId, request);
+            _ = WebSocketMiddleware.BroadcastAsync("nomination_created", new { nomination = result });
             return Ok(result);
         }
         catch (InvalidOperationException ex)
@@ -43,6 +44,7 @@ public class WinOfTheWeekController(IWinOfTheWeekService service, AppDbContext d
         try
         {
             var result = await service.UpdateNominationAsync(memberId, nominationId, request);
+            _ = WebSocketMiddleware.BroadcastAsync("nomination_updated", new { nomination = result });
             return Ok(result);
         }
         catch (KeyNotFoundException)
@@ -62,6 +64,7 @@ public class WinOfTheWeekController(IWinOfTheWeekService service, AppDbContext d
         try
         {
             await service.DeleteNominationAsync(memberId, nominationId);
+            _ = WebSocketMiddleware.BroadcastAsync("nomination_deleted", new { nominationId });
             return NoContent();
         }
         catch (KeyNotFoundException)
@@ -150,6 +153,23 @@ public class WinOfTheWeekController(IWinOfTheWeekService service, AppDbContext d
         {
             var result = await service.OpenVotingAsync(memberId);
             _ = WebSocketMiddleware.BroadcastAsync("voting_opened", new { });
+            return Ok(result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
+    [HttpPost("sudden-death")]
+    [Authorize(Roles = "TeamLead")]
+    public async Task<IActionResult> StartSuddenDeath([FromBody] StartSuddenDeathRequest request)
+    {
+        var memberId = GetCurrentMemberId();
+        try
+        {
+            var result = await service.StartSuddenDeathAsync(memberId, request);
+            _ = WebSocketMiddleware.BroadcastAsync("sudden_death_started", new { });
             return Ok(result);
         }
         catch (InvalidOperationException ex)

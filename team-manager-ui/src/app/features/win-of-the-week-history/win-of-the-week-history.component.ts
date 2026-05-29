@@ -4,13 +4,14 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { MatSelectModule } from '@angular/material/select';
 import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { WinOfTheWeekService } from '../../core/services/win-of-the-week.service';
 import { WinWeekHistory, WinWeekDetail, WinNomination } from '../../core/models/win-week.model';
 
 @Component({
   selector: 'app-win-of-the-week-history',
   standalone: true,
-  imports: [CommonModule, MatIconModule, MatButtonModule, MatSelectModule, MatFormFieldModule],
+  imports: [CommonModule, MatIconModule, MatButtonModule, MatSelectModule, MatFormFieldModule, MatTooltipModule],
   template: `
     <div style="max-width:1000px;margin:0 auto;padding:0 8px 80px">
       <!-- Header -->
@@ -49,12 +50,16 @@ import { WinWeekHistory, WinWeekDetail, WinNomination } from '../../core/models/
       @if (!loading() && history().length > 0) {
         <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px">
           @for (w of history(); track w.id) {
-            <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:16px;cursor:pointer;transition:all 0.2s"
+            <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:16px;cursor:pointer;transition:all 0.2s;position:relative"
                  (click)="toggleDetail(w.id)"
                  (mouseenter)="hoveredId.set(w.id)"
                  (mouseleave)="hoveredId.set(null)"
                  [style.transform]="hoveredId() === w.id ? 'translateY(-4px)' : 'none'"
                  [style.boxShadow]="hoveredId() === w.id ? '0 4px 12px rgba(0,0,0,0.12)' : 'none'">
+              <!-- Status chip -->
+              <span style="position:absolute;top:10px;right:10px;font-size:0.6rem;font-weight:700;padding:2px 8px;border-radius:10px;text-transform:uppercase;letter-spacing:0.3px;background:rgba(76,175,80,0.15);color:#4caf50">
+                Closed
+              </span>
               <!-- Avatar -->
               <div style="width:48px;height:48px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1rem;font-weight:700;background:rgba(255,215,0,0.12);color:#FFD700;border:1px solid rgba(255,215,0,0.3);margin-bottom:10px">
                 {{getInitials(w.winnerNomineeName || '?')}}

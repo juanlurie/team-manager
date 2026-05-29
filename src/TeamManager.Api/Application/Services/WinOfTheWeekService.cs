@@ -1,9 +1,11 @@
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using TeamManager.Api.Application.DTOs.WinOfTheWeek;
 using TeamManager.Api.Application.Services.Interfaces;
 using TeamManager.Api.Domain.Entities;
 using TeamManager.Api.Domain.Enums;
 using TeamManager.Api.Infrastructure.Data;
+using TeamManager.Api.Middleware;
 
 namespace TeamManager.Api.Application.Services;
 
@@ -52,8 +54,11 @@ public class WinOfTheWeekService(AppDbContext db) : IWinOfTheWeekService
             OpenedAt = week.OpenedAt,
             ClosedAt = week.ClosedAt,
             CurrentMemberId = currentMemberId,
-            UserVotesRemaining = MaxVotesPerPerson - userVoteCount,
+            UserVotesRemaining = week.Status == WinWeekStatus.SuddenDeath ? 999 : MaxVotesPerPerson - userVoteCount,
             UserNominationsRemaining = MaxNominationsPerPerson - userNominationCount,
+            TiedNominationIds = week.TiedNominationIds != null
+                ? JsonSerializer.Deserialize<List<Guid>>(week.TiedNominationIds) ?? []
+                : [],
             Nominations = nominations.Select(n => new WinNominationDto
             {
                 Id = n.Id,
@@ -184,7 +189,8 @@ public class WinOfTheWeekService(AppDbContext db) : IWinOfTheWeekService
         if (nomination is null)
             throw new KeyNotFoundException("Nomination not found.");
 
-        if (nomination.WinWeek.Status != WinWeekStatus.Voting)
+        var week = nomination.WinWeek;
+        if (week.Status != WinWeekStatus.Voting && week.Status != WinWeekStatus.SuddenDeath)
             throw new InvalidOperationException("Voting is not open for the current week.");
 
         var existingVote = await db.WinVotes
@@ -193,11 +199,14 @@ public class WinOfTheWeekService(AppDbContext db) : IWinOfTheWeekService
         if (existingVote is not null)
             throw new InvalidOperationException("You have already voted for this nomination.");
 
-        var weekVoteCount = await db.WinVotes
-            .CountAsync(v => v.TeamMemberId == memberId && v.WinNomination.WinWeekId == nomination.WinWeekId);
+        if (week.Status == WinWeekStatus.Voting)
+        {
+            var weekVoteCount = await db.WinVotes
+                .CountAsync(v => v.TeamMemberId == memberId && v.WinNomination.WinWeekId == nomination.WinWeekId);
 
-        if (weekVoteCount >= MaxVotesPerPerson)
-            throw new InvalidOperationException($"You can only vote up to {MaxVotesPerPerson} times per week.");
+            if (weekVoteCount >= MaxVotesPerPerson)
+                throw new InvalidOperationException($"You can only vote up to {MaxVotesPerPerson} times per week.");
+        }
 
         var vote = new WinVote
         {
@@ -207,6 +216,11 @@ public class WinOfTheWeekService(AppDbContext db) : IWinOfTheWeekService
 
         db.WinVotes.Add(vote);
         await db.SaveChangesAsync();
+
+        if (week.Status == WinWeekStatus.SuddenDeath)
+        {
+            await CheckAndAutoCloseSuddenDeathAsync(week);
+        }
 
         return new WinVoteDto
         {
@@ -260,22 +274,36 @@ public class WinOfTheWeekService(AppDbContext db) : IWinOfTheWeekService
 
     public async Task<WinWeekDto> OpenNextWeekAsync(Guid memberId)
     {
-        var today = DateOnly.FromDateTime(DateTimeOffset.UtcNow.Date);
-        var weekStart = GetWeekStart(today);
+        var latestWeek = await db.WinWeeks
+            .OrderByDescending(w => w.WeekStart)
+            .FirstOrDefaultAsync();
 
-        var currentWeek = await db.WinWeeks
+        DateOnly weekStart;
+        if (latestWeek is not null)
+        {
+            if (latestWeek.Status != WinWeekStatus.Closed)
+                throw new InvalidOperationException("Cannot open a new week while the current week is still active. Close it first.");
+
+            weekStart = latestWeek.WeekStart.AddDays(7);
+        }
+        else
+        {
+            var today = DateOnly.FromDateTime(DateTimeOffset.UtcNow.Date);
+            weekStart = GetWeekStart(today);
+        }
+
+        var existing = await db.WinWeeks
             .FirstOrDefaultAsync(w => w.WeekStart == weekStart);
 
-        if (currentWeek is not null && currentWeek.Status != WinWeekStatus.Closed)
-            throw new InvalidOperationException("Cannot open a new week while the current week is still active. Close it first.");
-
-        if (currentWeek is not null)
+        if (existing is not null)
             throw new InvalidOperationException("A week already exists for this period.");
 
         var week = new WinWeek
         {
             WeekStart = weekStart,
-            Status = WinWeekStatus.Nominating
+            WeekEnd = weekStart.AddDays(6),
+            Status = WinWeekStatus.Nominating,
+            CreatedByMemberId = memberId
         };
 
         db.WinWeeks.Add(week);
@@ -303,6 +331,36 @@ public class WinOfTheWeekService(AppDbContext db) : IWinOfTheWeekService
             throw new InvalidOperationException("Cannot open voting with no nominations.");
 
         week.Status = WinWeekStatus.Voting;
+        await db.SaveChangesAsync();
+
+        return await GetCurrentWeekAsync(memberId);
+    }
+
+    public async Task<WinWeekDto> StartSuddenDeathAsync(Guid memberId, StartSuddenDeathRequest request)
+    {
+        var today = DateOnly.FromDateTime(DateTimeOffset.UtcNow.Date);
+        var weekStart = GetWeekStart(today);
+
+        var week = await db.WinWeeks
+            .Include(w => w.Nominations)
+            .FirstOrDefaultAsync(w => w.WeekStart == weekStart);
+
+        if (week is null)
+            throw new InvalidOperationException("No week found for the current period.");
+
+        if (week.Status != WinWeekStatus.Voting)
+            throw new InvalidOperationException("Sudden death can only be started during voting phase.");
+
+        if (request.TiedNominationIds.Count < 2)
+            throw new InvalidOperationException("Sudden death requires at least 2 tied nominations.");
+
+        var tiedIds = request.TiedNominationIds.ToHashSet();
+        var validNominations = week.Nominations.Where(n => tiedIds.Contains(n.Id)).ToList();
+        if (validNominations.Count != request.TiedNominationIds.Count)
+            throw new InvalidOperationException("One or more tied nominations do not belong to the current week.");
+
+        week.Status = WinWeekStatus.SuddenDeath;
+        week.TiedNominationIds = JsonSerializer.Serialize(request.TiedNominationIds);
         await db.SaveChangesAsync();
 
         return await GetCurrentWeekAsync(memberId);
@@ -473,5 +531,43 @@ public class WinOfTheWeekService(AppDbContext db) : IWinOfTheWeekService
     {
         var diff = (7 + (int)date.DayOfWeek - (int)DayOfWeek.Monday) % 7;
         return date.AddDays(-diff);
+    }
+
+    private async Task CheckAndAutoCloseSuddenDeathAsync(WinWeek week)
+    {
+        if (string.IsNullOrEmpty(week.TiedNominationIds)) return;
+
+        var tiedIds = JsonSerializer.Deserialize<List<Guid>>(week.TiedNominationIds) ?? [];
+        if (tiedIds.Count == 0) return;
+
+        var votes = await db.WinVotes
+            .Where(v => tiedIds.Contains(v.WinNominationId))
+            .GroupBy(v => v.WinNominationId)
+            .Select(g => new { NominationId = g.Key, VoteCount = g.Count() })
+            .ToListAsync();
+
+        if (votes.Count == 0) return;
+
+        var maxVotes = votes.Max(v => v.VoteCount);
+        var leaders = votes.Where(v => v.VoteCount == maxVotes).ToList();
+
+        if (leaders.Count == 1)
+        {
+            week.Status = WinWeekStatus.Closed;
+            week.WinnerNominationId = leaders[0].NominationId;
+            week.ClosedAt = DateTimeOffset.UtcNow;
+            week.TiedNominationIds = null;
+            await db.SaveChangesAsync();
+
+            await AwardWeeklyAchievementAsync(
+                (await db.WinNominations.FindAsync(leaders[0].NominationId))!.NomineeMemberId,
+                week.WeekStart);
+
+            _ = WebSocketMiddleware.BroadcastAsync("voting_closed", new
+            {
+                weekId = week.Id,
+                winnerId = week.WinnerNominationId
+            });
+        }
     }
 }

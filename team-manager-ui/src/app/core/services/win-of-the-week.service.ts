@@ -1,6 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { WinWeek, WinNomination, WinVote, CreateNominationRequest, CloseWeekRequest, WinWeekHistory, WinWeekDetail } from '../models/win-week.model';
+import { WinWeek, WinNomination, WinVote, CreateNominationRequest, CloseWeekRequest, StartSuddenDeathRequest, WinWeekHistory, WinWeekDetail } from '../models/win-week.model';
 
 @Injectable({ providedIn: 'root' })
 export class WinOfTheWeekService {
@@ -41,6 +41,10 @@ export class WinOfTheWeekService {
 
   openVoting() {
     return this.http.post<WinWeek>(`${this.base}/open-voting`, {});
+  }
+
+  startSuddenDeath(request: StartSuddenDeathRequest) {
+    return this.http.post<WinWeek>(`${this.base}/sudden-death`, request);
   }
 
   getHistory(year?: number) {
