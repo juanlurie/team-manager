@@ -57,41 +57,8 @@ import { WinOfTheMonthComponent } from '../win-of-the-month/win-of-the-month.com
                   [style.background]="tabHover() === tab.id ? 'rgba(255,255,255,0.04)' : 'none'">
             {{tab.label}}
           </button>
-          <mat-divider></mat-divider>
-          <button mat-menu-item (click)="activeTab.set('history')">
-            <mat-icon>history</mat-icon><span>History</span>
-          </button>
-          <button mat-menu-item (click)="activeTab.set('month')">
-            <mat-icon>emoji_events</mat-icon><span>Win of the Month</span>
-          </button>
-          <mat-divider></mat-divider>
-          @if (currentWeek()?.status === 'Nominating' && (currentWeek()?.nominations?.length ?? 0) > 0) {
-            <button mat-menu-item (click)="openVoting()">
-              <mat-icon>how_to_vote</mat-icon><span>Open Voting</span>
-            </button>
-          }
-          @if (currentWeek()?.status === 'Voting' && (currentWeek()?.nominations?.length ?? 0) > 0) {
-            <button mat-menu-item (click)="showCloseWeekOptions()">
-              <mat-icon>lock</mat-icon><span>Close & Pick Winner</span>
-            </button>
-          }
-          @if (currentWeek()?.status === 'SuddenDeath') {
-            <button mat-menu-item disabled>
-              <mat-icon>flash_on</mat-icon><span>Sudden Death Active</span>
-            </button>
-          }
-          @if (currentWeek()?.status === 'Voting' && (currentWeek()?.nominations?.length ?? 0) === 0) {
-            <button mat-menu-item disabled>
-              <mat-icon>lock</mat-icon><span>No nominations yet</span>
-            </button>
-          }
-          @if (currentWeek()?.status === 'Closed') {
-            <button mat-menu-item (click)="openNextWeek()">
-              <mat-icon>add_circle</mat-icon><span>Open Next Week</span>
-            </button>
-          }
-        </mat-menu>
-      </div>
+        }
+      </nav>
 
       <!-- Tab content -->
       @switch (activeTab()) {
@@ -226,7 +193,7 @@ import { WinOfTheMonthComponent } from '../win-of-the-month/win-of-the-month.com
             {{currentWeek()?.status === 'Voting' ? 'VOTING OPEN' : (currentWeek()?.status === 'Nominating' ? 'Voting Opens Friday' : 'Voting Closed')}}
           </span>
         </div>
-      </div>
+      }
 
       <!-- Winner banner -->
       @if (week && week.status === 'Closed' && week.winnerNomineeName) {
@@ -371,6 +338,12 @@ export class WinOfTheWeekComponent implements OnInit, OnDestroy {
   private wsSub: Subscription | null = null;
 
   readonly DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
+  readonly tabs = [
+    { id: 'current', label: 'Current' },
+    { id: 'history', label: 'History' },
+    { id: 'month', label: 'Win of the Month' },
+  ];
+  tabHover = signal<string | null>(null);
   activeTab = signal('current');
   currentWeek = signal<WinWeek | null>(null);
   allMembers = signal<TeamMember[]>([]);
@@ -379,6 +352,18 @@ export class WinOfTheWeekComponent implements OnInit, OnDestroy {
   showDialog = signal(false);
   editingNominationId = signal<string | null>(null);
   currentUserId = '';
+
+  readonly phaseInfo = computed(() => {
+    const week = this.currentWeek();
+    if (!week) return { label: '', bg: 'rgba(255,255,255,0.06)', text: 'rgba(255,255,255,0.4)' };
+    const map: Record<string, { label: string; bg: string; text: string }> = {
+      Nominating: { label: 'Nominating', bg: 'rgba(100,181,246,0.15)', text: '#64b5f6' },
+      Voting: { label: 'Voting', bg: 'rgba(76,175,80,0.15)', text: '#4caf50' },
+      SuddenDeath: { label: 'Sudden Death', bg: 'rgba(255,69,0,0.15)', text: '#ff4500' },
+      Closed: { label: 'Closed', bg: 'rgba(255,215,0,0.15)', text: '#FFD700' },
+    };
+    return map[week.status] ?? { label: week.status, bg: 'rgba(255,255,255,0.06)', text: 'rgba(255,255,255,0.4)' };
+  });
 
   nominateForm: CreateNominationRequest = {
     nomineeMemberId: '',
