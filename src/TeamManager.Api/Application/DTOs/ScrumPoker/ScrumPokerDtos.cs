@@ -9,7 +9,8 @@ public record ScrumPokerSessionDto(
     bool Revealed,
     DateTimeOffset CreatedAt,
     DateTimeOffset? RevealedAt,
-    string CreatedByMemberName
+    string CreatedByMemberName,
+    int VoteCount
 );
 
 public record ScrumPokerVoteDto(

@@ -1232,6 +1232,17 @@ namespace TeamManager.Api.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<string>("WorkWeekJson")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<bool>("MergeEntriesEnabled")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("LocationIconsJson")
+                        .IsRequired()
+                        .HasColumnType("text");
+
                     b.HasKey("TeamMemberId");
 
                     b.ToTable("MemberTimesheetConfigs");
@@ -1953,6 +1964,9 @@ namespace TeamManager.Api.Migrations
                         .HasColumnType("uuid");
 
                     b.Property<DateTimeOffset>("OpenedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset?>("SuddenDeathEndsAt")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("Status")

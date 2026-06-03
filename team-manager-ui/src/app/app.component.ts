@@ -28,6 +28,7 @@ const ALL_PRIMARY_NAV: NavItem[] = [
   { path: '/meetings',       icon: 'event',           label: 'Meetings',     featureKey: 'meetings' },
   { path: '/fun',            icon: 'casino',          label: 'Fun Hub',      featureKey: 'fun-hub' },
   { path: '/team',           icon: 'people',          label: 'Team',         featureKey: 'team' },
+  { path: '/timesheet',      icon: 'schedule',        label: 'Timesheet',    featureKey: 'team' },
   { path: '/leave',          icon: 'event_busy',      label: 'Leave',        featureKey: 'leave' },
 ];
 
@@ -44,6 +45,7 @@ const ALL_BOTTOM_NAV: NavItem[] = [
   { path: '/sprints',        icon: 'directions_run',  label: 'Sprints',      featureKey: 'sprints' },
   { path: '/fun',            icon: 'casino',          label: 'Fun Hub',      featureKey: 'fun-hub' },
   { path: '/team',           icon: 'people',          label: 'Team',         featureKey: 'team' },
+  { path: '/timesheet',      icon: 'schedule',        label: 'Timesheet',    featureKey: 'team' },
   { path: '/leave',          icon: 'event_busy',      label: 'Leave',        featureKey: 'leave' },
 ];
 
@@ -52,6 +54,7 @@ const ALL_MORE_NAV: NavItem[] = [
   { path: '/progress',       icon: 'track_changes',  label: 'Progress',      featureKey: 'progress' },
   { path: '/discussion',     icon: 'forum',          label: 'Discussion',    featureKey: 'discussion' },
   { path: '/meetings',       icon: 'event',          label: 'Meetings',      featureKey: 'meetings' },
+  { path: '/timesheet',      icon: 'schedule',       label: 'Timesheet',     featureKey: 'team' },
   { path: '/showcase',       icon: 'auto_awesome',   label: 'Showcase' },
   { path: '/access-requests',icon: 'person_add',     label: 'Access Requests', featureKey: 'access-requests' },
   { path: '/expense-claim',  icon: 'receipt_long',   label: 'Expense Claim' },

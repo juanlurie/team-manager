@@ -1,1 +1,166 @@
-/* Scrum Poker styles reuse existing component styles */
+.section-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  opacity: 0.4;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+}
+
+.status-badge {
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 20px;
+  white-space: nowrap;
+}
+
+.icon-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: rgba(255, 255, 255, 0.55);
+  padding: 6px;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s;
+  &:hover { background: rgba(255, 255, 255, 0.07); }
+}
+
+// Session list rows
+.session-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: rgba(255, 255, 255, 0.03);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+  &:hover {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(100, 181, 246, 0.22);
+  }
+}
+
+// Participant tiles
+.participant-tile {
+  width: 72px;
+  min-height: 84px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 4px;
+  gap: 6px;
+  transition: border-color 0.2s, background 0.2s;
+
+  &.tile-voted {
+    border-color: rgba(102, 187, 106, 0.4);
+    background: rgba(102, 187, 106, 0.07);
+  }
+
+  &.tile-waiting {
+    border: 1px dashed rgba(255, 255, 255, 0.13);
+    background: transparent;
+  }
+
+  &.tile-mode {
+    border-color: rgba(100, 181, 246, 0.55);
+    background: rgba(100, 181, 246, 0.1);
+  }
+
+  &.tile-outlier {
+    border-color: rgba(255, 167, 38, 0.45);
+    background: rgba(255, 167, 38, 0.07);
+  }
+}
+
+.tile-value {
+  font-size: 1.35rem;
+  font-weight: 800;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 34px;
+}
+
+.tile-name {
+  font-size: 0.65rem;
+  opacity: 0.45;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  width: 100%;
+  padding: 0 4px;
+}
+
+// Playing card vote buttons
+.vote-card-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.vote-card {
+  width: 52px;
+  height: 78px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  user-select: none;
+  transition: transform 0.12s ease, border-color 0.15s, background 0.15s, box-shadow 0.15s;
+
+  &:hover {
+    transform: translateY(-5px);
+    border-color: rgba(100, 181, 246, 0.45);
+    background: rgba(100, 181, 246, 0.07);
+  }
+
+  &.vote-card-selected {
+    border-color: #64b5f6;
+    background: rgba(100, 181, 246, 0.14);
+    transform: translateY(-8px);
+    box-shadow: 0 6px 20px rgba(100, 181, 246, 0.22);
+  }
+}
+
+.card-corner-tl {
+  position: absolute;
+  top: 5px;
+  left: 6px;
+  font-size: 0.58rem;
+  font-weight: 700;
+  opacity: 0.4;
+  line-height: 1;
+}
+
+.card-corner-br {
+  position: absolute;
+  bottom: 5px;
+  right: 6px;
+  font-size: 0.58rem;
+  font-weight: 700;
+  opacity: 0.4;
+  line-height: 1;
+  transform: rotate(180deg);
+}
+
+.card-center-val {
+  font-size: 1rem;
+  font-weight: 800;
+  line-height: 1;
+}

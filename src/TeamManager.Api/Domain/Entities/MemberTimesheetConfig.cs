@@ -7,6 +7,10 @@ public class MemberTimesheetConfig
     public string ExtraCategoriesJson { get; set; } = "{}";
     public string QuickActionsJson { get; set; } = "[]";
     public string WorkLocationOptionsJson { get; set; } = "[\"Home\",\"Other\",\"Client\",\"Entelect\"]";
+    public string BillableProjectsJson { get; set; } = "[]";
+    public string WorkWeekJson { get; set; } = "{}";
+    public bool MergeEntriesEnabled { get; set; } = false;
+    public string LocationIconsJson { get; set; } = "{}";
 
     public TeamMember TeamMember { get; set; } = null!;
 }

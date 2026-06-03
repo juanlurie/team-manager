@@ -10,9 +10,13 @@ public record WinWeekDto
     public string? WinnerNomineeName { get; init; }
     public DateTimeOffset OpenedAt { get; init; }
     public DateTimeOffset? ClosedAt { get; init; }
+    public DateTimeOffset? SuddenDeathEndsAt { get; init; }
     public Guid CurrentMemberId { get; init; }
     public int UserVotesRemaining { get; init; }
     public int UserNominationsRemaining { get; init; }
+    public int TotalVotesCast { get; init; }
+    public int ActiveMemberCount { get; init; }
+    public int ConnectedMemberCount { get; init; }
     public List<Guid> TiedNominationIds { get; init; } = [];
     public List<WinNominationDto> Nominations { get; init; } = [];
 }

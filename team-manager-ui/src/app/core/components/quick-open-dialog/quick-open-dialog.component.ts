@@ -23,6 +23,7 @@ const QUICK_OPEN_ITEMS: QuickOpenItem[] = [
   { id: 'progress', path: '/progress', label: 'Progress', icon: 'track_changes', featureKey: 'progress' },
   { id: 'discussion', path: '/discussion', label: 'Discussion', icon: 'forum', featureKey: 'discussion' },
   { id: 'team', path: '/team', label: 'Team', icon: 'people', featureKey: 'team' },
+  { id: 'timesheet', path: '/timesheet', label: 'Timesheet', icon: 'schedule', featureKey: 'team' },
   { id: 'leave', path: '/leave', label: 'Leave', icon: 'event_busy', featureKey: 'leave' },
   { id: 'meetings', path: '/meetings', label: 'Meetings', icon: 'event', featureKey: 'meetings' },
   { id: 'export', path: '/export', label: 'Export', icon: 'download', featureKey: 'export' },

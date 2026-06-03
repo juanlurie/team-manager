@@ -3,27 +3,27 @@
 
 import os
 import json
+import contextvars
 from typing import Any
 import httpx
 import mcp.server.stdio
 import mcp.types as types
 from mcp.server import Server
+from mcp.server.sse import SseServerTransport
+from starlette.applications import Starlette
+from starlette.requests import Request
+from starlette.responses import Response
+from starlette.routing import Mount, Route
+import uvicorn
 
 BASE_URL = os.environ.get("TEAM_MANAGER_API_URL", "http://localhost:5000")
-API_KEY = os.environ.get("TEAM_MANAGER_API_KEY")
 
 app = Server("team-manager")
-_http: httpx.AsyncClient | None = None
+_http_ctx: contextvars.ContextVar[httpx.AsyncClient] = contextvars.ContextVar("http_client")
 
 
 def http() -> httpx.AsyncClient:
-    global _http
-    if _http is None:
-        headers = {}
-        if API_KEY:
-            headers["X-API-Key"] = API_KEY
-        _http = httpx.AsyncClient(base_url=BASE_URL, timeout=30, headers=headers)
-    return _http
+    return _http_ctx.get()
 
 
 def _ok(data: Any) -> list[types.TextContent]:
@@ -887,74 +887,80 @@ TOOLS = [
     ),
 
     # ═══════════════════════════════════════════════════════════
-    # Timesheets
+    # Timesheets (identity derived from API key — no member_id needed)
     # ═══════════════════════════════════════════════════════════
     types.Tool(
         name="get_timesheets",
-        description="Get timesheet entries for a member by month.",
+        description="Get timesheet entries for the authenticated member by month.",
         inputSchema={
             "type": "object",
             "properties": {
-                "member_id": {"type": "string"},
                 "year": {"type": "integer"},
                 "month": {"type": "integer"},
             },
-            "required": ["member_id"],
+            "required": [],
         },
     ),
     types.Tool(
         name="create_timesheet_entry",
-        description="Create a timesheet entry.",
+        description="Create a timesheet entry for the authenticated member.",
         inputSchema={
             "type": "object",
             "properties": {
-                "member_id": {"type": "string"},
                 "date": {"type": "string", "description": "YYYY-MM-DD"},
-                "hours": {"type": "number"},
-                "description": {"type": "string"},
+                "hours": {"type": "integer"},
+                "minutes": {"type": "integer", "description": "0-59"},
                 "project": {"type": "string"},
                 "category": {"type": "string"},
+                "billable": {"type": "boolean"},
+                "worked_from": {"type": "string", "description": "Home, Client, Entelect, Other"},
+                "sentiment": {"type": "string", "description": "Neutral, Happy, Sad"},
+                "description": {"type": "string"},
+                "ticket_number": {"type": "string"},
             },
-            "required": ["member_id", "date", "hours"],
+            "required": ["date", "hours", "project", "category"],
         },
     ),
     types.Tool(
         name="update_timesheet_entry",
-        description="Update a timesheet entry.",
+        description="Update a timesheet entry for the authenticated member.",
         inputSchema={
             "type": "object",
             "properties": {
-                "member_id": {"type": "string"},
                 "entry_id": {"type": "string"},
                 "date": {"type": "string", "description": "YYYY-MM-DD"},
-                "hours": {"type": "number"},
-                "description": {"type": "string"},
+                "hours": {"type": "integer"},
+                "minutes": {"type": "integer", "description": "0-59"},
                 "project": {"type": "string"},
                 "category": {"type": "string"},
+                "billable": {"type": "boolean"},
+                "worked_from": {"type": "string", "description": "Home, Client, Entelect, Other"},
+                "sentiment": {"type": "string", "description": "Neutral, Happy, Sad"},
+                "description": {"type": "string"},
+                "ticket_number": {"type": "string"},
             },
-            "required": ["member_id", "entry_id"],
+            "required": ["entry_id"],
         },
     ),
     types.Tool(
         name="delete_timesheet_entry",
-        description="Delete a timesheet entry.",
+        description="Delete a timesheet entry for the authenticated member.",
         inputSchema={
             "type": "object",
-            "properties": {"member_id": {"type": "string"}, "entry_id": {"type": "string"}},
-            "required": ["member_id", "entry_id"],
+            "properties": {"entry_id": {"type": "string"}},
+            "required": ["entry_id"],
         },
     ),
     types.Tool(
         name="export_timesheet",
-        description="Export timesheet for a member.",
+        description="Export timesheet for the authenticated member.",
         inputSchema={
             "type": "object",
             "properties": {
-                "member_id": {"type": "string"},
                 "year": {"type": "integer"},
                 "month": {"type": "integer"},
             },
-            "required": ["member_id"],
+            "required": [],
         },
     ),
 
@@ -2411,41 +2417,49 @@ async def call_tool(name: str, arguments: dict) -> list[types.TextContent]:
 
             # ── Timesheets ──
             case "get_timesheets":
-                return await _get(f"/api/v1/team-members/{arguments['member_id']}/timesheets", {
+                return await _get("/api/v1/me/timesheets", {
                     "year": arguments.get("year"),
                     "month": arguments.get("month"),
                 })
             case "create_timesheet_entry":
-                return await _post(f"/api/v1/team-members/{arguments['member_id']}/timesheets", {
+                return await _post("/api/v1/me/timesheets", {
                     "date": arguments["date"],
                     "hours": arguments["hours"],
+                    "minutes": arguments.get("minutes", 0),
+                    "project": arguments["project"],
+                    "category": arguments["category"],
+                    "billable": arguments.get("billable", False),
+                    "workedFrom": arguments.get("worked_from", "Home"),
+                    "sentiment": arguments.get("sentiment", "Neutral"),
                     "description": arguments.get("description"),
-                    "project": arguments.get("project"),
-                    "category": arguments.get("category"),
+                    "ticketNumber": arguments.get("ticket_number"),
                 })
             case "update_timesheet_entry":
-                return await _put(f"/api/v1/team-members/{arguments['member_id']}/timesheets/{arguments['entry_id']}", {
+                return await _put(f"/api/v1/me/timesheets/{arguments['entry_id']}", {
                     "date": arguments.get("date"),
                     "hours": arguments.get("hours"),
-                    "description": arguments.get("description"),
+                    "minutes": arguments.get("minutes", 0),
                     "project": arguments.get("project"),
                     "category": arguments.get("category"),
+                    "billable": arguments.get("billable", False),
+                    "workedFrom": arguments.get("worked_from", "Home"),
+                    "sentiment": arguments.get("sentiment", "Neutral"),
+                    "description": arguments.get("description"),
+                    "ticketNumber": arguments.get("ticket_number"),
                 })
             case "delete_timesheet_entry":
-                return await _delete(f"/api/v1/team-members/{arguments['member_id']}/timesheets/{arguments['entry_id']}")
+                return await _delete(f"/api/v1/me/timesheets/{arguments['entry_id']}")
             case "export_timesheet":
-                return await _get(f"/api/v1/team-members/{arguments['member_id']}/timesheets/export", {
+                return await _get("/api/v1/me/timesheets/export", {
                     "year": arguments.get("year"),
                     "month": arguments.get("month"),
                 })
 
             # ── Timesheet Config ──
             case "get_timesheet_config":
-                return await _get(f"/api/v1/team-members/{arguments['member_id']}/timesheet-config")
+                return await _get("/api/v1/me/timesheet-config")
             case "update_timesheet_config":
-                return await _put(f"/api/v1/team-members/{arguments['member_id']}/timesheet-config", {
-                    "config": arguments["config"],
-                })
+                return await _put("/api/v1/me/timesheet-config", arguments["config"])
 
             # ── Member Personal ──
             case "get_member_personal":
@@ -2820,11 +2834,50 @@ async def call_tool(name: str, arguments: dict) -> list[types.TextContent]:
         return _err(f"Request failed: {e}")
 
 
-async def main():
-    async with mcp.server.stdio.stdio_server() as (read_stream, write_stream):
-        await app.run(read_stream, write_stream, app.create_initialization_options())
+async def main_stdio():
+    api_key = os.environ.get("TEAM_MANAGER_API_KEY", "")
+    client = httpx.AsyncClient(base_url=BASE_URL, timeout=30, headers={"X-API-Key": api_key})
+    _http_ctx.set(client)
+    try:
+        async with mcp.server.stdio.stdio_server() as (read_stream, write_stream):
+            await app.run(read_stream, write_stream, app.create_initialization_options())
+    finally:
+        await client.aclose()
 
+
+# ── SSE HTTP server ───────────────────────────────────────────────────────────
+
+_sse = SseServerTransport("/mcp/messages/")
+
+
+async def handle_sse(request: Request) -> Response:
+    auth = request.headers.get("Authorization", "")
+    api_key = auth.removeprefix("Bearer ").strip() if auth.startswith("Bearer ") else ""
+    if not api_key:
+        api_key = request.headers.get("X-API-Key", "")
+    if not api_key:
+        return Response("Unauthorized: provide Authorization: Bearer <api-key>", status_code=401)
+
+    client = httpx.AsyncClient(base_url=BASE_URL, timeout=30, headers={"X-API-Key": api_key})
+    token = _http_ctx.set(client)
+    try:
+        async with _sse.connect_sse(request.scope, request.receive, request._send) as streams:
+            await app.run(streams[0], streams[1], app.create_initialization_options())
+    finally:
+        await client.aclose()
+        _http_ctx.reset(token)
+    return Response()
+
+
+http_app = Starlette(routes=[
+    Route("/sse", handle_sse),
+    Mount("/messages/", app=_sse.handle_post_message),
+])
 
 if __name__ == "__main__":
-    import asyncio
-    asyncio.run(main())
+    import sys, asyncio
+    if "--stdio" in sys.argv:
+        asyncio.run(main_stdio())
+    else:
+        port = int(os.environ.get("MCP_PORT", "8765"))
+        uvicorn.run(http_app, host="0.0.0.0", port=port)

@@ -161,6 +161,23 @@ public class WinOfTheWeekController(IWinOfTheWeekService service, AppDbContext d
         }
     }
 
+    [HttpPost("reopen-nominations")]
+    [Authorize(Roles = "TeamLead")]
+    public async Task<IActionResult> ReopenNominations()
+    {
+        var memberId = GetCurrentMemberId();
+        try
+        {
+            var result = await service.ReopenNominationsAsync(memberId);
+            _ = WebSocketMiddleware.BroadcastAsync("nominations_reopened", new { });
+            return Ok(result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
     [HttpPost("sudden-death")]
     [Authorize(Roles = "TeamLead")]
     public async Task<IActionResult> StartSuddenDeath([FromBody] StartSuddenDeathRequest request)
@@ -202,9 +219,11 @@ public class WinOfTheWeekController(IWinOfTheWeekService service, AppDbContext d
 
     private Guid GetCurrentMemberId()
     {
-        var nameIdClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
-        if (Guid.TryParse(nameIdClaim, out var memberId))
-            return memberId;
+        if (Guid.TryParse(User.FindFirst("TMID")?.Value, out var tmid))
+            return tmid;
+
+        if (Guid.TryParse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value, out var nameId))
+            return nameId;
 
         var firstMember = db.Set<Domain.Entities.TeamMember>()
             .Where(m => m.IsActive)

@@ -56,6 +56,15 @@ public class SprintsController(ISprintService service) : ControllerBase
         return result is null ? NotFound() : Ok(result);
     }
 
+    [HttpPatch("{id:guid}/retro-phase")]
+    public async Task<IActionResult> UpdateRetroPhase(Guid id, [FromBody] UpdateRetroPhaseRequest request)
+    {
+        var result = await service.UpdateRetroPhaseAsync(id, request.Phase);
+        if (result is null) return NotFound();
+        _ = WebSocketMiddleware.BroadcastAsync("retro_phase_changed", new { sprintId = id, phase = request.Phase });
+        return Ok(result);
+    }
+
     [HttpPost("{id:guid}/clone")]
     public async Task<IActionResult> Clone(Guid id, [FromBody] CloneSprintRequest request)
     {

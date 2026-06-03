@@ -6,7 +6,11 @@ public record TimesheetConfigDto(
     string[] ExtraProjects,
     Dictionary<string, string[]> ExtraCategories,
     QuickActionConfigDto[] QuickActions,
-    string[] WorkLocationOptions
+    string[] WorkLocationOptions,
+    string[] BillableProjects,
+    Dictionary<string, string> WorkWeek,
+    bool MergeEntriesEnabled,
+    Dictionary<string, string> LocationIcons
 );
 
 public record QuickActionConfigDto(
@@ -23,7 +27,11 @@ public record UpsertTimesheetConfigRequest(
     string[]? ExtraProjects,
     Dictionary<string, string[]>? ExtraCategories,
     QuickActionConfigRequest[]? QuickActions,
-    string[]? WorkLocationOptions
+    string[]? WorkLocationOptions,
+    string[]? BillableProjects,
+    Dictionary<string, string>? WorkWeek,
+    bool? MergeEntriesEnabled,
+    Dictionary<string, string>? LocationIcons
 );
 
 public record QuickActionConfigRequest(

@@ -2,6 +2,7 @@ import { Component, inject, signal, computed, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
+import { MatIconModule } from '@angular/material/icon';
 import { TimesheetConfig, QuickActionConfig } from '../../../../core/models/timesheet-config.model';
 import { TimesheetConfigService } from '../../../../core/services/timesheet-config.service';
 import {
@@ -28,7 +29,7 @@ export interface TimesheetConfigDialogData {
 @Component({
   selector: 'app-timesheet-config-dialog',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, MatIconModule],
   styles: [`
     .dlg { display:flex; flex-direction:column; width:560px; max-width:100%; max-height:80vh; background:#131e2b; border-radius:12px; overflow:hidden; }
     .dlg-hdr { display:flex; align-items:center; justify-content:space-between; padding:18px 22px 14px; border-bottom:1px solid rgba(255,255,255,0.07); flex-shrink:0; }
@@ -84,6 +85,14 @@ export interface TimesheetConfigDialogData {
     .btn-add { padding:7px 12px; background:rgba(100,181,246,0.1); border:1px solid rgba(100,181,246,0.3); border-radius:6px; color:#64b5f6; font-size:12px; font-weight:600; cursor:pointer; font-family:inherit; white-space:nowrap; }
     .btn-add:hover { background:rgba(100,181,246,0.18); }
     .btn-add:disabled { opacity:0.35; cursor:not-allowed; }
+    .loc-row { display:flex; align-items:center; gap:10px; padding:8px 12px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.07); border-radius:6px; margin-bottom:8px; }
+    .loc-name { font-size:13px; flex:1; display:flex; align-items:center; gap:8px; }
+    .loc-name mat-icon { font-size:18px; width:18px; height:18px; color:rgba(255,255,255,0.5); }
+    .icon-picker { display:flex; gap:4px; flex-wrap:wrap; }
+    .icon-opt { width:30px; height:30px; display:flex; align-items:center; justify-content:center; border-radius:6px; cursor:pointer; border:1px solid rgba(255,255,255,0.08); background:none; color:rgba(255,255,255,0.4); transition:all 0.1s; }
+    .icon-opt:hover { background:rgba(255,255,255,0.07); color:rgba(255,255,255,0.8); }
+    .icon-opt.sel { border-color:rgba(100,181,246,0.6); background:rgba(100,181,246,0.12); color:#64b5f6; }
+    .icon-opt mat-icon { font-size:16px; width:16px; height:16px; }
     .proj-sel-row { display:flex; gap:7px; align-items:center; margin-bottom:10px; }
     .proj-list { display:flex; flex-direction:column; gap:8px; margin-bottom:12px; }
     .proj-row { display:flex; align-items:center; justify-content:space-between; padding:8px 12px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.07); border-radius:6px; }
@@ -102,6 +111,7 @@ export interface TimesheetConfigDialogData {
         <button class="dlg-tab" [class.active]="tab()===2" (click)="tab.set(2)">Categories</button>
         <button class="dlg-tab" [class.active]="tab()===3" (click)="tab.set(3)">Work Location</button>
         <button class="dlg-tab" [class.active]="tab()===4" (click)="tab.set(4)">Location Options</button>
+        <button class="dlg-tab" [class.active]="tab()===5" (click)="tab.set(5)">General</button>
       </div>
 
       <div class="dlg-body">
@@ -225,19 +235,39 @@ export interface TimesheetConfigDialogData {
 
         @if (tab()===4) {
           <div class="sec">
-            <div class="hint">Configure the available work location options. These appear in dropdowns when logging timesheets.</div>
-            <div class="tag-list">
-              @for (opt of workLocationOptions(); track opt) {
-                <span class="tag">
+            <div class="hint">Configure work location options and choose an icon for each.</div>
+            @for (opt of workLocationOptions(); track opt) {
+              <div class="loc-row">
+                <span class="loc-name">
+                  <mat-icon>{{ iconFor(opt) }}</mat-icon>
                   {{ opt }}
-                  <button class="tag-rm" (click)="removeLocation(opt)">×</button>
                 </span>
-              }
-            </div>
+                <div class="icon-picker">
+                  @for (ic of ICON_OPTIONS; track ic.icon) {
+                    <button class="icon-opt" [class.sel]="iconFor(opt) === ic.icon" [title]="ic.label" (click)="setLocationIcon(opt, ic.icon)">
+                      <mat-icon>{{ ic.icon }}</mat-icon>
+                    </button>
+                  }
+                </div>
+                <button class="tag-rm" (click)="removeLocation(opt)">×</button>
+              </div>
+            }
             <div class="add-row">
               <input class="inp" placeholder="Location name" [(ngModel)]="newLocation" (keydown.enter)="addLocation()" style="flex:1" />
               <button class="btn-add" [disabled]="!newLocation.trim()" (click)="addLocation()">Add</button>
             </div>
+          </div>
+        }
+        @if (tab()===5) {
+          <div class="sec">
+            <div class="hint">General behaviour settings for timesheet entry logging.</div>
+            <label class="billable-check" style="gap:12px;font-size:13px;padding:8px 0">
+              <input type="checkbox" [checked]="mergeEntriesEnabled()" (change)="mergeEntriesEnabled.set($any($event.target).checked); markDirty()">
+              <div>
+                <div style="font-weight:500">Merge duplicate entries</div>
+                <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-top:2px">When adding an entry with the same project &amp; category on the same day, combine it with the existing one and merge the notes.</div>
+              </div>
+            </label>
           </div>
         }
       </div>
@@ -269,6 +299,34 @@ export class TimesheetConfigDialogComponent implements OnInit {
   billableProjects = signal<string[]>([]);
   workWeek = signal<Record<string, string>>({});
   workLocationOptions = signal<string[]>([]);
+  mergeEntriesEnabled = signal(false);
+  locationIcons = signal<Record<string, string>>({});
+
+  readonly ICON_OPTIONS = [
+    { icon: 'home',          label: 'Home' },
+    { icon: 'business',      label: 'Office' },
+    { icon: 'laptop',        label: 'Laptop' },
+    { icon: 'location_city', label: 'City' },
+    { icon: 'work',          label: 'Work' },
+    { icon: 'local_cafe',    label: 'Café' },
+    { icon: 'flight',        label: 'Travel' },
+    { icon: 'apartment',     label: 'Building' },
+    { icon: 'public',        label: 'Remote' },
+    { icon: 'store',         label: 'Client' },
+  ];
+
+  readonly DEFAULT_ICONS: Record<string, string> = {
+    'Home': 'home', 'Client': 'store', 'Entelect': 'laptop', 'Other': 'location_on',
+  };
+
+  iconFor(loc: string): string {
+    return this.locationIcons()[loc] ?? this.DEFAULT_ICONS[loc] ?? 'location_on';
+  }
+
+  setLocationIcon(loc: string, icon: string) {
+    this.locationIcons.update(m => ({ ...m, [loc]: icon }));
+    this.markDirty();
+  }
 
   newProject = '';
   newCategory = '';
@@ -288,6 +346,8 @@ export class TimesheetConfigDialogComponent implements OnInit {
     this.billableProjects.set([...(c.billableProjects ?? [])]);
     this.workWeek.set({ ...(c.workWeek ?? {}) });
     this.workLocationOptions.set([...(c.workLocationOptions ?? ['Home', 'Other', 'Client', 'Entelect'])]);
+    this.mergeEntriesEnabled.set(c.mergeEntriesEnabled ?? false);
+    this.locationIcons.set({ ...(c.locationIcons ?? {}) });
   }
 
   catsFor(project: string): string[] {
@@ -419,6 +479,8 @@ export class TimesheetConfigDialogComponent implements OnInit {
       billableProjects: this.billableProjects(),
       workWeek: this.workWeek(),
       workLocationOptions: this.workLocationOptions(),
+      mergeEntriesEnabled: this.mergeEntriesEnabled(),
+      locationIcons: this.locationIcons(),
     };
     this.svc.upsert(this.data.memberId, payload).subscribe({
       next: config => this.ref.close(config),

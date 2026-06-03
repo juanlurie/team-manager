@@ -50,6 +50,7 @@ builder.Services.AddScoped<IDashboardService, DashboardService>();
 builder.Services.AddScoped<IPptxExportService, PptxExportService>();
 builder.Services.AddScoped<IDiscussionPointService, DiscussionPointService>();
 builder.Services.AddScoped<IRetroActionService, RetroActionService>();
+builder.Services.AddScoped<IRetroCardService, RetroCardService>();
 builder.Services.AddScoped<IAchievementService, AchievementService>();
 builder.Services.AddScoped<ILeaderboardService, LeaderboardService>();
 builder.Services.AddScoped<ProgressService>();
@@ -96,6 +97,16 @@ if (!string.IsNullOrEmpty(authority) && !string.IsNullOrEmpty(audience))
                 NameClaimType = "name",
                 RoleClaimType = "role"
             };
+            o.Events = new Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerEvents
+            {
+                OnMessageReceived = ctx =>
+                {
+                    var token = ctx.Request.Query["token"].FirstOrDefault();
+                    if (!string.IsNullOrEmpty(token) && ctx.HttpContext.WebSockets.IsWebSocketRequest)
+                        ctx.Token = token;
+                    return Task.CompletedTask;
+                }
+            };
         })
         .AddScheme<AuthenticationSchemeOptions, ApiKeyAuthenticationHandler>("ApiKey", _ => { });
 
@@ -133,11 +144,12 @@ app.UseSwaggerUI();
 app.UseCors("AllowAll");
 
 app.UseWebSockets(new WebSocketOptions { KeepAliveInterval = TimeSpan.FromMinutes(2) });
-app.UseMiddleware<WebSocketMiddleware>();
 
 app.UseAuthentication();
 app.UseMiddleware<TeamMemberRequiredMiddleware>();
 app.UseAuthorization();
+
+app.UseMiddleware<WebSocketMiddleware>();
 app.MapHealthChecks("/health").AllowAnonymous();
 app.MapControllers();
 

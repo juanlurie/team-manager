@@ -15,4 +15,5 @@ public record SprintDto
     public string? RetroWentWell { get; init; }
     public string? RetroDidntGoWell { get; init; }
     public string? RetroActionItems { get; init; }
+    public string? RetroPhase { get; init; }
 }

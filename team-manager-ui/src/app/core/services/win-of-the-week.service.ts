@@ -43,6 +43,10 @@ export class WinOfTheWeekService {
     return this.http.post<WinWeek>(`${this.base}/open-voting`, {});
   }
 
+  reopenNominations() {
+    return this.http.post<WinWeek>(`${this.base}/reopen-nominations`, {});
+  }
+
   startSuddenDeath(request: StartSuddenDeathRequest) {
     return this.http.post<WinWeek>(`${this.base}/sudden-death`, request);
   }

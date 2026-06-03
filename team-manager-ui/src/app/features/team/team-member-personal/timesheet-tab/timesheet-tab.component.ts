@@ -1,4 +1,5 @@
-import { Component, OnInit, inject, input, signal, computed, effect } from '@angular/core';
+import { Component, OnInit, OnDestroy, HostListener, inject, input, signal, computed } from '@angular/core';
+import { Subscription } from 'rxjs';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
@@ -13,7 +14,9 @@ import {
   TIMESHEET_PROJECTS, CATEGORIES_BY_PROJECT, minutesToDurationLabel, PUBLIC_HOLIDAYS_2026,
 } from '../timesheet-data.constants';
 import { TimesheetConfigDialogComponent } from '../timesheet-config-dialog/timesheet-config-dialog.component';
+import { WebSocketService } from '../../../../core/websocket/websocket.service';
 import { TimesheetEntryCardComponent } from '../timesheet-entry-card/timesheet-entry-card.component';
+import { TimesheetQuickAddModalComponent, QuickAddData } from '../timesheet-quick-add-modal/timesheet-quick-add-modal.component';
 
 interface Recent { project: string; category: string; durationMins: number; combo: QuickActionConfig | undefined; }
 const MN = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -26,29 +29,23 @@ const DN = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
   templateUrl: './timesheet-tab.component.html',
   styleUrls: ['./timesheet-tab.component.scss']
 })
-export class TimesheetTabComponent implements OnInit {
+export class TimesheetTabComponent implements OnInit, OnDestroy {
   memberId = input.required<string>();
   private svc = inject(TimesheetService);
   private cfgSvc = inject(TimesheetConfigService);
   private dialog = inject(MatDialog);
+  private ws = inject(WebSocketService);
+  private wsSub?: Subscription;
 
   private today = new Date();
   weekOffset = signal(0);
   selectedDate = signal(new Date());
   entries = signal<TimesheetEntry[]>([]);
   loading = signal(false);
-
-  formProject = signal('');
-  formCategory = signal('');
-  formDurMins = signal(60);
-  formNote = signal('');
   mobileAddOpen = signal(false);
-  projectSearch = signal('');
-  categorySearch = signal('');
 
   tsConfig = signal<TimesheetConfig>({ extraProjects: [], extraCategories: {}, quickActions: [] });
 
-  readonly durChips: [string, number][] = [['15m', 15], ['30m', 30], ['1h', 60], ['2h', 120], ['4h', 240], ['8h', 480]];
   readonly fmtDur = minutesToDurationLabel;
 
   activeQuickActions = computed<QuickActionConfig[]>(() => {
@@ -61,10 +58,14 @@ export class TimesheetTabComponent implements OnInit {
     return [...TIMESHEET_PROJECTS, ...extras.filter(p => !TIMESHEET_PROJECTS.includes(p))];
   });
 
-  filteredProjects = computed(() => {
-    const q = this.projectSearch().trim().toLowerCase();
-    if (!q) return this.allProjects();
-    return this.allProjects().filter(p => p.toLowerCase().includes(q));
+  allCatMap = computed<Record<string, string[]>>(() => {
+    const map: Record<string, string[]> = {};
+    for (const proj of this.allProjects()) {
+      const defaults = CATEGORIES_BY_PROJECT[proj] ?? [];
+      const extras = this.tsConfig().extraCategories[proj] ?? [];
+      map[proj] = [...defaults, ...extras.filter(c => !defaults.includes(c))];
+    }
+    return map;
   });
 
   viewYear = computed(() => this.selectedDate().getFullYear());
@@ -117,55 +118,194 @@ export class TimesheetTabComponent implements OnInit {
     return result;
   });
 
-  formCats = computed(() => {
-    const p = this.formProject();
-    if (!p) return [];
-    const defaults = CATEGORIES_BY_PROJECT[p] ?? [];
-    const extras = this.tsConfig().extraCategories[p] ?? [];
-    return [...defaults, ...extras.filter(c => !defaults.includes(c))];
-  });
-
-  filteredCategories = computed(() => {
-    const q = this.categorySearch().trim().toLowerCase();
-    if (!q) return this.formCats();
-    return this.formCats().filter(c => c.toLowerCase().includes(q));
-  });
-
-  canAdd = computed(() => !!this.formProject() && !!this.formCategory() && !!this.formNote().trim());
-
   ngOnInit() {
     this.cfgSvc.get(this.memberId()).subscribe({
       next: cfg => this.tsConfig.set(cfg),
       error: () => {},
     });
-
     this.load();
+    this.ws.connect();
+    this.wsSub = this.ws.messages$.subscribe(msg => {
+      if (!msg) return;
+      const types = ['timesheet_entry_created', 'timesheet_entry_updated', 'timesheet_entry_deleted'];
+      if (types.includes(msg.type) && msg.data['memberId'] === this.memberId()) {
+        this.load();
+      }
+    });
+  }
+
+  ngOnDestroy() {
+    this.wsSub?.unsubscribe();
+  }
+
+  @HostListener('document:keydown', ['$event'])
+  onDocKey(e: KeyboardEvent) {
+    if (e.key === 'n' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      const tag = (e.target as HTMLElement).tagName.toLowerCase();
+      if (!['input', 'textarea', 'select'].includes(tag)) {
+        e.preventDefault();
+        this.openQuickAdd();
+      }
+    }
+  }
+
+  openQuickAdd(prefill?: { project?: string; category?: string; note?: string; durationMins?: number }) {
+    const config = this.tsConfig();
+    const dayName = this.selectedDate().toLocaleDateString('en-US', { weekday: 'long' });
+    const defaultWorkedFrom = (config.workWeek ?? {})[dayName] ?? 'Home';
+
+    const data: QuickAddData = {
+      date: this.selKey(),
+      dateLabel: this.selDateLabel(),
+      allCatMap: this.allCatMap(),
+      activeQuickActions: this.activeQuickActions(),
+      defaultWorkedFrom,
+      billableProjects: config.billableProjects ?? [],
+      prefill: prefill ?? null,
+    };
+
+    const ref = this.dialog.open(TimesheetQuickAddModalComponent, {
+      data,
+      panelClass: 'dark-dialog',
+      width: '520px',
+      maxWidth: '96vw',
+      autoFocus: false,
+    });
+
+    ref.afterClosed().subscribe(result => {
+      if (!result) return;
+      const r = result as any;
+      if (r.saveAsQuickAction !== undefined) {
+        this.toggleQuickAction(result, r.saveAsQuickAction);
+      } else if (r.editEntryId) {
+        this.handleSave({ id: r.editEntryId, req: result });
+      } else {
+        this.handleQuickAdd(result);
+        if (r.addAnother) this.openQuickAdd();
+      }
+    });
+  }
+
+  openEdit(entry: TimesheetEntry) {
+    const config = this.tsConfig();
+    const dayName = new Date(entry.date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long' });
+    const defaultWorkedFrom = (config.workWeek ?? {})[dayName] ?? entry.workedFrom ?? 'Home';
+
+    const data: QuickAddData = {
+      date: entry.date,
+      dateLabel: new Date(entry.date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' }),
+      allCatMap: this.allCatMap(),
+      activeQuickActions: this.activeQuickActions(),
+      defaultWorkedFrom,
+      billableProjects: config.billableProjects ?? [],
+      prefill: {
+        project: entry.project,
+        category: entry.category,
+        note: entry.description ?? undefined,
+        durationMins: entry.hours * 60 + entry.minutes,
+      },
+      editEntryId: entry.id,
+    };
+
+    const ref = this.dialog.open(TimesheetQuickAddModalComponent, {
+      data,
+      panelClass: 'dark-dialog',
+      width: '520px',
+      maxWidth: '96vw',
+      autoFocus: false,
+    });
+
+    ref.afterClosed().subscribe(result => {
+      if (!result) return;
+      const r = result as any;
+      if (r.saveAsQuickAction !== undefined) {
+        this.toggleQuickAction(result, r.saveAsQuickAction);
+      } else {
+        this.handleSave({ id: entry.id, req: result });
+      }
+    });
+  }
+
+  private static readonly QA_COLORS = [
+    { color: '#82aaff', bg: 'rgba(130,170,255,0.15)' },
+    { color: '#4caf50', bg: 'rgba(76,175,80,0.13)' },
+    { color: '#ff9800', bg: 'rgba(255,152,0,0.14)' },
+    { color: '#ce93d8', bg: 'rgba(206,147,216,0.14)' },
+    { color: '#4dd0e1', bg: 'rgba(77,208,225,0.13)' },
+    { color: '#ffb74d', bg: 'rgba(255,183,77,0.14)' },
+    { color: '#ef5350', bg: 'rgba(239,83,80,0.13)' },
+    { color: '#aed581', bg: 'rgba(174,213,129,0.13)' },
+  ];
+
+  toggleQuickAction(req: CreateTimesheetEntryRequest, add: boolean) {
+    const cfg = this.tsConfig();
+    const existing = cfg.quickActions ?? [];
+    let updated: typeof existing;
+    if (add) {
+      const palette = TimesheetTabComponent.QA_COLORS[existing.length % TimesheetTabComponent.QA_COLORS.length];
+      const newQa = {
+        label: req.description?.trim() || req.category,
+        project: req.project,
+        category: req.category,
+        note: req.description?.trim() || undefined,
+        durationMins: req.hours * 60 + req.minutes,
+        color: palette.color,
+        bg: palette.bg,
+      };
+      updated = [...existing, newQa];
+    } else {
+      const note = req.description?.trim() ?? '';
+      updated = existing.filter(q => !(q.project === req.project && q.category === req.category && (q.note ?? '') === note));
+    }
+    this.cfgSvc.upsert(this.memberId(), { ...cfg, quickActions: updated }).subscribe({
+      next: config => this.tsConfig.set(config),
+    });
+  }
+
+  handleQuickAdd(req: CreateTimesheetEntryRequest) {
+    if (this.tsConfig().mergeEntriesEnabled) {
+      const existing = this.entries().find(e =>
+        e.date === req.date && e.project === req.project && e.category === req.category
+      );
+      if (existing) {
+        const totalMins = existing.hours * 60 + existing.minutes + req.hours * 60 + req.minutes;
+        const notes = [existing.description, req.description].filter(n => n?.trim());
+        const merged = notes.length > 1 ? notes.join('\n') : (notes[0] ?? null);
+        this.svc.update(this.memberId(), existing.id, {
+          ...req,
+          hours: Math.floor(totalMins / 60),
+          minutes: totalMins % 60,
+          description: merged,
+          workedFrom: existing.workedFrom,
+        }).subscribe({ next: () => this.load() });
+        return;
+      }
+    }
+    this.svc.create(this.memberId(), req).subscribe({ next: () => this.load() });
   }
 
   private load() {
     const w = this.week();
     const start = w[0];
     const end = w[6];
-
     const startYear = start.getFullYear();
     const startMonth = start.getMonth() + 1;
     const endYear = end.getFullYear();
     const endMonth = end.getMonth() + 1;
-
     const monthsToLoad: {year: number, month: number}[] = [{year: startYear, month: startMonth}];
     if (startYear !== endYear || startMonth !== endMonth) {
       monthsToLoad.push({year: endYear, month: endMonth});
     }
-
-    this.loading.set(true);
     const loaders = monthsToLoad.map(({year, month}) => this.svc.getByMonth(this.memberId(), year, month));
+    const isFirstLoad = this.entries().length === 0;
+    const timer = isFirstLoad ? setTimeout(() => this.loading.set(true), 150) : null;
     forkJoin(loaders).subscribe({
       next: results => {
-        const allEntries = results.flat();
-        this.entries.set(allEntries);
+        if (timer) clearTimeout(timer);
+        this.entries.set(results.flat());
         this.loading.set(false);
       },
-      error: () => this.loading.set(false)
+      error: () => { if (timer) clearTimeout(timer); this.loading.set(false); }
     });
   }
 
@@ -181,10 +321,7 @@ export class TimesheetTabComponent implements OnInit {
     this.weekOffset.update(n => n + 1);
     this.selectDay(this.week()[indexInWeek]);
   }
-  selectDay(d: Date) {
-    this.selectedDate.set(d);
-    this.mobileAddOpen.set(false);
-  }
+  selectDay(d: Date) { this.selectedDate.set(d); this.mobileAddOpen.set(false); }
   isSel(d: Date) { return this.dk(d) === this.selKey(); }
   isToday(d: Date) { return this.dk(d) === this.dk(this.today); }
   dn(d: Date) { return DN[d.getDay()]; }
@@ -194,57 +331,20 @@ export class TimesheetTabComponent implements OnInit {
 
   getDayStatus(d: Date): { color: string; error: string | null } {
     const mins = this.dayMins(d);
-    const dayOfWeek = d.getDay(); // 0=Sun, 6=Sat
+    const dayOfWeek = d.getDay();
     const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
     const dateKey = this.dk(d);
     const isPublicHoliday = PUBLIC_HOLIDAYS_2026.includes(dateKey);
-
     if (mins > 0) {
-      if (isWeekend) {
-        return { color: '#ef5350', error: 'Time logged on a weekend' };
-      }
-      if (isPublicHoliday) {
-        return { color: '#ef5350', error: 'Time logged on a public holiday' };
-      }
+      if (isWeekend) return { color: '#ef5350', error: 'Time logged on a weekend' };
+      if (isPublicHoliday) return { color: '#ef5350', error: 'Time logged on a public holiday' };
     }
-
-    if (mins > 600) { // Over 10 hours
-      return { color: '#ef5350', error: 'Over 10 hours logged' };
+    if (mins > 600) return { color: '#ef5350', error: 'Over 10 hours logged' };
+    if (!isWeekend && !isPublicHoliday) {
+      if (mins > 0 && mins < 480) return { color: '#ef5350', error: 'Under 8 hours logged' };
+      if (mins >= 480) return { color: '#4caf50', error: null };
     }
-
-    if (!isWeekend && !isPublicHoliday) { // It's a workday
-      if (mins > 0 && mins < 480) { // Under 8 hours
-        return { color: '#ef5350', error: 'Under 8 hours logged' };
-      }
-      if (mins >= 480) { // 8 hours or more (but not > 10)
-        return { color: '#4caf50', error: null };
-      }
-    }
-
-    // Default for in-progress on workday, or 0 hours.
     return { color: '#64b5f6', error: null };
-  }
-
-  addEntry() {
-    if (!this.canAdd()) return;
-    const config = this.tsConfig();
-    const isBillable = (config.billableProjects ?? []).includes(this.formProject());
-
-    const dayName = this.selectedDate().toLocaleDateString('en-US', { weekday: 'long' });
-    let workedFrom = (config.workWeek ?? {})[dayName] ?? 'Home';
-    const appliedCombo = this.activeQuickActions().find(c => c.project === this.formProject() && c.category === this.formCategory());
-    if (appliedCombo && appliedCombo.workedFrom) {
-      workedFrom = appliedCombo.workedFrom;
-    }
-
-    const req: CreateTimesheetEntryRequest = { date: this.selKey(), project: this.formProject(), category: this.formCategory(), hours: Math.floor(this.formDurMins() / 60), minutes: this.formDurMins() % 60, billable: isBillable, workedFrom, sentiment: 'Neutral', description: this.formNote(), ticketNumber: null };
-    this.svc.create(this.memberId(), req).subscribe({ next: () => {
-      this.formProject.set('');
-      this.formCategory.set('');
-      this.formNote.set('');
-      this.formDurMins.set(60);
-      this.load();
-    } });
   }
 
   handleSave({ id, req }: { id: string; req: CreateTimesheetEntryRequest }) {
@@ -255,31 +355,12 @@ export class TimesheetTabComponent implements OnInit {
     this.svc.delete(this.memberId(), id).subscribe({ next: () => this.load() });
   }
 
-  applyRecent(r: Recent) { this.formProject.set(r.project); this.formCategory.set(r.category); }
-
-  applyCombo(c: QuickActionConfig) {
-    this.formProject.set(c.project);
-    this.formCategory.set(c.category);
-    if (c.note) this.formNote.set(c.note);
-    if (c.durationMins) this.formDurMins.set(c.durationMins);
-  }
-
-  adjustDuration(minutes: number) {
-    this.formDurMins.update(current => Math.max(0, current + minutes));
-  }
-
-  setFormProject(p: string) { this.formProject.set(p); this.formCategory.set(''); this.categorySearch.set(''); }
-
   logRecent(r: Recent) {
     const config = this.tsConfig();
     const isBillable = (config.billableProjects ?? []).includes(r.project);
-
     const dayName = this.selectedDate().toLocaleDateString('en-US', { weekday: 'long' });
     let workedFrom = (config.workWeek ?? {})[dayName] ?? 'Home';
-    if (r.combo && r.combo.workedFrom) {
-      workedFrom = r.combo.workedFrom;
-    }
-
+    if (r.combo?.workedFrom) workedFrom = r.combo.workedFrom;
     const req: CreateTimesheetEntryRequest = { date: this.selKey(), project: r.project, category: r.category, hours: Math.floor(r.durationMins / 60), minutes: r.durationMins % 60, billable: isBillable, workedFrom, sentiment: 'Neutral', description: r.category, ticketNumber: null };
     this.svc.create(this.memberId(), req).subscribe({ next: () => this.load() });
   }

@@ -91,6 +91,11 @@ export const routes: Routes = [
         path: 'expense-claim',
         loadComponent: () => import('./features/expense-claim/expense-claim.component').then(m => m.ExpenseClaimComponent)
       },
+      {
+        path: 'timesheet',
+        loadComponent: () => import('./features/timesheet/timesheet-page.component').then(m => m.TimesheetPageComponent),
+        data: { featureKey: 'team' }
+      },
     ]
   },
   // Backward compatibility redirects

@@ -5,6 +5,8 @@ export interface TimesheetConfig {
   billableProjects?: string[];
   workWeek?: Record<string, string>;
   workLocationOptions?: string[];
+  mergeEntriesEnabled?: boolean;
+  locationIcons?: Record<string, string>;
 }
 
 export interface QuickActionConfig {
