@@ -1,3 +1,4 @@
+using System.Text.Json;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
@@ -9,7 +10,7 @@ using TeamManager.Api.Infrastructure.Data;
 
 namespace TeamManager.Api.Application.Services;
 
-public class TimesheetService(AppDbContext db, ITimesheetEventPublisher eventPublisher) : ITimesheetService
+public class TimesheetService(AppDbContext db, ITimesheetEventPublisher eventPublisher, IHttpClientFactory httpClientFactory) : ITimesheetService
 {
     private static readonly int[] ValidMinutes = [0, 15, 30, 45];
 
@@ -42,6 +43,7 @@ public class TimesheetService(AppDbContext db, ITimesheetEventPublisher eventPub
         };
         db.TimesheetEntries.Add(entry);
         await db.SaveChangesAsync();
+        await EnqueueSyncEventAsync(entry);
         var dto = ToDto(entry);
         await eventPublisher.PublishAsync("created", dto);
         return dto;
@@ -149,6 +151,78 @@ public class TimesheetService(AppDbContext db, ITimesheetEventPublisher eventPub
         return mem.ToArray();
     }
 
+    private async Task EnqueueSyncEventAsync(TimesheetEntry entry)
+    {
+        try
+        {
+            var config = await db.ApiRequestConfigs
+                .FirstOrDefaultAsync(c => c.Action == "AddTimesheetEntry" && c.Enabled);
+            if (config is null) return;
+
+            var headers = JsonSerializer.Deserialize<Dictionary<string, string>>(config.HeadersJson) ?? [];
+            var parameters = JsonSerializer.Deserialize<Dictionary<string, string>>(
+                string.IsNullOrWhiteSpace(config.ParametersJson) ? "{}" : config.ParametersJson) ?? [];
+            var cookie = config.StoredCookie ?? "{cookie}";
+
+            string Resolve(string t)
+            {
+                var result = t
+                    .Replace("{cookie}", cookie)
+                    .Replace("{id}", entry.Id.ToString())
+                    .Replace("{date}", entry.Date.ToString("yyyy-MM-dd"))
+                    .Replace("{project}", entry.Project)
+                    .Replace("{category}", entry.Category)
+                    .Replace("{hours}", entry.Hours.ToString())
+                    .Replace("{minutes}", entry.Minutes.ToString())
+                    .Replace("{billable}", entry.Billable.ToString().ToLower())
+                    .Replace("{workedFrom}", entry.WorkedFrom)
+                    .Replace("{sentiment}", entry.Sentiment)
+                    .Replace("{description}", entry.Description ?? "")
+                    .Replace("{ticketNumber}", entry.TicketNumber ?? "");
+                foreach (var (key, value) in parameters)
+                    result = result.Replace($"{{{key}}}", value);
+                return result;
+            }
+
+            var resolvedHeaders = headers.ToDictionary(kvp => kvp.Key, kvp => Resolve(kvp.Value));
+            var mins = entry.Minutes > 0 ? $" {entry.Minutes}m" : "";
+            var label = $"{entry.Date:yyyy-MM-dd} | {entry.Project} | {entry.Hours}h{mins}";
+            if (!string.IsNullOrEmpty(entry.Description)) label += $" | {entry.Description}";
+
+            db.ApiSyncEvents.Add(new ApiSyncEvent
+            {
+                Action = "AddTimesheetEntry",
+                ConfigName = config.Name,
+                Label = label,
+                SourceId = entry.Id.ToString(),
+                SourceType = "TimesheetEntry",
+                ResolvedUrl = Resolve(config.Url),
+                ResolvedHeadersJson = JsonSerializer.Serialize(resolvedHeaders),
+                ResolvedBody = Resolve(config.BodyTemplate),
+                BodyFormat = config.BodyFormat ?? "urlencoded"
+            });
+            await db.SaveChangesAsync();
+        }
+        catch (Exception)
+        {
+            // Don't fail the create if queuing fails
+        }
+    }
+
+    private static string? ResolvePath(JsonElement root, string path)
+    {
+        var parts = path.Split('.');
+        var current = root;
+        foreach (var part in parts)
+        {
+            if (current.ValueKind != JsonValueKind.Object) return null;
+            if (!current.TryGetProperty(part, out current)) return null;
+        }
+        return current.ValueKind == JsonValueKind.Null ? null : current.ToString();
+    }
+
+    private record MappingJson(string ExternalIdPath = "");
+
     private static void ValidateMinutes(int minutes)
     {
         if (!ValidMinutes.Contains(minutes))
@@ -158,7 +232,7 @@ public class TimesheetService(AppDbContext db, ITimesheetEventPublisher eventPub
     private static TimesheetEntryDto ToDto(TimesheetEntry e) => new(
         e.Id, e.TeamMemberId, e.Date, e.Project, e.Category,
         e.Hours, e.Minutes, e.Billable, e.WorkedFrom, e.Sentiment,
-        e.Description, e.TicketNumber, e.CreatedAt
+        e.Description, e.TicketNumber, e.CreatedAt, e.ExternalId
     );
 
     private static string CellRef(string col, uint row) => $"{col}{row}";

@@ -11,6 +11,7 @@ export interface MappingConfig {
   daysPath: string;
   statusPath: string;
   nameTransform: string;
+  externalIdPath: string;
 }
 
 export interface ApiRequestConfig {
@@ -22,7 +23,9 @@ export interface ApiRequestConfig {
   url: string;
   method: string;
   isFormUrlEncoded: boolean;
+  bodyFormat?: string;
   headers: Record<string, string>;
+  parameters: Record<string, string>;
   bodyTemplate: string;
   mapping: MappingConfig;
 }
@@ -30,6 +33,9 @@ export interface ApiRequestConfig {
 export const REQUEST_ACTIONS = [
   { value: 'FetchLeave', label: 'Fetch Leave', icon: 'event_busy' },
   { value: 'AddTimesheetEntry', label: 'Add Timesheet Entry', icon: 'schedule' },
+  { value: 'EditTimesheetEntry', label: 'Edit Timesheet Entry', icon: 'edit_calendar' },
+  { value: 'DeleteTimesheetEntry', label: 'Delete Timesheet Entry', icon: 'delete_forever' },
+  { value: 'GetTimesheetProjects', label: 'Get Timesheet Projects', icon: 'folder_open' },
 ] as const;
 
 @Injectable({ providedIn: 'root' })

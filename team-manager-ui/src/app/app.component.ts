@@ -36,6 +36,8 @@ const ALL_SECONDARY_NAV: NavItem[] = [
   { path: '/access-requests', icon: 'person_add', label: 'Access Requests', featureKey: 'access-requests' },
   { path: '/expense-claim', icon: 'receipt_long', label: 'Expense Claim' },
   { path: '/settings', icon: 'settings', label: 'Settings', featureKey: 'settings' },
+  { path: '/request-configs', icon: 'api', label: 'Request Configs', featureKey: 'settings' },
+  { path: '/sync-queue', icon: 'sync', label: 'Sync Queue', featureKey: 'settings' },
   { path: '/export', icon: 'download', label: 'Export', featureKey: 'export' },
   { path: '/profile', icon: 'person', label: 'Profile' },
 ];
@@ -59,6 +61,8 @@ const ALL_MORE_NAV: NavItem[] = [
   { path: '/access-requests',icon: 'person_add',     label: 'Access Requests', featureKey: 'access-requests' },
   { path: '/expense-claim',  icon: 'receipt_long',   label: 'Expense Claim' },
   { path: '/settings',       icon: 'settings',       label: 'Settings',      featureKey: 'settings' },
+  { path: '/request-configs',icon: 'api',            label: 'Request Configs', featureKey: 'settings' },
+  { path: '/sync-queue', icon: 'sync',           label: 'Sync Queue', featureKey: 'settings' },
   { path: '/export',         icon: 'download',       label: 'Export',        featureKey: 'export' },
   { path: '/profile',        icon: 'person',         label: 'Profile' },
 ];

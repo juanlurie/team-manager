@@ -103,8 +103,7 @@ public class TimesheetWebhookWorker(IServiceProvider serviceProvider, ILogger<Ti
                     .Replace("{event}", delivery.EventType)
                     .Replace("{cookie}", cookie);
 
-            var content = new StringContent(body, Encoding.UTF8);
-            content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
+            var content = new StringContent(body, Encoding.UTF8, "application/json");
 
             var response = webhook.Method.Equals("GET", StringComparison.OrdinalIgnoreCase)
                 ? await client.GetAsync(webhook.Url)

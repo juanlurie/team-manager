@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using TeamManager.Api.Infrastructure.Data;
@@ -11,9 +12,11 @@ using TeamManager.Api.Infrastructure.Data;
 namespace TeamManager.Api.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260603204028_AddTimesheetSyncEvents")]
+    partial class AddTimesheetSyncEvents
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -213,71 +216,6 @@ namespace TeamManager.Api.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("ApiRequestConfigs");
-                });
-
-            modelBuilder.Entity("TeamManager.Api.Domain.Entities.ApiSyncEvent", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("Action")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("BodyFormat")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("ConfigName")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("ExternalId")
-                        .HasColumnType("text");
-
-                    b.Property<string>("Label")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("ResolvedBody")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("ResolvedHeadersJson")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("ResolvedUrl")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("ResponseBody")
-                        .HasColumnType("text");
-
-                    b.Property<int?>("ResponseStatus")
-                        .HasColumnType("integer");
-
-                    b.Property<DateTimeOffset?>("SentAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("SourceId")
-                        .HasColumnType("text");
-
-                    b.Property<string>("SourceType")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("ApiSyncEvents");
                 });
 
             modelBuilder.Entity("TeamManager.Api.Domain.Entities.CoffeeRun", b =>
@@ -2055,6 +1993,65 @@ namespace TeamManager.Api.Migrations
                     b.ToTable("TimesheetEntries");
                 });
 
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.TimesheetSyncEvent", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("BodyFormat")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("ConfigName")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("EntrySnapshot")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("ExternalId")
+                        .HasColumnType("text");
+
+                    b.Property<string>("ResolvedBody")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("ResolvedHeadersJson")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("ResolvedUrl")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("ResponseBody")
+                        .HasColumnType("text");
+
+                    b.Property<int?>("ResponseStatus")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset?>("SentAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("TimesheetEntryId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TimesheetEntryId");
+
+                    b.ToTable("TimesheetSyncEvents");
+                });
+
             modelBuilder.Entity("TeamManager.Api.Domain.Entities.TimesheetWebhook", b =>
                 {
                     b.Property<Guid>("Id")
@@ -3125,6 +3122,17 @@ namespace TeamManager.Api.Migrations
                         .IsRequired();
 
                     b.Navigation("TeamMember");
+                });
+
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.TimesheetSyncEvent", b =>
+                {
+                    b.HasOne("TeamManager.Api.Domain.Entities.TimesheetEntry", "TimesheetEntry")
+                        .WithMany()
+                        .HasForeignKey("TimesheetEntryId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("TimesheetEntry");
                 });
 
             modelBuilder.Entity("TeamManager.Api.Domain.Entities.TimesheetWebhookDelivery", b =>

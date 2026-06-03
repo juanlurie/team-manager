@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, inject, signal, computed } from '@angular/core';
+import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatDialogModule, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
@@ -267,7 +267,7 @@ interface PreviewRow {
     .other               { background:rgba(158,158,158,0.15);color:#9e9e9e; }
   `]
 })
-export class LeaveImportDialogComponent implements OnInit, OnDestroy {
+export class LeaveImportDialogComponent implements OnInit {
   private svc = inject(LeaveService);
   dialogRef = inject(MatDialogRef<LeaveImportDialogComponent>);
   private data: { members: TeamMember[] } = inject(MAT_DIALOG_DATA);
@@ -287,19 +287,6 @@ export class LeaveImportDialogComponent implements OnInit, OnDestroy {
   result      = signal<{ imported: number; overridden: number; duplicates: number; unknownMembers: string[] } | null>(null);
 
   private pendingRecords: any[] = [];
-  private cookieEventListener = (e: Event) => {
-    console.log('[leave-dialog] entelect-cookie-ready received', e);
-    const cookie = (e as CustomEvent<{ cookie: string }>).detail?.cookie;
-    console.log('[leave-dialog] cookie value present:', !!cookie);
-    if (cookie && !this.cookie) {
-      this.cookie = cookie;
-      console.log('[leave-dialog] cookie pre-filled');
-    } else if (this.cookie) {
-      console.log('[leave-dialog] cookie already set, skipping');
-    } else {
-      console.warn('[leave-dialog] event fired but detail.cookie was empty');
-    }
-  };
   private existingSet = new Set<string>(); // "{memberName_lower}|{startDate_iso}|{type_lower}"
   private knownNames  = new Set<string>(); // member full names lowercased
 
@@ -322,10 +309,7 @@ export class LeaveImportDialogComponent implements OnInit, OnDestroy {
   });
 
   ngOnInit() {
-    console.log('[leave-dialog] ngOnInit — registering entelect-cookie-ready listener');
-    window.addEventListener('entelect-cookie-ready', this.cookieEventListener);
-    console.log('[leave-dialog] dispatching request-entelect-cookie');
-    window.dispatchEvent(new CustomEvent('request-entelect-cookie'));
+    this.cookie = localStorage.getItem('entelectCookie') ?? '';
     this.knownNames = new Set(
       this.data.members.map(m => `${m.firstName} ${m.lastName}`.toLowerCase())
     );
@@ -337,9 +321,6 @@ export class LeaveImportDialogComponent implements OnInit, OnDestroy {
     });
   }
 
-  ngOnDestroy() {
-    window.removeEventListener('entelect-cookie-ready', this.cookieEventListener);
-  }
 
   fetchAndPreview() {
     this.fetchError.set('');

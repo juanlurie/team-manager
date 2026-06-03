@@ -267,7 +267,9 @@ export class ApiRequestConfigsComponent implements OnInit {
       url: '',
       method: 'POST',
       isFormUrlEncoded: true,
+      bodyFormat: 'urlencoded',
       headers: {},
+      parameters: {},
       bodyTemplate: '',
       mapping: {
         arrayPath: '',
@@ -277,7 +279,8 @@ export class ApiRequestConfigsComponent implements OnInit {
         typePath: 'type',
         daysPath: 'totalDays',
         statusPath: 'status',
-        nameTransform: 'ExtractBeforeDash'
+        nameTransform: 'ExtractBeforeDash',
+        externalIdPath: ''
       }
     };
   }
@@ -357,12 +360,14 @@ export class ApiRequestConfigsComponent implements OnInit {
             </mat-select>
           </mat-form-field>
 
-          <div class="field-row">
-            <label class="field-label">Form URL Encoded</label>
-            <mat-slide-toggle [checked]="data.isFormUrlEncoded" (change)="data.isFormUrlEncoded = $event.checked">
-              {{ data.isFormUrlEncoded ? 'Yes' : 'No' }}
-            </mat-slide-toggle>
-          </div>
+          <mat-form-field appearance="outline">
+            <mat-label>Body Format</mat-label>
+            <mat-select [(ngModel)]="data.bodyFormat">
+              <mat-option value="raw">Raw</mat-option>
+              <mat-option value="urlencoded">URL Encoded</mat-option>
+              <mat-option value="json">JSON</mat-option>
+            </mat-select>
+          </mat-form-field>
 
           <div class="section-header">
             <h3>Headers</h3>
@@ -386,107 +391,162 @@ export class ApiRequestConfigsComponent implements OnInit {
             </div>
           }
 
-          <mat-form-field appearance="outline" class="full-width">
-            <mat-label>Body Template</mat-label>
-            <textarea matInput [(ngModel)]="data.bodyTemplate" rows="3"
-                      placeholder="teamId=&#123;teamIds&#125;&amp;start=&#123;start&#125;"></textarea>
-            <mat-hint>Variables: &#123;cookie&#125;, &#123;start&#125;, &#123;end&#125;, &#123;teamIds&#125;</mat-hint>
-          </mat-form-field>
-
           <div class="section-header">
-            <h3>Response Mapping</h3>
-            <button mat-button color="primary" (click)="showPathPicker.set(!showPathPicker())">
-              <mat-icon>search</mat-icon> Path Picker
+            <h3>Parameters</h3>
+            <button mat-icon-button color="primary" (click)="addParameter()" matTooltip="Add parameter">
+              <mat-icon>add</mat-icon>
             </button>
           </div>
-
-          @if (showPathPicker()) {
-            <div class="path-picker">
-              <mat-form-field appearance="outline" class="full-width">
-                <mat-label>Paste sample JSON response</mat-label>
-                <textarea matInput [(ngModel)]="sampleJson" rows="6"
-                          placeholder='[{"title":"Leave","start":"2026-01-01"}]'></textarea>
+          @for (entry of parameterEntries(); track entry.key) {
+            <div class="header-row">
+              <mat-form-field appearance="outline" class="half-width">
+                <mat-label>Name</mat-label>
+                <input matInput [(ngModel)]="entry.key" placeholder="employeeId">
               </mat-form-field>
-              <div class="path-picker-actions">
-                <button mat-button (click)="discoverPaths()" [disabled]="!sampleJson().trim() || discoveringPaths()">
-                  {{ discoveringPaths() ? 'Discovering...' : 'Discover Paths' }}
-                </button>
-              </div>
-              @if (availablePaths().length > 0) {
-                <div class="path-picker-results">
-                  <div class="path-picker-info">
-                    <span class="path-count">{{ availablePaths().length }} paths found</span>
-                    @if (arrayLength() > 0) {
-                      <span class="array-info">{{ arrayLength() }} items in array</span>
-                    }
-                  </div>
-                  <div class="path-list">
-                    @for (path of availablePaths(); track path) {
-                      <button class="path-chip" (click)="copyPath(path)" matTooltip="Click to copy">
-                        {{ path }}
-                      </button>
-                    }
-                  </div>
-                </div>
-              }
-              @if (hasTestResults) {
-                <div class="test-results">
-                  <h4>Test Results</h4>
-                  @for (entry of testResults() | keyvalue; track entry.key) {
-                    @if (entry.value !== null) {
-                      <div class="test-result-row">
-                        <span class="test-label">{{ entry.key }}</span>
-                        <span class="test-value">{{ entry.value }}</span>
-                      </div>
-                    }
-                  }
-                </div>
-              }
+              <mat-form-field appearance="outline" class="half-width">
+                <mat-label>Value</mat-label>
+                <input matInput [(ngModel)]="entry.value" placeholder="2588">
+              </mat-form-field>
+              <button mat-icon-button color="warn" (click)="removeParameter(entry.key)" class="remove-btn">
+                <mat-icon>delete</mat-icon>
+              </button>
             </div>
           }
 
           <mat-form-field appearance="outline" class="full-width">
-            <mat-label>Array Path (optional)</mat-label>
-            <input matInput [(ngModel)]="data.mapping.arrayPath" placeholder="e.g. data.items or results[0].leaves">
-            <mat-hint>Leave empty if response is a top-level array</mat-hint>
+            <mat-label>Body Template</mat-label>
+            <textarea matInput [(ngModel)]="data.bodyTemplate" rows="3"
+                      placeholder="teamId=&#123;teamIds&#125;&amp;start=&#123;start&#125;"></textarea>
+            @if (data.action === 'AddTimesheetEntry') {
+              <mat-hint>Variables: &#123;cookie&#125;, &#123;id&#125;, &#123;date&#125;, &#123;project&#125;, &#123;category&#125;, &#123;hours&#125;, &#123;minutes&#125;, &#123;billable&#125;, &#123;workedFrom&#125;, &#123;sentiment&#125;, &#123;description&#125;, &#123;ticketNumber&#125; + any parameter names</mat-hint>
+            } @else {
+              <mat-hint>Variables: &#123;cookie&#125;, &#123;start&#125;, &#123;end&#125;, &#123;teamIds&#125; + any parameter names</mat-hint>
+            }
           </mat-form-field>
 
-          <div class="mapping-grid">
-            <mat-form-field appearance="outline">
-              <mat-label>Name Path</mat-label>
-              <input matInput [(ngModel)]="data.mapping.namePath" placeholder="title">
+          @if (data.action === 'AddTimesheetEntry') {
+            <div class="section-header">
+              <h3>Response Mapping</h3>
+            </div>
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>Response ID Path</mat-label>
+              <input matInput [(ngModel)]="data.mapping.externalIdPath" placeholder="entryId">
+              <mat-hint>Path to the external ID in the response — saved back to the timesheet entry</mat-hint>
             </mat-form-field>
-            <mat-form-field appearance="outline">
-              <mat-label>Start Path</mat-label>
-              <input matInput [(ngModel)]="data.mapping.startPath" placeholder="start">
-            </mat-form-field>
-            <mat-form-field appearance="outline">
-              <mat-label>End Path</mat-label>
-              <input matInput [(ngModel)]="data.mapping.endPath" placeholder="end">
-            </mat-form-field>
-            <mat-form-field appearance="outline">
-              <mat-label>Type Path</mat-label>
-              <input matInput [(ngModel)]="data.mapping.typePath" placeholder="type">
-            </mat-form-field>
-            <mat-form-field appearance="outline">
-              <mat-label>Days Path</mat-label>
-              <input matInput [(ngModel)]="data.mapping.daysPath" placeholder="totalDays">
-            </mat-form-field>
-            <mat-form-field appearance="outline">
-              <mat-label>Status Path</mat-label>
-              <input matInput [(ngModel)]="data.mapping.statusPath" placeholder="status">
-            </mat-form-field>
-          </div>
+          }
 
-          <mat-form-field appearance="outline">
-            <mat-label>Name Transform</mat-label>
-            <mat-select [(ngModel)]="data.mapping.nameTransform">
-              <mat-option value="ExtractBeforeDash">Extract Before Dash</mat-option>
-              <mat-option value="None">None</mat-option>
-            </mat-select>
-          </mat-form-field>
+          @if (data.action === 'FetchLeave') {
+            <div class="section-header">
+              <h3>Response Mapping</h3>
+              <button mat-button color="primary" (click)="showPathPicker.set(!showPathPicker())">
+                <mat-icon>search</mat-icon> Path Picker
+              </button>
+            </div>
+
+            @if (showPathPicker()) {
+              <div class="path-picker">
+                <mat-form-field appearance="outline" class="full-width">
+                  <mat-label>Paste sample JSON response</mat-label>
+                  <textarea matInput [(ngModel)]="sampleJson" rows="6"
+                            placeholder='[{"title":"Leave","start":"2026-01-01"}]'></textarea>
+                </mat-form-field>
+                <div class="path-picker-actions">
+                  <button mat-button (click)="discoverPaths()" [disabled]="!sampleJson().trim() || discoveringPaths()">
+                    {{ discoveringPaths() ? 'Discovering...' : 'Discover Paths' }}
+                  </button>
+                </div>
+                @if (availablePaths().length > 0) {
+                  <div class="path-picker-results">
+                    <div class="path-picker-info">
+                      <span class="path-count">{{ availablePaths().length }} paths found</span>
+                      @if (arrayLength() > 0) {
+                        <span class="array-info">{{ arrayLength() }} items in array</span>
+                      }
+                    </div>
+                    <div class="path-list">
+                      @for (path of availablePaths(); track path) {
+                        <button class="path-chip" (click)="copyPath(path)" matTooltip="Click to copy">
+                          {{ path }}
+                        </button>
+                      }
+                    </div>
+                  </div>
+                }
+                @if (hasTestResults) {
+                  <div class="test-results">
+                    <h4>Test Results</h4>
+                    @for (entry of testResults() | keyvalue; track entry.key) {
+                      @if (entry.value !== null) {
+                        <div class="test-result-row">
+                          <span class="test-label">{{ entry.key }}</span>
+                          <span class="test-value">{{ entry.value }}</span>
+                        </div>
+                      }
+                    }
+                  </div>
+                }
+              </div>
+            }
+
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>Array Path (optional)</mat-label>
+              <input matInput [(ngModel)]="data.mapping.arrayPath" placeholder="e.g. data.items or results[0].leaves">
+              <mat-hint>Leave empty if response is a top-level array</mat-hint>
+            </mat-form-field>
+
+            <div class="mapping-grid">
+              <mat-form-field appearance="outline">
+                <mat-label>Name Path</mat-label>
+                <input matInput [(ngModel)]="data.mapping.namePath" placeholder="title">
+              </mat-form-field>
+              <mat-form-field appearance="outline">
+                <mat-label>Start Path</mat-label>
+                <input matInput [(ngModel)]="data.mapping.startPath" placeholder="start">
+              </mat-form-field>
+              <mat-form-field appearance="outline">
+                <mat-label>End Path</mat-label>
+                <input matInput [(ngModel)]="data.mapping.endPath" placeholder="end">
+              </mat-form-field>
+              <mat-form-field appearance="outline">
+                <mat-label>Type Path</mat-label>
+                <input matInput [(ngModel)]="data.mapping.typePath" placeholder="type">
+              </mat-form-field>
+              <mat-form-field appearance="outline">
+                <mat-label>Days Path</mat-label>
+                <input matInput [(ngModel)]="data.mapping.daysPath" placeholder="totalDays">
+              </mat-form-field>
+              <mat-form-field appearance="outline">
+                <mat-label>Status Path</mat-label>
+                <input matInput [(ngModel)]="data.mapping.statusPath" placeholder="status">
+              </mat-form-field>
+            </div>
+
+            <mat-form-field appearance="outline">
+              <mat-label>Name Transform</mat-label>
+              <mat-select [(ngModel)]="data.mapping.nameTransform">
+                <mat-option value="ExtractBeforeDash">Extract Before Dash</mat-option>
+                <mat-option value="None">None</mat-option>
+              </mat-select>
+            </mat-form-field>
+          }
         </div>
       </mat-dialog-content>
+      @if (curlPreview()) {
+        <div class="curl-preview">
+          <div class="curl-preview-header">
+            <span class="curl-preview-label">cURL Preview</span>
+            <div class="curl-preview-actions">
+              <button mat-icon-button (click)="copyCurl()" matTooltip="Copy">
+                <mat-icon>content_copy</mat-icon>
+              </button>
+              <button mat-icon-button (click)="curlPreview.set('')" class="close-test-btn">
+                <mat-icon>close</mat-icon>
+              </button>
+            </div>
+          </div>
+          <pre class="curl-preview-body">{{ curlPreview() }}</pre>
+        </div>
+      }
       @if (testResult()) {
         <div class="test-response" [class.test-success]="testResult()!.success" [class.test-failure]="!testResult()!.success">
           <div class="test-response-header">
@@ -500,9 +560,25 @@ export class ApiRequestConfigsComponent implements OnInit {
           <pre class="test-response-body">{{ formatTestBody(testResult()!.body) }}</pre>
         </div>
       }
+      @if (showTestVars() && unresolvedVars().length > 0) {
+        <div class="test-vars-panel">
+          <div class="test-vars-header">Test values <span class="test-vars-hint">— filled in for this test only</span></div>
+          <div class="test-vars-grid">
+            @for (v of unresolvedVars(); track v) {
+              <mat-form-field appearance="outline" class="test-var-field">
+                <mat-label>{{ '{' + v + '}' }}</mat-label>
+                <input matInput [(ngModel)]="testVars[v]" [placeholder]="testVarPlaceholder(v)">
+              </mat-form-field>
+            }
+          </div>
+        </div>
+      }
       <mat-dialog-actions align="end">
         <button mat-button (click)="dialogRef.close()">Cancel</button>
-        <button mat-stroked-button (click)="runTest()" [disabled]="!data.url.trim() || testing()">
+        <button mat-stroked-button (click)="buildCurlPreview()" [disabled]="!data.url.trim()">
+          <mat-icon>terminal</mat-icon> cURL
+        </button>
+        <button mat-stroked-button (click)="toggleTest()" [disabled]="!data.url.trim() || testing()">
           <mat-icon>play_arrow</mat-icon> {{ testing() ? 'Testing...' : 'Test' }}
         </button>
         <button mat-raised-button color="primary" (click)="save()" [disabled]="!data.name.trim()">
@@ -545,6 +621,18 @@ export class ApiRequestConfigsComponent implements OnInit {
     .curl-toggle { justify-content: flex-start; color: rgba(255,255,255,0.6); font-size: 0.85rem; }
     .curl-error { font-size: 0.75rem; color: #ef5350; }
 
+    .curl-preview { margin: 8px 0 0; border-radius: 8px; overflow: hidden; border: 1px solid rgba(100,181,246,0.4); background: rgba(100,181,246,0.05); }
+    .curl-preview-header { display: flex; align-items: center; justify-content: space-between; padding: 6px 12px; }
+    .curl-preview-label { font-size: 0.8rem; font-weight: 600; color: #64b5f6; }
+    .curl-preview-actions { display: flex; gap: 2px; }
+    .curl-preview-body { margin: 0; padding: 8px 12px 12px; font-size: 0.72rem; font-family: monospace; color: rgba(255,255,255,0.8); white-space: pre-wrap; word-break: break-all; max-height: 220px; overflow-y: auto; }
+
+    .test-vars-panel { margin: 8px 0 0; padding: 10px 12px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; }
+    .test-vars-header { font-size: 0.8rem; font-weight: 600; color: rgba(255,255,255,0.6); margin-bottom: 8px; }
+    .test-vars-hint { font-weight: 400; font-size: 0.75rem; color: rgba(255,255,255,0.35); }
+    .test-vars-grid { display: flex; flex-wrap: wrap; gap: 8px; }
+    .test-var-field { min-width: 140px; flex: 1; }
+
     .test-response { margin: 8px 0 0; border-radius: 8px; overflow: hidden; border: 1px solid; }
     .test-response.test-success { border-color: rgba(76,175,80,0.4); background: rgba(76,175,80,0.05); }
     .test-response.test-failure { border-color: rgba(239,83,80,0.4); background: rgba(239,83,80,0.05); }
@@ -564,6 +652,7 @@ export class ApiRequestConfigDialogComponent implements OnInit {
   data = inject<any>(MAT_DIALOG_DATA);
   saving = signal(false);
   headerEntries = signal<{key: string, value: string}[]>([]);
+  parameterEntries = signal<{key: string, value: string}[]>([]);
   actions = REQUEST_ACTIONS;
 
   showCurlImport = signal(false);
@@ -571,6 +660,9 @@ export class ApiRequestConfigDialogComponent implements OnInit {
   curlParseError = signal('');
   testing = signal(false);
   testResult = signal<TestRequestResult | null>(null);
+  curlPreview = signal('');
+  showTestVars = signal(false);
+  testVars: Record<string, string> = {};
 
   showPathPicker = signal(false);
   sampleJson = signal('');
@@ -583,17 +675,57 @@ export class ApiRequestConfigDialogComponent implements OnInit {
     return Object.values(this.testResults()).some(v => v !== null);
   }
 
+  unresolvedVars() {
+    const knownParams = new Set([
+      ...this.parameterEntries().map(e => e.key.trim()).filter(Boolean),
+      'cookie', 'start', 'end', 'teamIds'
+    ]);
+    const template = (this.data.bodyTemplate ?? '') + Object.values(this.data.headers ?? {}).join(' ');
+    const matches = [...template.matchAll(/\{(\w+)\}/g)].map(m => m[1]);
+    return [...new Set(matches)].filter(v => !knownParams.has(v));
+  }
+
+  testVarPlaceholder(v: string): string {
+    const today = new Date().toISOString().split('T')[0];
+    const defaults: Record<string, string> = {
+      date: today, hours: '1', minutes: '0', billable: 'true',
+      workedFrom: '', sentiment: '', description: 'Test', ticketNumber: '', category: '', project: '', id: ''
+    };
+    return defaults[v] ?? '';
+  }
+
+  toggleTest() {
+    const vars = this.unresolvedVars();
+    if (vars.length > 0 && !this.showTestVars()) {
+      // Pre-fill defaults
+      for (const v of vars) {
+        if (!this.testVars[v]) this.testVars[v] = this.testVarPlaceholder(v);
+      }
+      this.showTestVars.set(true);
+    } else {
+      this.runTest();
+    }
+  }
+
   ngOnInit() {
     this.headerEntries.set(Object.entries(this.data.headers || {}).map(([k, v]) => ({ key: k, value: v as string })));
+    this.parameterEntries.set(Object.entries(this.data.parameters || {}).map(([k, v]) => ({ key: k, value: v as string })));
   }
 
   addHeader() {
-    const entries = this.headerEntries();
-    this.headerEntries.set([...entries, { key: '', value: '' }]);
+    this.headerEntries.set([...this.headerEntries(), { key: '', value: '' }]);
   }
 
   removeHeader(key: string) {
     this.headerEntries.set(this.headerEntries().filter(e => e.key !== key));
+  }
+
+  addParameter() {
+    this.parameterEntries.set([...this.parameterEntries(), { key: '', value: '' }]);
+  }
+
+  removeParameter(key: string) {
+    this.parameterEntries.set(this.parameterEntries().filter(e => e.key !== key));
   }
 
   discoverPaths() {
@@ -629,52 +761,68 @@ export class ApiRequestConfigDialogComponent implements OnInit {
     this.snackBar.open(`Copied: ${path}`, 'Close', { duration: 2000 });
   }
 
+  buildCurlPreview() {
+    const params: Record<string, string> = {};
+    for (const e of this.parameterEntries()) {
+      if (e.key.trim()) params[e.key.trim()] = e.value;
+    }
+    const cookie = this.getCookie();
+
+    const resolve = (t: string) => {
+      let s = t.replace('{cookie}', cookie || '{cookie}');
+      for (const [k, v] of Object.entries(params)) s = s.replaceAll(`{${k}}`, v);
+      return s;
+    };
+
+    const lines: string[] = [`curl -X ${this.data.method} '${resolve(this.data.url)}'`];
+
+    const fmt = this.data.bodyFormat ?? (this.data.isFormUrlEncoded ? 'urlencoded' : 'json');
+    const hasExplicitContentType = this.headerEntries().some(e => e.key.trim().toLowerCase() === 'content-type');
+    if (!hasExplicitContentType && fmt !== 'raw') {
+      const contentType = fmt === 'urlencoded' ? 'application/x-www-form-urlencoded' : 'application/json';
+      lines.push(`  -H 'Content-Type: ${contentType}'`);
+    }
+
+    for (const e of this.headerEntries()) {
+      if (e.key.trim()) lines.push(`  -H '${e.key.trim()}: ${resolve(e.value)}'`);
+    }
+
+    if (this.data.method === 'POST' && this.data.bodyTemplate?.trim()) {
+      const dataFlag = fmt === 'urlencoded' ? '--data-urlencode' : fmt === 'raw' ? '--data-raw' : '--data';
+      lines.push(`  ${dataFlag} '${resolve(this.data.bodyTemplate)}'`);
+    }
+
+    this.curlPreview.set(lines.join(' \\\n'));
+  }
+
+  copyCurl() {
+    navigator.clipboard.writeText(this.curlPreview());
+    this.snackBar.open('Copied', 'Close', { duration: 2000 });
+  }
+
   runTest() {
     this.testing.set(true);
     this.testResult.set(null);
+    this.showTestVars.set(false);
 
-    this.getCookie().then(cookie => {
-      console.log('[api-request-config] cookie found:', !!cookie, cookie ? cookie.substring(0, 40) + '...' : '(none)');
-      if (cookie) {
-        this.snackBar.open('Cookie found — injecting into request', 'Close', { duration: 3000 });
-      } else {
-        console.warn('[api-request-config] no cookie received from helper');
-      }
+    const cookie = this.getCookie();
+    const headers: Record<string, string> = {};
+    for (const entry of this.headerEntries()) {
+      if (entry.key.trim()) headers[entry.key.trim()] = entry.value;
+    }
+    const config: ApiRequestConfig = { ...this.data, headers };
+    const variables: Record<string, string> = { cookie, ...this.testVars };
 
-      const headers: Record<string, string> = {};
-      for (const entry of this.headerEntries()) {
-        if (entry.key.trim()) headers[entry.key.trim()] = entry.value;
-      }
-      const config: ApiRequestConfig = { ...this.data, headers };
-      const variables: Record<string, string> = { cookie };
-
-      this.svc.testRequest(config, variables).subscribe({
-        next: (result) => { this.testResult.set(result); this.testing.set(false); },
-        error: () => { this.testing.set(false); this.snackBar.open('Test request failed', 'Close', { duration: 3000 }); }
-      });
+    this.svc.testRequest(config, variables).subscribe({
+      next: (result) => { this.testResult.set(result); this.testing.set(false); },
+      error: () => { this.testing.set(false); this.snackBar.open('Test request failed', 'Close', { duration: 3000 }); }
     });
   }
 
-  private getCookie(): Promise<string> {
-    return new Promise(resolve => {
-      console.log('[api-request-config] dispatching request-entelect-cookie');
-      const timeout = setTimeout(() => {
-        window.removeEventListener('entelect-cookie-ready', handler);
-        console.warn('[api-request-config] timed out waiting for cookie');
-        resolve('');
-      }, 3000);
-
-      const handler = (e: Event) => {
-        clearTimeout(timeout);
-        window.removeEventListener('entelect-cookie-ready', handler);
-        const cookie = (e as CustomEvent<{ cookie: string }>).detail?.cookie ?? '';
-        console.log('[api-request-config] entelect-cookie-ready received, cookie present:', !!cookie);
-        resolve(cookie);
-      };
-
-      window.addEventListener('entelect-cookie-ready', handler);
-      window.dispatchEvent(new CustomEvent('request-entelect-cookie'));
-    });
+  private getCookie(): string {
+    const cookie = localStorage.getItem('entelectCookie') ?? '';
+    console.log('[api-config] cookie from localStorage:', !!cookie);
+    return cookie;
   }
 
   formatTestBody(body: string): string {
@@ -696,7 +844,7 @@ export class ApiRequestConfigDialogComponent implements OnInit {
       const headers: Record<string, string> = {};
       let body = '';
       let url = '';
-      let isFormUrlEncoded = false;
+      let bodyFormat = '';
 
       for (let i = 1; i < tokens.length; i++) {
         const t = tokens[i];
@@ -706,13 +854,16 @@ export class ApiRequestConfigDialogComponent implements OnInit {
           const h = tokens[++i] ?? '';
           const idx = h.indexOf(':');
           if (idx > 0) headers[h.slice(0, idx).trim()] = h.slice(idx + 1).trim();
+        } else if (t === '-b' || t === '--cookie') {
+          headers['Cookie'] = tokens[++i] ?? '';
         } else if (t === '-d' || t === '--data' || t === '--data-raw' || t === '--data-binary') {
           body = tokens[++i] ?? '';
           if (!method) method = 'POST';
+          if (!bodyFormat) bodyFormat = 'raw';
         } else if (t === '--data-urlencode') {
           body = tokens[++i] ?? '';
-          isFormUrlEncoded = true;
           if (!method) method = 'POST';
+          bodyFormat = 'urlencoded';
         } else if (!t.startsWith('-') && !url) {
           url = t.replace(/^['"]|['"]$/g, '');
         }
@@ -720,7 +871,11 @@ export class ApiRequestConfigDialogComponent implements OnInit {
 
       const ct = headers['Content-Type'] ?? headers['content-type'] ?? '';
       if (ct.toLowerCase().includes('application/x-www-form-urlencoded')) {
-        isFormUrlEncoded = true;
+        bodyFormat = 'urlencoded';
+        delete headers['Content-Type'];
+        delete headers['content-type'];
+      } else if (ct.toLowerCase().includes('application/json')) {
+        bodyFormat = 'json';
         delete headers['Content-Type'];
         delete headers['content-type'];
       }
@@ -729,7 +884,10 @@ export class ApiRequestConfigDialogComponent implements OnInit {
 
       this.data.url = url;
       if (method) this.data.method = method.toUpperCase();
-      this.data.isFormUrlEncoded = isFormUrlEncoded;
+      if (bodyFormat) {
+        this.data.bodyFormat = bodyFormat;
+        this.data.isFormUrlEncoded = bodyFormat === 'urlencoded';
+      }
       if (body) this.data.bodyTemplate = body;
 
       const merged = { ...(this.data.headers || {}), ...headers };
@@ -765,11 +923,15 @@ export class ApiRequestConfigDialogComponent implements OnInit {
   save() {
     const headers: Record<string, string> = {};
     for (const entry of this.headerEntries()) {
-      if (entry.key.trim()) {
-        headers[entry.key.trim()] = entry.value;
-      }
+      if (entry.key.trim()) headers[entry.key.trim()] = entry.value;
     }
     this.data.headers = headers;
+
+    const parameters: Record<string, string> = {};
+    for (const entry of this.parameterEntries()) {
+      if (entry.key.trim()) parameters[entry.key.trim()] = entry.value;
+    }
+    this.data.parameters = parameters;
 
     this.saving.set(true);
     const save$ = this.data.id
