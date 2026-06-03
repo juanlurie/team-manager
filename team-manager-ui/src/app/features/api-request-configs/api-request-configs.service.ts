@@ -65,6 +65,10 @@ export class ApiRequestConfigsService {
     return this.http.post<{ created: number; updated: number }>(`${this.baseUrl}/import`, configs);
   }
 
+  testRequest(config: ApiRequestConfig, variables?: Record<string, string>): Observable<TestRequestResult> {
+    return this.http.post<TestRequestResult>(`${this.baseUrl}/test-request`, { config, variables });
+  }
+
   testMapping(sampleJson: string, arrayPath: string, fields: Record<string, string>): Observable<TestMappingResult> {
     return this.http.post<TestMappingResult>(`${this.baseUrl}/test-mapping`, {
       sampleJson,
@@ -72,6 +76,12 @@ export class ApiRequestConfigsService {
       fields
     });
   }
+}
+
+export interface TestRequestResult {
+  statusCode: number;
+  body: string;
+  success: boolean;
 }
 
 export interface TestMappingResult {

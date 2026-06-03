@@ -172,6 +172,58 @@ public class ApiRequestConfigsController : ControllerBase
         return Ok(new { Created = created.Count, Updated = updated.Count });
     }
 
+    [HttpPost("test-request")]
+    [Authorize(Roles = "TeamLead")]
+    public async Task<IActionResult> TestRequest([FromBody] TestRequestPayload payload)
+    {
+        var dto = payload.Config;
+        if (string.IsNullOrWhiteSpace(dto.Url))
+            return BadRequest("URL is required");
+
+        var vars = payload.Variables ?? new();
+        string Resolve(string template) => template
+            .Replace("{cookie}", vars.GetValueOrDefault("cookie", ""))
+            .Replace("{start}", vars.GetValueOrDefault("start", ""))
+            .Replace("{end}", vars.GetValueOrDefault("end", ""))
+            .Replace("{teamIds}", vars.GetValueOrDefault("teamIds", ""));
+
+        try
+        {
+            using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
+            client.DefaultRequestHeaders.Accept.ParseAdd("application/json, text/javascript, */*; q=0.01");
+
+            foreach (var (key, value) in dto.Headers ?? new())
+                client.DefaultRequestHeaders.TryAddWithoutValidation(key, Resolve(value));
+
+            var url = Resolve(dto.Url);
+            HttpResponseMessage response;
+
+            if (dto.Method.Equals("POST", StringComparison.OrdinalIgnoreCase))
+            {
+                var body = Resolve(dto.BodyTemplate ?? "");
+                var content = new System.Net.Http.StringContent(body);
+                content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(
+                    dto.IsFormUrlEncoded ? "application/x-www-form-urlencoded" : "application/json");
+                response = await client.PostAsync(url, content);
+            }
+            else
+            {
+                response = await client.GetAsync(url);
+            }
+
+            var responseBody = await response.Content.ReadAsStringAsync();
+            return Ok(new { StatusCode = (int)response.StatusCode, Body = responseBody, Success = response.IsSuccessStatusCode });
+        }
+        catch (TaskCanceledException)
+        {
+            return Ok(new { StatusCode = 0, Body = "Request timed out after 30 seconds", Success = false });
+        }
+        catch (Exception ex)
+        {
+            return Ok(new { StatusCode = 0, Body = ex.Message, Success = false });
+        }
+    }
+
     [HttpPost("test-mapping")]
     [Authorize(Roles = "TeamLead")]
     public async Task<IActionResult> TestMapping([FromBody] TestMappingRequest request)
@@ -374,6 +426,11 @@ public class ApiRequestConfigsController : ControllerBase
         Mapping: JsonSerializer.Deserialize<MappingConfigDto>(config.MappingJson) ?? new MappingConfigDto()
     );
 }
+
+public record TestRequestPayload(
+    ApiRequestConfigDto Config,
+    Dictionary<string, string>? Variables = null
+);
 
 public record TestMappingRequest(
     string SampleJson = "",

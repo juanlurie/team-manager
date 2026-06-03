@@ -15,7 +15,8 @@ import {
   ApiRequestConfigsService,
   ApiRequestConfig,
   MappingConfig,
-  REQUEST_ACTIONS
+  REQUEST_ACTIONS,
+  TestRequestResult
 } from './api-request-configs.service';
 
 @Component({
@@ -486,8 +487,24 @@ export class ApiRequestConfigsComponent implements OnInit {
           </mat-form-field>
         </div>
       </mat-dialog-content>
+      @if (testResult()) {
+        <div class="test-response" [class.test-success]="testResult()!.success" [class.test-failure]="!testResult()!.success">
+          <div class="test-response-header">
+            <span class="test-status-code" [class.success]="testResult()!.success" [class.failure]="!testResult()!.success">
+              {{ testResult()!.statusCode || 'ERR' }} {{ testResult()!.success ? 'OK' : 'Failed' }}
+            </span>
+            <button mat-icon-button (click)="testResult.set(null)" class="close-test-btn">
+              <mat-icon>close</mat-icon>
+            </button>
+          </div>
+          <pre class="test-response-body">{{ formatTestBody(testResult()!.body) }}</pre>
+        </div>
+      }
       <mat-dialog-actions align="end">
         <button mat-button (click)="dialogRef.close()">Cancel</button>
+        <button mat-stroked-button (click)="runTest()" [disabled]="!data.url.trim() || testing()">
+          <mat-icon>play_arrow</mat-icon> {{ testing() ? 'Testing...' : 'Test' }}
+        </button>
         <button mat-raised-button color="primary" (click)="save()" [disabled]="!data.name.trim()">
           {{ saving() ? 'Saving...' : 'Save' }}
         </button>
@@ -527,6 +544,17 @@ export class ApiRequestConfigsComponent implements OnInit {
     .curl-section { padding: 10px 12px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; display: flex; flex-direction: column; gap: 8px; }
     .curl-toggle { justify-content: flex-start; color: rgba(255,255,255,0.6); font-size: 0.85rem; }
     .curl-error { font-size: 0.75rem; color: #ef5350; }
+
+    .test-response { margin: 8px 0 0; border-radius: 8px; overflow: hidden; border: 1px solid; }
+    .test-response.test-success { border-color: rgba(76,175,80,0.4); background: rgba(76,175,80,0.05); }
+    .test-response.test-failure { border-color: rgba(239,83,80,0.4); background: rgba(239,83,80,0.05); }
+    .test-response-header { display: flex; align-items: center; justify-content: space-between; padding: 6px 12px; }
+    .test-status-code { font-size: 0.8rem; font-weight: 700; font-family: monospace; }
+    .test-status-code.success { color: #4caf50; }
+    .test-status-code.failure { color: #ef5350; }
+    .close-test-btn { width: 28px; height: 28px; line-height: 28px; }
+    .close-test-btn mat-icon { font-size: 16px; width: 16px; height: 16px; }
+    .test-response-body { margin: 0; padding: 8px 12px 12px; font-size: 0.72rem; font-family: monospace; color: rgba(255,255,255,0.7); white-space: pre-wrap; word-break: break-all; max-height: 200px; overflow-y: auto; }
   `]
 })
 export class ApiRequestConfigDialogComponent implements OnInit {
@@ -541,6 +569,8 @@ export class ApiRequestConfigDialogComponent implements OnInit {
   showCurlImport = signal(false);
   curlInput = '';
   curlParseError = signal('');
+  testing = signal(false);
+  testResult = signal<TestRequestResult | null>(null);
 
   showPathPicker = signal(false);
   sampleJson = signal('');
@@ -597,6 +627,25 @@ export class ApiRequestConfigDialogComponent implements OnInit {
   copyPath(path: string) {
     navigator.clipboard.writeText(path);
     this.snackBar.open(`Copied: ${path}`, 'Close', { duration: 2000 });
+  }
+
+  runTest() {
+    const headers: Record<string, string> = {};
+    for (const entry of this.headerEntries()) {
+      if (entry.key.trim()) headers[entry.key.trim()] = entry.value;
+    }
+    const config: ApiRequestConfig = { ...this.data, headers };
+
+    this.testing.set(true);
+    this.testResult.set(null);
+    this.svc.testRequest(config).subscribe({
+      next: (result) => { this.testResult.set(result); this.testing.set(false); },
+      error: () => { this.testing.set(false); this.snackBar.open('Test request failed', 'Close', { duration: 3000 }); }
+    });
+  }
+
+  formatTestBody(body: string): string {
+    try { return JSON.stringify(JSON.parse(body), null, 2); } catch { return body; }
   }
 
   parseCurl() {
