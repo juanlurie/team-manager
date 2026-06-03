@@ -295,6 +295,25 @@ export class ApiRequestConfigsComponent implements OnInit {
       <h2 mat-dialog-title>{{ data.id ? 'Edit' : 'New' }} Config</h2>
       <mat-dialog-content>
         <div class="form-grid">
+          <div class="curl-section">
+            <button mat-button class="curl-toggle" (click)="showCurlImport.set(!showCurlImport())">
+              <mat-icon>terminal</mat-icon>
+              {{ showCurlImport() ? 'Hide' : 'Import from curl' }}
+            </button>
+            @if (showCurlImport()) {
+              <mat-form-field appearance="outline" class="full-width">
+                <mat-label>Paste curl command</mat-label>
+                <textarea matInput [(ngModel)]="curlInput" rows="4"
+                          placeholder="curl -X POST 'https://...' -H 'Authorization: Bearer ...' -d 'key=value'"></textarea>
+              </mat-form-field>
+              <button mat-flat-button color="accent" (click)="parseCurl()" [disabled]="!curlInput.trim()">
+                <mat-icon>auto_fix_high</mat-icon> Parse
+              </button>
+              @if (curlParseError()) {
+                <span class="curl-error">{{ curlParseError() }}</span>
+              }
+            }
+          </div>
           <mat-form-field appearance="outline" class="full-width">
             <mat-label>Action</mat-label>
             <mat-select [(ngModel)]="data.action">
@@ -504,6 +523,10 @@ export class ApiRequestConfigsComponent implements OnInit {
     .test-result-row { display: flex; gap: 8px; font-size: 0.75rem; margin-bottom: 4px; }
     .test-label { color: rgba(255,255,255,0.4); min-width: 60px; }
     .test-value { color: #4caf50; font-family: monospace; }
+
+    .curl-section { padding: 10px 12px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; display: flex; flex-direction: column; gap: 8px; }
+    .curl-toggle { justify-content: flex-start; color: rgba(255,255,255,0.6); font-size: 0.85rem; }
+    .curl-error { font-size: 0.75rem; color: #ef5350; }
   `]
 })
 export class ApiRequestConfigDialogComponent implements OnInit {
@@ -514,6 +537,10 @@ export class ApiRequestConfigDialogComponent implements OnInit {
   saving = signal(false);
   headerEntries = signal<{key: string, value: string}[]>([]);
   actions = REQUEST_ACTIONS;
+
+  showCurlImport = signal(false);
+  curlInput = '';
+  curlParseError = signal('');
 
   showPathPicker = signal(false);
   sampleJson = signal('');
@@ -570,6 +597,87 @@ export class ApiRequestConfigDialogComponent implements OnInit {
   copyPath(path: string) {
     navigator.clipboard.writeText(path);
     this.snackBar.open(`Copied: ${path}`, 'Close', { duration: 2000 });
+  }
+
+  parseCurl() {
+    this.curlParseError.set('');
+    try {
+      const normalized = this.curlInput.replace(/\\\n/g, ' ').replace(/\s+/g, ' ').trim();
+      const tokens = this.tokenizeCurl(normalized);
+
+      if (!tokens.length || tokens[0].toLowerCase() !== 'curl') {
+        this.curlParseError.set('Does not look like a curl command');
+        return;
+      }
+
+      let method = '';
+      const headers: Record<string, string> = {};
+      let body = '';
+      let url = '';
+      let isFormUrlEncoded = false;
+
+      for (let i = 1; i < tokens.length; i++) {
+        const t = tokens[i];
+        if (t === '-X' || t === '--request') {
+          method = tokens[++i] ?? '';
+        } else if (t === '-H' || t === '--header') {
+          const h = tokens[++i] ?? '';
+          const idx = h.indexOf(':');
+          if (idx > 0) headers[h.slice(0, idx).trim()] = h.slice(idx + 1).trim();
+        } else if (t === '-d' || t === '--data' || t === '--data-raw' || t === '--data-binary') {
+          body = tokens[++i] ?? '';
+          if (!method) method = 'POST';
+        } else if (t === '--data-urlencode') {
+          body = tokens[++i] ?? '';
+          isFormUrlEncoded = true;
+          if (!method) method = 'POST';
+        } else if (!t.startsWith('-') && !url) {
+          url = t.replace(/^['"]|['"]$/g, '');
+        }
+      }
+
+      const ct = headers['Content-Type'] ?? headers['content-type'] ?? '';
+      if (ct.toLowerCase().includes('application/x-www-form-urlencoded')) {
+        isFormUrlEncoded = true;
+        delete headers['Content-Type'];
+        delete headers['content-type'];
+      }
+
+      if (!url) { this.curlParseError.set('Could not find URL in curl command'); return; }
+
+      this.data.url = url;
+      if (method) this.data.method = method.toUpperCase();
+      this.data.isFormUrlEncoded = isFormUrlEncoded;
+      if (body) this.data.bodyTemplate = body;
+
+      const merged = { ...(this.data.headers || {}), ...headers };
+      this.headerEntries.set(Object.entries(merged).map(([k, v]) => ({ key: k, value: v as string })));
+
+      this.showCurlImport.set(false);
+      this.snackBar.open('curl parsed — review the fields below', 'Close', { duration: 3000 });
+    } catch {
+      this.curlParseError.set('Failed to parse curl command');
+    }
+  }
+
+  private tokenizeCurl(input: string): string[] {
+    const tokens: string[] = [];
+    let i = 0;
+    while (i < input.length) {
+      while (i < input.length && input[i] === ' ') i++;
+      if (i >= input.length) break;
+      const ch = input[i];
+      if (ch === "'" || ch === '"') {
+        const end = input.indexOf(ch, i + 1);
+        tokens.push(end < 0 ? input.slice(i + 1) : input.slice(i + 1, end));
+        i = end < 0 ? input.length : end + 1;
+      } else {
+        const start = i;
+        while (i < input.length && input[i] !== ' ') i++;
+        tokens.push(input.slice(start, i));
+      }
+    }
+    return tokens;
   }
 
   save() {
