@@ -12,6 +12,8 @@ public class SprintConfiguration : IEntityTypeConfiguration<Sprint>
         builder.Property(s => s.Id).HasDefaultValueSql("gen_random_uuid()");
         builder.Property(s => s.Name).IsRequired().HasMaxLength(100);
 
+        builder.Property(s => s.RetroPhase).HasMaxLength(20);
+
         builder.HasOne(s => s.PI)
             .WithMany(p => p.Sprints)
             .HasForeignKey(s => s.PIId)

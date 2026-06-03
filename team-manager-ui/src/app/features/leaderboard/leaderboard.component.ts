@@ -55,15 +55,6 @@ const SOURCE_COLORS: Record<string, { bg: string; text: string }> = {
               </div>
               <div style="font-weight:700;font-size:0.95rem">{{p2.firstName}} {{p2.lastName}}</div>
               <div style="font-size:1.4rem;font-weight:900;margin-top:6px" [style.color]="POS_COLORS[2].text">{{p2.totalPoints}} <span style="font-size:0.8rem;font-weight:400;opacity:0.6">pts</span></div>
-              <div style="display:flex;justify-content:center;gap:4px;margin-top:10px;flex-wrap:wrap">
-                @for (b of p2.breakdown; track b.source) {
-                  <span [style.background]="sourceStyle(b.source).bg" [style.color]="sourceStyle(b.source).text"
-                        [matTooltip]="b.label + ': ' + b.points + ' pts'"
-                        style="font-size:0.68rem;font-weight:700;padding:2px 7px;border-radius:10px">
-                    {{b.points}}
-                  </span>
-                }
-              </div>
             </div>
           }
 
@@ -81,15 +72,6 @@ const SOURCE_COLORS: Record<string, { bg: string; text: string }> = {
               </div>
               <div style="font-weight:700;font-size:1rem">{{p1.firstName}} {{p1.lastName}}</div>
               <div style="font-size:1.7rem;font-weight:900;margin-top:6px" [style.color]="POS_COLORS[1].text">{{p1.totalPoints}} <span style="font-size:0.85rem;font-weight:400;opacity:0.6">pts</span></div>
-              <div style="display:flex;justify-content:center;gap:4px;margin-top:10px;flex-wrap:wrap">
-                @for (b of p1.breakdown; track b.source) {
-                  <span [style.background]="sourceStyle(b.source).bg" [style.color]="sourceStyle(b.source).text"
-                        [matTooltip]="b.label + ': ' + b.points + ' pts'"
-                        style="font-size:0.68rem;font-weight:700;padding:2px 7px;border-radius:10px">
-                    {{b.points}}
-                  </span>
-                }
-              </div>
             </div>
           }
 
@@ -107,15 +89,6 @@ const SOURCE_COLORS: Record<string, { bg: string; text: string }> = {
               </div>
               <div style="font-weight:700;font-size:0.95rem">{{p3.firstName}} {{p3.lastName}}</div>
               <div style="font-size:1.4rem;font-weight:900;margin-top:6px" [style.color]="POS_COLORS[3].text">{{p3.totalPoints}} <span style="font-size:0.8rem;font-weight:400;opacity:0.6">pts</span></div>
-              <div style="display:flex;justify-content:center;gap:4px;margin-top:10px;flex-wrap:wrap">
-                @for (b of p3.breakdown; track b.source) {
-                  <span [style.background]="sourceStyle(b.source).bg" [style.color]="sourceStyle(b.source).text"
-                        [matTooltip]="b.label + ': ' + b.points + ' pts'"
-                        style="font-size:0.68rem;font-weight:700;padding:2px 7px;border-radius:10px">
-                    {{b.points}}
-                  </span>
-                }
-              </div>
             </div>
           }
         </div>
@@ -146,18 +119,7 @@ const SOURCE_COLORS: Record<string, { bg: string; text: string }> = {
                 <div style="font-size:0.72rem;opacity:0.4">{{e.role === 'TeamLead' ? 'Team Lead' : e.role}}</div>
               </div>
 
-              <!-- Breakdown chips -->
-              <div style="display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end">
-                @for (b of e.breakdown; track b.source) {
-                  <span [style.background]="sourceStyle(b.source).bg" [style.color]="sourceStyle(b.source).text"
-                        [matTooltip]="b.label + ' × ' + b.count + ' = ' + b.points + ' pts'"
-                        style="font-size:0.7rem;font-weight:700;padding:2px 8px;border-radius:10px;cursor:default">
-                    {{b.label}} {{b.points}}
-                  </span>
-                }
-              </div>
-
-              <!-- Total -->
+<!-- Total -->
               <div style="width:64px;text-align:right;font-size:1rem;font-weight:800;flex-shrink:0"
                    [style.color]="e.position <= 3 ? POS_COLORS[e.position].text : 'rgba(255,255,255,0.85)'">
                 {{e.totalPoints}}

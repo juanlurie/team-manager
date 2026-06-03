@@ -81,6 +81,15 @@ public class SprintService(AppDbContext db) : ISprintService
         return await GetByIdAsync(id);
     }
 
+    public async Task<SprintDto?> UpdateRetroPhaseAsync(Guid id, string? phase)
+    {
+        var sprint = await db.Sprints.FindAsync(id);
+        if (sprint is null) return null;
+        sprint.RetroPhase = phase;
+        await db.SaveChangesAsync();
+        return await GetByIdAsync(id);
+    }
+
     public async Task<int> InitializeMembersAsync(Guid sprintId)
     {
         var activeMembers = await db.TeamMembers
@@ -178,6 +187,7 @@ public class SprintService(AppDbContext db) : ISprintService
         Goal = s.Goal,
         RetroWentWell = s.RetroWentWell,
         RetroDidntGoWell = s.RetroDidntGoWell,
-        RetroActionItems = s.RetroActionItems
+        RetroActionItems = s.RetroActionItems,
+        RetroPhase = s.RetroPhase,
     };
 }

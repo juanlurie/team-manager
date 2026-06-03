@@ -73,13 +73,25 @@ export class FeaturePermissionsComponent implements OnInit {
     const saveKey = `${featureKey}:${role}`;
     this.saving.set(saveKey);
 
+    this.rawGroups.update(groups => groups.map(group => ({
+      ...group,
+      permissions: group.permissions.map(p =>
+        p.featureKey === featureKey && p.role === role ? { ...p, isEnabled: !currentEnabled } : p
+      ),
+    })));
+
     this.service.updateRolePermission(featureKey, role, !currentEnabled).subscribe({
       next: () => {
         this.saving.set(null);
-        this.loadPermissions();
         this.snackBar.open('Permission updated', 'Close', { duration: 2000 });
       },
       error: () => {
+        this.rawGroups.update(groups => groups.map(group => ({
+          ...group,
+          permissions: group.permissions.map(p =>
+            p.featureKey === featureKey && p.role === role ? { ...p, isEnabled: currentEnabled } : p
+          ),
+        })));
         this.saving.set(null);
         this.snackBar.open('Failed to update permission', 'Close', { duration: 3000 });
       },

@@ -34,6 +34,14 @@ public class TimesheetConfigService(AppDbContext db) : ITimesheetConfigService
             config.QuickActionsJson = JsonSerializer.Serialize(request.QuickActions);
         if (request.WorkLocationOptions is not null)
             config.WorkLocationOptionsJson = JsonSerializer.Serialize(request.WorkLocationOptions);
+        if (request.BillableProjects is not null)
+            config.BillableProjectsJson = JsonSerializer.Serialize(request.BillableProjects);
+        if (request.WorkWeek is not null)
+            config.WorkWeekJson = JsonSerializer.Serialize(request.WorkWeek);
+        if (request.MergeEntriesEnabled is not null)
+            config.MergeEntriesEnabled = request.MergeEntriesEnabled.Value;
+        if (request.LocationIcons is not null)
+            config.LocationIconsJson = JsonSerializer.Serialize(request.LocationIcons);
 
         await db.SaveChangesAsync();
         return ToDto(config);
@@ -43,8 +51,12 @@ public class TimesheetConfigService(AppDbContext db) : ITimesheetConfigService
         JsonSerializer.Deserialize<string[]>(c.ExtraProjectsJson, Json) ?? [],
         JsonSerializer.Deserialize<Dictionary<string, string[]>>(c.ExtraCategoriesJson, Json) ?? [],
         (JsonSerializer.Deserialize<List<QuickActionConfigDto>>(c.QuickActionsJson, Json) ?? []).ToArray(),
-        JsonSerializer.Deserialize<string[]>(c.WorkLocationOptionsJson, Json) ?? ["Home", "Other", "Client", "Entelect"]
+        JsonSerializer.Deserialize<string[]>(c.WorkLocationOptionsJson, Json) ?? ["Home", "Other", "Client", "Entelect"],
+        JsonSerializer.Deserialize<string[]>(c.BillableProjectsJson, Json) ?? [],
+        JsonSerializer.Deserialize<Dictionary<string, string>>(c.WorkWeekJson, Json) ?? [],
+        c.MergeEntriesEnabled,
+        JsonSerializer.Deserialize<Dictionary<string, string>>(c.LocationIconsJson, Json) ?? []
     );
 
-    private static TimesheetConfigDto Empty() => new([], [], [], ["Home", "Other", "Client", "Entelect"]);
+    private static TimesheetConfigDto Empty() => new([], [], [], ["Home", "Other", "Client", "Entelect"], [], [], false, []);
 }

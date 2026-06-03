@@ -1,19 +1,17 @@
 import { Component, input, output, signal, computed, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { MatDialog, MatDialogModule, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
+import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatIconModule } from '@angular/material/icon';
 import { TimesheetEntry, CreateTimesheetEntryRequest } from '../../../../core/models/timesheet.model';
 import {
   ActivityCombo, ACTIVITY_COMBOS, DURATION_CHIPS, DURATION_CHIP_MINUTES,
   TIMESHEET_PROJECTS, CATEGORIES_BY_PROJECT, minutesToDurationLabel,
 } from '../timesheet-data.constants';
 
-const LOC_ICONS: Record<string, string> = {
-  Home:     `<svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M1.5 7.5L7 2.5l5.5 5"/><path d="M3 6.5V12h3V9h2v3h3V6.5"/></svg>`,
-  Client:   `<svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="10" height="9" rx="0.5"/><path d="M5 3V2h4v1"/><path d="M5.5 7h1M7.5 7h1M5.5 9.5h1M7.5 9.5h1"/></svg>`,
-  Entelect: `<svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="1.5" y="2.5" width="11" height="7.5" rx="1"/><path d="M0.5 10h13M5 13h4"/></svg>`,
-  Other:    `<svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7 1.5A3.5 3.5 0 003.5 5c0 3.5 3.5 7.5 3.5 7.5S10.5 8.5 10.5 5A3.5 3.5 0 007 1.5z"/><circle cx="7" cy="5" r="1.2"/></svg>`,
+const DEFAULT_LOC_ICONS: Record<string, string> = {
+  'Home': 'home', 'Client': 'store', 'Entelect': 'laptop', 'Other': 'location_on',
 };
 
 const LOCATIONS = ['Home', 'Client', 'Entelect', 'Other'];
@@ -56,7 +54,7 @@ export class TsDeleteConfirmComponent {
 @Component({
   selector: 'app-ts-edit-dialog',
   standalone: true,
-  imports: [CommonModule, FormsModule, MatDialogModule],
+  imports: [CommonModule, FormsModule, MatDialogModule, MatIconModule],
   styles: [`
     :host { display: block; }
     .wrap { padding: 20px 20px 16px; display: flex; flex-direction: column; gap: 14px; min-width: min(340px, 90vw); }
@@ -111,7 +109,7 @@ export class TsDeleteConfirmComponent {
         <div class="chips">
           @for (loc of locs; track loc) {
             <button class="d-chip" [class.sel]="eWorkedFrom() === loc" (click)="eWorkedFrom.set(loc)">
-              <span [innerHTML]="icon(loc)"></span>{{ loc }}
+              <mat-icon style="font-size:14px;width:14px;height:14px;line-height:14px">{{ DEFAULT_LOC_ICONS[loc] ?? 'location_on' }}</mat-icon>{{ loc }}
             </button>
           }
         </div>
@@ -148,7 +146,6 @@ export class TsDeleteConfirmComponent {
 export class TsEditDialogComponent implements OnInit {
   data: TimesheetEntry = inject(MAT_DIALOG_DATA);
   dialogRef = inject(MatDialogRef<TsEditDialogComponent>);
-  private sanitizer = inject(DomSanitizer);
 
   confirming = signal(false);
   eProject = signal('');
@@ -174,9 +171,7 @@ export class TsEditDialogComponent implements OnInit {
     this.eWorkedFrom.set(e.workedFrom || 'Home');
   }
 
-  icon(loc: string): SafeHtml {
-    return this.sanitizer.bypassSecurityTrustHtml(LOC_ICONS[loc] ?? LOC_ICONS['Other']);
-  }
+  readonly DEFAULT_LOC_ICONS = DEFAULT_LOC_ICONS;
 
   applyCombo(c: ActivityCombo) { this.eProject.set(c.project); this.eCategory.set(c.category); }
   setProject(p: string) { this.eProject.set(p); this.eCategory.set(''); }
@@ -200,7 +195,7 @@ export class TsEditDialogComponent implements OnInit {
 @Component({
   selector: 'app-timesheet-entry-card',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, MatTooltipModule, MatIconModule],
   styles: [`
     .card {
       display:flex; align-items:center; gap:10px; padding:11px 14px; border-radius:10px;
@@ -218,7 +213,9 @@ export class TsEditDialogComponent implements OnInit {
       width:26px; height:24px; display:flex; align-items:center; justify-content:center;
       border-radius:5px; border:1px solid transparent; background:none;
       cursor:pointer; color:rgba(255,255,255,0.22); transition:all 0.1s; padding:0;
+      overflow:hidden; flex-shrink:0;
     }
+    .lb mat-icon { font-size:14px; width:14px; height:14px; line-height:14px; overflow:visible; flex-shrink:0; }
     .lb:hover { color:rgba(255,255,255,0.7); background:rgba(255,255,255,0.06); }
     .lb.loc-active { color:#64b5f6; background:rgba(100,181,246,0.12); border-color:rgba(100,181,246,0.4); }
     .nudge { display:flex; align-items:center; flex-shrink:0; }
@@ -271,13 +268,13 @@ export class TsEditDialogComponent implements OnInit {
         <div class="info-title">{{ entry().category }}</div>
         <div class="info-sub">{{ entry().project }}</div>
         @if (entry().description) {
-          <div style="font-size:11px;color:rgba(255,255,255,0.45);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ entry().description }}</div>
+          <div style="font-size:11px;color:rgba(255,255,255,0.45);margin-top:2px;white-space:pre-line;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;">{{ entry().description }}</div>
         }
       </div>
       <div class="ctrls" (click)="$event.stopPropagation()">
         <div class="loc-row">
-          @for (loc of locs; track loc) {
-            <button class="lb" [class.loc-active]="entry().workedFrom === loc" [title]="loc" [innerHTML]="icon(loc)" (click)="switchLocation(loc)"></button>
+          @for (loc of locs(); track loc) {
+            <button class="lb" [class.loc-active]="entry().workedFrom === loc" [matTooltip]="loc" matTooltipPosition="above" (click)="switchLocation(loc)"><mat-icon>{{ locIcon(loc) }}</mat-icon></button>
           }
         </div>
         <div class="nudge">
@@ -312,8 +309,8 @@ export class TsEditDialogComponent implements OnInit {
           <button class="nb" (click)="nudge(15)">+</button>
         </div>
         <div class="loc-row">
-          @for (loc of locs; track loc) {
-            <button class="lb" [class.loc-active]="entry().workedFrom === loc" [title]="loc" [innerHTML]="icon(loc)" (click)="switchLocation(loc)"></button>
+          @for (loc of locs(); track loc) {
+            <button class="lb" [class.loc-active]="entry().workedFrom === loc" [matTooltip]="loc" matTooltipPosition="above" (click)="switchLocation(loc)"><mat-icon>{{ locIcon(loc) }}</mat-icon></button>
           }
         </div>
       </div>
@@ -322,14 +319,20 @@ export class TsEditDialogComponent implements OnInit {
   `
 })
 export class TimesheetEntryCardComponent {
-  private sanitizer = inject(DomSanitizer);
   private dialog = inject(MatDialog);
 
   entry = input.required<TimesheetEntry>();
+  locations = input<string[]>(LOCATIONS);
+  locationIcons = input<Record<string, string>>({});
+  edit = output<TimesheetEntry>();
   saved = output<{ id: string; req: CreateTimesheetEntryRequest }>();
   deleted = output<string>();
 
-  readonly locs = LOCATIONS;
+  readonly locs = computed(() => this.locations());
+
+  locIcon(loc: string): string {
+    return this.locationIcons()[loc] ?? DEFAULT_LOC_ICONS[loc] ?? 'location_on';
+  }
 
   combo = computed<ActivityCombo>(() => {
     const e = this.entry();
@@ -339,20 +342,8 @@ export class TimesheetEntryCardComponent {
 
   durLabel = computed(() => minutesToDurationLabel(this.entry().hours * 60 + this.entry().minutes));
 
-  icon(loc: string): SafeHtml {
-    return this.sanitizer.bypassSecurityTrustHtml(LOC_ICONS[loc] ?? LOC_ICONS['Other']);
-  }
-
   openEdit() {
-    const ref = this.dialog.open(TsEditDialogComponent, { data: this.entry() });
-    ref.afterClosed().subscribe((result?: { req: CreateTimesheetEntryRequest } | { deleted: true }) => {
-      if (!result) return;
-      if ('deleted' in result) {
-        this.deleted.emit(this.entry().id);
-      } else {
-        this.saved.emit({ id: this.entry().id, req: result.req });
-      }
-    });
+    this.edit.emit(this.entry());
   }
 
   openDeleteConfirm() {

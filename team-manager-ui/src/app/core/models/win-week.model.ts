@@ -28,9 +28,13 @@ export interface WinWeek {
   winnerNomineeName: string | null;
   openedAt: string;
   closedAt: string | null;
+  suddenDeathEndsAt: string | null;
   currentMemberId: string;
   userVotesRemaining: number;
   userNominationsRemaining: number;
+  totalVotesCast: number;
+  activeMemberCount: number;
+  connectedMemberCount: number;
   tiedNominationIds: string[];
   nominations: WinNomination[];
 }

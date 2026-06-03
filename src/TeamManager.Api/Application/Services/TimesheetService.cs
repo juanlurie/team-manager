@@ -105,6 +105,17 @@ public class TimesheetService(AppDbContext db) : ITimesheetService
             foreach (var r in rowsToRemove)
                 r.Remove();
 
+            // Strip data validations so dropdown formulas don't interfere with exported text values
+            wsPart.Worksheet.GetFirstChild<DataValidations>()?.Remove();
+
+            // Remove Lookup and Validation helper sheets — not needed in exports
+            var sheets = workbookPart.Workbook.Sheets!.Elements<Sheet>().Skip(1).ToList();
+            foreach (var sheet in sheets)
+            {
+                workbookPart.DeletePart(workbookPart.GetPartById(sheet.Id!.Value!));
+                sheet.Remove();
+            }
+
             // Append one row per entry
             var rowIndex = 2u;
             foreach (var entry in entries)

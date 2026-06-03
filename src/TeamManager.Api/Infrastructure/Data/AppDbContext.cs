@@ -35,6 +35,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<Squad> Squads => Set<Squad>();
     public DbSet<SquadMember> SquadMembers => Set<SquadMember>();
     public DbSet<RetroAction> RetroActions => Set<RetroAction>();
+    public DbSet<RetroCard> RetroCards => Set<RetroCard>();
+    public DbSet<RetroVote> RetroVotes => Set<RetroVote>();
     public DbSet<MeetingSession> MeetingSessions => Set<MeetingSession>();
     public DbSet<MeetingSlot> MeetingSlots => Set<MeetingSlot>();
     public DbSet<SlotLocation> SlotLocations => Set<SlotLocation>();
@@ -96,6 +98,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         modelBuilder.ApplyConfiguration(new SquadConfiguration());
         modelBuilder.ApplyConfiguration(new SquadMemberConfiguration());
         modelBuilder.ApplyConfiguration(new RetroActionConfiguration());
+        modelBuilder.ApplyConfiguration(new RetroCardConfiguration());
+        modelBuilder.ApplyConfiguration(new RetroVoteConfiguration());
         modelBuilder.ApplyConfiguration(new TimesheetEntryConfiguration());
         modelBuilder.ApplyConfiguration(new MemberTimesheetConfigConfiguration());
         modelBuilder.ApplyConfiguration(new SlotLocationConfiguration());

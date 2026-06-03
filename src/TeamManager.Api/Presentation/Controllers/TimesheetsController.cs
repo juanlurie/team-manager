@@ -17,7 +17,12 @@ public class TimesheetsController(ITimesheetService service) : ControllerBase
     [HttpPost]
     public async Task<IActionResult> Create(Guid memberId, [FromBody] CreateTimesheetEntryRequest req)
     {
-        try { return Created("", await service.CreateAsync(memberId, req)); }
+        try
+        {
+            var result = await service.CreateAsync(memberId, req);
+            _ = WebSocketMiddleware.BroadcastAsync("timesheet_entry_created", new { memberId, entry = result });
+            return Created("", result);
+        }
         catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
     }
 
@@ -27,7 +32,9 @@ public class TimesheetsController(ITimesheetService service) : ControllerBase
         try
         {
             var result = await service.UpdateAsync(memberId, entryId, req);
-            return result is null ? NotFound() : Ok(result);
+            if (result is null) return NotFound();
+            _ = WebSocketMiddleware.BroadcastAsync("timesheet_entry_updated", new { memberId, entry = result });
+            return Ok(result);
         }
         catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
     }
@@ -36,7 +43,9 @@ public class TimesheetsController(ITimesheetService service) : ControllerBase
     public async Task<IActionResult> Delete(Guid memberId, Guid entryId)
     {
         var success = await service.DeleteAsync(memberId, entryId);
-        return success ? NoContent() : NotFound();
+        if (!success) return NotFound();
+        _ = WebSocketMiddleware.BroadcastAsync("timesheet_entry_deleted", new { memberId, entryId });
+        return NoContent();
     }
 
     [HttpGet("export")]

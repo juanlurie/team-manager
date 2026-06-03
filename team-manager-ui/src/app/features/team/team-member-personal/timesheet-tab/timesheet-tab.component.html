@@ -51,117 +51,29 @@
               </button>
             </div>
           </div>
-          @if (recents().length>0) {
-            <div class="m-recents">
-              <div class="m-rec-lbl">Quick log</div>
-              <div class="m-rec-grid">
-                @for (r of recents().slice(0,4); track r.project+r.category) {
-                  <div class="m-rec-card" [style.border-left-color]="r.combo?.color??'rgba(255,255,255,0.3)'" (click)="logRecent(r)">
-                    <div style="display:flex;justify-content:space-between;margin-bottom:2px">
-                      <span style="font-size:10px;font-weight:700;text-transform:uppercase" [style.color]="r.combo?.color??'rgba(255,255,255,0.5)'">{{ r.combo?.label??r.category.slice(0,8) }}</span>
-                      <span style="font-size:10px;color:rgba(255,255,255,0.3)">{{ fmtDur(r.durationMins) }}</span>
-                    </div>
-                    <div style="font-size:12px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ r.category }}</div>
-                    <div style="font-size:11px;color:rgba(255,255,255,0.3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ r.project }}</div>
-                  </div>
-                }
-              </div>
-            </div>
-          }
-          <div class="ts-add-panel">
-            <div class="ts-ap-r1">
-              <div class="ts-ap-combos">
-                @for (c of activeQuickActions(); track c.label) {
-                  <button class="ts-chip" [class.sel]="formProject()===c.project&&formCategory()===c.category" (click)="applyCombo(c)">{{ c.label }}</button>
-                }
-              </div>
-              <div class="ts-ap-durs">
-                <div class="ts-dur-row">
-                  @for (d of durChips; track d[0]) {
-                    <button class="ts-dur-chip" [class.sel]="formDurMins()===d[1]" (click)="formDurMins.set(d[1])">{{ d[0] }}</button>
-                  }
-                </div>
-                <div class="ts-dur-row">
-                  <button class="ts-dur-chip" (click)="adjustDuration(-60)">-1h</button>
-                  <button class="ts-dur-chip" (click)="adjustDuration(-15)">-15m</button>
-                  <span style="font-size:14px;font-weight:700;color:rgba(255,255,255,0.8);min-width:60px;text-align:center;margin:0 6px;">{{ fmtDur(formDurMins()) }}</span>
-                  <button class="ts-dur-chip" (click)="adjustDuration(15)">+15m</button>
-                  <button class="ts-dur-chip" (click)="adjustDuration(60)">+1h</button>
-                </div>
-              </div>
-            </div>
-            <div class="ts-ap-r2">
-              <div style="display:flex;flex-direction:column;gap:3px;">
-                <input class="ts-input" placeholder="Search project…" [ngModel]="projectSearch()" (ngModelChange)="projectSearch.set($event)" style="width:180px;padding:4px 8px;font-size:11px;flex-shrink:0;" />
-                <select class="ts-sel ts-sel-proj" [ngModel]="formProject()" (ngModelChange)="setFormProject($event)">
-                  <option value="">Project…</option>
-                  @for (p of filteredProjects(); track p) { <option [value]="p">{{ p }}</option> }
-                </select>
-              </div>
-              <div style="display:flex;flex-direction:column;gap:3px;flex:1.2;min-width:140px;">
-                <input class="ts-input" placeholder="Search category…" [ngModel]="categorySearch()" (ngModelChange)="categorySearch.set($event)" style="padding:4px 8px;font-size:11px;" [disabled]="!formProject()" />
-                <select class="ts-sel ts-sel-cat" [ngModel]="formCategory()" (ngModelChange)="formCategory.set($event);categorySearch.set('')" [disabled]="!formProject()">
-                  <option value="">Category…</option>
-                  @for (c of filteredCategories(); track c) { <option [value]="c">{{ c }}</option> }
-                </select>
-              </div>
-              <input class="ts-input" placeholder="Note (required)" [ngModel]="formNote()" (ngModelChange)="formNote.set($event)" (keydown.enter)="canAdd()&&addEntry()" />
-              <button class="ts-add-btn" [disabled]="!canAdd()" (click)="addEntry()">Add Entry</button>
-            </div>
+          <div class="ts-quick-bar">
+            @for (c of activeQuickActions(); track c.label) {
+              <button class="ts-chip" [style.border-color]="c.color" [style.color]="c.color"
+                      (click)="openQuickAdd({ project: c.project, category: c.category, note: c.note ?? undefined, durationMins: c.durationMins ?? undefined })">{{ c.label }}</button>
+            }
+            <button class="ts-log-btn" (click)="openQuickAdd()">
+              + Log time
+              <kbd>N</kbd>
+            </button>
           </div>
-          <div class="ts-entries">
-            @if (loading()) {
+          <div class="ts-entries" [class.ts-refreshing]="loading() && entries().length > 0">
+            @if (loading() && entries().length === 0) {
               <div style="display:flex;justify-content:center;padding:40px;color:rgba(255,255,255,0.28)">Loading…</div>
-            } @else if (dayEntries().length===0) {
+            } @else if (dayEntries().length === 0) {
               <div class="ts-empty">
                 <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" opacity="0.4"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
                 <span>No entries yet</span>
-                <span style="font-size:12px">Use the form above to log time</span>
+                <span style="font-size:12px">Press <kbd style="padding:1px 6px;border:1px solid rgba(255,255,255,0.2);border-radius:3px;font-size:11px;color:rgba(255,255,255,0.35)">N</kbd> to log time</span>
               </div>
             } @else {
               @for (e of dayEntries(); track e.id) {
-                <app-timesheet-entry-card [entry]="e" (saved)="handleSave($event)" (deleted)="deleteEntry($event)" />
+                <app-timesheet-entry-card [entry]="e" [locations]="tsConfig().workLocationOptions?.length ? tsConfig().workLocationOptions! : ['Home', 'Client', 'Entelect', 'Other']" [locationIcons]="tsConfig().locationIcons ?? {}" (edit)="openEdit($event)" (saved)="handleSave($event)" (deleted)="deleteEntry($event)" />
               }
-            }
-          </div>
-          <div class="m-add-bar">
-            @if (!mobileAddOpen()) {
-              <div class="m-add-trigger" (click)="mobileAddOpen.set(true)">
-                <span class="m-add-icon">+</span>
-                <span style="font-size:14px;color:rgba(255,255,255,0.4);flex:1">Log time…</span>
-                <span class="m-add-day">{{ selDateShort() }}</span>
-              </div>
-            } @else {
-              <div class="m-add-form">
-                <div style="display:flex;justify-content:space-between;padding-top:12px">
-                  <span style="font-size:14px;font-weight:600">Log time</span>
-                  <button (click)="mobileAddOpen.set(false)" style="background:none;border:none;color:rgba(255,255,255,0.4);cursor:pointer;font-size:20px;line-height:1">×</button>
-                </div>
-                <div><div class="m-form-lbl">Activity</div><div class="ts-chips">@for (c of activeQuickActions(); track c.label) { <button class="ts-chip" [class.sel]="formProject()===c.project&&formCategory()===c.category" (click)="applyCombo(c)">{{ c.label }}</button> }</div></div>
-                <div>
-                  <div class="m-form-lbl">Duration</div>
-                  <div class="ts-chips" style="display:flex; flex-direction:column; gap:8px;">
-                    <div style="display:flex; justify-content:center; gap:4px; flex-wrap:wrap;">
-                      @for (d of durChips; track d[0]) {
-                        <button class="ts-dur-chip" [class.sel]="formDurMins()===d[1]" (click)="formDurMins.set(d[1])">{{ d[0] }}</button>
-                      }
-                    </div>
-                    <div style="display:flex; align-items:center; justify-content:center; gap:4px;">
-                      <button class="ts-dur-chip" (click)="adjustDuration(-60)">-1h</button>
-                      <button class="ts-dur-chip" (click)="adjustDuration(-15)">-15m</button>
-                      <span style="font-size:16px; color:rgba(255,255,255,0.9); font-weight:700; margin:0 12px; min-width:50px; text-align:center;">{{ fmtDur(formDurMins()) }}</span>
-                      <button class="ts-dur-chip" (click)="adjustDuration(15)">+15m</button>
-                      <button class="ts-dur-chip" (click)="adjustDuration(60)">+1h</button>
-                    </div>
-                  </div>
-                </div>
-                <input class="ts-input" style="width:100%;padding:4px 8px;font-size:11px;margin-bottom:4px;" placeholder="Search project…" [ngModel]="projectSearch()" (ngModelChange)="projectSearch.set($event)" />
-                <select class="ts-sel" style="width:100%" [ngModel]="formProject()" (ngModelChange)="setFormProject($event)"><option value="">Select project…</option>@for (p of filteredProjects(); track p) { <option [value]="p">{{ p }}</option> }</select>
-                <input class="ts-input" style="width:100%;padding:4px 8px;font-size:11px;margin-bottom:4px;" placeholder="Search category…" [ngModel]="categorySearch()" (ngModelChange)="categorySearch.set($event)" [disabled]="!formProject()" />
-                <select class="ts-sel" style="width:100%" [ngModel]="formCategory()" (ngModelChange)="formCategory.set($event);categorySearch.set('')" [disabled]="!formProject()"><option value="">Select category…</option>@for (c of filteredCategories(); track c) { <option [value]="c">{{ c }}</option> }</select>
-                <input class="ts-input" style="width:100%" placeholder="Note (required)" [ngModel]="formNote()" (ngModelChange)="formNote.set($event)" />
-                <button class="m-add-btn" [disabled]="!canAdd()" (click)="addEntry();mobileAddOpen.set(false)">Add Entry</button>
-              </div>
             }
           </div>
         </section>

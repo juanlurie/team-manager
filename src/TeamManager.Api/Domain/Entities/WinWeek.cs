@@ -12,6 +12,7 @@ public class WinWeek
     public string? TiedNominationIds { get; set; }
     public DateTimeOffset OpenedAt { get; set; } = DateTimeOffset.UtcNow;
     public DateTimeOffset? ClosedAt { get; set; }
+    public DateTimeOffset? SuddenDeathEndsAt { get; set; }
     public Guid CreatedByMemberId { get; set; }
 
     public WinNomination? Winner { get; set; }

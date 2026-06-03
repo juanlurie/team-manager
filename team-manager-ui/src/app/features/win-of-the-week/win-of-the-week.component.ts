@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, signal, computed, OnDestroy } from '@angular/core';
+import { Component, OnInit, inject, signal, computed, OnDestroy, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
@@ -9,7 +9,9 @@ import { MatSnackBarModule, MatSnackBar } from '@angular/material/snack-bar';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatSelectModule } from '@angular/material/select';
 import { MatInputModule } from '@angular/material/input';
-import { Subscription } from 'rxjs';
+import { MatMenuModule } from '@angular/material/menu';
+import { MatDividerModule } from '@angular/material/divider';
+import { Subscription, interval } from 'rxjs';
 import { WinOfTheWeekService } from '../../core/services/win-of-the-week.service';
 import { WinOfTheMonthService } from '../../core/services/win-of-the-month.service';
 import { TeamMemberService } from '../../core/services/team-member.service';
@@ -26,39 +28,107 @@ import { WinOfTheMonthComponent } from '../win-of-the-month/win-of-the-month.com
   imports: [
     CommonModule, FormsModule, MatIconModule, MatButtonModule,
     MatTooltipModule, MatDialogModule, MatSnackBarModule,
-    MatFormFieldModule, MatSelectModule, MatInputModule,
+    MatFormFieldModule, MatSelectModule, MatInputModule, MatMenuModule, MatDividerModule,
     WinOfTheWeekHistoryComponent, WinOfTheMonthComponent
   ],
+  styles: [`
+    @keyframes alertPulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(239,83,80,0); border-color: rgba(239,83,80,0.25); }
+      50% { box-shadow: 0 0 32px 4px rgba(239,83,80,0.18); border-color: rgba(239,83,80,0.55); }
+    }
+    .sudden-death-wrap {
+      border: 1px solid rgba(239,83,80,0.25);
+      border-radius: 16px;
+      animation: alertPulse 2s ease-in-out infinite;
+    }
+    @keyframes spinnerPop {
+      0% { transform: scale(0.92); opacity: 0.6; }
+      50% { transform: scale(1.04); opacity: 1; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+    .spinner-name { animation: spinnerPop 0.12s ease-out; }
+  `],
   template: `
-    <div style="max-width:800px;margin:0 auto;padding:0 8px 80px;overflow-x:hidden">
-      <!-- Header -->
-      <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap">
-        <div style="display:flex;align-items:center;gap:10px">
-          <mat-icon style="font-size:1.6rem;width:1.6rem;height:1.6rem;color:#FFD700">emoji_events</mat-icon>
-          <h2 style="margin:0;font-size:1.3rem;font-weight:700">Win of the Week</h2>
+    <!-- Tie-break spin overlay -->
+    @if (isSpinning()) {
+      <div style="position:fixed;inset:0;background:rgba(0,0,0,0.9);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:2000;backdrop-filter:blur(6px)">
+        <div style="font-size:0.65rem;text-transform:uppercase;letter-spacing:3px;opacity:0.4;margin-bottom:28px">🎲 Breaking the tie</div>
+        <div class="spinner-name"
+             style="font-size:2.2rem;font-weight:800;color:#ef5350;min-width:300px;text-align:center;padding:24px 36px;background:rgba(239,83,80,0.08);border:2px solid rgba(239,83,80,0.4);border-radius:20px">
+          {{spinnerName()}}
         </div>
+      </div>
+    }
+
+    <div [class.sudden-death-wrap]="currentWeek()?.status === 'SuddenDeath'"
+         style="max-width:800px;margin:0 auto;padding:0 8px 80px;overflow-x:hidden">
+      <!-- Header -->
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+        <mat-icon style="font-size:1.6rem;width:1.6rem;height:1.6rem;color:#FFD700">emoji_events</mat-icon>
+        <h2 style="margin:0;font-size:1.3rem;font-weight:700">Win of the Week</h2>
         <div style="flex:1"></div>
-        <button class="icon-btn" (click)="copyShareLink()" matTooltip="Copy share link">
-          <mat-icon style="font-size:20px;height:20px;width:20px">share</mat-icon>
+        <button mat-icon-button [matMenuTriggerFor]="moreMenu" style="color:rgba(255,255,255,0.5)">
+          <mat-icon>more_vert</mat-icon>
         </button>
+        <mat-menu #moreMenu="matMenu">
+          @if (activeTab() !== 'current') {
+            <button mat-menu-item (click)="activeTab.set('current')">
+              <mat-icon>emoji_events</mat-icon>Current Week
+            </button>
+            <mat-divider />
+          }
+          <button mat-menu-item (click)="activeTab.set('history')">
+            <mat-icon>history</mat-icon>History
+          </button>
+          <button mat-menu-item (click)="activeTab.set('month')">
+            <mat-icon>calendar_month</mat-icon>Win of the Month
+          </button>
+          <mat-divider />
+          @if (activeTab() === 'current') {
+            @if (currentWeek()?.status === 'Nominating' && (currentWeek()?.nominations?.length ?? 0) > 0) {
+              <button mat-menu-item (click)="openVoting()">
+                <mat-icon>how_to_vote</mat-icon>Open Voting
+              </button>
+            }
+            @if (currentWeek()?.status === 'Voting' && (currentWeek()?.nominations?.length ?? 0) > 0) {
+              @if (hasTie()) {
+                <button mat-menu-item (click)="startTieBreaker()">
+                  <mat-icon style="color:#ff7043">bolt</mat-icon>Start Sudden Death
+                </button>
+              } @else {
+                <button mat-menu-item (click)="closeWeek()">
+                  <mat-icon>lock</mat-icon>Close &amp; Pick Winner
+                </button>
+              }
+            }
+            @if (currentWeek()?.status === 'Voting' || currentWeek()?.status === 'SuddenDeath') {
+              <button mat-menu-item (click)="reopenNominations()">
+                <mat-icon>edit_note</mat-icon>Reopen Nominations
+              </button>
+            }
+            @if (currentWeek()?.status === 'Closed') {
+              <button mat-menu-item (click)="openNextWeek()">
+                <mat-icon>add_circle</mat-icon>Open Next Week
+              </button>
+            }
+          }
+          <button mat-menu-item (click)="copyShareLink()">
+            <mat-icon>share</mat-icon>Copy share link
+          </button>
+        </mat-menu>
       </div>
 
-      <!-- Internal tabs -->
-      <nav style="display:flex;gap:0;margin-bottom:16px;border-bottom:1px solid rgba(255,255,255,0.08)">
-        @for (tab of tabs; track tab.id) {
-          <button style="padding:12px 16px;font-size:0.85rem;font-weight:500;border-bottom:2px solid;background:none;border-top:none;border-left:none;border-right:none;cursor:pointer;transition:all 0.15s;font-family:inherit"
-              [style.color]="activeTab() === tab.id ? '#64b5f6' : 'rgba(255,255,255,0.45)'"
-              [style.borderBottomColor]="activeTab() === tab.id ? '#64b5f6' : 'transparent'"
-                  (click)="activeTab.set(tab.id)"
-                  (mouseenter)="tabHover.set(tab.id)"
-                  (mouseleave)="tabHover.set(null)"
-                  [style.background]="tabHover() === tab.id ? 'rgba(255,255,255,0.04)' : 'none'">
-            {{tab.label}}
+      <!-- Secondary header for non-current views -->
+      @if (activeTab() !== 'current') {
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
+          <button mat-icon-button (click)="activeTab.set('current')" style="color:rgba(255,255,255,0.5)">
+            <mat-icon>arrow_back</mat-icon>
           </button>
-        }
-      </nav>
+          <span style="font-size:0.9rem;font-weight:600;opacity:0.7">{{activeTab() === 'history' ? 'History' : 'Win of the Month'}}</span>
+        </div>
+      }
 
-      <!-- Tab content -->
+      <!-- Content -->
       @switch (activeTab()) {
         @case ('current') {
           <ng-container *ngTemplateOutlet="currentTab"></ng-container>
@@ -114,62 +184,45 @@ import { WinOfTheMonthComponent } from '../win-of-the-month/win-of-the-month.com
 
     <!-- Current tab template -->
     <ng-template #currentTab>
-      <!-- Phase badge -->
+      <!-- Phase badge + quota on same row -->
       @let phase = phaseInfo();
-      <span [style.background]="phase.bg" [style.color]="phase.text"
-            style="font-size:0.75rem;font-weight:700;padding:4px 12px;border-radius:20px;text-transform:uppercase;letter-spacing:0.3px;margin-bottom:16px;display:inline-block">
-        {{phase.label}}
-      </span>
-
-      <!-- Admin actions -->
-      <div style="display:flex;gap:8px;margin-bottom:16px">
-        @if (currentWeek()?.status === 'Nominating' && (currentWeek()?.nominations?.length ?? 0) > 0) {
-          <button mat-stroked-button color="accent" (click)="openVoting()"
-                  style="font-size:0.8rem;height:34px">
-            <mat-icon style="font-size:1rem;width:1rem;height:1rem">how_to_vote</mat-icon>
-            Open Voting
-          </button>
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap">
+        <span [style.background]="phase.bg" [style.color]="phase.text"
+              style="font-size:0.75rem;font-weight:700;padding:4px 12px;border-radius:20px;text-transform:uppercase;letter-spacing:0.3px">
+          {{phase.label}}
+        </span>
+        @if (currentWeek()?.status === 'Voting') {
+          <span style="font-size:0.8rem;opacity:0.6">
+            Votes remaining: <strong>{{currentWeek()?.userVotesRemaining ?? 0}}</strong>/3
+          </span>
         }
-        @if (currentWeek()?.status === 'Voting' && (currentWeek()?.nominations?.length ?? 0) > 0) {
-          <button mat-stroked-button color="primary" (click)="closeWeek()"
-                  style="font-size:0.8rem;height:34px">
-            <mat-icon style="font-size:1rem;width:1rem;height:1rem">lock</mat-icon>
-            Close & Pick Winner
-          </button>
-        }
-        @if (currentWeek()?.status === 'Voting' && (currentWeek()?.nominations?.length ?? 0) === 0) {
-          <span style="font-size:0.75rem;opacity:0.35;font-style:italic">No nominations yet — cannot close</span>
-        }
-        @if (currentWeek()?.status === 'Closed') {
-          <button mat-stroked-button color="primary" (click)="openNextWeek()"
-                  style="font-size:0.8rem;height:34px">
-            <mat-icon style="font-size:1rem;width:1rem;height:1rem">add_circle</mat-icon>
-            Open Next Week
-          </button>
+        @if (currentWeek()?.status === 'Nominating') {
+          <span style="font-size:0.8rem;opacity:0.6">
+            Nominations remaining: <strong>{{currentWeek()?.userNominationsRemaining ?? 0}}</strong>/3
+          </span>
+          @if ((currentWeek()?.userNominationsRemaining ?? 0) > 0) {
+            <button mat-stroked-button color="accent" (click)="showNominateDialog()"
+                    style="font-size:0.8rem;height:30px;margin-left:auto">
+              <mat-icon style="font-size:1rem;width:1rem;height:1rem">add</mat-icon>
+              Nominate a Win
+            </button>
+          }
         }
       </div>
 
-      <!-- Schedule Bar -->
-      <div style="background:rgba(255,255,255,0.04);border-radius:8px;padding:8px 16px;margin-bottom:16px">
-        <div style="display:flex;justify-content:space-between;font-size:0.7rem;font-weight:500;color:rgba(255,255,255,0.4);margin-bottom:4px">
-          @for (d of DAYS; track d) {
-            <span [style.color]="isCurrentDay(d) ? '#64b5f6' : 'inherit'">{{d}}</span>
-          }
+      <!-- Sudden Death countdown banner -->
+      @if (currentWeek()?.status === 'SuddenDeath') {
+        <div style="background:rgba(239,83,80,0.08);border:1px solid rgba(239,83,80,0.3);border-radius:12px;padding:12px 16px;margin-bottom:16px;display:flex;align-items:center;gap:14px">
+          <div style="flex:1">
+            <div style="font-weight:700;font-size:0.85rem;color:#ef5350;text-transform:uppercase;letter-spacing:0.5px">⚡ Tie-Breaker</div>
+            <div style="font-size:0.75rem;opacity:0.6;margin-top:2px">Vote now — highest vote wins when time expires</div>
+          </div>
+          <div style="text-align:center;min-width:64px">
+            <div style="font-size:1.6rem;font-weight:800;font-variant-numeric:tabular-nums;color:#ef5350;letter-spacing:2px;line-height:1">{{timerDisplay()}}</div>
+          </div>
         </div>
-        <div style="display:flex;height:20px;border-radius:4px;overflow:hidden;background:rgba(255,255,255,0.06)">
-          @for (d of DAYS; track d; let i = $index) {
-            <div [style.flex]="1" [style.background]="daySegmentBg(i)" style="transition:background 0.3s"></div>
-          }
-        </div>
-        <div style="display:flex;justify-content:space-between;font-size:0.65rem;margin-top:4px">
-          <span [style.color]="currentWeek()?.status === 'Nominating' ? '#64b5f6' : 'rgba(255,255,255,0.35)'">
-            {{currentWeek()?.status === 'Nominating' ? 'NOMINATIONS OPEN' : 'Nominations Closed'}}
-          </span>
-          <span [style.color]="currentWeek()?.status === 'Voting' ? '#64b5f6' : 'rgba(255,255,255,0.35)'">
-            {{currentWeek()?.status === 'Voting' ? 'VOTING OPEN' : (currentWeek()?.status === 'Nominating' ? 'Voting Opens Friday' : 'Voting Closed')}}
-          </span>
-        </div>
-      </div>
+      }
+
 
       <!-- Winner banner -->
       @let winner = currentWeek();
@@ -185,38 +238,36 @@ import { WinOfTheMonthComponent } from '../win-of-the-month/win-of-the-month.com
         </div>
       }
 
-      <!-- User quota chips -->
-      <div style="display:flex;gap:12px;margin-bottom:16px;font-size:0.8rem;flex-wrap:wrap">
-        @if (currentWeek()?.status === 'Nominating') {
-          <span style="opacity:0.6">
-            Nominations remaining: <strong>{{currentWeek()?.userNominationsRemaining ?? 0}}</strong>/3
-          </span>
-        }
-        @if (currentWeek()?.status === 'Voting') {
-          <span style="opacity:0.6">
-            Votes remaining: <strong>{{currentWeek()?.userVotesRemaining ?? 0}}</strong>/3
-          </span>
-        }
-        @if (currentWeek()?.status === 'Nominating' && (currentWeek()?.userNominationsRemaining ?? 0) > 0) {
-          <button mat-stroked-button color="accent" (click)="showNominateDialog()"
-                  style="font-size:0.8rem;height:30px;margin-left:auto">
-            <mat-icon style="font-size:1rem;width:1rem;height:1rem">add</mat-icon>
-            Nominate a Win
-          </button>
-        }
-      </div>
 
-      <!-- Info banner during nominating phase -->
+<!-- Info banner during nominating phase -->
       @if (currentWeek()?.status === 'Nominating') {
         <div style="background:rgba(100,181,246,0.08);border:1px solid rgba(100,181,246,0.15);border-radius:8px;padding:10px 14px;margin-bottom:16px;font-size:0.8rem;color:#64b5f6">
           💡 You can edit or delete your nominations before voting opens.
         </div>
       }
 
-      <!-- All votes used banner -->
+      <!-- All votes used banner (regular voting) -->
       @if (currentWeek()?.status === 'Voting' && (currentWeek()?.userVotesRemaining ?? 0) === 0) {
         <div style="background:rgba(76,175,80,0.08);border:1px solid rgba(76,175,80,0.2);border-radius:8px;padding:10px 14px;margin-bottom:16px;font-size:0.8rem;color:#4caf50">
           ✓ All votes cast! Results will be announced Sunday night.
+        </div>
+      }
+
+      <!-- Vote progress bar (voting + sudden death) -->
+      @let w = currentWeek();
+      @if (w && (w.status === 'Voting' || w.status === 'SuddenDeath')) {
+        @let pct = voteProgressPct();
+        <div style="margin-bottom:16px">
+          <div style="display:flex;justify-content:space-between;font-size:0.7rem;opacity:0.5;margin-bottom:4px">
+            <span>
+              <mat-icon style="font-size:12px;width:12px;height:12px;vertical-align:middle">people</mat-icon>
+              {{w.connectedMemberCount}} connected
+            </span>
+            <span>{{w.totalVotesCast}}{{w.connectedMemberCount > 0 ? ' / ' + (w.connectedMemberCount * 3) : ''}} votes cast</span>
+          </div>
+          <div style="height:4px;border-radius:2px;background:rgba(255,255,255,0.08);overflow:hidden">
+            <div [style.width]="pct + '%'" style="height:100%;background:#4caf50;border-radius:2px;transition:width 0.4s ease"></div>
+          </div>
         </div>
       }
 
@@ -243,9 +294,15 @@ import { WinOfTheMonthComponent } from '../win-of-the-month/win-of-the-month.com
       @if (!loading() && currentWeek() && currentWeek()!.nominations.length > 0) {
         <div style="display:flex;flex-direction:column;gap:10px">
           @for (nom of sortedNominations(); track nom.id) {
-            <div style="display:flex;align-items:flex-start;gap:14px;padding:16px;border-radius:12px;border:1px solid rgba(255,255,255,0.08);background:rgba(255,255,255,0.03)">
+            @let isTied = tiedNomIds().has(nom.id);
+            <div [style.border]="isTied ? '1px solid rgba(255,87,34,0.4)' : '1px solid rgba(255,255,255,0.08)'"
+                 [style.background]="isTied ? 'rgba(255,87,34,0.06)' : 'rgba(255,255,255,0.03)'"
+                 style="display:flex;align-items:flex-start;gap:14px;padding:16px;border-radius:12px;transition:border 0.3s,background 0.3s">
               <!-- Avatar -->
-              <div style="width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:0.85rem;font-weight:700;background:rgba(255,215,0,0.12);color:#FFD700;border:1px solid rgba(255,215,0,0.3)">
+              <div [style.background]="isTied ? 'rgba(255,87,34,0.15)' : 'rgba(255,215,0,0.12)'"
+                   [style.color]="isTied ? '#ff7043' : '#FFD700'"
+                   [style.border]="isTied ? '1px solid rgba(255,87,34,0.4)' : '1px solid rgba(255,215,0,0.3)'"
+                   style="width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:0.85rem;font-weight:700">
                 {{getInitials(nom.nomineeName)}}
               </div>
 
@@ -273,13 +330,13 @@ import { WinOfTheMonthComponent } from '../win-of-the-month/win-of-the-month.com
                 </div>
               }
 
-              <!-- Vote section (only visible during Voting and Closed phases) -->
-              @if (currentWeek()?.status === 'Voting' || currentWeek()?.status === 'Closed') {
+              <!-- Vote section (Voting, SuddenDeath, Closed) -->
+              @if (currentWeek()?.status === 'Voting' || currentWeek()?.status === 'SuddenDeath' || currentWeek()?.status === 'Closed') {
                 <div style="display:flex;flex-direction:column;align-items:center;gap:4px;flex-shrink:0;min-width:60px">
                   <div style="font-size:1.1rem;font-weight:800;opacity:0.8">{{nom.voteCount}}</div>
                   <div style="font-size:0.6rem;opacity:0.4;text-transform:uppercase">votes</div>
 
-                  @if (currentWeek()?.status === 'Voting') {
+                  @if (currentWeek()?.status === 'Voting' || currentWeek()?.status === 'SuddenDeath') {
                     @if (nom.hasVoted) {
                       <button mat-stroked-button color="warn" (click)="removeVote(nom.id)"
                               style="font-size:0.7rem;height:28px;line-height:28px;min-width:0;padding:0 10px">
@@ -316,22 +373,21 @@ export class WinOfTheWeekComponent implements OnInit, OnDestroy {
   private dialog = inject(MatDialog);
   private snackBar = inject(MatSnackBar);
   private wsSub: Subscription | null = null;
+  private timerSub: Subscription | null = null;
+  private timerExpiredWeekId: string | null = null;
+  private suddenDeathSnapshot: { nominations: WinNomination[], tiedNominationIds: string[] } | null = null;
 
-  readonly DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-  readonly tabs = [
-    { id: 'current', label: 'Current' },
-    { id: 'history', label: 'History' },
-    { id: 'month', label: 'Win of the Month' }
-  ];
   activeTab = signal('current');
-  tabHover = signal<string | null>(null);
   currentWeek = signal<WinWeek | null>(null);
   allMembers = signal<TeamMember[]>([]);
   loading = signal(true);
   submitting = signal(false);
   showDialog = signal(false);
   editingNominationId = signal<string | null>(null);
+  isSpinning = signal(false);
+  spinnerName = signal('');
   currentUserId = '';
+  now = signal(Date.now());
 
   nominateForm: CreateNominationRequest = {
     nomineeMemberId: '',
@@ -347,6 +403,8 @@ export class WinOfTheWeekComponent implements OnInit, OnDestroy {
         return { label: 'Nominations Open', text: '#FFD700', bg: 'rgba(255,215,0,0.15)' };
       case 'Voting':
         return { label: 'Voting Open', text: '#4caf50', bg: 'rgba(76,175,80,0.15)' };
+      case 'SuddenDeath':
+        return { label: '⚡ Tie-Breaker', text: '#ff7043', bg: 'rgba(255,87,34,0.15)' };
       case 'Closed':
         return { label: 'Closed', text: 'rgba(255,255,255,0.5)', bg: 'rgba(255,255,255,0.06)' };
       default:
@@ -354,14 +412,54 @@ export class WinOfTheWeekComponent implements OnInit, OnDestroy {
     }
   });
 
+  readonly hasTie = computed(() => {
+    const week = this.currentWeek();
+    if (!week || week.status !== 'Voting' || week.nominations.length < 2) return false;
+    const sorted = [...week.nominations].sort((a, b) => b.voteCount - a.voteCount);
+    return sorted[0].voteCount > 0 && sorted[0].voteCount === sorted[1].voteCount;
+  });
+
+  readonly tiedNomIds = computed(() => {
+    const week = this.currentWeek();
+    if (!week) return new Set<string>();
+    if (week.status === 'SuddenDeath') return new Set(week.tiedNominationIds);
+    if (week.status === 'Voting' && week.nominations.length >= 2) {
+      const sorted = [...week.nominations].sort((a, b) => b.voteCount - a.voteCount);
+      const top = sorted[0].voteCount;
+      if (top > 0 && sorted[1].voteCount === top)
+        return new Set(sorted.filter(n => n.voteCount === top).map(n => n.id));
+    }
+    return new Set<string>();
+  });
+
+  readonly timerDisplay = computed(() => {
+    const week = this.currentWeek();
+    if (!week?.suddenDeathEndsAt) return '—';
+    this.now(); // depend on tick
+    const remaining = Math.max(0, new Date(week.suddenDeathEndsAt).getTime() - Date.now());
+    const mins = Math.floor(remaining / 60000);
+    const secs = Math.floor((remaining % 60000) / 1000);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  });
+
+  readonly voteProgressPct = computed(() => {
+    const week = this.currentWeek();
+    if (!week || week.connectedMemberCount === 0) return 0;
+    return Math.min(100, Math.round((week.totalVotesCast / (week.connectedMemberCount * 3)) * 100));
+  });
+
   readonly sortedNominations = computed(() => {
     const week = this.currentWeek();
     if (!week) return [];
-    const sorted = [...week.nominations];
-    if (week.status === 'Voting' || week.status === 'Closed') {
-      return sorted.sort((a, b) => b.voteCount - a.voteCount || new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    let nominations = [...week.nominations];
+    if (week.status === 'SuddenDeath' && week.tiedNominationIds?.length) {
+      const tiedSet = new Set(week.tiedNominationIds);
+      nominations = nominations.filter(n => tiedSet.has(n.id));
     }
-    return sorted.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    if (week.status === 'Voting' || week.status === 'SuddenDeath' || week.status === 'Closed') {
+      return nominations.sort((a, b) => b.voteCount - a.voteCount || new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    }
+    return nominations.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   });
 
   ngOnInit() {
@@ -369,6 +467,20 @@ export class WinOfTheWeekComponent implements OnInit, OnDestroy {
       this.allMembers.set(members.sort((a, b) => a.firstName.localeCompare(b.firstName)));
     });
     this.refresh();
+
+    this.timerSub = interval(1000).subscribe(() => {
+      this.now.set(Date.now());
+      const week = this.currentWeek();
+      if (week?.status === 'SuddenDeath' && week.suddenDeathEndsAt && this.timerExpiredWeekId !== week.id) {
+        const remaining = new Date(week.suddenDeathEndsAt).getTime() - Date.now();
+        if (remaining <= 0) {
+          this.timerExpiredWeekId = week.id;
+          // Snapshot tied state before refresh so voting_closed can animate even if HTTP response arrives first
+          this.suddenDeathSnapshot = { nominations: week.nominations, tiedNominationIds: week.tiedNominationIds };
+          this.silentRefresh();
+        }
+      }
+    });
 
     this.wsSvc.connect();
     this.wsSub = this.wsSvc.messages$.subscribe(msg => {
@@ -380,15 +492,34 @@ export class WinOfTheWeekComponent implements OnInit, OnDestroy {
         case 'nomination_updated':
         case 'nomination_deleted':
         case 'voting_opened':
-        case 'voting_closed':
-          this.refresh();
+        case 'sudden_death_started':
+        case 'nominations_reopened':
+        case 'presence_changed':
+          this.silentRefresh();
           break;
+        case 'voting_closed': {
+          const wk = this.currentWeek();
+          const snap = this.suddenDeathSnapshot;
+          this.suddenDeathSnapshot = null;
+          const source = wk?.status === 'SuddenDeath' ? wk : snap ? { nominations: snap.nominations, tiedNominationIds: snap.tiedNominationIds } : null;
+          const tiedNoms = source ? source.nominations.filter(n => source.tiedNominationIds.includes(n.id)) : [];
+          if (tiedNoms.length > 0) {
+            const winnerId = msg.data['winnerId'] as string;
+            const winner = tiedNoms.find(n => n.id === winnerId);
+            this.runTieBreakSpin(tiedNoms.map(n => n.nomineeName), winner?.nomineeName ?? tiedNoms[0].nomineeName);
+          } else {
+            this.silentRefresh();
+          }
+          break;
+        }
+
       }
     });
   }
 
   ngOnDestroy() {
     this.wsSub?.unsubscribe();
+    this.timerSub?.unsubscribe();
   }
 
   private refresh() {
@@ -406,33 +537,17 @@ export class WinOfTheWeekComponent implements OnInit, OnDestroy {
     });
   }
 
+  private silentRefresh() {
+    this.winSvc.getCurrentWeek().subscribe({
+      next: (week) => {
+        this.currentWeek.set(week);
+        this.currentUserId = week.currentMemberId;
+      }
+    });
+  }
+
   getInitials(name: string): string {
     return name.split(' ').map(s => s[0]).join('').toUpperCase().slice(0, 2);
-  }
-
-  isCurrentDay(dayLabel: string): boolean {
-    const jsDay = new Date().getDay();
-    const idx = this.DAYS.indexOf(dayLabel);
-    return idx === (jsDay === 0 ? 6 : jsDay - 1);
-  }
-
-  isCurrentDayVisible(): boolean {
-    const status = this.currentWeek()?.status;
-    return status === 'Nominating' || status === 'Voting';
-  }
-
-  daySegmentBg(index: number): string {
-    const week = this.currentWeek();
-    if (!week) return 'rgba(255,255,255,0.06)';
-    const jsDay = new Date().getDay();
-    const currentDayIndex = jsDay === 0 ? 6 : jsDay - 1;
-
-    if (week.status === 'Nominating') {
-      return index <= 3 ? 'rgba(100,181,246,0.25)' : 'rgba(255,255,255,0.06)';
-    } else if (week.status === 'Voting') {
-      return index >= 4 ? 'rgba(100,181,246,0.25)' : 'rgba(255,255,255,0.06)';
-    }
-    return 'rgba(255,255,255,0.06)';
   }
 
   showNominateDialog() {
@@ -604,6 +719,72 @@ export class WinOfTheWeekComponent implements OnInit, OnDestroy {
         this.snackBar.open(msg, 'Close', { duration: 3000 });
       }
     });
+  }
+
+  reopenNominations() {
+    this.winSvc.reopenNominations().subscribe({
+      next: () => {
+        this.snackBar.open('Nominations reopened!', 'Close', { duration: 3000 });
+        this.silentRefresh();
+      },
+      error: (err) => {
+        const msg = err.error?.error || 'Failed to reopen nominations';
+        this.snackBar.open(msg, 'Close', { duration: 3000 });
+      }
+    });
+  }
+
+  startTieBreaker() {
+    const week = this.currentWeek();
+    if (!week) return;
+    const sorted = [...week.nominations].sort((a, b) => b.voteCount - a.voteCount);
+    const topVotes = sorted[0].voteCount;
+    const tied = sorted.filter(n => n.voteCount === topVotes);
+    const names = tied.map(n => n.nomineeName).join(' vs ');
+    const ref = this.dialog.open(ConfirmDialogComponent, {
+      width: '380px',
+      data: {
+        title: '⚡ Sudden Death',
+        message: `${names} are tied with ${topVotes} vote(s). Start a 90-second sudden death round? Highest vote when time expires wins.`,
+        confirmLabel: '⚡ Start Sudden Death',
+        danger: true
+      }
+    });
+    ref.afterClosed().subscribe(ok => {
+      if (!ok) return;
+      this.winSvc.startSuddenDeath({ tiedNominationIds: tied.map(n => n.id) }).subscribe({
+        next: () => {
+          this.snackBar.open('⚡ Sudden Death started! 90 seconds on the clock.', 'Close', { duration: 4000 });
+          this.refresh();
+        },
+        error: (err) => {
+          const msg = err.error?.error ?? err.error?.title ?? err.error?.detail ?? `Failed to start sudden death (${err.status})`;
+          this.snackBar.open(msg, 'Close', { duration: 5000 });
+        }
+      });
+    });
+  }
+
+  private runTieBreakSpin(names: string[], winnerName: string) {
+    this.isSpinning.set(true);
+    this.spinnerName.set(names[0]);
+    let elapsed = 0;
+    const totalDuration = 3200;
+    let idx = 0;
+    const tick = () => {
+      const progress = elapsed / totalDuration;
+      const interval = 60 + 460 * (progress * progress); // 60ms → 520ms quadratic ease
+      if (elapsed + interval >= totalDuration) {
+        this.spinnerName.set(winnerName);
+        setTimeout(() => { this.isSpinning.set(false); this.silentRefresh(); }, 1800);
+        return;
+      }
+      elapsed += interval;
+      idx = (idx + 1) % names.length;
+      this.spinnerName.set(names[idx]);
+      setTimeout(tick, interval);
+    };
+    setTimeout(tick, 60);
   }
 
   copyShareLink() {

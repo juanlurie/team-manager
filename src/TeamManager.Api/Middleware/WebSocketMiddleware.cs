@@ -1,6 +1,5 @@
 using System.Collections.Concurrent;
 using System.Net.WebSockets;
-using System.Security.Claims;
 using System.Text;
 using System.Text.Json;
 
@@ -8,7 +7,7 @@ namespace TeamManager.Api.Middleware;
 
 public class WebSocketMiddleware
 {
-    private static readonly ConcurrentDictionary<string, WebSocket> _connections = new();
+    private static readonly ConcurrentDictionary<Guid, (WebSocket Socket, Guid? MemberId)> _connections = new();
     private static readonly SemaphoreSlim _broadcastLock = new(1, 1);
 
     private readonly RequestDelegate _next;
@@ -23,12 +22,14 @@ public class WebSocketMiddleware
             return;
         }
 
-        var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value
-            ?? context.User.FindFirst("sub")?.Value
-            ?? "anonymous";
+        Guid? memberId = null;
+        if (Guid.TryParse(context.User.FindFirst("TMID")?.Value, out var parsedId))
+            memberId = parsedId;
 
+        var connectionId = Guid.NewGuid();
         var ws = await context.WebSockets.AcceptWebSocketAsync();
-        _connections[userId] = ws;
+        _connections[connectionId] = (ws, memberId);
+        _ = BroadcastAsync("presence_changed", new { connectedCount = GetConnectedMemberCount() });
 
         try
         {
@@ -36,8 +37,19 @@ public class WebSocketMiddleware
         }
         finally
         {
-            _connections.TryRemove(userId, out _);
+            _connections.TryRemove(connectionId, out _);
+            _ = BroadcastAsync("presence_changed", new { connectedCount = GetConnectedMemberCount() });
         }
+    }
+
+    public static int GetConnectedMemberCount()
+    {
+        var memberIds = _connections.Values
+            .Where(c => c.MemberId.HasValue)
+            .Select(c => c.MemberId!.Value)
+            .Distinct()
+            .Count();
+        return memberIds;
     }
 
     private static async Task WaitForClose(WebSocket ws)
@@ -71,17 +83,17 @@ public class WebSocketMiddleware
         await _broadcastLock.WaitAsync();
         try
         {
-            var dead = new List<string>();
-            foreach (var (id, ws) in _connections)
+            var dead = new List<Guid>();
+            foreach (var (id, entry) in _connections)
             {
-                if (ws.State != WebSocketState.Open)
+                if (entry.Socket.State != WebSocketState.Open)
                 {
                     dead.Add(id);
                     continue;
                 }
                 try
                 {
-                    await ws.SendAsync(new ArraySegment<byte>(bytes), WebSocketMessageType.Text, true, CancellationToken.None);
+                    await entry.Socket.SendAsync(new ArraySegment<byte>(bytes), WebSocketMessageType.Text, true, CancellationToken.None);
                 }
                 catch
                 {

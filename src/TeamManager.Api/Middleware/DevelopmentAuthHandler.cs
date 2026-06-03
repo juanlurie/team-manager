@@ -14,6 +14,10 @@ public class DevelopmentAuthHandler : AuthenticationHandler<AuthenticationScheme
 
     protected override Task<AuthenticateResult> HandleAuthenticateAsync()
     {
+        // Let ApiKeyAuthenticationHandler handle requests that carry an API key
+        if (Request.Headers.ContainsKey("X-API-Key"))
+            return Task.FromResult(AuthenticateResult.NoResult());
+
         var claims = new[]
         {
             new Claim(ClaimTypes.NameIdentifier, "65f1106f-6020-419f-bced-4011857e9f9b"),

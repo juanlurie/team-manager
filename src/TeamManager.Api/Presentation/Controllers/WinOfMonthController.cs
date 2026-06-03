@@ -104,9 +104,11 @@ public class WinOfMonthController(IWinOfMonthService service, AppDbContext db) :
 
     private Guid GetCurrentMemberId()
     {
-        var nameIdClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
-        if (Guid.TryParse(nameIdClaim, out var memberId))
-            return memberId;
+        if (Guid.TryParse(User.FindFirst("TMID")?.Value, out var tmid))
+            return tmid;
+
+        if (Guid.TryParse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value, out var nameId))
+            return nameId;
 
         var firstMember = db.Set<Domain.Entities.TeamMember>()
             .Where(m => m.IsActive)

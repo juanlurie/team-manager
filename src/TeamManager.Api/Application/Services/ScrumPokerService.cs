@@ -3,6 +3,7 @@ using TeamManager.Api.Application.DTOs.ScrumPoker;
 using TeamManager.Api.Application.Services.Interfaces;
 using TeamManager.Api.Domain.Entities;
 using TeamManager.Api.Infrastructure.Data;
+using TeamManager.Api.Middleware;
 
 namespace TeamManager.Api.Application.Services;
 
@@ -19,6 +20,7 @@ public class ScrumPokerService : IScrumPokerService
     {
         var sessions = await db.ScrumPokerSessions
             .Include(s => s.CreatedByMember)
+            .Include(s => s.Votes)
             .Where(s => s.Revealed == false || s.RevealedAt.HasValue && s.RevealedAt.Value.AddDays(1) > DateTimeOffset.UtcNow)
             .OrderByDescending(s => s.CreatedAt)
             .ToListAsync();
@@ -32,7 +34,8 @@ public class ScrumPokerService : IScrumPokerService
             s.Revealed,
             s.CreatedAt,
             s.RevealedAt,
-            s.CreatedByMember.FirstName + " " + s.CreatedByMember.LastName
+            s.CreatedByMember.FirstName + " " + s.CreatedByMember.LastName,
+            s.Votes.Count
         )).ToList();
     }
 
@@ -63,7 +66,9 @@ public class ScrumPokerService : IScrumPokerService
         db.ScrumPokerSessions.Add(session);
         await db.SaveChangesAsync();
 
-        return await GetSessionAsync(session.Id, memberId);
+        var created = await GetSessionAsync(session.Id, memberId);
+        _ = WebSocketMiddleware.BroadcastAsync("scrum_poker_session_created", new { sessionId = session.Id });
+        return created;
     }
 
     public async Task<ScrumPokerSessionDetailDto> CastVoteAsync(Guid sessionId, Guid memberId, CastScrumPokerVoteRequest request)
@@ -92,7 +97,9 @@ public class ScrumPokerService : IScrumPokerService
         }
 
         await db.SaveChangesAsync();
-        return await GetSessionAsync(sessionId, memberId);
+        var voted = await GetSessionAsync(sessionId, memberId);
+        _ = WebSocketMiddleware.BroadcastAsync("scrum_poker_vote_cast", new { sessionId, voteCount = voted.Votes.Count });
+        return voted;
     }
 
     public async Task<ScrumPokerSessionDetailDto> RevealVotesAsync(Guid sessionId, Guid memberId)
@@ -107,7 +114,9 @@ public class ScrumPokerService : IScrumPokerService
         session.RevealedAt = DateTimeOffset.UtcNow;
         await db.SaveChangesAsync();
 
-        return await GetSessionAsync(sessionId, memberId);
+        var revealed = await GetSessionAsync(sessionId, memberId);
+        _ = WebSocketMiddleware.BroadcastAsync("scrum_poker_votes_revealed", new { sessionId });
+        return revealed;
     }
 
     public async Task<ScrumPokerSessionDetailDto> ResetSessionAsync(Guid sessionId, Guid memberId)
@@ -125,7 +134,9 @@ public class ScrumPokerService : IScrumPokerService
         session.Votes.Clear();
         await db.SaveChangesAsync();
 
-        return await GetSessionAsync(sessionId, memberId);
+        var reset = await GetSessionAsync(sessionId, memberId);
+        _ = WebSocketMiddleware.BroadcastAsync("scrum_poker_session_reset", new { sessionId });
+        return reset;
     }
 
     public async Task<bool> DeleteSessionAsync(Guid sessionId, Guid memberId)
@@ -138,6 +149,7 @@ public class ScrumPokerService : IScrumPokerService
 
         db.ScrumPokerSessions.Remove(session);
         await db.SaveChangesAsync();
+        _ = WebSocketMiddleware.BroadcastAsync("scrum_poker_session_deleted", new { sessionId });
         return true;
     }
 

@@ -8,6 +8,7 @@ export interface ScrumPokerSession {
   createdAt: string;
   revealedAt: string | null;
   createdByMemberName: string;
+  voteCount: number;
 }
 
 export interface ScrumPokerVote {

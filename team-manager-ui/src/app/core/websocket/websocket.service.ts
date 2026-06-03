@@ -1,14 +1,15 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { BehaviorSubject } from 'rxjs';
-import { timer } from 'rxjs';
+import { OAuthService } from 'angular-oauth2-oidc';
 
 export interface WsMessage {
-  type: 'vote_cast' | 'vote_removed' | 'voting_opened' | 'voting_closed' | 'sudden_death_started' | 'nomination_created' | 'nomination_updated' | 'nomination_deleted' | 'retro_action_created' | 'retro_action_updated' | 'retro_action_deleted';
+  type: 'vote_cast' | 'vote_removed' | 'voting_opened' | 'voting_closed' | 'sudden_death_started' | 'nominations_reopened' | 'nomination_created' | 'nomination_updated' | 'nomination_deleted' | 'retro_action_created' | 'retro_action_updated' | 'retro_action_deleted' | 'retro_card_added' | 'retro_card_deleted' | 'retro_voted' | 'retro_phase_changed' | 'presence_changed' | 'scrum_poker_session_created' | 'scrum_poker_vote_cast' | 'scrum_poker_votes_revealed' | 'scrum_poker_session_reset' | 'scrum_poker_session_deleted' | 'timesheet_entry_created' | 'timesheet_entry_updated' | 'timesheet_entry_deleted';
   data: Record<string, unknown>;
 }
 
 @Injectable({ providedIn: 'root' })
 export class WebSocketService {
+  private oauth = inject(OAuthService);
   private ws: WebSocket | null = null;
   private _messages$ = new BehaviorSubject<WsMessage | null>(null);
   private _connected$ = new BehaviorSubject<boolean>(false);
@@ -22,7 +23,10 @@ export class WebSocketService {
 
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const host = window.location.host;
-    const url = `${protocol}//${host}/ws`;
+    const token = this.oauth.getIdToken();
+    const url = token
+      ? `${protocol}//${host}/ws?token=${encodeURIComponent(token)}`
+      : `${protocol}//${host}/ws`;
 
     this.ws = new WebSocket(url);
 
@@ -42,7 +46,6 @@ export class WebSocketService {
     this.ws.onclose = () => {
       this._connected$.next(false);
       this.ws = null;
-      // Reconnect after 3 seconds
       this.reconnectTimer = setTimeout(() => this.connect(), 3000);
     };
 
