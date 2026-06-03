@@ -990,6 +990,43 @@ TOOLS = [
     ),
 
     # ═══════════════════════════════════════════════════════════
+    # Sync Queue
+    # ═══════════════════════════════════════════════════════════
+    types.Tool(
+        name="list_sync_queue",
+        description="List events in the API sync queue. Use to review pending/failed requests before sending.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "status": {"type": "string", "description": "Filter by status: pending, sent, failed, dismissed. Omit for all."},
+                "action": {"type": "string", "description": "Filter by action type e.g. AddTimesheetEntry"},
+            },
+            "required": [],
+        },
+    ),
+    types.Tool(
+        name="send_sync_event",
+        description="Manually fire a queued sync event, sending the resolved request to the external system.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "event_id": {"type": "string", "description": "The sync event ID to send"},
+                "cookie": {"type": "string", "description": "Session cookie value to inject into {cookie} placeholders"},
+            },
+            "required": ["event_id"],
+        },
+    ),
+    types.Tool(
+        name="dismiss_sync_event",
+        description="Dismiss a sync queue event without sending it.",
+        inputSchema={
+            "type": "object",
+            "properties": {"event_id": {"type": "string"}},
+            "required": ["event_id"],
+        },
+    ),
+
+    # ═══════════════════════════════════════════════════════════
     # Member Personal (skills, notes, tasks)
     # ═══════════════════════════════════════════════════════════
     types.Tool(
@@ -2460,6 +2497,19 @@ async def call_tool(name: str, arguments: dict) -> list[types.TextContent]:
                 return await _get("/api/v1/me/timesheet-config")
             case "update_timesheet_config":
                 return await _put("/api/v1/me/timesheet-config", arguments["config"])
+
+            # ── Sync Queue ──
+            case "list_sync_queue":
+                params = {}
+                if arguments.get("status"): params["status"] = arguments["status"]
+                if arguments.get("action"): params["action"] = arguments["action"]
+                return await _get("/api/v1/sync-queue", params)
+            case "send_sync_event":
+                return await _post(f"/api/v1/sync-queue/{arguments['event_id']}/send", {
+                    "cookie": arguments.get("cookie", ""),
+                })
+            case "dismiss_sync_event":
+                return await _delete(f"/api/v1/sync-queue/{arguments['event_id']}")
 
             # ── Member Personal ──
             case "get_member_personal":

@@ -50,9 +50,11 @@ public class ApiRequestConfigsController : ControllerBase
             Url = dto.Url,
             Method = dto.Method,
             IsFormUrlEncoded = dto.IsFormUrlEncoded,
+            BodyFormat = dto.BodyFormat ?? "urlencoded",
             HeadersJson = JsonSerializer.Serialize(dto.Headers ?? new()),
             BodyTemplate = dto.BodyTemplate,
-            MappingJson = JsonSerializer.Serialize(dto.Mapping ?? new MappingConfigDto())
+            MappingJson = JsonSerializer.Serialize(dto.Mapping ?? new MappingConfigDto()),
+            ParametersJson = JsonSerializer.Serialize(dto.Parameters ?? new())
         };
 
         _db.ApiRequestConfigs.Add(config);
@@ -74,9 +76,11 @@ public class ApiRequestConfigsController : ControllerBase
         config.Url = dto.Url;
         config.Method = dto.Method;
         config.IsFormUrlEncoded = dto.IsFormUrlEncoded;
+        config.BodyFormat = dto.BodyFormat ?? "urlencoded";
         config.HeadersJson = JsonSerializer.Serialize(dto.Headers ?? new());
         config.BodyTemplate = dto.BodyTemplate;
         config.MappingJson = JsonSerializer.Serialize(dto.Mapping ?? new MappingConfigDto());
+        config.ParametersJson = JsonSerializer.Serialize(dto.Parameters ?? new());
         config.UpdatedAt = DateTimeOffset.UtcNow;
 
         await _db.SaveChangesAsync();
@@ -142,9 +146,11 @@ public class ApiRequestConfigsController : ControllerBase
                 existing.Url = dto.Url;
                 existing.Method = dto.Method;
                 existing.IsFormUrlEncoded = dto.IsFormUrlEncoded;
+                existing.BodyFormat = dto.BodyFormat ?? "urlencoded";
                 existing.HeadersJson = JsonSerializer.Serialize(dto.Headers ?? new());
                 existing.BodyTemplate = dto.BodyTemplate;
                 existing.MappingJson = JsonSerializer.Serialize(dto.Mapping ?? new MappingConfigDto());
+                existing.ParametersJson = JsonSerializer.Serialize(dto.Parameters ?? new());
                 existing.UpdatedAt = DateTimeOffset.UtcNow;
                 updated.Add(ToDto(existing));
             }
@@ -159,9 +165,11 @@ public class ApiRequestConfigsController : ControllerBase
                     Url = dto.Url,
                     Method = dto.Method,
                     IsFormUrlEncoded = dto.IsFormUrlEncoded,
+            BodyFormat = dto.BodyFormat ?? "urlencoded",
                     HeadersJson = JsonSerializer.Serialize(dto.Headers ?? new()),
                     BodyTemplate = dto.BodyTemplate,
-                    MappingJson = JsonSerializer.Serialize(dto.Mapping ?? new MappingConfigDto())
+                    MappingJson = JsonSerializer.Serialize(dto.Mapping ?? new MappingConfigDto()),
+                    ParametersJson = JsonSerializer.Serialize(dto.Parameters ?? new())
                 };
                 _db.ApiRequestConfigs.Add(config);
                 created.Add(ToDto(config));
@@ -181,11 +189,18 @@ public class ApiRequestConfigsController : ControllerBase
             return BadRequest("URL is required");
 
         var vars = payload.Variables ?? new();
-        string Resolve(string template) => template
-            .Replace("{cookie}", vars.GetValueOrDefault("cookie", ""))
-            .Replace("{start}", vars.GetValueOrDefault("start", ""))
-            .Replace("{end}", vars.GetValueOrDefault("end", ""))
-            .Replace("{teamIds}", vars.GetValueOrDefault("teamIds", ""));
+        var configParams = dto.Parameters ?? new();
+        string Resolve(string template)
+        {
+            var result = template;
+            // Apply config parameters first
+            foreach (var (key, value) in configParams)
+                result = result.Replace($"{{{key}}}", value);
+            // Apply all variables (cookie, test values, etc.)
+            foreach (var (key, value) in vars)
+                result = result.Replace($"{{{key}}}", value);
+            return result;
+        }
 
         try
         {
@@ -201,9 +216,18 @@ public class ApiRequestConfigsController : ControllerBase
             if (dto.Method.Equals("POST", StringComparison.OrdinalIgnoreCase))
             {
                 var body = Resolve(dto.BodyTemplate ?? "");
-                var content = new System.Net.Http.StringContent(body);
-                content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(
-                    dto.IsFormUrlEncoded ? "application/x-www-form-urlencoded" : "application/json");
+                var fmt = dto.BodyFormat ?? (dto.IsFormUrlEncoded ? "urlencoded" : "json");
+                HttpContent content;
+                if (fmt == "raw")
+                {
+                    content = new System.Net.Http.StringContent(body);
+                    content.Headers.ContentType = null;
+                }
+                else
+                {
+                    var mediaType = fmt == "urlencoded" ? "application/x-www-form-urlencoded" : "application/json";
+                    content = new System.Net.Http.StringContent(body, System.Text.Encoding.UTF8, mediaType);
+                }
                 response = await client.PostAsync(url, content);
             }
             else
@@ -421,9 +445,11 @@ public class ApiRequestConfigsController : ControllerBase
         Url: config.Url,
         Method: config.Method,
         IsFormUrlEncoded: config.IsFormUrlEncoded,
+        BodyFormat: config.BodyFormat,
         Headers: JsonSerializer.Deserialize<Dictionary<string, string>>(config.HeadersJson) ?? new(),
         BodyTemplate: config.BodyTemplate,
-        Mapping: JsonSerializer.Deserialize<MappingConfigDto>(config.MappingJson) ?? new MappingConfigDto()
+        Mapping: JsonSerializer.Deserialize<MappingConfigDto>(config.MappingJson) ?? new MappingConfigDto(),
+        Parameters: JsonSerializer.Deserialize<Dictionary<string, string>>(string.IsNullOrWhiteSpace(config.ParametersJson) ? "{}" : config.ParametersJson) ?? new()
     );
 }
 

@@ -44,6 +44,8 @@ const QUICK_OPEN_ITEMS: QuickOpenItem[] = [
   { id: 'settings', path: '/settings', label: 'Settings', icon: 'settings', featureKey: 'settings' },
   { id: 'api-keys', path: '/settings/api-keys', label: 'API Keys', icon: 'vpn_key', featureKey: 'api-keys' },
   { id: 'feature-permissions', path: '/settings/feature-permissions', label: 'Feature Permissions', icon: 'admin_panel_settings', featureKey: 'settings' },
+  { id: 'request-configs', path: '/request-configs', label: 'Request Configs', icon: 'api', featureKey: 'settings' },
+  { id: 'sync-queue', path: '/sync-queue', label: 'Sync Queue', icon: 'sync', featureKey: 'settings' },
   { id: 'profile', path: '/profile', label: 'Profile', icon: 'person' },
 ];
 

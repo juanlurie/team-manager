@@ -13,5 +13,6 @@ public record TimesheetEntryDto(
     string Sentiment,
     string? Description,
     string? TicketNumber,
-    DateTimeOffset CreatedAt
+    DateTimeOffset CreatedAt,
+    string? ExternalId = null
 );

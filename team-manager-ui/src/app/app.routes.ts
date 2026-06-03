@@ -72,6 +72,10 @@ export const routes: Routes = [
         loadComponent: () => import('./features/api-request-configs/api-request-configs.component').then(m => m.ApiRequestConfigsComponent)
       },
       {
+        path: 'sync-queue',
+        loadComponent: () => import('./features/sync-queue/sync-queue.component').then(m => m.SyncQueueComponent)
+      },
+      {
         path: 'settings',
         loadComponent: () => import('./features/settings/settings.component').then(m => m.SettingsComponent)
       },

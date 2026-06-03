@@ -36,6 +36,13 @@ const CONFIG_CARDS: ConfigCard[] = [
     color: '#2196f3'
   },
   {
+    icon: 'sync',
+    label: 'Sync Queue',
+    description: 'Review and manually send timesheet entries to external systems',
+    path: '/sync-queue',
+    color: '#ff9800'
+  },
+  {
     icon: 'event',
     label: 'Session Types',
     description: 'Define meeting session types and durations',

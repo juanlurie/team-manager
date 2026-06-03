@@ -9,9 +9,11 @@ public record ApiRequestConfigDto(
     string Url = "",
     string Method = "POST",
     bool IsFormUrlEncoded = true,
+    string BodyFormat = "urlencoded",
     Dictionary<string, string>? Headers = null,
     string BodyTemplate = "",
-    MappingConfigDto? Mapping = null
+    MappingConfigDto? Mapping = null,
+    Dictionary<string, string>? Parameters = null
 );
 
 public record MappingConfigDto(
@@ -22,5 +24,6 @@ public record MappingConfigDto(
     string TypePath = "type",
     string DaysPath = "totalDays",
     string StatusPath = "status",
-    string NameTransform = "ExtractBeforeDash"
+    string NameTransform = "ExtractBeforeDash",
+    string ExternalIdPath = ""
 );
