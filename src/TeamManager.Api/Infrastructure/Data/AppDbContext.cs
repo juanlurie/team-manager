@@ -31,6 +31,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<MemberTask> MemberTasks => Set<MemberTask>();
     public DbSet<TimesheetEntry> TimesheetEntries => Set<TimesheetEntry>();
     public DbSet<MemberTimesheetConfig> MemberTimesheetConfigs => Set<MemberTimesheetConfig>();
+    public DbSet<TimesheetWebhook> TimesheetWebhooks => Set<TimesheetWebhook>();
+    public DbSet<TimesheetWebhookDelivery> TimesheetWebhookDeliveries => Set<TimesheetWebhookDelivery>();
     public DbSet<SprintVote> SprintVotes => Set<SprintVote>();
     public DbSet<Squad> Squads => Set<Squad>();
     public DbSet<SquadMember> SquadMembers => Set<SquadMember>();

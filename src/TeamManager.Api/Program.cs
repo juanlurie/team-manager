@@ -58,6 +58,8 @@ builder.Services.AddScoped<IWheelService, WheelService>();
 builder.Services.AddScoped<IMemberPersonalService, MemberPersonalService>();
 builder.Services.AddScoped<ITimesheetService, TimesheetService>();
 builder.Services.AddScoped<ITimesheetConfigService, TimesheetConfigService>();
+builder.Services.AddScoped<ITimesheetEventPublisher, TimesheetEventPublisher>();
+builder.Services.AddHostedService<TimesheetWebhookWorker>();
 builder.Services.AddScoped<ISprintVoteService, SprintVoteService>();
 builder.Services.AddScoped<IInvitationService, InvitationService>();
 builder.Services.AddScoped<IEmailService, EmailService>();

@@ -9,7 +9,7 @@ using TeamManager.Api.Infrastructure.Data;
 
 namespace TeamManager.Api.Application.Services;
 
-public class TimesheetService(AppDbContext db) : ITimesheetService
+public class TimesheetService(AppDbContext db, ITimesheetEventPublisher eventPublisher) : ITimesheetService
 {
     private static readonly int[] ValidMinutes = [0, 15, 30, 45];
 
@@ -42,7 +42,9 @@ public class TimesheetService(AppDbContext db) : ITimesheetService
         };
         db.TimesheetEntries.Add(entry);
         await db.SaveChangesAsync();
-        return ToDto(entry);
+        var dto = ToDto(entry);
+        await eventPublisher.PublishAsync("created", dto);
+        return dto;
     }
 
     public async Task<TimesheetEntryDto?> UpdateAsync(Guid memberId, Guid entryId, UpdateTimesheetEntryRequest req)
@@ -64,7 +66,9 @@ public class TimesheetService(AppDbContext db) : ITimesheetService
         entry.TicketNumber = req.TicketNumber;
 
         await db.SaveChangesAsync();
-        return ToDto(entry);
+        var dto = ToDto(entry);
+        await eventPublisher.PublishAsync("updated", dto);
+        return dto;
     }
 
     public async Task<bool> DeleteAsync(Guid memberId, Guid entryId)
@@ -72,8 +76,10 @@ public class TimesheetService(AppDbContext db) : ITimesheetService
         var entry = await db.TimesheetEntries
             .FirstOrDefaultAsync(e => e.Id == entryId && e.TeamMemberId == memberId);
         if (entry is null) return false;
+        var dto = ToDto(entry);
         db.TimesheetEntries.Remove(entry);
         await db.SaveChangesAsync();
+        await eventPublisher.PublishAsync("deleted", dto);
         return true;
     }
 
