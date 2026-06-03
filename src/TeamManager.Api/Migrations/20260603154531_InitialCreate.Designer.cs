@@ -12,8 +12,8 @@ using TeamManager.Api.Infrastructure.Data;
 namespace TeamManager.Api.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260526130000_AddAccessRequests")]
-    partial class AddAccessRequests
+    [Migration("20260603154531_InitialCreate")]
+    partial class InitialCreate
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -267,6 +267,9 @@ namespace TeamManager.Api.Migrations
                         .HasColumnType("uuid")
                         .HasDefaultValueSql("gen_random_uuid()");
 
+                    b.Property<string>("Additions")
+                        .HasColumnType("text");
+
                     b.Property<string>("Category")
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)");
@@ -349,6 +352,9 @@ namespace TeamManager.Api.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid")
                         .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<string>("Additions")
+                        .HasColumnType("text");
 
                     b.Property<string>("Category")
                         .HasMaxLength(50)
@@ -437,6 +443,9 @@ namespace TeamManager.Api.Migrations
 
                     b.Property<int>("Quantity")
                         .HasColumnType("integer");
+
+                    b.Property<string>("SelectedAdditions")
+                        .HasColumnType("text");
 
                     b.Property<string>("SelectedSize")
                         .HasColumnType("text");
@@ -620,6 +629,45 @@ namespace TeamManager.Api.Migrations
                     b.HasIndex("SprintId");
 
                     b.ToTable("Features");
+                });
+
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.FeaturePermission", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<string>("Category")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("FeatureKey")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<bool>("IsEnabled")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Label")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("Role")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FeatureKey", "Role")
+                        .IsUnique()
+                        .HasDatabaseName("IX_FeaturePermission_FeatureKey_Role");
+
+                    b.ToTable("FeaturePermissions");
                 });
 
             modelBuilder.Entity("TeamManager.Api.Domain.Entities.Invitation", b =>
@@ -1079,6 +1127,33 @@ namespace TeamManager.Api.Migrations
                     b.ToTable("MemberAchievements");
                 });
 
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.MemberFeatureOverride", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<string>("FeatureKey")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<bool>("IsEnabled")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid>("TeamMemberId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TeamMemberId", "FeatureKey")
+                        .IsUnique()
+                        .HasDatabaseName("IX_MemberFeatureOverride_MemberId_FeatureKey");
+
+                    b.ToTable("MemberFeatureOverrides");
+                });
+
             modelBuilder.Entity("TeamManager.Api.Domain.Entities.MemberNote", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1210,6 +1285,10 @@ namespace TeamManager.Api.Migrations
                     b.Property<Guid>("TeamMemberId")
                         .HasColumnType("uuid");
 
+                    b.Property<string>("BillableProjectsJson")
+                        .IsRequired()
+                        .HasColumnType("text");
+
                     b.Property<string>("ExtraCategoriesJson")
                         .IsRequired()
                         .HasColumnType("text");
@@ -1218,11 +1297,22 @@ namespace TeamManager.Api.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<string>("LocationIconsJson")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<bool>("MergeEntriesEnabled")
+                        .HasColumnType("boolean");
+
                     b.Property<string>("QuickActionsJson")
                         .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<string>("WorkLocationOptionsJson")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("WorkWeekJson")
                         .IsRequired()
                         .HasColumnType("text");
 
@@ -1252,6 +1342,15 @@ namespace TeamManager.Api.Migrations
                     b.Property<int>("Position")
                         .HasColumnType("integer");
 
+                    b.Property<string>("Scope")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("text")
+                        .HasDefaultValue("Global");
+
+                    b.Property<Guid?>("SquadId")
+                        .HasColumnType("uuid");
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasColumnType("text");
@@ -1272,6 +1371,8 @@ namespace TeamManager.Api.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("PIId");
+
+                    b.HasIndex("SquadId");
 
                     b.ToTable("Milestones");
                 });
@@ -1401,6 +1502,153 @@ namespace TeamManager.Api.Migrations
                     b.ToTable("RetroActions");
                 });
 
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.RetroCard", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<Guid?>("AuthorId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("AuthorName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("Column")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("SprintId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Text")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SprintId");
+
+                    b.ToTable("RetroCards");
+                });
+
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.RetroVote", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<Guid>("CardId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("VoterId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CardId");
+
+                    b.HasIndex("CardId", "VoterId")
+                        .IsUnique();
+
+                    b.ToTable("RetroVotes");
+                });
+
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.ScrumPokerSession", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("CreatedByMemberId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<DateTimeOffset?>("ResetAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("Revealed")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTimeOffset?>("RevealedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Scale")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("StoryTitle")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedAt")
+                        .HasDatabaseName("IX_ScrumPokerSession_CreatedAt");
+
+                    b.HasIndex("CreatedByMemberId")
+                        .HasDatabaseName("IX_ScrumPokerSession_CreatedByMemberId");
+
+                    b.ToTable("ScrumPokerSessions");
+                });
+
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.ScrumPokerVote", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<Guid>("MemberId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("SessionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Value")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<DateTimeOffset>("VotedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("MemberId")
+                        .HasDatabaseName("IX_ScrumPokerVote_MemberId");
+
+                    b.HasIndex("SessionId")
+                        .HasDatabaseName("IX_ScrumPokerVote_SessionId");
+
+                    b.HasIndex("SessionId", "MemberId")
+                        .IsUnique()
+                        .HasDatabaseName("IX_ScrumPokerVote_SessionId_MemberId");
+
+                    b.ToTable("ScrumPokerVotes");
+                });
+
             modelBuilder.Entity("TeamManager.Api.Domain.Entities.SessionType", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1489,6 +1737,10 @@ namespace TeamManager.Api.Migrations
 
                     b.Property<string>("RetroDidntGoWell")
                         .HasColumnType("text");
+
+                    b.Property<string>("RetroPhase")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
 
                     b.Property<string>("RetroWentWell")
                         .HasColumnType("text");
@@ -1727,6 +1979,104 @@ namespace TeamManager.Api.Migrations
                     b.ToTable("TimesheetEntries");
                 });
 
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.TimesheetWebhook", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("BodyTemplate")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("Enabled")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("HeadersJson")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("MaxRetries")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Method")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<bool>("OnCreate")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("OnDelete")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("OnUpdate")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("StoredCookie")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Url")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("TimesheetWebhooks");
+                });
+
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.TimesheetWebhookDelivery", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("AttemptCount")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset?>("DeliveredAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("EventType")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("LastError")
+                        .HasColumnType("text");
+
+                    b.Property<int?>("LastStatusCode")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset?>("NextAttemptAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("PayloadJson")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("WebhookId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("WebhookId");
+
+                    b.ToTable("TimesheetWebhookDeliveries");
+                });
+
             modelBuilder.Entity("TeamManager.Api.Domain.Entities.Wheel", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1953,6 +2303,12 @@ namespace TeamManager.Api.Migrations
                         .IsRequired()
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)");
+
+                    b.Property<DateTimeOffset?>("SuddenDeathEndsAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("TiedNominationIds")
+                        .HasColumnType("text");
 
                     b.Property<DateOnly>("WeekEnd")
                         .HasColumnType("date");
@@ -2423,6 +2779,17 @@ namespace TeamManager.Api.Migrations
                     b.Navigation("TeamMember");
                 });
 
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.MemberFeatureOverride", b =>
+                {
+                    b.HasOne("TeamManager.Api.Domain.Entities.TeamMember", "TeamMember")
+                        .WithMany()
+                        .HasForeignKey("TeamMemberId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("TeamMember");
+                });
+
             modelBuilder.Entity("TeamManager.Api.Domain.Entities.MemberNote", b =>
                 {
                     b.HasOne("TeamManager.Api.Domain.Entities.TeamMember", "TeamMember")
@@ -2497,7 +2864,14 @@ namespace TeamManager.Api.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("TeamManager.Api.Domain.Entities.Squad", "Squad")
+                        .WithMany()
+                        .HasForeignKey("SquadId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.Navigation("PI");
+
+                    b.Navigation("Squad");
                 });
 
             modelBuilder.Entity("TeamManager.Api.Domain.Entities.MilestoneCriterion", b =>
@@ -2529,6 +2903,56 @@ namespace TeamManager.Api.Migrations
                         .HasForeignKey("SprintId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.RetroCard", b =>
+                {
+                    b.HasOne("TeamManager.Api.Domain.Entities.Sprint", null)
+                        .WithMany()
+                        .HasForeignKey("SprintId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.RetroVote", b =>
+                {
+                    b.HasOne("TeamManager.Api.Domain.Entities.RetroCard", "Card")
+                        .WithMany("Votes")
+                        .HasForeignKey("CardId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Card");
+                });
+
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.ScrumPokerSession", b =>
+                {
+                    b.HasOne("TeamManager.Api.Domain.Entities.TeamMember", "CreatedByMember")
+                        .WithMany()
+                        .HasForeignKey("CreatedByMemberId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("CreatedByMember");
+                });
+
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.ScrumPokerVote", b =>
+                {
+                    b.HasOne("TeamManager.Api.Domain.Entities.TeamMember", "Member")
+                        .WithMany()
+                        .HasForeignKey("MemberId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("TeamManager.Api.Domain.Entities.ScrumPokerSession", "Session")
+                        .WithMany("Votes")
+                        .HasForeignKey("SessionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Member");
+
+                    b.Navigation("Session");
                 });
 
             modelBuilder.Entity("TeamManager.Api.Domain.Entities.Sprint", b =>
@@ -2625,6 +3049,17 @@ namespace TeamManager.Api.Migrations
                         .IsRequired();
 
                     b.Navigation("TeamMember");
+                });
+
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.TimesheetWebhookDelivery", b =>
+                {
+                    b.HasOne("TeamManager.Api.Domain.Entities.TimesheetWebhook", "Webhook")
+                        .WithMany("Deliveries")
+                        .HasForeignKey("WebhookId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Webhook");
                 });
 
             modelBuilder.Entity("TeamManager.Api.Domain.Entities.WheelParticipant", b =>
@@ -2877,6 +3312,16 @@ namespace TeamManager.Api.Migrations
                     b.Navigation("Sprints");
                 });
 
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.RetroCard", b =>
+                {
+                    b.Navigation("Votes");
+                });
+
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.ScrumPokerSession", b =>
+                {
+                    b.Navigation("Votes");
+                });
+
             modelBuilder.Entity("TeamManager.Api.Domain.Entities.SlotLocation", b =>
                 {
                     b.Navigation("Slots");
@@ -2912,6 +3357,11 @@ namespace TeamManager.Api.Migrations
                     b.Navigation("SprintMemberships");
 
                     b.Navigation("SquadMemberships");
+                });
+
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.TimesheetWebhook", b =>
+                {
+                    b.Navigation("Deliveries");
                 });
 
             modelBuilder.Entity("TeamManager.Api.Domain.Entities.Wheel", b =>
