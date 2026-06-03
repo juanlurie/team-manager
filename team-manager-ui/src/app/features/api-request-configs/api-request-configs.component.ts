@@ -630,17 +630,39 @@ export class ApiRequestConfigDialogComponent implements OnInit {
   }
 
   runTest() {
-    const headers: Record<string, string> = {};
-    for (const entry of this.headerEntries()) {
-      if (entry.key.trim()) headers[entry.key.trim()] = entry.value;
-    }
-    const config: ApiRequestConfig = { ...this.data, headers };
-
     this.testing.set(true);
     this.testResult.set(null);
-    this.svc.testRequest(config).subscribe({
-      next: (result) => { this.testResult.set(result); this.testing.set(false); },
-      error: () => { this.testing.set(false); this.snackBar.open('Test request failed', 'Close', { duration: 3000 }); }
+
+    this.getCookie().then(cookie => {
+      const headers: Record<string, string> = {};
+      for (const entry of this.headerEntries()) {
+        if (entry.key.trim()) headers[entry.key.trim()] = entry.value;
+      }
+      const config: ApiRequestConfig = { ...this.data, headers };
+      const variables: Record<string, string> = { cookie };
+
+      this.svc.testRequest(config, variables).subscribe({
+        next: (result) => { this.testResult.set(result); this.testing.set(false); },
+        error: () => { this.testing.set(false); this.snackBar.open('Test request failed', 'Close', { duration: 3000 }); }
+      });
+    });
+  }
+
+  private getCookie(): Promise<string> {
+    return new Promise(resolve => {
+      const timeout = setTimeout(() => {
+        window.removeEventListener('entelect-cookie-ready', handler);
+        resolve('');
+      }, 3000);
+
+      const handler = (e: Event) => {
+        clearTimeout(timeout);
+        window.removeEventListener('entelect-cookie-ready', handler);
+        resolve((e as CustomEvent<{ cookie: string }>).detail?.cookie ?? '');
+      };
+
+      window.addEventListener('entelect-cookie-ready', handler);
+      window.dispatchEvent(new CustomEvent('request-entelect-cookie'));
     });
   }
 
