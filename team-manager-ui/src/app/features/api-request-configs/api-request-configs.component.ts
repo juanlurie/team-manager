@@ -634,6 +634,13 @@ export class ApiRequestConfigDialogComponent implements OnInit {
     this.testResult.set(null);
 
     this.getCookie().then(cookie => {
+      console.log('[api-request-config] cookie found:', !!cookie, cookie ? cookie.substring(0, 40) + '...' : '(none)');
+      if (cookie) {
+        this.snackBar.open('Cookie found — injecting into request', 'Close', { duration: 3000 });
+      } else {
+        console.warn('[api-request-config] no cookie received from helper');
+      }
+
       const headers: Record<string, string> = {};
       for (const entry of this.headerEntries()) {
         if (entry.key.trim()) headers[entry.key.trim()] = entry.value;
@@ -650,15 +657,19 @@ export class ApiRequestConfigDialogComponent implements OnInit {
 
   private getCookie(): Promise<string> {
     return new Promise(resolve => {
+      console.log('[api-request-config] dispatching request-entelect-cookie');
       const timeout = setTimeout(() => {
         window.removeEventListener('entelect-cookie-ready', handler);
+        console.warn('[api-request-config] timed out waiting for cookie');
         resolve('');
       }, 3000);
 
       const handler = (e: Event) => {
         clearTimeout(timeout);
         window.removeEventListener('entelect-cookie-ready', handler);
-        resolve((e as CustomEvent<{ cookie: string }>).detail?.cookie ?? '');
+        const cookie = (e as CustomEvent<{ cookie: string }>).detail?.cookie ?? '';
+        console.log('[api-request-config] entelect-cookie-ready received, cookie present:', !!cookie);
+        resolve(cookie);
       };
 
       window.addEventListener('entelect-cookie-ready', handler);
