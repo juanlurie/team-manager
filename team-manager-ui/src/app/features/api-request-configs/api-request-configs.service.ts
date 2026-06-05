@@ -18,6 +18,7 @@ export interface MappingConfig {
   projectCategoriesPath: string;
   categoryNamePath: string;
   categoryIdPath: string;
+  textResponsePath: string;
 }
 
 export interface SuccessCriteria {
@@ -42,6 +43,7 @@ export interface ApiRequestConfig {
   mapping: MappingConfig;
   retryCount?: number;
   successCriteria?: SuccessCriteria | null;
+  autoSync?: boolean;
 }
 
 export const REQUEST_ACTIONS = [
@@ -50,6 +52,7 @@ export const REQUEST_ACTIONS = [
   { value: 'EditTimesheetEntry', label: 'Edit Timesheet Entry', icon: 'edit_calendar' },
   { value: 'DeleteTimesheetEntry', label: 'Delete Timesheet Entry', icon: 'delete_forever' },
   { value: 'GetTimesheetProjects', label: 'Get Timesheet Projects', icon: 'folder_open' },
+  { value: 'AiChatWinStory', label: 'AI Chat — Win Story', icon: 'auto_awesome' },
 ] as const;
 
 @Injectable({ providedIn: 'root' })

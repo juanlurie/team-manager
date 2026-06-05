@@ -68,6 +68,11 @@ import {
                     </span>
                     <div class="card-badges">
                       <span class="method-badge" [class.post]="config.method === 'POST'" [class.get]="config.method === 'GET'">{{ config.method }}</span>
+                      @if (config.autoSync) {
+                        <span class="auto-sync-badge" matTooltip="Auto Sync enabled — events fire immediately on enqueue">
+                          <mat-icon class="auto-sync-icon">bolt</mat-icon> Auto
+                        </span>
+                      }
                       <span class="status-badge" [class.enabled]="config.enabled" [class.disabled]="!config.enabled">{{ config.enabled ? 'On' : 'Off' }}</span>
                     </div>
                   </div>
@@ -116,6 +121,8 @@ import {
     .method-badge { padding: 2px 7px; border-radius: 4px; font-size: 0.7rem; font-weight: 700; }
     .method-badge.post { background: rgba(33,150,243,0.18); color: #2196f3; }
     .method-badge.get { background: rgba(76,175,80,0.18); color: #4caf50; }
+    .auto-sync-badge { display: flex; align-items: center; gap: 2px; padding: 2px 7px; border-radius: 12px; font-size: 0.72rem; font-weight: 700; background: rgba(255,193,7,0.18); color: #ffc107; }
+    .auto-sync-icon { font-size: 12px; width: 12px; height: 12px; }
     .action-badge { display: flex; align-items: center; gap: 5px; font-size: 0.78rem; font-weight: 600; color: rgba(255,255,255,0.65); }
     .action-icon { font-size: 16px; width: 16px; height: 16px; color: #64b5f6; }
 
@@ -246,6 +253,7 @@ export class ApiRequestConfigsComponent implements OnInit {
       bodyTemplate: '',
       retryCount: 0,
       successCriteria: null,
+      autoSync: false,
       mapping: {
         arrayPath: '',
         namePath: 'title',
@@ -261,7 +269,8 @@ export class ApiRequestConfigsComponent implements OnInit {
         projectIdPath: 'id',
         projectCategoriesPath: 'categories',
         categoryNamePath: 'name',
-        categoryIdPath: 'id'
+        categoryIdPath: 'id',
+        textResponsePath: ''
       }
     };
   }
@@ -326,6 +335,14 @@ export class ApiRequestConfigsComponent implements OnInit {
             <mat-slide-toggle [checked]="data.enabled" (change)="data.enabled = $event.checked">
               {{ data.enabled ? 'On' : 'Off' }}
             </mat-slide-toggle>
+          </div>
+
+          <div class="field-row">
+            <label class="field-label">Auto Sync</label>
+            <mat-slide-toggle [checked]="data.autoSync" (change)="data.autoSync = $event.checked" color="accent">
+              {{ data.autoSync ? 'On' : 'Off' }}
+            </mat-slide-toggle>
+            <span class="field-hint">Fire immediately on enqueue — no manual send needed</span>
           </div>
 
           <mat-form-field appearance="outline" class="full-width">
@@ -401,6 +418,8 @@ export class ApiRequestConfigsComponent implements OnInit {
                       placeholder="teamId=&#123;teamIds&#125;&amp;start=&#123;start&#125;"></textarea>
             @if (data.action === 'AddTimesheetEntry') {
               <mat-hint>Variables: &#123;cookie&#125;, &#123;id&#125;, &#123;date&#125;, &#123;project&#125;, &#123;category&#125;, &#123;hours&#125;, &#123;minutes&#125;, &#123;billable&#125;, &#123;workedFrom&#125;, &#123;sentiment&#125;, &#123;description&#125;, &#123;ticketNumber&#125; + any parameter names</mat-hint>
+            } @else if (data.action === 'AiChatWinStory') {
+              <mat-hint>Variables: &#123;nominee&#125;, &#123;title&#125;, &#123;description&#125; + any parameter names</mat-hint>
             } @else {
               <mat-hint>Variables: &#123;cookie&#125;, &#123;start&#125;, &#123;end&#125;, &#123;teamIds&#125; + any parameter names</mat-hint>
             }
@@ -579,6 +598,16 @@ export class ApiRequestConfigsComponent implements OnInit {
               </mat-select>
             </mat-form-field>
           }
+
+          @if (data.action === 'AiChatWinStory') {
+            <div class="section-header"><h3>Response Mapping</h3></div>
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>Text Response Path</mat-label>
+              <input matInput [(ngModel)]="data.mapping.textResponsePath"
+                     placeholder="choices.0.message.content">
+              <mat-hint>Dot-separated path to the text string in the response (e.g. <code>choices.0.message.content</code> for OpenAI, <code>content.0.text</code> for Claude)</mat-hint>
+            </mat-form-field>
+          }
         </div>
       </mat-dialog-content>
       @if (curlPreview()) {
@@ -644,6 +673,7 @@ export class ApiRequestConfigsComponent implements OnInit {
     .half-width { flex: 1; min-width: 120px; }
     .field-row { display: flex; align-items: center; gap: 12px; padding: 8px 0; flex-wrap: wrap; }
     .field-label { font-size: 0.85rem; color: rgba(255,255,255,0.6); min-width: 80px; }
+    .field-hint { font-size: 0.75rem; color: rgba(255,255,255,0.35); }
     .section-header { display: flex; align-items: center; gap: 8px; margin-top: 16px; margin-bottom: 4px; }
     .section-header h3 { font-size: 0.95rem; font-weight: 600; color: rgba(255,255,255,0.7); margin: 0; }
     .header-row { display: flex; align-items: flex-start; gap: 8px; flex-wrap: wrap; }
@@ -737,7 +767,7 @@ export class ApiRequestConfigDialogComponent implements OnInit {
   unresolvedVars() {
     const knownParams = new Set([
       ...this.parameterEntries().map(e => e.key.trim()).filter(Boolean),
-      'cookie', 'start', 'end', 'teamIds'
+      'cookie', 'start', 'end', 'teamIds', 'nominee', 'title', 'description'
     ]);
     const template = (this.data.bodyTemplate ?? '') + Object.values(this.data.headers ?? {}).join(' ');
     const matches = [...template.matchAll(/\{(\w+)\}/g)].map(m => m[1]);

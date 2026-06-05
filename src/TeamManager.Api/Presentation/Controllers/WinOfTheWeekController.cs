@@ -108,7 +108,7 @@ public class WinOfTheWeekController(IWinOfTheWeekService service, AppDbContext d
     }
 
     [HttpPost("close")]
-    [Authorize(Roles = "TeamLead")]
+    [RequireFeature("wow-host")]
     public async Task<IActionResult> CloseWeek([FromBody] CloseWeekRequest request)
     {
         var memberId = GetCurrentMemberId();
@@ -129,7 +129,7 @@ public class WinOfTheWeekController(IWinOfTheWeekService service, AppDbContext d
     }
 
     [HttpPost("open-next")]
-    [Authorize(Roles = "TeamLead")]
+    [RequireFeature("wow-host")]
     public async Task<IActionResult> OpenNextWeek()
     {
         var memberId = GetCurrentMemberId();
@@ -145,7 +145,7 @@ public class WinOfTheWeekController(IWinOfTheWeekService service, AppDbContext d
     }
 
     [HttpPost("open-voting")]
-    [Authorize(Roles = "TeamLead")]
+    [RequireFeature("wow-host")]
     public async Task<IActionResult> OpenVoting()
     {
         var memberId = GetCurrentMemberId();
@@ -162,7 +162,7 @@ public class WinOfTheWeekController(IWinOfTheWeekService service, AppDbContext d
     }
 
     [HttpPost("reopen-nominations")]
-    [Authorize(Roles = "TeamLead")]
+    [RequireFeature("wow-host")]
     public async Task<IActionResult> ReopenNominations()
     {
         var memberId = GetCurrentMemberId();
@@ -179,7 +179,7 @@ public class WinOfTheWeekController(IWinOfTheWeekService service, AppDbContext d
     }
 
     [HttpPost("sudden-death")]
-    [Authorize(Roles = "TeamLead")]
+    [RequireFeature("wow-host")]
     public async Task<IActionResult> StartSuddenDeath([FromBody] StartSuddenDeathRequest request)
     {
         var memberId = GetCurrentMemberId();

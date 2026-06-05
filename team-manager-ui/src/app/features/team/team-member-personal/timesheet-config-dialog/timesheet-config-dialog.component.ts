@@ -3,10 +3,13 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
+import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { HttpClient } from '@angular/common/http';
 import { TimesheetConfig, QuickActionConfig } from '../../../../core/models/timesheet-config.model';
 import { TimesheetConfigService } from '../../../../core/services/timesheet-config.service';
+import { TimesheetDefaultsService } from '../../../../core/services/timesheet-defaults.service';
 import {
-  TIMESHEET_PROJECTS, CATEGORIES_BY_PROJECT, ACTIVITY_COMBOS,
+  ACTIVITY_COMBOS,
   DURATION_CHIPS, DURATION_CHIP_MINUTES, minutesToDurationLabel,
 } from '../timesheet-data.constants';
 
@@ -29,7 +32,7 @@ export interface TimesheetConfigDialogData {
 @Component({
   selector: 'app-timesheet-config-dialog',
   standalone: true,
-  imports: [CommonModule, FormsModule, MatIconModule],
+  imports: [CommonModule, FormsModule, MatIconModule, MatSnackBarModule],
   styles: [`
     .dlg { display:flex; flex-direction:column; width:560px; max-width:100%; max-height:80vh; background:#131e2b; border-radius:12px; overflow:hidden; }
     .dlg-hdr { display:flex; align-items:center; justify-content:space-between; padding:18px 22px 14px; border-bottom:1px solid rgba(255,255,255,0.07); flex-shrink:0; }
@@ -58,6 +61,11 @@ export interface TimesheetConfigDialogData {
     .add-row { display:flex; gap:7px; align-items:center; margin-top:8px; }
     .tag-list { display:flex; flex-wrap:wrap; gap:5px; margin-bottom:8px; }
     .tag { display:flex; align-items:center; gap:5px; padding:4px 8px 4px 10px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); border-radius:16px; font-size:12px; }
+    .cat-id-list { display:flex; flex-direction:column; gap:6px; margin-bottom:8px; }
+    .cat-id-row { display:flex; align-items:center; gap:8px; }
+    .cat-name { font-size:12px; min-width:120px; flex-shrink:0; }
+    .cat-name.custom { color:#64b5f6; }
+    .cat-id-inp { flex:1; font-size:11px; padding:5px 8px; font-family:monospace; }
     .tag.custom { background:rgba(100,181,246,0.08); border-color:rgba(100,181,246,0.25); }
     .tag-rm { background:none; border:none; cursor:pointer; color:rgba(255,255,255,0.3); font-size:14px; line-height:1; padding:0; }
     .tag-rm:hover { color:#ef5350; }
@@ -85,10 +93,16 @@ export interface TimesheetConfigDialogData {
     .btn-add { padding:7px 12px; background:rgba(100,181,246,0.1); border:1px solid rgba(100,181,246,0.3); border-radius:6px; color:#64b5f6; font-size:12px; font-weight:600; cursor:pointer; font-family:inherit; white-space:nowrap; }
     .btn-add:hover { background:rgba(100,181,246,0.18); }
     .btn-add:disabled { opacity:0.35; cursor:not-allowed; }
+    .projects-header { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+    .btn-sync { display:flex; align-items:center; gap:5px; padding:5px 10px; background:rgba(255,152,0,0.1); border:1px solid rgba(255,152,0,0.3); border-radius:6px; color:#ff9800; font-size:11px; font-weight:600; cursor:pointer; font-family:inherit; white-space:nowrap; flex-shrink:0; }
+    .btn-sync:hover { background:rgba(255,152,0,0.18); }
+    .btn-sync:disabled { opacity:0.5; cursor:not-allowed; }
     .loc-row { display:flex; align-items:center; gap:10px; padding:8px 12px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.07); border-radius:6px; margin-bottom:8px; }
     .loc-name { font-size:13px; flex:1; display:flex; align-items:center; gap:8px; }
     .loc-name mat-icon { font-size:18px; width:18px; height:18px; color:rgba(255,255,255,0.5); }
     .icon-picker { display:flex; gap:4px; flex-wrap:wrap; }
+    .corr-input { width:60px; padding:4px 6px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); border-radius:4px; color:inherit; font-size:11px; font-family:monospace; outline:none; text-align:center; }
+    .corr-input:focus { border-color:rgba(100,181,246,0.6); }
     .icon-opt { width:30px; height:30px; display:flex; align-items:center; justify-content:center; border-radius:6px; cursor:pointer; border:1px solid rgba(255,255,255,0.08); background:none; color:rgba(255,255,255,0.4); transition:all 0.1s; }
     .icon-opt:hover { background:rgba(255,255,255,0.07); color:rgba(255,255,255,0.8); }
     .icon-opt.sel { border-color:rgba(100,181,246,0.6); background:rgba(100,181,246,0.12); color:#64b5f6; }
@@ -165,8 +179,18 @@ export interface TimesheetConfigDialogData {
 
         @if (tab()===1) {
           <div class="sec">
-            <div class="hint">These projects are added to the default Entelect list. Use this for client projects or custom work categories.</div>
-            <div class="proj-list">
+            <div class="projects-header">
+              <div class="hint" style="margin-bottom:0">These projects are added to the default Entelect list. Use this for client projects or custom work categories.</div>
+              <button class="btn-sync" [disabled]="syncingProjects()" (click)="enqueueFetchProjects()">
+                <mat-icon style="font-size:14px;width:14px;height:14px;">sync</mat-icon>
+                {{ syncingProjects() ? 'Queued...' : 'Sync Projects' }}
+              </button>
+              <button class="btn-sync" [disabled]="syncingCategories()" (click)="enqueueFetchCategories()">
+                <mat-icon style="font-size:14px;width:14px;height:14px;">category</mat-icon>
+                {{ syncingCategories() ? 'Queued...' : 'Sync Categories' }}
+              </button>
+            </div>
+            <div class="proj-list" style="margin-top:10px">
               @for (p of allProjects(); track p) {
                 <div class="proj-row">
                   <span>{{ p }}</span>
@@ -191,7 +215,7 @@ export interface TimesheetConfigDialogData {
 
         @if (tab()===2) {
           <div class="sec">
-            <div class="hint">Add custom categories to any project (including your extra projects).</div>
+            <div class="hint">Add custom categories to any project. Set a Correlation ID to map to the external system's category ID.</div>
             <div class="proj-sel-row">
               <select class="sel" [(ngModel)]="catProject" style="flex:1">
                 <option value="">Select project…</option>
@@ -200,18 +224,22 @@ export interface TimesheetConfigDialogData {
             </div>
             @if (catProject) {
               <div class="sec-lbl">Categories for "{{ catProject }}"</div>
-              <div class="tag-list">
+              <div class="cat-id-list">
                 @for (c of catsFor(catProject); track c) {
-                  <span class="tag" [class.custom]="isExtraCategory(catProject, c)">
-                    {{ c }}
+                  <div class="cat-id-row">
+                    <span class="cat-name" [class.custom]="isExtraCategory(catProject, c)">{{ c }}</span>
+                    <input class="inp cat-id-inp" placeholder="Correlation ID"
+                           [ngModel]="categoryCorrelationIds()[c] ?? ''"
+                           (ngModelChange)="setCategoryCorrelationId(c, $event)"
+                           title="External system ID for this category" />
                     @if (isExtraCategory(catProject, c)) {
-                      <button class="tag-rm" (click)="removeCategory(catProject, c)">×</button>
+                      <button class="tag-rm" (click)="removeCategory(catProject, c)" style="font-size:16px">×</button>
                     }
-                  </span>
+                  </div>
                 }
                 @if (catsFor(catProject).length===0) { <span style="font-size:12px;color:rgba(255,255,255,0.25)">No categories for this project.</span> }
               </div>
-              <div class="add-row">
+              <div class="add-row" style="margin-top:8px">
                 <input class="inp" placeholder="Category name" [(ngModel)]="newCategory" (keydown.enter)="addCategory()" style="flex:1" />
                 <button class="btn-add" [disabled]="!newCategory.trim()" (click)="addCategory()">Add</button>
               </div>
@@ -235,7 +263,7 @@ export interface TimesheetConfigDialogData {
 
         @if (tab()===4) {
           <div class="sec">
-            <div class="hint">Configure work location options and choose an icon for each.</div>
+            <div class="hint">Configure work location options, icons, and the external correlation ID used when submitting timesheets.</div>
             @for (opt of workLocationOptions(); track opt) {
               <div class="loc-row">
                 <span class="loc-name">
@@ -249,6 +277,8 @@ export interface TimesheetConfigDialogData {
                     </button>
                   }
                 </div>
+                <input class="corr-input" placeholder="ID" [ngModel]="workLocationCorrelationIds()[opt] ?? ''"
+                       (ngModelChange)="setLocationCorrelationId(opt, $event)" title="Correlation ID for external system" />
                 <button class="tag-rm" (click)="removeLocation(opt)">×</button>
               </div>
             }
@@ -266,6 +296,13 @@ export interface TimesheetConfigDialogData {
               <div>
                 <div style="font-weight:500">Merge duplicate entries</div>
                 <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-top:2px">When adding an entry with the same project &amp; category on the same day, combine it with the existing one and merge the notes.</div>
+              </div>
+            </label>
+            <label class="billable-check" style="gap:12px;font-size:13px;padding:8px 0">
+              <input type="checkbox" [checked]="deduplicatePendingEditSync()" (change)="deduplicatePendingEditSync.set($any($event.target).checked); markDirty()">
+              <div>
+                <div style="font-weight:500">Deduplicate pending edit syncs</div>
+                <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-top:2px">When an edit is queued for an entry that already has a pending edit sync event, replace it instead of adding a new one. Matches on the entry's correlation ID.</div>
               </div>
             </label>
           </div>
@@ -289,9 +326,15 @@ export class TimesheetConfigDialogComponent implements OnInit {
   readonly durChips = DURATION_CHIPS;
   readonly chipMins = DURATION_CHIP_MINUTES;
 
+  private http = inject(HttpClient);
+  private snackBar = inject(MatSnackBar);
+  private tsd = inject(TimesheetDefaultsService);
+
   tab = signal(0);
   saving = signal(false);
   dirty = signal(false);
+  syncingProjects = signal(false);
+  syncingCategories = signal(false);
 
   quickActions = signal<QuickActionConfig[]>([]);
   extraProjects = signal<string[]>([]);
@@ -300,7 +343,10 @@ export class TimesheetConfigDialogComponent implements OnInit {
   workWeek = signal<Record<string, string>>({});
   workLocationOptions = signal<string[]>([]);
   mergeEntriesEnabled = signal(false);
+  deduplicatePendingEditSync = signal(false);
   locationIcons = signal<Record<string, string>>({});
+  workLocationCorrelationIds = signal<Record<string, string>>({});
+  categoryCorrelationIds = signal<Record<string, string>>({});
 
   readonly ICON_OPTIONS = [
     { icon: 'home',          label: 'Home' },
@@ -328,14 +374,23 @@ export class TimesheetConfigDialogComponent implements OnInit {
     this.markDirty();
   }
 
+  setLocationCorrelationId(loc: string, id: string) {
+    this.workLocationCorrelationIds.update(m => {
+      const updated = { ...m };
+      if (id) updated[loc] = id; else delete updated[loc];
+      return updated;
+    });
+    this.markDirty();
+  }
+
   newProject = '';
   newCategory = '';
   newLocation = '';
   catProject = '';
 
   allProjects = computed(() => [
-    ...TIMESHEET_PROJECTS,
-    ...this.extraProjects().filter(p => !TIMESHEET_PROJECTS.includes(p))
+    ...this.tsd.projects(),
+    ...this.extraProjects().filter(p => !this.tsd.projects().includes(p))
   ]);
 
   ngOnInit() {
@@ -347,11 +402,52 @@ export class TimesheetConfigDialogComponent implements OnInit {
     this.workWeek.set({ ...(c.workWeek ?? {}) });
     this.workLocationOptions.set([...(c.workLocationOptions ?? ['Home', 'Other', 'Client', 'Entelect'])]);
     this.mergeEntriesEnabled.set(c.mergeEntriesEnabled ?? false);
+    this.deduplicatePendingEditSync.set(c.deduplicatePendingEditSync ?? false);
     this.locationIcons.set({ ...(c.locationIcons ?? {}) });
+    this.workLocationCorrelationIds.set({ ...(c.workLocationCorrelationIds ?? {}) });
+    this.categoryCorrelationIds.set({ ...(c.categoryCorrelationIds ?? {}) });
+  }
+
+  enqueueFetchProjects() {
+    this.syncingProjects.set(true);
+    this.http.post<any>('/api/v1/sync-queue/enqueue', {
+      action: 'GetTimesheetProjects',
+      label: 'Fetch Timesheet Projects',
+      sourceId: this.data.memberId,
+      sourceType: 'Member'
+    }).subscribe({
+      next: () => {
+        this.snackBar.open('Added to sync queue — run it from the Sync Queue page', 'Close', { duration: 4000 });
+        this.syncingProjects.set(false);
+      },
+      error: () => {
+        this.snackBar.open('Failed to queue sync event', 'Close', { duration: 3000 });
+        this.syncingProjects.set(false);
+      }
+    });
+  }
+
+  enqueueFetchCategories() {
+    this.syncingCategories.set(true);
+    this.http.post<any>('/api/v1/sync-queue/enqueue', {
+      action: 'GetTimesheetProjectCategories',
+      label: 'Fetch Timesheet Project Categories',
+      sourceId: this.data.memberId,
+      sourceType: 'Member'
+    }).subscribe({
+      next: () => {
+        this.snackBar.open('Added to sync queue — run it from the Sync Queue page', 'Close', { duration: 4000 });
+        this.syncingCategories.set(false);
+      },
+      error: () => {
+        this.snackBar.open('Failed to queue sync event', 'Close', { duration: 3000 });
+        this.syncingCategories.set(false);
+      }
+    });
   }
 
   catsFor(project: string): string[] {
-    const defaults = CATEGORIES_BY_PROJECT[project] ?? [];
+    const defaults = this.tsd.categoriesFor(project);
     const extras = this.extraCategories()[project] ?? [];
     return [...defaults, ...extras.filter(c => !defaults.includes(c))];
   }
@@ -369,7 +465,7 @@ export class TimesheetConfigDialogComponent implements OnInit {
   }
 
   isExtraProject(project: string): boolean {
-    return !TIMESHEET_PROJECTS.includes(project);
+    return !this.tsd.projects().includes(project);
   }
 
   toggleBillable(project: string, event: Event) {
@@ -470,6 +566,16 @@ export class TimesheetConfigDialogComponent implements OnInit {
     this.markDirty();
   }
 
+  setCategoryCorrelationId(category: string, id: string) {
+    this.categoryCorrelationIds.update(m => {
+      const updated = { ...m };
+      if (id.trim()) updated[category] = id.trim();
+      else delete updated[category];
+      return updated;
+    });
+    this.markDirty();
+  }
+
   save() {
     this.saving.set(true);
     const payload: any = {
@@ -480,7 +586,10 @@ export class TimesheetConfigDialogComponent implements OnInit {
       workWeek: this.workWeek(),
       workLocationOptions: this.workLocationOptions(),
       mergeEntriesEnabled: this.mergeEntriesEnabled(),
+      deduplicatePendingEditSync: this.deduplicatePendingEditSync(),
       locationIcons: this.locationIcons(),
+      workLocationCorrelationIds: this.workLocationCorrelationIds(),
+      categoryCorrelationIds: this.categoryCorrelationIds(),
     };
     this.svc.upsert(this.data.memberId, payload).subscribe({
       next: config => this.ref.close(config),

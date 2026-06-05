@@ -14,6 +14,7 @@ public class WinWeek
     public DateTimeOffset? ClosedAt { get; set; }
     public DateTimeOffset? SuddenDeathEndsAt { get; set; }
     public Guid CreatedByMemberId { get; set; }
+    public string? WinnerStory { get; set; }
 
     public WinNomination? Winner { get; set; }
     public TeamMember? CreatedBy { get; set; }

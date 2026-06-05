@@ -58,6 +58,7 @@ public class ApiRequestConfigsController : ControllerBase
             StoredCookie = dto.StoredCookie,
             RetryCount = dto.RetryCount,
             SuccessCriteriaJson = dto.SuccessCriteria is null ? null : JsonSerializer.Serialize(dto.SuccessCriteria),
+            AutoSync = dto.AutoSync,
         };
 
         _db.ApiRequestConfigs.Add(config);
@@ -87,6 +88,7 @@ public class ApiRequestConfigsController : ControllerBase
         if (dto.StoredCookie is not null) config.StoredCookie = dto.StoredCookie;
         config.RetryCount = dto.RetryCount;
         config.SuccessCriteriaJson = dto.SuccessCriteria is null ? null : JsonSerializer.Serialize(dto.SuccessCriteria);
+        config.AutoSync = dto.AutoSync;
         config.UpdatedAt = DateTimeOffset.UtcNow;
 
         await _db.SaveChangesAsync();
@@ -178,6 +180,7 @@ public class ApiRequestConfigsController : ControllerBase
                     ParametersJson = JsonSerializer.Serialize(dto.Parameters ?? new()),
                     RetryCount = dto.RetryCount,
                     SuccessCriteriaJson = dto.SuccessCriteria is null ? null : JsonSerializer.Serialize(dto.SuccessCriteria),
+                    AutoSync = dto.AutoSync,
                 };
                 _db.ApiRequestConfigs.Add(config);
                 created.Add(ToDto(config));
@@ -462,7 +465,8 @@ public class ApiRequestConfigsController : ControllerBase
         RetryCount: config.RetryCount,
         SuccessCriteria: string.IsNullOrWhiteSpace(config.SuccessCriteriaJson)
             ? null
-            : JsonSerializer.Deserialize<SuccessCriteriaDto>(config.SuccessCriteriaJson, new JsonSerializerOptions { PropertyNameCaseInsensitive = true })
+            : JsonSerializer.Deserialize<SuccessCriteriaDto>(config.SuccessCriteriaJson, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }),
+        AutoSync: config.AutoSync
     );
 }
 

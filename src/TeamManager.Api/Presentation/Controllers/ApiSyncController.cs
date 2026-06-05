@@ -91,7 +91,14 @@ public class ApiSyncController(AppDbContext db, IHttpClientFactory httpClientFac
         db.ApiSyncEvents.Add(evt);
         await db.SaveChangesAsync();
 
-        return Ok(new { evt.Id, evt.Action, evt.Label, evt.Status });
+        if (config.AutoSync)
+        {
+            var (status, responseStatus, responseBody, externalId) = await ExecuteSendAsync(evt, config.StoredCookie ?? "");
+            await PruneOldEventsAsync();
+            return Ok(new { evt.Id, evt.Action, evt.Label, Status = status, AutoSynced = true, responseStatus, responseBody });
+        }
+
+        return Ok(new { evt.Id, evt.Action, evt.Label, evt.Status, AutoSynced = false });
     }
 
     [HttpGet]
@@ -218,6 +225,11 @@ public class ApiSyncController(AppDbContext db, IHttpClientFactory httpClientFac
 
         var rawHeaders = JsonSerializer.Deserialize<Dictionary<string, string>>(evt.ResolvedHeadersJson) ?? [];
 
+        // Only enforce cookie requirement if the resolved payload still references it
+        var needsCookie = evt.ResolvedBody.Contains("{cookie}")
+            || evt.ResolvedUrl.Contains("{cookie}")
+            || evt.ResolvedHeadersJson.Contains("{cookie}");
+
         for (var attempt = 0; attempt <= retryCount; attempt++)
         {
             try
@@ -238,7 +250,7 @@ public class ApiSyncController(AppDbContext db, IHttpClientFactory httpClientFac
                     activeCookie = configMeta.StoredCookie;
                 }
 
-                if (string.IsNullOrWhiteSpace(activeCookie))
+                if (needsCookie && string.IsNullOrWhiteSpace(activeCookie))
                 {
                     evt.Status = "failed";
                     evt.ResponseBody = "No cookie available — capture it via the browser extension first.";
@@ -294,6 +306,16 @@ public class ApiSyncController(AppDbContext db, IHttpClientFactory httpClientFac
                     {
                         var entry = await db.TimesheetEntries.FindAsync(entryId);
                         if (entry != null && evt.ExternalId != null) entry.ExternalId = evt.ExternalId;
+                    }
+                    if (evt.SourceType == "WinWeek" && Guid.TryParse(evt.SourceId, out var weekId))
+                    {
+                        var story = await TryExtractWinStoryAsync(evt.Action, responseBody);
+                        if (!string.IsNullOrWhiteSpace(story))
+                        {
+                            var winWeek = await db.WinWeeks.FindAsync(weekId);
+                            if (winWeek is not null)
+                                winWeek.WinnerStory = story.Trim();
+                        }
                     }
                     await TryUpdateProjectsFromResponseAsync(responseBody, evt.Action, evt.SourceId);
                     await db.SaveChangesAsync();
@@ -477,7 +499,17 @@ public class ApiSyncController(AppDbContext db, IHttpClientFactory httpClientFac
     {
         var current = root;
         foreach (var part in path.Split('.'))
-            if (!current.TryGetProperty(part, out current)) return default;
+        {
+            if (int.TryParse(part, out var idx))
+            {
+                if (current.ValueKind != JsonValueKind.Array || idx >= current.GetArrayLength()) return default;
+                current = current[idx];
+            }
+            else if (!current.TryGetProperty(part, out current))
+            {
+                return default;
+            }
+        }
         return current;
     }
 
@@ -486,6 +518,27 @@ public class ApiSyncController(AppDbContext db, IHttpClientFactory httpClientFac
         if (string.IsNullOrWhiteSpace(path)) return null;
         var target = NavigatePath(el, path);
         return target.ValueKind == JsonValueKind.Undefined ? null : target.ToString();
+    }
+
+    private async Task<string?> TryExtractWinStoryAsync(string action, string responseBody)
+    {
+        try
+        {
+            var mappingJson = await db.ApiRequestConfigs
+                .Where(c => c.Action == action && c.Enabled)
+                .Select(c => c.MappingJson)
+                .FirstOrDefaultAsync();
+            if (string.IsNullOrWhiteSpace(mappingJson)) return null;
+
+            using var mappingDoc = JsonDocument.Parse(mappingJson);
+            if (!mappingDoc.RootElement.TryGetProperty("textResponsePath", out var pathEl)) return null;
+            var path = pathEl.GetString() ?? "";
+            if (string.IsNullOrEmpty(path)) return null;
+
+            var el = NavigatePath(JsonDocument.Parse(responseBody).RootElement, path);
+            return el.ValueKind == JsonValueKind.String ? el.GetString() : null;
+        }
+        catch { return null; }
     }
 
     private async Task<string?> TryExtractExternalId(string action, string responseBody)

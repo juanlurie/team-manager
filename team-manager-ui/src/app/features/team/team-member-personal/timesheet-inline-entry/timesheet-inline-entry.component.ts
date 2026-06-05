@@ -1,11 +1,12 @@
-import { Component, computed, input, output, signal } from '@angular/core';
+import { Component, computed, inject, input, output, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import {
-  CATEGORIES_BY_PROJECT, QUICK_COMBOS, TIMESHEET_PROJECTS,
+  QUICK_COMBOS,
   TIME_PRESETS_MINUTES, WORKED_FROM_OPTIONS, SENTIMENT_OPTIONS,
 } from '../timesheet-data.constants';
+import { TimesheetDefaultsService } from '../../../../core/services/timesheet-defaults.service';
 import { CreateTimesheetEntryRequest } from '../../../../core/models/timesheet.model';
 
 @Component({
@@ -108,9 +109,11 @@ export class TimesheetInlineEntryComponent {
   cancelled = output();
   openFull = output();
 
+  private tsd = inject(TimesheetDefaultsService);
+
   readonly combos = QUICK_COMBOS;
   readonly timePresets = TIME_PRESETS_MINUTES;
-  readonly projects = TIMESHEET_PROJECTS;
+  get projects() { return this.tsd.projects(); }
   readonly workedFromOptions = WORKED_FROM_OPTIONS;
   readonly sentimentOptions = SENTIMENT_OPTIONS;
 
@@ -121,7 +124,7 @@ export class TimesheetInlineEntryComponent {
   sentiment = signal('Neutral');
   billable = signal(false);
 
-  availableCategories = computed(() => CATEGORIES_BY_PROJECT[this.project()] ?? []);
+  availableCategories = computed(() => this.tsd.categoriesFor(this.project()));
   isValid = computed(() => !!this.project() && !!this.category() && this.totalMinutes() > 0);
   timeLabel = computed(() => {
     const h = Math.floor(this.totalMinutes() / 60);

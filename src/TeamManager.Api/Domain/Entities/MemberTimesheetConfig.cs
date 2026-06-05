@@ -11,6 +11,10 @@ public class MemberTimesheetConfig
     public string WorkWeekJson { get; set; } = "{}";
     public bool MergeEntriesEnabled { get; set; } = false;
     public string LocationIconsJson { get; set; } = "{}";
+    public string CategoryCorrelationIdsJson { get; set; } = "{}";
+    public string? ExternalEmployeeId { get; set; }
+    public string WorkLocationCorrelationIdsJson { get; set; } = "{}";
+    public bool DeduplicatePendingEditSync { get; set; } = false;
 
     public TeamMember TeamMember { get; set; } = null!;
 }

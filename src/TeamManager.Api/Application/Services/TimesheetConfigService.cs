@@ -42,6 +42,14 @@ public class TimesheetConfigService(AppDbContext db) : ITimesheetConfigService
             config.MergeEntriesEnabled = request.MergeEntriesEnabled.Value;
         if (request.LocationIcons is not null)
             config.LocationIconsJson = JsonSerializer.Serialize(request.LocationIcons);
+        if (request.CategoryCorrelationIds is not null)
+            config.CategoryCorrelationIdsJson = JsonSerializer.Serialize(request.CategoryCorrelationIds);
+        if (request.ExternalEmployeeId is not null)
+            config.ExternalEmployeeId = request.ExternalEmployeeId;
+        if (request.WorkLocationCorrelationIds is not null)
+            config.WorkLocationCorrelationIdsJson = JsonSerializer.Serialize(request.WorkLocationCorrelationIds);
+        if (request.DeduplicatePendingEditSync is not null)
+            config.DeduplicatePendingEditSync = request.DeduplicatePendingEditSync.Value;
 
         await db.SaveChangesAsync();
         return ToDto(config);
@@ -55,8 +63,14 @@ public class TimesheetConfigService(AppDbContext db) : ITimesheetConfigService
         JsonSerializer.Deserialize<string[]>(c.BillableProjectsJson, Json) ?? [],
         JsonSerializer.Deserialize<Dictionary<string, string>>(c.WorkWeekJson, Json) ?? [],
         c.MergeEntriesEnabled,
-        JsonSerializer.Deserialize<Dictionary<string, string>>(c.LocationIconsJson, Json) ?? []
+        JsonSerializer.Deserialize<Dictionary<string, string>>(c.LocationIconsJson, Json) ?? [],
+        JsonSerializer.Deserialize<Dictionary<string, string>>(
+            string.IsNullOrWhiteSpace(c.CategoryCorrelationIdsJson) ? "{}" : c.CategoryCorrelationIdsJson, Json) ?? [],
+        c.ExternalEmployeeId,
+        JsonSerializer.Deserialize<Dictionary<string, string>>(
+            string.IsNullOrWhiteSpace(c.WorkLocationCorrelationIdsJson) ? "{}" : c.WorkLocationCorrelationIdsJson, Json) ?? [],
+        c.DeduplicatePendingEditSync
     );
 
-    private static TimesheetConfigDto Empty() => new([], [], [], ["Home", "Other", "Client", "Entelect"], [], [], false, []);
+    private static TimesheetConfigDto Empty() => new([], [], [], ["Home", "Other", "Client", "Entelect"], [], [], false, [], []);
 }

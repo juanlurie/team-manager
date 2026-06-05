@@ -36,6 +36,7 @@ export interface WinWeek {
   activeMemberCount: number;
   connectedMemberCount: number;
   tiedNominationIds: string[];
+  winnerStory: string | null;
   nominations: WinNomination[];
 }
 

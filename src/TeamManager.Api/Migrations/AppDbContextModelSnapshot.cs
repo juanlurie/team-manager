@@ -160,6 +160,9 @@ namespace TeamManager.Api.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<bool>("AutoSync")
+                        .HasColumnType("boolean");
+
                     b.Property<string>("BodyFormat")
                         .IsRequired()
                         .HasColumnType("text");
@@ -200,12 +203,11 @@ namespace TeamManager.Api.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<int>("RetryCount")
+                        .HasColumnType("integer");
+
                     b.Property<string>("StoredCookie")
                         .HasColumnType("text");
-
-                    b.Property<int>("RetryCount")
-                        .HasDefaultValue(0)
-                        .HasColumnType("integer");
 
                     b.Property<string>("SuccessCriteriaJson")
                         .HasColumnType("text");
@@ -1377,6 +1379,9 @@ namespace TeamManager.Api.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<bool>("DeduplicatePendingEditSync")
+                        .HasColumnType("boolean");
+
                     b.Property<string>("ExternalEmployeeId")
                         .HasColumnType("text");
 
@@ -2444,6 +2449,9 @@ namespace TeamManager.Api.Migrations
 
                     b.Property<Guid?>("WinnerNominationId")
                         .HasColumnType("uuid");
+
+                    b.Property<string>("WinnerStory")
+                        .HasColumnType("text");
 
                     b.HasKey("Id");
 

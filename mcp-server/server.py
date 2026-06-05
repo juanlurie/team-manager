@@ -1027,6 +1027,77 @@ TOOLS = [
     ),
 
     # ═══════════════════════════════════════════════════════════
+    # API Request Configs
+    # ═══════════════════════════════════════════════════════════
+    types.Tool(
+        name="list_request_configs",
+        description="List all API request configs (external system integrations for timesheet sync, leave fetch, etc.).",
+        inputSchema={"type": "object", "properties": {}, "required": []},
+    ),
+    types.Tool(
+        name="create_request_config",
+        description=(
+            "Create an API request config for an external system. "
+            "Accepts a parsed curl command or explicit fields. "
+            "Use {variableName} placeholders in url, headers, and bodyTemplate for dynamic values. "
+            "Known variables resolved automatically from TimesheetEntry: {timesheetEntryId}, {employeeId}, {categoryId}, {workedFromLocationId}, {date}, {hours}, {minutes}, {billable}, {description}, {ticketNumber}, {sentimentId}. "
+            "Static per-member values (e.g. employeeId) go in parameters. "
+            "action must be one of: AddTimesheetEntry, EditTimesheetEntry, DeleteTimesheetEntry, FetchLeave, GetTimesheetProjects, AiChatWinStory."
+        ),
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "action": {"type": "string", "description": "Action type: AddTimesheetEntry, EditTimesheetEntry, DeleteTimesheetEntry, FetchLeave, GetTimesheetProjects, AiChatWinStory"},
+                "name": {"type": "string"},
+                "description": {"type": "string"},
+                "enabled": {"type": "boolean", "default": True},
+                "url": {"type": "string"},
+                "method": {"type": "string", "default": "POST"},
+                "is_form_url_encoded": {"type": "boolean", "default": True},
+                "body_format": {"type": "string", "description": "urlencoded, json, or raw", "default": "urlencoded"},
+                "headers": {"type": "object", "description": "Key/value headers. Use {cookie} for the session cookie placeholder."},
+                "body_template": {"type": "string", "description": "Body with {variable} placeholders"},
+                "parameters": {"type": "object", "description": "Static parameter values that fill placeholders, e.g. {\"employeeId\": \"2588\"}"},
+                "stored_cookie": {"type": "string", "description": "Session cookie to store with the config"},
+                "text_response_path": {"type": "string", "description": "For AiChatWinStory: dot-separated path to extract the text from the response, e.g. candidates.0.content.parts.0.text"},
+            },
+            "required": ["action", "name", "url", "body_template"],
+        },
+    ),
+    types.Tool(
+        name="update_request_config",
+        description="Update an existing API request config by ID.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "config_id": {"type": "string"},
+                "action": {"type": "string"},
+                "name": {"type": "string"},
+                "description": {"type": "string"},
+                "enabled": {"type": "boolean"},
+                "url": {"type": "string"},
+                "method": {"type": "string"},
+                "is_form_url_encoded": {"type": "boolean"},
+                "body_format": {"type": "string"},
+                "headers": {"type": "object"},
+                "body_template": {"type": "string"},
+                "parameters": {"type": "object"},
+                "stored_cookie": {"type": "string"},
+            },
+            "required": ["config_id"],
+        },
+    ),
+    types.Tool(
+        name="delete_request_config",
+        description="Delete an API request config by ID.",
+        inputSchema={
+            "type": "object",
+            "properties": {"config_id": {"type": "string"}},
+            "required": ["config_id"],
+        },
+    ),
+
+    # ═══════════════════════════════════════════════════════════
     # Member Personal (skills, notes, tasks)
     # ═══════════════════════════════════════════════════════════
     types.Tool(
@@ -2510,6 +2581,53 @@ async def call_tool(name: str, arguments: dict) -> list[types.TextContent]:
                 })
             case "dismiss_sync_event":
                 return await _delete(f"/api/v1/sync-queue/{arguments['event_id']}")
+
+            # ── API Request Configs ──
+            case "list_request_configs":
+                return await _get("/api/v1/request-configs")
+            case "create_request_config":
+                mapping = {}
+                if arguments.get("text_response_path"):
+                    mapping["textResponsePath"] = arguments["text_response_path"]
+                return await _post("/api/v1/request-configs", {
+                    "action": arguments["action"],
+                    "name": arguments["name"],
+                    "description": arguments.get("description"),
+                    "enabled": arguments.get("enabled", True),
+                    "url": arguments["url"],
+                    "method": arguments.get("method", "POST"),
+                    "isFormUrlEncoded": arguments.get("is_form_url_encoded", True),
+                    "bodyFormat": arguments.get("body_format", "urlencoded"),
+                    "headers": arguments.get("headers", {}),
+                    "bodyTemplate": arguments["body_template"],
+                    "parameters": arguments.get("parameters", {}),
+                    "storedCookie": arguments.get("stored_cookie"),
+                    "mapping": mapping,
+                })
+            case "update_request_config":
+                existing_cfg = await _get(f"/api/v1/request-configs/{arguments['config_id']}")
+                if isinstance(existing_cfg, list) and len(existing_cfg) == 1 and isinstance(existing_cfg[0], types.TextContent):
+                    existing_data = json.loads(existing_cfg[0].text)
+                else:
+                    existing_data = {}
+                merged = {
+                    "action": arguments.get("action", existing_data.get("action", "")),
+                    "name": arguments.get("name", existing_data.get("name", "")),
+                    "description": arguments.get("description", existing_data.get("description")),
+                    "enabled": arguments.get("enabled", existing_data.get("enabled", True)),
+                    "url": arguments.get("url", existing_data.get("url", "")),
+                    "method": arguments.get("method", existing_data.get("method", "POST")),
+                    "isFormUrlEncoded": arguments.get("is_form_url_encoded", existing_data.get("isFormUrlEncoded", True)),
+                    "bodyFormat": arguments.get("body_format", existing_data.get("bodyFormat", "urlencoded")),
+                    "headers": arguments.get("headers", existing_data.get("headers", {})),
+                    "bodyTemplate": arguments.get("body_template", existing_data.get("bodyTemplate", "")),
+                    "parameters": arguments.get("parameters", existing_data.get("parameters", {})),
+                    "storedCookie": arguments.get("stored_cookie", existing_data.get("storedCookie")),
+                    "mapping": existing_data.get("mapping", {}),
+                }
+                return await _put(f"/api/v1/request-configs/{arguments['config_id']}", merged)
+            case "delete_request_config":
+                return await _delete(f"/api/v1/request-configs/{arguments['config_id']}")
 
             # ── Member Personal ──
             case "get_member_personal":

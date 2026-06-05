@@ -11,7 +11,7 @@ import { QuickActionConfig } from '../../../core/models/timesheet-config.model';
 import { TimesheetConfigService } from '../../../core/services/timesheet-config.service';
 import { ReferenceDataService, ProjectDto, CategoryDto } from '../../../core/services/reference-data.service';
 import { TeamMemberService } from '../../../core/services/team-member.service';
-import { TIMESHEET_PROJECTS } from '../team-member-personal/timesheet-data.constants';
+import { TimesheetDefaultsService } from '../../../core/services/timesheet-defaults.service';
 import { ConfigQuickActionsComponent } from '../team-member-personal/timesheet-config-dialog/tabs/config-quick-actions.component';
 import { ConfigProjectsComponent } from '../team-member-personal/timesheet-config-dialog/tabs/config-projects.component';
 import { ConfigCategoriesComponent } from '../team-member-personal/timesheet-config-dialog/tabs/config-categories.component';
@@ -143,6 +143,7 @@ export class TimesheetConfigPageComponent implements OnInit {
   private refDataSvc = inject(ReferenceDataService);
   private memberSvc = inject(TeamMemberService);
   private dialog = inject(MatDialog);
+  private tsd = inject(TimesheetDefaultsService);
 
   readonly sections = SECTION_LABELS;
   sectionIdx = signal(0);
@@ -166,7 +167,7 @@ export class TimesheetConfigPageComponent implements OnInit {
 
   allProjects = computed(() => {
     const base = this.projects().map(p => p.name);
-    const defaults = TIMESHEET_PROJECTS.filter(p => !base.includes(p));
+    const defaults = this.tsd.projects().filter(p => !base.includes(p));
     const extras = this.extraProjects().filter(p => ![...base, ...defaults].includes(p));
     return [...base, ...defaults, ...extras];
   });
@@ -177,7 +178,7 @@ export class TimesheetConfigPageComponent implements OnInit {
     for (const p of this.projects()) {
       map[p.name] = this.categories().filter(c => c.projectId === p.id).sort((a, b) => a.displayOrder - b.displayOrder).map(c => c.name);
     }
-    for (const p of TIMESHEET_PROJECTS) { if (!baseProjects.includes(p) && !map[p]) map[p] = []; }
+    for (const p of this.tsd.projects()) { if (!baseProjects.includes(p) && !map[p]) map[p] = []; }
     for (const p of this.extraProjects()) { map[p] = [...(map[p] ?? []), ...(this.extraCategories()[p] ?? [])]; }
     for (const [project, cats] of Object.entries(this.extraCategories())) {
       if (map[project]) { for (const c of cats) { if (!map[project].includes(c)) map[project].push(c); } }
@@ -223,7 +224,7 @@ export class TimesheetConfigPageComponent implements OnInit {
   }
 
   isExtraProject = (project: string): boolean => {
-    return !this.projects().some(p => p.name === project) && !TIMESHEET_PROJECTS.includes(project);
+    return !this.projects().some(p => p.name === project) && !this.tsd.projects().includes(project);
   };
 
   toggleBillable(project: string, checked: boolean) {
