@@ -12,6 +12,8 @@ export interface TimesheetEntry {
   description: string | null;
   ticketNumber: string | null;
   createdAt: string;
+  externalId?: string | null;
+  syncStatus?: 'pending' | 'failed' | null;
 }
 
 export interface CreateTimesheetEntryRequest {

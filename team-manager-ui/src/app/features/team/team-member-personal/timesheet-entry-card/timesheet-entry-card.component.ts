@@ -7,8 +7,9 @@ import { MatIconModule } from '@angular/material/icon';
 import { TimesheetEntry, CreateTimesheetEntryRequest } from '../../../../core/models/timesheet.model';
 import {
   ActivityCombo, ACTIVITY_COMBOS, DURATION_CHIPS, DURATION_CHIP_MINUTES,
-  TIMESHEET_PROJECTS, CATEGORIES_BY_PROJECT, minutesToDurationLabel,
+  minutesToDurationLabel,
 } from '../timesheet-data.constants';
+import { TimesheetDefaultsService } from '../../../../core/services/timesheet-defaults.service';
 
 const DEFAULT_LOC_ICONS: Record<string, string> = {
   'Home': 'home', 'Client': 'store', 'Entelect': 'laptop', 'Other': 'location_on',
@@ -146,6 +147,7 @@ export class TsDeleteConfirmComponent {
 export class TsEditDialogComponent implements OnInit {
   data: TimesheetEntry = inject(MAT_DIALOG_DATA);
   dialogRef = inject(MatDialogRef<TsEditDialogComponent>);
+  private tsd = inject(TimesheetDefaultsService);
 
   confirming = signal(false);
   eProject = signal('');
@@ -157,10 +159,10 @@ export class TsEditDialogComponent implements OnInit {
   readonly combos = ACTIVITY_COMBOS;
   readonly durChips = DURATION_CHIPS;
   readonly chipMins = DURATION_CHIP_MINUTES;
-  readonly projects = TIMESHEET_PROJECTS;
+  get projects() { return this.tsd.projects(); }
   readonly locs = LOCATIONS;
 
-  editCats = computed(() => CATEGORIES_BY_PROJECT[this.eProject()] ?? []);
+  editCats = computed(() => this.tsd.categoriesFor(this.eProject()));
 
   ngOnInit() {
     const e = this.data;
@@ -204,6 +206,11 @@ export class TsEditDialogComponent implements OnInit {
     }
     @keyframes fadeIn { from { opacity:0; transform:translateY(3px); } to { opacity:1; transform:translateY(0); } }
     .card:hover { border-color:rgba(255,255,255,0.13); }
+    .card.sync-pending { box-shadow:inset 3px 0 0 rgba(255,167,38,0.65); }
+    .card.sync-failed, .card.sync-unsynced { box-shadow:inset 3px 0 0 rgba(239,83,80,0.75); }
+    .sync-dot { width:6px; height:6px; border-radius:50%; flex-shrink:0; }
+    .sync-dot.is-pending { background:#ffa726; }
+    .sync-dot.is-failed, .sync-dot.is-unsynced { background:#ef5350; }
     .pill { font-size:11px; font-weight:700; padding:2px 8px; border-radius:20px; flex-shrink:0; text-transform:uppercase; letter-spacing:0.03em; }
     .info { flex:1; min-width:0; }
     .info-title { font-size:13px; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
@@ -260,9 +267,17 @@ export class TsEditDialogComponent implements OnInit {
     }
   `],
   template: `
-    <div class="card" (click)="openEdit()">
+    <div class="card" [class.sync-pending]="syncStatus() === 'pending'" [class.sync-failed]="syncStatus() === 'failed'" [class.sync-unsynced]="syncStatus() === 'unsynced'" (click)="openEdit()">
 
       <!-- ── DESKTOP layout (hidden on mobile) ── -->
+      @if (syncStatus()) {
+        <span class="sync-dot"
+          [class.is-pending]="syncStatus() === 'pending'"
+          [class.is-failed]="syncStatus() === 'failed'"
+          [class.is-unsynced]="syncStatus() === 'unsynced'"
+          [matTooltip]="syncStatus() === 'pending' ? 'Sync pending' : syncStatus() === 'failed' ? 'Sync failed' : 'Not yet synced'"
+          matTooltipPosition="above"></span>
+      }
       <span class="pill" [style.background]="combo().bg" [style.color]="combo().color">{{ combo().label }}</span>
       <div class="info">
         <div class="info-title">{{ entry().category }}</div>
@@ -322,6 +337,7 @@ export class TimesheetEntryCardComponent {
   private dialog = inject(MatDialog);
 
   entry = input.required<TimesheetEntry>();
+  syncStatus = input<'pending' | 'failed' | 'unsynced' | null>(null);
   locations = input<string[]>(LOCATIONS);
   locationIcons = input<Record<string, string>>({});
   edit = output<TimesheetEntry>();

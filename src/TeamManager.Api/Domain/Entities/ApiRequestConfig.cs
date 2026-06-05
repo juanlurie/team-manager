@@ -19,6 +19,8 @@ public class ApiRequestConfig
     public string MappingJson { get; set; } = "{}";
     public string ParametersJson { get; set; } = "{}";
     public string? StoredCookie { get; set; }
+    public int RetryCount { get; set; } = 0;
+    public string? SuccessCriteriaJson { get; set; }
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
     public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.UtcNow;
 }

@@ -26,7 +26,7 @@ import {
     CommonModule, FormsModule, MatIconModule, MatButtonModule,
     MatInputModule, MatFormFieldModule, MatSelectModule,
     MatSlideToggleModule, MatSnackBarModule, MatDialogModule,
-    MatTableModule, MatTooltipModule
+    MatTooltipModule
   ],
   template: `
     <div class="configs-page">
@@ -57,65 +57,31 @@ import {
             <p>No API request configs yet. Create one to get started.</p>
           </div>
         } @else {
-          <table mat-table [dataSource]="configs()" class="configs-table">
-            <ng-container matColumnDef="action">
-              <th mat-header-cell *matHeaderCellDef>Action</th>
-              <td mat-cell *matCellDef="let config">
-                <span class="action-badge">
-                  <mat-icon class="action-icon">{{ getActionIcon(config.action) }}</mat-icon>
-                  {{ getActionLabel(config.action) }}
-                </span>
-              </td>
-            </ng-container>
-
-            <ng-container matColumnDef="name">
-              <th mat-header-cell *matHeaderCellDef>Name</th>
-              <td mat-cell *matCellDef="let config">
-                <span class="config-name">{{ config.name }}</span>
-                @if (config.description) {
-                  <span class="config-desc">{{ config.description }}</span>
-                }
-              </td>
-            </ng-container>
-
-            <ng-container matColumnDef="enabled">
-              <th mat-header-cell *matHeaderCellDef>Enabled</th>
-              <td mat-cell *matCellDef="let config">
-                <span class="status-badge" [class.enabled]="config.enabled" [class.disabled]="!config.enabled">
-                  {{ config.enabled ? 'On' : 'Off' }}
-                </span>
-              </td>
-            </ng-container>
-
-            <ng-container matColumnDef="method">
-              <th mat-header-cell *matHeaderCellDef>Method</th>
-              <td mat-cell *matCellDef="let config">
-                <span class="method-badge" [class.post]="config.method === 'POST'" [class.get]="config.method === 'GET'">
-                  {{ config.method }}
-                </span>
-              </td>
-            </ng-container>
-
-            <ng-container matColumnDef="url">
-              <th mat-header-cell *matHeaderCellDef>URL</th>
-              <td mat-cell *matCellDef="let config" class="url-cell">{{ config.url }}</td>
-            </ng-container>
-
-            <ng-container matColumnDef="actions">
-              <th mat-header-cell *matHeaderCellDef></th>
-              <td mat-cell *matCellDef="let config" class="actions-cell">
-                <button mat-icon-button color="primary" (click)="openDialog(config)" matTooltip="Edit">
-                  <mat-icon>edit</mat-icon>
-                </button>
-                <button mat-icon-button color="warn" (click)="deleteConfig(config)" matTooltip="Delete">
-                  <mat-icon>delete</mat-icon>
-                </button>
-              </td>
-            </ng-container>
-
-            <tr mat-header-row *matHeaderRowDef="['action', 'name', 'enabled', 'method', 'url', 'actions']"></tr>
-            <tr mat-row *matRowDef="let row; columns: ['action', 'name', 'enabled', 'method', 'url', 'actions']"></tr>
-          </table>
+          <div class="configs-list">
+            @for (config of configs(); track config.id) {
+              <div class="config-card">
+                <div class="card-main">
+                  <div class="card-top">
+                    <span class="action-badge">
+                      <mat-icon class="action-icon">{{ getActionIcon(config.action) }}</mat-icon>
+                      {{ getActionLabel(config.action) }}
+                    </span>
+                    <div class="card-badges">
+                      <span class="method-badge" [class.post]="config.method === 'POST'" [class.get]="config.method === 'GET'">{{ config.method }}</span>
+                      <span class="status-badge" [class.enabled]="config.enabled" [class.disabled]="!config.enabled">{{ config.enabled ? 'On' : 'Off' }}</span>
+                    </div>
+                  </div>
+                  <div class="card-name">{{ config.name }}</div>
+                  @if (config.description) { <div class="card-desc">{{ config.description }}</div> }
+                  <div class="card-url">{{ config.url }}</div>
+                </div>
+                <div class="card-actions">
+                  <button mat-icon-button color="primary" (click)="openDialog(config)" matTooltip="Edit"><mat-icon>edit</mat-icon></button>
+                  <button mat-icon-button color="warn" (click)="deleteConfig(config)" matTooltip="Delete"><mat-icon>delete</mat-icon></button>
+                </div>
+              </div>
+            }
+          </div>
         }
       }
 
@@ -123,34 +89,40 @@ import {
     </div>
   `,
   styles: [`
-    .configs-page { max-width: 1200px; margin: 0 auto; padding: 8px; }
-    .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; flex-wrap: wrap; gap: 12px; }
-    .header-left { display: flex; align-items: center; gap: 12px; }
-    .header-icon { font-size: 28px; width: 28px; height: 28px; color: #64b5f6; }
-    .page-header h1 { font-size: 1.3rem; font-weight: 700; color: rgba(255,255,255,0.9); margin: 0; }
-    .header-actions { display: flex; gap: 8px; }
+    .configs-page { max-width: 900px; margin: 0 auto; padding: 8px; }
+    .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px; }
+    .header-left { display: flex; align-items: center; gap: 10px; }
+    .header-icon { font-size: 26px; width: 26px; height: 26px; color: #64b5f6; }
+    .page-header h1 { font-size: 1.2rem; font-weight: 700; color: rgba(255,255,255,0.9); margin: 0; }
+    .header-actions { display: flex; gap: 6px; flex-wrap: wrap; }
     .loading { text-align: center; padding: 64px; opacity: 0.35; }
     .empty-state { text-align: center; padding: 64px 24px; color: rgba(255,255,255,0.4); }
-    .empty-state mat-icon { font-size: 48px; width: 48px; height: 48px; margin-bottom: 16px; }
+    .empty-state mat-icon { font-size: 48px; width: 48px; height: 48px; margin-bottom: 16px; display: block; }
 
-    .configs-table { width: 100%; background: rgba(255,255,255,0.02); border-radius: 8px; overflow: hidden; }
-    .mat-mdc-header-row { background: rgba(255,255,255,0.05); }
-    .mat-mdc-header-cell { color: rgba(255,255,255,0.6); font-weight: 600; font-size: 0.8rem; }
-    .mat-mdc-cell { color: rgba(255,255,255,0.8); }
+    .configs-list { display: flex; flex-direction: column; gap: 8px; }
+    .config-card { display: flex; align-items: flex-start; gap: 8px; padding: 12px 14px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; transition: border-color 0.15s; }
+    .config-card:hover { border-color: rgba(255,255,255,0.14); }
+    .card-main { flex: 1; min-width: 0; }
+    .card-top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 5px; }
+    .card-badges { display: flex; align-items: center; gap: 5px; margin-left: auto; }
+    .card-name { font-size: 0.9rem; font-weight: 600; color: rgba(255,255,255,0.88); }
+    .card-desc { font-size: 0.75rem; color: rgba(255,255,255,0.38); margin-top: 1px; }
+    .card-url { font-size: 0.72rem; font-family: monospace; color: rgba(255,255,255,0.35); margin-top: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .card-actions { display: flex; flex-direction: column; flex-shrink: 0; }
 
-    .config-name { font-weight: 600; display: block; }
-    .config-desc { font-size: 0.75rem; color: rgba(255,255,255,0.4); display: block; }
-    .url-cell { font-size: 0.8rem; max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .actions-cell { display: flex; gap: 4px; }
-
-    .status-badge { padding: 2px 8px; border-radius: 12px; font-size: 0.75rem; font-weight: 600; }
+    .status-badge { padding: 2px 8px; border-radius: 12px; font-size: 0.72rem; font-weight: 600; }
     .status-badge.enabled { background: rgba(76,175,80,0.2); color: #4caf50; }
-    .status-badge.disabled { background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.4); }
-    .method-badge { padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 700; }
-    .method-badge.post { background: rgba(33,150,243,0.2); color: #2196f3; }
-    .method-badge.get { background: rgba(76,175,80,0.2); color: #4caf50; }
-    .action-badge { display: flex; align-items: center; gap: 6px; font-size: 0.8rem; font-weight: 600; color: rgba(255,255,255,0.7); }
-    .action-icon { font-size: 18px; width: 18px; height: 18px; color: #64b5f6; }
+    .status-badge.disabled { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.35); }
+    .method-badge { padding: 2px 7px; border-radius: 4px; font-size: 0.7rem; font-weight: 700; }
+    .method-badge.post { background: rgba(33,150,243,0.18); color: #2196f3; }
+    .method-badge.get { background: rgba(76,175,80,0.18); color: #4caf50; }
+    .action-badge { display: flex; align-items: center; gap: 5px; font-size: 0.78rem; font-weight: 600; color: rgba(255,255,255,0.65); }
+    .action-icon { font-size: 16px; width: 16px; height: 16px; color: #64b5f6; }
+
+    @media (max-width: 480px) {
+      .header-actions button span { display: none; }
+      .card-actions { flex-direction: row; }
+    }
   `]
 })
 export class ApiRequestConfigsComponent implements OnInit {
@@ -189,8 +161,9 @@ export class ApiRequestConfigsComponent implements OnInit {
 
   openDialog(config?: ApiRequestConfig) {
     const dialogRef = this.dialog.open(ApiRequestConfigDialogComponent, {
-      width: '700px',
-      maxWidth: '95vw',
+      width: '620px',
+      maxWidth: '100vw',
+      panelClass: 'dark-dialog',
       data: config ? { ...config } : this.newConfig()
     });
 
@@ -271,6 +244,8 @@ export class ApiRequestConfigsComponent implements OnInit {
       headers: {},
       parameters: {},
       bodyTemplate: '',
+      retryCount: 0,
+      successCriteria: null,
       mapping: {
         arrayPath: '',
         namePath: 'title',
@@ -280,7 +255,13 @@ export class ApiRequestConfigsComponent implements OnInit {
         daysPath: 'totalDays',
         statusPath: 'status',
         nameTransform: 'ExtractBeforeDash',
-        externalIdPath: ''
+        externalIdPath: '',
+        projectsPath: '',
+        projectNamePath: 'name',
+        projectIdPath: 'id',
+        projectCategoriesPath: 'categories',
+        categoryNamePath: 'name',
+        categoryIdPath: 'id'
       }
     };
   }
@@ -352,22 +333,23 @@ export class ApiRequestConfigsComponent implements OnInit {
             <input matInput [(ngModel)]="data.url" placeholder="https://example.com/api">
           </mat-form-field>
 
-          <mat-form-field appearance="outline">
-            <mat-label>HTTP Method</mat-label>
-            <mat-select [(ngModel)]="data.method">
-              <mat-option value="GET">GET</mat-option>
-              <mat-option value="POST">POST</mat-option>
-            </mat-select>
-          </mat-form-field>
-
-          <mat-form-field appearance="outline">
-            <mat-label>Body Format</mat-label>
-            <mat-select [(ngModel)]="data.bodyFormat">
-              <mat-option value="raw">Raw</mat-option>
-              <mat-option value="urlencoded">URL Encoded</mat-option>
-              <mat-option value="json">JSON</mat-option>
-            </mat-select>
-          </mat-form-field>
+          <div class="inline-fields">
+            <mat-form-field appearance="outline">
+              <mat-label>HTTP Method</mat-label>
+              <mat-select [(ngModel)]="data.method">
+                <mat-option value="GET">GET</mat-option>
+                <mat-option value="POST">POST</mat-option>
+              </mat-select>
+            </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>Body Format</mat-label>
+              <mat-select [(ngModel)]="data.bodyFormat">
+                <mat-option value="raw">Raw</mat-option>
+                <mat-option value="urlencoded">URL Encoded</mat-option>
+                <mat-option value="json">JSON</mat-option>
+              </mat-select>
+            </mat-form-field>
+          </div>
 
           <div class="section-header">
             <h3>Headers</h3>
@@ -424,6 +406,38 @@ export class ApiRequestConfigsComponent implements OnInit {
             }
           </mat-form-field>
 
+          <div class="section-header"><h3>Success &amp; Retry</h3></div>
+          <div class="success-retry-row">
+            <mat-form-field appearance="outline" class="f-status">
+              <mat-label>Required Status</mat-label>
+              <input matInput type="number" placeholder="200"
+                [ngModel]="data.successCriteria?.requiredStatus ?? null"
+                (ngModelChange)="setCriteriaStatus($event)">
+              <mat-hint>e.g. 200</mat-hint>
+            </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>Success JSON Path</mat-label>
+              <input matInput placeholder="success"
+                [ngModel]="data.successCriteria?.jsonPath ?? ''"
+                (ngModelChange)="setCriteriaPath($event)">
+              <mat-hint>e.g. data.result</mat-hint>
+            </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>Expected Value</mat-label>
+              <input matInput placeholder="true"
+                [ngModel]="data.successCriteria?.jsonValue ?? ''"
+                (ngModelChange)="setCriteriaValue($event)">
+              <mat-hint>Blank = path just exists</mat-hint>
+            </mat-form-field>
+            <mat-form-field appearance="outline" class="f-retries">
+              <mat-label>Retries</mat-label>
+              <input matInput type="number" min="0" max="5" placeholder="0"
+                [ngModel]="data.retryCount ?? 0"
+                (ngModelChange)="data.retryCount = +$event">
+              <mat-hint>On failure</mat-hint>
+            </mat-form-field>
+          </div>
+
           @if (data.action === 'AddTimesheetEntry') {
             <div class="section-header">
               <h3>Response Mapping</h3>
@@ -433,6 +447,42 @@ export class ApiRequestConfigsComponent implements OnInit {
               <input matInput [(ngModel)]="data.mapping.externalIdPath" placeholder="entryId">
               <mat-hint>Path to the external ID in the response — saved back to the timesheet entry</mat-hint>
             </mat-form-field>
+          }
+
+          @if (data.action === 'GetTimesheetProjects') {
+            <div class="section-header">
+              <h3>Response Mapping</h3>
+            </div>
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>Projects Path</mat-label>
+              <input matInput [(ngModel)]="data.mapping.projectsPath" placeholder="data.projects">
+              <mat-hint>Path to the projects array — leave empty if the root is the array</mat-hint>
+            </mat-form-field>
+            <div class="mapping-grid">
+              <mat-form-field appearance="outline">
+                <mat-label>Project Name Path</mat-label>
+                <input matInput [(ngModel)]="data.mapping.projectNamePath" placeholder="name">
+              </mat-form-field>
+              <mat-form-field appearance="outline">
+                <mat-label>Project ID Path</mat-label>
+                <input matInput [(ngModel)]="data.mapping.projectIdPath" placeholder="id">
+                <mat-hint>Saved as correlation ID</mat-hint>
+              </mat-form-field>
+              <mat-form-field appearance="outline">
+                <mat-label>Categories Path</mat-label>
+                <input matInput [(ngModel)]="data.mapping.projectCategoriesPath" placeholder="categories">
+                <mat-hint>Within each project object</mat-hint>
+              </mat-form-field>
+              <mat-form-field appearance="outline">
+                <mat-label>Category Name Path</mat-label>
+                <input matInput [(ngModel)]="data.mapping.categoryNamePath" placeholder="name">
+              </mat-form-field>
+              <mat-form-field appearance="outline">
+                <mat-label>Category ID Path</mat-label>
+                <input matInput [(ngModel)]="data.mapping.categoryIdPath" placeholder="id">
+                <mat-hint>Saved as correlation ID</mat-hint>
+              </mat-form-field>
+            </div>
           }
 
           @if (data.action === 'FetchLeave') {
@@ -588,18 +638,27 @@ export class ApiRequestConfigsComponent implements OnInit {
     </div>
   `,
   styles: [`
-    .dialog-content { min-width: 500px; }
+    .dialog-content { width: min(580px, 96vw); box-sizing: border-box; }
     .form-grid { display: flex; flex-direction: column; gap: 8px; }
     .full-width { width: 100%; }
-    .half-width { flex: 1; }
-    .field-row { display: flex; align-items: center; gap: 16px; padding: 8px 0; }
-    .field-label { font-size: 0.85rem; color: rgba(255,255,255,0.6); min-width: 140px; }
+    .half-width { flex: 1; min-width: 120px; }
+    .field-row { display: flex; align-items: center; gap: 12px; padding: 8px 0; flex-wrap: wrap; }
+    .field-label { font-size: 0.85rem; color: rgba(255,255,255,0.6); min-width: 80px; }
     .section-header { display: flex; align-items: center; gap: 8px; margin-top: 16px; margin-bottom: 4px; }
     .section-header h3 { font-size: 0.95rem; font-weight: 600; color: rgba(255,255,255,0.7); margin: 0; }
-    .header-row { display: flex; align-items: flex-start; gap: 8px; }
+    .header-row { display: flex; align-items: flex-start; gap: 8px; flex-wrap: wrap; }
     .remove-btn { margin-top: 4px; }
+    .inline-fields { display: flex; gap: 8px; flex-wrap: wrap; }
+    .inline-fields mat-form-field { flex: 1; min-width: 100px; }
+    .success-retry-row { display: flex; gap: 8px; flex-wrap: wrap; }
+    .success-retry-row mat-form-field { flex: 1; min-width: 100px; }
+    .success-retry-row .f-status { flex: 0 0 100px; }
+    .success-retry-row .f-retries { flex: 0 0 80px; }
     .mapping-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-    @media (max-width: 600px) { .mapping-grid { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 500px) {
+      .mapping-grid { grid-template-columns: 1fr 1fr; }
+      .success-retry-row .f-status, .success-retry-row .f-retries { flex: 1 1 80px; }
+    }
 
     .path-picker { padding: 12px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; margin-bottom: 8px; }
     .path-picker-actions { display: flex; justify-content: flex-end; margin-bottom: 8px; }
@@ -710,6 +769,17 @@ export class ApiRequestConfigDialogComponent implements OnInit {
   ngOnInit() {
     this.headerEntries.set(Object.entries(this.data.headers || {}).map(([k, v]) => ({ key: k, value: v as string })));
     this.parameterEntries.set(Object.entries(this.data.parameters || {}).map(([k, v]) => ({ key: k, value: v as string })));
+  }
+
+  setCriteriaStatus(v: any) {
+    const n = v === '' || v === null ? null : +v;
+    this.data = { ...this.data, successCriteria: { ...(this.data.successCriteria ?? {}), requiredStatus: n } };
+  }
+  setCriteriaPath(v: string) {
+    this.data = { ...this.data, successCriteria: { ...(this.data.successCriteria ?? {}), jsonPath: v || null } };
+  }
+  setCriteriaValue(v: string) {
+    this.data = { ...this.data, successCriteria: { ...(this.data.successCriteria ?? {}), jsonValue: v || null } };
   }
 
   addHeader() {

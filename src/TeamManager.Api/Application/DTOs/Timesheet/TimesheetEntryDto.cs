@@ -14,5 +14,6 @@ public record TimesheetEntryDto(
     string? Description,
     string? TicketNumber,
     DateTimeOffset CreatedAt,
-    string? ExternalId = null
+    string? ExternalId = null,
+    string? SyncStatus = null
 );

@@ -5,14 +5,16 @@ import { FormsModule } from '@angular/forms';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { forkJoin } from 'rxjs';
+import { HttpClient } from '@angular/common/http';
 import { TimesheetService } from '../../../../core/services/timesheet.service';
 import { TimesheetConfigService } from '../../../../core/services/timesheet-config.service';
 import { TimesheetEntry, CreateTimesheetEntryRequest } from '../../../../core/models/timesheet.model';
 import { TimesheetConfig, QuickActionConfig } from '../../../../core/models/timesheet-config.model';
 import {
   ActivityCombo, ACTIVITY_COMBOS,
-  TIMESHEET_PROJECTS, CATEGORIES_BY_PROJECT, minutesToDurationLabel, PUBLIC_HOLIDAYS_2026,
+  minutesToDurationLabel, PUBLIC_HOLIDAYS_2026,
 } from '../timesheet-data.constants';
+import { TimesheetDefaultsService } from '../../../../core/services/timesheet-defaults.service';
 import { TimesheetConfigDialogComponent } from '../timesheet-config-dialog/timesheet-config-dialog.component';
 import { WebSocketService } from '../../../../core/websocket/websocket.service';
 import { TimesheetEntryCardComponent } from '../timesheet-entry-card/timesheet-entry-card.component';
@@ -35,6 +37,8 @@ export class TimesheetTabComponent implements OnInit, OnDestroy {
   private cfgSvc = inject(TimesheetConfigService);
   private dialog = inject(MatDialog);
   private ws = inject(WebSocketService);
+  private tsd = inject(TimesheetDefaultsService);
+  private http = inject(HttpClient);
   private wsSub?: Subscription;
 
   private today = new Date();
@@ -42,9 +46,19 @@ export class TimesheetTabComponent implements OnInit, OnDestroy {
   selectedDate = signal(new Date());
   entries = signal<TimesheetEntry[]>([]);
   loading = signal(false);
+  syncing = signal(false);
   mobileAddOpen = signal(false);
 
   tsConfig = signal<TimesheetConfig>({ extraProjects: [], extraCategories: {}, quickActions: [] });
+
+  hasSyncConfig = computed(() =>
+    Object.keys(this.tsConfig().categoryCorrelationIds ?? {}).length > 0
+  );
+
+  dayHasPendingSync = computed(() => {
+    if (!this.hasSyncConfig()) return false;
+    return this.dayEntries().some(e => !e.externalId);
+  });
 
   readonly fmtDur = minutesToDurationLabel;
 
@@ -55,13 +69,13 @@ export class TimesheetTabComponent implements OnInit, OnDestroy {
 
   allProjects = computed<string[]>(() => {
     const extras = this.tsConfig().extraProjects;
-    return [...TIMESHEET_PROJECTS, ...extras.filter(p => !TIMESHEET_PROJECTS.includes(p))];
+    return [...this.tsd.projects(), ...extras.filter(p => !this.tsd.projects().includes(p))];
   });
 
   allCatMap = computed<Record<string, string[]>>(() => {
     const map: Record<string, string[]> = {};
     for (const proj of this.allProjects()) {
-      const defaults = CATEGORIES_BY_PROJECT[proj] ?? [];
+      const defaults = this.tsd.categoriesFor(proj);
       const extras = this.tsConfig().extraCategories[proj] ?? [];
       map[proj] = [...defaults, ...extras.filter(c => !defaults.includes(c))];
     }
@@ -162,6 +176,8 @@ export class TimesheetTabComponent implements OnInit, OnDestroy {
       defaultWorkedFrom,
       billableProjects: config.billableProjects ?? [],
       prefill: prefill ?? null,
+      workLocationOptions: config.workLocationOptions,
+      locationIcons: config.locationIcons,
     };
 
     const ref = this.dialog.open(TimesheetQuickAddModalComponent, {
@@ -188,8 +204,7 @@ export class TimesheetTabComponent implements OnInit, OnDestroy {
 
   openEdit(entry: TimesheetEntry) {
     const config = this.tsConfig();
-    const dayName = new Date(entry.date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long' });
-    const defaultWorkedFrom = (config.workWeek ?? {})[dayName] ?? entry.workedFrom ?? 'Home';
+    const defaultWorkedFrom = entry.workedFrom || 'Home';
 
     const data: QuickAddData = {
       date: entry.date,
@@ -205,6 +220,8 @@ export class TimesheetTabComponent implements OnInit, OnDestroy {
         durationMins: entry.hours * 60 + entry.minutes,
       },
       editEntryId: entry.id,
+      workLocationOptions: config.workLocationOptions,
+      locationIcons: config.locationIcons,
     };
 
     const ref = this.dialog.open(TimesheetQuickAddModalComponent, {
@@ -383,6 +400,24 @@ export class TimesheetTabComponent implements OnInit, OnDestroy {
     });
     ref.afterClosed().subscribe(result => {
       if (result) this.tsConfig.set(result);
+    });
+  }
+
+  entrySyncStatus(e: TimesheetEntry): 'pending' | 'failed' | 'unsynced' | null {
+    if (!this.hasSyncConfig()) return null;
+    if (e.externalId) return null;
+    if (e.syncStatus === 'failed') return 'failed';
+    if (e.syncStatus === 'pending') return 'pending';
+    return 'unsynced';
+  }
+
+  syncDay() {
+    const ids = this.dayEntries().filter(e => !e.externalId).map(e => e.id);
+    if (!ids.length || this.syncing()) return;
+    this.syncing.set(true);
+    this.http.post(`/api/v1/team-members/${this.memberId()}/timesheets/enqueue-sync`, { entryIds: ids }).subscribe({
+      next: () => { this.syncing.set(false); this.load(); },
+      error: () => { this.syncing.set(false); },
     });
   }
 

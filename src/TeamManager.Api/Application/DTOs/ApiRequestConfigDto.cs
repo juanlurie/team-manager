@@ -13,7 +13,16 @@ public record ApiRequestConfigDto(
     Dictionary<string, string>? Headers = null,
     string BodyTemplate = "",
     MappingConfigDto? Mapping = null,
-    Dictionary<string, string>? Parameters = null
+    Dictionary<string, string>? Parameters = null,
+    string? StoredCookie = null,
+    int RetryCount = 0,
+    SuccessCriteriaDto? SuccessCriteria = null
+);
+
+public record SuccessCriteriaDto(
+    int? RequiredStatus = null,
+    string? JsonPath = null,
+    string? JsonValue = null
 );
 
 public record MappingConfigDto(
@@ -25,5 +34,18 @@ public record MappingConfigDto(
     string DaysPath = "totalDays",
     string StatusPath = "status",
     string NameTransform = "ExtractBeforeDash",
-    string ExternalIdPath = ""
+    string ExternalIdPath = "",
+    // Project/category sync mapping
+    string ProjectsPath = "",
+    string ProjectNamePath = "",
+    string ProjectIdPath = "",
+    string ProjectCategoriesPath = "",
+    string CategoryNamePath = "",
+    string CategoryIdPath = "",
+    // Response format: "json" (default) or "html"
+    string ResponseFormat = "json",
+    // For HTML responses: marker text before the JSON array, e.g. "new timesheet("
+    string HtmlJsonMarker = "",
+    // Regex to extract external employee ID from response, e.g. "employeeId:\s*(\d+)"
+    string EmployeeIdPattern = ""
 );
