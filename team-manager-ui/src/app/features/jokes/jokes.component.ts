@@ -169,10 +169,10 @@ export class JokesComponent implements OnInit, OnDestroy {
 
     this.wsSub = this.ws.messages$.subscribe(msg => {
       if (msg?.type !== 'joke_generated') return;
+      if (!this.loading()) return;
       const data = msg.data as { jokeTypeId: string; joke: string | null; status: string };
-      if (data.jokeTypeId !== this.selectedType()?.id) return;
-      this.loading.set(false);
       const text = data.joke?.trim() || null;
+      this.loading.set(false);
       this.joke.set(text);
       this.failed.set(!text);
     });
@@ -206,10 +206,8 @@ export class JokesComponent implements OnInit, OnDestroy {
       next: r => {
         const text = r.joke?.trim() || null;
         this.loading.set(false);
-        if (!this.joke()) {
-          this.joke.set(text);
-          this.failed.set(!text);
-        }
+        this.joke.set(text);
+        this.failed.set(!text);
       },
       error: () => { this.loading.set(false); this.failed.set(true); },
     });
