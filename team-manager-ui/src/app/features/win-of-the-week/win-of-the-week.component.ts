@@ -21,6 +21,7 @@ import { TeamMember } from '../../core/models/team-member.model';
 import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/confirm-dialog.component';
 import { WinOfTheWeekHistoryComponent } from '../win-of-the-week-history/win-of-the-week-history.component';
 import { WinOfTheMonthComponent } from '../win-of-the-month/win-of-the-month.component';
+import { FeatureAccessService } from '../../core/services/feature-access.service';
 
 @Component({
   selector: 'app-win-of-the-week',
@@ -80,11 +81,13 @@ import { WinOfTheMonthComponent } from '../win-of-the-month/win-of-the-month.com
           <button mat-menu-item (click)="activeTab.set('history')">
             <mat-icon>history</mat-icon>History
           </button>
-          <button mat-menu-item (click)="activeTab.set('month')">
-            <mat-icon>calendar_month</mat-icon>Win of the Month
-          </button>
+          @if (hasWinOfMonth()) {
+            <button mat-menu-item (click)="activeTab.set('month')">
+              <mat-icon>calendar_month</mat-icon>Win of the Month
+            </button>
+          }
           <mat-divider />
-          @if (activeTab() === 'current') {
+          @if (activeTab() === 'current' && isHost()) {
             @if (currentWeek()?.status === 'Nominating' && (currentWeek()?.nominations?.length ?? 0) > 0) {
               <button mat-menu-item (click)="openVoting()">
                 <mat-icon>how_to_vote</mat-icon>Open Voting
@@ -234,6 +237,17 @@ import { WinOfTheMonthComponent } from '../win-of-the-month/win-of-the-month.com
           <div style="margin-top:12px;display:inline-block;background:rgba(255,215,0,0.15);border:1px solid rgba(255,215,0,0.4);border-radius:8px;padding:8px 14px">
             <span style="font-size:0.85rem;font-weight:700;color:#B8860B">🏅 Weekly Champion +10 points</span>
           </div>
+          @if (winner.winnerStory) {
+            <div style="margin-top:16px;background:rgba(0,0,0,0.25);border:1px solid rgba(255,215,0,0.2);border-radius:10px;padding:14px 16px;text-align:left">
+              <div style="font-size:0.7rem;text-transform:uppercase;letter-spacing:1px;color:#FFD700;opacity:0.7;margin-bottom:8px">✨ Hero Story</div>
+              <div style="font-size:0.88rem;line-height:1.6;opacity:0.85;white-space:pre-wrap">{{winner.winnerStory}}</div>
+              <button mat-stroked-button (click)="copyStory(winner.winnerStory)"
+                      style="margin-top:10px;font-size:0.75rem;height:28px;line-height:28px;min-width:0;padding:0 12px;color:rgba(255,215,0,0.8);border-color:rgba(255,215,0,0.3)">
+                <mat-icon style="font-size:14px;width:14px;height:14px;vertical-align:middle;margin-right:4px">content_copy</mat-icon>
+                Copy story
+              </button>
+            </div>
+          }
           <div style="font-size:0.75rem;opacity:0.45;margin-top:12px">Winner of the Week</div>
         </div>
       }
@@ -372,6 +386,7 @@ export class WinOfTheWeekComponent implements OnInit, OnDestroy {
   private wsSvc = inject(WebSocketService);
   private dialog = inject(MatDialog);
   private snackBar = inject(MatSnackBar);
+  private featureAccess = inject(FeatureAccessService);
   private wsSub: Subscription | null = null;
   private timerSub: Subscription | null = null;
   private timerExpiredWeekId: string | null = null;
@@ -388,6 +403,9 @@ export class WinOfTheWeekComponent implements OnInit, OnDestroy {
   spinnerName = signal('');
   currentUserId = '';
   now = signal(Date.now());
+
+  readonly isHost = this.featureAccess.hasAccess$('wow-host');
+  readonly hasWinOfMonth = this.featureAccess.hasAccess$('win-of-month');
 
   nominateForm: CreateNominationRequest = {
     nomineeMemberId: '',
@@ -495,6 +513,9 @@ export class WinOfTheWeekComponent implements OnInit, OnDestroy {
         case 'sudden_death_started':
         case 'nominations_reopened':
         case 'presence_changed':
+          this.silentRefresh();
+          break;
+        case 'win_story_ready':
           this.silentRefresh();
           break;
         case 'voting_closed': {
@@ -793,6 +814,14 @@ export class WinOfTheWeekComponent implements OnInit, OnDestroy {
       this.snackBar.open('Link copied! Share on WhatsApp 📱', 'Close', { duration: 3000 });
     }).catch(() => {
       this.snackBar.open('Failed to copy link', 'Close', { duration: 3000 });
+    });
+  }
+
+  copyStory(story: string) {
+    navigator.clipboard.writeText(story).then(() => {
+      this.snackBar.open('Hero story copied! 🦸', 'Close', { duration: 2000 });
+    }).catch(() => {
+      this.snackBar.open('Failed to copy story', 'Close', { duration: 3000 });
     });
   }
 }

@@ -12,15 +12,20 @@ const routeFeatureMap: Record<string, string> = {
   'meetings': 'meetings',
   'fun': 'fun-hub',
   'team': 'team',
+  'timesheet': 'team',
   'leave': 'leave',
   'export': 'export',
   'settings': 'settings',
   'access-requests': 'access-requests',
+  'sync-queue': 'settings',
+  'request-configs': 'settings',
   'pis': 'features',
   'milestones': 'features',
-  'showcase': 'features',
+  'showcase': 'showcase',
   'session-types': 'meetings',
-  'expense-claim': 'features',
+  'expense-claim': 'expense-claim',
+  'api-keys': 'api-keys',
+  'win-of-the-month': 'win-of-month',
 };
 
 export const featureGuard: CanActivateFn = (route: ActivatedRouteSnapshot) => {
@@ -28,12 +33,8 @@ export const featureGuard: CanActivateFn = (route: ActivatedRouteSnapshot) => {
   const router = inject(Router);
   const snackBar = inject(MatSnackBar);
 
-  const firstSegment = route.pathFromRoot
-    .map(r => r.url.map(s => s.path).join('/'))
-    .join('/')
-    .split('/')[0];
-
-  const featureKey = routeFeatureMap[firstSegment];
+  const segment = route.url[0]?.path ?? '';
+  const featureKey = route.data?.['featureKey'] ?? routeFeatureMap[segment];
 
   if (!featureKey) return true;
 

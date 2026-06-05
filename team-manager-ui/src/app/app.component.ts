@@ -11,6 +11,7 @@ import { TeamMember } from './core/models/team-member.model';
 import { GlobalFilterService } from './core/services/global-filter.service';
 import { AuthService } from './core/auth/auth.service';
 import { FeatureAccessService } from './core/services/feature-access.service';
+import { TimesheetDefaultsService } from './core/services/timesheet-defaults.service';
 
 interface NavItem {
   path: string;
@@ -29,15 +30,14 @@ const ALL_PRIMARY_NAV: NavItem[] = [
   { path: '/fun',            icon: 'casino',          label: 'Fun Hub',      featureKey: 'fun-hub' },
   { path: '/team',           icon: 'people',          label: 'Team',         featureKey: 'team' },
   { path: '/timesheet',      icon: 'schedule',        label: 'Timesheet',    featureKey: 'team' },
+  { path: '/sync-queue',     icon: 'sync',            label: 'Sync Queue',   featureKey: 'settings' },
   { path: '/leave',          icon: 'event_busy',      label: 'Leave',        featureKey: 'leave' },
 ];
 
 const ALL_SECONDARY_NAV: NavItem[] = [
   { path: '/access-requests', icon: 'person_add', label: 'Access Requests', featureKey: 'access-requests' },
-  { path: '/expense-claim', icon: 'receipt_long', label: 'Expense Claim' },
+  { path: '/expense-claim', icon: 'receipt_long', label: 'Expense Claim', featureKey: 'expense-claim' },
   { path: '/settings', icon: 'settings', label: 'Settings', featureKey: 'settings' },
-  { path: '/request-configs', icon: 'api', label: 'Request Configs', featureKey: 'settings' },
-  { path: '/sync-queue', icon: 'sync', label: 'Sync Queue', featureKey: 'settings' },
   { path: '/export', icon: 'download', label: 'Export', featureKey: 'export' },
   { path: '/profile', icon: 'person', label: 'Profile' },
 ];
@@ -57,12 +57,10 @@ const ALL_MORE_NAV: NavItem[] = [
   { path: '/discussion',     icon: 'forum',          label: 'Discussion',    featureKey: 'discussion' },
   { path: '/meetings',       icon: 'event',          label: 'Meetings',      featureKey: 'meetings' },
   { path: '/timesheet',      icon: 'schedule',       label: 'Timesheet',     featureKey: 'team' },
-  { path: '/showcase',       icon: 'auto_awesome',   label: 'Showcase' },
+  { path: '/showcase',       icon: 'auto_awesome',   label: 'Showcase',      featureKey: 'showcase' },
   { path: '/access-requests',icon: 'person_add',     label: 'Access Requests', featureKey: 'access-requests' },
-  { path: '/expense-claim',  icon: 'receipt_long',   label: 'Expense Claim' },
+  { path: '/expense-claim',  icon: 'receipt_long',   label: 'Expense Claim', featureKey: 'expense-claim' },
   { path: '/settings',       icon: 'settings',       label: 'Settings',      featureKey: 'settings' },
-  { path: '/request-configs',icon: 'api',            label: 'Request Configs', featureKey: 'settings' },
-  { path: '/sync-queue', icon: 'sync',           label: 'Sync Queue', featureKey: 'settings' },
   { path: '/export',         icon: 'download',       label: 'Export',        featureKey: 'export' },
   { path: '/profile',        icon: 'person',         label: 'Profile' },
 ];
@@ -391,6 +389,7 @@ export class AppComponent {
   private globalFilterSvc = inject(GlobalFilterService);
   private auth = inject(AuthService);
   private featureAccess = inject(FeatureAccessService);
+  private tsd = inject(TimesheetDefaultsService);
   private currentUrl = signal(this.router.url);
 
   primaryNav = computed(() => this.filterNav(ALL_PRIMARY_NAV));
@@ -420,6 +419,7 @@ export class AppComponent {
       this.isAuthorized.set(status === 'authorized');
       if (status === 'authorized') {
         this.featureAccess.loadPermissions();
+        this.tsd.load();
       }
     });
     this.router.events.pipe(filter(e => e instanceof NavigationEnd)).subscribe(e => {
