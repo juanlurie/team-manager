@@ -9,7 +9,6 @@ namespace TeamManager.Api.Presentation.Controllers;
 
 [ApiController]
 [Authorize]
-[RequireFeature("settings")]
 [Route("api/v1/feature-permissions")]
 public class FeaturePermissionsController : ControllerBase
 {
@@ -23,6 +22,7 @@ public class FeaturePermissionsController : ControllerBase
     }
 
     [HttpGet("roles")]
+    [RequireFeature("settings")]
     public async Task<IActionResult> GetAllRolePermissions()
     {
         var permissions = await service.GetAllRolePermissionsAsync();
@@ -30,6 +30,7 @@ public class FeaturePermissionsController : ControllerBase
     }
 
     [HttpPut("roles/{featureKey}/{role}")]
+    [RequireFeature("settings")]
     public async Task<IActionResult> UpdateRolePermission(string featureKey, string role, [FromBody] UpdateFeaturePermissionRequest request)
     {
         await service.UpdateRolePermissionAsync(featureKey, role, request.IsEnabled);
@@ -37,6 +38,7 @@ public class FeaturePermissionsController : ControllerBase
     }
 
     [HttpGet("members/{memberId}")]
+    [RequireFeature("settings")]
     public async Task<IActionResult> GetMemberOverrides(Guid memberId)
     {
         var overrides = await service.GetMemberOverridesAsync(memberId);
@@ -44,6 +46,7 @@ public class FeaturePermissionsController : ControllerBase
     }
 
     [HttpPut("members/{memberId}")]
+    [RequireFeature("settings")]
     public async Task<IActionResult> UpdateMemberOverride(Guid memberId, [FromBody] UpdateMemberFeatureOverrideRequest request)
     {
         await service.UpdateMemberOverrideAsync(memberId, request.FeatureKey, request.IsEnabled);
@@ -51,6 +54,7 @@ public class FeaturePermissionsController : ControllerBase
     }
 
     [HttpDelete("members/{memberId}/{featureKey}")]
+    [RequireFeature("settings")]
     public async Task<IActionResult> RemoveMemberOverride(Guid memberId, string featureKey)
     {
         await service.RemoveMemberOverrideAsync(memberId, featureKey);
@@ -58,6 +62,7 @@ public class FeaturePermissionsController : ControllerBase
     }
 
     [HttpGet("members/{memberId}/check/{featureKey}")]
+    [RequireFeature("settings")]
     public async Task<IActionResult> CheckFeatureAccess(Guid memberId, string featureKey)
     {
         var enabled = await service.IsFeatureEnabledForMemberAsync(memberId, featureKey);
