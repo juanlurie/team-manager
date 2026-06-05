@@ -1,5 +1,9 @@
+using System.Net.Http;
+using System.Text;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using TeamManager.Api.Application.DTOs;
 using TeamManager.Api.Application.DTOs.WinOfTheWeek;
 using TeamManager.Api.Application.Services.Interfaces;
 using TeamManager.Api.Domain.Entities;
@@ -9,7 +13,7 @@ using TeamManager.Api.Middleware;
 
 namespace TeamManager.Api.Application.Services;
 
-public class WinOfTheWeekService(AppDbContext db) : IWinOfTheWeekService
+public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFactory) : IWinOfTheWeekService
 {
     private const int MaxNominationsPerPerson = 3;
     private const int MaxVotesPerPerson = 3;
@@ -82,6 +86,7 @@ public class WinOfTheWeekService(AppDbContext db) : IWinOfTheWeekService
             TiedNominationIds = week.TiedNominationIds != null
                 ? JsonSerializer.Deserialize<List<Guid>>(week.TiedNominationIds) ?? []
                 : [],
+            WinnerStory = week.WinnerStory,
             Nominations = nominations.Select(n => new WinNominationDto
             {
                 Id = n.Id,
@@ -292,6 +297,11 @@ public class WinOfTheWeekService(AppDbContext db) : IWinOfTheWeekService
 
         // Award weekly achievement to the winner
         await AwardWeeklyAchievementAsync(nomination.NomineeMemberId, week.WeekStart);
+
+        // Load nominee name for story generation
+        await db.Entry(nomination).Reference(n => n.Nominee).LoadAsync();
+        var winnerName = $"{nomination.Nominee.FirstName} {nomination.Nominee.LastName}";
+        EnqueueAndGenerateWinStory(week.Id, winnerName, nomination.Title, nomination.Description);
 
         return await GetCurrentWeekAsync(memberId);
     }
@@ -578,6 +588,135 @@ public class WinOfTheWeekService(AppDbContext db) : IWinOfTheWeekService
         return date.AddDays(-diff);
     }
 
+    private void EnqueueAndGenerateWinStory(Guid weekId, string winnerName, string title, string? description)
+    {
+        _ = Task.Run(async () =>
+        {
+            await using var scope = scopeFactory.CreateAsyncScope();
+            var bgDb = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            try
+            {
+                var config = await bgDb.ApiRequestConfigs
+                    .FirstOrDefaultAsync(c => c.Action == "AiChatWinStory" && c.Enabled);
+                if (config is null) return;
+
+                var parameters = string.IsNullOrWhiteSpace(config.ParametersJson)
+                    ? new Dictionary<string, string>()
+                    : JsonSerializer.Deserialize<Dictionary<string, string>>(config.ParametersJson) ?? new();
+                var headers = string.IsNullOrWhiteSpace(config.HeadersJson)
+                    ? new Dictionary<string, string>()
+                    : JsonSerializer.Deserialize<Dictionary<string, string>>(config.HeadersJson) ?? new();
+                var mappingOpts = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+                var mapping = string.IsNullOrWhiteSpace(config.MappingJson)
+                    ? new MappingConfigDto()
+                    : JsonSerializer.Deserialize<MappingConfigDto>(config.MappingJson, mappingOpts) ?? new();
+                var textPath = mapping.TextResponsePath;
+
+                var vars = new Dictionary<string, string>
+                {
+                    ["nominee"] = winnerName,
+                    ["title"] = title,
+                    ["description"] = description ?? ""
+                };
+
+                string Resolve(string template)
+                {
+                    var result = template;
+                    foreach (var (k, v) in parameters)
+                        result = result.Replace($"{{{k}}}", v);
+                    foreach (var (k, v) in vars)
+                        result = result.Replace($"{{{k}}}", v);
+                    return result;
+                }
+
+                var resolvedHeaders = headers.ToDictionary(kvp => kvp.Key, kvp => Resolve(kvp.Value));
+                var resolvedUrl = Resolve(config.Url);
+                var resolvedBody = Resolve(config.BodyTemplate ?? "");
+
+                var evt = new ApiSyncEvent
+                {
+                    Action = "AiChatWinStory",
+                    ConfigName = config.Name,
+                    Label = $"Win Story — {winnerName}",
+                    SourceType = "WinWeek",
+                    SourceId = weekId.ToString(),
+                    HttpMethod = "POST",
+                    ResolvedUrl = resolvedUrl,
+                    ResolvedHeadersJson = JsonSerializer.Serialize(resolvedHeaders),
+                    ResolvedBody = resolvedBody,
+                    BodyFormat = config.BodyFormat ?? "json"
+                };
+                bgDb.ApiSyncEvents.Add(evt);
+                await bgDb.SaveChangesAsync();
+
+                try
+                {
+                    using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
+                    foreach (var (k, v) in resolvedHeaders)
+                        client.DefaultRequestHeaders.TryAddWithoutValidation(k, v);
+
+                    var mediaType = (config.BodyFormat ?? "json") == "urlencoded"
+                        ? "application/x-www-form-urlencoded"
+                        : "application/json";
+                    var response = await client.PostAsync(resolvedUrl, new StringContent(resolvedBody, Encoding.UTF8, mediaType));
+                    var responseBody = await response.Content.ReadAsStringAsync();
+
+                    evt.ResponseStatus = (int)response.StatusCode;
+                    evt.ResponseBody = responseBody;
+                    evt.SentAt = DateTimeOffset.UtcNow;
+
+                    if (response.IsSuccessStatusCode)
+                    {
+                        evt.Status = "sent";
+                        var story = ExtractTextAtPath(responseBody, textPath);
+                        if (!string.IsNullOrWhiteSpace(story))
+                        {
+                            var winWeek = await bgDb.WinWeeks.FindAsync(weekId);
+                            if (winWeek is not null)
+                            {
+                                winWeek.WinnerStory = story.Trim();
+                                await bgDb.SaveChangesAsync();
+                                _ = WebSocketMiddleware.BroadcastAsync("win_story_ready", new { weekId });
+                            }
+                        }
+                    }
+                    else
+                    {
+                        evt.Status = "failed";
+                    }
+                }
+                catch (Exception ex)
+                {
+                    evt.Status = "failed";
+                    evt.ResponseBody = ex.Message;
+                    evt.SentAt = DateTimeOffset.UtcNow;
+                }
+
+                await bgDb.SaveChangesAsync();
+            }
+            catch { /* best-effort */ }
+        });
+    }
+
+    internal static string? ExtractTextAtPath(string json, string dotPath)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            var current = doc.RootElement;
+            foreach (var seg in dotPath.Split('.'))
+            {
+                if (int.TryParse(seg, out var idx))
+                    current = current[idx];
+                else if (current.TryGetProperty(seg, out var next))
+                    current = next;
+                else return null;
+            }
+            return current.ValueKind == JsonValueKind.String ? current.GetString() : null;
+        }
+        catch { return null; }
+    }
+
     private async Task CheckAndAutoCloseSuddenDeathAsync(WinWeek week, bool force = false)
     {
         if (string.IsNullOrEmpty(week.TiedNominationIds)) return;
@@ -613,9 +752,13 @@ public class WinOfTheWeekService(AppDbContext db) : IWinOfTheWeekService
         week.SuddenDeathEndsAt = null;
         await db.SaveChangesAsync();
 
-        await AwardWeeklyAchievementAsync(
-            (await db.WinNominations.FindAsync(week.WinnerNominationId))!.NomineeMemberId,
-            week.WeekStart);
+        var winnerNom = await db.WinNominations
+            .Include(n => n.Nominee)
+            .FirstAsync(n => n.Id == week.WinnerNominationId!.Value);
+
+        await AwardWeeklyAchievementAsync(winnerNom.NomineeMemberId, week.WeekStart);
+
+        EnqueueAndGenerateWinStory(week.Id, $"{winnerNom.Nominee.FirstName} {winnerNom.Nominee.LastName}", winnerNom.Title, winnerNom.Description);
 
         _ = WebSocketMiddleware.BroadcastAsync("voting_closed", new
         {

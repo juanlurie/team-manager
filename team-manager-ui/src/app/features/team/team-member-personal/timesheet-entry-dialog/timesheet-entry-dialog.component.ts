@@ -9,9 +9,10 @@ import { IconButtonComponent } from '../../../../shared/components/icon-btn/icon
 import { TimesheetService } from '../../../../core/services/timesheet.service';
 import { TimesheetEntry, CreateTimesheetEntryRequest } from '../../../../core/models/timesheet.model';
 import {
-  TIMESHEET_PROJECTS, CATEGORIES_BY_PROJECT, WORKED_FROM_OPTIONS,
+  WORKED_FROM_OPTIONS,
   SENTIMENT_OPTIONS, TIME_PRESETS_MINUTES, QUICK_COMBOS, DESCRIPTION_PRESETS,
 } from '../timesheet-data.constants';
+import { TimesheetDefaultsService } from '../../../../core/services/timesheet-defaults.service';
 
 export interface TimesheetEntryDialogData {
   memberId: string;
@@ -256,8 +257,9 @@ export class TimesheetEntryDialogComponent implements OnDestroy {
   dialogRef = inject(MatDialogRef<TimesheetEntryDialogComponent>);
   data: TimesheetEntryDialogData = inject(MAT_DIALOG_DATA);
   private svc = inject(TimesheetService);
+  private tsd = inject(TimesheetDefaultsService);
 
-  readonly projects = TIMESHEET_PROJECTS;
+  get projects() { return this.tsd.projects(); }
   readonly workedFromOptions = WORKED_FROM_OPTIONS;
   readonly sentimentOptions = SENTIMENT_OPTIONS;
   readonly timePresets = TIME_PRESETS_MINUTES;
@@ -296,7 +298,7 @@ export class TimesheetEntryDialogComponent implements OnDestroy {
   sentiment = signal('Neutral');
   description = signal('');
 
-  availableCategories = computed(() => CATEGORIES_BY_PROJECT[this.project()] ?? []);
+  availableCategories = computed(() => this.tsd.categoriesFor(this.project()));
   hours = computed(() => Math.floor(this.totalMinutes() / 60));
   minutes = computed(() => this.totalMinutes() % 60);
   isValid = computed(() => !!this.project() && !!this.category() && this.totalMinutes() > 0);

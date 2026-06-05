@@ -1,6 +1,7 @@
 import { Component, AfterViewInit, ViewChild, ElementRef, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { MatIconModule } from '@angular/material/icon';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { QuickActionConfig } from '../../../../core/models/timesheet-config.model';
 import { CreateTimesheetEntryRequest } from '../../../../core/models/timesheet.model';
@@ -14,6 +15,8 @@ export interface QuickAddData {
   billableProjects: string[];
   prefill: { project?: string; category?: string; note?: string; durationMins?: number } | null;
   editEntryId?: string;
+  workLocationOptions?: string[];
+  locationIcons?: Record<string, string>;
 }
 
 interface CatResult { project: string; category: string; }
@@ -21,7 +24,7 @@ interface CatResult { project: string; category: string; }
 @Component({
   selector: 'app-timesheet-quick-add-modal',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, MatIconModule],
   styles: [`
     .modal { display:flex; flex-direction:column; outline:none; }
     .hdr { display:flex; align-items:center; gap:8px; padding:16px 20px 12px; border-bottom:1px solid rgba(255,255,255,0.07); }
@@ -66,6 +69,11 @@ interface CatResult { project: string; category: string; }
     .star-btn { background:none; border:1px solid rgba(255,255,255,0.15); border-radius:6px; color:rgba(255,255,255,0.3); font-size:16px; width:34px; height:34px; cursor:pointer; transition:all 0.15s; line-height:1; padding:0; display:flex; align-items:center; justify-content:center; }
     .star-btn:hover { border-color:rgba(255,200,0,0.5); color:rgba(255,200,0,0.7); }
     .star-btn.starred { border-color:rgba(255,200,0,0.6); color:#ffc800; background:rgba(255,200,0,0.08); }
+    .loc-row { display:flex; gap:5px; flex-wrap:wrap; }
+    .loc-chip { display:flex; align-items:center; gap:4px; padding:5px 10px; border-radius:14px; font-size:11px; font-weight:600; border:1px solid rgba(255,255,255,0.12); background:transparent; color:rgba(255,255,255,0.45); cursor:pointer; transition:all 0.1s; font-family:inherit; }
+    .loc-chip:hover { border-color:rgba(255,255,255,0.25); color:rgba(255,255,255,0.85); }
+    .loc-chip.sel { border-color:rgba(100,181,246,0.5); color:#64b5f6; background:rgba(100,181,246,0.09); }
+    .loc-icon { font-size:13px !important; width:13px !important; height:13px !important; line-height:13px !important; }
   `],
   template: `
     <div class="modal" (keydown)="onModalKey($event)" tabindex="-1">
@@ -124,6 +132,15 @@ interface CatResult { project: string; category: string; }
           <button class="t-btn hi" (click)="adjustDur(30)">+30m</button>
           <button class="t-btn" (click)="adjustDur(60)">+1h</button>
         </div>
+
+        <div class="loc-row">
+          @for (loc of locationOptions(); track loc) {
+            <button class="loc-chip" [class.sel]="workedFrom() === loc" (click)="workedFrom.set(loc)" type="button">
+              <mat-icon class="loc-icon">{{ locIcon(loc) }}</mat-icon>
+              {{ loc }}
+            </button>
+          }
+        </div>
       </div>
       <div class="footer">
         <span class="f-hint"><kbd>Esc</kbd> cancel &nbsp;·&nbsp; <kbd>⇧↵</kbd> add + next &nbsp;·&nbsp; <kbd>⌘↵</kbd> add</span>
@@ -144,12 +161,29 @@ export class TimesheetQuickAddModalComponent implements AfterViewInit {
   ref = inject<MatDialogRef<TimesheetQuickAddModalComponent, CreateTimesheetEntryRequest | null>>(MatDialogRef);
   data = inject<QuickAddData>(MAT_DIALOG_DATA);
 
+  private static readonly DEFAULT_LOC_ICONS: Record<string, string> = {
+    Home: 'home', Client: 'store', Entelect: 'laptop', Other: 'location_on',
+  };
+
   catSearch = signal('');
   highlightIdx = signal(0);
   project = signal('');
   category = signal('');
   note = signal('');
   durMins = signal(60);
+  workedFrom = signal(this.data.defaultWorkedFrom || 'Home');
+
+  locationOptions = computed(() =>
+    this.data.workLocationOptions?.length
+      ? this.data.workLocationOptions
+      : ['Home', 'Client', 'Entelect', 'Other']
+  );
+
+  locIcon(loc: string): string {
+    return (this.data.locationIcons ?? {})[loc]
+      ?? TimesheetQuickAddModalComponent.DEFAULT_LOC_ICONS[loc]
+      ?? 'location_on';
+  }
 
   catResults = computed<CatResult[]>(() => {
     const q = this.catSearch().trim().toLowerCase();
@@ -272,7 +306,7 @@ export class TimesheetQuickAddModalComponent implements AfterViewInit {
       hours: Math.floor(this.durMins() / 60),
       minutes: this.durMins() % 60,
       billable: this.data.billableProjects.includes(this.project()),
-      workedFrom: this.data.defaultWorkedFrom,
+      workedFrom: this.workedFrom(),
       sentiment: 'Neutral',
       description: this.note().trim() || null,
       ticketNumber: null,

@@ -10,6 +10,7 @@ public class ApiSyncEvent
     public string SourceType { get; set; } = ""; // e.g. "TimesheetEntry"
     public string ResolvedUrl { get; set; } = "";
     public string ResolvedHeadersJson { get; set; } = "{}";
+    public string HttpMethod { get; set; } = "POST";
     public string ResolvedBody { get; set; } = "";
     public string BodyFormat { get; set; } = "urlencoded";
     public string Status { get; set; } = "pending"; // pending | sent | failed | dismissed

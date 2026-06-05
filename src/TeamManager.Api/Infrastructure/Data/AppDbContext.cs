@@ -71,6 +71,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<ScrumPokerVote> ScrumPokerVotes => Set<ScrumPokerVote>();
     public DbSet<FeaturePermission> FeaturePermissions => Set<FeaturePermission>();
     public DbSet<MemberFeatureOverride> MemberFeatureOverrides => Set<MemberFeatureOverride>();
+    public DbSet<TimesheetSystemConfig> TimesheetSystemConfigs => Set<TimesheetSystemConfig>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

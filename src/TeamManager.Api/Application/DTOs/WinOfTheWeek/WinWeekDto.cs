@@ -18,5 +18,6 @@ public record WinWeekDto
     public int ActiveMemberCount { get; init; }
     public int ConnectedMemberCount { get; init; }
     public List<Guid> TiedNominationIds { get; init; } = [];
+    public string? WinnerStory { get; init; }
     public List<WinNominationDto> Nominations { get; init; } = [];
 }

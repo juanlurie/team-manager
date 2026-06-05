@@ -10,7 +10,11 @@ public record TimesheetConfigDto(
     string[] BillableProjects,
     Dictionary<string, string> WorkWeek,
     bool MergeEntriesEnabled,
-    Dictionary<string, string> LocationIcons
+    Dictionary<string, string> LocationIcons,
+    Dictionary<string, string> CategoryCorrelationIds,
+    string? ExternalEmployeeId = null,
+    Dictionary<string, string>? WorkLocationCorrelationIds = null,
+    bool DeduplicatePendingEditSync = false
 );
 
 public record QuickActionConfigDto(
@@ -31,7 +35,11 @@ public record UpsertTimesheetConfigRequest(
     string[]? BillableProjects,
     Dictionary<string, string>? WorkWeek,
     bool? MergeEntriesEnabled,
-    Dictionary<string, string>? LocationIcons
+    Dictionary<string, string>? LocationIcons,
+    Dictionary<string, string>? CategoryCorrelationIds = null,
+    string? ExternalEmployeeId = null,
+    Dictionary<string, string>? WorkLocationCorrelationIds = null,
+    bool? DeduplicatePendingEditSync = null
 );
 
 public record QuickActionConfigRequest(

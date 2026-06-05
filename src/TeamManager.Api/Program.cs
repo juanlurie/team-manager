@@ -174,6 +174,8 @@ static async Task SeedFeaturePermissionsAsync(AppDbContext db)
         ("leaderboard", "Fun Hub", "Leaderboard"),
         ("win-of-week", "Fun Hub", "Win of the Week"),
         ("team", "Team", "Team Management"),
+        // wow-host is seeded separately with role-specific defaults
+
         ("leave", "Team", "Leave"),
         ("export", "Admin", "Export"),
         ("settings", "Admin", "Settings"),
@@ -199,6 +201,24 @@ static async Task SeedFeaturePermissionsAsync(AppDbContext db)
                     IsEnabled = true,
                 });
             }
+        }
+    }
+
+    // wow-host: on for TeamLead/TechLead, off for Member
+    var wowHostDefaults = new[] { ("Member", false), ("TeamLead", true), ("TechLead", true) };
+    foreach (var (role, enabled) in wowHostDefaults)
+    {
+        var exists = await db.FeaturePermissions.AnyAsync(p => p.FeatureKey == "wow-host" && p.Role == role);
+        if (!exists)
+        {
+            db.FeaturePermissions.Add(new TeamManager.Api.Domain.Entities.FeaturePermission
+            {
+                FeatureKey = "wow-host",
+                Category = "Fun Hub",
+                Label = "Win of the Week — Host",
+                Role = role,
+                IsEnabled = enabled,
+            });
         }
     }
 

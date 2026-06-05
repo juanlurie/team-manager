@@ -16,7 +16,8 @@ public record ApiRequestConfigDto(
     Dictionary<string, string>? Parameters = null,
     string? StoredCookie = null,
     int RetryCount = 0,
-    SuccessCriteriaDto? SuccessCriteria = null
+    SuccessCriteriaDto? SuccessCriteria = null,
+    bool AutoSync = false
 );
 
 public record SuccessCriteriaDto(
@@ -47,5 +48,7 @@ public record MappingConfigDto(
     // For HTML responses: marker text before the JSON array, e.g. "new timesheet("
     string HtmlJsonMarker = "",
     // Regex to extract external employee ID from response, e.g. "employeeId:\s*(\d+)"
-    string EmployeeIdPattern = ""
+    string EmployeeIdPattern = "",
+    // For AI chat actions: dot-separated path to the text string in the response
+    string TextResponsePath = ""
 );
