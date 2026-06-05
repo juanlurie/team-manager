@@ -179,6 +179,7 @@ public class FeaturePermissionService : IFeaturePermissionService
             new("meetings", "Collaboration", "Meetings"),
             new("fun-hub", "Fun Hub", "Fun Hub"),
             new("coffee-run", "Fun Hub", "Coffee Run"),
+            new("jokes", "Fun Hub", "Jokes"),
             new("scrum-poker", "Fun Hub", "Scrum Poker"),
             new("wheel", "Fun Hub", "Spin Wheel"),
             new("leaderboard", "Fun Hub", "Leaderboard"),

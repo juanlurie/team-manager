@@ -53,6 +53,7 @@ export const REQUEST_ACTIONS = [
   { value: 'DeleteTimesheetEntry', label: 'Delete Timesheet Entry', icon: 'delete_forever' },
   { value: 'GetTimesheetProjects', label: 'Get Timesheet Projects', icon: 'folder_open' },
   { value: 'AiChatWinStory', label: 'AI Chat — Win Story', icon: 'auto_awesome' },
+  { value: 'GenerateJoke', label: 'Generate Joke', icon: 'sentiment_very_satisfied' },
 ] as const;
 
 @Injectable({ providedIn: 'root' })

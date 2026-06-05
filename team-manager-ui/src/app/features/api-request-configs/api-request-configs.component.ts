@@ -599,13 +599,13 @@ export class ApiRequestConfigsComponent implements OnInit {
             </mat-form-field>
           }
 
-          @if (data.action === 'AiChatWinStory') {
+          @if (data.action === 'AiChatWinStory' || data.action === 'GenerateJoke') {
             <div class="section-header"><h3>Response Mapping</h3></div>
             <mat-form-field appearance="outline" class="full-width">
               <mat-label>Text Response Path</mat-label>
               <input matInput [(ngModel)]="data.mapping.textResponsePath"
-                     placeholder="choices.0.message.content">
-              <mat-hint>Dot-separated path to the text string in the response (e.g. <code>choices.0.message.content</code> for OpenAI, <code>content.0.text</code> for Claude)</mat-hint>
+                     placeholder="choices[0].message.content">
+              <mat-hint>Dot-separated path to the text string in the response (e.g. <code>choices[0].message.content</code> for OpenAI, <code>content[0].text</code> for Claude)</mat-hint>
             </mat-form-field>
           }
         </div>

@@ -3,7 +3,7 @@ import { BehaviorSubject } from 'rxjs';
 import { OAuthService } from 'angular-oauth2-oidc';
 
 export interface WsMessage {
-  type: 'vote_cast' | 'vote_removed' | 'voting_opened' | 'voting_closed' | 'sudden_death_started' | 'nominations_reopened' | 'nomination_created' | 'nomination_updated' | 'nomination_deleted' | 'retro_action_created' | 'retro_action_updated' | 'retro_action_deleted' | 'retro_card_added' | 'retro_card_deleted' | 'retro_voted' | 'retro_phase_changed' | 'presence_changed' | 'scrum_poker_session_created' | 'scrum_poker_vote_cast' | 'scrum_poker_votes_revealed' | 'scrum_poker_session_reset' | 'scrum_poker_session_deleted' | 'timesheet_entry_created' | 'timesheet_entry_updated' | 'timesheet_entry_deleted' | 'win_story_ready';
+  type: 'vote_cast' | 'vote_removed' | 'voting_opened' | 'voting_closed' | 'sudden_death_started' | 'nominations_reopened' | 'nomination_created' | 'nomination_updated' | 'nomination_deleted' | 'retro_action_created' | 'retro_action_updated' | 'retro_action_deleted' | 'retro_card_added' | 'retro_card_deleted' | 'retro_voted' | 'retro_phase_changed' | 'presence_changed' | 'scrum_poker_session_created' | 'scrum_poker_vote_cast' | 'scrum_poker_votes_revealed' | 'scrum_poker_session_reset' | 'scrum_poker_session_deleted' | 'timesheet_entry_created' | 'timesheet_entry_updated' | 'timesheet_entry_deleted' | 'win_story_ready' | 'joke_generated';
   data: Record<string, unknown>;
 }
 

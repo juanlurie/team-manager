@@ -38,6 +38,10 @@ export const FUN_ROUTES: Routes = [
       {
         path: 'scrum-poker',
         loadChildren: () => import('../scrum-poker/scrum-poker.routes').then(m => m.SCRUM_POKER_ROUTES)
+      },
+      {
+        path: 'jokes',
+        loadComponent: () => import('../jokes/jokes.component').then(m => m.JokesComponent)
       }
     ]
   }

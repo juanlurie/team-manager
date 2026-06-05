@@ -26,6 +26,7 @@ const routeFeatureMap: Record<string, string> = {
   'expense-claim': 'expense-claim',
   'api-keys': 'api-keys',
   'win-of-the-month': 'win-of-month',
+  'jokes': 'jokes',
 };
 
 export const featureGuard: CanActivateFn = (route: ActivatedRouteSnapshot) => {

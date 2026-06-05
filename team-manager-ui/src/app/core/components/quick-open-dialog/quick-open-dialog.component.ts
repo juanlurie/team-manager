@@ -34,6 +34,7 @@ const QUICK_OPEN_ITEMS: QuickOpenItem[] = [
   { id: 'wheel', path: '/fun/wheel', label: 'Spin Wheel', icon: 'casino', featureKey: 'wheel' },
   { id: 'coffee-run', path: '/fun/coffee-run', label: 'Coffee Run', icon: 'local_cafe', featureKey: 'coffee-run' },
   { id: 'scrum-poker', path: '/fun/scrum-poker', label: 'Scrum Poker', icon: 'style', featureKey: 'scrum-poker' },
+  { id: 'jokes', path: '/fun/jokes', label: 'Jokes', icon: 'sentiment_very_satisfied', featureKey: 'jokes' },
   { id: 'expense-claim', path: '/expense-claim', label: 'Expense Claim', icon: 'receipt_long', featureKey: 'expense-claim' },
   { id: 'showcase', path: '/showcase', label: 'Showcase', icon: 'auto_awesome', featureKey: 'showcase' },
   { id: 'milestones', path: '/milestones', label: 'Milestones', icon: 'flag' },
