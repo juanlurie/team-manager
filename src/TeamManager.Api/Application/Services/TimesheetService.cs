@@ -21,7 +21,16 @@ public class TimesheetService(AppDbContext db, ITimesheetEventPublisher eventPub
             .OrderBy(e => e.Date)
             .ThenBy(e => e.CreatedAt)
             .ToListAsync();
-        return entries.Select(ToDto).ToList();
+
+        var entryIds = entries.Select(e => e.Id.ToString()).ToHashSet();
+        var syncStatuses = await db.ApiSyncEvents
+            .Where(e => e.SourceId != null && entryIds.Contains(e.SourceId)
+                        && (e.Status == "pending" || e.Status == "failed"))
+            .GroupBy(e => e.SourceId!)
+            .Select(g => new { SourceId = g.Key, HasFailed = g.Any(e => e.Status == "failed") })
+            .ToDictionaryAsync(x => x.SourceId, x => x.HasFailed ? "failed" : "pending");
+
+        return entries.Select(e => ToDto(e, syncStatuses.GetValueOrDefault(e.Id.ToString()))).ToList();
     }
 
     public async Task<TimesheetEntryDto> CreateAsync(Guid memberId, CreateTimesheetEntryRequest req)
@@ -43,7 +52,7 @@ public class TimesheetService(AppDbContext db, ITimesheetEventPublisher eventPub
         };
         db.TimesheetEntries.Add(entry);
         await db.SaveChangesAsync();
-        await EnqueueSyncEventAsync(entry);
+        await EnqueueTimesheetActionAsync("AddTimesheetEntry", entry);
         var dto = ToDto(entry);
         await eventPublisher.PublishAsync("created", dto);
         return dto;
@@ -68,6 +77,7 @@ public class TimesheetService(AppDbContext db, ITimesheetEventPublisher eventPub
         entry.TicketNumber = req.TicketNumber;
 
         await db.SaveChangesAsync();
+        await EnqueueTimesheetActionAsync("EditTimesheetEntry", entry);
         var dto = ToDto(entry);
         await eventPublisher.PublishAsync("updated", dto);
         return dto;
@@ -79,10 +89,28 @@ public class TimesheetService(AppDbContext db, ITimesheetEventPublisher eventPub
             .FirstOrDefaultAsync(e => e.Id == entryId && e.TeamMemberId == memberId);
         if (entry is null) return false;
         var dto = ToDto(entry);
+        var pendingAdd = await db.ApiSyncEvents.FirstOrDefaultAsync(e =>
+            e.SourceId == entry.Id.ToString() &&
+            e.Action == "AddTimesheetEntry" &&
+            e.Status == "pending");
+        if (pendingAdd is not null)
+            pendingAdd.Status = "dismissed";
+        else
+            await EnqueueTimesheetActionAsync("DeleteTimesheetEntry", entry);
         db.TimesheetEntries.Remove(entry);
         await db.SaveChangesAsync();
         await eventPublisher.PublishAsync("deleted", dto);
         return true;
+    }
+
+    public async Task<int> EnqueueSyncAsync(Guid memberId, Guid[] entryIds)
+    {
+        var entries = await db.TimesheetEntries
+            .Where(e => e.TeamMemberId == memberId && entryIds.Contains(e.Id) && e.ExternalId == null)
+            .ToListAsync();
+        foreach (var entry in entries)
+            await EnqueueTimesheetActionAsync("AddTimesheetEntry", entry);
+        return entries.Count;
     }
 
     public async Task<byte[]> ExportMonthAsync(Guid memberId, int year, int month)
@@ -151,18 +179,69 @@ public class TimesheetService(AppDbContext db, ITimesheetEventPublisher eventPub
         return mem.ToArray();
     }
 
-    private async Task EnqueueSyncEventAsync(TimesheetEntry entry)
+    private async Task EnqueueTimesheetActionAsync(string action, TimesheetEntry entry)
     {
         try
         {
+            // If editing an entry that still has a pending Add, refresh that Add event
+            // with the current entry data instead of queuing a separate Edit event.
+            // This check runs before any config loading so it fires regardless of whether
+            // an EditTimesheetEntry config is configured.
+            if (action == "EditTimesheetEntry")
+            {
+                var pendingAdd = await db.ApiSyncEvents.FirstOrDefaultAsync(e =>
+                    e.SourceId == entry.Id.ToString() &&
+                    e.Action == "AddTimesheetEntry" &&
+                    e.Status == "pending");
+                if (pendingAdd is not null)
+                {
+                    db.ApiSyncEvents.Remove(pendingAdd);
+                    await db.SaveChangesAsync();
+                    await EnqueueTimesheetActionAsync("AddTimesheetEntry", entry);
+                    return;
+                }
+            }
+
             var config = await db.ApiRequestConfigs
-                .FirstOrDefaultAsync(c => c.Action == "AddTimesheetEntry" && c.Enabled);
+                .FirstOrDefaultAsync(c => c.Action == action && c.Enabled);
             if (config is null) return;
 
             var headers = JsonSerializer.Deserialize<Dictionary<string, string>>(config.HeadersJson) ?? [];
             var parameters = JsonSerializer.Deserialize<Dictionary<string, string>>(
                 string.IsNullOrWhiteSpace(config.ParametersJson) ? "{}" : config.ParametersJson) ?? [];
             var cookie = config.StoredCookie ?? "{cookie}";
+
+            // Resolve member-specific correlation IDs
+            var memberCfg = await db.MemberTimesheetConfigs.FindAsync(entry.TeamMemberId);
+            if (memberCfg is not null)
+            {
+                var opts = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+                if (!string.IsNullOrWhiteSpace(memberCfg.ExternalEmployeeId))
+                    parameters["employeeId"] = memberCfg.ExternalEmployeeId;
+                var catIds = JsonSerializer.Deserialize<Dictionary<string, string>>(
+                    string.IsNullOrWhiteSpace(memberCfg.CategoryCorrelationIdsJson) ? "{}" : memberCfg.CategoryCorrelationIdsJson, opts) ?? [];
+                if (catIds.TryGetValue(entry.Category, out var catId))
+                    parameters["categoryId"] = catId;
+                var locIds = JsonSerializer.Deserialize<Dictionary<string, string>>(
+                    string.IsNullOrWhiteSpace(memberCfg.WorkLocationCorrelationIdsJson) ? "{}" : memberCfg.WorkLocationCorrelationIdsJson, opts) ?? [];
+                if (!string.IsNullOrWhiteSpace(entry.WorkedFrom) && locIds.TryGetValue(entry.WorkedFrom, out var locId))
+                    parameters["workedFromLocationId"] = locId;
+            }
+
+            // If the entry has no ExternalId, look it up from a previously sent Add event
+            var timesheetEntryExternalId = entry.ExternalId;
+            if (string.IsNullOrEmpty(timesheetEntryExternalId))
+            {
+                var addEvent = await db.ApiSyncEvents
+                    .Where(e => e.SourceId == entry.Id.ToString() && e.Action == "AddTimesheetEntry" && e.ExternalId != null)
+                    .OrderByDescending(e => e.SentAt)
+                    .FirstOrDefaultAsync();
+                if (!string.IsNullOrEmpty(addEvent?.ExternalId))
+                {
+                    timesheetEntryExternalId = addEvent.ExternalId;
+                    entry.ExternalId = timesheetEntryExternalId;
+                }
+            }
 
             string Resolve(string t)
             {
@@ -181,6 +260,8 @@ public class TimesheetService(AppDbContext db, ITimesheetEventPublisher eventPub
                     .Replace("{ticketNumber}", entry.TicketNumber ?? "");
                 foreach (var (key, value) in parameters)
                     result = result.Replace($"{{{key}}}", value);
+                if (!string.IsNullOrEmpty(timesheetEntryExternalId))
+                    result = result.Replace("{timesheetEntryId}", timesheetEntryExternalId);
                 return result;
             }
 
@@ -189,17 +270,46 @@ public class TimesheetService(AppDbContext db, ITimesheetEventPublisher eventPub
             var label = $"{entry.Date:yyyy-MM-dd} | {entry.Project} | {entry.Hours}h{mins}";
             if (!string.IsNullOrEmpty(entry.Description)) label += $" | {entry.Description}";
 
+            var resolvedUrl = Resolve(config.Url);
+            var resolvedBody = Resolve(config.BodyTemplate);
+            var resolvedHeadersJson = JsonSerializer.Serialize(resolvedHeaders);
+            var bodyFormat = config.BodyFormat ?? "urlencoded";
+
+            // For edit events, optionally replace an existing pending event for the same entry
+            if (action == "EditTimesheetEntry" && memberCfg?.DeduplicatePendingEditSync == true)
+            {
+                var existing = await db.ApiSyncEvents.FirstOrDefaultAsync(e =>
+                    e.SourceId == entry.Id.ToString() &&
+                    e.Action == "EditTimesheetEntry" &&
+                    e.Status == "pending");
+
+                if (existing is not null)
+                {
+                    existing.ConfigName = config.Name;
+                    existing.Label = label;
+                    existing.HttpMethod = config.Method.ToUpper();
+                    existing.ResolvedUrl = resolvedUrl;
+                    existing.ResolvedHeadersJson = resolvedHeadersJson;
+                    existing.ResolvedBody = resolvedBody;
+                    existing.BodyFormat = bodyFormat;
+                    await db.SaveChangesAsync();
+                    return;
+                }
+            }
+
             db.ApiSyncEvents.Add(new ApiSyncEvent
             {
-                Action = "AddTimesheetEntry",
+                Action = action,
                 ConfigName = config.Name,
                 Label = label,
                 SourceId = entry.Id.ToString(),
                 SourceType = "TimesheetEntry",
-                ResolvedUrl = Resolve(config.Url),
-                ResolvedHeadersJson = JsonSerializer.Serialize(resolvedHeaders),
-                ResolvedBody = Resolve(config.BodyTemplate),
-                BodyFormat = config.BodyFormat ?? "urlencoded"
+                HttpMethod = config.Method.ToUpper(),
+                ResolvedUrl = resolvedUrl,
+                ResolvedHeadersJson = resolvedHeadersJson,
+                ResolvedBody = resolvedBody,
+                BodyFormat = bodyFormat,
+                ExternalId = entry.ExternalId,
             });
             await db.SaveChangesAsync();
         }
@@ -229,10 +339,10 @@ public class TimesheetService(AppDbContext db, ITimesheetEventPublisher eventPub
             throw new InvalidOperationException("Minutes must be 0, 15, 30, or 45.");
     }
 
-    private static TimesheetEntryDto ToDto(TimesheetEntry e) => new(
+    private static TimesheetEntryDto ToDto(TimesheetEntry e, string? syncStatus = null) => new(
         e.Id, e.TeamMemberId, e.Date, e.Project, e.Category,
         e.Hours, e.Minutes, e.Billable, e.WorkedFrom, e.Sentiment,
-        e.Description, e.TicketNumber, e.CreatedAt, e.ExternalId
+        e.Description, e.TicketNumber, e.CreatedAt, e.ExternalId, syncStatus
     );
 
     private static string CellRef(string col, uint row) => $"{col}{row}";

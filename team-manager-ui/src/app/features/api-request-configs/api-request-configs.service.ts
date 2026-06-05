@@ -12,6 +12,18 @@ export interface MappingConfig {
   statusPath: string;
   nameTransform: string;
   externalIdPath: string;
+  projectsPath: string;
+  projectNamePath: string;
+  projectIdPath: string;
+  projectCategoriesPath: string;
+  categoryNamePath: string;
+  categoryIdPath: string;
+}
+
+export interface SuccessCriteria {
+  requiredStatus?: number | null;
+  jsonPath?: string | null;
+  jsonValue?: string | null;
 }
 
 export interface ApiRequestConfig {
@@ -28,6 +40,8 @@ export interface ApiRequestConfig {
   parameters: Record<string, string>;
   bodyTemplate: string;
   mapping: MappingConfig;
+  retryCount?: number;
+  successCriteria?: SuccessCriteria | null;
 }
 
 export const REQUEST_ACTIONS = [

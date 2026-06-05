@@ -203,6 +203,13 @@ namespace TeamManager.Api.Migrations
                     b.Property<string>("StoredCookie")
                         .HasColumnType("text");
 
+                    b.Property<int>("RetryCount")
+                        .HasDefaultValue(0)
+                        .HasColumnType("integer");
+
+                    b.Property<string>("SuccessCriteriaJson")
+                        .HasColumnType("text");
+
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -237,6 +244,10 @@ namespace TeamManager.Api.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("ExternalId")
+                        .HasColumnType("text");
+
+                    b.Property<string>("HttpMethod")
+                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<string>("Label")
@@ -1362,6 +1373,13 @@ namespace TeamManager.Api.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<string>("CategoryCorrelationIdsJson")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("ExternalEmployeeId")
+                        .HasColumnType("text");
+
                     b.Property<string>("ExtraCategoriesJson")
                         .IsRequired()
                         .HasColumnType("text");
@@ -1378,6 +1396,10 @@ namespace TeamManager.Api.Migrations
                         .HasColumnType("boolean");
 
                     b.Property<string>("QuickActionsJson")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("WorkLocationCorrelationIdsJson")
                         .IsRequired()
                         .HasColumnType("text");
 
@@ -2053,6 +2075,34 @@ namespace TeamManager.Api.Migrations
                     b.HasIndex("TeamMemberId", "Date");
 
                     b.ToTable("TimesheetEntries");
+                });
+
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.TimesheetSystemConfig", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("CorrelationIdsJson")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("DefaultCategoriesJson")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("DefaultProjectsJson")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("TimesheetSystemConfigs");
                 });
 
             modelBuilder.Entity("TeamManager.Api.Domain.Entities.TimesheetWebhook", b =>

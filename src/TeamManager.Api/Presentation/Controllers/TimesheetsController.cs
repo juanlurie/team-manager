@@ -5,6 +5,8 @@ using TeamManager.Api.Application.Services.Interfaces;
 
 namespace TeamManager.Api.Presentation.Controllers;
 
+public record EnqueueSyncRequest(Guid[] EntryIds);
+
 [ApiController]
 [RequireFeature("team")]
 [Route("api/v1/team-members/{memberId:guid}/timesheets")]
@@ -46,6 +48,13 @@ public class TimesheetsController(ITimesheetService service) : ControllerBase
         if (!success) return NotFound();
         _ = WebSocketMiddleware.BroadcastAsync("timesheet_entry_deleted", new { memberId, entryId });
         return NoContent();
+    }
+
+    [HttpPost("enqueue-sync")]
+    public async Task<IActionResult> EnqueueSync(Guid memberId, [FromBody] EnqueueSyncRequest req)
+    {
+        var count = await service.EnqueueSyncAsync(memberId, req.EntryIds);
+        return Ok(new { enqueued = count });
     }
 
     [HttpGet("export")]

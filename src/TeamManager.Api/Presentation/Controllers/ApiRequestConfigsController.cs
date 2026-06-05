@@ -54,7 +54,10 @@ public class ApiRequestConfigsController : ControllerBase
             HeadersJson = JsonSerializer.Serialize(dto.Headers ?? new()),
             BodyTemplate = dto.BodyTemplate,
             MappingJson = JsonSerializer.Serialize(dto.Mapping ?? new MappingConfigDto()),
-            ParametersJson = JsonSerializer.Serialize(dto.Parameters ?? new())
+            ParametersJson = JsonSerializer.Serialize(dto.Parameters ?? new()),
+            StoredCookie = dto.StoredCookie,
+            RetryCount = dto.RetryCount,
+            SuccessCriteriaJson = dto.SuccessCriteria is null ? null : JsonSerializer.Serialize(dto.SuccessCriteria),
         };
 
         _db.ApiRequestConfigs.Add(config);
@@ -81,6 +84,9 @@ public class ApiRequestConfigsController : ControllerBase
         config.BodyTemplate = dto.BodyTemplate;
         config.MappingJson = JsonSerializer.Serialize(dto.Mapping ?? new MappingConfigDto());
         config.ParametersJson = JsonSerializer.Serialize(dto.Parameters ?? new());
+        if (dto.StoredCookie is not null) config.StoredCookie = dto.StoredCookie;
+        config.RetryCount = dto.RetryCount;
+        config.SuccessCriteriaJson = dto.SuccessCriteria is null ? null : JsonSerializer.Serialize(dto.SuccessCriteria);
         config.UpdatedAt = DateTimeOffset.UtcNow;
 
         await _db.SaveChangesAsync();
@@ -169,7 +175,9 @@ public class ApiRequestConfigsController : ControllerBase
                     HeadersJson = JsonSerializer.Serialize(dto.Headers ?? new()),
                     BodyTemplate = dto.BodyTemplate,
                     MappingJson = JsonSerializer.Serialize(dto.Mapping ?? new MappingConfigDto()),
-                    ParametersJson = JsonSerializer.Serialize(dto.Parameters ?? new())
+                    ParametersJson = JsonSerializer.Serialize(dto.Parameters ?? new()),
+                    RetryCount = dto.RetryCount,
+                    SuccessCriteriaJson = dto.SuccessCriteria is null ? null : JsonSerializer.Serialize(dto.SuccessCriteria),
                 };
                 _db.ApiRequestConfigs.Add(config);
                 created.Add(ToDto(config));
@@ -449,7 +457,12 @@ public class ApiRequestConfigsController : ControllerBase
         Headers: JsonSerializer.Deserialize<Dictionary<string, string>>(config.HeadersJson) ?? new(),
         BodyTemplate: config.BodyTemplate,
         Mapping: JsonSerializer.Deserialize<MappingConfigDto>(config.MappingJson) ?? new MappingConfigDto(),
-        Parameters: JsonSerializer.Deserialize<Dictionary<string, string>>(string.IsNullOrWhiteSpace(config.ParametersJson) ? "{}" : config.ParametersJson) ?? new()
+        Parameters: JsonSerializer.Deserialize<Dictionary<string, string>>(string.IsNullOrWhiteSpace(config.ParametersJson) ? "{}" : config.ParametersJson) ?? new(),
+        StoredCookie: config.StoredCookie,
+        RetryCount: config.RetryCount,
+        SuccessCriteria: string.IsNullOrWhiteSpace(config.SuccessCriteriaJson)
+            ? null
+            : JsonSerializer.Deserialize<SuccessCriteriaDto>(config.SuccessCriteriaJson, new JsonSerializerOptions { PropertyNameCaseInsensitive = true })
     );
 }
 
