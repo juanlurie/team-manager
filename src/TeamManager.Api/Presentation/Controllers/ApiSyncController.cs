@@ -13,6 +13,8 @@ namespace TeamManager.Api.Presentation.Controllers;
 [Authorize]
 public class ApiSyncController(AppDbContext db, IHttpClientFactory httpClientFactory) : ControllerBase
 {
+    private static readonly JsonSerializerOptions CaseInsensitiveOptions = new() { PropertyNameCaseInsensitive = true };
+    private record MappingPathRef(string? TextResponsePath);
     [HttpGet("check/{actionName}")]
     public async Task<IActionResult> CheckEnabled(string actionName)
     {
@@ -530,9 +532,8 @@ public class ApiSyncController(AppDbContext db, IHttpClientFactory httpClientFac
                 .FirstOrDefaultAsync();
             if (string.IsNullOrWhiteSpace(mappingJson)) return null;
 
-            using var mappingDoc = JsonDocument.Parse(mappingJson);
-            if (!mappingDoc.RootElement.TryGetProperty("textResponsePath", out var pathEl)) return null;
-            var path = pathEl.GetString() ?? "";
+            var mapping = JsonSerializer.Deserialize<MappingPathRef>(mappingJson, CaseInsensitiveOptions);
+            var path = mapping?.TextResponsePath ?? "";
             if (string.IsNullOrEmpty(path)) return null;
 
             var el = NavigatePath(JsonDocument.Parse(responseBody).RootElement, path);
