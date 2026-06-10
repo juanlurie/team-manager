@@ -102,6 +102,11 @@ export const routes: Routes = [
       },
     ]
   },
+  // Guest access (no auth required)
+  {
+    path: 'guest',
+    loadChildren: () => import('./features/guest-wow/guest-wow.routes').then(m => m.GUEST_WOW_ROUTES)
+  },
   // Backward compatibility redirects
   { path: 'win-of-the-week', redirectTo: 'fun/win-of-the-week', pathMatch: 'full' },
   { path: 'leaderboard', redirectTo: 'fun/leaderboard', pathMatch: 'full' },
