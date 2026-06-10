@@ -33,10 +33,10 @@ public class AuthModeController(IConfiguration configuration, IHttpClientFactory
                 error = "not_registered",
                 googleClaims = new
                 {
-                    name    = User.FindFirst("name")?.Value ?? User.FindFirst("given_name")?.Value ?? "",
-                    email   = User.FindFirst("email")?.Value ?? "",
+                    name    = User.FindFirst("name")?.Value ?? User.FindFirst(System.Security.Claims.ClaimTypes.GivenName)?.Value ?? "",
+                    email   = User.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value ?? User.FindFirst("email")?.Value ?? "",
                     picture = User.FindFirst("picture")?.Value ?? "",
-                    sub     = User.FindFirst("sub")?.Value ?? ""
+                    sub     = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? User.FindFirst("sub")?.Value ?? ""
                 }
             });
         }
