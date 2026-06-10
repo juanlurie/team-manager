@@ -51,19 +51,28 @@ public class JokesController(AppDbContext db, IHttpClientFactory httpClientFacto
         parameters["seed"] = Guid.NewGuid().ToString("N")[..8];
 
         var headers = JsonSerializer.Deserialize<Dictionary<string, string>>(config.HeadersJson) ?? [];
-        var configVars = await Application.Services.ConfigVariableResolver.LoadAsync(db);
+        var publicConfigVars = await Application.Services.ConfigVariableResolver.LoadPublicAsync(db);
+        var allConfigVars = await Application.Services.ConfigVariableResolver.LoadAsync(db);
 
-        string Resolve(string t)
+        // Storage: non-secret values only — stored URL/body/headers are safe to return to clients
+        string ResolveForStorage(string t)
         {
-            var result = Application.Services.ConfigVariableResolver.Apply(t, configVars);
+            var result = Application.Services.ConfigVariableResolver.Apply(t, publicConfigVars);
             foreach (var (k, v) in parameters)
                 result = result.Replace($"{{{k}}}", v);
             return result;
         }
 
-        var resolvedHeaders = headers.ToDictionary(kvp => kvp.Key, kvp => Resolve(kvp.Value));
+        // Execution: all values including secrets — used only for the HTTP call, never stored
+        string ResolveForExecution(string t)
+        {
+            var result = Application.Services.ConfigVariableResolver.Apply(t, allConfigVars);
+            foreach (var (k, v) in parameters)
+                result = result.Replace($"{{{k}}}", v);
+            return result;
+        }
 
-        // Create a visible sync event so it appears in the queue
+        // Create a visible sync event so it appears in the queue (stored without secret values)
         var evt = new Domain.Entities.ApiSyncEvent
         {
             Action = config.Action,
@@ -71,9 +80,9 @@ public class JokesController(AppDbContext db, IHttpClientFactory httpClientFacto
             Label = $"Joke — {request.JokeLabel}",
             SourceType = "Joke",
             HttpMethod = config.Method.ToUpper(),
-            ResolvedUrl = Resolve(config.Url),
-            ResolvedHeadersJson = JsonSerializer.Serialize(resolvedHeaders),
-            ResolvedBody = Resolve(config.BodyTemplate),
+            ResolvedUrl = ResolveForStorage(config.Url),
+            ResolvedHeadersJson = JsonSerializer.Serialize(headers.ToDictionary(kvp => kvp.Key, kvp => ResolveForStorage(kvp.Value))),
+            ResolvedBody = ResolveForStorage(config.BodyTemplate),
             BodyFormat = config.BodyFormat ?? "json",
             Status = "pending"
         };
@@ -81,25 +90,29 @@ public class JokesController(AppDbContext db, IHttpClientFactory httpClientFacto
         db.ApiSyncEvents.Add(evt);
         await db.SaveChangesAsync();
 
-        // Execute immediately
+        // Execute immediately using fully resolved values (secrets applied here, not stored)
+        var executionHeaders = headers.ToDictionary(kvp => kvp.Key, kvp => ResolveForExecution(kvp.Value));
+        var executionUrl = ResolveForExecution(config.Url);
+        var executionBody = ResolveForExecution(config.BodyTemplate);
+
         string? joke = null;
         try
         {
             var client = httpClientFactory.CreateClient();
             client.Timeout = TimeSpan.FromSeconds(30);
-            foreach (var (k, v) in resolvedHeaders)
+            foreach (var (k, v) in executionHeaders)
                 client.DefaultRequestHeaders.TryAddWithoutValidation(k, v);
 
             HttpResponseMessage response;
             if (config.Method.ToUpper() == "GET")
-                response = await client.GetAsync(evt.ResolvedUrl);
+                response = await client.GetAsync(executionUrl);
             else
             {
                 var mediaType = config.BodyFormat == "urlencoded"
                     ? "application/x-www-form-urlencoded"
                     : "application/json";
-                response = await client.PostAsync(evt.ResolvedUrl,
-                    new StringContent(evt.ResolvedBody, Encoding.UTF8, mediaType));
+                response = await client.PostAsync(executionUrl,
+                    new StringContent(executionBody, Encoding.UTF8, mediaType));
             }
 
             var responseBody = await response.Content.ReadAsStringAsync();

@@ -9,6 +9,11 @@ public static class ConfigVariableResolver
         await db.ConfigVariables
             .ToDictionaryAsync(v => v.Key, v => v.Value);
 
+    public static async Task<Dictionary<string, string>> LoadPublicAsync(AppDbContext db) =>
+        await db.ConfigVariables
+            .Where(v => !v.IsSecret)
+            .ToDictionaryAsync(v => v.Key, v => v.Value);
+
     public static string Apply(string template, Dictionary<string, string> configVars)
     {
         var result = template;
