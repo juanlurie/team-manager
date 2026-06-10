@@ -5,7 +5,6 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { MatInputModule } from '@angular/material/input';
 import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { ConfigVariablesService, ConfigVariable } from './config-variables.service';
@@ -15,7 +14,7 @@ import { ConfigVariablesService, ConfigVariable } from './config-variables.servi
   standalone: true,
   imports: [
     CommonModule, FormsModule, MatIconModule, MatButtonModule,
-    MatInputModule, MatFormFieldModule, MatSlideToggleModule,
+    MatInputModule, MatFormFieldModule,
     MatSnackBarModule, MatTooltipModule
   ],
   template: `
@@ -38,34 +37,33 @@ import { ConfigVariablesService, ConfigVariable } from './config-variables.servi
       } @else {
         @if (adding()) {
           <div class="edit-card new-card">
-            <div class="edit-row">
-              <mat-form-field appearance="outline" class="key-field">
-                <mat-label>Key</mat-label>
-                <input matInput [(ngModel)]="draft.key" placeholder="baseUrl" (keydown.enter)="saveNew()">
-                <mat-hint>Used as &#123;key&#125; in templates</mat-hint>
-              </mat-form-field>
-              <mat-form-field appearance="outline" class="value-field">
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>Key</mat-label>
+              <input matInput [(ngModel)]="draft.key" placeholder="baseUrl" (keydown.enter)="saveNew()">
+              <mat-hint>Used as &#123;key&#125; in templates</mat-hint>
+            </mat-form-field>
+            <div class="value-row">
+              <mat-form-field appearance="outline" class="full-width">
                 <mat-label>Value</mat-label>
                 <input matInput [(ngModel)]="draft.value" [type]="draft.isSecret ? 'password' : 'text'"
                        placeholder="https://api.example.com" (keydown.enter)="saveNew()">
               </mat-form-field>
-              <mat-form-field appearance="outline" class="desc-field">
-                <mat-label>Description</mat-label>
-                <input matInput [(ngModel)]="draft.description" placeholder="Optional" (keydown.enter)="saveNew()">
-              </mat-form-field>
+              <button mat-icon-button [color]="draft.isSecret ? 'accent' : ''"
+                      (click)="draft.isSecret = !draft.isSecret"
+                      [matTooltip]="draft.isSecret ? 'Secret — stored securely, click to make plain' : 'Click to store value securely'"
+                      class="lock-btn">
+                <mat-icon>{{ draft.isSecret ? 'lock' : 'lock_open' }}</mat-icon>
+              </button>
             </div>
-            <div class="edit-footer">
-              <div class="secret-toggle">
-                <mat-slide-toggle [(ngModel)]="draft.isSecret" color="accent">
-                  Secret — mask value
-                </mat-slide-toggle>
-              </div>
-              <div class="edit-actions">
-                <button mat-button (click)="cancelAdd()">Cancel</button>
-                <button mat-raised-button color="primary" (click)="saveNew()" [disabled]="!draft.key.trim() || saving()">
-                  {{ saving() ? 'Saving...' : 'Save' }}
-                </button>
-              </div>
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>Description</mat-label>
+              <input matInput [(ngModel)]="draft.description" placeholder="Optional" (keydown.enter)="saveNew()">
+            </mat-form-field>
+            <div class="edit-actions">
+              <button mat-button (click)="cancelAdd()">Cancel</button>
+              <button mat-raised-button color="primary" (click)="saveNew()" [disabled]="!draft.key.trim() || saving()">
+                {{ saving() ? 'Saving...' : 'Save' }}
+              </button>
             </div>
           </div>
         }
@@ -81,20 +79,20 @@ import { ConfigVariablesService, ConfigVariable } from './config-variables.servi
             @for (v of variables(); track v.id) {
               @if (editingId() === v.id) {
                 <div class="edit-card">
-                  <div class="edit-row">
-                    <mat-form-field appearance="outline" class="key-field">
-                      <mat-label>Key</mat-label>
-                      <input matInput [(ngModel)]="draft.key" placeholder="baseUrl">
-                    </mat-form-field>
+                  <mat-form-field appearance="outline" class="full-width">
+                    <mat-label>Key</mat-label>
+                    <input matInput [(ngModel)]="draft.key" placeholder="baseUrl">
+                  </mat-form-field>
+                  <div class="value-row">
                     @if (draft.isSecret && !editingSecret()) {
-                      <div class="secret-value-display value-field">
+                      <div class="secret-value-display full-width">
                         <span class="secret-dots">••••••••</span>
                         <button mat-button class="change-btn" (click)="editingSecret.set(true)">Change</button>
                       </div>
                     } @else {
-                      <mat-form-field appearance="outline" class="value-field">
+                      <mat-form-field appearance="outline" class="full-width">
                         <mat-label>Value</mat-label>
-                        <input matInput [(ngModel)]="draft.value" [type]="draft.isSecret ? 'text' : 'text'"
+                        <input matInput [(ngModel)]="draft.value"
                                [placeholder]="draft.isSecret ? 'Enter new value' : 'https://api.example.com'">
                         @if (draft.isSecret && editingSecret()) {
                           <button matSuffix mat-icon-button (click)="cancelEditSecret()" matTooltip="Keep existing">
@@ -103,23 +101,22 @@ import { ConfigVariablesService, ConfigVariable } from './config-variables.servi
                         }
                       </mat-form-field>
                     }
-                    <mat-form-field appearance="outline" class="desc-field">
-                      <mat-label>Description</mat-label>
-                      <input matInput [(ngModel)]="draft.description" placeholder="Optional">
-                    </mat-form-field>
+                    <button mat-icon-button [color]="draft.isSecret ? 'accent' : ''"
+                            (click)="onSecretToggle(!draft.isSecret)"
+                            [matTooltip]="draft.isSecret ? 'Secret — stored securely, click to make plain' : 'Click to store value securely'"
+                            class="lock-btn">
+                      <mat-icon>{{ draft.isSecret ? 'lock' : 'lock_open' }}</mat-icon>
+                    </button>
                   </div>
-                  <div class="edit-footer">
-                    <div class="secret-toggle">
-                      <mat-slide-toggle [(ngModel)]="draft.isSecret" color="accent" (change)="onSecretToggle($event.checked)">
-                        Secret — mask value
-                      </mat-slide-toggle>
-                    </div>
-                    <div class="edit-actions">
-                      <button mat-button (click)="cancelEdit()">Cancel</button>
-                      <button mat-raised-button color="primary" (click)="saveEdit(v.id!)" [disabled]="!draft.key.trim() || saving()">
-                        {{ saving() ? 'Saving...' : 'Save' }}
-                      </button>
-                    </div>
+                  <mat-form-field appearance="outline" class="full-width">
+                    <mat-label>Description</mat-label>
+                    <input matInput [(ngModel)]="draft.description" placeholder="Optional">
+                  </mat-form-field>
+                  <div class="edit-actions">
+                    <button mat-button (click)="cancelEdit()">Cancel</button>
+                    <button mat-raised-button color="primary" (click)="saveEdit(v.id!)" [disabled]="!draft.key.trim() || saving()">
+                      {{ saving() ? 'Saving...' : 'Save' }}
+                    </button>
                   </div>
                 </div>
               } @else {
@@ -176,17 +173,15 @@ import { ConfigVariablesService, ConfigVariable } from './config-variables.servi
     .var-actions { display: flex; align-items: center; gap: 2px; justify-content: flex-end; }
     .secret-icon { font-size: 16px; width: 16px; height: 16px; color: #ce93d8; opacity: 0.7; }
 
-    .edit-card { background: rgba(255,255,255,0.03); border: 1px solid rgba(100,181,246,0.25); border-radius: 10px; padding: 14px; margin-bottom: 8px; }
+    .edit-card { background: rgba(255,255,255,0.03); border: 1px solid rgba(100,181,246,0.25); border-radius: 10px; padding: 14px 14px 10px; margin-bottom: 8px; display: flex; flex-direction: column; gap: 0; }
     .new-card { border-color: rgba(76,175,80,0.3); }
-    .edit-row { display: flex; gap: 10px; flex-wrap: wrap; }
-    .key-field { width: 180px; flex-shrink: 0; }
-    .value-field { flex: 1; min-width: 160px; }
-    .desc-field { flex: 1; min-width: 140px; }
-    .secret-value-display { display: flex; align-items: center; gap: 8px; min-height: 56px; }
+    .full-width { width: 100%; }
+    .value-row { display: flex; align-items: flex-start; gap: 4px; }
+    .value-row .full-width { flex: 1; }
+    .lock-btn { margin-top: 4px; flex-shrink: 0; }
+    .secret-value-display { display: flex; align-items: center; gap: 8px; min-height: 56px; flex: 1; }
     .change-btn { font-size: 0.78rem; color: #64b5f6; }
-    .edit-footer { display: flex; align-items: center; justify-content: space-between; margin-top: 8px; flex-wrap: wrap; gap: 8px; }
-    .secret-toggle { font-size: 0.82rem; }
-    .edit-actions { display: flex; gap: 8px; }
+    .edit-actions { display: flex; gap: 8px; justify-content: flex-end; padding-top: 4px; }
 
     @media (max-width: 600px) {
       .var-row { grid-template-columns: 1fr auto; }
@@ -249,6 +244,7 @@ export class ConfigVariablesComponent implements OnInit {
   }
 
   onSecretToggle(isSecret: boolean) {
+    this.draft.isSecret = isSecret;
     if (!isSecret) {
       this.draft.value = '';
       this.editingSecret.set(true);
