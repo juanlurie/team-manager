@@ -353,10 +353,10 @@ export class ApiRequestConfigsComponent implements OnInit {
             <input matInput [(ngModel)]="data.url" placeholder="https://example.com/api">
           </mat-form-field>
 
-          @if (configVarKeys().length > 0) {
+          @if (configVarKeys.length > 0) {
             <div class="config-vars-hint">
               <span class="config-vars-label">Config vars:</span>
-              @for (k of configVarKeys(); track k) {
+              @for (k of configVarKeys; track k) {
                 <span class="config-var-chip" (click)="insertConfigVar(k)" matTooltip="Click to copy">{{ '{' + k + '}' }}</span>
               }
             </div>
@@ -791,7 +791,8 @@ export class ApiRequestConfigDialogComponent implements OnInit {
   headerEntries = signal<{key: string, value: string, secret: boolean, editing: boolean}[]>([]);
   parameterEntries = signal<{key: string, value: string}[]>([]);
   actions = REQUEST_ACTIONS;
-  configVarKeys = signal<string[]>([]);
+  configVars = signal<{key: string, value: string, isSecret: boolean}[]>([]);
+  get configVarKeys() { return this.configVars().map(v => v.key); }
 
   showCurlImport = signal(false);
   curlInput = '';
@@ -833,7 +834,7 @@ export class ApiRequestConfigDialogComponent implements OnInit {
     const knownParams = new Set([
       ...this.parameterEntries().map(e => e.key.trim()).filter(Boolean),
       ...this.cookieVarNames(),
-      ...this.configVarKeys(),
+      ...this.configVarKeys,
       'start', 'end', 'teamIds', 'nominee', 'title', 'description'
     ]);
     const regularHeaderValues = this.headerEntries().filter(e => !e.secret).map(e => e.value).join(' ');
@@ -870,7 +871,7 @@ export class ApiRequestConfigDialogComponent implements OnInit {
     const secretEntries = Object.entries(secretHeaders).map(([k, v]) => ({ key: k, value: v as string, secret: true, editing: false }));
     this.headerEntries.set([...regularHeaders, ...secretEntries]);
     this.parameterEntries.set(Object.entries(this.data.parameters || {}).map(([k, v]) => ({ key: k, value: v as string })));
-    this.configVarsSvc.keys().subscribe({ next: (keys) => this.configVarKeys.set(keys), error: () => {} });
+    this.configVarsSvc.list().subscribe({ next: (vars) => this.configVars.set(vars.map(v => ({ key: v.key, value: v.value, isSecret: v.isSecret }))), error: () => {} });
   }
 
   setCriteriaStatus(v: any) {
@@ -964,6 +965,7 @@ export class ApiRequestConfigDialogComponent implements OnInit {
 
     const resolve = (t: string) => {
       let s = t;
+      for (const cv of this.configVars()) s = s.replaceAll(`{${cv.key}}`, cv.isSecret ? '***' : cv.value);
       for (const [k, v] of Object.entries(cookieVars)) s = s.replaceAll(`{${k}}`, v || `{${k}}`);
       for (const [k, v] of Object.entries(params)) s = s.replaceAll(`{${k}}`, v);
       return s;
