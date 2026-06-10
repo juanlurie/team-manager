@@ -809,12 +809,29 @@ export class WinOfTheWeekComponent implements OnInit, OnDestroy {
   }
 
   copyShareLink() {
-    const url = `${window.location.origin}/fun/win-of-the-week`;
-    navigator.clipboard.writeText(url).then(() => {
-      this.snackBar.open('Link copied! Share on WhatsApp 📱', 'Close', { duration: 3000 });
-    }).catch(() => {
-      this.snackBar.open('Failed to copy link', 'Close', { duration: 3000 });
-    });
+    const week = this.currentWeek();
+    if (this.isHost() && week) {
+      this.winSvc.generateGuestToken(week.id).subscribe({
+        next: (result) => {
+          const url = `${window.location.origin}/guest/wow/${result.token}`;
+          navigator.clipboard.writeText(url).then(() => {
+            this.snackBar.open('Guest link copied! Anyone with this link can nominate', 'Close', { duration: 3000 });
+          }).catch(() => {
+            this.snackBar.open('Failed to copy link', 'Close', { duration: 3000 });
+          });
+        },
+        error: () => {
+          this.snackBar.open('Failed to generate guest link', 'Close', { duration: 3000 });
+        }
+      });
+    } else {
+      const url = `${window.location.origin}/fun/win-of-the-week`;
+      navigator.clipboard.writeText(url).then(() => {
+        this.snackBar.open('Link copied! Share on WhatsApp 📱', 'Close', { duration: 3000 });
+      }).catch(() => {
+        this.snackBar.open('Failed to copy link', 'Close', { duration: 3000 });
+      });
+    }
   }
 
   copyStory(story: string) {

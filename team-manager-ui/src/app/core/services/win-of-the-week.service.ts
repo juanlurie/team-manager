@@ -60,4 +60,8 @@ export class WinOfTheWeekService {
   getWeekDetail(weekId: string) {
     return this.http.get<WinWeekDetail>(`${this.base}/weeks/${weekId}`);
   }
+
+  generateGuestToken(weekId: string) {
+    return this.http.post<{ token: string; guestUrl: string }>(`${this.base}/${weekId}/guest-token`, {});
+  }
 }

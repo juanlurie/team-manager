@@ -37,16 +37,18 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
             .OrderByDescending(n => n.CreatedAt)
             .ToListAsync();
 
+        var nominationIds = nominations.Select(n => n.Id).ToList();
+
         var userVoteNominationIds = await db.WinVotes
-            .Where(v => v.TeamMemberId == currentMemberId && nominations.Select(n => n.Id).Contains(v.WinNominationId))
+            .Where(v => v.TeamMemberId == currentMemberId && nominationIds.Contains(v.WinNominationId))
             .Select(v => v.WinNominationId)
             .ToListAsync();
 
         var userNominationCount = await db.WinNominations
-            .CountAsync(n => n.WinWeekId == week.Id && n.TeamMemberId == currentMemberId);
+            .CountAsync(n => n.WinWeekId == week.Id && n.TeamMemberId == currentMemberId && n.TeamMemberId != null);
 
         var userVoteCount = await db.WinVotes
-            .CountAsync(v => v.TeamMemberId == currentMemberId && nominations.Select(n => n.Id).Contains(v.WinNominationId));
+            .CountAsync(v => v.TeamMemberId == currentMemberId && nominationIds.Contains(v.WinNominationId));
 
         // During sudden death, track votes only on tied nominations (old votes were cleared)
         int userSuddenDeathVoteCount = 0;
@@ -54,7 +56,7 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
         {
             var tiedForCount = JsonSerializer.Deserialize<List<Guid>>(week.TiedNominationIds) ?? [];
             userSuddenDeathVoteCount = await db.WinVotes
-                .CountAsync(v => v.TeamMemberId == currentMemberId && tiedForCount.Contains(v.WinNominationId));
+                .CountAsync(v => v.TeamMemberId == currentMemberId && v.TeamMemberId != null && tiedForCount.Contains(v.WinNominationId));
         }
 
         var totalVotesCast = nominations.Sum(n => n.Votes.Count);
@@ -92,7 +94,10 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
                 Id = n.Id,
                 WinWeekId = n.WinWeekId,
                 TeamMemberId = n.TeamMemberId,
-                TeamMemberName = $"{n.TeamMember.FirstName} {n.TeamMember.LastName}",
+                TeamMemberName = n.TeamMember != null
+                    ? $"{n.TeamMember.FirstName} {n.TeamMember.LastName}"
+                    : (n.GuestName ?? "Guest"),
+                IsGuestNomination = n.TeamMemberId == null,
                 NomineeMemberId = n.NomineeMemberId,
                 NomineeName = $"{n.Nominee.FirstName} {n.Nominee.LastName}",
                 Title = n.Title,
@@ -112,7 +117,7 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
             throw new InvalidOperationException("Nominations are not open for the current week.");
 
         var count = await db.WinNominations
-            .CountAsync(n => n.WinWeekId == week.Id && n.TeamMemberId == memberId);
+            .CountAsync(n => n.WinWeekId == week.Id && n.TeamMemberId == memberId && n.TeamMemberId != null);
 
         if (count >= MaxNominationsPerPerson)
             throw new InvalidOperationException($"You can only submit up to {MaxNominationsPerPerson} nominations per week.");
@@ -137,7 +142,10 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
             Id = nomination.Id,
             WinWeekId = nomination.WinWeekId,
             TeamMemberId = nomination.TeamMemberId,
-            TeamMemberName = $"{nomination.TeamMember.FirstName} {nomination.TeamMember.LastName}",
+            TeamMemberName = nomination.TeamMember != null
+                ? $"{nomination.TeamMember.FirstName} {nomination.TeamMember.LastName}"
+                : (nomination.GuestName ?? "Guest"),
+            IsGuestNomination = nomination.TeamMemberId == null,
             NomineeMemberId = nomination.NomineeMemberId,
             NomineeName = $"{nomination.Nominee.FirstName} {nomination.Nominee.LastName}",
             Title = nomination.Title,
@@ -176,7 +184,10 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
             Id = nomination.Id,
             WinWeekId = nomination.WinWeekId,
             TeamMemberId = nomination.TeamMemberId,
-            TeamMemberName = $"{nomination.TeamMember.FirstName} {nomination.TeamMember.LastName}",
+            TeamMemberName = nomination.TeamMember != null
+                ? $"{nomination.TeamMember.FirstName} {nomination.TeamMember.LastName}"
+                : (nomination.GuestName ?? "Guest"),
+            IsGuestNomination = nomination.TeamMemberId == null,
             NomineeMemberId = nomination.NomineeMemberId,
             NomineeName = $"{nomination.Nominee.FirstName} {nomination.Nominee.LastName}",
             Title = nomination.Title,
@@ -196,7 +207,7 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
         if (nomination is null)
             throw new KeyNotFoundException("Nomination not found.");
 
-        if (nomination.TeamMemberId != memberId)
+        if (nomination.TeamMemberId == null || nomination.TeamMemberId != memberId)
             throw new InvalidOperationException("You can only delete your own nominations.");
 
         if (nomination.WinWeek.Status != WinWeekStatus.Nominating)
@@ -223,7 +234,6 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
 
         if (week.Status == WinWeekStatus.SuddenDeath)
         {
-            // During sudden death each person gets exactly 1 vote across all tied nominations
             var tiedIds = JsonSerializer.Deserialize<List<Guid>>(week.TiedNominationIds ?? "[]") ?? [];
             var alreadyVoted = await db.WinVotes
                 .AnyAsync(v => v.TeamMemberId == memberId && tiedIds.Contains(v.WinNominationId));
@@ -238,7 +248,7 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
                 throw new InvalidOperationException("You have already voted for this nomination.");
 
             var weekVoteCount = await db.WinVotes
-                .CountAsync(v => v.TeamMemberId == memberId && v.WinNomination.WinWeekId == nomination.WinWeekId);
+                .CountAsync(v => v.TeamMemberId == memberId && v.TeamMemberId != null && v.WinNomination.WinWeekId == nomination.WinWeekId);
             if (weekVoteCount >= MaxVotesPerPerson)
                 throw new InvalidOperationException($"You can only vote up to {MaxVotesPerPerson} times per week.");
         }
@@ -264,7 +274,7 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
     public async Task<bool> RemoveVoteAsync(Guid memberId, Guid nominationId)
     {
         var vote = await db.WinVotes
-            .FirstOrDefaultAsync(v => v.WinNominationId == nominationId && v.TeamMemberId == memberId);
+            .FirstOrDefaultAsync(v => v.WinNominationId == nominationId && v.TeamMemberId == memberId && v.TeamMemberId != null);
 
         if (vote is null) return false;
 
@@ -511,7 +521,10 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
                 Id = n.Id,
                 WinWeekId = n.WinWeekId,
                 TeamMemberId = n.TeamMemberId,
-                TeamMemberName = $"{n.TeamMember.FirstName} {n.TeamMember.LastName}",
+                TeamMemberName = n.TeamMember != null
+                    ? $"{n.TeamMember.FirstName} {n.TeamMember.LastName}"
+                    : (n.GuestName ?? "Guest"),
+                IsGuestNomination = n.TeamMemberId == null,
                 NomineeMemberId = n.NomineeMemberId,
                 NomineeName = $"{n.Nominee.FirstName} {n.Nominee.LastName}",
                 Title = n.Title,

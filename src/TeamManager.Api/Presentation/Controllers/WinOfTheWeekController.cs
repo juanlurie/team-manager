@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using TeamManager.Api.Application.DTOs.WinOfTheWeek;
+using TeamManager.Api.Application.Services;
 using TeamManager.Api.Application.Services.Interfaces;
 using TeamManager.Api.Infrastructure.Data;
 using TeamManager.Api.Middleware;
@@ -11,7 +12,7 @@ namespace TeamManager.Api.Presentation.Controllers;
 [ApiController]
 [RequireFeature("win-of-week")]
 [Route("api/v1/win-of-the-week")]
-public class WinOfTheWeekController(IWinOfTheWeekService service, AppDbContext db) : ControllerBase
+public class WinOfTheWeekController(IWinOfTheWeekService service, AppDbContext db, GuestWinOfTheWeekService guestService) : ControllerBase
 {
     [HttpGet("current")]
     public async Task<IActionResult> GetCurrent()
@@ -192,6 +193,21 @@ public class WinOfTheWeekController(IWinOfTheWeekService service, AppDbContext d
         catch (InvalidOperationException ex)
         {
             return BadRequest(new { error = ex.Message });
+        }
+    }
+
+    [HttpPost("{weekId:guid}/guest-token")]
+    [RequireFeature("wow-host")]
+    public async Task<IActionResult> GenerateGuestToken(Guid weekId)
+    {
+        try
+        {
+            var result = await guestService.GetOrGenerateGuestTokenAsync(weekId);
+            return Ok(result);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { error = ex.Message });
         }
     }
 

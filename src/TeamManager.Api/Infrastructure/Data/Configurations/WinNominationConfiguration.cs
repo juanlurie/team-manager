@@ -21,7 +21,10 @@ public class WinNominationConfiguration : IEntityTypeConfiguration<WinNomination
         builder.HasOne(n => n.TeamMember)
             .WithMany()
             .HasForeignKey(n => n.TeamMemberId)
+            .IsRequired(false)
             .OnDelete(DeleteBehavior.Restrict);
+        builder.Property(n => n.GuestName).HasMaxLength(100);
+        builder.Property(n => n.GuestSessionId).HasMaxLength(64);
 
         builder.HasOne(n => n.Nominee)
             .WithMany()

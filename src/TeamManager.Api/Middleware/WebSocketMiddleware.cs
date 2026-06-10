@@ -10,6 +10,15 @@ public class WebSocketMiddleware
     private static readonly ConcurrentDictionary<Guid, (WebSocket Socket, Guid? MemberId)> _connections = new();
     private static readonly SemaphoreSlim _broadcastLock = new(1, 1);
 
+    private static readonly HashSet<string> _guestAllowedEvents =
+    [
+        "nomination_created", "nomination_updated", "nomination_deleted",
+        "vote_cast", "vote_removed",
+        "voting_opened", "voting_closed",
+        "nominations_reopened", "sudden_death_started",
+        "win_story_ready", "presence_changed"
+    ];
+
     private readonly RequestDelegate _next;
 
     public WebSocketMiddleware(RequestDelegate next) => _next = next;
@@ -91,6 +100,9 @@ public class WebSocketMiddleware
                     dead.Add(id);
                     continue;
                 }
+                // Guest connections (no MemberId) only receive WoW-related events
+                if (entry.MemberId == null && !_guestAllowedEvents.Contains(type))
+                    continue;
                 try
                 {
                     await entry.Socket.SendAsync(new ArraySegment<byte>(bytes), WebSocketMessageType.Text, true, CancellationToken.None);

@@ -12,7 +12,13 @@ public class WinVoteConfiguration : IEntityTypeConfiguration<WinVote>
         builder.Property(v => v.Id).HasDefaultValueSql("gen_random_uuid()");
         builder.Property(v => v.VotedAt);
 
-        builder.HasIndex(v => new { v.WinNominationId, v.TeamMemberId }).IsUnique();
+        builder.HasIndex(v => new { v.WinNominationId, v.TeamMemberId })
+            .IsUnique()
+            .HasFilter("\"TeamMemberId\" IS NOT NULL");
+        builder.HasIndex(v => new { v.WinNominationId, v.GuestSessionId })
+            .IsUnique()
+            .HasFilter("\"GuestSessionId\" IS NOT NULL");
+        builder.Property(v => v.GuestSessionId).HasMaxLength(64);
 
         builder.HasOne(v => v.WinNomination)
             .WithMany(n => n.Votes)
@@ -22,6 +28,7 @@ public class WinVoteConfiguration : IEntityTypeConfiguration<WinVote>
         builder.HasOne(v => v.TeamMember)
             .WithMany()
             .HasForeignKey(v => v.TeamMemberId)
+            .IsRequired(false)
             .OnDelete(DeleteBehavior.Restrict);
     }
 }

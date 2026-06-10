@@ -67,6 +67,8 @@ builder.Services.AddScoped<SquadService>();
 builder.Services.AddScoped<IMeetingSessionService, MeetingSessionService>();
 builder.Services.AddScoped<IMeetingSeriesService, MeetingSeriesService>();
 builder.Services.AddScoped<IWinOfTheWeekService, WinOfTheWeekService>();
+builder.Services.AddScoped<GuestWinOfTheWeekService>();
+builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<IWinOfMonthService, WinOfMonthService>();
 builder.Services.AddScoped<ICoffeeRunService, CoffeeRunService>();
 builder.Services.AddScoped<IScrumPokerService, ScrumPokerService>();
@@ -149,9 +151,9 @@ app.UseWebSockets(new WebSocketOptions { KeepAliveInterval = TimeSpan.FromMinute
 
 app.UseAuthentication();
 app.UseMiddleware<TeamMemberRequiredMiddleware>();
-app.UseAuthorization();
-
 app.UseMiddleware<WebSocketMiddleware>();
+
+app.UseAuthorization();
 app.MapHealthChecks("/health").AllowAnonymous();
 app.MapControllers();
 

@@ -4,8 +4,9 @@ public record WinNominationDto
 {
     public Guid Id { get; init; }
     public Guid WinWeekId { get; init; }
-    public Guid TeamMemberId { get; init; }
+    public Guid? TeamMemberId { get; init; }
     public string TeamMemberName { get; init; } = string.Empty;
+    public bool IsGuestNomination { get; init; }
     public Guid NomineeMemberId { get; init; }
     public string NomineeName { get; init; } = string.Empty;
     public string Title { get; init; } = string.Empty;

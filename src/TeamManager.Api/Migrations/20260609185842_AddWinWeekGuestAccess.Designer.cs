@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using TeamManager.Api.Infrastructure.Data;
@@ -11,9 +12,11 @@ using TeamManager.Api.Infrastructure.Data;
 namespace TeamManager.Api.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260609185842_AddWinWeekGuestAccess")]
+    partial class AddWinWeekGuestAccess
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -2425,11 +2428,7 @@ namespace TeamManager.Api.Migrations
                         .HasColumnType("uuid")
                         .HasDefaultValueSql("gen_random_uuid()");
 
-                    b.Property<string>("GuestSessionId")
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)");
-
-                    b.Property<Guid?>("TeamMemberId")
+                    b.Property<Guid>("TeamMemberId")
                         .HasColumnType("uuid");
 
                     b.Property<DateTimeOffset>("VotedAt")
@@ -2442,13 +2441,8 @@ namespace TeamManager.Api.Migrations
 
                     b.HasIndex("TeamMemberId");
 
-                    b.HasIndex("WinNominationId", "GuestSessionId")
-                        .IsUnique()
-                        .HasFilter("\"GuestSessionId\" IS NOT NULL");
-
                     b.HasIndex("WinNominationId", "TeamMemberId")
-                        .IsUnique()
-                        .HasFilter("\"TeamMemberId\" IS NOT NULL");
+                        .IsUnique();
 
                     b.ToTable("WinVotes");
                 });
@@ -3349,7 +3343,8 @@ namespace TeamManager.Api.Migrations
                     b.HasOne("TeamManager.Api.Domain.Entities.TeamMember", "TeamMember")
                         .WithMany()
                         .HasForeignKey("TeamMemberId")
-                        .OnDelete(DeleteBehavior.Restrict);
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
 
                     b.HasOne("TeamManager.Api.Domain.Entities.WinNomination", "WinNomination")
                         .WithMany("Votes")

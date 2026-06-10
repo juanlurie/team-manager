@@ -1,8 +1,9 @@
 export interface WinNomination {
   id: string;
   winWeekId: string;
-  teamMemberId: string;
+  teamMemberId: string | null;
   teamMemberName: string;
+  isGuestNomination: boolean;
   nomineeMemberId: string;
   nomineeName: string;
   title: string;
@@ -110,4 +111,39 @@ export interface CloseWeekRequest {
 
 export interface StartSuddenDeathRequest {
   tiedNominationIds: string[];
+}
+
+export interface GuestWinWeek {
+  id: string;
+  weekStart: string;
+  status: 'Nominating' | 'Voting' | 'SuddenDeath' | 'Closed';
+  isNominatingOpen: boolean;
+  isVotingOpen: boolean;
+  userNominationsRemaining: number;
+  userVotesRemaining: number;
+  winnerNomineeName: string | null;
+  winnerTitle: string | null;
+  winnerStory: string | null;
+  nominations: GuestNomination[];
+}
+
+export interface GuestNomination {
+  id: string;
+  nomineeMemberId: string;
+  nomineeName: string;
+  nominatorDisplayName: string;
+  title: string;
+  description: string | null;
+  voteCount: number;
+  hasVoted: boolean;
+  isOwned: boolean;
+  createdAt: string;
+}
+
+export interface GuestCreateNominationRequest {
+  guestSessionId: string;
+  guestName: string;
+  nomineeMemberId: string;
+  title: string;
+  description?: string;
 }
