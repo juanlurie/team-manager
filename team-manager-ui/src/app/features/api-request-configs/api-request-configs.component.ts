@@ -857,7 +857,7 @@ export class ApiRequestConfigsComponent implements OnInit {
     .toggle-item { display: flex; align-items: center; gap: 8px; }
     .toggle-hint { font-size: 0.72rem; color: rgba(255,255,255,0.3); }
 
-    .header-row { display: flex; align-items: flex-start; gap: 8px; flex-wrap: wrap; margin-bottom: 4px; }
+    .header-row { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 4px; }
     .remove-btn { margin-top: 4px; flex-shrink: 0; color: rgba(239,83,80,0.5); }
     .remove-btn:hover { color: #ef5350; }
     .lock-btn { margin-top: 4px; flex-shrink: 0; }
