@@ -1,5 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
+import { Router } from '@angular/router';
 import { OAuthService } from 'angular-oauth2-oidc';
 import { authConfig } from './auth.config';
 import { BehaviorSubject, of } from 'rxjs';
@@ -29,7 +30,9 @@ export class AuthService {
   // In this mode the frontend skips Google OAuth entirely.
   private devMode = false;
 
-  constructor(private oauth: OAuthService, private http: HttpClient) {
+  private static readonly RETURN_URL_KEY = 'auth_return_url';
+
+  constructor(private oauth: OAuthService, private http: HttpClient, private router: Router) {
     this.http.get<{ authRequired: boolean }>('/api/auth-mode').subscribe({
       next: ({ authRequired }) => {
         if (!authRequired) {
@@ -59,6 +62,11 @@ export class AuthService {
               this._me$.next(me);
               this._authStatus$.next('authorized');
               this._isDone$.next(true);
+              const returnUrl = localStorage.getItem(AuthService.RETURN_URL_KEY);
+              if (returnUrl) {
+                localStorage.removeItem(AuthService.RETURN_URL_KEY);
+                this.router.navigateByUrl(returnUrl);
+              }
             }),
             catchError(() => {
               this._authStatus$.next('unauthorized');
@@ -78,7 +86,12 @@ export class AuthService {
       });
   }
 
-  login()  { if (!this.devMode) this.oauth.initCodeFlow(); }
+  login(returnUrl?: string) {
+    if (!this.devMode) {
+      if (returnUrl) localStorage.setItem(AuthService.RETURN_URL_KEY, returnUrl);
+      this.oauth.initCodeFlow();
+    }
+  }
 
   logout() {
     // Remove OAuth tokens from localStorage (angular-oauth2-oidc storage)
