@@ -30,15 +30,11 @@ const ALL_PRIMARY_NAV: NavItem[] = [
   { path: '/fun',            icon: 'casino',          label: 'Fun Hub',      featureKey: 'fun-hub' },
   { path: '/team',           icon: 'people',          label: 'Team',         featureKey: 'team' },
   { path: '/timesheet',      icon: 'schedule',        label: 'Timesheet',    featureKey: 'team' },
-  { path: '/sync-queue',     icon: 'sync',            label: 'Sync Queue',   featureKey: 'settings' },
   { path: '/leave',          icon: 'event_busy',      label: 'Leave',        featureKey: 'leave' },
 ];
 
 const ALL_SECONDARY_NAV: NavItem[] = [
-  { path: '/access-requests', icon: 'person_add', label: 'Access Requests', featureKey: 'access-requests' },
-  { path: '/expense-claim', icon: 'receipt_long', label: 'Expense Claim', featureKey: 'expense-claim' },
   { path: '/settings', icon: 'settings', label: 'Settings', featureKey: 'settings' },
-  { path: '/export', icon: 'download', label: 'Export', featureKey: 'export' },
   { path: '/profile', icon: 'person', label: 'Profile' },
 ];
 
@@ -58,10 +54,7 @@ const ALL_MORE_NAV: NavItem[] = [
   { path: '/meetings',       icon: 'event',          label: 'Meetings',      featureKey: 'meetings' },
   { path: '/timesheet',      icon: 'schedule',       label: 'Timesheet',     featureKey: 'team' },
   { path: '/showcase',       icon: 'auto_awesome',   label: 'Showcase',      featureKey: 'showcase' },
-  { path: '/access-requests',icon: 'person_add',     label: 'Access Requests', featureKey: 'access-requests' },
-  { path: '/expense-claim',  icon: 'receipt_long',   label: 'Expense Claim', featureKey: 'expense-claim' },
   { path: '/settings',       icon: 'settings',       label: 'Settings',      featureKey: 'settings' },
-  { path: '/export',         icon: 'download',       label: 'Export',        featureKey: 'export' },
   { path: '/profile',        icon: 'person',         label: 'Profile' },
 ];
 

@@ -50,6 +50,27 @@ const CONFIG_CARDS: ConfigCard[] = [
     color: '#ff9800'
   },
   {
+    icon: 'download',
+    label: 'Export',
+    description: 'Export sprint, team, and timesheet data',
+    path: '/export',
+    color: '#4caf50'
+  },
+  {
+    icon: 'receipt_long',
+    label: 'Expense Claim',
+    description: 'Submit and manage expense claims',
+    path: '/expense-claim',
+    color: '#ffa726'
+  },
+  {
+    icon: 'person_add',
+    label: 'Access Requests',
+    description: 'Review and approve team member access requests',
+    path: '/access-requests',
+    color: '#ef5350'
+  },
+  {
     icon: 'event',
     label: 'Session Types',
     description: 'Define meeting session types and durations',
