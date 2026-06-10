@@ -6,7 +6,7 @@ public class MemberTimesheetConfig
     public string ExtraProjectsJson { get; set; } = "[]";
     public string ExtraCategoriesJson { get; set; } = "{}";
     public string QuickActionsJson { get; set; } = "[]";
-    public string WorkLocationOptionsJson { get; set; } = "[\"Home\",\"Other\",\"Client\",\"Entelect\"]";
+    public string WorkLocationOptionsJson { get; set; } = "[\"Home\",\"Client\",\"Other\"]";
     public string BillableProjectsJson { get; set; } = "[]";
     public string WorkWeekJson { get; set; } = "{}";
     public bool MergeEntriesEnabled { get; set; } = false;

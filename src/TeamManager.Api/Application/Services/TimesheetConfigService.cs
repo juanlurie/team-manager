@@ -59,7 +59,7 @@ public class TimesheetConfigService(AppDbContext db) : ITimesheetConfigService
         JsonSerializer.Deserialize<string[]>(c.ExtraProjectsJson, Json) ?? [],
         JsonSerializer.Deserialize<Dictionary<string, string[]>>(c.ExtraCategoriesJson, Json) ?? [],
         (JsonSerializer.Deserialize<List<QuickActionConfigDto>>(c.QuickActionsJson, Json) ?? []).ToArray(),
-        JsonSerializer.Deserialize<string[]>(c.WorkLocationOptionsJson, Json) ?? ["Home", "Other", "Client", "Entelect"],
+        JsonSerializer.Deserialize<string[]>(c.WorkLocationOptionsJson, Json) ?? ["Home", "Client", "Other"],
         JsonSerializer.Deserialize<string[]>(c.BillableProjectsJson, Json) ?? [],
         JsonSerializer.Deserialize<Dictionary<string, string>>(c.WorkWeekJson, Json) ?? [],
         c.MergeEntriesEnabled,
@@ -72,5 +72,5 @@ public class TimesheetConfigService(AppDbContext db) : ITimesheetConfigService
         c.DeduplicatePendingEditSync
     );
 
-    private static TimesheetConfigDto Empty() => new([], [], [], ["Home", "Other", "Client", "Entelect"], [], [], false, [], []);
+    private static TimesheetConfigDto Empty() => new([], [], [], ["Home", "Client", "Other"], [], [], false, [], []);
 }
