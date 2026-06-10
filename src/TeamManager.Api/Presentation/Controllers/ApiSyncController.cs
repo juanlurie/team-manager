@@ -64,11 +64,12 @@ public class ApiSyncController(AppDbContext db, IHttpClientFactory httpClientFac
             }
         }
 
-        var configVars = await Application.Services.ConfigVariableResolver.LoadAsync(db);
+        // Use only non-secret config vars at enqueue time so secrets are never stored in the event
+        var publicConfigVars = await Application.Services.ConfigVariableResolver.LoadPublicAsync(db);
 
         string Resolve(string t)
         {
-            var result = Application.Services.ConfigVariableResolver.Apply(t, configVars);
+            var result = Application.Services.ConfigVariableResolver.Apply(t, publicConfigVars);
             result = result.Replace("{cookie}", cookie);
             foreach (var (key, value) in parameters)
                 result = result.Replace($"{{{key}}}", value);
@@ -77,10 +78,8 @@ public class ApiSyncController(AppDbContext db, IHttpClientFactory httpClientFac
             return result;
         }
 
+        // Secret headers are NOT stored in the event — they are injected at send time
         var resolvedHeaders = headers.ToDictionary(kvp => kvp.Key, kvp => Resolve(kvp.Value));
-        var secretHeaders = JsonSerializer.Deserialize<Dictionary<string, string>>(
-            string.IsNullOrWhiteSpace(config.SecretHeadersJson) ? "{}" : config.SecretHeadersJson) ?? [];
-        foreach (var (k, v) in secretHeaders) resolvedHeaders[k] = v;
 
         var evt = new Domain.Entities.ApiSyncEvent
         {
@@ -221,10 +220,10 @@ public class ApiSyncController(AppDbContext db, IHttpClientFactory httpClientFac
             }
         }
 
-        // Load success criteria, retry count, and stored cookie from the config
+        // Load success criteria, retry count, stored cookie, and secret headers from the config
         var configMeta = await db.ApiRequestConfigs
             .Where(c => c.Action == evt.Action && c.Enabled)
-            .Select(c => new { c.RetryCount, c.SuccessCriteriaJson, c.StoredCookie })
+            .Select(c => new { c.RetryCount, c.SuccessCriteriaJson, c.StoredCookie, c.SecretHeadersJson })
             .FirstOrDefaultAsync();
         var retryCount = configMeta?.RetryCount ?? 0;
         SuccessCriteriaDto? criteria = null;
@@ -233,6 +232,8 @@ public class ApiSyncController(AppDbContext db, IHttpClientFactory httpClientFac
 
         var rawHeaders = JsonSerializer.Deserialize<Dictionary<string, string>>(evt.ResolvedHeadersJson) ?? [];
         var configVarsForSend = await Application.Services.ConfigVariableResolver.LoadAsync(db);
+        var secretHeadersForSend = JsonSerializer.Deserialize<Dictionary<string, string>>(
+            string.IsNullOrWhiteSpace(configMeta?.SecretHeadersJson) ? "{}" : configMeta.SecretHeadersJson) ?? [];
 
         // Only enforce cookie requirement if the resolved payload still references it
         var needsCookie = evt.ResolvedBody.Contains("{cookie}")
@@ -281,6 +282,7 @@ public class ApiSyncController(AppDbContext db, IHttpClientFactory httpClientFac
                 }
 
                 var headers = rawHeaders.ToDictionary(kvp => kvp.Key, kvp => Inject(kvp.Value));
+                foreach (var (k, v) in secretHeadersForSend) headers[k] = v;
                 var body = Inject(evt.ResolvedBody);
                 var url = Inject(evt.ResolvedUrl);
 

@@ -621,11 +621,13 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
                     ["description"] = description ?? ""
                 };
 
-                var configVars = await ConfigVariableResolver.LoadAsync(bgDb);
+                // Storage: non-secret values only — stored URL/body/headers are safe to return to clients
+                var publicConfigVars = await ConfigVariableResolver.LoadPublicAsync(bgDb);
+                var allConfigVars = await ConfigVariableResolver.LoadAsync(bgDb);
 
-                string Resolve(string template)
+                string ResolveForStorage(string template)
                 {
-                    var result = ConfigVariableResolver.Apply(template, configVars);
+                    var result = ConfigVariableResolver.Apply(template, publicConfigVars);
                     foreach (var (k, v) in parameters)
                         result = result.Replace($"{{{k}}}", v);
                     foreach (var (k, v) in vars)
@@ -633,9 +635,16 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
                     return result;
                 }
 
-                var resolvedHeaders = headers.ToDictionary(kvp => kvp.Key, kvp => Resolve(kvp.Value));
-                var resolvedUrl = Resolve(config.Url);
-                var resolvedBody = Resolve(config.BodyTemplate ?? "");
+                // Execution: all values including secrets — used only for the HTTP call, never stored
+                string ResolveForExecution(string template)
+                {
+                    var result = ConfigVariableResolver.Apply(template, allConfigVars);
+                    foreach (var (k, v) in parameters)
+                        result = result.Replace($"{{{k}}}", v);
+                    foreach (var (k, v) in vars)
+                        result = result.Replace($"{{{k}}}", v);
+                    return result;
+                }
 
                 var evt = new ApiSyncEvent
                 {
@@ -645,24 +654,29 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
                     SourceType = "WinWeek",
                     SourceId = weekId.ToString(),
                     HttpMethod = "POST",
-                    ResolvedUrl = resolvedUrl,
-                    ResolvedHeadersJson = JsonSerializer.Serialize(resolvedHeaders),
-                    ResolvedBody = resolvedBody,
+                    ResolvedUrl = ResolveForStorage(config.Url),
+                    ResolvedHeadersJson = JsonSerializer.Serialize(headers.ToDictionary(kvp => kvp.Key, kvp => ResolveForStorage(kvp.Value))),
+                    ResolvedBody = ResolveForStorage(config.BodyTemplate ?? ""),
                     BodyFormat = config.BodyFormat ?? "json"
                 };
                 bgDb.ApiSyncEvents.Add(evt);
                 await bgDb.SaveChangesAsync();
 
+                // Execute immediately using fully resolved values (secrets applied here, not stored)
+                var executionHeaders = headers.ToDictionary(kvp => kvp.Key, kvp => ResolveForExecution(kvp.Value));
+                var executionUrl = ResolveForExecution(config.Url);
+                var executionBody = ResolveForExecution(config.BodyTemplate ?? "");
+
                 try
                 {
                     using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
-                    foreach (var (k, v) in resolvedHeaders)
+                    foreach (var (k, v) in executionHeaders)
                         client.DefaultRequestHeaders.TryAddWithoutValidation(k, v);
 
                     var mediaType = (config.BodyFormat ?? "json") == "urlencoded"
                         ? "application/x-www-form-urlencoded"
                         : "application/json";
-                    var response = await client.PostAsync(resolvedUrl, new StringContent(resolvedBody, Encoding.UTF8, mediaType));
+                    var response = await client.PostAsync(executionUrl, new StringContent(executionBody, Encoding.UTF8, mediaType));
                     var responseBody = await response.Content.ReadAsStringAsync();
 
                     evt.ResponseStatus = (int)response.StatusCode;
