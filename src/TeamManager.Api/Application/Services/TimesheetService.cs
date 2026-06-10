@@ -94,9 +94,21 @@ public class TimesheetService(AppDbContext db, ITimesheetEventPublisher eventPub
             e.Action == "AddTimesheetEntry" &&
             e.Status == "pending");
         if (pendingAdd is not null)
-            pendingAdd.Status = "dismissed";
+        {
+            // Never reached external — cancel the pending add, skip the delete enqueue
+            db.ApiSyncEvents.Remove(pendingAdd);
+        }
         else
-            await EnqueueTimesheetActionAsync("DeleteTimesheetEntry", entry);
+        {
+            // Only enqueue Delete if the entry actually reached the external system
+            var hasExternalId = !string.IsNullOrEmpty(entry.ExternalId) ||
+                await db.ApiSyncEvents.AnyAsync(e =>
+                    e.SourceId == entry.Id.ToString() &&
+                    e.Action == "AddTimesheetEntry" &&
+                    e.ExternalId != null);
+            if (hasExternalId)
+                await EnqueueTimesheetActionAsync("DeleteTimesheetEntry", entry);
+        }
         db.TimesheetEntries.Remove(entry);
         await db.SaveChangesAsync();
         await eventPublisher.PublishAsync("deleted", dto);
@@ -195,11 +207,20 @@ public class TimesheetService(AppDbContext db, ITimesheetEventPublisher eventPub
                     e.Status == "pending");
                 if (pendingAdd is not null)
                 {
+                    // Refresh the pending Add with latest entry data instead of queuing an Edit
                     db.ApiSyncEvents.Remove(pendingAdd);
                     await db.SaveChangesAsync();
                     await EnqueueTimesheetActionAsync("AddTimesheetEntry", entry);
                     return;
                 }
+
+                // Entry has never reached external — no point queuing an Edit
+                var hasExternalId = !string.IsNullOrEmpty(entry.ExternalId) ||
+                    await db.ApiSyncEvents.AnyAsync(e =>
+                        e.SourceId == entry.Id.ToString() &&
+                        e.Action == "AddTimesheetEntry" &&
+                        e.ExternalId != null);
+                if (!hasExternalId) return;
             }
 
             var config = await db.ApiRequestConfigs

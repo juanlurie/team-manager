@@ -172,6 +172,24 @@ public class ApiSyncController(AppDbContext db, IHttpClientFactory httpClientFac
         return NoContent();
     }
 
+    [HttpDelete("by-status/{status}")]
+    [Authorize(Roles = "TeamLead")]
+    public async Task<IActionResult> DeleteByStatus(string status)
+    {
+        var deleted = await db.ApiSyncEvents
+            .Where(e => e.Status == status)
+            .ExecuteDeleteAsync();
+        return Ok(new { deleted });
+    }
+
+    [HttpDelete]
+    [Authorize(Roles = "TeamLead")]
+    public async Task<IActionResult> PurgeAll()
+    {
+        var deleted = await db.ApiSyncEvents.ExecuteDeleteAsync();
+        return Ok(new { deleted });
+    }
+
     private async Task PruneOldEventsAsync()
     {
         var cutoff = DateTimeOffset.UtcNow.AddDays(-7);
