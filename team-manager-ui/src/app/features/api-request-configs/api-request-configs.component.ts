@@ -380,12 +380,29 @@ export class ApiRequestConfigsComponent implements OnInit {
             <div class="header-row">
               <mat-form-field appearance="outline" class="half-width">
                 <mat-label>Key</mat-label>
-                <input matInput [(ngModel)]="entry.key" placeholder="Cookie">
+                <input matInput [(ngModel)]="entry.key" placeholder="Authorization">
               </mat-form-field>
-              <mat-form-field appearance="outline" class="half-width">
-                <mat-label>Value</mat-label>
-                <input matInput [(ngModel)]="entry.value" placeholder="&#123;cookie&#125;">
-              </mat-form-field>
+              @if (entry.secret && !entry.editing) {
+                <div class="secret-value-row half-width">
+                  <span class="secret-placeholder">••••••••</span>
+                  <button mat-button class="change-secret-btn" (click)="editSecretHeader(entry)">Change</button>
+                </div>
+              } @else {
+                <mat-form-field appearance="outline" class="half-width">
+                  <mat-label>Value</mat-label>
+                  <input matInput [(ngModel)]="entry.value" [placeholder]="entry.secret ? 'Enter new value' : '{cookie}'">
+                  @if (entry.editing) {
+                    <button matSuffix mat-icon-button (click)="cancelEditSecretHeader(entry)" matTooltip="Cancel">
+                      <mat-icon>close</mat-icon>
+                    </button>
+                  }
+                </mat-form-field>
+              }
+              <button mat-icon-button [color]="entry.secret ? 'accent' : ''" (click)="toggleHeaderSecret(entry)"
+                      [matTooltip]="entry.secret ? 'Stored securely — click to make regular' : 'Click to store value securely (never sent to browser)'"
+                      class="lock-btn">
+                <mat-icon>{{ entry.secret ? 'lock' : 'lock_open' }}</mat-icon>
+              </button>
               <button mat-icon-button color="warn" (click)="removeHeader(entry.key)" class="remove-btn">
                 <mat-icon>delete</mat-icon>
               </button>
@@ -692,6 +709,10 @@ export class ApiRequestConfigsComponent implements OnInit {
     .section-header h3 { font-size: 0.88rem; font-weight: 600; color: rgba(255,255,255,0.5); text-transform: uppercase; letter-spacing: 0.04em; margin: 0; }
     .header-row { display: flex; align-items: flex-start; gap: 8px; flex-wrap: wrap; }
     .remove-btn { margin-top: 4px; flex-shrink: 0; }
+    .lock-btn { margin-top: 4px; flex-shrink: 0; }
+    .secret-value-row { display: flex; align-items: center; gap: 8px; min-height: 56px; padding: 0 4px; }
+    .secret-placeholder { font-family: monospace; font-size: 1.1rem; color: rgba(255,255,255,0.35); letter-spacing: 3px; flex: 1; }
+    .change-secret-btn { font-size: 0.78rem; color: #64b5f6; flex-shrink: 0; }
     .inline-fields { display: flex; gap: 12px; flex-wrap: wrap; }
     .inline-fields mat-form-field { flex: 1; min-width: 120px; }
     .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 4px; }
@@ -750,7 +771,7 @@ export class ApiRequestConfigDialogComponent implements OnInit {
   dialogRef = inject(MatDialogRef<ApiRequestConfigDialogComponent>);
   data = inject<any>(MAT_DIALOG_DATA);
   saving = signal(false);
-  headerEntries = signal<{key: string, value: string}[]>([]);
+  headerEntries = signal<{key: string, value: string, secret: boolean, editing: boolean}[]>([]);
   parameterEntries = signal<{key: string, value: string}[]>([]);
   actions = REQUEST_ACTIONS;
 
@@ -791,7 +812,8 @@ export class ApiRequestConfigDialogComponent implements OnInit {
       ...this.cookieVarNames(),
       'start', 'end', 'teamIds', 'nominee', 'title', 'description'
     ]);
-    const template = (this.data.bodyTemplate ?? '') + Object.values(this.data.headers ?? {}).join(' ');
+    const regularHeaderValues = this.headerEntries().filter(e => !e.secret).map(e => e.value).join(' ');
+    const template = (this.data.bodyTemplate ?? '') + regularHeaderValues;
     const matches = [...template.matchAll(/\{(\w+)\}/g)].map(m => m[1]);
     return [...new Set(matches)].filter(v => !knownParams.has(v));
   }
@@ -819,7 +841,10 @@ export class ApiRequestConfigDialogComponent implements OnInit {
   }
 
   ngOnInit() {
-    this.headerEntries.set(Object.entries(this.data.headers || {}).map(([k, v]) => ({ key: k, value: v as string })));
+    const secretHeaders: Record<string, string> = this.data.secretHeaders ?? {};
+    const regularHeaders = Object.entries(this.data.headers || {}).map(([k, v]) => ({ key: k, value: v as string, secret: false, editing: false }));
+    const secretEntries = Object.entries(secretHeaders).map(([k, v]) => ({ key: k, value: v as string, secret: true, editing: false }));
+    this.headerEntries.set([...regularHeaders, ...secretEntries]);
     this.parameterEntries.set(Object.entries(this.data.parameters || {}).map(([k, v]) => ({ key: k, value: v as string })));
   }
 
@@ -835,11 +860,33 @@ export class ApiRequestConfigDialogComponent implements OnInit {
   }
 
   addHeader() {
-    this.headerEntries.set([...this.headerEntries(), { key: '', value: '' }]);
+    this.headerEntries.set([...this.headerEntries(), { key: '', value: '', secret: false, editing: false }]);
   }
 
   removeHeader(key: string) {
     this.headerEntries.set(this.headerEntries().filter(e => e.key !== key));
+  }
+
+  toggleHeaderSecret(entry: {key: string, value: string, secret: boolean, editing: boolean}) {
+    entry.secret = !entry.secret;
+    if (!entry.secret) {
+      // Unlocking a previously saved secret: clear the masked value so user must re-enter
+      if (entry.value === '**SECRET**') entry.value = '';
+      entry.editing = false;
+    }
+    this.headerEntries.set([...this.headerEntries()]);
+  }
+
+  editSecretHeader(entry: {key: string, value: string, secret: boolean, editing: boolean}) {
+    entry.editing = true;
+    entry.value = '';
+    this.headerEntries.set([...this.headerEntries()]);
+  }
+
+  cancelEditSecretHeader(entry: {key: string, value: string, secret: boolean, editing: boolean}) {
+    entry.editing = false;
+    entry.value = '**SECRET**';
+    this.headerEntries.set([...this.headerEntries()]);
   }
 
   addParameter() {
@@ -907,7 +954,9 @@ export class ApiRequestConfigDialogComponent implements OnInit {
     }
 
     for (const e of this.headerEntries()) {
-      if (e.key.trim()) lines.push(`  -H '${e.key.trim()}: ${resolve(e.value)}'`);
+      if (!e.key.trim()) continue;
+      const displayValue = e.secret ? '***' : resolve(e.value);
+      lines.push(`  -H '${e.key.trim()}: ${displayValue}'`);
     }
 
     if (this.data.method === 'POST' && this.data.bodyTemplate?.trim()) {
@@ -929,10 +978,16 @@ export class ApiRequestConfigDialogComponent implements OnInit {
     this.showTestVars.set(false);
 
     const headers: Record<string, string> = {};
+    const secretHeaders: Record<string, string> = {};
     for (const entry of this.headerEntries()) {
-      if (entry.key.trim()) headers[entry.key.trim()] = entry.value;
+      if (!entry.key.trim()) continue;
+      if (entry.secret) {
+        secretHeaders[entry.key.trim()] = entry.editing ? entry.value : (entry.value || '**SECRET**');
+      } else {
+        headers[entry.key.trim()] = entry.value;
+      }
     }
-    const config: ApiRequestConfig = { ...this.data, headers };
+    const config: ApiRequestConfig = { ...this.data, headers, secretHeaders };
     const variables: Record<string, string> = { ...this.getCookieVariables(), ...this.testVars };
 
     this.svc.testRequest(config, variables).subscribe({
@@ -1022,7 +1077,9 @@ export class ApiRequestConfigDialogComponent implements OnInit {
       if (body) this.data.bodyTemplate = body;
 
       const merged = { ...(this.data.headers || {}), ...headers };
-      this.headerEntries.set(Object.entries(merged).map(([k, v]) => ({ key: k, value: v as string })));
+      const existingSecrets = this.headerEntries().filter(e => e.secret);
+      const newRegular = Object.entries(merged).map(([k, v]) => ({ key: k, value: v as string, secret: false, editing: false }));
+      this.headerEntries.set([...newRegular, ...existingSecrets]);
 
       this.showCurlImport.set(false);
       this.snackBar.open('curl parsed — review the fields below', 'Close', { duration: 3000 });
@@ -1053,10 +1110,17 @@ export class ApiRequestConfigDialogComponent implements OnInit {
 
   save() {
     const headers: Record<string, string> = {};
+    const secretHeaders: Record<string, string> = {};
     for (const entry of this.headerEntries()) {
-      if (entry.key.trim()) headers[entry.key.trim()] = entry.value;
+      if (!entry.key.trim()) continue;
+      if (entry.secret) {
+        secretHeaders[entry.key.trim()] = entry.editing ? entry.value : (entry.value || '**SECRET**');
+      } else {
+        headers[entry.key.trim()] = entry.value;
+      }
     }
     this.data.headers = headers;
+    this.data.secretHeaders = secretHeaders;
 
     const parameters: Record<string, string> = {};
     for (const entry of this.parameterEntries()) {

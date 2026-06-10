@@ -206,6 +206,10 @@ namespace TeamManager.Api.Migrations
                     b.Property<int>("RetryCount")
                         .HasColumnType("integer");
 
+                    b.Property<string>("SecretHeadersJson")
+                        .IsRequired()
+                        .HasColumnType("text");
+
                     b.Property<string>("StoredCookie")
                         .HasColumnType("text");
 

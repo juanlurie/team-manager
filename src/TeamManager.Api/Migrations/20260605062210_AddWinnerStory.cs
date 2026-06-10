@@ -16,13 +16,6 @@ namespace TeamManager.Api.Migrations
                 type: "text",
                 nullable: true);
 
-            migrationBuilder.AddColumn<bool>(
-                name: "DeduplicatePendingEditSync",
-                table: "MemberTimesheetConfigs",
-                type: "boolean",
-                nullable: false,
-                defaultValue: false);
-
             migrationBuilder.AlterColumn<int>(
                 name: "RetryCount",
                 table: "ApiRequestConfigs",
@@ -39,10 +32,6 @@ namespace TeamManager.Api.Migrations
             migrationBuilder.DropColumn(
                 name: "WinnerStory",
                 table: "WinWeeks");
-
-            migrationBuilder.DropColumn(
-                name: "DeduplicatePendingEditSync",
-                table: "MemberTimesheetConfigs");
 
             migrationBuilder.AlterColumn<int>(
                 name: "RetryCount",

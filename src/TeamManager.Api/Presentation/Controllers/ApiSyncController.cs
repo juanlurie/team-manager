@@ -75,6 +75,9 @@ public class ApiSyncController(AppDbContext db, IHttpClientFactory httpClientFac
         }
 
         var resolvedHeaders = headers.ToDictionary(kvp => kvp.Key, kvp => Resolve(kvp.Value));
+        var secretHeaders = JsonSerializer.Deserialize<Dictionary<string, string>>(
+            string.IsNullOrWhiteSpace(config.SecretHeadersJson) ? "{}" : config.SecretHeadersJson) ?? [];
+        foreach (var (k, v) in secretHeaders) resolvedHeaders[k] = v;
 
         var evt = new Domain.Entities.ApiSyncEvent
         {
