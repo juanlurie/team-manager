@@ -75,27 +75,13 @@ export class AuthService {
               this.router.navigateByUrl(returnUrl);
             }
           }),
-          catchError(() => {
-            const accessToken = this.oauth.getAccessToken();
-            if (accessToken) {
-              // Fetch userinfo then navigate — avoids race condition where component reads before claims arrive
-              this.http.get<any>('https://openidconnect.googleapis.com/v1/userinfo', {
-                headers: { Authorization: `Bearer ${accessToken}` },
-                context: new HttpContext().set(SKIP_ERROR_TOAST, true)
-              }).pipe(catchError(() => of(null))).subscribe(p => {
-                if (p?.email) {
-                  this.pendingClaims.set({ name: p.name || p.given_name || '', email: p.email, picture: p.picture || '', sub: p.sub || '' });
-                } else {
-                  this.pendingClaims.set(this.parseIdTokenClaims());
-                }
-                this._authStatus$.next('unauthorized');
-                this._isDone$.next(true);
-              });
-            } else {
-              this.pendingClaims.set(this.parseIdTokenClaims());
-              this._authStatus$.next('unauthorized');
-              this._isDone$.next(true);
+          catchError((err) => {
+            const gc = err?.error?.googleClaims;
+            if (gc?.email) {
+              this.pendingClaims.set({ name: gc.name || '', email: gc.email, picture: gc.picture || '', sub: gc.sub || '' });
             }
+            this._authStatus$.next('unauthorized');
+            this._isDone$.next(true);
             return of(null);
           })
         ).subscribe();
@@ -134,26 +120,6 @@ export class AuthService {
   }
 
   get identityClaims() { return this.oauth.getIdentityClaims(); }
-
-  private parseIdTokenClaims(): { name: string; email: string; picture: string; sub: string } | null {
-    try {
-      // Try the library's accessor first, fall back to both storage types
-      const idToken = this.oauth.getIdToken()
-        ?? localStorage.getItem('id_token')
-        ?? sessionStorage.getItem('id_token');
-      if (!idToken) return null;
-      const payload = JSON.parse(atob(idToken.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
-      if (!payload?.email) return null;
-      return {
-        name: payload.name || payload.given_name || '',
-        email: payload.email,
-        picture: payload.picture || '',
-        sub: payload.sub || ''
-      };
-    } catch {
-      return null;
-    }
-  }
 
   hasRole(role: string): boolean {
     const claims = this.identityClaims as any;

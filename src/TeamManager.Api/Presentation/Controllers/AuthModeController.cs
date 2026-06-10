@@ -18,12 +18,28 @@ public class AuthModeController(IConfiguration configuration, IHttpClientFactory
     }
 
     [HttpGet("api/auth/me")]
-    [Authorize]
+    [AllowAnonymous]
     public async Task<IActionResult> Me()
     {
+        if (User.Identity?.IsAuthenticated != true)
+            return Unauthorized();
+
         var tmid = User.FindFirst("TMID")?.Value;
         if (string.IsNullOrEmpty(tmid))
-            return Forbid();
+        {
+            // Return Google claims so the frontend can pre-fill the access request form
+            return StatusCode(403, new
+            {
+                error = "not_registered",
+                googleClaims = new
+                {
+                    name    = User.FindFirst("name")?.Value ?? User.FindFirst("given_name")?.Value ?? "",
+                    email   = User.FindFirst("email")?.Value ?? "",
+                    picture = User.FindFirst("picture")?.Value ?? "",
+                    sub     = User.FindFirst("sub")?.Value ?? ""
+                }
+            });
+        }
 
         var member = await db.TeamMembers.FindAsync(Guid.Parse(tmid));
         if (member == null || !member.IsActive)
