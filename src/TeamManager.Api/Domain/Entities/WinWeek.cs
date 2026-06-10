@@ -14,10 +14,12 @@ public class WinWeek
     public DateTimeOffset? ClosedAt { get; set; }
     public DateTimeOffset? SuddenDeathEndsAt { get; set; }
     public Guid CreatedByMemberId { get; set; }
+    public Guid WinSeriesId { get; set; }
     public string? WinnerStory { get; set; }
     public string? GuestToken { get; set; }
 
     public WinNomination? Winner { get; set; }
     public TeamMember? CreatedBy { get; set; }
+    public WinSeries? Series { get; set; }
     public ICollection<WinNomination> Nominations { get; set; } = [];
 }

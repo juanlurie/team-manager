@@ -68,6 +68,7 @@ builder.Services.AddScoped<IMeetingSessionService, MeetingSessionService>();
 builder.Services.AddScoped<IMeetingSeriesService, MeetingSeriesService>();
 builder.Services.AddScoped<IWinOfTheWeekService, WinOfTheWeekService>();
 builder.Services.AddScoped<GuestWinOfTheWeekService>();
+builder.Services.AddScoped<WinSeriesService>();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<IWinOfMonthService, WinOfMonthService>();
 builder.Services.AddScoped<ICoffeeRunService, CoffeeRunService>();

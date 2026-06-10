@@ -136,7 +136,7 @@ export class WinOfTheWeekHistoryComponent implements OnInit {
 
   private refresh() {
     this.loading.set(true);
-    this.svc.getHistory(this.selectedYear() ?? undefined).subscribe({
+    this.svc.getHistory(undefined, this.selectedYear() ?? undefined).subscribe({
       next: (data) => {
         this.history.set(data);
         this.loading.set(false);

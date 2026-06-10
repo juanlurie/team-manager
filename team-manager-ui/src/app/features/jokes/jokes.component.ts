@@ -160,6 +160,7 @@ export class JokesComponent implements OnInit, OnDestroy {
   loading = signal(false);
   configured = signal(true);
   copied = signal(false);
+  private requestId = 0;
 
   ngOnInit() {
     this.http.get<{ configured: boolean }>(`${this.base}/configured`).subscribe({
@@ -170,11 +171,12 @@ export class JokesComponent implements OnInit, OnDestroy {
     this.wsSub = this.ws.messages$.subscribe(msg => {
       if (msg?.type !== 'joke_generated') return;
       if (!this.loading()) return;
-      const data = msg.data as { jokeTypeId: string; joke: string | null; status: string };
+      const data = msg.data as { jokeTypeId: string; joke: string | null; status: string; eventId: string };
       const text = data.joke?.trim() || null;
       this.loading.set(false);
       this.joke.set(text);
       this.failed.set(!text);
+      this.requestId++; // mark HTTP response for this request as stale
     });
   }
 
@@ -198,18 +200,24 @@ export class JokesComponent implements OnInit, OnDestroy {
     this.selectedType.set(type);
     this.joke.set(null);
     this.loading.set(true);
+    const id = ++this.requestId;
 
     this.http.post<{ configured: boolean; eventId?: string; joke?: string | null; status?: string }>(
       `${this.base}/generate`,
       { jokeType: type.prompt, jokeLabel: type.label, jokeTypeId: type.id }
     ).subscribe({
       next: r => {
+        if (id !== this.requestId) return;
         const text = r.joke?.trim() || null;
         this.loading.set(false);
         this.joke.set(text);
         this.failed.set(!text);
       },
-      error: () => { this.loading.set(false); this.failed.set(true); },
+      error: () => {
+        if (id !== this.requestId) return;
+        this.loading.set(false);
+        this.failed.set(true);
+      },
     });
   }
 }

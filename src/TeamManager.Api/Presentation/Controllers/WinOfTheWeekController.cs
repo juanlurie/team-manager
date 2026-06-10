@@ -12,23 +12,26 @@ namespace TeamManager.Api.Presentation.Controllers;
 [ApiController]
 [RequireFeature("win-of-week")]
 [Route("api/v1/win-of-the-week")]
-public class WinOfTheWeekController(IWinOfTheWeekService service, AppDbContext db, GuestWinOfTheWeekService guestService) : ControllerBase
+public class WinOfTheWeekController(IWinOfTheWeekService service, WinSeriesService seriesService, AppDbContext db, GuestWinOfTheWeekService guestService) : ControllerBase
 {
     [HttpGet("current")]
-    public async Task<IActionResult> GetCurrent()
+    public async Task<IActionResult> GetCurrent([FromQuery] Guid? seriesId = null)
     {
         var memberId = GetCurrentMemberId();
-        var result = await service.GetCurrentWeekAsync(memberId);
+        var sid = await ResolveSeriesIdAsync(seriesId);
+        if (sid == Guid.Empty) return NotFound(new { error = "No series found. Create one first." });
+        var result = await service.GetCurrentWeekAsync(memberId, sid);
         return Ok(result);
     }
 
     [HttpPost("nominations")]
-    public async Task<IActionResult> CreateNomination([FromBody] CreateNominationRequest request)
+    public async Task<IActionResult> CreateNomination([FromBody] CreateNominationRequest request, [FromQuery] Guid? seriesId = null)
     {
         var memberId = GetCurrentMemberId();
+        var sid = await ResolveSeriesIdAsync(seriesId);
         try
         {
-            var result = await service.CreateNominationAsync(memberId, request);
+            var result = await service.CreateNominationAsync(memberId, request, sid);
             _ = WebSocketMiddleware.BroadcastAsync("nomination_created", new { nomination = result });
             return Ok(result);
         }
@@ -85,7 +88,7 @@ public class WinOfTheWeekController(IWinOfTheWeekService service, AppDbContext d
         try
         {
             var result = await service.VoteAsync(memberId, nominationId);
-            _ = WebSocketMiddleware.BroadcastAsync("vote_cast", new { nominationId, voterId = memberId, voteCount = result?.GetType().GetProperty("VoteCount")?.GetValue(result) });
+            _ = WebSocketMiddleware.BroadcastAsync("vote_cast", new { nominationId, voterId = memberId });
             return Ok(result);
         }
         catch (KeyNotFoundException)
@@ -110,13 +113,14 @@ public class WinOfTheWeekController(IWinOfTheWeekService service, AppDbContext d
 
     [HttpPost("close")]
     [RequireFeature("wow-host")]
-    public async Task<IActionResult> CloseWeek([FromBody] CloseWeekRequest request)
+    public async Task<IActionResult> CloseWeek([FromBody] CloseWeekRequest request, [FromQuery] Guid? seriesId = null)
     {
         var memberId = GetCurrentMemberId();
+        var sid = await ResolveSeriesIdAsync(seriesId);
         try
         {
-            var result = await service.CloseWeekAsync(memberId, request);
-            _ = WebSocketMiddleware.BroadcastAsync("voting_closed", new { weekId = result?.GetType().GetProperty("Id")?.GetValue(result), winnerId = request.WinnerNominationId });
+            var result = await service.CloseWeekAsync(memberId, sid, request);
+            _ = WebSocketMiddleware.BroadcastAsync("voting_closed", new { weekId = result.Id, winnerId = request.WinnerNominationId });
             return Ok(result);
         }
         catch (KeyNotFoundException)
@@ -131,12 +135,13 @@ public class WinOfTheWeekController(IWinOfTheWeekService service, AppDbContext d
 
     [HttpPost("open-next")]
     [RequireFeature("wow-host")]
-    public async Task<IActionResult> OpenNextWeek()
+    public async Task<IActionResult> OpenNextWeek([FromQuery] Guid? seriesId = null)
     {
         var memberId = GetCurrentMemberId();
+        var sid = await ResolveSeriesIdAsync(seriesId);
         try
         {
-            var result = await service.OpenNextWeekAsync(memberId);
+            var result = await service.OpenNextWeekAsync(memberId, sid);
             return Ok(result);
         }
         catch (InvalidOperationException ex)
@@ -147,12 +152,13 @@ public class WinOfTheWeekController(IWinOfTheWeekService service, AppDbContext d
 
     [HttpPost("open-voting")]
     [RequireFeature("wow-host")]
-    public async Task<IActionResult> OpenVoting()
+    public async Task<IActionResult> OpenVoting([FromQuery] Guid? seriesId = null)
     {
         var memberId = GetCurrentMemberId();
+        var sid = await ResolveSeriesIdAsync(seriesId);
         try
         {
-            var result = await service.OpenVotingAsync(memberId);
+            var result = await service.OpenVotingAsync(memberId, sid);
             _ = WebSocketMiddleware.BroadcastAsync("voting_opened", new { });
             return Ok(result);
         }
@@ -164,12 +170,13 @@ public class WinOfTheWeekController(IWinOfTheWeekService service, AppDbContext d
 
     [HttpPost("reopen-nominations")]
     [RequireFeature("wow-host")]
-    public async Task<IActionResult> ReopenNominations()
+    public async Task<IActionResult> ReopenNominations([FromQuery] Guid? seriesId = null)
     {
         var memberId = GetCurrentMemberId();
+        var sid = await ResolveSeriesIdAsync(seriesId);
         try
         {
-            var result = await service.ReopenNominationsAsync(memberId);
+            var result = await service.ReopenNominationsAsync(memberId, sid);
             _ = WebSocketMiddleware.BroadcastAsync("nominations_reopened", new { });
             return Ok(result);
         }
@@ -181,12 +188,13 @@ public class WinOfTheWeekController(IWinOfTheWeekService service, AppDbContext d
 
     [HttpPost("sudden-death")]
     [RequireFeature("wow-host")]
-    public async Task<IActionResult> StartSuddenDeath([FromBody] StartSuddenDeathRequest request)
+    public async Task<IActionResult> StartSuddenDeath([FromBody] StartSuddenDeathRequest request, [FromQuery] Guid? seriesId = null)
     {
         var memberId = GetCurrentMemberId();
+        var sid = await ResolveSeriesIdAsync(seriesId);
         try
         {
-            var result = await service.StartSuddenDeathAsync(memberId, request);
+            var result = await service.StartSuddenDeathAsync(memberId, sid, request);
             _ = WebSocketMiddleware.BroadcastAsync("sudden_death_started", new { });
             return Ok(result);
         }
@@ -212,9 +220,10 @@ public class WinOfTheWeekController(IWinOfTheWeekService service, AppDbContext d
     }
 
     [HttpGet("history")]
-    public async Task<IActionResult> GetHistory([FromQuery] int? year = null, [FromQuery] int limit = 52)
+    public async Task<IActionResult> GetHistory([FromQuery] Guid? seriesId = null, [FromQuery] int? year = null, [FromQuery] int limit = 52)
     {
-        var result = await service.GetHistoryAsync(year, limit);
+        var sid = await ResolveSeriesIdAsync(seriesId);
+        var result = await service.GetHistoryAsync(sid, year, limit);
         return Ok(result);
     }
 
@@ -231,6 +240,15 @@ public class WinOfTheWeekController(IWinOfTheWeekService service, AppDbContext d
         {
             return NotFound(new { error = "Week not found." });
         }
+    }
+
+    private async Task<Guid> ResolveSeriesIdAsync(Guid? seriesId)
+    {
+        if (seriesId.HasValue && seriesId.Value != Guid.Empty)
+            return seriesId.Value;
+
+        var first = await db.WinSeries.OrderBy(s => s.CreatedAt).Select(s => (Guid?)s.Id).FirstOrDefaultAsync();
+        return first ?? Guid.Empty;
     }
 
     private Guid GetCurrentMemberId()

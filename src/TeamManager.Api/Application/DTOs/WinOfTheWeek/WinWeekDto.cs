@@ -3,6 +3,8 @@ namespace TeamManager.Api.Application.DTOs.WinOfTheWeek;
 public record WinWeekDto
 {
     public Guid Id { get; init; }
+    public Guid SeriesId { get; init; }
+    public string SeriesName { get; init; } = string.Empty;
     public DateOnly WeekStart { get; init; }
     public string Status { get; init; } = string.Empty;
     public Guid? WinnerNominationId { get; init; }

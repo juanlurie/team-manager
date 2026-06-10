@@ -44,6 +44,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<MeetingSlot> MeetingSlots => Set<MeetingSlot>();
     public DbSet<SlotLocation> SlotLocations => Set<SlotLocation>();
     public DbSet<SessionType> SessionTypes => Set<SessionType>();
+    public DbSet<WinSeries> WinSeries => Set<WinSeries>();
     public DbSet<WinWeek> WinWeeks => Set<WinWeek>();
     public DbSet<WinNomination> WinNominations => Set<WinNomination>();
     public DbSet<WinVote> WinVotes => Set<WinVote>();
@@ -111,6 +112,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         modelBuilder.ApplyConfiguration(new SessionTypeConfiguration());
         modelBuilder.ApplyConfiguration(new MeetingSessionConfiguration());
         modelBuilder.ApplyConfiguration(new MeetingSlotConfiguration());
+        modelBuilder.ApplyConfiguration(new WinSeriesConfiguration());
         modelBuilder.ApplyConfiguration(new WinWeekConfiguration());
         modelBuilder.ApplyConfiguration(new WinNominationConfiguration());
         modelBuilder.ApplyConfiguration(new WinVoteConfiguration());

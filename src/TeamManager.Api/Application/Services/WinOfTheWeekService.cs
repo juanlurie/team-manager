@@ -18,9 +18,10 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
     private const int MaxNominationsPerPerson = 3;
     private const int MaxVotesPerPerson = 3;
 
-    public async Task<WinWeekDto> GetCurrentWeekAsync(Guid currentMemberId)
+    public async Task<WinWeekDto?> GetCurrentWeekAsync(Guid currentMemberId, Guid seriesId)
     {
-        var week = await GetOrCreateCurrentWeekAsync(currentMemberId);
+        var week = await GetActiveWeekAsync(seriesId);
+        if (week is null) return null;
 
         if (week.Status == WinWeekStatus.SuddenDeath &&
             week.SuddenDeathEndsAt.HasValue &&
@@ -71,6 +72,8 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
         return new WinWeekDto
         {
             Id = week.Id,
+            SeriesId = week.WinSeriesId,
+            SeriesName = week.Series?.Name ?? string.Empty,
             WeekStart = week.WeekStart,
             Status = week.Status.ToString(),
             WinnerNominationId = week.WinnerNominationId,
@@ -109,9 +112,12 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
         };
     }
 
-    public async Task<WinNominationDto> CreateNominationAsync(Guid memberId, CreateNominationRequest request)
+    public async Task<WinNominationDto> CreateNominationAsync(Guid memberId, CreateNominationRequest request, Guid seriesId = default)
     {
-        var week = await GetOrCreateCurrentWeekAsync(memberId);
+        var week = seriesId != default
+            ? await GetActiveWeekAsync(seriesId)
+            : await db.WinWeeks.Include(w => w.Series).Where(w => w.Status == WinWeekStatus.Nominating || w.Status == WinWeekStatus.Voting).OrderByDescending(w => w.WeekStart).FirstOrDefaultAsync();
+        if (week is null) throw new InvalidOperationException("No active week found.");
 
         if (week.Status != WinWeekStatus.Nominating && week.Status != WinWeekStatus.Voting)
             throw new InvalidOperationException("Nominations are not open for the current week.");
@@ -284,11 +290,11 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
         return true;
     }
 
-    public async Task<WinWeekDto> CloseWeekAsync(Guid memberId, CloseWeekRequest request)
+    public async Task<WinWeekDto> CloseWeekAsync(Guid memberId, Guid seriesId, CloseWeekRequest request)
     {
         var week = await db.WinWeeks
             .Include(w => w.Nominations)
-            .Where(w => w.Status == WinWeekStatus.Voting || w.Status == WinWeekStatus.SuddenDeath)
+            .Where(w => w.WinSeriesId == seriesId && (w.Status == WinWeekStatus.Voting || w.Status == WinWeekStatus.SuddenDeath))
             .OrderByDescending(w => w.WeekStart)
             .FirstOrDefaultAsync();
 
@@ -313,12 +319,13 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
         var winnerName = $"{nomination.Nominee.FirstName} {nomination.Nominee.LastName}";
         EnqueueAndGenerateWinStory(week.Id, winnerName, nomination.Title, nomination.Description);
 
-        return await GetCurrentWeekAsync(memberId);
+        return (await GetCurrentWeekAsync(memberId, seriesId))!;
     }
 
-    public async Task<WinWeekDto> OpenNextWeekAsync(Guid memberId)
+    public async Task<WinWeekDto> OpenNextWeekAsync(Guid memberId, Guid seriesId)
     {
         var latestWeek = await db.WinWeeks
+            .Where(w => w.WinSeriesId == seriesId)
             .OrderByDescending(w => w.WeekStart)
             .FirstOrDefaultAsync();
 
@@ -337,7 +344,7 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
         }
 
         var existing = await db.WinWeeks
-            .FirstOrDefaultAsync(w => w.WeekStart == weekStart);
+            .FirstOrDefaultAsync(w => w.WinSeriesId == seriesId && w.WeekStart == weekStart);
 
         if (existing is not null)
             throw new InvalidOperationException("A week already exists for this period.");
@@ -347,26 +354,26 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
             WeekStart = weekStart,
             WeekEnd = weekStart.AddDays(6),
             Status = WinWeekStatus.Nominating,
-            CreatedByMemberId = memberId
+            CreatedByMemberId = memberId,
+            WinSeriesId = seriesId
         };
 
         db.WinWeeks.Add(week);
         await db.SaveChangesAsync();
 
-        return await GetCurrentWeekAsync(memberId);
+        return (await GetCurrentWeekAsync(memberId, seriesId))!;
     }
 
-    public async Task<WinWeekDto> OpenVotingAsync(Guid memberId)
+    public async Task<WinWeekDto> OpenVotingAsync(Guid memberId, Guid seriesId)
     {
-        var today = DateOnly.FromDateTime(DateTimeOffset.UtcNow.Date);
-        var weekStart = GetWeekStart(today);
-
         var week = await db.WinWeeks
             .Include(w => w.Nominations)
-            .FirstOrDefaultAsync(w => w.WeekStart == weekStart);
+            .Where(w => w.WinSeriesId == seriesId && w.Status == WinWeekStatus.Nominating)
+            .OrderByDescending(w => w.WeekStart)
+            .FirstOrDefaultAsync();
 
         if (week is null)
-            throw new InvalidOperationException("No week found for the current period. Open next week first.");
+            throw new InvalidOperationException("No nominating week found for this series.");
 
         if (week.Status != WinWeekStatus.Nominating)
             throw new InvalidOperationException("Voting can only be opened during the nominating phase.");
@@ -377,16 +384,15 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
         week.Status = WinWeekStatus.Voting;
         await db.SaveChangesAsync();
 
-        return await GetCurrentWeekAsync(memberId);
+        return (await GetCurrentWeekAsync(memberId, seriesId))!;
     }
 
-    public async Task<WinWeekDto> ReopenNominationsAsync(Guid memberId)
+    public async Task<WinWeekDto> ReopenNominationsAsync(Guid memberId, Guid seriesId)
     {
-        var today = DateOnly.FromDateTime(DateTimeOffset.UtcNow.Date);
-        var weekStart = GetWeekStart(today);
-
         var week = await db.WinWeeks
-            .FirstOrDefaultAsync(w => w.WeekStart == weekStart);
+            .Where(w => w.WinSeriesId == seriesId && (w.Status == WinWeekStatus.Voting || w.Status == WinWeekStatus.SuddenDeath))
+            .OrderByDescending(w => w.WeekStart)
+            .FirstOrDefaultAsync();
 
         if (week is null)
             throw new InvalidOperationException("No active week found.");
@@ -399,17 +405,16 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
         week.SuddenDeathEndsAt = null;
         await db.SaveChangesAsync();
 
-        return await GetCurrentWeekAsync(memberId);
+        return (await GetCurrentWeekAsync(memberId, seriesId))!;
     }
 
-    public async Task<WinWeekDto> StartSuddenDeathAsync(Guid memberId, StartSuddenDeathRequest request)
+    public async Task<WinWeekDto> StartSuddenDeathAsync(Guid memberId, Guid seriesId, StartSuddenDeathRequest request)
     {
-        var today = DateOnly.FromDateTime(DateTimeOffset.UtcNow.Date);
-        var weekStart = GetWeekStart(today);
-
         var week = await db.WinWeeks
             .Include(w => w.Nominations)
-            .FirstOrDefaultAsync(w => w.WeekStart == weekStart);
+            .Where(w => w.WinSeriesId == seriesId && w.Status == WinWeekStatus.Voting)
+            .OrderByDescending(w => w.WeekStart)
+            .FirstOrDefaultAsync();
 
         if (week is null)
             throw new InvalidOperationException("No week found for the current period.");
@@ -441,13 +446,13 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
             tiedNominationIds = request.TiedNominationIds
         });
 
-        return await GetCurrentWeekAsync(memberId);
+        return (await GetCurrentWeekAsync(memberId, seriesId))!;
     }
 
-    public async Task<IReadOnlyList<WinWeekHistoryDto>> GetHistoryAsync(int? year = null, int limit = 52)
+    public async Task<IReadOnlyList<WinWeekHistoryDto>> GetHistoryAsync(Guid seriesId, int? year = null, int limit = 52)
     {
         var query = db.WinWeeks
-            .Where(w => w.Status == WinWeekStatus.Closed && w.WinnerNominationId.HasValue)
+            .Where(w => w.WinSeriesId == seriesId && w.Status == WinWeekStatus.Closed && w.WinnerNominationId.HasValue)
             .AsQueryable();
 
         if (year.HasValue)
@@ -570,29 +575,13 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
         await db.SaveChangesAsync();
     }
 
-    private async Task<WinWeek> GetOrCreateCurrentWeekAsync(Guid memberId)
+    private async Task<WinWeek?> GetActiveWeekAsync(Guid seriesId)
     {
-        var today = DateOnly.FromDateTime(DateTimeOffset.UtcNow.Date);
-        var weekStart = GetWeekStart(today);
-
-        var week = await db.WinWeeks
-            .FirstOrDefaultAsync(w => w.WeekStart == weekStart);
-
-        if (week is not null)
-            return week;
-
-        week = new WinWeek
-        {
-            WeekStart = weekStart,
-            WeekEnd = weekStart.AddDays(6),
-            Status = WinWeekStatus.Nominating,
-            CreatedByMemberId = memberId
-        };
-
-        db.WinWeeks.Add(week);
-        await db.SaveChangesAsync();
-
-        return week;
+        return await db.WinWeeks
+            .Include(w => w.Series)
+            .Where(w => w.WinSeriesId == seriesId)
+            .OrderByDescending(w => w.WeekStart)
+            .FirstOrDefaultAsync();
     }
 
     private static DateOnly GetWeekStart(DateOnly date)

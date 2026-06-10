@@ -20,8 +20,16 @@ export interface WinVote {
   votedAt: string;
 }
 
+export interface WinSeries {
+  id: string;
+  name: string;
+  createdAt: string;
+}
+
 export interface WinWeek {
   id: string;
+  seriesId: string;
+  seriesName: string;
   weekStart: string;
   status: 'Nominating' | 'Voting' | 'SuddenDeath' | 'Closed';
   winnerNominationId: string | null;

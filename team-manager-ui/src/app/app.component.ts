@@ -412,8 +412,15 @@ export class AppComponent {
 
   moreOpen = signal(false);
   isMobile = signal(false);
+  private forceDesktop = false;
 
   constructor() {
+    if (new URLSearchParams(window.location.search).get('desktop') === 'true') {
+      this.forceDesktop = true;
+      sessionStorage.setItem('force-desktop', 'true');
+    } else if (sessionStorage.getItem('force-desktop') === 'true') {
+      this.forceDesktop = true;
+    }
     this.checkMobile();
     this.auth.authStatus$.subscribe(status => {
       this.isAuthorized.set(status === 'authorized');
@@ -442,7 +449,7 @@ export class AppComponent {
   }
 
   @HostListener('window:resize')
-  checkMobile() { this.isMobile.set(window.innerWidth < 768); }
+  checkMobile() { this.isMobile.set(!this.forceDesktop && window.innerWidth < 768); }
 
   toggleExpanded() {
     const next = !this.expanded();
