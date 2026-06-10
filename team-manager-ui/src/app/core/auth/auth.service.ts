@@ -3,8 +3,10 @@ import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { OAuthService } from 'angular-oauth2-oidc';
 import { authConfig } from './auth.config';
+import { HttpContext } from '@angular/common/http';
 import { BehaviorSubject, of } from 'rxjs';
 import { catchError, map } from 'rxjs/operators';
+import { SKIP_ERROR_TOAST } from '../interceptors/error.interceptor';
 
 export interface MeResponse {
   id: string;
@@ -57,7 +59,7 @@ export class AuthService {
       .then(() => {
         console.log('[Auth] Init complete, hasValidToken:', this.hasValidToken());
         if (this.hasValidToken()) {
-          this.http.get<MeResponse>('/api/auth/me').pipe(
+          this.http.get<MeResponse>('/api/auth/me', { context: new HttpContext().set(SKIP_ERROR_TOAST, true) }).pipe(
             map(me => {
               this._me$.next(me);
               this._authStatus$.next('authorized');
