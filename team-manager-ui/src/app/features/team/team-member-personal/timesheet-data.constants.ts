@@ -64,7 +64,7 @@ export const DESCRIPTION_PRESETS = [
   'Sprint review', 'Pair programming', 'Documentation', 'Bug investigation',
 ];
 
-export const WORKED_FROM_OPTIONS = ['Home', 'Entelect', 'Client'];
+export const WORKED_FROM_OPTIONS = ['Home', 'Client', 'Other'];
 export const SENTIMENT_OPTIONS = ['Happy', 'Neutral', 'Sad'];
 export const TIME_PRESETS_MINUTES = [15, 30, 60, 120, 240, 480];
 

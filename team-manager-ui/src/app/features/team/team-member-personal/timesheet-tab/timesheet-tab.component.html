@@ -78,7 +78,7 @@
               </div>
             } @else {
               @for (e of dayEntries(); track e.id) {
-                <app-timesheet-entry-card [entry]="e" [syncStatus]="entrySyncStatus(e)" [locations]="tsConfig().workLocationOptions?.length ? tsConfig().workLocationOptions! : ['Home', 'Client', 'Entelect', 'Other']" [locationIcons]="tsConfig().locationIcons ?? {}" (edit)="openEdit($event)" (saved)="handleSave($event)" (deleted)="deleteEntry($event)" />
+                <app-timesheet-entry-card [entry]="e" [syncStatus]="entrySyncStatus(e)" [locations]="tsConfig().workLocationOptions?.length ? tsConfig().workLocationOptions! : ['Home', 'Client', 'Other']" [locationIcons]="tsConfig().locationIcons ?? {}" (edit)="openEdit($event)" (saved)="handleSave($event)" (deleted)="deleteEntry($event)" />
               }
             }
           </div>

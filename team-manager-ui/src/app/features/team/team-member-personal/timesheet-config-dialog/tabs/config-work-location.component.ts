@@ -28,6 +28,6 @@ import { FormsModule } from '@angular/forms';
 export class ConfigWorkLocationComponent {
   readonly weekDays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
   workWeek = input.required<Record<string, string>>();
-  options = input<string[]>(['Home', 'Other', 'Client', 'Entelect']);
+  options = input<string[]>(['Home', 'Client', 'Other']);
   change = output<{day:string;value:string}>();
 }

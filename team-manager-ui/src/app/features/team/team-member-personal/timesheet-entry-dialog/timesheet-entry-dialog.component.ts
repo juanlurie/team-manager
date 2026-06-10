@@ -9,7 +9,6 @@ import { IconButtonComponent } from '../../../../shared/components/icon-btn/icon
 import { TimesheetService } from '../../../../core/services/timesheet.service';
 import { TimesheetEntry, CreateTimesheetEntryRequest } from '../../../../core/models/timesheet.model';
 import {
-  WORKED_FROM_OPTIONS,
   SENTIMENT_OPTIONS, TIME_PRESETS_MINUTES, QUICK_COMBOS, DESCRIPTION_PRESETS,
 } from '../timesheet-data.constants';
 import { TimesheetDefaultsService } from '../../../../core/services/timesheet-defaults.service';
@@ -17,6 +16,7 @@ import { TimesheetDefaultsService } from '../../../../core/services/timesheet-de
 export interface TimesheetEntryDialogData {
   memberId: string;
   defaultDate?: string;
+  workLocationOptions?: string[];
 }
 
 @Component({
@@ -260,7 +260,7 @@ export class TimesheetEntryDialogComponent implements OnDestroy {
   private tsd = inject(TimesheetDefaultsService);
 
   get projects() { return this.tsd.projects(); }
-  readonly workedFromOptions = WORKED_FROM_OPTIONS;
+  get workedFromOptions() { return this.data.workLocationOptions?.length ? this.data.workLocationOptions : ['Home', 'Client', 'Other']; }
   readonly sentimentOptions = SENTIMENT_OPTIONS;
   readonly timePresets = TIME_PRESETS_MINUTES;
   readonly quickCombos = QUICK_COMBOS;

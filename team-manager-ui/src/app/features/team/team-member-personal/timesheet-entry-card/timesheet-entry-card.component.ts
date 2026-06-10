@@ -12,10 +12,10 @@ import {
 import { TimesheetDefaultsService } from '../../../../core/services/timesheet-defaults.service';
 
 const DEFAULT_LOC_ICONS: Record<string, string> = {
-  'Home': 'home', 'Client': 'store', 'Entelect': 'laptop', 'Other': 'location_on',
+  'Home': 'home', 'Client': 'store', 'Other': 'location_on',
 };
 
-const LOCATIONS = ['Home', 'Client', 'Entelect', 'Other'];
+const LOCATIONS = ['Home', 'Client', 'Other'];
 
 // ── Delete Confirm Dialog ─────────────────────────────────────────────────────
 

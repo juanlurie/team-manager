@@ -18,6 +18,7 @@ import {
   REQUEST_ACTIONS,
   TestRequestResult
 } from './api-request-configs.service';
+import { PortalCookieService } from '../../core/services/portal-cookie.service';
 
 @Component({
   selector: 'app-api-request-configs',
@@ -136,6 +137,7 @@ export class ApiRequestConfigsComponent implements OnInit {
   private svc = inject(ApiRequestConfigsService);
   private snackBar = inject(MatSnackBar);
   private dialog = inject(MatDialog);
+  private portalCookie = inject(PortalCookieService);
 
   loading = signal(true);
   configs = signal<ApiRequestConfig[]>([]);
@@ -418,6 +420,8 @@ export class ApiRequestConfigsComponent implements OnInit {
                       placeholder="teamId=&#123;teamIds&#125;&amp;start=&#123;start&#125;"></textarea>
             @if (data.action === 'AddTimesheetEntry') {
               <mat-hint>Variables: &#123;cookie&#125;, &#123;id&#125;, &#123;date&#125;, &#123;project&#125;, &#123;category&#125;, &#123;hours&#125;, &#123;minutes&#125;, &#123;billable&#125;, &#123;workedFrom&#125;, &#123;sentiment&#125;, &#123;description&#125;, &#123;ticketNumber&#125; + any parameter names</mat-hint>
+            } @else if (data.action === 'GenerateJoke') {
+              <mat-hint>Variables: &#123;jokeType&#125; (the prompt — must be included), &#123;seed&#125; (unique per click, add to body to prevent cached/identical responses) + any parameter names</mat-hint>
             } @else if (data.action === 'AiChatWinStory') {
               <mat-hint>Variables: &#123;nominee&#125;, &#123;title&#125;, &#123;description&#125; + any parameter names</mat-hint>
             } @else {
@@ -426,8 +430,8 @@ export class ApiRequestConfigsComponent implements OnInit {
           </mat-form-field>
 
           <div class="section-header"><h3>Success &amp; Retry</h3></div>
-          <div class="success-retry-row">
-            <mat-form-field appearance="outline" class="f-status">
+          <div class="two-col">
+            <mat-form-field appearance="outline">
               <mat-label>Required Status</mat-label>
               <input matInput type="number" placeholder="200"
                 [ngModel]="data.successCriteria?.requiredStatus ?? null"
@@ -435,25 +439,26 @@ export class ApiRequestConfigsComponent implements OnInit {
               <mat-hint>e.g. 200</mat-hint>
             </mat-form-field>
             <mat-form-field appearance="outline">
+              <mat-label>Retries on failure</mat-label>
+              <input matInput type="number" min="0" max="5" placeholder="0"
+                [ngModel]="data.retryCount ?? 0"
+                (ngModelChange)="data.retryCount = +$event">
+            </mat-form-field>
+          </div>
+          <div class="two-col">
+            <mat-form-field appearance="outline">
               <mat-label>Success JSON Path</mat-label>
-              <input matInput placeholder="success"
+              <input matInput placeholder="data.result"
                 [ngModel]="data.successCriteria?.jsonPath ?? ''"
                 (ngModelChange)="setCriteriaPath($event)">
-              <mat-hint>e.g. data.result</mat-hint>
+              <mat-hint>Leave empty to check status only</mat-hint>
             </mat-form-field>
             <mat-form-field appearance="outline">
               <mat-label>Expected Value</mat-label>
               <input matInput placeholder="true"
                 [ngModel]="data.successCriteria?.jsonValue ?? ''"
                 (ngModelChange)="setCriteriaValue($event)">
-              <mat-hint>Blank = path just exists</mat-hint>
-            </mat-form-field>
-            <mat-form-field appearance="outline" class="f-retries">
-              <mat-label>Retries</mat-label>
-              <input matInput type="number" min="0" max="5" placeholder="0"
-                [ngModel]="data.retryCount ?? 0"
-                (ngModelChange)="data.retryCount = +$event">
-              <mat-hint>On failure</mat-hint>
+              <mat-hint>Blank = path just needs to exist</mat-hint>
             </mat-form-field>
           </div>
 
@@ -477,7 +482,7 @@ export class ApiRequestConfigsComponent implements OnInit {
               <input matInput [(ngModel)]="data.mapping.projectsPath" placeholder="data.projects">
               <mat-hint>Path to the projects array — leave empty if the root is the array</mat-hint>
             </mat-form-field>
-            <div class="mapping-grid">
+            <div class="two-col">
               <mat-form-field appearance="outline">
                 <mat-label>Project Name Path</mat-label>
                 <input matInput [(ngModel)]="data.mapping.projectNamePath" placeholder="name">
@@ -487,6 +492,8 @@ export class ApiRequestConfigsComponent implements OnInit {
                 <input matInput [(ngModel)]="data.mapping.projectIdPath" placeholder="id">
                 <mat-hint>Saved as correlation ID</mat-hint>
               </mat-form-field>
+            </div>
+            <div class="two-col">
               <mat-form-field appearance="outline">
                 <mat-label>Categories Path</mat-label>
                 <input matInput [(ngModel)]="data.mapping.projectCategoriesPath" placeholder="categories">
@@ -496,6 +503,8 @@ export class ApiRequestConfigsComponent implements OnInit {
                 <mat-label>Category Name Path</mat-label>
                 <input matInput [(ngModel)]="data.mapping.categoryNamePath" placeholder="name">
               </mat-form-field>
+            </div>
+            <div class="two-col">
               <mat-form-field appearance="outline">
                 <mat-label>Category ID Path</mat-label>
                 <input matInput [(ngModel)]="data.mapping.categoryIdPath" placeholder="id">
@@ -563,11 +572,17 @@ export class ApiRequestConfigsComponent implements OnInit {
               <mat-hint>Leave empty if response is a top-level array</mat-hint>
             </mat-form-field>
 
-            <div class="mapping-grid">
+            <div class="two-col">
               <mat-form-field appearance="outline">
                 <mat-label>Name Path</mat-label>
                 <input matInput [(ngModel)]="data.mapping.namePath" placeholder="title">
               </mat-form-field>
+              <mat-form-field appearance="outline">
+                <mat-label>Type Path</mat-label>
+                <input matInput [(ngModel)]="data.mapping.typePath" placeholder="type">
+              </mat-form-field>
+            </div>
+            <div class="two-col">
               <mat-form-field appearance="outline">
                 <mat-label>Start Path</mat-label>
                 <input matInput [(ngModel)]="data.mapping.startPath" placeholder="start">
@@ -576,10 +591,8 @@ export class ApiRequestConfigsComponent implements OnInit {
                 <mat-label>End Path</mat-label>
                 <input matInput [(ngModel)]="data.mapping.endPath" placeholder="end">
               </mat-form-field>
-              <mat-form-field appearance="outline">
-                <mat-label>Type Path</mat-label>
-                <input matInput [(ngModel)]="data.mapping.typePath" placeholder="type">
-              </mat-form-field>
+            </div>
+            <div class="two-col">
               <mat-form-field appearance="outline">
                 <mat-label>Days Path</mat-label>
                 <input matInput [(ngModel)]="data.mapping.daysPath" placeholder="totalDays">
@@ -667,27 +680,23 @@ export class ApiRequestConfigsComponent implements OnInit {
     </div>
   `,
   styles: [`
-    .dialog-content { width: min(580px, 96vw); box-sizing: border-box; }
-    .form-grid { display: flex; flex-direction: column; gap: 8px; }
+    .dialog-content { width: min(600px, 96vw); box-sizing: border-box; }
+    .form-grid { display: flex; flex-direction: column; gap: 0; }
     .full-width { width: 100%; }
     .half-width { flex: 1; min-width: 120px; }
-    .field-row { display: flex; align-items: center; gap: 12px; padding: 8px 0; flex-wrap: wrap; }
+    .field-row { display: flex; align-items: center; gap: 12px; padding: 10px 0 6px; flex-wrap: wrap; }
     .field-label { font-size: 0.85rem; color: rgba(255,255,255,0.6); min-width: 80px; }
     .field-hint { font-size: 0.75rem; color: rgba(255,255,255,0.35); }
-    .section-header { display: flex; align-items: center; gap: 8px; margin-top: 16px; margin-bottom: 4px; }
-    .section-header h3 { font-size: 0.95rem; font-weight: 600; color: rgba(255,255,255,0.7); margin: 0; }
+    .section-header { display: flex; align-items: center; gap: 8px; margin: 20px 0 8px; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 16px; }
+    .section-header:first-child { border-top: none; padding-top: 0; margin-top: 8px; }
+    .section-header h3 { font-size: 0.88rem; font-weight: 600; color: rgba(255,255,255,0.5); text-transform: uppercase; letter-spacing: 0.04em; margin: 0; }
     .header-row { display: flex; align-items: flex-start; gap: 8px; flex-wrap: wrap; }
-    .remove-btn { margin-top: 4px; }
-    .inline-fields { display: flex; gap: 8px; flex-wrap: wrap; }
-    .inline-fields mat-form-field { flex: 1; min-width: 100px; }
-    .success-retry-row { display: flex; gap: 8px; flex-wrap: wrap; }
-    .success-retry-row mat-form-field { flex: 1; min-width: 100px; }
-    .success-retry-row .f-status { flex: 0 0 100px; }
-    .success-retry-row .f-retries { flex: 0 0 80px; }
-    .mapping-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-    @media (max-width: 500px) {
-      .mapping-grid { grid-template-columns: 1fr 1fr; }
-      .success-retry-row .f-status, .success-retry-row .f-retries { flex: 1 1 80px; }
+    .remove-btn { margin-top: 4px; flex-shrink: 0; }
+    .inline-fields { display: flex; gap: 12px; flex-wrap: wrap; }
+    .inline-fields mat-form-field { flex: 1; min-width: 120px; }
+    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 4px; }
+    @media (max-width: 440px) {
+      .two-col { grid-template-columns: 1fr; }
     }
 
     .path-picker { padding: 12px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; margin-bottom: 8px; }
@@ -737,6 +746,7 @@ export class ApiRequestConfigsComponent implements OnInit {
 export class ApiRequestConfigDialogComponent implements OnInit {
   private svc = inject(ApiRequestConfigsService);
   private snackBar = inject(MatSnackBar);
+  private portalCookie = inject(PortalCookieService);
   dialogRef = inject(MatDialogRef<ApiRequestConfigDialogComponent>);
   data = inject<any>(MAT_DIALOG_DATA);
   saving = signal(false);
@@ -920,9 +930,7 @@ export class ApiRequestConfigDialogComponent implements OnInit {
   }
 
   private getCookie(): string {
-    const cookie = localStorage.getItem('entelectCookie') ?? '';
-    console.log('[api-config] cookie from localStorage:', !!cookie);
-    return cookie;
+    return this.portalCookie.getValue();
   }
 
   formatTestBody(body: string): string {

@@ -36,6 +36,13 @@ const CONFIG_CARDS: ConfigCard[] = [
     color: '#2196f3'
   },
   {
+    icon: 'cookie',
+    label: 'Portal Credentials',
+    description: 'View and manage the session cookie used for external portal sync',
+    path: '/settings/portal-credentials',
+    color: '#ce93d8'
+  },
+  {
     icon: 'sync',
     label: 'Sync Queue',
     description: 'Review and manually send timesheet entries to external systems',

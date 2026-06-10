@@ -162,7 +162,7 @@ export class TimesheetQuickAddModalComponent implements AfterViewInit {
   data = inject<QuickAddData>(MAT_DIALOG_DATA);
 
   private static readonly DEFAULT_LOC_ICONS: Record<string, string> = {
-    Home: 'home', Client: 'store', Entelect: 'laptop', Other: 'location_on',
+    Home: 'home', Client: 'store', Other: 'location_on',
   };
 
   catSearch = signal('');
@@ -176,7 +176,7 @@ export class TimesheetQuickAddModalComponent implements AfterViewInit {
   locationOptions = computed(() =>
     this.data.workLocationOptions?.length
       ? this.data.workLocationOptions
-      : ['Home', 'Client', 'Entelect', 'Other']
+      : ['Home', 'Client', 'Other']
   );
 
   locIcon(loc: string): string {

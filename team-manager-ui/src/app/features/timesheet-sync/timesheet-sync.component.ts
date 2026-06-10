@@ -7,6 +7,7 @@ import { MatChipsModule } from '@angular/material/chips';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { PortalCookieService } from '../../core/services/portal-cookie.service';
 
 interface SyncEvent {
   id: string;
@@ -200,6 +201,7 @@ interface SyncEvent {
 export class TimesheetSyncComponent implements OnInit {
   private http = inject(HttpClient);
   private snackBar = inject(MatSnackBar);
+  private portalCookie = inject(PortalCookieService);
 
   loading = signal(true);
   events = signal<SyncEvent[]>([]);
@@ -242,9 +244,9 @@ export class TimesheetSyncComponent implements OnInit {
   }
 
   send(evt: SyncEvent) {
-    const cookie = localStorage.getItem('entelectCookie') ?? '';
+    const cookie = this.portalCookie.getValue();
     if (!cookie) {
-      this.snackBar.open('No cookie found — make sure the browser extension is active and you are logged into the Entelect portal', 'Close', { duration: 5000 });
+      this.snackBar.open('No cookie found — set one in Settings → Portal Credentials', 'Close', { duration: 5000 });
       return;
     }
     this.sending.set(evt.id);

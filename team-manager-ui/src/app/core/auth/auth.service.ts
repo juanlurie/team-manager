@@ -76,9 +76,15 @@ export class AuthService {
             }
           }),
           catchError((err) => {
+            // Try backend-provided claims first, then fall back to local ID token claims
             const gc = err?.error?.googleClaims;
-            if (gc?.email) {
-              this.pendingClaims.set({ name: gc.name || '', email: gc.email, picture: gc.picture || '', sub: gc.sub || '' });
+            const tc = this.oauth.getIdentityClaims() as Record<string, string> | null;
+            const name    = gc?.name    || tc?.['name']    || '';
+            const email   = gc?.email   || tc?.['email']   || '';
+            const picture = gc?.picture || tc?.['picture'] || '';
+            const sub     = gc?.sub     || tc?.['sub']     || '';
+            if (email) {
+              this.pendingClaims.set({ name, email, picture, sub });
             }
             this._authStatus$.next('unauthorized');
             this._isDone$.next(true);

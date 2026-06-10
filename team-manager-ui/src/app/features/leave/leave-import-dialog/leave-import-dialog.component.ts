@@ -7,14 +7,8 @@ import { MatInputModule } from '@angular/material/input';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { MatTabsModule } from '@angular/material/tabs';
-import { MatExpansionModule } from '@angular/material/expansion';
-import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { HttpContext } from '@angular/common/http';
 import { LeaveService } from '../../../core/services/leave.service';
-import { SKIP_ERROR_TOAST } from '../../../core/interceptors/error.interceptor';
-import { LeaveRecord } from '../../../core/models/leave-record.model';
 import { TeamMember } from '../../../core/models/team-member.model';
 
 type RowStatus = 'new' | 'duplicate' | 'unmatched';
@@ -32,84 +26,27 @@ interface PreviewRow {
   selector: 'app-leave-import-dialog',
   standalone: true,
   imports: [CommonModule, FormsModule, MatDialogModule, MatButtonModule, MatInputModule,
-    MatFormFieldModule, MatIconModule, MatProgressSpinnerModule, MatTabsModule, MatExpansionModule,
-    MatDatepickerModule, MatTooltipModule],
+    MatFormFieldModule, MatIconModule, MatProgressSpinnerModule, MatTooltipModule],
   template: `
     <h2 mat-dialog-title>Import Leave</h2>
     <mat-dialog-content style="width:700px;max-width:90vw">
 
       @if (step() === 'input') {
-        <mat-tab-group [(selectedIndex)]="activeTab">
-
-          <!-- TAB: Fetch from Entelect -->
-          <mat-tab label="Fetch from Entelect">
-            <div style="padding:16px 0">
-              <mat-expansion-panel style="margin-bottom:16px;background:rgba(255,255,255,0.03)">
-                <mat-expansion-panel-header>
-                  <mat-panel-title style="font-size:0.875rem;opacity:0.7">
-                    <mat-icon style="font-size:16px;width:16px;height:16px;margin-right:8px">help_outline</mat-icon>
-                    How to get your session cookie
-                  </mat-panel-title>
-                </mat-expansion-panel-header>
-                <ol style="font-size:0.8rem;opacity:0.7;line-height:1.8;margin:0;padding-left:20px">
-                  <li>Log in to <strong>employee.entelect.co.za</strong> in your browser</li>
-                  <li>Open DevTools → <strong>Application</strong> → <strong>Cookies</strong> → <code>employee.entelect.co.za</code></li>
-                  <li>Find the <strong>.AspNet.Cookies</strong> cookie and copy its value</li>
-                  <li>Paste it below — it's only sent once and never stored</li>
-                </ol>
-              </mat-expansion-panel>
-
-              <mat-form-field appearance="outline" style="width:100%">
-                <mat-label>.AspNet.Cookies value</mat-label>
-                <textarea matInput [(ngModel)]="cookie" rows="4"
-                  style="font-family:monospace;font-size:0.72rem"
-                  placeholder="2s4rojM9F59Ea..."></textarea>
-              </mat-form-field>
-
-              <div style="display:flex;gap:12px;margin-bottom:4px">
-                <mat-form-field appearance="outline" style="flex:1">
-                  <mat-label>Start date</mat-label>
-                  <input matInput [matDatepicker]="startPicker" [(ngModel)]="fetchStartDate">
-                  <mat-datepicker-toggle matIconSuffix [for]="startPicker"></mat-datepicker-toggle>
-                  <mat-datepicker #startPicker></mat-datepicker>
-                </mat-form-field>
-                <mat-form-field appearance="outline" style="flex:1">
-                  <mat-label>End date</mat-label>
-                  <input matInput [matDatepicker]="endPicker" [(ngModel)]="fetchEndDate" [min]="fetchStartDate">
-                  <mat-datepicker-toggle matIconSuffix [for]="endPicker"></mat-datepicker-toggle>
-                  <mat-datepicker #endPicker></mat-datepicker>
-                </mat-form-field>
-              </div>
-
-              <mat-form-field appearance="outline" style="width:100%">
-                <mat-label>Team IDs (comma-separated)</mat-label>
-                <input matInput [(ngModel)]="teamIdsInput"
-                  placeholder="2155,2383,1990,2611,304,2296,2588,2578,2614,2632">
-                <mat-hint>From the Entelect leave calendar URL / network request</mat-hint>
-              </mat-form-field>
-            </div>
-          </mat-tab>
-
-          <!-- TAB: Paste JSON -->
-          <mat-tab label="Paste JSON">
-            <div style="padding:16px 0">
-              <p style="opacity:0.6;font-size:0.875rem;margin-top:0">
-                Paste the JSON array from the Entelect API or any compatible source.
-              </p>
-              <mat-form-field appearance="outline" style="width:100%">
-                <mat-label>JSON</mat-label>
-                <textarea matInput [(ngModel)]="json" rows="14"
-                  style="font-family:monospace;font-size:0.78rem"
-                  placeholder='[{ "title": "John Doe - Company...", "start": "...", "end": "...", "type": "Annual", "totalDays": "5" }]'>
-                </textarea>
-              </mat-form-field>
-              @if (parseError()) {
-                <div style="color:#f44336;font-size:0.85rem;margin-top:-8px">{{ parseError() }}</div>
-              }
-            </div>
-          </mat-tab>
-
-        </mat-tab-group>
+        <div style="padding:4px 0 8px">
+          <p style="opacity:0.6;font-size:0.875rem;margin-top:0">
+            Paste a JSON array of leave records to import.
+          </p>
+          <mat-form-field appearance="outline" style="width:100%">
+            <mat-label>JSON</mat-label>
+            <textarea matInput [(ngModel)]="json" rows="14"
+              style="font-family:monospace;font-size:0.78rem"
+              placeholder='[{ "title": "John Doe - Company...", "start": "...", "end": "...", "type": "Annual", "totalDays": "5" }]'>
+            </textarea>
+          </mat-form-field>
+          @if (parseError()) {
+            <div style="color:#f44336;font-size:0.85rem;margin-top:-8px">{{ parseError() }}</div>
+          }
+        </div>
       }
 
       @if (step() === 'preview') {
@@ -194,13 +131,6 @@ interface PreviewRow {
         </div>
       }
 
-      @if (step() === 'loading') {
-        <div style="display:flex;flex-direction:column;align-items:center;padding:48px;gap:16px">
-          <mat-spinner diameter="48"></mat-spinner>
-          <div style="opacity:0.6;font-size:0.875rem">Fetching leave data from Entelect...</div>
-        </div>
-      }
-
       @if (step() === 'importing') {
         <div style="display:flex;flex-direction:column;align-items:center;padding:48px;gap:16px">
           <mat-spinner diameter="48"></mat-spinner>
@@ -230,10 +160,6 @@ interface PreviewRow {
         </div>
       }
 
-      @if (fetchError()) {
-        <div style="color:#f44336;font-size:0.85rem;padding:8px 0">{{ fetchError() }}</div>
-      }
-
     </mat-dialog-content>
 
     <mat-dialog-actions align="end">
@@ -241,13 +167,7 @@ interface PreviewRow {
         <button mat-raised-button color="primary" (click)="dialogRef.close(true)">Close</button>
       } @else if (step() === 'input') {
         <button mat-button mat-dialog-close>Cancel</button>
-        @if (activeTab === 0) {
-          <button mat-raised-button color="primary" (click)="fetchAndPreview()" [disabled]="!cookie.trim()">
-            <mat-icon>download</mat-icon> Fetch & Preview
-          </button>
-        } @else {
-          <button mat-raised-button color="primary" (click)="parseJson()" [disabled]="!json.trim()">Preview</button>
-        }
+        <button mat-raised-button color="primary" (click)="parseJson()" [disabled]="!json.trim()">Preview</button>
       } @else if (step() === 'preview') {
         <button mat-stroked-button (click)="step.set('input')">Back</button>
         <button mat-raised-button color="primary" (click)="confirm()" [disabled]="importableCount() === 0">
@@ -272,23 +192,17 @@ export class LeaveImportDialogComponent implements OnInit {
   dialogRef = inject(MatDialogRef<LeaveImportDialogComponent>);
   private data: { members: TeamMember[] } = inject(MAT_DIALOG_DATA);
 
-  activeTab = 0;
   json = '';
-  cookie = '';
-  teamIdsInput = '2296,2578,2588';
-  fetchStartDate: Date = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
-  fetchEndDate: Date   = new Date(new Date().getFullYear(), new Date().getMonth() + 2, 0);
 
-  step        = signal<'input' | 'preview' | 'loading' | 'importing' | 'done'>('input');
+  step        = signal<'input' | 'preview' | 'importing' | 'done'>('input');
   preview     = signal<PreviewRow[]>([]);
   override    = signal(false);
   parseError  = signal('');
-  fetchError  = signal('');
   result      = signal<{ imported: number; overridden: number; duplicates: number; unknownMembers: string[] } | null>(null);
 
   private pendingRecords: any[] = [];
-  private existingSet = new Set<string>(); // "{memberName_lower}|{startDate_iso}|{type_lower}"
-  private knownNames  = new Set<string>(); // member full names lowercased
+  private existingSet = new Set<string>();
+  private knownNames  = new Set<string>();
 
   newCount       = computed(() => this.preview().filter(r => r.status === 'new').length);
   dupCount       = computed(() => this.preview().filter(r => r.status === 'duplicate').length);
@@ -309,34 +223,13 @@ export class LeaveImportDialogComponent implements OnInit {
   });
 
   ngOnInit() {
-    this.cookie = localStorage.getItem('entelectCookie') ?? '';
     this.knownNames = new Set(
       this.data.members.map(m => `${m.firstName} ${m.lastName}`.toLowerCase())
     );
-    // Load existing records to detect duplicates
     this.svc.getAll().subscribe(records => {
       this.existingSet = new Set(
         records.map(r => `${r.memberName.toLowerCase()}|${this.isoDate(r.startDate)}|${r.type.toLowerCase()}`)
       );
-    });
-  }
-
-
-  fetchAndPreview() {
-    this.fetchError.set('');
-    this.step.set('loading');
-    const teamIds = this.teamIdsInput.split(',').map(s => parseInt(s.trim(), 10)).filter(n => !isNaN(n));
-    const toStr = (d: Date) => d.toISOString().split('T')[0];
-    const ctx = new HttpContext().set(SKIP_ERROR_TOAST, true);
-    this.svc.fetchPreview(this.cookie.trim(), teamIds, toStr(this.fetchStartDate), toStr(this.fetchEndDate), ctx).subscribe({
-      next: records => {
-        this.pendingRecords = records;
-        this.buildPreview(records);
-      },
-      error: err => {
-        this.fetchError.set(err?.error?.detail ?? err?.message ?? 'Failed to fetch from Entelect. Check your cookie.');
-        this.step.set('input');
-      }
     });
   }
 
@@ -377,7 +270,6 @@ export class LeaveImportDialogComponent implements OnInit {
 
   private isoDate(raw: string): string {
     if (!raw) return '';
-    // Handles "2026-03-15", "2026-03-15T00:00:00", DateOnly from API
     return raw.slice(0, 10);
   }
 
