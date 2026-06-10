@@ -163,11 +163,11 @@ public class ApiSyncController(AppDbContext db, IHttpClientFactory httpClientFac
 
     [HttpDelete("{id:guid}")]
     [Authorize(Roles = "TeamLead")]
-    public async Task<IActionResult> Dismiss(Guid id)
+    public async Task<IActionResult> Delete(Guid id)
     {
         var evt = await db.ApiSyncEvents.FindAsync(id);
         if (evt is null) return NotFound();
-        evt.Status = "dismissed";
+        db.ApiSyncEvents.Remove(evt);
         await db.SaveChangesAsync();
         return NoContent();
     }
