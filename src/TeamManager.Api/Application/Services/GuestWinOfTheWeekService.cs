@@ -82,6 +82,9 @@ public class GuestWinOfTheWeekService(AppDbContext db, IHttpContextAccessor http
             WinnerNomineeName = winner != null ? $"{winner.Nominee.FirstName} {winner.Nominee.LastName}" : null,
             WinnerTitle = winner?.Title,
             WinnerStory = week.WinnerStory,
+            TiedNominationIds = !string.IsNullOrEmpty(week.TiedNominationIds)
+                ? System.Text.Json.JsonSerializer.Deserialize<List<Guid>>(week.TiedNominationIds) ?? []
+                : [],
             Nominations = nominations.Select(n => new GuestNominationDto
             {
                 Id = n.Id,
