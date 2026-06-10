@@ -1,9 +1,8 @@
-import { Injectable } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { Injectable, signal } from '@angular/core';
+import { HttpClient, HttpContext } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { OAuthService } from 'angular-oauth2-oidc';
 import { authConfig } from './auth.config';
-import { HttpContext } from '@angular/common/http';
 import { BehaviorSubject, of } from 'rxjs';
 import { catchError, map } from 'rxjs/operators';
 import { SKIP_ERROR_TOAST } from '../interceptors/error.interceptor';
@@ -29,7 +28,7 @@ export class AuthService {
   me$ = this._me$.asObservable();
 
   // Populated when authenticated via Google but not a team member
-  pendingClaims: { name: string; email: string; picture: string; sub: string } | null = null;
+  pendingClaims = signal<{ name: string; email: string; picture: string; sub: string } | null>(null);
 
   // Set to true when the backend is running without JWT (dev mode).
   // In this mode the frontend skips Google OAuth entirely.
@@ -77,30 +76,26 @@ export class AuthService {
             }
           }),
           catchError(() => {
-            const fromToken = this.parseIdTokenClaims();
-            if (fromToken?.name && fromToken?.email) {
-              this.pendingClaims = fromToken;
-              this._authStatus$.next('unauthorized');
-              this._isDone$.next(true);
-              return of(null);
-            }
-            // ID token missing profile claims — fetch userinfo directly
             const accessToken = this.oauth.getAccessToken();
             if (accessToken) {
+              // Fetch userinfo then navigate — avoids race condition where component reads before claims arrive
               this.http.get<any>('https://openidconnect.googleapis.com/v1/userinfo', {
                 headers: { Authorization: `Bearer ${accessToken}` },
                 context: new HttpContext().set(SKIP_ERROR_TOAST, true)
-              }).subscribe({
-                next: (p) => {
-                  this.pendingClaims = { name: p.name || p.given_name || '', email: p.email || '', picture: p.picture || '', sub: p.sub || '' };
-                },
-                error: () => { this.pendingClaims = fromToken; }
+              }).pipe(catchError(() => of(null))).subscribe(p => {
+                if (p?.email) {
+                  this.pendingClaims.set({ name: p.name || p.given_name || '', email: p.email, picture: p.picture || '', sub: p.sub || '' });
+                } else {
+                  this.pendingClaims.set(this.parseIdTokenClaims());
+                }
+                this._authStatus$.next('unauthorized');
+                this._isDone$.next(true);
               });
             } else {
-              this.pendingClaims = fromToken;
+              this.pendingClaims.set(this.parseIdTokenClaims());
+              this._authStatus$.next('unauthorized');
+              this._isDone$.next(true);
             }
-            this._authStatus$.next('unauthorized');
-            this._isDone$.next(true);
             return of(null);
           })
         ).subscribe();
@@ -140,7 +135,7 @@ export class AuthService {
 
   get identityClaims() { return this.oauth.getIdentityClaims(); }
 
-  private parseIdTokenClaims(): typeof this.pendingClaims {
+  private parseIdTokenClaims(): { name: string; email: string; picture: string; sub: string } | null {
     try {
       // Try the library's accessor first, fall back to both storage types
       const idToken = this.oauth.getIdToken()

@@ -1,4 +1,4 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, inject, signal, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
@@ -269,13 +269,15 @@ export class NotRegisteredComponent {
   form = { name: '', email: '' };
 
   constructor() {
-    const claims = this.auth.pendingClaims;
-    if (claims?.email) {
-      this.googleName.set(claims.name);
-      this.googleEmail.set(claims.email);
-      this.googlePicture.set(claims.picture);
-      this.hasClaims.set(true);
-    }
+    effect(() => {
+      const claims = this.auth.pendingClaims();
+      if (claims?.email) {
+        this.googleName.set(claims.name);
+        this.googleEmail.set(claims.email);
+        this.googlePicture.set(claims.picture);
+        this.hasClaims.set(true);
+      }
+    });
   }
 
   submitRequest() {
@@ -290,7 +292,7 @@ export class NotRegisteredComponent {
       name,
       email,
       reason: null,
-      googleSub: this.auth.pendingClaims?.sub || null
+      googleSub: this.auth.pendingClaims()?.sub || null
     }).subscribe({
       next: () => {
         this.submitting.set(false);
