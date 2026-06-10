@@ -18,7 +18,7 @@ import {
   REQUEST_ACTIONS,
   TestRequestResult
 } from './api-request-configs.service';
-import { PortalCookieService } from '../../core/services/portal-cookie.service';
+import { CredentialsService } from '../../core/services/credentials.service';
 
 @Component({
   selector: 'app-api-request-configs',
@@ -137,7 +137,7 @@ export class ApiRequestConfigsComponent implements OnInit {
   private svc = inject(ApiRequestConfigsService);
   private snackBar = inject(MatSnackBar);
   private dialog = inject(MatDialog);
-  private portalCookie = inject(PortalCookieService);
+  private credentials = inject(CredentialsService);
 
   loading = signal(true);
   configs = signal<ApiRequestConfig[]>([]);
@@ -419,13 +419,13 @@ export class ApiRequestConfigsComponent implements OnInit {
             <textarea matInput [(ngModel)]="data.bodyTemplate" rows="3"
                       placeholder="teamId=&#123;teamIds&#125;&amp;start=&#123;start&#125;"></textarea>
             @if (data.action === 'AddTimesheetEntry') {
-              <mat-hint>Variables: &#123;cookie&#125;, &#123;id&#125;, &#123;date&#125;, &#123;project&#125;, &#123;category&#125;, &#123;hours&#125;, &#123;minutes&#125;, &#123;billable&#125;, &#123;workedFrom&#125;, &#123;sentiment&#125;, &#123;description&#125;, &#123;ticketNumber&#125; + any parameter names</mat-hint>
+              <mat-hint>Cookies: {{ cookieVarHint }} · Variables: &#123;id&#125;, &#123;date&#125;, &#123;project&#125;, &#123;category&#125;, &#123;hours&#125;, &#123;minutes&#125;, &#123;billable&#125;, &#123;workedFrom&#125;, &#123;sentiment&#125;, &#123;description&#125;, &#123;ticketNumber&#125; + any parameter names</mat-hint>
             } @else if (data.action === 'GenerateJoke') {
               <mat-hint>Variables: &#123;jokeType&#125; (the prompt — must be included), &#123;seed&#125; (unique per click, add to body to prevent cached/identical responses) + any parameter names</mat-hint>
             } @else if (data.action === 'AiChatWinStory') {
               <mat-hint>Variables: &#123;nominee&#125;, &#123;title&#125;, &#123;description&#125; + any parameter names</mat-hint>
             } @else {
-              <mat-hint>Variables: &#123;cookie&#125;, &#123;start&#125;, &#123;end&#125;, &#123;teamIds&#125; + any parameter names</mat-hint>
+              <mat-hint>Cookies: {{ cookieVarHint }} · Variables: &#123;start&#125;, &#123;end&#125;, &#123;teamIds&#125; + any parameter names</mat-hint>
             }
           </mat-form-field>
 
@@ -746,7 +746,7 @@ export class ApiRequestConfigsComponent implements OnInit {
 export class ApiRequestConfigDialogComponent implements OnInit {
   private svc = inject(ApiRequestConfigsService);
   private snackBar = inject(MatSnackBar);
-  private portalCookie = inject(PortalCookieService);
+  private credentials = inject(CredentialsService);
   dialogRef = inject(MatDialogRef<ApiRequestConfigDialogComponent>);
   data = inject<any>(MAT_DIALOG_DATA);
   saving = signal(false);
@@ -774,10 +774,22 @@ export class ApiRequestConfigDialogComponent implements OnInit {
     return Object.values(this.testResults()).some(v => v !== null);
   }
 
+  cookieVarNames(): string[] {
+    const entries = this.credentials.entries();
+    const names = entries.map(e => e.keyName);
+    if (!names.includes('cookie')) names.unshift('cookie');
+    return names;
+  }
+
+  get cookieVarHint(): string {
+    return this.cookieVarNames().map(n => `{${n}}`).join(', ');
+  }
+
   unresolvedVars() {
     const knownParams = new Set([
       ...this.parameterEntries().map(e => e.key.trim()).filter(Boolean),
-      'cookie', 'start', 'end', 'teamIds', 'nominee', 'title', 'description'
+      ...this.cookieVarNames(),
+      'start', 'end', 'teamIds', 'nominee', 'title', 'description'
     ]);
     const template = (this.data.bodyTemplate ?? '') + Object.values(this.data.headers ?? {}).join(' ');
     const matches = [...template.matchAll(/\{(\w+)\}/g)].map(m => m[1]);
@@ -876,10 +888,11 @@ export class ApiRequestConfigDialogComponent implements OnInit {
     for (const e of this.parameterEntries()) {
       if (e.key.trim()) params[e.key.trim()] = e.value;
     }
-    const cookie = this.getCookie();
+    const cookieVars = this.getCookieVariables();
 
     const resolve = (t: string) => {
-      let s = t.replace('{cookie}', cookie || '{cookie}');
+      let s = t;
+      for (const [k, v] of Object.entries(cookieVars)) s = s.replaceAll(`{${k}}`, v || `{${k}}`);
       for (const [k, v] of Object.entries(params)) s = s.replaceAll(`{${k}}`, v);
       return s;
     };
@@ -915,13 +928,12 @@ export class ApiRequestConfigDialogComponent implements OnInit {
     this.testResult.set(null);
     this.showTestVars.set(false);
 
-    const cookie = this.getCookie();
     const headers: Record<string, string> = {};
     for (const entry of this.headerEntries()) {
       if (entry.key.trim()) headers[entry.key.trim()] = entry.value;
     }
     const config: ApiRequestConfig = { ...this.data, headers };
-    const variables: Record<string, string> = { cookie, ...this.testVars };
+    const variables: Record<string, string> = { ...this.getCookieVariables(), ...this.testVars };
 
     this.svc.testRequest(config, variables).subscribe({
       next: (result) => { this.testResult.set(result); this.testing.set(false); },
@@ -929,8 +941,19 @@ export class ApiRequestConfigDialogComponent implements OnInit {
     });
   }
 
+  private getCookieVariables(): Record<string, string> {
+    const vars: Record<string, string> = {};
+    for (const entry of this.credentials.entries()) {
+      vars[entry.keyName] = this.credentials.getValueFor(entry);
+    }
+    // {cookie} → first entry (backward compat)
+    const first = this.credentials.entries()[0];
+    if (first) vars['cookie'] = vars[first.keyName] ?? '';
+    return vars;
+  }
+
   private getCookie(): string {
-    return this.portalCookie.getValue();
+    return this.getCookieVariables()['cookie'] ?? '';
   }
 
   formatTestBody(body: string): string {

@@ -7,7 +7,7 @@ import { MatChipsModule } from '@angular/material/chips';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { PortalCookieService } from '../../core/services/portal-cookie.service';
+import { CredentialsService } from '../../core/services/credentials.service';
 
 interface SyncEvent {
   id: string;
@@ -201,7 +201,7 @@ interface SyncEvent {
 export class TimesheetSyncComponent implements OnInit {
   private http = inject(HttpClient);
   private snackBar = inject(MatSnackBar);
-  private portalCookie = inject(PortalCookieService);
+  private credentials = inject(CredentialsService);
 
   loading = signal(true);
   events = signal<SyncEvent[]>([]);
@@ -244,9 +244,9 @@ export class TimesheetSyncComponent implements OnInit {
   }
 
   send(evt: SyncEvent) {
-    const cookie = this.portalCookie.getValue();
+    const cookie = this.credentials.getValue();
     if (!cookie) {
-      this.snackBar.open('No cookie found — set one in Settings → Portal Credentials', 'Close', { duration: 5000 });
+      this.snackBar.open('No cookie found — set one in Settings → Credentials', 'Close', { duration: 5000 });
       return;
     }
     this.sending.set(evt.id);

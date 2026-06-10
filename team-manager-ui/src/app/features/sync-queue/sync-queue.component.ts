@@ -9,7 +9,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSelectModule } from '@angular/material/select';
 import { FormsModule } from '@angular/forms';
 import { TimesheetDefaultsService } from '../../core/services/timesheet-defaults.service';
-import { PortalCookieService } from '../../core/services/portal-cookie.service';
+import { CredentialsService } from '../../core/services/credentials.service';
 
 interface SyncEvent {
   id: string;
@@ -253,7 +253,7 @@ export class SyncQueueComponent implements OnInit {
   private http = inject(HttpClient);
   private snackBar = inject(MatSnackBar);
   private tsd = inject(TimesheetDefaultsService);
-  private portalCookie = inject(PortalCookieService);
+  private credentials = inject(CredentialsService);
 
   loading = signal(true);
   events = signal<SyncEvent[]>([]);
@@ -302,9 +302,9 @@ export class SyncQueueComponent implements OnInit {
   }
 
   sendAll() {
-    const cookie = this.portalCookie.getValue();
+    const cookie = this.credentials.getValue();
     if (!cookie) {
-      this.snackBar.open('No cookie found — set one in Settings → Portal Credentials', 'Close', { duration: 4000 });
+      this.snackBar.open('No cookie found — set one in Settings → Credentials', 'Close', { duration: 4000 });
     }
     const total = this.pendingCount();
     this.sendingAll.set(true);
@@ -325,9 +325,9 @@ export class SyncQueueComponent implements OnInit {
   }
 
   send(evt: SyncEvent) {
-    const cookie = this.portalCookie.getValue();
+    const cookie = this.credentials.getValue();
     if (!cookie) {
-      this.snackBar.open('No cookie found — set one in Settings → Portal Credentials', 'Close', { duration: 4000 });
+      this.snackBar.open('No cookie found — set one in Settings → Credentials', 'Close', { duration: 4000 });
     }
     this.sending.set(evt.id);
     this.http.post<any>(`/api/v1/sync-queue/${evt.id}/send`, { cookie }).subscribe({

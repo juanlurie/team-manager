@@ -4,10 +4,10 @@ import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
-import { PortalCookieService, PortalCookieEntry } from '../../../core/services/portal-cookie.service';
+import { CredentialsService, CredentialEntry } from '../../../core/services/credentials.service';
 
 interface EntryState {
-  entry: PortalCookieEntry;
+  entry: CredentialEntry;
   revealed: boolean;
   editing: boolean;
   editName: string;
@@ -25,8 +25,8 @@ interface EntryState {
       <div class="hdr">
         <a class="back-btn" routerLink="/settings"><mat-icon>arrow_back</mat-icon></a>
         <div>
-          <h1>Portal Credentials</h1>
-          <p class="subtitle">Session cookies used for syncing timesheets and fetching data from external portals. Each cookie is read from a localStorage key written by your browser extension.</p>
+          <h1>Credentials</h1>
+          <p class="subtitle">Stored credentials (cookies, tokens) used by request configs and sync. Each entry is read from a localStorage key — typically written by your browser extension.</p>
         </div>
       </div>
 
@@ -220,7 +220,7 @@ interface EntryState {
   `]
 })
 export class PortalCredentialsComponent {
-  private svc = inject(PortalCookieService);
+  private svc = inject(CredentialsService);
   private snack = inject(MatSnackBar);
 
   showAddForm = signal(false);
