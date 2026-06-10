@@ -51,10 +51,11 @@ public class JokesController(AppDbContext db, IHttpClientFactory httpClientFacto
         parameters["seed"] = Guid.NewGuid().ToString("N")[..8];
 
         var headers = JsonSerializer.Deserialize<Dictionary<string, string>>(config.HeadersJson) ?? [];
+        var configVars = await Application.Services.ConfigVariableResolver.LoadAsync(db);
 
         string Resolve(string t)
         {
-            var result = t;
+            var result = Application.Services.ConfigVariableResolver.Apply(t, configVars);
             foreach (var (k, v) in parameters)
                 result = result.Replace($"{{{k}}}", v);
             return result;
