@@ -9,7 +9,8 @@ export const errorInterceptor: HttpInterceptorFn = (req, next) => {
   const snackBar = inject(MatSnackBar);
   return next(req).pipe(
     catchError(error => {
-      if (!req.context.get(SKIP_ERROR_TOAST)) {
+      const isOAuthEndpoint = req.url.includes('accounts.google.com') || req.url.includes('googleapis.com') || req.url.includes('openidconnect');
+      if (!req.context.get(SKIP_ERROR_TOAST) && !isOAuthEndpoint) {
         if (error?.status === 403 && error?.error?.error === 'feature_disabled') {
           return throwError(() => error);
         }
