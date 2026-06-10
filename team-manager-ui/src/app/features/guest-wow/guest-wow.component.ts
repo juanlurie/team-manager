@@ -2,6 +2,7 @@ import { Component, OnDestroy, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
+import { MatIconModule } from '@angular/material/icon';
 import { GuestWinOfTheWeekService } from './guest-wow.service';
 import { GuestWinWeek, GuestNomination, GuestCreateNominationRequest } from '../../core/models/win-week.model';
 import { AuthService } from '../../core/auth/auth.service';
@@ -12,7 +13,7 @@ const SESSION_ID_KEY = 'wow_guest_session_id';
 @Component({
   selector: 'app-guest-wow',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, MatIconModule],
   template: `
     <div class="guest-wrap" [class.sudden-death]="isSuddenDeath()">
       <!-- Name capture screen -->
@@ -70,7 +71,7 @@ const SESSION_ID_KEY = 'wow_guest_session_id';
               </span>
               <span class="week-label">Week of {{ formatDate(week()!.weekStart) }}</span>
             </div>
-            <div style="display:flex;align-items:center;gap:8px">
+            <div class="week-header__right">
               <span class="guest-tag">Guest View</span>
               <button class="btn-login" type="button" (click)="login()">Sign In</button>
             </div>
@@ -216,8 +217,8 @@ const SESSION_ID_KEY = 'wow_guest_session_id';
                   <span class="nom-card__by">Nominated by {{ nom.nominatorDisplayName }}</span>
                   <div class="nom-card__actions">
                     @if (nom.isOwned && week()!.isNominatingOpen) {
-                      <button class="btn-icon" title="Edit" (click)="startEdit(nom)">✏️</button>
-                      <button class="btn-icon btn-icon--danger" title="Delete" (click)="deleteNomination(nom.id)" [disabled]="deletingId() === nom.id">🗑</button>
+                      <button class="btn-icon" title="Edit" (click)="startEdit(nom)"><mat-icon style="font-size:16px;width:16px;height:16px;line-height:16px">edit</mat-icon></button>
+                      <button class="btn-icon btn-icon--danger" title="Delete" (click)="deleteNomination(nom.id)" [disabled]="deletingId() === nom.id"><mat-icon style="font-size:16px;width:16px;height:16px;line-height:16px">delete</mat-icon></button>
                     }
                     @if (week()!.isVotingOpen) {
                       @if (nom.hasVoted) {
@@ -237,7 +238,9 @@ const SESSION_ID_KEY = 'wow_guest_session_id';
   `,
   styles: [`
     .guest-wrap {
-      min-height: 100vh;
+      position: fixed;
+      inset: 0;
+      overflow-y: auto;
       background: #121212;
       color: #fff;
       display: flex;
@@ -245,6 +248,7 @@ const SESSION_ID_KEY = 'wow_guest_session_id';
       padding: 2rem 1rem;
       font-family: inherit;
       transition: background 0.4s;
+      z-index: 50;
     }
     .guest-wrap.sudden-death {
       background: #1a0000;
@@ -374,9 +378,12 @@ const SESSION_ID_KEY = 'wow_guest_session_id';
       display: flex;
       align-items: center;
       justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 0.5rem;
       margin-bottom: 1.25rem;
     }
-    .week-header__left { display: flex; align-items: center; gap: 0.75rem; }
+    .week-header__left { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
+    .week-header__right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
 
     .phase-badge {
       font-size: 0.8rem;
@@ -559,6 +566,9 @@ const SESSION_ID_KEY = 'wow_guest_session_id';
       border-radius: 4px;
       opacity: 0.6;
       transition: opacity 0.15s;
+      display: inline-flex;
+      align-items: center;
+      color: inherit;
     }
     .btn-icon:hover { opacity: 1; }
     .btn-icon:disabled { opacity: 0.3; cursor: not-allowed; }

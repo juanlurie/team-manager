@@ -7,12 +7,16 @@ export class WinOfTheWeekService {
   private http = inject(HttpClient);
   private base = '/api/v1/win-of-the-week';
 
-  getCurrentWeek() {
-    return this.http.get<WinWeek>(`${this.base}/current`);
+  getCurrentWeek(seriesId?: string) {
+    const params: any = {};
+    if (seriesId) params.seriesId = seriesId;
+    return this.http.get<WinWeek | null>(`${this.base}/current`, { params });
   }
 
-  createNomination(request: CreateNominationRequest) {
-    return this.http.post<WinNomination>(`${this.base}/nominations`, request);
+  createNomination(request: CreateNominationRequest, seriesId?: string) {
+    const params: any = {};
+    if (seriesId) params.seriesId = seriesId;
+    return this.http.post<WinNomination>(`${this.base}/nominations`, request, { params });
   }
 
   updateNomination(nominationId: string, request: CreateNominationRequest) {
@@ -31,28 +35,39 @@ export class WinOfTheWeekService {
     return this.http.delete(`${this.base}/nominations/${nominationId}/vote`);
   }
 
-  closeWeek(request: CloseWeekRequest) {
-    return this.http.post<WinWeek>(`${this.base}/close`, request);
-  }
-
-  openNextWeek() {
-    return this.http.post<WinWeek>(`${this.base}/open-next`, {});
-  }
-
-  openVoting() {
-    return this.http.post<WinWeek>(`${this.base}/open-voting`, {});
-  }
-
-  reopenNominations() {
-    return this.http.post<WinWeek>(`${this.base}/reopen-nominations`, {});
-  }
-
-  startSuddenDeath(request: StartSuddenDeathRequest) {
-    return this.http.post<WinWeek>(`${this.base}/sudden-death`, request);
-  }
-
-  getHistory(year?: number) {
+  closeWeek(request: CloseWeekRequest, seriesId?: string) {
     const params: any = {};
+    if (seriesId) params.seriesId = seriesId;
+    return this.http.post<WinWeek>(`${this.base}/close`, request, { params });
+  }
+
+  openNextWeek(seriesId?: string) {
+    const params: any = {};
+    if (seriesId) params.seriesId = seriesId;
+    return this.http.post<WinWeek>(`${this.base}/open-next`, {}, { params });
+  }
+
+  openVoting(seriesId?: string) {
+    const params: any = {};
+    if (seriesId) params.seriesId = seriesId;
+    return this.http.post<WinWeek>(`${this.base}/open-voting`, {}, { params });
+  }
+
+  reopenNominations(seriesId?: string) {
+    const params: any = {};
+    if (seriesId) params.seriesId = seriesId;
+    return this.http.post<WinWeek>(`${this.base}/reopen-nominations`, {}, { params });
+  }
+
+  startSuddenDeath(request: StartSuddenDeathRequest, seriesId?: string) {
+    const params: any = {};
+    if (seriesId) params.seriesId = seriesId;
+    return this.http.post<WinWeek>(`${this.base}/sudden-death`, request, { params });
+  }
+
+  getHistory(seriesId?: string, year?: number) {
+    const params: any = {};
+    if (seriesId) params.seriesId = seriesId;
     if (year) params.year = year;
     return this.http.get<WinWeekHistory[]>(`${this.base}/history`, { params });
   }

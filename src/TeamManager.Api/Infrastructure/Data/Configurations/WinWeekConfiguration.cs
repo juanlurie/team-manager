@@ -13,7 +13,7 @@ public class WinWeekConfiguration : IEntityTypeConfiguration<WinWeek>
         builder.Property(w => w.WeekStart);
         builder.Property(w => w.WeekEnd);
         builder.Property(w => w.OpenedAt);
-        builder.HasIndex(w => w.WeekStart).IsUnique();
+        builder.HasIndex(w => new { w.WinSeriesId, w.WeekStart }).IsUnique();
         builder.Property(w => w.GuestToken).HasMaxLength(64);
         builder.HasIndex(w => w.GuestToken).IsUnique().HasFilter("\"GuestToken\" IS NOT NULL");
         builder.Property(w => w.Status)

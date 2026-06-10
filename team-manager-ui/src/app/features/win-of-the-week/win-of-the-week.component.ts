@@ -12,17 +12,20 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatInputModule } from '@angular/material/input';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatDividerModule } from '@angular/material/divider';
-import { Subscription, interval } from 'rxjs';
+import { Subscription, interval, map } from 'rxjs';
+import { BreakpointObserver, Breakpoints } from '@angular/cdk/layout';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { WinOfTheWeekService } from '../../core/services/win-of-the-week.service';
 import { WinOfTheMonthService } from '../../core/services/win-of-the-month.service';
 import { TeamMemberService } from '../../core/services/team-member.service';
 import { WebSocketService } from '../../core/websocket/websocket.service';
-import { WinWeek, WinNomination, CreateNominationRequest } from '../../core/models/win-week.model';
+import { WinWeek, WinNomination, WinSeries, CreateNominationRequest } from '../../core/models/win-week.model';
 import { TeamMember } from '../../core/models/team-member.model';
 import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/confirm-dialog.component';
 import { WinOfTheWeekHistoryComponent } from '../win-of-the-week-history/win-of-the-week-history.component';
 import { WinOfTheMonthComponent } from '../win-of-the-month/win-of-the-month.component';
 import { FeatureAccessService } from '../../core/services/feature-access.service';
+import { WinSeriesService } from '../../core/services/win-series.service';
 
 @Component({
   selector: 'app-win-of-the-week',
@@ -65,9 +68,20 @@ import { FeatureAccessService } from '../../core/services/feature-access.service
     <div [class.sudden-death-wrap]="currentWeek()?.status === 'SuddenDeath'"
          style="max-width:1060px;margin:0 auto;padding:0 8px 80px;overflow-x:hidden">
       <!-- Header -->
-      <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap">
         <mat-icon style="font-size:1.6rem;width:1.6rem;height:1.6rem;color:#FFD700">emoji_events</mat-icon>
         <h2 style="margin:0;font-size:1.3rem;font-weight:700">Win of the Week</h2>
+        @if (series().length > 1 || isHost()) {
+          <select [ngModel]="currentSeriesId()" (ngModelChange)="selectSeries($event)"
+                  style="background:#1e1e2e;color:rgba(255,255,255,0.8);border:1px solid rgba(255,255,255,0.12);border-radius:6px;padding:4px 8px;font-size:0.82rem;cursor:pointer">
+            @for (s of series(); track s.id) {
+              <option [value]="s.id">{{ s.name }}</option>
+            }
+            @if (isHost()) {
+              <option value="__new__">+ New Series</option>
+            }
+          </select>
+        }
         <div style="flex:1"></div>
         <button mat-icon-button [matMenuTriggerFor]="moreMenu" style="color:rgba(255,255,255,0.5)">
           <mat-icon>more_vert</mat-icon>
@@ -139,7 +153,7 @@ import { FeatureAccessService } from '../../core/services/feature-access.service
             <div style="flex:1;min-width:0">
               <ng-container *ngTemplateOutlet="currentTab"></ng-container>
             </div>
-            @if (isHost() && qrDataUrl()) {
+            @if (isHost() && qrDataUrl() && !isMobile()) {
               <div style="flex-shrink:0;width:180px;position:sticky;top:16px">
                 <img [src]="qrDataUrl()!" alt="Guest QR code" style="width:180px;height:180px;border-radius:8px;display:block" />
                 <button mat-icon-button (click)="copyShareLink()" matTooltip="Copy guest link"
@@ -193,6 +207,27 @@ import { FeatureAccessService } from '../../core/services/feature-access.service
             <button mat-raised-button color="primary" (click)="submitNomination()"
                     [disabled]="!nominateForm.nomineeMemberId || !nominateForm.title.trim() || submitting()">
               {{ submitting() ? 'Submitting...' : (editingNominationId() ? 'Save Changes' : 'Submit') }}
+            </button>
+          </div>
+        </div>
+      </div>
+    }
+
+    <!-- New Series Dialog -->
+    @if (showNewSeriesDialog()) {
+      <div style="position:fixed;inset:0;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;z-index:1000"
+           (click)="closeNewSeriesDialog()">
+        <div style="background:#1e1e2e;border-radius:16px;padding:24px;width:90%;max-width:380px;border:1px solid rgba(255,255,255,0.1)"
+             (click)="$event.stopPropagation()">
+          <h3 style="margin:0 0 16px;font-size:1.1rem;font-weight:700">New Series</h3>
+          <input [(ngModel)]="newSeriesName" placeholder="Series name (e.g. Backend Team)"
+                 style="width:100%;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.15);border-radius:8px;padding:10px 14px;color:#fff;font-size:0.95rem;outline:none;box-sizing:border-box"
+                 maxlength="100" (keydown.enter)="submitNewSeries()" autofocus />
+          <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
+            <button mat-stroked-button (click)="closeNewSeriesDialog()">Cancel</button>
+            <button mat-raised-button color="primary" (click)="submitNewSeries()"
+                    [disabled]="!newSeriesName.trim() || submitting()">
+              {{ submitting() ? 'Creating...' : 'Create' }}
             </button>
           </div>
         </div>
@@ -304,6 +339,17 @@ import { FeatureAccessService } from '../../core/services/feature-access.service
         <div style="text-align:center;padding:64px;opacity:0.35">Loading...</div>
       }
 
+      <!-- No week yet for this series -->
+      @if (!loading() && !currentWeek()) {
+        <div style="text-align:center;padding:64px;opacity:0.5">
+          <mat-icon style="font-size:3rem;width:3rem;height:3rem;opacity:0.3">emoji_events</mat-icon>
+          <div style="margin-top:12px;font-weight:600">No active week for this series</div>
+          @if (isHost()) {
+            <button mat-raised-button color="primary" (click)="openNextWeek()" style="margin-top:16px">Open First Week</button>
+          }
+        </div>
+      }
+
       <!-- Empty state -->
       @if (!loading() && currentWeek() && currentWeek()!.nominations.length === 0) {
         <div style="text-align:center;padding:64px;opacity:0.35">
@@ -394,7 +440,11 @@ import { FeatureAccessService } from '../../core/services/feature-access.service
   `
 })
 export class WinOfTheWeekComponent implements OnInit, OnDestroy {
+  private breakpointObserver = inject(BreakpointObserver);
+  isMobile = toSignal(this.breakpointObserver.observe([Breakpoints.Handset, Breakpoints.TabletPortrait]).pipe(map(r => r.matches)), { initialValue: false });
+
   private winSvc = inject(WinOfTheWeekService);
+  private seriesSvc = inject(WinSeriesService);
   private womSvc = inject(WinOfTheMonthService);
   private memberSvc = inject(TeamMemberService);
   private wsSvc = inject(WebSocketService);
@@ -414,11 +464,12 @@ export class WinOfTheWeekComponent implements OnInit, OnDestroy {
         .then(dataUrl => this.qrDataUrl.set(dataUrl));
     });
 
-    let guestTokenLoaded = false;
+    let lastTokenSeriesId: string | null = null;
     effect(() => {
       const week = this.currentWeek();
-      if (!week || guestTokenLoaded || !this.isHost()) return;
-      guestTokenLoaded = true;
+      const sid = this.currentSeriesId();
+      if (!week || !this.isHost() || sid === lastTokenSeriesId) return;
+      lastTokenSeriesId = sid;
       this.winSvc.generateGuestToken(week.id).subscribe({
         next: (result) => this.guestUrl.set(`${window.location.origin}/guest/wow/${result.token}`),
         error: () => {}
@@ -439,6 +490,10 @@ export class WinOfTheWeekComponent implements OnInit, OnDestroy {
   now = signal(Date.now());
   guestUrl = signal<string | null>(null);
   qrDataUrl = signal<string | null>(null);
+  series = signal<WinSeries[]>([]);
+  currentSeriesId = signal<string | null>(null);
+  showNewSeriesDialog = signal(false);
+  newSeriesName = '';
 
   readonly isHost = this.featureAccess.hasAccess$('wow-host');
   readonly hasWinOfMonth = this.featureAccess.hasAccess$('win-of-month');
@@ -520,7 +575,15 @@ export class WinOfTheWeekComponent implements OnInit, OnDestroy {
     this.memberSvc.getAll({ isActive: true }).subscribe(members => {
       this.allMembers.set(members.sort((a, b) => a.firstName.localeCompare(b.firstName)));
     });
-    this.refresh();
+
+    this.seriesSvc.getAll().subscribe(list => {
+      this.series.set(list);
+      if (list.length > 0 && !this.currentSeriesId()) {
+        this.currentSeriesId.set(list[0].id);
+      }
+      this.refresh();
+    });
+
 
     this.timerSub = interval(1000).subscribe(() => {
       this.now.set(Date.now());
@@ -580,11 +643,13 @@ export class WinOfTheWeekComponent implements OnInit, OnDestroy {
   }
 
   private refresh() {
+    const sid = this.currentSeriesId();
+    if (!sid) { this.loading.set(false); return; }
     this.loading.set(true);
-    this.winSvc.getCurrentWeek().subscribe({
+    this.winSvc.getCurrentWeek(sid).subscribe({
       next: (week) => {
         this.currentWeek.set(week);
-        this.currentUserId = week.currentMemberId;
+        if (week) this.currentUserId = week.currentMemberId;
         this.loading.set(false);
       },
       error: () => {
@@ -595,10 +660,50 @@ export class WinOfTheWeekComponent implements OnInit, OnDestroy {
   }
 
   private silentRefresh() {
-    this.winSvc.getCurrentWeek().subscribe({
+    const sid = this.currentSeriesId();
+    if (!sid) return;
+    this.winSvc.getCurrentWeek(sid).subscribe({
       next: (week) => {
         this.currentWeek.set(week);
-        this.currentUserId = week.currentMemberId;
+        if (week) this.currentUserId = week.currentMemberId;
+      }
+    });
+  }
+
+  selectSeries(id: string) {
+    if (id === '__new__') {
+      this.newSeriesName = '';
+      this.showNewSeriesDialog.set(true);
+      return;
+    }
+    this.currentSeriesId.set(id);
+    this.currentWeek.set(null);
+    this.guestUrl.set(null);
+    this.qrDataUrl.set(null);
+    this.refresh();
+  }
+
+  closeNewSeriesDialog() {
+    this.showNewSeriesDialog.set(false);
+  }
+
+  submitNewSeries() {
+    const name = this.newSeriesName.trim();
+    if (!name || this.submitting()) return;
+    this.submitting.set(true);
+    this.seriesSvc.create(name).subscribe({
+      next: (s) => {
+        this.series.update(list => [...list, s]);
+        this.currentSeriesId.set(s.id);
+        this.currentWeek.set(null);
+        this.guestUrl.set(null);
+        this.showNewSeriesDialog.set(false);
+        this.submitting.set(false);
+        this.refresh();
+      },
+      error: () => {
+        this.submitting.set(false);
+        this.snackBar.open('Failed to create series', 'Close', { duration: 3000 });
       }
     });
   }
@@ -657,7 +762,7 @@ export class WinOfTheWeekComponent implements OnInit, OnDestroy {
         nomineeMemberId: this.nominateForm.nomineeMemberId,
         title: this.nominateForm.title.trim(),
         description: this.nominateForm.description?.trim() || undefined
-      }).subscribe({
+      }, this.currentSeriesId() ?? undefined).subscribe({
         next: () => {
           this.submitting.set(false);
           this.showDialog.set(false);
@@ -739,7 +844,7 @@ export class WinOfTheWeekComponent implements OnInit, OnDestroy {
     });
     ref.afterClosed().subscribe(ok => {
       if (!ok) return;
-      this.winSvc.closeWeek({ winnerNominationId: topNom.id }).subscribe({
+      this.winSvc.closeWeek({ winnerNominationId: topNom.id }, this.currentSeriesId() ?? undefined).subscribe({
         next: () => {
           this.snackBar.open('Week closed! Winner announced.', 'Close', { duration: 3000 });
           this.refresh();
@@ -753,7 +858,7 @@ export class WinOfTheWeekComponent implements OnInit, OnDestroy {
   }
 
   openNextWeek() {
-    this.winSvc.openNextWeek().subscribe({
+    this.winSvc.openNextWeek(this.currentSeriesId() ?? undefined).subscribe({
       next: () => {
         this.snackBar.open('New week opened! Nominations are now open.', 'Close', { duration: 3000 });
         this.refresh();
@@ -766,7 +871,7 @@ export class WinOfTheWeekComponent implements OnInit, OnDestroy {
   }
 
   openVoting() {
-    this.winSvc.openVoting().subscribe({
+    this.winSvc.openVoting(this.currentSeriesId() ?? undefined).subscribe({
       next: () => {
         this.snackBar.open('Voting is now open!', 'Close', { duration: 3000 });
         this.refresh();
@@ -779,7 +884,7 @@ export class WinOfTheWeekComponent implements OnInit, OnDestroy {
   }
 
   reopenNominations() {
-    this.winSvc.reopenNominations().subscribe({
+    this.winSvc.reopenNominations(this.currentSeriesId() ?? undefined).subscribe({
       next: () => {
         this.snackBar.open('Nominations reopened!', 'Close', { duration: 3000 });
         this.silentRefresh();
@@ -809,7 +914,7 @@ export class WinOfTheWeekComponent implements OnInit, OnDestroy {
     });
     ref.afterClosed().subscribe(ok => {
       if (!ok) return;
-      this.winSvc.startSuddenDeath({ tiedNominationIds: tied.map(n => n.id) }).subscribe({
+      this.winSvc.startSuddenDeath({ tiedNominationIds: tied.map(n => n.id) }, this.currentSeriesId() ?? undefined).subscribe({
         next: () => {
           this.snackBar.open('⚡ Sudden Death started! 90 seconds on the clock.', 'Close', { duration: 4000 });
           this.refresh();

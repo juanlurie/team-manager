@@ -14,6 +14,8 @@ namespace TeamManager.Api.Presentation.Controllers;
 [RequireFeature("jokes")]
 public class JokesController(AppDbContext db, IHttpClientFactory httpClientFactory) : ControllerBase
 {
+    private const int MaxRecentJokes = 50;
+
     [HttpGet("configured")]
     public async Task<IActionResult> IsConfigured()
     {
@@ -30,7 +32,23 @@ public class JokesController(AppDbContext db, IHttpClientFactory httpClientFacto
 
         var parameters = JsonSerializer.Deserialize<Dictionary<string, string>>(
             string.IsNullOrWhiteSpace(config.ParametersJson) ? "{}" : config.ParametersJson) ?? [];
-        parameters["jokeType"] = request.JokeType;
+        var recentJokes = await db.JokeHistory
+            .Where(h => h.JokeTypeId == request.JokeTypeId)
+            .OrderByDescending(h => h.CreatedAt)
+            .Take(MaxRecentJokes)
+            .Select(h => h.JokeText)
+            .ToListAsync();
+
+        var jokePrompt = recentJokes.Count > 0
+            ? $"{request.JokeType}\n\nDo NOT repeat any of these jokes you've already told:\n{string.Join("\n", recentJokes.Select(j => $"- {j}"))}"
+            : request.JokeType;
+        // Escape for JSON body templates — newlines and quotes would break the JSON string
+        parameters["jokeType"] = jokePrompt
+            .Replace("\\", "\\\\")
+            .Replace("\"", "\\\"")
+            .Replace("\n", "\\n")
+            .Replace("\r", "");
+        parameters["seed"] = Guid.NewGuid().ToString("N")[..8];
 
         var headers = JsonSerializer.Deserialize<Dictionary<string, string>>(config.HeadersJson) ?? [];
 
@@ -92,6 +110,12 @@ public class JokesController(AppDbContext db, IHttpClientFactory httpClientFacto
             {
                 evt.Status = "sent";
                 joke = ExtractText(config.MappingJson, responseBody);
+                if (!string.IsNullOrWhiteSpace(joke))
+                    db.JokeHistory.Add(new Domain.Entities.JokeHistory
+                    {
+                        JokeTypeId = request.JokeTypeId,
+                        JokeText = joke
+                    });
             }
             else
             {
