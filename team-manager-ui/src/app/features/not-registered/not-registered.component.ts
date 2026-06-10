@@ -57,11 +57,6 @@ import { AuthService } from '../../core/auth/auth.service';
             </div>
           </div>
 
-          <div class="request-form">
-            <label class="field-label">Reason (optional)</label>
-            <textarea class="field-input field-textarea" [(ngModel)]="reason" placeholder="Why do you need access?" rows="3"></textarea>
-          </div>
-
           @if (error()) {
             <div class="error-msg">{{ error() }}</div>
           }
@@ -90,9 +85,6 @@ import { AuthService } from '../../core/auth/auth.service';
 
             <label class="field-label">Email</label>
             <input class="field-input" [(ngModel)]="form.email" type="email" placeholder="your@email.com" />
-
-            <label class="field-label">Reason (optional)</label>
-            <textarea class="field-input field-textarea" [(ngModel)]="form.reason" placeholder="Why do you need access?" rows="3"></textarea>
 
             @if (error()) {
               <div class="error-msg">{{ error() }}</div>
@@ -268,14 +260,13 @@ export class NotRegisteredComponent {
   googleName = signal('');
   googleEmail = signal('');
   googlePicture = signal('');
-  reason = '';
   submitting = signal(false);
   error = signal('');
   requestSent = signal(false);
   hasClaims = signal(false);
 
   // Manual fallback form (when no Google claims)
-  form = { name: '', email: '', reason: '' };
+  form = { name: '', email: '' };
 
   constructor() {
     const claims = this.auth.pendingClaims;
@@ -298,7 +289,7 @@ export class NotRegisteredComponent {
     this.http.post('/api/accessrequests/submit', {
       name,
       email,
-      reason: (this.hasClaims() ? this.reason : this.form.reason).trim() || null,
+      reason: null,
       googleSub: this.auth.pendingClaims?.sub || null
     }).subscribe({
       next: () => {
