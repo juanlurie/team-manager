@@ -137,7 +137,7 @@ public class ApiSyncController(AppDbContext db, IHttpClientFactory httpClientFac
     {
         var evt = await db.ApiSyncEvents.FindAsync(id);
         if (evt is null) return NotFound();
-        var (status, responseStatus, responseBody, externalId) = await ExecuteSendAsync(evt, payload.Cookie ?? "");
+        var (status, responseStatus, responseBody, externalId) = await ExecuteSendAsync(evt, payload.Cookie ?? "", payload.Credentials);
         await PruneOldEventsAsync();
         return Ok(new { status, responseStatus, responseBody, externalId });
     }
@@ -155,7 +155,7 @@ public class ApiSyncController(AppDbContext db, IHttpClientFactory httpClientFac
         var sent = 0; var failed = 0;
         foreach (var evt in pending)
         {
-            var result = await ExecuteSendAsync(evt, cookie);
+            var result = await ExecuteSendAsync(evt, cookie, payload.Credentials);
             if (result.Status == "sent") sent++; else failed++;
         }
         await PruneOldEventsAsync();
@@ -179,7 +179,7 @@ public class ApiSyncController(AppDbContext db, IHttpClientFactory httpClientFac
         await db.ApiSyncEvents.Where(e => e.CreatedAt < cutoff).ExecuteDeleteAsync();
     }
 
-    private async Task<(string Status, int? ResponseStatus, string? ResponseBody, string? ExternalId)> ExecuteSendAsync(Domain.Entities.ApiSyncEvent evt, string cookie)
+    private async Task<(string Status, int? ResponseStatus, string? ResponseBody, string? ExternalId)> ExecuteSendAsync(Domain.Entities.ApiSyncEvent evt, string cookie, Dictionary<string, string>? credentials = null)
     {
         var lateVars = new Dictionary<string, string>();
         if (evt.SourceType == "TimesheetEntry" && Guid.TryParse(evt.SourceId, out var lateEntryId))
@@ -272,6 +272,9 @@ public class ApiSyncController(AppDbContext db, IHttpClientFactory httpClientFac
                 {
                     var result = Application.Services.ConfigVariableResolver.Apply(s, configVarsForSend);
                     result = result.Replace("{cookie}", activeCookie);
+                    if (credentials is not null)
+                        foreach (var (key, value) in credentials)
+                            result = result.Replace($"{{{key}}}", value);
                     foreach (var (key, value) in lateVars)
                         result = result.Replace($"{{{key}}}", value);
                     return result;
@@ -579,7 +582,7 @@ public class ApiSyncController(AppDbContext db, IHttpClientFactory httpClientFac
     }
 }
 
-public record SyncSendPayload(string? Cookie = null);
+public record SyncSendPayload(string? Cookie = null, Dictionary<string, string>? Credentials = null);
 public record EnqueuePayload(
     string Action,
     string? Label = null,
