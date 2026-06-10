@@ -36,10 +36,10 @@ const CONFIG_CARDS: ConfigCard[] = [
     color: '#2196f3'
   },
   {
-    icon: 'cookie',
-    label: 'Portal Credentials',
-    description: 'View and manage the session cookie used for external portal sync',
-    path: '/settings/portal-credentials',
+    icon: 'key',
+    label: 'Credentials',
+    description: 'Manage stored cookies and tokens used by request configs and sync',
+    path: '/settings/credentials',
     color: '#ce93d8'
   },
   {

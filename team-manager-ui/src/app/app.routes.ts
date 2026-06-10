@@ -88,8 +88,13 @@ export const routes: Routes = [
         loadChildren: () => import('./features/settings/feature-permissions/feature-permissions.routes').then(m => m.FEATURE_PERMISSIONS_ROUTES)
       },
       {
-        path: 'settings/portal-credentials',
+        path: 'settings/credentials',
         loadComponent: () => import('./features/settings/portal-credentials/portal-credentials.component').then(m => m.PortalCredentialsComponent)
+      },
+      {
+        path: 'settings/portal-credentials',
+        redirectTo: 'settings/credentials',
+        pathMatch: 'full'
       },
       {
         path: 'access-requests',
