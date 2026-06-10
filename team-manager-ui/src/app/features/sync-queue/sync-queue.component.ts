@@ -54,6 +54,7 @@ interface SyncEvent {
             </button>
           }
           <button mat-stroked-button (click)="load()"><mat-icon>refresh</mat-icon> Refresh</button>
+          <button class="purge-btn" (click)="purgeAll()"><mat-icon>delete_sweep</mat-icon> Purge All</button>
         </div>
       </div>
 
@@ -65,6 +66,11 @@ interface SyncEvent {
               @if (countByStatus(f.value) > 0) {
                 <span class="filter-count">{{ countByStatus(f.value) }}</span>
               }
+            </button>
+          }
+          @if (countByStatus(statusFilter()) > 0) {
+            <button class="clear-btn" (click)="clearByStatus()" matTooltip="Delete all {{ statusFilter() }} events">
+              <mat-icon>playlist_remove</mat-icon> Clear {{ statusFilter() }}
             </button>
           }
         </div>
@@ -193,10 +199,16 @@ interface SyncEvent {
     .empty mat-icon { font-size: 48px; width: 48px; height: 48px; margin-bottom: 12px; display: block; }
 
     .toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; gap: 12px; flex-wrap: wrap; }
-    .filter-bar { display: flex; gap: 4px; }
+    .filter-bar { display: flex; gap: 4px; align-items: center; flex-wrap: wrap; }
     .filter-btn { background: none; border: 1px solid rgba(255,255,255,0.1); color: rgba(255,255,255,0.5); padding: 4px 14px; border-radius: 20px; cursor: pointer; font-size: 0.8rem; display: flex; align-items: center; gap: 6px; }
     .filter-btn.active { border-color: #64b5f6; color: #64b5f6; background: rgba(100,181,246,0.1); }
     .filter-count { background: rgba(255,255,255,0.15); border-radius: 10px; padding: 0 6px; font-size: 0.7rem; }
+    .clear-btn { background: none; border: 1px solid rgba(239,83,80,0.3); color: rgba(239,83,80,0.7); padding: 4px 10px; border-radius: 20px; cursor: pointer; font-size: 0.75rem; display: flex; align-items: center; gap: 4px; font-family: inherit; transition: all 0.12s; }
+    .clear-btn:hover { background: rgba(239,83,80,0.1); border-color: #ef5350; color: #ef5350; }
+    .clear-btn mat-icon { font-size: 15px; width: 15px; height: 15px; }
+    .purge-btn { display: inline-flex; align-items: center; gap: 4px; padding: 4px 12px; background: none; border: 1px solid rgba(239,83,80,0.3); border-radius: 6px; color: rgba(239,83,80,0.7); font-size: 0.8rem; cursor: pointer; font-family: inherit; transition: all 0.12s; }
+    .purge-btn:hover { background: rgba(239,83,80,0.1); border-color: #ef5350; color: #ef5350; }
+    .purge-btn mat-icon { font-size: 16px; width: 16px; height: 16px; }
     .action-select { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.12); color: rgba(255,255,255,0.7); padding: 4px 10px; border-radius: 6px; font-size: 0.8rem; cursor: pointer; }
     .action-select option { background: #1e1e1e; }
 
@@ -380,6 +392,25 @@ export class SyncQueueComponent implements OnInit {
   dismiss(evt: SyncEvent) {
     this.http.delete(`/api/v1/sync-queue/${evt.id}`).subscribe({
       next: () => this.events.update(list => list.filter(e => e.id !== evt.id))
+    });
+  }
+
+  clearByStatus() {
+    const status = this.statusFilter();
+    this.http.delete(`/api/v1/sync-queue/by-status/${status}`).subscribe({
+      next: () => {
+        this.events.update(list => list.filter(e => e.status !== status));
+        this.snackBar.open(`Cleared all ${status} events`, 'Close', { duration: 3000 });
+      }
+    });
+  }
+
+  purgeAll() {
+    this.http.delete('/api/v1/sync-queue').subscribe({
+      next: () => {
+        this.events.set([]);
+        this.snackBar.open('Queue purged', 'Close', { duration: 3000 });
+      }
     });
   }
 
