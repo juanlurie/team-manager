@@ -52,4 +52,5 @@ If dev and prod get out of sync again:
 2. Clear `AppDbContextModelSnapshot.cs` to a placeholder
 3. Generate a fresh InitialCreate (command above)
 4. Wipe `__EFMigrationsHistory` on both DBs and insert the new ID
-5. Run `/deploy` to verify both are in sync
+5. **Important:** Any schema changes that exist in the new InitialCreate but are missing from the live DBs must be applied manually with `ALTER TABLE ... ADD COLUMN IF NOT EXISTS ...` — marking a migration as applied does NOT run it
+6. Run `/deploy` to verify both are in sync
