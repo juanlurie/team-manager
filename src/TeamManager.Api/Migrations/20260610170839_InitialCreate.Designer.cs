@@ -12,8 +12,8 @@ using TeamManager.Api.Infrastructure.Data;
 namespace TeamManager.Api.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260605062210_AddWinnerStory")]
-    partial class AddWinnerStory
+    [Migration("20260610170839_InitialCreate")]
+    partial class InitialCreate
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -163,6 +163,9 @@ namespace TeamManager.Api.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<bool>("AutoSync")
+                        .HasColumnType("boolean");
+
                     b.Property<string>("BodyFormat")
                         .IsRequired()
                         .HasColumnType("text");
@@ -205,6 +208,10 @@ namespace TeamManager.Api.Migrations
 
                     b.Property<int>("RetryCount")
                         .HasColumnType("integer");
+
+                    b.Property<string>("SecretHeadersJson")
+                        .IsRequired()
+                        .HasColumnType("text");
 
                     b.Property<string>("StoredCookie")
                         .HasColumnType("text");
@@ -788,6 +795,28 @@ namespace TeamManager.Api.Migrations
                         .IsUnique();
 
                     b.ToTable("Invitations", (string)null);
+                });
+
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.JokeHistory", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("JokeText")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("JokeTypeId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("JokeHistory");
                 });
 
             modelBuilder.Entity("TeamManager.Api.Domain.Entities.LeaveFetchConfig", b =>
@@ -2363,10 +2392,18 @@ namespace TeamManager.Api.Migrations
                         .HasMaxLength(2000)
                         .HasColumnType("character varying(2000)");
 
+                    b.Property<string>("GuestName")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("GuestSessionId")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
                     b.Property<Guid>("NomineeMemberId")
                         .HasColumnType("uuid");
 
-                    b.Property<Guid>("TeamMemberId")
+                    b.Property<Guid?>("TeamMemberId")
                         .HasColumnType("uuid");
 
                     b.Property<string>("Title")
@@ -2388,6 +2425,31 @@ namespace TeamManager.Api.Migrations
                     b.ToTable("WinNominations");
                 });
 
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.WinSeries", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("CreatedByMemberId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedByMemberId");
+
+                    b.ToTable("WinSeries");
+                });
+
             modelBuilder.Entity("TeamManager.Api.Domain.Entities.WinVote", b =>
                 {
                     b.Property<Guid>("Id")
@@ -2395,7 +2457,11 @@ namespace TeamManager.Api.Migrations
                         .HasColumnType("uuid")
                         .HasDefaultValueSql("gen_random_uuid()");
 
-                    b.Property<Guid>("TeamMemberId")
+                    b.Property<string>("GuestSessionId")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<Guid?>("TeamMemberId")
                         .HasColumnType("uuid");
 
                     b.Property<DateTimeOffset>("VotedAt")
@@ -2408,8 +2474,13 @@ namespace TeamManager.Api.Migrations
 
                     b.HasIndex("TeamMemberId");
 
+                    b.HasIndex("WinNominationId", "GuestSessionId")
+                        .IsUnique()
+                        .HasFilter("\"GuestSessionId\" IS NOT NULL");
+
                     b.HasIndex("WinNominationId", "TeamMemberId")
-                        .IsUnique();
+                        .IsUnique()
+                        .HasFilter("\"TeamMemberId\" IS NOT NULL");
 
                     b.ToTable("WinVotes");
                 });
@@ -2426,6 +2497,10 @@ namespace TeamManager.Api.Migrations
 
                     b.Property<Guid>("CreatedByMemberId")
                         .HasColumnType("uuid");
+
+                    b.Property<string>("GuestToken")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
 
                     b.Property<DateTimeOffset>("OpenedAt")
                         .HasColumnType("timestamp with time zone");
@@ -2447,6 +2522,9 @@ namespace TeamManager.Api.Migrations
                     b.Property<DateOnly>("WeekStart")
                         .HasColumnType("date");
 
+                    b.Property<Guid>("WinSeriesId")
+                        .HasColumnType("uuid");
+
                     b.Property<Guid?>("WinnerNominationId")
                         .HasColumnType("uuid");
 
@@ -2457,10 +2535,14 @@ namespace TeamManager.Api.Migrations
 
                     b.HasIndex("CreatedByMemberId");
 
-                    b.HasIndex("WeekStart")
-                        .IsUnique();
+                    b.HasIndex("GuestToken")
+                        .IsUnique()
+                        .HasFilter("\"GuestToken\" IS NOT NULL");
 
                     b.HasIndex("WinnerNominationId");
+
+                    b.HasIndex("WinSeriesId", "WeekStart")
+                        .IsUnique();
 
                     b.ToTable("WinWeeks");
                 });
@@ -3282,8 +3364,7 @@ namespace TeamManager.Api.Migrations
                     b.HasOne("TeamManager.Api.Domain.Entities.TeamMember", "TeamMember")
                         .WithMany()
                         .HasForeignKey("TeamMemberId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("TeamManager.Api.Domain.Entities.WinWeek", "WinWeek")
                         .WithMany("Nominations")
@@ -3298,13 +3379,23 @@ namespace TeamManager.Api.Migrations
                     b.Navigation("WinWeek");
                 });
 
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.WinSeries", b =>
+                {
+                    b.HasOne("TeamManager.Api.Domain.Entities.TeamMember", "CreatedBy")
+                        .WithMany()
+                        .HasForeignKey("CreatedByMemberId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("CreatedBy");
+                });
+
             modelBuilder.Entity("TeamManager.Api.Domain.Entities.WinVote", b =>
                 {
                     b.HasOne("TeamManager.Api.Domain.Entities.TeamMember", "TeamMember")
                         .WithMany()
                         .HasForeignKey("TeamMemberId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("TeamManager.Api.Domain.Entities.WinNomination", "WinNomination")
                         .WithMany("Votes")
@@ -3325,12 +3416,20 @@ namespace TeamManager.Api.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("TeamManager.Api.Domain.Entities.WinSeries", "Series")
+                        .WithMany("Weeks")
+                        .HasForeignKey("WinSeriesId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
                     b.HasOne("TeamManager.Api.Domain.Entities.WinNomination", "Winner")
                         .WithMany()
                         .HasForeignKey("WinnerNominationId")
                         .OnDelete(DeleteBehavior.SetNull);
 
                     b.Navigation("CreatedBy");
+
+                    b.Navigation("Series");
 
                     b.Navigation("Winner");
                 });
@@ -3516,6 +3615,11 @@ namespace TeamManager.Api.Migrations
             modelBuilder.Entity("TeamManager.Api.Domain.Entities.WinNomination", b =>
                 {
                     b.Navigation("Votes");
+                });
+
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.WinSeries", b =>
+                {
+                    b.Navigation("Weeks");
                 });
 
             modelBuilder.Entity("TeamManager.Api.Domain.Entities.WinWeek", b =>
