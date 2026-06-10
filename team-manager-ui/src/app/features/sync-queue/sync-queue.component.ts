@@ -301,15 +301,24 @@ export class SyncQueueComponent implements OnInit {
     });
   }
 
-  sendAll() {
+  private getCredentials(): { cookie: string; credentials: Record<string, string> } {
+    const creds: Record<string, string> = {};
+    for (const entry of this.credentials.getAll()) {
+      creds[entry.keyName] = this.credentials.getValueFor(entry);
+    }
     const cookie = this.credentials.getValue();
+    return { cookie, credentials: creds };
+  }
+
+  sendAll() {
+    const { cookie, credentials } = this.getCredentials();
     if (!cookie) {
       this.snackBar.open('No cookie found — set one in Settings → Credentials', 'Close', { duration: 4000 });
     }
     const total = this.pendingCount();
     this.sendingAll.set(true);
     this.syncAllProgress.set(`0/${total}`);
-    this.http.post<{ sent: number; failed: number; total: number }>('/api/v1/sync-queue/send-all', { cookie }).subscribe({
+    this.http.post<{ sent: number; failed: number; total: number }>('/api/v1/sync-queue/send-all', { cookie, credentials }).subscribe({
       next: (result) => {
         this.sendingAll.set(false);
         this.tsd.reload();
@@ -325,12 +334,12 @@ export class SyncQueueComponent implements OnInit {
   }
 
   send(evt: SyncEvent) {
-    const cookie = this.credentials.getValue();
+    const { cookie, credentials } = this.getCredentials();
     if (!cookie) {
       this.snackBar.open('No cookie found — set one in Settings → Credentials', 'Close', { duration: 4000 });
     }
     this.sending.set(evt.id);
-    this.http.post<any>(`/api/v1/sync-queue/${evt.id}/send`, { cookie }).subscribe({
+    this.http.post<any>(`/api/v1/sync-queue/${evt.id}/send`, { cookie, credentials }).subscribe({
       next: (result) => {
         this.sending.set(null);
         this.events.update(list => list.map(e => e.id === evt.id
