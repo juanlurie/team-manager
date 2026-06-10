@@ -56,6 +56,7 @@ public class ApiRequestConfigsController : ControllerBase
             MappingJson = JsonSerializer.Serialize(dto.Mapping ?? new MappingConfigDto()),
             ParametersJson = JsonSerializer.Serialize(dto.Parameters ?? new()),
             StoredCookie = dto.StoredCookie,
+            SecretHeadersJson = JsonSerializer.Serialize(dto.SecretHeaders ?? new()),
             RetryCount = dto.RetryCount,
             SuccessCriteriaJson = dto.SuccessCriteria is null ? null : JsonSerializer.Serialize(dto.SuccessCriteria),
             AutoSync = dto.AutoSync,
@@ -86,6 +87,7 @@ public class ApiRequestConfigsController : ControllerBase
         config.MappingJson = JsonSerializer.Serialize(dto.Mapping ?? new MappingConfigDto());
         config.ParametersJson = JsonSerializer.Serialize(dto.Parameters ?? new());
         if (dto.StoredCookie is not null) config.StoredCookie = dto.StoredCookie;
+        config.SecretHeadersJson = MergeSecretHeaders(config.SecretHeadersJson, dto.SecretHeaders);
         config.RetryCount = dto.RetryCount;
         config.SuccessCriteriaJson = dto.SuccessCriteria is null ? null : JsonSerializer.Serialize(dto.SuccessCriteria);
         config.AutoSync = dto.AutoSync;
@@ -199,6 +201,22 @@ public class ApiRequestConfigsController : ControllerBase
         if (string.IsNullOrWhiteSpace(dto.Url))
             return BadRequest("URL is required");
 
+        // Load real secret headers from DB if this is a saved config
+        Dictionary<string, string> secretHeaders = new();
+        if (dto.Id.HasValue)
+        {
+            var stored = await _db.ApiRequestConfigs.FindAsync(dto.Id.Value);
+            if (stored is not null)
+                secretHeaders = JsonSerializer.Deserialize<Dictionary<string, string>>(
+                    string.IsNullOrWhiteSpace(stored.SecretHeadersJson) ? "{}" : stored.SecretHeadersJson) ?? new();
+        }
+        else if (dto.SecretHeaders is not null)
+        {
+            // Unsaved config: frontend sends actual values (visible in this request, but not yet stored)
+            secretHeaders = dto.SecretHeaders.Where(kv => kv.Value != "**SECRET**")
+                                             .ToDictionary(kv => kv.Key, kv => kv.Value);
+        }
+
         var vars = payload.Variables ?? new();
         var configParams = dto.Parameters ?? new();
         string Resolve(string template)
@@ -220,6 +238,10 @@ public class ApiRequestConfigsController : ControllerBase
 
             foreach (var (key, value) in dto.Headers ?? new())
                 client.DefaultRequestHeaders.TryAddWithoutValidation(key, Resolve(value));
+
+            // Inject secret headers (not resolved through variables — they are literal values)
+            foreach (var (key, value) in secretHeaders)
+                client.DefaultRequestHeaders.TryAddWithoutValidation(key, value);
 
             var url = Resolve(dto.Url);
             HttpResponseMessage response;
@@ -447,27 +469,58 @@ public class ApiRequestConfigsController : ControllerBase
         return paths;
     }
 
-    private static ApiRequestConfigDto ToDto(ApiRequestConfig config) => new(
-        Id: config.Id,
-        Action: config.Action,
-        Name: config.Name,
-        Description: config.Description,
-        Enabled: config.Enabled,
-        Url: config.Url,
-        Method: config.Method,
-        IsFormUrlEncoded: config.IsFormUrlEncoded,
-        BodyFormat: config.BodyFormat,
-        Headers: JsonSerializer.Deserialize<Dictionary<string, string>>(config.HeadersJson) ?? new(),
-        BodyTemplate: config.BodyTemplate,
-        Mapping: JsonSerializer.Deserialize<MappingConfigDto>(config.MappingJson) ?? new MappingConfigDto(),
-        Parameters: JsonSerializer.Deserialize<Dictionary<string, string>>(string.IsNullOrWhiteSpace(config.ParametersJson) ? "{}" : config.ParametersJson) ?? new(),
-        StoredCookie: config.StoredCookie,
-        RetryCount: config.RetryCount,
-        SuccessCriteria: string.IsNullOrWhiteSpace(config.SuccessCriteriaJson)
-            ? null
-            : JsonSerializer.Deserialize<SuccessCriteriaDto>(config.SuccessCriteriaJson, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }),
-        AutoSync: config.AutoSync
-    );
+    private static string MergeSecretHeaders(string existingJson, Dictionary<string, string>? incoming)
+    {
+        if (incoming is null || incoming.Count == 0)
+            return existingJson;
+
+        var existing = JsonSerializer.Deserialize<Dictionary<string, string>>(
+            string.IsNullOrWhiteSpace(existingJson) ? "{}" : existingJson) ?? new();
+
+        // Remove keys no longer marked secret
+        var keysToRemove = existing.Keys.Except(incoming.Keys).ToList();
+        foreach (var k in keysToRemove) existing.Remove(k);
+
+        // Update keys: skip **SECRET** (keep stored value), update new real values
+        foreach (var (key, value) in incoming)
+        {
+            if (value != "**SECRET**")
+                existing[key] = value;
+            // if "**SECRET**" and key not in existing yet, just skip (nothing to preserve)
+        }
+
+        return JsonSerializer.Serialize(existing);
+    }
+
+    private static ApiRequestConfigDto ToDto(ApiRequestConfig config)
+    {
+        var secretKeys = (JsonSerializer.Deserialize<Dictionary<string, string>>(
+            string.IsNullOrWhiteSpace(config.SecretHeadersJson) ? "{}" : config.SecretHeadersJson) ?? new()).Keys;
+        var maskedSecretHeaders = secretKeys.ToDictionary(k => k, _ => "**SECRET**");
+
+        return new(
+            Id: config.Id,
+            Action: config.Action,
+            Name: config.Name,
+            Description: config.Description,
+            Enabled: config.Enabled,
+            Url: config.Url,
+            Method: config.Method,
+            IsFormUrlEncoded: config.IsFormUrlEncoded,
+            BodyFormat: config.BodyFormat,
+            Headers: JsonSerializer.Deserialize<Dictionary<string, string>>(config.HeadersJson) ?? new(),
+            BodyTemplate: config.BodyTemplate,
+            Mapping: JsonSerializer.Deserialize<MappingConfigDto>(config.MappingJson) ?? new MappingConfigDto(),
+            Parameters: JsonSerializer.Deserialize<Dictionary<string, string>>(string.IsNullOrWhiteSpace(config.ParametersJson) ? "{}" : config.ParametersJson) ?? new(),
+            StoredCookie: null,
+            SecretHeaders: maskedSecretHeaders,
+            RetryCount: config.RetryCount,
+            SuccessCriteria: string.IsNullOrWhiteSpace(config.SuccessCriteriaJson)
+                ? null
+                : JsonSerializer.Deserialize<SuccessCriteriaDto>(config.SuccessCriteriaJson, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }),
+            AutoSync: config.AutoSync
+        );
+    }
 }
 
 public record TestRequestPayload(

@@ -19,6 +19,7 @@ public class ApiRequestConfig
     public string MappingJson { get; set; } = "{}";
     public string ParametersJson { get; set; } = "{}";
     public string? StoredCookie { get; set; }
+    public string SecretHeadersJson { get; set; } = "{}";
     public int RetryCount { get; set; } = 0;
     public string? SuccessCriteriaJson { get; set; }
     public bool AutoSync { get; set; } = false;

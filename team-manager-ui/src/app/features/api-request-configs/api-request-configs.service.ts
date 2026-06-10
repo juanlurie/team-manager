@@ -38,6 +38,7 @@ export interface ApiRequestConfig {
   isFormUrlEncoded: boolean;
   bodyFormat?: string;
   headers: Record<string, string>;
+  secretHeaders?: Record<string, string>;
   parameters: Record<string, string>;
   bodyTemplate: string;
   mapping: MappingConfig;

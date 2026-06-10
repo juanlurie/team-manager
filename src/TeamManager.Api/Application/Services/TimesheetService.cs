@@ -266,6 +266,9 @@ public class TimesheetService(AppDbContext db, ITimesheetEventPublisher eventPub
             }
 
             var resolvedHeaders = headers.ToDictionary(kvp => kvp.Key, kvp => Resolve(kvp.Value));
+            var secretHeaders = JsonSerializer.Deserialize<Dictionary<string, string>>(
+                string.IsNullOrWhiteSpace(config.SecretHeadersJson) ? "{}" : config.SecretHeadersJson) ?? [];
+            foreach (var (k, v) in secretHeaders) resolvedHeaders[k] = v;
             var mins = entry.Minutes > 0 ? $" {entry.Minutes}m" : "";
             var label = $"{entry.Date:yyyy-MM-dd} | {entry.Project} | {entry.Hours}h{mins}";
             if (!string.IsNullOrEmpty(entry.Description)) label += $" | {entry.Description}";

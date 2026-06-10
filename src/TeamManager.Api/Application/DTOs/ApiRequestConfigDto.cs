@@ -15,6 +15,7 @@ public record ApiRequestConfigDto(
     MappingConfigDto? Mapping = null,
     Dictionary<string, string>? Parameters = null,
     string? StoredCookie = null,
+    Dictionary<string, string>? SecretHeaders = null,
     int RetryCount = 0,
     SuccessCriteriaDto? SuccessCriteria = null,
     bool AutoSync = false
