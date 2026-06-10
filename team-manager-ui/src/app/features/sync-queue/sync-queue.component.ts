@@ -18,7 +18,7 @@ interface SyncEvent {
   label: string;
   sourceId?: string;
   sourceType?: string;
-  status: 'pending' | 'sent' | 'failed' | 'dismissed';
+  status: 'pending' | 'sent' | 'failed';
   httpMethod: string;
   resolvedUrl: string;
   resolvedHeaders: Record<string, string>;
@@ -85,7 +85,7 @@ interface SyncEvent {
       } @else if (filtered().length === 0) {
         <div class="empty">
           <mat-icon>inbox</mat-icon>
-          <p>No {{ statusFilter() === 'all' ? '' : statusFilter() + ' ' }}events</p>
+          <p>No {{ statusFilter() }} events</p>
         </div>
       } @else {
         <div class="events-list">
@@ -167,11 +167,9 @@ interface SyncEvent {
                       {{ sending() === evt.id ? 'Sending...' : evt.status === 'failed' ? 'Retry' : 'Send' }}
                     </button>
                   }
-                  @if (evt.status !== 'dismissed') {
-                    <button mat-icon-button (click)="dismiss(evt)" matTooltip="Dismiss">
-                      <mat-icon>close</mat-icon>
-                    </button>
-                  }
+                  <button mat-icon-button (click)="dismiss(evt)" matTooltip="Delete">
+                    <mat-icon>close</mat-icon>
+                  </button>
                 </div>
               </div>
             </div>
@@ -217,7 +215,7 @@ interface SyncEvent {
     .status-pending { background: rgba(255,167,38,0.2); color: #ffa726; }
     .status-sent { background: rgba(76,175,80,0.2); color: #4caf50; }
     .status-failed { background: rgba(239,83,80,0.2); color: #ef5350; }
-    .status-dismissed { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.3); }
+
     .external-id { font-size: 0.75rem; font-family: monospace; color: #4caf50; }
 
     .event-body { padding: 0 16px 8px; }
@@ -270,7 +268,6 @@ export class SyncQueueComponent implements OnInit {
     { value: 'pending', label: 'Pending' },
     { value: 'failed', label: 'Failed' },
     { value: 'sent', label: 'Sent' },
-    { value: 'all', label: 'All' },
   ];
 
   actions = computed(() => [...new Set(this.events().map(e => e.action))]);
@@ -280,15 +277,14 @@ export class SyncQueueComponent implements OnInit {
   );
 
   filtered = computed(() => {
-    let list = this.events();
-    if (this.statusFilter() !== 'all') list = list.filter(e => e.status === this.statusFilter());
+    let list = this.events().filter(e => e.status === this.statusFilter());
     if (this.actionFilter()) list = list.filter(e => e.action === this.actionFilter());
     return list;
   });
 
   countByStatus(status: string) {
     const list = this.actionFilter() ? this.events().filter(e => e.action === this.actionFilter()) : this.events();
-    return status === 'all' ? list.length : list.filter(e => e.status === status).length;
+    return list.filter(e => e.status === status).length;
   }
 
   ngOnInit() { this.load(); }
@@ -383,7 +379,7 @@ export class SyncQueueComponent implements OnInit {
 
   dismiss(evt: SyncEvent) {
     this.http.delete(`/api/v1/sync-queue/${evt.id}`).subscribe({
-      next: () => this.events.update(list => list.map(e => e.id === evt.id ? { ...e, status: 'dismissed' as const } : e))
+      next: () => this.events.update(list => list.filter(e => e.id !== evt.id))
     });
   }
 
