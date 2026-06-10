@@ -150,6 +150,7 @@ app.UseCors("AllowAll");
 
 app.UseWebSockets(new WebSocketOptions { KeepAliveInterval = TimeSpan.FromMinutes(2) });
 
+app.UseRouting();
 app.UseAuthentication();
 app.UseMiddleware<TeamMemberRequiredMiddleware>();
 app.UseMiddleware<WebSocketMiddleware>();
