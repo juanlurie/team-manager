@@ -621,9 +621,11 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
                     ["description"] = description ?? ""
                 };
 
+                var configVars = await ConfigVariableResolver.LoadAsync(bgDb);
+
                 string Resolve(string template)
                 {
-                    var result = template;
+                    var result = ConfigVariableResolver.Apply(template, configVars);
                     foreach (var (k, v) in parameters)
                         result = result.Replace($"{{{k}}}", v);
                     foreach (var (k, v) in vars)
