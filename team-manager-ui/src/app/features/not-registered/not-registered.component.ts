@@ -43,7 +43,45 @@ import { AuthService } from '../../core/auth/auth.service';
             </svg>
             Sign out
           </button>
+        } @else if (hasClaims()) {
+          <!-- Google identity confirmed — just show who they are and a reason field -->
+          <div class="google-identity">
+            @if (googlePicture()) {
+              <img class="google-avatar" [src]="googlePicture()" alt="Profile photo" referrerpolicy="no-referrer" />
+            } @else {
+              <div class="google-avatar google-avatar--fallback">{{ googleName().charAt(0).toUpperCase() }}</div>
+            }
+            <div class="google-info">
+              <div class="google-name">{{ googleName() }}</div>
+              <div class="google-email">{{ googleEmail() }}</div>
+            </div>
+          </div>
+
+          <div class="request-form">
+            <label class="field-label">Reason (optional)</label>
+            <textarea class="field-input field-textarea" [(ngModel)]="reason" placeholder="Why do you need access?" rows="3"></textarea>
+          </div>
+
+          @if (error()) {
+            <div class="error-msg">{{ error() }}</div>
+          }
+
+          <button class="submit-btn" [disabled]="submitting()" (click)="submitRequest()">
+            {{ submitting() ? 'Submitting...' : 'Request Access' }}
+          </button>
+
+          <div class="divider"><span>or</span></div>
+
+          <button class="logout-btn" (click)="onLogout()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+              <polyline points="16 17 21 12 16 7"/>
+              <line x1="21" y1="12" x2="9" y2="12"/>
+            </svg>
+            Sign out
+          </button>
         } @else {
+          <!-- Fallback: no Google claims available -->
           <div class="request-form">
             <p class="form-hint">Request access from an admin:</p>
 
@@ -65,9 +103,7 @@ import { AuthService } from '../../core/auth/auth.service';
             </button>
           </div>
 
-          <div class="divider">
-            <span>or</span>
-          </div>
+          <div class="divider"><span>or</span></div>
 
           <button class="logout-btn" (click)="onLogout()">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18">
@@ -123,6 +159,32 @@ import { AuthService } from '../../core/auth/auth.service';
       line-height: 1.5;
     }
     .success-box svg { flex-shrink: 0; margin-top: 2px; }
+
+    .google-identity {
+      display: flex; align-items: center; gap: 12px;
+      padding: 12px 14px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 10px;
+      margin-bottom: 16px;
+      text-align: left;
+    }
+    .google-avatar {
+      width: 44px; height: 44px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      object-fit: cover;
+    }
+    .google-avatar--fallback {
+      display: flex; align-items: center; justify-content: center;
+      background: rgba(100,181,246,0.2);
+      color: #64b5f6;
+      font-size: 1.1rem;
+      font-weight: 700;
+    }
+    .google-info { overflow: hidden; }
+    .google-name { font-weight: 600; font-size: 0.9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .google-email { font-size: 0.78rem; color: rgba(255,255,255,0.45); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
     .request-form { text-align: left; margin-bottom: 16px; }
     .form-hint { font-size: 0.82rem; color: rgba(255,255,255,0.4); margin: 0 0 14px; }
@@ -203,32 +265,42 @@ export class NotRegisteredComponent {
   private auth = inject(AuthService);
   private http = inject(HttpClient);
 
-  form = { name: '', email: '', reason: '' };
+  googleName = signal('');
+  googleEmail = signal('');
+  googlePicture = signal('');
+  reason = '';
   submitting = signal(false);
   error = signal('');
   requestSent = signal(false);
+  hasClaims = signal(false);
+
+  // Manual fallback form (when no Google claims)
+  form = { name: '', email: '', reason: '' };
 
   constructor() {
     const claims = this.auth.identityClaims as any;
-    if (claims) {
-      this.form.name = claims.name || claims.given_name || '';
-      this.form.email = claims.email || '';
+    if (claims?.email) {
+      this.googleName.set(claims.name || claims.given_name || '');
+      this.googleEmail.set(claims.email);
+      this.googlePicture.set(claims.picture || '');
+      this.hasClaims.set(true);
     }
   }
 
   submitRequest() {
-    if (!this.form.name.trim() || !this.form.email.trim()) return;
+    const name = this.hasClaims() ? this.googleName() : this.form.name.trim();
+    const email = this.hasClaims() ? this.googleEmail() : this.form.email.trim();
+    if (!name || !email) return;
+
     this.submitting.set(true);
     this.error.set('');
 
     const claims = this.auth.identityClaims as any;
-    const googleSub = claims?.sub || null;
-
     this.http.post('/api/accessrequests/submit', {
-      name: this.form.name.trim(),
-      email: this.form.email.trim(),
-      reason: this.form.reason.trim() || null,
-      googleSub
+      name,
+      email,
+      reason: (this.hasClaims() ? this.reason : this.form.reason).trim() || null,
+      googleSub: claims?.sub || null
     }).subscribe({
       next: () => {
         this.submitting.set(false);
