@@ -965,7 +965,7 @@ export class ApiRequestConfigDialogComponent implements OnInit {
 
     const resolve = (t: string) => {
       let s = t;
-      for (const cv of this.configVars()) s = s.replaceAll(`{${cv.key}}`, cv.isSecret ? '***' : cv.value);
+      for (const cv of this.configVars()) if (!cv.isSecret) s = s.replaceAll(`{${cv.key}}`, cv.value);
       for (const [k, v] of Object.entries(cookieVars)) s = s.replaceAll(`{${k}}`, v || `{${k}}`);
       for (const [k, v] of Object.entries(params)) s = s.replaceAll(`{${k}}`, v);
       return s;
