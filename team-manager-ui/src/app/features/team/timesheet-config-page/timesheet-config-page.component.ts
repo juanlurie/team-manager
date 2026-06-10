@@ -27,7 +27,7 @@ const PRESET_COLORS = [
 const SECTION_KEYS = ['quick-actions', 'projects', 'categories', 'work-location'];
 const SECTION_LABELS = ['Quick Actions', 'Projects', 'Categories', 'Work Location'];
 
-const DEFAULT_LOCATION_OPTIONS = ['Home', 'Other', 'Client', 'Entelect'];
+const DEFAULT_LOCATION_OPTIONS = ['Home', 'Client', 'Other'];
 
 @Component({
   selector: 'app-timesheet-config-page',
@@ -157,7 +157,7 @@ export class TimesheetConfigPageComponent implements OnInit {
   extraCategories = signal<Record<string, string[]>>({});
   billableProjects = signal<string[]>([]);
   workWeek = signal<Record<string, string>>({});
-  workLocationOptions = signal<string[]>(['Home', 'Other', 'Client', 'Entelect']);
+  workLocationOptions = signal<string[]>(['Home', 'Client', 'Other']);
   projects = signal<ProjectDto[]>([]);
   categories = signal<CategoryDto[]>([]);
   newProject = signal('');
@@ -206,7 +206,7 @@ export class TimesheetConfigPageComponent implements OnInit {
       this.extraCategories.set({ ...(c.extraCategories ?? {}) });
       this.billableProjects.set([...(c.billableProjects ?? [])]);
       this.workWeek.set({ ...(c.workWeek ?? {}) });
-      this.workLocationOptions.set([...(c.workLocationOptions ?? ['Home', 'Other', 'Client', 'Entelect'])]);
+      this.workLocationOptions.set([...(c.workLocationOptions ?? ['Home', 'Client', 'Other'])]);
       this.loading.set(false);
     });
     this.memberSvc.getById(this.memberId).subscribe(m => {

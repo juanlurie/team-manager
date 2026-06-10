@@ -180,7 +180,7 @@ export interface TimesheetConfigDialogData {
         @if (tab()===1) {
           <div class="sec">
             <div class="projects-header">
-              <div class="hint" style="margin-bottom:0">These projects are added to the default Entelect list. Use this for client projects or custom work categories.</div>
+              <div class="hint" style="margin-bottom:0">These projects are added to the default list. Use this for client projects or custom work categories.</div>
               <button class="btn-sync" [disabled]="syncingProjects()" (click)="enqueueFetchProjects()">
                 <mat-icon style="font-size:14px;width:14px;height:14px;">sync</mat-icon>
                 {{ syncingProjects() ? 'Queued...' : 'Sync Projects' }}
@@ -362,7 +362,7 @@ export class TimesheetConfigDialogComponent implements OnInit {
   ];
 
   readonly DEFAULT_ICONS: Record<string, string> = {
-    'Home': 'home', 'Client': 'store', 'Entelect': 'laptop', 'Other': 'location_on',
+    'Home': 'home', 'Client': 'store', 'Other': 'location_on',
   };
 
   iconFor(loc: string): string {
@@ -400,7 +400,7 @@ export class TimesheetConfigDialogComponent implements OnInit {
     this.extraCategories.set({ ...c.extraCategories });
     this.billableProjects.set([...(c.billableProjects ?? [])]);
     this.workWeek.set({ ...(c.workWeek ?? {}) });
-    this.workLocationOptions.set([...(c.workLocationOptions ?? ['Home', 'Other', 'Client', 'Entelect'])]);
+    this.workLocationOptions.set([...(c.workLocationOptions ?? ['Home', 'Client', 'Other'])]);
     this.mergeEntriesEnabled.set(c.mergeEntriesEnabled ?? false);
     this.deduplicatePendingEditSync.set(c.deduplicatePendingEditSync ?? false);
     this.locationIcons.set({ ...(c.locationIcons ?? {}) });

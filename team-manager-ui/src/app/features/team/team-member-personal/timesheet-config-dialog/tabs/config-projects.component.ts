@@ -30,7 +30,7 @@ import { FormsModule } from '@angular/forms';
     }
   `],
   template: `
-    <div class="hint">These projects are added to the default Entelect list. Use this for client projects or custom work categories.</div>
+    <div class="hint">These projects are added to the default list. Use this for client projects or custom work categories.</div>
     <div class="proj-list">
       @for (p of allProjects(); track p) {
         <div class="proj-row">
