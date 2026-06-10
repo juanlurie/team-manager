@@ -232,6 +232,7 @@ public class ApiSyncController(AppDbContext db, IHttpClientFactory httpClientFac
             criteria = JsonSerializer.Deserialize<SuccessCriteriaDto>(configMeta.SuccessCriteriaJson, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
 
         var rawHeaders = JsonSerializer.Deserialize<Dictionary<string, string>>(evt.ResolvedHeadersJson) ?? [];
+        var configVarsForSend = await Application.Services.ConfigVariableResolver.LoadAsync(db);
 
         // Only enforce cookie requirement if the resolved payload still references it
         var needsCookie = evt.ResolvedBody.Contains("{cookie}")
@@ -269,7 +270,8 @@ public class ApiSyncController(AppDbContext db, IHttpClientFactory httpClientFac
 
                 string Inject(string s)
                 {
-                    var result = s.Replace("{cookie}", activeCookie);
+                    var result = Application.Services.ConfigVariableResolver.Apply(s, configVarsForSend);
+                    result = result.Replace("{cookie}", activeCookie);
                     foreach (var (key, value) in lateVars)
                         result = result.Replace($"{{{key}}}", value);
                     return result;
