@@ -278,11 +278,11 @@ export class NotRegisteredComponent {
   form = { name: '', email: '', reason: '' };
 
   constructor() {
-    const claims = this.auth.identityClaims as any;
+    const claims = this.auth.pendingClaims;
     if (claims?.email) {
-      this.googleName.set(claims.name || claims.given_name || '');
+      this.googleName.set(claims.name);
       this.googleEmail.set(claims.email);
-      this.googlePicture.set(claims.picture || '');
+      this.googlePicture.set(claims.picture);
       this.hasClaims.set(true);
     }
   }
@@ -295,12 +295,11 @@ export class NotRegisteredComponent {
     this.submitting.set(true);
     this.error.set('');
 
-    const claims = this.auth.identityClaims as any;
     this.http.post('/api/accessrequests/submit', {
       name,
       email,
       reason: (this.hasClaims() ? this.reason : this.form.reason).trim() || null,
-      googleSub: claims?.sub || null
+      googleSub: this.auth.pendingClaims?.sub || null
     }).subscribe({
       next: () => {
         this.submitting.set(false);

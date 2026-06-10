@@ -28,6 +28,9 @@ export class AuthService {
   private _me$ = new BehaviorSubject<MeResponse | null>(null);
   me$ = this._me$.asObservable();
 
+  // Populated when authenticated via Google but not a team member
+  pendingClaims: { name: string; email: string; picture: string; sub: string } | null = null;
+
   // Set to true when the backend is running without JWT (dev mode).
   // In this mode the frontend skips Google OAuth entirely.
   private devMode = false;
@@ -71,6 +74,15 @@ export class AuthService {
               }
             }),
             catchError(() => {
+              const c = this.oauth.getIdentityClaims() as any;
+              if (c) {
+                this.pendingClaims = {
+                  name: c.name || c.given_name || '',
+                  email: c.email || '',
+                  picture: c.picture || '',
+                  sub: c.sub || ''
+                };
+              }
               this._authStatus$.next('unauthorized');
               this._isDone$.next(true);
               return of(null);
