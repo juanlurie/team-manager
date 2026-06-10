@@ -65,47 +65,24 @@ export class AuthService {
           this._isDone$.next(true);
           return;
         }
-        // Fetch userinfo so we have the full profile regardless of ID token claims
-        this.oauth.loadUserProfile()
-          .then((profile: any) => {
-            const p = profile?.info ?? profile ?? {};
-            this.http.get<MeResponse>('/api/auth/me', { context: new HttpContext().set(SKIP_ERROR_TOAST, true) }).pipe(
-              map(me => {
-                this._me$.next(me);
-                this._authStatus$.next('authorized');
-                this._isDone$.next(true);
-                const returnUrl = localStorage.getItem(AuthService.RETURN_URL_KEY);
-                if (returnUrl) {
-                  localStorage.removeItem(AuthService.RETURN_URL_KEY);
-                  this.router.navigateByUrl(returnUrl);
-                }
-              }),
-              catchError(() => {
-                this.pendingClaims = p.email
-                  ? { name: p.name || p.given_name || '', email: p.email, picture: p.picture || '', sub: p.sub || '' }
-                  : this.parseIdTokenClaims();
-                this._authStatus$.next('unauthorized');
-                this._isDone$.next(true);
-                return of(null);
-              })
-            ).subscribe();
+        this.http.get<MeResponse>('/api/auth/me', { context: new HttpContext().set(SKIP_ERROR_TOAST, true) }).pipe(
+          map(me => {
+            this._me$.next(me);
+            this._authStatus$.next('authorized');
+            this._isDone$.next(true);
+            const returnUrl = localStorage.getItem(AuthService.RETURN_URL_KEY);
+            if (returnUrl) {
+              localStorage.removeItem(AuthService.RETURN_URL_KEY);
+              this.router.navigateByUrl(returnUrl);
+            }
+          }),
+          catchError(() => {
+            this.pendingClaims = this.parseIdTokenClaims();
+            this._authStatus$.next('unauthorized');
+            this._isDone$.next(true);
+            return of(null);
           })
-          .catch(() => {
-            // Userinfo failed — still try auth/me, fall back to JWT parsing for claims
-            this.http.get<MeResponse>('/api/auth/me', { context: new HttpContext().set(SKIP_ERROR_TOAST, true) }).pipe(
-              map(me => {
-                this._me$.next(me);
-                this._authStatus$.next('authorized');
-                this._isDone$.next(true);
-              }),
-              catchError(() => {
-                this.pendingClaims = this.parseIdTokenClaims();
-                this._authStatus$.next('unauthorized');
-                this._isDone$.next(true);
-                return of(null);
-              })
-            ).subscribe();
-          });
+        ).subscribe();
       })
       .catch(() => {
         this._authStatus$.next('unauthenticated');
