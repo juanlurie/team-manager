@@ -74,15 +74,7 @@ export class AuthService {
               }
             }),
             catchError(() => {
-              const c = this.oauth.getIdentityClaims() as any;
-              if (c) {
-                this.pendingClaims = {
-                  name: c.name || c.given_name || '',
-                  email: c.email || '',
-                  picture: c.picture || '',
-                  sub: c.sub || ''
-                };
-              }
+              this.pendingClaims = this.parseIdTokenClaims();
               this._authStatus$.next('unauthorized');
               this._isDone$.next(true);
               return of(null);
@@ -128,6 +120,23 @@ export class AuthService {
   }
 
   get identityClaims() { return this.oauth.getIdentityClaims(); }
+
+  private parseIdTokenClaims(): typeof this.pendingClaims {
+    try {
+      const idToken = localStorage.getItem('id_token');
+      if (!idToken) return null;
+      const payload = JSON.parse(atob(idToken.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+      if (!payload?.email) return null;
+      return {
+        name: payload.name || payload.given_name || '',
+        email: payload.email,
+        picture: payload.picture || '',
+        sub: payload.sub || ''
+      };
+    } catch {
+      return null;
+    }
+  }
 
   hasRole(role: string): boolean {
     const claims = this.identityClaims as any;
