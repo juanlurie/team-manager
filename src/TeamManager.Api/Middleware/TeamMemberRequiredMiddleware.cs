@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using Microsoft.AspNetCore.Authorization;
 
 namespace TeamManager.Api.Middleware;
 
@@ -8,6 +9,14 @@ public class TeamMemberRequiredMiddleware(RequestDelegate next, ILogger<TeamMemb
     {
         // Skip for anonymous endpoints (health, swagger, auth-mode, etc.)
         if (!context.User.Identity?.IsAuthenticated == true)
+        {
+            await next(context);
+            return;
+        }
+
+        // Skip if the endpoint explicitly allows anonymous (e.g. access request submit)
+        var allowAnonymous = context.GetEndpoint()?.Metadata.GetMetadata<IAllowAnonymous>();
+        if (allowAnonymous != null)
         {
             await next(context);
             return;
