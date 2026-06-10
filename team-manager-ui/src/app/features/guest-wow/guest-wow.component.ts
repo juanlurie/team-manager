@@ -629,7 +629,7 @@ export class GuestWowComponent implements OnInit, OnDestroy {
   }
 
   login() {
-    this.auth.login();
+    this.auth.login('/fun/win-of-the-week');
   }
 
   saveName() {
