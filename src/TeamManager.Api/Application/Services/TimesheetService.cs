@@ -243,9 +243,11 @@ public class TimesheetService(AppDbContext db, ITimesheetEventPublisher eventPub
                 }
             }
 
+            var configVars = await ConfigVariableResolver.LoadAsync(db);
+
             string Resolve(string t)
             {
-                var result = t
+                var result = ConfigVariableResolver.Apply(t, configVars)
                     .Replace("{cookie}", cookie)
                     .Replace("{id}", entry.Id.ToString())
                     .Replace("{date}", entry.Date.ToString("yyyy-MM-dd"))

@@ -64,9 +64,12 @@ public class ApiSyncController(AppDbContext db, IHttpClientFactory httpClientFac
             }
         }
 
+        var configVars = await Application.Services.ConfigVariableResolver.LoadAsync(db);
+
         string Resolve(string t)
         {
-            var result = t.Replace("{cookie}", cookie);
+            var result = Application.Services.ConfigVariableResolver.Apply(t, configVars);
+            result = result.Replace("{cookie}", cookie);
             foreach (var (key, value) in parameters)
                 result = result.Replace($"{{{key}}}", value);
             foreach (var (key, value) in payload.Variables ?? new())

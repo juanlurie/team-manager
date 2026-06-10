@@ -74,6 +74,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<MemberFeatureOverride> MemberFeatureOverrides => Set<MemberFeatureOverride>();
     public DbSet<TimesheetSystemConfig> TimesheetSystemConfigs => Set<TimesheetSystemConfig>();
     public DbSet<JokeHistory> JokeHistory => Set<JokeHistory>();
+    public DbSet<ConfigVariable> ConfigVariables => Set<ConfigVariable>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
