@@ -77,7 +77,28 @@ export class AuthService {
             }
           }),
           catchError(() => {
-            this.pendingClaims = this.parseIdTokenClaims();
+            const fromToken = this.parseIdTokenClaims();
+            if (fromToken?.name && fromToken?.email) {
+              this.pendingClaims = fromToken;
+              this._authStatus$.next('unauthorized');
+              this._isDone$.next(true);
+              return of(null);
+            }
+            // ID token missing profile claims — fetch userinfo directly
+            const accessToken = this.oauth.getAccessToken();
+            if (accessToken) {
+              this.http.get<any>('https://openidconnect.googleapis.com/v1/userinfo', {
+                headers: { Authorization: `Bearer ${accessToken}` },
+                context: new HttpContext().set(SKIP_ERROR_TOAST, true)
+              }).subscribe({
+                next: (p) => {
+                  this.pendingClaims = { name: p.name || p.given_name || '', email: p.email || '', picture: p.picture || '', sub: p.sub || '' };
+                },
+                error: () => { this.pendingClaims = fromToken; }
+              });
+            } else {
+              this.pendingClaims = fromToken;
+            }
             this._authStatus$.next('unauthorized');
             this._isDone$.next(true);
             return of(null);
@@ -121,7 +142,10 @@ export class AuthService {
 
   private parseIdTokenClaims(): typeof this.pendingClaims {
     try {
-      const idToken = localStorage.getItem('id_token');
+      // Try the library's accessor first, fall back to both storage types
+      const idToken = this.oauth.getIdToken()
+        ?? localStorage.getItem('id_token')
+        ?? sessionStorage.getItem('id_token');
       if (!idToken) return null;
       const payload = JSON.parse(atob(idToken.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
       if (!payload?.email) return null;
