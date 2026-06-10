@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
 import { GuestWinOfTheWeekService } from './guest-wow.service';
 import { GuestWinWeek, GuestNomination, GuestCreateNominationRequest } from '../../core/models/win-week.model';
+import { AuthService } from '../../core/auth/auth.service';
 
 const SESSION_NAME_KEY = 'wow_guest_name';
 const SESSION_ID_KEY = 'wow_guest_session_id';
@@ -13,14 +14,23 @@ const SESSION_ID_KEY = 'wow_guest_session_id';
   standalone: true,
   imports: [CommonModule, FormsModule],
   template: `
-    <div class="guest-wrap" [class.sudden-death]="week()?.status === 'SuddenDeath'">
+    <div class="guest-wrap" [class.sudden-death]="isSuddenDeath()">
       <!-- Name capture screen -->
       @if (!guestName()) {
         <div class="name-card">
           <div class="name-card__logo">🏆</div>
           <h2 class="name-card__title">Win of the Week</h2>
-          <p class="name-card__sub">Enter your name to view and submit nominations.</p>
-          <form (ngSubmit)="saveName()" class="name-form">
+          <p class="name-card__sub">Sign in with your account for the full experience, or continue as a guest.</p>
+
+          <button class="btn-primary" type="button" (click)="login()" style="width:100%;margin-bottom:16px">
+            Sign In
+          </button>
+
+          <div class="divider">
+            <span class="divider__label">or continue as guest</span>
+          </div>
+
+          <form (ngSubmit)="saveName()" class="name-form" style="margin-top:16px">
             <input
               class="name-input"
               type="text"
@@ -28,10 +38,8 @@ const SESSION_ID_KEY = 'wow_guest_session_id';
               [(ngModel)]="nameInput"
               name="guestName"
               maxlength="100"
-              required
-              autofocus
             />
-            <button class="btn-primary" type="submit" [disabled]="!nameInput.trim()">Continue</button>
+            <button class="btn-secondary" type="submit" [disabled]="!nameInput.trim()">Continue as Guest</button>
           </form>
         </div>
       }
@@ -62,7 +70,10 @@ const SESSION_ID_KEY = 'wow_guest_session_id';
               </span>
               <span class="week-label">Week of {{ formatDate(week()!.weekStart) }}</span>
             </div>
-            <span class="guest-tag">Guest View</span>
+            <div style="display:flex;align-items:center;gap:8px">
+              <span class="guest-tag">Guest View</span>
+              <button class="btn-login" type="button" (click)="login()">Sign In</button>
+            </div>
           </div>
 
           <!-- Winner banner -->
@@ -146,7 +157,7 @@ const SESSION_ID_KEY = 'wow_guest_session_id';
           }
 
           <!-- Sudden death banner -->
-          @if (week()!.status === 'SuddenDeath') {
+          @if (isSuddenDeath()) {
             <div class="sudden-death-banner">
               <span class="sudden-death-banner__icon">⚡</span>
               <span>Tie-Breaker — 1 vote only!</span>
@@ -161,13 +172,13 @@ const SESSION_ID_KEY = 'wow_guest_session_id';
           @if (week()!.isVotingOpen) {
             <p class="votes-remaining">
               Votes remaining: <strong>{{ week()!.userVotesRemaining }}</strong>
-              @if (week()!.status === 'SuddenDeath') { (tie-breaker — 1 vote) }
+              @if (isSuddenDeath()) { (tie-breaker — 1 vote) }
               @else { /3 }
             </p>
           }
 
           @for (nom of week()!.nominations; track nom.id) {
-            <div class="nom-card" [class.nom-card--voted]="nom.hasVoted" [class.nom-card--sudden-death]="week()!.status === 'SuddenDeath'">
+            <div class="nom-card" [class.nom-card--voted]="nom.hasVoted" [class.nom-card--sudden-death]="isSuddenDeath()" [class.nom-card--tied]="tiedNomIds().has(nom.id)">
               <!-- Inline edit form -->
               @if (editingId() === nom.id) {
                 <div class="nom-edit-form">
@@ -236,12 +247,12 @@ const SESSION_ID_KEY = 'wow_guest_session_id';
       transition: background 0.4s;
     }
     .guest-wrap.sudden-death {
-      background: #1a0a0a;
-      animation: sd-pulse 2s ease-in-out infinite;
+      background: #1a0000;
+      animation: sd-pulse 1.5s ease-in-out infinite;
     }
     @keyframes sd-pulse {
-      0%, 100% { background: #1a0a0a; }
-      50% { background: #200808; }
+      0%, 100% { background: #1a0000; }
+      50% { background: #2d0000; }
     }
 
     .name-card, .error-card {
@@ -306,8 +317,38 @@ const SESSION_ID_KEY = 'wow_guest_session_id';
       padding: 0.6rem 1.2rem;
       font-size: 0.95rem;
       cursor: pointer;
+      width: 100%;
     }
-    .btn-secondary:hover { background: rgba(255,255,255,0.05); }
+    .btn-secondary:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-secondary:hover:not(:disabled) { background: rgba(255,255,255,0.05); }
+
+    .btn-login {
+      background: #FFD700;
+      color: #121212;
+      border: none;
+      border-radius: 5px;
+      padding: 0.3rem 0.75rem;
+      font-size: 0.78rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+    .btn-login:hover { opacity: 0.85; }
+
+    .divider {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: rgba(255,255,255,0.3);
+      font-size: 0.78rem;
+    }
+    .divider::before, .divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: rgba(255,255,255,0.1);
+    }
+    .divider__label { white-space: nowrap; }
 
     .loading-wrap {
       display: flex;
@@ -498,6 +539,11 @@ const SESSION_ID_KEY = 'wow_guest_session_id';
       border-color: rgba(244,67,54,0.25);
     }
 
+    .nom-card--tied {
+      border-color: rgba(255,87,34,0.4);
+      background: rgba(255,87,34,0.06);
+    }
+
     .nom-card__actions {
       display: flex;
       align-items: center;
@@ -524,6 +570,7 @@ const SESSION_ID_KEY = 'wow_guest_session_id';
 export class GuestWowComponent implements OnInit, OnDestroy {
   private route = inject(ActivatedRoute);
   private service = inject(GuestWinOfTheWeekService);
+  private auth = inject(AuthService);
 
   guestName = signal('');
   nameInput = '';
@@ -569,6 +616,10 @@ export class GuestWowComponent implements OnInit, OnDestroy {
     this.ws?.close();
     this.ws = null;
     if (this.pollInterval) clearInterval(this.pollInterval);
+  }
+
+  login() {
+    this.auth.login();
   }
 
   saveName() {
@@ -661,6 +712,22 @@ export class GuestWowComponent implements OnInit, OnDestroy {
       next: () => { this.votingId.set(null); this.refreshWeek(); },
       error: () => { this.votingId.set(null); }
     });
+  }
+
+  isSuddenDeath() {
+    return this.week()?.status === 'SuddenDeath';
+  }
+
+  tiedNomIds(): Set<string> {
+    const w = this.week();
+    if (!w || w.nominations.length === 0) return new Set();
+    if (w.status === 'SuddenDeath') return new Set(w.nominations.map(n => n.id));
+    if (w.status === 'Voting') {
+      const maxVotes = Math.max(...w.nominations.map(n => n.voteCount));
+      if (maxVotes > 0 && w.nominations.filter(n => n.voteCount === maxVotes).length > 1)
+        return new Set(w.nominations.filter(n => n.voteCount === maxVotes).map(n => n.id));
+    }
+    return new Set();
   }
 
   phaseLabel() {

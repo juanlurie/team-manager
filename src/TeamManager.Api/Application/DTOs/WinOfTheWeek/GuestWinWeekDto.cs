@@ -12,6 +12,7 @@ public record GuestWinWeekDto
     public string? WinnerNomineeName { get; init; }
     public string? WinnerTitle { get; init; }
     public string? WinnerStory { get; init; }
+    public IReadOnlyList<Guid> TiedNominationIds { get; init; } = [];
     public IReadOnlyList<GuestNominationDto> Nominations { get; init; } = [];
 }
 

@@ -1,4 +1,5 @@
-import { Component, OnInit, inject, signal, computed, OnDestroy, effect } from '@angular/core';
+import { Component, OnInit, inject, signal, computed, OnDestroy, effect, ElementRef, ViewChild, AfterViewInit } from '@angular/core';
+import QRCode from 'qrcode';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
@@ -62,7 +63,7 @@ import { FeatureAccessService } from '../../core/services/feature-access.service
     }
 
     <div [class.sudden-death-wrap]="currentWeek()?.status === 'SuddenDeath'"
-         style="max-width:800px;margin:0 auto;padding:0 8px 80px;overflow-x:hidden">
+         style="max-width:1060px;margin:0 auto;padding:0 8px 80px;overflow-x:hidden">
       <!-- Header -->
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
         <mat-icon style="font-size:1.6rem;width:1.6rem;height:1.6rem;color:#FFD700">emoji_events</mat-icon>
@@ -134,7 +135,20 @@ import { FeatureAccessService } from '../../core/services/feature-access.service
       <!-- Content -->
       @switch (activeTab()) {
         @case ('current') {
-          <ng-container *ngTemplateOutlet="currentTab"></ng-container>
+          <div style="display:flex;gap:24px;align-items:flex-start">
+            <div style="flex:1;min-width:0">
+              <ng-container *ngTemplateOutlet="currentTab"></ng-container>
+            </div>
+            @if (isHost() && qrDataUrl()) {
+              <div style="flex-shrink:0;width:180px;position:sticky;top:16px">
+                <img [src]="qrDataUrl()!" alt="Guest QR code" style="width:180px;height:180px;border-radius:8px;display:block" />
+                <button mat-icon-button (click)="copyShareLink()" matTooltip="Copy guest link"
+                        style="margin-top:8px;width:100%;border-radius:6px;background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.7)">
+                  <mat-icon>share</mat-icon>
+                </button>
+              </div>
+            }
+          </div>
         }
         @case ('history') {
           <app-win-of-the-week-history />
@@ -392,6 +406,26 @@ export class WinOfTheWeekComponent implements OnInit, OnDestroy {
   private timerExpiredWeekId: string | null = null;
   private suddenDeathSnapshot: { nominations: WinNomination[], tiedNominationIds: string[] } | null = null;
 
+  constructor() {
+    effect(() => {
+      const url = this.guestUrl();
+      if (!url) { this.qrDataUrl.set(null); return; }
+      QRCode.toDataURL(url, { width: 320, margin: 2, color: { dark: '#000000', light: '#ffffff' } })
+        .then(dataUrl => this.qrDataUrl.set(dataUrl));
+    });
+
+    let guestTokenLoaded = false;
+    effect(() => {
+      const week = this.currentWeek();
+      if (!week || guestTokenLoaded || !this.isHost()) return;
+      guestTokenLoaded = true;
+      this.winSvc.generateGuestToken(week.id).subscribe({
+        next: (result) => this.guestUrl.set(`${window.location.origin}/guest/wow/${result.token}`),
+        error: () => {}
+      });
+    });
+  }
+
   activeTab = signal('current');
   currentWeek = signal<WinWeek | null>(null);
   allMembers = signal<TeamMember[]>([]);
@@ -403,6 +437,8 @@ export class WinOfTheWeekComponent implements OnInit, OnDestroy {
   spinnerName = signal('');
   currentUserId = '';
   now = signal(Date.now());
+  guestUrl = signal<string | null>(null);
+  qrDataUrl = signal<string | null>(null);
 
   readonly isHost = this.featureAccess.hasAccess$('wow-host');
   readonly hasWinOfMonth = this.featureAccess.hasAccess$('win-of-month');
@@ -809,11 +845,20 @@ export class WinOfTheWeekComponent implements OnInit, OnDestroy {
   }
 
   copyShareLink() {
-    const week = this.currentWeek();
-    if (this.isHost() && week) {
+    const existingUrl = this.guestUrl();
+    if (this.isHost() && existingUrl) {
+      navigator.clipboard.writeText(existingUrl).then(() => {
+        this.snackBar.open('Guest link copied! Anyone with this link can nominate', 'Close', { duration: 3000 });
+      }).catch(() => {
+        this.snackBar.open('Failed to copy link', 'Close', { duration: 3000 });
+      });
+    } else if (this.isHost()) {
+      const week = this.currentWeek();
+      if (!week) return;
       this.winSvc.generateGuestToken(week.id).subscribe({
         next: (result) => {
           const url = `${window.location.origin}/guest/wow/${result.token}`;
+          this.guestUrl.set(url);
           navigator.clipboard.writeText(url).then(() => {
             this.snackBar.open('Guest link copied! Anyone with this link can nominate', 'Close', { duration: 3000 });
           }).catch(() => {
