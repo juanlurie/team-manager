@@ -219,13 +219,13 @@ public class ApiRequestConfigsController : ControllerBase
 
         var vars = payload.Variables ?? new();
         var configParams = dto.Parameters ?? new();
+        var configVars = await Application.Services.ConfigVariableResolver.LoadAsync(_db);
         string Resolve(string template)
         {
-            var result = template;
-            // Apply config parameters first
+            // Config variables first (lowest priority), then per-config params, then runtime vars
+            var result = Application.Services.ConfigVariableResolver.Apply(template, configVars);
             foreach (var (key, value) in configParams)
                 result = result.Replace($"{{{key}}}", value);
-            // Apply all variables (cookie, test values, etc.)
             foreach (var (key, value) in vars)
                 result = result.Replace($"{{{key}}}", value);
             return result;

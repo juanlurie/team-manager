@@ -41,22 +41,29 @@ public class ConfigurableLeaveFetcher : ILeaveFetcher
 
         var headers = JsonSerializer.Deserialize<Dictionary<string, string>>(config.HeadersJson) ?? new();
         var mapping = JsonSerializer.Deserialize<MappingConfig>(config.MappingJson) ?? new MappingConfig();
+        var configVars = await ConfigVariableResolver.LoadAsync(_db);
 
         var client = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
         client.DefaultRequestHeaders.Accept.ParseAdd("application/json, text/javascript, */*; q=0.01");
 
         foreach (var (key, value) in headers)
         {
-            var resolved = ResolveTemplate(value, request);
+            var resolved = ResolveTemplate(ConfigVariableResolver.Apply(value, configVars), request);
             client.DefaultRequestHeaders.Add(key, resolved);
         }
 
+        // Inject secret headers
+        var secretHeaders = JsonSerializer.Deserialize<Dictionary<string, string>>(
+            string.IsNullOrWhiteSpace(config.SecretHeadersJson) ? "{}" : config.SecretHeadersJson) ?? new();
+        foreach (var (k, v) in secretHeaders)
+            client.DefaultRequestHeaders.TryAddWithoutValidation(k, v);
+
         HttpResponseMessage response;
-        var url = ResolveTemplate(config.Url, request);
+        var url = ResolveTemplate(ConfigVariableResolver.Apply(config.Url, configVars), request);
 
         if (config.Method.Equals("POST", StringComparison.OrdinalIgnoreCase))
         {
-            var body = ResolveTemplate(config.BodyTemplate, request);
+            var body = ResolveTemplate(ConfigVariableResolver.Apply(config.BodyTemplate, configVars), request);
             if (config.IsFormUrlEncoded)
             {
                 var content = new StringContent(body);

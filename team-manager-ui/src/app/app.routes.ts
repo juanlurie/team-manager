@@ -92,6 +92,10 @@ export const routes: Routes = [
         loadComponent: () => import('./features/settings/portal-credentials/portal-credentials.component').then(m => m.PortalCredentialsComponent)
       },
       {
+        path: 'settings/config-variables',
+        loadChildren: () => import('./features/settings/config-variables/config-variables.routes').then(m => m.CONFIG_VARIABLES_ROUTES)
+      },
+      {
         path: 'settings/portal-credentials',
         redirectTo: 'settings/credentials',
         pathMatch: 'full'

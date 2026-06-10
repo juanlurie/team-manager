@@ -36,6 +36,13 @@ const CONFIG_CARDS: ConfigCard[] = [
     color: '#2196f3'
   },
   {
+    icon: 'tune',
+    label: 'Config Variables',
+    description: 'Reusable values for request config templates — reference as {key}',
+    path: '/settings/config-variables',
+    color: '#64b5f6'
+  },
+  {
     icon: 'key',
     label: 'Credentials',
     description: 'Manage stored cookies and tokens used by request configs and sync',

@@ -19,6 +19,7 @@ import {
   TestRequestResult
 } from './api-request-configs.service';
 import { CredentialsService } from '../../core/services/credentials.service';
+import { ConfigVariablesService } from '../settings/config-variables/config-variables.service';
 
 @Component({
   selector: 'app-api-request-configs',
@@ -352,6 +353,15 @@ export class ApiRequestConfigsComponent implements OnInit {
             <input matInput [(ngModel)]="data.url" placeholder="https://example.com/api">
           </mat-form-field>
 
+          @if (configVarKeys().length > 0) {
+            <div class="config-vars-hint">
+              <span class="config-vars-label">Config vars:</span>
+              @for (k of configVarKeys(); track k) {
+                <span class="config-var-chip" (click)="insertConfigVar(k)" matTooltip="Click to copy">{{ '{' + k + '}' }}</span>
+              }
+            </div>
+          }
+
           <div class="inline-fields">
             <mat-form-field appearance="outline">
               <mat-label>HTTP Method</mat-label>
@@ -639,49 +649,50 @@ export class ApiRequestConfigsComponent implements OnInit {
             </mat-form-field>
           }
         </div>
-      </mat-dialog-content>
-      @if (curlPreview()) {
-        <div class="curl-preview">
-          <div class="curl-preview-header">
-            <span class="curl-preview-label">cURL Preview</span>
-            <div class="curl-preview-actions">
-              <button mat-icon-button (click)="copyCurl()" matTooltip="Copy">
-                <mat-icon>content_copy</mat-icon>
-              </button>
-              <button mat-icon-button (click)="curlPreview.set('')" class="close-test-btn">
+
+        @if (showTestVars() && unresolvedVars().length > 0) {
+          <div class="test-vars-panel">
+            <div class="test-vars-header">Test values <span class="test-vars-hint">— filled in for this test only</span></div>
+            <div class="test-vars-grid">
+              @for (v of unresolvedVars(); track v) {
+                <mat-form-field appearance="outline" class="test-var-field">
+                  <mat-label>{{ '{' + v + '}' }}</mat-label>
+                  <input matInput [(ngModel)]="testVars[v]" [placeholder]="testVarPlaceholder(v)">
+                </mat-form-field>
+              }
+            </div>
+          </div>
+        }
+        @if (curlPreview()) {
+          <div class="curl-preview">
+            <div class="curl-preview-header">
+              <span class="curl-preview-label">cURL Preview</span>
+              <div class="curl-preview-actions">
+                <button mat-icon-button (click)="copyCurl()" matTooltip="Copy">
+                  <mat-icon>content_copy</mat-icon>
+                </button>
+                <button mat-icon-button (click)="curlPreview.set('')" class="close-test-btn">
+                  <mat-icon>close</mat-icon>
+                </button>
+              </div>
+            </div>
+            <pre class="curl-preview-body">{{ curlPreview() }}</pre>
+          </div>
+        }
+        @if (testResult()) {
+          <div class="test-response" [class.test-success]="testResult()!.success" [class.test-failure]="!testResult()!.success">
+            <div class="test-response-header">
+              <span class="test-status-code" [class.success]="testResult()!.success" [class.failure]="!testResult()!.success">
+                {{ testResult()!.statusCode || 'ERR' }} {{ testResult()!.success ? 'OK' : 'Failed' }}
+              </span>
+              <button mat-icon-button (click)="testResult.set(null)" class="close-test-btn">
                 <mat-icon>close</mat-icon>
               </button>
             </div>
+            <pre class="test-response-body">{{ formatTestBody(testResult()!.body) }}</pre>
           </div>
-          <pre class="curl-preview-body">{{ curlPreview() }}</pre>
-        </div>
-      }
-      @if (testResult()) {
-        <div class="test-response" [class.test-success]="testResult()!.success" [class.test-failure]="!testResult()!.success">
-          <div class="test-response-header">
-            <span class="test-status-code" [class.success]="testResult()!.success" [class.failure]="!testResult()!.success">
-              {{ testResult()!.statusCode || 'ERR' }} {{ testResult()!.success ? 'OK' : 'Failed' }}
-            </span>
-            <button mat-icon-button (click)="testResult.set(null)" class="close-test-btn">
-              <mat-icon>close</mat-icon>
-            </button>
-          </div>
-          <pre class="test-response-body">{{ formatTestBody(testResult()!.body) }}</pre>
-        </div>
-      }
-      @if (showTestVars() && unresolvedVars().length > 0) {
-        <div class="test-vars-panel">
-          <div class="test-vars-header">Test values <span class="test-vars-hint">— filled in for this test only</span></div>
-          <div class="test-vars-grid">
-            @for (v of unresolvedVars(); track v) {
-              <mat-form-field appearance="outline" class="test-var-field">
-                <mat-label>{{ '{' + v + '}' }}</mat-label>
-                <input matInput [(ngModel)]="testVars[v]" [placeholder]="testVarPlaceholder(v)">
-              </mat-form-field>
-            }
-          </div>
-        </div>
-      }
+        }
+      </mat-dialog-content>
       <mat-dialog-actions align="end">
         <button mat-button (click)="dialogRef.close()">Cancel</button>
         <button mat-stroked-button (click)="buildCurlPreview()" [disabled]="!data.url.trim()">
@@ -736,6 +747,11 @@ export class ApiRequestConfigsComponent implements OnInit {
     .test-label { color: rgba(255,255,255,0.4); min-width: 60px; }
     .test-value { color: #4caf50; font-family: monospace; }
 
+    .config-vars-hint { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 6px 2px 10px; }
+    .config-vars-label { font-size: 0.75rem; color: rgba(255,255,255,0.35); flex-shrink: 0; }
+    .config-var-chip { background: rgba(100,181,246,0.1); color: #64b5f6; border: 1px solid rgba(100,181,246,0.25); padding: 1px 7px; border-radius: 10px; font-size: 0.72rem; font-family: monospace; cursor: pointer; transition: background 0.12s; }
+    .config-var-chip:hover { background: rgba(100,181,246,0.2); }
+
     .curl-section { padding: 10px 12px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; display: flex; flex-direction: column; gap: 8px; }
     .curl-toggle { justify-content: flex-start; color: rgba(255,255,255,0.6); font-size: 0.85rem; }
     .curl-error { font-size: 0.75rem; color: #ef5350; }
@@ -768,12 +784,14 @@ export class ApiRequestConfigDialogComponent implements OnInit {
   private svc = inject(ApiRequestConfigsService);
   private snackBar = inject(MatSnackBar);
   private credentials = inject(CredentialsService);
+  private configVarsSvc = inject(ConfigVariablesService);
   dialogRef = inject(MatDialogRef<ApiRequestConfigDialogComponent>);
   data = inject<any>(MAT_DIALOG_DATA);
   saving = signal(false);
   headerEntries = signal<{key: string, value: string, secret: boolean, editing: boolean}[]>([]);
   parameterEntries = signal<{key: string, value: string}[]>([]);
   actions = REQUEST_ACTIONS;
+  configVarKeys = signal<string[]>([]);
 
   showCurlImport = signal(false);
   curlInput = '';
@@ -806,10 +824,16 @@ export class ApiRequestConfigDialogComponent implements OnInit {
     return this.cookieVarNames().map(n => `{${n}}`).join(', ');
   }
 
+  insertConfigVar(key: string) {
+    navigator.clipboard.writeText(`{${key}}`).catch(() => {});
+    this.snackBar.open(`Copied {${key}} to clipboard`, 'Close', { duration: 2000 });
+  }
+
   unresolvedVars() {
     const knownParams = new Set([
       ...this.parameterEntries().map(e => e.key.trim()).filter(Boolean),
       ...this.cookieVarNames(),
+      ...this.configVarKeys(),
       'start', 'end', 'teamIds', 'nominee', 'title', 'description'
     ]);
     const regularHeaderValues = this.headerEntries().filter(e => !e.secret).map(e => e.value).join(' ');
@@ -846,6 +870,7 @@ export class ApiRequestConfigDialogComponent implements OnInit {
     const secretEntries = Object.entries(secretHeaders).map(([k, v]) => ({ key: k, value: v as string, secret: true, editing: false }));
     this.headerEntries.set([...regularHeaders, ...secretEntries]);
     this.parameterEntries.set(Object.entries(this.data.parameters || {}).map(([k, v]) => ({ key: k, value: v as string })));
+    this.configVarsSvc.keys().subscribe({ next: (keys) => this.configVarKeys.set(keys), error: () => {} });
   }
 
   setCriteriaStatus(v: any) {
