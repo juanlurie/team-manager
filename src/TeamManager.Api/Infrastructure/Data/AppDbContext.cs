@@ -61,6 +61,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<LeaveFetchConfig> LeaveFetchConfigs => Set<LeaveFetchConfig>();
     public DbSet<ApiRequestConfig> ApiRequestConfigs => Set<ApiRequestConfig>();
     public DbSet<OutlookToken> OutlookTokens => Set<OutlookToken>();
+    public DbSet<GoogleCalendarToken> GoogleCalendarTokens => Set<GoogleCalendarToken>();
     public DbSet<WorkItemEvent> WorkItemEvents => Set<WorkItemEvent>();
     public DbSet<CoffeeRun> CoffeeRuns => Set<CoffeeRun>();
     public DbSet<CoffeeRunMenuItem> CoffeeRunMenuItems => Set<CoffeeRunMenuItem>();

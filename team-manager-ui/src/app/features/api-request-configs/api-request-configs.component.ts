@@ -13,6 +13,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
 import { OutlookCalendarService, OutlookStatus, OutlookEvent } from './outlook-calendar.service';
+import { GoogleCalendarService, GoogleCalendarStatus } from './google-calendar.service';
 import {
   ApiRequestConfigsService,
   ApiRequestConfig,
@@ -128,6 +129,83 @@ import { ConfigVariablesService } from '../settings/config-variables/config-vari
               </p>
               <button class="connect-btn" (click)="connectOutlook()" [disabled]="outlookConnecting()">
                 @if (outlookConnecting()) { Connecting… } @else { Connect Outlook }
+              </button>
+            </div>
+          }
+        </div>
+        <!-- Google Calendar -->
+        <div class="service-card" [class.service-card--connected]="googleStatus()?.isConnected" [class.service-card--google]="true">
+          <div class="service-card__header">
+            <div class="service-card__logo">
+              <svg viewBox="0 0 24 24" width="32" height="32">
+                <rect width="24" height="24" rx="4" fill="#fff"/>
+                <path d="M17 3h-1V1h-2v2H10V1H8v2H7C5.9 3 5 3.9 5 5v14c0 1.1.9 2 2 2h10c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H7V9h10v10z" fill="#4285F4"/>
+                <path d="M9 11h2v2H9zm4 0h2v2h-2zm-4 3h2v2H9zm4 0h2v2h-2z" fill="#4285F4"/>
+              </svg>
+            </div>
+            <div class="service-card__info">
+              <div class="service-card__name">Google Calendar</div>
+              <div class="service-card__desc">Read your calendar events</div>
+            </div>
+            @if (googleStatus()?.isConnected) {
+              <span class="service-badge service-badge--google">Connected</span>
+            } @else {
+              <span class="service-badge service-badge--off">Not connected</span>
+            }
+          </div>
+
+          @if (googleStatus()?.isConnected) {
+            <div class="service-card__account">
+              <mat-icon style="font-size:14px;width:14px;height:14px;color:rgba(255,255,255,0.4)">account_circle</mat-icon>
+              <span>{{ googleStatus()!.accountEmail }}</span>
+              <button class="disconnect-btn" (click)="disconnectGoogle()" [disabled]="googleConnecting()">Disconnect</button>
+            </div>
+
+            @if (googleEventsLoading()) {
+              <div class="events-loading"><span class="loading-dot"></span><span class="loading-dot"></span><span class="loading-dot"></span></div>
+            } @else {
+              <div class="events-section">
+                <div class="events-week-nav">
+                  <button class="week-nav-btn" (click)="prevGoogleWeek()" matTooltip="Previous week"><mat-icon>chevron_left</mat-icon></button>
+                  <span class="week-label">{{ googleWeekLabel() }}</span>
+                  <button class="week-nav-btn" (click)="nextGoogleWeek()" matTooltip="Next week"><mat-icon>chevron_right</mat-icon></button>
+                </div>
+                @if (groupedGoogleEvents().length === 0) {
+                  <p class="events-empty">No events this week.</p>
+                } @else {
+                  @for (group of groupedGoogleEvents(); track group.date) {
+                    <div class="event-group">
+                      <div class="event-group__date">{{ group.label }}</div>
+                      @for (evt of group.events; track evt.subject + evt.start) {
+                        <div class="event-item event-item--google" [class.event-item--allday]="evt.isAllDay">
+                          <div class="event-item__time">
+                            @if (evt.isAllDay) { <span>All day</span> }
+                            @else { <span>{{ formatTime(evt.start) }} – {{ formatTime(evt.end) }}</span> }
+                          </div>
+                          <div class="event-item__subject">{{ evt.subject }}</div>
+                          @if (evt.location) {
+                            <div class="event-item__loc"><mat-icon style="font-size:11px;width:11px;height:11px">place</mat-icon> {{ evt.location }}</div>
+                          }
+                          @if (evt.isOnlineMeeting && evt.joinUrl) {
+                            <a class="event-item__join event-item__join--google" [href]="evt.joinUrl" target="_blank" rel="noopener">
+                              <mat-icon style="font-size:12px;width:12px;height:12px">videocam</mat-icon> Join
+                            </a>
+                          }
+                        </div>
+                      }
+                    </div>
+                  }
+                }
+              </div>
+            }
+          } @else {
+            <div class="service-card__connect">
+              <p class="service-card__hint">
+                Connect your Google account to view your Google Calendar here.
+                Requires <code>GOOGLE_CLIENT_ID</code> and <code>GOOGLE_CLIENT_SECRET</code> config variables.
+              </p>
+              <button class="connect-btn connect-btn--google" (click)="connectGoogle()" [disabled]="googleConnecting()">
+                @if (googleConnecting()) { Connecting… } @else { Connect Google }
               </button>
             </div>
           }
@@ -261,6 +339,13 @@ import { ConfigVariablesService } from '../settings/config-variables/config-vari
     .event-item__join { display: inline-flex; align-items: center; gap: 3px; margin-top: 4px; font-size: 0.72rem; color: #50E6FF; text-decoration: none; }
     .event-item__join:hover { text-decoration: underline; }
 
+    .service-card--google.service-card--connected { border-color: rgba(66,133,244,0.4); background: rgba(66,133,244,0.05); }
+    .service-badge--google { background: rgba(66,133,244,0.2); color: #7baaf7; }
+    .connect-btn--google { background: rgba(66,133,244,0.15); border-color: rgba(66,133,244,0.45); color: #7baaf7; }
+    .connect-btn--google:hover:not(:disabled) { background: rgba(66,133,244,0.28); }
+    .event-item--google { border-left-color: rgba(66,133,244,0.5); }
+    .event-item__join--google { color: #7baaf7; }
+
     .action-btn { display: inline-flex; align-items: center; gap: 4px; padding: 6px 12px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; color: rgba(255,255,255,0.7); font-size: 0.8rem; cursor: pointer; font-family: inherit; transition: all 0.12s; }
     .action-btn mat-icon { font-size: 16px; width: 16px; height: 16px; }
     .action-btn:hover { background: rgba(255,255,255,0.09); border-color: rgba(255,255,255,0.18); color: rgba(255,255,255,0.9); }
@@ -316,6 +401,7 @@ export class ApiRequestConfigsComponent implements OnInit {
   private dialog = inject(MatDialog);
   private credentials = inject(CredentialsService);
   private outlookSvc = inject(OutlookCalendarService);
+  private googleSvc = inject(GoogleCalendarService);
   private route = inject(ActivatedRoute);
 
   loading = signal(true);
@@ -327,25 +413,36 @@ export class ApiRequestConfigsComponent implements OnInit {
   outlookEventsLoading = signal(false);
   calendarWeekOffset = signal(0);
 
-  readonly weekLabel = () => {
-    const start = this.weekStart();
+  googleStatus = signal<GoogleCalendarStatus | null>(null);
+  googleConnecting = signal(false);
+  googleEvents = signal<OutlookEvent[]>([]);
+  googleEventsLoading = signal(false);
+  googleWeekOffset = signal(0);
+
+  readonly weekLabel = () => this.buildWeekLabel(this.calendarWeekOffset());
+  readonly googleWeekLabel = () => this.buildWeekLabel(this.googleWeekOffset());
+
+  private buildWeekLabel(offset: number): string {
+    const start = this.computeWeekStart(offset);
     const end = new Date(start);
     end.setDate(end.getDate() + 6);
     const fmt = (d: Date) => d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
     return `${fmt(start)} – ${fmt(end)}`;
-  };
+  }
 
-  private weekStart(): Date {
+  private weekStart(): Date { return this.computeWeekStart(this.calendarWeekOffset()); }
+  private googleWeekStart(): Date { return this.computeWeekStart(this.googleWeekOffset()); }
+
+  private computeWeekStart(offset: number): Date {
     const now = new Date();
     const day = now.getDay();
     const monday = new Date(now);
-    monday.setDate(now.getDate() - (day === 0 ? 6 : day - 1) + this.calendarWeekOffset() * 7);
+    monday.setDate(now.getDate() - (day === 0 ? 6 : day - 1) + offset * 7);
     monday.setHours(0, 0, 0, 0);
     return monday;
   }
 
-  readonly groupedEvents = () => {
-    const events = this.outlookEvents();
+  private groupEvents(events: OutlookEvent[]) {
     const groups = new Map<string, OutlookEvent[]>();
     for (const evt of events) {
       const key = evt.start.substring(0, 10);
@@ -353,20 +450,26 @@ export class ApiRequestConfigsComponent implements OnInit {
       groups.get(key)!.push(evt);
     }
     return Array.from(groups.entries()).map(([date, evts]) => ({
-      date,
-      label: this.formatDateLabel(date),
-      events: evts
+      date, label: this.formatDateLabel(date), events: evts
     }));
-  };
+  }
+
+  readonly groupedEvents = () => this.groupEvents(this.outlookEvents());
+  readonly groupedGoogleEvents = () => this.groupEvents(this.googleEvents());
 
   ngOnInit() {
     this.load();
     this.loadOutlookStatus();
+    this.loadGoogleStatus();
     const params = this.route.snapshot.queryParamMap;
     if (params.get('outlook') === 'connected') {
       this.snackBar.open('Outlook Calendar connected!', 'Close', { duration: 4000 });
     } else if (params.get('outlook_error')) {
       this.snackBar.open('Outlook connection failed: ' + params.get('outlook_error'), 'Close', { duration: 5000 });
+    } else if (params.get('gcal') === 'connected') {
+      this.snackBar.open('Google Calendar connected!', 'Close', { duration: 4000 });
+    } else if (params.get('gcal_error')) {
+      this.snackBar.open('Google connection failed: ' + params.get('gcal_error'), 'Close', { duration: 5000 });
     }
   }
 
@@ -400,6 +503,52 @@ export class ApiRequestConfigsComponent implements OnInit {
 
   prevWeek() { this.calendarWeekOffset.update(v => v - 1); this.loadOutlookEvents(); }
   nextWeek() { this.calendarWeekOffset.update(v => v + 1); this.loadOutlookEvents(); }
+
+  loadGoogleStatus() {
+    this.googleSvc.getStatus().subscribe({
+      next: (status) => {
+        this.googleStatus.set(status);
+        if (status.isConnected) this.loadGoogleEvents();
+      }
+    });
+  }
+
+  loadGoogleEvents() {
+    this.googleEventsLoading.set(true);
+    const start = this.googleWeekStart();
+    const end = new Date(start);
+    end.setDate(end.getDate() + 7);
+    this.googleSvc.getEvents(start, end).subscribe({
+      next: (evts) => { this.googleEvents.set(evts); this.googleEventsLoading.set(false); },
+      error: () => { this.googleEventsLoading.set(false); }
+    });
+  }
+
+  prevGoogleWeek() { this.googleWeekOffset.update(v => v - 1); this.loadGoogleEvents(); }
+  nextGoogleWeek() { this.googleWeekOffset.update(v => v + 1); this.loadGoogleEvents(); }
+
+  connectGoogle() {
+    this.googleConnecting.set(true);
+    this.googleSvc.getAuthUrl().subscribe({
+      next: ({ url }) => { window.location.href = url; },
+      error: (err) => {
+        this.googleConnecting.set(false);
+        const msg = err.error?.error ?? 'Failed to get auth URL. Check GOOGLE_CLIENT_ID config variable.';
+        this.snackBar.open(msg, 'Close', { duration: 5000 });
+      }
+    });
+  }
+
+  disconnectGoogle() {
+    if (!confirm('Disconnect Google Calendar?')) return;
+    this.googleSvc.disconnect().subscribe({
+      next: () => {
+        this.googleStatus.set({ isConnected: false, accountEmail: null, connectedAt: null });
+        this.googleEvents.set([]);
+        this.snackBar.open('Google Calendar disconnected', 'Close', { duration: 3000 });
+      }
+    });
+  }
 
   connectOutlook() {
     this.outlookConnecting.set(true);
