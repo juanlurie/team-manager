@@ -26,6 +26,10 @@ export const MEETING_ROUTES: Routes = [
         path: 'locations',
         loadComponent: () => import('./locations-config.component').then(m => m.LocationsConfigComponent)
       },
+      {
+        path: 'session-types',
+        loadComponent: () => import('../session-types/session-types.component').then(m => m.SessionTypesComponent)
+      },
     ]
   },
   {

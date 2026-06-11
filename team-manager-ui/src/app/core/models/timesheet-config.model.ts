@@ -10,6 +10,8 @@ export interface TimesheetConfig {
   categoryCorrelationIds?: Record<string, string>;
   workLocationCorrelationIds?: Record<string, string>;
   deduplicatePendingEditSync?: boolean;
+  calendarDefaultProject?: string | null;
+  calendarDefaultCategory?: string | null;
 }
 
 export interface QuickActionConfig {

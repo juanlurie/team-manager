@@ -51,5 +51,9 @@ public record MappingConfigDto(
     // Regex to extract external employee ID from response, e.g. "employeeId:\s*(\d+)"
     string EmployeeIdPattern = "",
     // For AI chat actions: dot-separated path to the text string in the response
-    string TextResponsePath = ""
+    string TextResponsePath = "",
+    // For FetchCalendarEvents: calendar-specific mapping fields
+    string SubjectPath = "subject",
+    string IsAllDayPath = "isAllDay",
+    string LocationPath = "location"
 );

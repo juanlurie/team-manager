@@ -29,67 +29,11 @@ const CONFIG_CARDS: ConfigCard[] = [
     color: '#4caf50'
   },
   {
-    icon: 'hub',
-    label: 'Integrations',
-    description: 'API actions, connected services and external calendar integrations.',
-    path: '/integrations',
-    color: '#2196f3'
-  },
-  {
-    icon: 'tune',
-    label: 'Config Variables',
-    description: 'Reusable values for request config templates — reference as {key}',
-    path: '/settings/config-variables',
-    color: '#64b5f6'
-  },
-  {
-    icon: 'key',
-    label: 'Credentials',
-    description: 'Manage stored cookies and tokens used by request configs and sync',
-    path: '/settings/credentials',
-    color: '#ce93d8'
-  },
-  {
-    icon: 'sync',
-    label: 'Sync Queue',
-    description: 'Review and manually send timesheet entries to external systems',
-    path: '/sync-queue',
-    color: '#ff9800'
-  },
-  {
-    icon: 'download',
-    label: 'Export',
-    description: 'Export sprint, team, and timesheet data',
-    path: '/export',
-    color: '#4caf50'
-  },
-  {
-    icon: 'receipt_long',
-    label: 'Expense Claim',
-    description: 'Submit and manage expense claims',
-    path: '/expense-claim',
-    color: '#ffa726'
-  },
-  {
-    icon: 'person_add',
-    label: 'Access Requests',
-    description: 'Review and approve team member access requests',
-    path: '/access-requests',
-    color: '#ef5350'
-  },
-  {
-    icon: 'event',
-    label: 'Session Types',
-    description: 'Define meeting session types and durations',
-    path: '/session-types',
-    color: '#9c27b0'
-  },
-  {
-    icon: 'location_on',
-    label: 'Slot Locations',
-    description: 'Manage physical or virtual meeting locations',
-    path: '/slot-locations',
-    color: '#ff9800'
+    icon: 'auto_awesome',
+    label: 'Showcase',
+    description: 'Tour of searches, TUI, MCP and feature highlights',
+    path: '/showcase',
+    color: '#26c6da'
   },
 ];
 

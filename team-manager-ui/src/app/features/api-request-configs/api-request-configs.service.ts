@@ -19,6 +19,9 @@ export interface MappingConfig {
   categoryNamePath: string;
   categoryIdPath: string;
   textResponsePath: string;
+  subjectPath?: string;
+  isAllDayPath?: string;
+  locationPath?: string;
 }
 
 export interface SuccessCriteria {
@@ -49,6 +52,7 @@ export interface ApiRequestConfig {
 
 export const REQUEST_ACTIONS = [
   { value: 'FetchLeave', label: 'Fetch Leave', icon: 'event_busy' },
+  { value: 'FetchCalendarEvents', label: 'Fetch Calendar Events', icon: 'calendar_month' },
   { value: 'AddTimesheetEntry', label: 'Add Timesheet Entry', icon: 'schedule' },
   { value: 'EditTimesheetEntry', label: 'Edit Timesheet Entry', icon: 'edit_calendar' },
   { value: 'DeleteTimesheetEntry', label: 'Delete Timesheet Entry', icon: 'delete_forever' },

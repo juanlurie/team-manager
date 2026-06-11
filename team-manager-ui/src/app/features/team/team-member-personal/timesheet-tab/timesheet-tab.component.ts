@@ -19,6 +19,7 @@ import { TimesheetConfigDialogComponent } from '../timesheet-config-dialog/times
 import { WebSocketService } from '../../../../core/websocket/websocket.service';
 import { TimesheetEntryCardComponent } from '../timesheet-entry-card/timesheet-entry-card.component';
 import { TimesheetQuickAddModalComponent, QuickAddData } from '../timesheet-quick-add-modal/timesheet-quick-add-modal.component';
+import { TimesheetImportDialogComponent, ImportDialogData, ImportResult } from '../timesheet-import-dialog/timesheet-import-dialog.component';
 
 interface Recent { project: string; category: string; durationMins: number; combo: QuickActionConfig | undefined; }
 const MN = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -27,7 +28,7 @@ const DN = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 @Component({
   selector: 'app-timesheet-tab',
   standalone: true,
-  imports: [CommonModule, FormsModule, MatDialogModule, MatTooltipModule, TimesheetEntryCardComponent],
+  imports: [CommonModule, FormsModule, MatDialogModule, MatTooltipModule, TimesheetEntryCardComponent, TimesheetImportDialogComponent],
   templateUrl: './timesheet-tab.component.html',
   styleUrls: ['./timesheet-tab.component.scss']
 })
@@ -48,6 +49,7 @@ export class TimesheetTabComponent implements OnInit, OnDestroy {
   loading = signal(false);
   syncing = signal(false);
   mobileAddOpen = signal(false);
+  importOpen = signal(false);
 
   tsConfig = signal<TimesheetConfig>({ extraProjects: [], extraCategories: {}, quickActions: [] });
 
@@ -198,6 +200,49 @@ export class TimesheetTabComponent implements OnInit, OnDestroy {
       } else {
         this.handleQuickAdd(result);
         if (r.addAnother) this.openQuickAdd();
+      }
+    });
+  }
+
+  openImport(mode: 'day' | 'week') {
+    const config = this.tsConfig();
+    const dayName = this.selectedDate().toLocaleDateString('en-US', { weekday: 'long' });
+    const dates = mode === 'day'
+      ? [this.selKey()]
+      : this.week().map(d => this.dk(d));
+
+    const dateLabel = mode === 'day'
+      ? this.selDateLabel()
+      : this.weekRange();
+
+    const data: ImportDialogData = {
+      mode,
+      dates,
+      dateLabel,
+      allCatMap: this.allCatMap(),
+      defaultProject: this.tsConfig().calendarDefaultProject,
+      defaultCategory: this.tsConfig().calendarDefaultCategory,
+      billableProjects: config.billableProjects ?? [],
+      workLocationOptions: config.workLocationOptions ?? ['Home', 'Client', 'Other'],
+      locationIcons: config.locationIcons ?? {},
+      defaultWorkedFrom: (config.workWeek ?? {})[dayName] ?? 'Home',
+    };
+
+    const ref = this.dialog.open(TimesheetImportDialogComponent, {
+      data,
+      panelClass: 'dark-dialog',
+      width: '760px',
+      maxWidth: '98vw',
+      autoFocus: false,
+    });
+
+    ref.afterClosed().subscribe((result: ImportResult | undefined) => {
+      if (!result?.entries?.length) return;
+      for (const { req } of result.entries) {
+        this.svc.create(this.memberId(), req).subscribe({
+          next: (entry: TimesheetEntry) => { this.entries.update(es => [...es, entry]); },
+          error: () => {}
+        });
       }
     });
   }

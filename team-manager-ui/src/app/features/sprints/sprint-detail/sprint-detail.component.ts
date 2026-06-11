@@ -409,7 +409,7 @@ export class SprintDetailComponent implements OnInit {
     });
     ref.afterClosed().subscribe(result => {
       if (result === 'delete') {
-        this.router.navigate(['/sprints']);
+        this.router.navigate(['/delivery/sprints']);
       } else if (result === 'reload') {
         this.load();
       }

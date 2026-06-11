@@ -30,7 +30,7 @@ interface FeatureView {
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:24px;flex-wrap:wrap">
       <div>
         <div style="display:flex;align-items:center;gap:8px">
-          <a mat-button [routerLink]="['/sprints', sprintId]"
+          <a mat-button [routerLink]="['/delivery/sprints', sprintId]"
              style="padding:0 8px 0 4px;gap:4px;color:rgba(255,255,255,0.55)">
             <mat-icon style="font-size:18px;width:18px;height:18px;line-height:18px">arrow_back</mat-icon>
             Sprints

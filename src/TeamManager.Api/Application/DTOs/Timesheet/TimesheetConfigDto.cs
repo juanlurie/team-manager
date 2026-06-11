@@ -14,7 +14,9 @@ public record TimesheetConfigDto(
     Dictionary<string, string> CategoryCorrelationIds,
     string? ExternalEmployeeId = null,
     Dictionary<string, string>? WorkLocationCorrelationIds = null,
-    bool DeduplicatePendingEditSync = false
+    bool DeduplicatePendingEditSync = false,
+    string? CalendarDefaultProject = null,
+    string? CalendarDefaultCategory = null
 );
 
 public record QuickActionConfigDto(
@@ -39,7 +41,9 @@ public record UpsertTimesheetConfigRequest(
     Dictionary<string, string>? CategoryCorrelationIds = null,
     string? ExternalEmployeeId = null,
     Dictionary<string, string>? WorkLocationCorrelationIds = null,
-    bool? DeduplicatePendingEditSync = null
+    bool? DeduplicatePendingEditSync = null,
+    string? CalendarDefaultProject = null,
+    string? CalendarDefaultCategory = null
 );
 
 public record QuickActionConfigRequest(

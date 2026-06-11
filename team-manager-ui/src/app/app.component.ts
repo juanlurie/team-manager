@@ -21,39 +21,33 @@ interface NavItem {
 }
 
 const ALL_PRIMARY_NAV: NavItem[] = [
-  { path: '/dashboard',      icon: 'dashboard',      label: 'Dashboard',    featureKey: 'dashboard' },
-  { path: '/sprints',        icon: 'directions_run',  label: 'Sprints',      featureKey: 'sprints' },
-  { path: '/features',       icon: 'view_list',       label: 'Features',     featureKey: 'features' },
-  { path: '/progress',       icon: 'track_changes',   label: 'Progress',     featureKey: 'progress' },
+  { path: '/dashboard',      icon: 'dashboard',       label: 'Dashboard',    featureKey: 'dashboard' },
+  { path: '/delivery',       icon: 'rocket_launch',   label: 'Delivery',     featureKey: 'features' },
   { path: '/discussion',     icon: 'forum',           label: 'Discussion',   featureKey: 'discussion' },
   { path: '/meetings',       icon: 'event',           label: 'Meetings',     featureKey: 'meetings' },
-  { path: '/fun',            icon: 'casino',          label: 'Fun Hub',      featureKey: 'fun-hub' },
   { path: '/team',           icon: 'people',          label: 'Team',         featureKey: 'team' },
-  { path: '/timesheet',      icon: 'schedule',        label: 'Timesheet',    featureKey: 'team' },
-  { path: '/leave',          icon: 'event_busy',      label: 'Leave',        featureKey: 'leave' },
+  { path: '/fun',            icon: 'casino',          label: 'Fun Hub',      featureKey: 'fun-hub' },
 ];
 
 const ALL_SECONDARY_NAV: NavItem[] = [
-  { path: '/settings', icon: 'settings', label: 'Settings', featureKey: 'settings' },
-  { path: '/profile', icon: 'person', label: 'Profile' },
+  { path: '/integrations', icon: 'hub',      label: 'Integrations', featureKey: 'settings' },
+  { path: '/settings',     icon: 'settings', label: 'Settings',     featureKey: 'settings' },
+  { path: '/profile',      icon: 'person',   label: 'Profile' },
 ];
 
 const ALL_BOTTOM_NAV: NavItem[] = [
-  { path: '/dashboard',      icon: 'dashboard',      label: 'Dashboard',    featureKey: 'dashboard' },
-  { path: '/sprints',        icon: 'directions_run',  label: 'Sprints',      featureKey: 'sprints' },
-  { path: '/fun',            icon: 'casino',          label: 'Fun Hub',      featureKey: 'fun-hub' },
-  { path: '/team',           icon: 'people',          label: 'Team',         featureKey: 'team' },
-  { path: '/timesheet',      icon: 'schedule',        label: 'Timesheet',    featureKey: 'team' },
-  { path: '/leave',          icon: 'event_busy',      label: 'Leave',        featureKey: 'leave' },
+  { path: '/dashboard',      icon: 'dashboard',       label: 'Dashboard',    featureKey: 'dashboard' },
+  { path: '/delivery',       icon: 'rocket_launch',   label: 'Delivery',     featureKey: 'features' },
+  { path: '/team/timesheet', icon: 'schedule',        label: 'Timesheet',    featureKey: 'team' },
+  { path: '/team/members',   icon: 'people',          label: 'Team',         featureKey: 'team' },
 ];
 
 const ALL_MORE_NAV: NavItem[] = [
-  { path: '/features',       icon: 'view_list',      label: 'Features',      featureKey: 'features' },
-  { path: '/progress',       icon: 'track_changes',  label: 'Progress',      featureKey: 'progress' },
+  { path: '/delivery',       icon: 'rocket_launch',  label: 'Delivery',      featureKey: 'features' },
   { path: '/discussion',     icon: 'forum',          label: 'Discussion',    featureKey: 'discussion' },
   { path: '/meetings',       icon: 'event',          label: 'Meetings',      featureKey: 'meetings' },
-  { path: '/timesheet',      icon: 'schedule',       label: 'Timesheet',     featureKey: 'team' },
-  { path: '/showcase',       icon: 'auto_awesome',   label: 'Showcase',      featureKey: 'showcase' },
+  { path: '/fun',            icon: 'casino',         label: 'Fun Hub',       featureKey: 'fun-hub' },
+  { path: '/integrations',   icon: 'hub',            label: 'Integrations',  featureKey: 'settings' },
   { path: '/settings',       icon: 'settings',       label: 'Settings',      featureKey: 'settings' },
   { path: '/profile',        icon: 'person',         label: 'Profile' },
 ];

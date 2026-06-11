@@ -1,20 +1,31 @@
-import { Component } from '@angular/core';
+import { Component, inject, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { FeatureAccessService } from '../../core/services/feature-access.service';
+
+interface DeliveryTab {
+  label: string;
+  route: string;
+  featureKey: string;
+}
+
+const DELIVERY_TABS: DeliveryTab[] = [
+  { label: 'Sprints',  route: 'sprints',  featureKey: 'sprints' },
+  { label: 'Features', route: 'features', featureKey: 'features' },
+  { label: 'Progress', route: 'progress', featureKey: 'progress' },
+  { label: 'Export',   route: 'export',   featureKey: 'export' },
+];
 
 @Component({
-  selector: 'app-meetings-hub',
+  selector: 'app-delivery-hub',
   standalone: true,
   imports: [CommonModule, RouterLink, RouterLinkActive, RouterOutlet],
   template: `
     <div class="hub">
       <nav class="hub-tabs" role="tablist">
-        <a class="hub-tab" routerLink="sessions" routerLinkActive="active" [routerLinkActiveOptions]="{exact: true}" role="tab">Sessions</a>
-        <a class="hub-tab" routerLink="series" routerLinkActive="active" role="tab">Series</a>
-        <a class="hub-tab" routerLink="my-meetings" routerLinkActive="active" role="tab">My Meetings</a>
-        <a class="hub-tab" routerLink="my-series" routerLinkActive="active" role="tab">My Series</a>
-        <a class="hub-tab" routerLink="locations" routerLinkActive="active" role="tab">Locations</a>
-        <a class="hub-tab" routerLink="session-types" routerLinkActive="active" role="tab">Session Types</a>
+        @for (tab of visibleTabs(); track tab.route) {
+          <a class="hub-tab" [routerLink]="tab.route" routerLinkActive="active" role="tab">{{ tab.label }}</a>
+        }
       </nav>
       <div class="hub-content">
         <router-outlet />
@@ -43,4 +54,7 @@ import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
     .hub-content { min-height:200px; }
   `]
 })
-export class MeetingsHubComponent {}
+export class DeliveryHubComponent {
+  private featureAccess = inject(FeatureAccessService);
+  visibleTabs = computed(() => DELIVERY_TABS.filter(t => this.featureAccess.hasAccess(t.featureKey)));
+}

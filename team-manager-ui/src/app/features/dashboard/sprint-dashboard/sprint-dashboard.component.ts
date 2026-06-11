@@ -131,7 +131,7 @@ export class SprintDashboardComponent implements OnInit, OnDestroy {
   stats = () => {
     const s = this.summary();
     if (!s) return [];
-    const sprintRoute = ['/sprints', this.selectedSprintId];
+    const sprintRoute = ['/delivery/sprints', this.selectedSprintId];
     return [
       { label: 'Members',     value: s.totalMembers,    color: '#64b5f6', bg: 'rgba(100,181,246,0.07)', border: 'rgba(100,181,246,0.2)', route: ['/team'],   queryParams: null },
       { label: 'In Progress', value: s.inProgressCount, color: '#ffb74d', bg: 'rgba(255,183,77,0.07)',  border: 'rgba(255,183,77,0.2)', route: sprintRoute, queryParams: null },

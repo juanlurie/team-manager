@@ -20,7 +20,7 @@ const STATUS_COLOR: Record<string, string> = {
   standalone: true,
   imports: [CommonModule, RouterLink, MatIconModule, MatChipsModule, MatTooltipModule, IconButtonComponent],
   template: `
-    <a [routerLink]="['/sprints', sprint().id]"
+    <a [routerLink]="['/delivery/sprints', sprint().id]"
        style="padding:18px 20px;border-radius:12px;display:block;text-decoration:none;color:inherit;cursor:pointer;
               background:linear-gradient(135deg,rgba(100,181,246,0.12),rgba(100,181,246,0.04));
               border:1px solid rgba(100,181,246,0.25);transition:border-color 0.15s,background 0.15s"

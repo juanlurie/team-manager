@@ -17,6 +17,7 @@ const routeFeatureMap: Record<string, string> = {
   'export': 'export',
   'settings': 'settings',
   'access-requests': 'access-requests',
+  'integrations': 'settings',
   'sync-queue': 'settings',
   'request-configs': 'settings',
   'pis': 'features',

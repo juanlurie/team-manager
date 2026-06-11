@@ -163,7 +163,7 @@ interface MilestoneCreateDialogData {
         } @else {
           <div style="display:flex;flex-direction:column;gap:8px">
             @for (s of sprints(); track s.id) {
-              <a [routerLink]="['/sprints', s.id]"
+              <a [routerLink]="['/delivery/sprints', s.id]"
                  style="display:flex;align-items:center;gap:12px;padding:10px 16px;border-radius:8px;
                         background:rgba(255,255,255,0.03);text-decoration:none;color:inherit;transition:background 0.15s"
                  [style.background.hover]="'rgba(255,255,255,0.06)'">
