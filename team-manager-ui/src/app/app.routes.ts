@@ -68,8 +68,13 @@ export const routes: Routes = [
         loadComponent: () => import('./features/showcase/features-showcase.component').then(m => m.FeaturesShowcaseComponent)
       },
       {
-        path: 'request-configs',
+        path: 'integrations',
         loadComponent: () => import('./features/api-request-configs/api-request-configs.component').then(m => m.ApiRequestConfigsComponent)
+      },
+      {
+        path: 'request-configs',
+        redirectTo: 'integrations',
+        pathMatch: 'full'
       },
       {
         path: 'sync-queue',

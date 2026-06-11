@@ -29,10 +29,10 @@ const CONFIG_CARDS: ConfigCard[] = [
     color: '#4caf50'
   },
   {
-    icon: 'api',
-    label: 'Request Configs',
-    description: 'API request templates tied to actions: fetch leave, add timesheet, etc.',
-    path: '/request-configs',
+    icon: 'hub',
+    label: 'Integrations',
+    description: 'API actions, connected services and external calendar integrations.',
+    path: '/integrations',
     color: '#2196f3'
   },
   {

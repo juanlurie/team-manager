@@ -11,6 +11,8 @@ import { MatDialog, MatDialogModule, MatDialogRef, MAT_DIALOG_DATA } from '@angu
 import { MatTableModule } from '@angular/material/table';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { FormsModule } from '@angular/forms';
+import { ActivatedRoute } from '@angular/router';
+import { OutlookCalendarService, OutlookStatus, OutlookEvent } from './outlook-calendar.service';
 import {
   ApiRequestConfigsService,
   ApiRequestConfig,
@@ -34,23 +36,118 @@ import { ConfigVariablesService } from '../settings/config-variables/config-vari
     <div class="configs-page">
       <div class="page-header">
         <div class="header-left">
-          <mat-icon class="header-icon">api</mat-icon>
+          <mat-icon class="header-icon">hub</mat-icon>
           <div>
-            <h1>API Request Configs</h1>
-            <span class="subtitle">Configure outbound API calls for sync, AI, and webhooks</span>
+            <h1>Integrations</h1>
+            <span class="subtitle">Connected services and outbound API actions</span>
           </div>
         </div>
-        <div class="header-actions">
-          <button class="action-btn" (click)="exportConfigs()" matTooltip="Download all configs">
-            <mat-icon>download</mat-icon> Export
-          </button>
-          <button class="action-btn" (click)="triggerImport()" matTooltip="Import configs from JSON">
-            <mat-icon>upload</mat-icon> Import
-          </button>
-          <button class="primary-btn" (click)="openDialog()">
-            <mat-icon>add</mat-icon> New Config
-          </button>
+      </div>
+
+      <!-- Connected Services -->
+      <div class="section-header">
+        <mat-icon class="section-icon">link</mat-icon>
+        <span>Connected Services</span>
+      </div>
+
+      <div class="services-grid">
+        <!-- Outlook Calendar -->
+        <div class="service-card" [class.service-card--connected]="outlookStatus()?.isConnected">
+          <div class="service-card__header">
+            <div class="service-card__logo">
+              <svg viewBox="0 0 24 24" fill="none" width="32" height="32">
+                <rect width="24" height="24" rx="4" fill="#0078D4"/>
+                <path d="M4 7h10v10H4z" fill="#fff" opacity=".9"/>
+                <path d="M14 7h6v4h-6z" fill="#50E6FF" opacity=".9"/>
+                <path d="M14 11h6v3h-6z" fill="#fff" opacity=".7"/>
+                <path d="M14 14h6v3h-6z" fill="#50E6FF" opacity=".6"/>
+                <path d="M6 9.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5z" fill="#0078D4"/>
+              </svg>
+            </div>
+            <div class="service-card__info">
+              <div class="service-card__name">Microsoft Outlook</div>
+              <div class="service-card__desc">Read your calendar events</div>
+            </div>
+            @if (outlookStatus()?.isConnected) {
+              <span class="service-badge service-badge--on">Connected</span>
+            } @else {
+              <span class="service-badge service-badge--off">Not connected</span>
+            }
+          </div>
+
+          @if (outlookStatus()?.isConnected) {
+            <div class="service-card__account">
+              <mat-icon style="font-size:14px;width:14px;height:14px;color:rgba(255,255,255,0.4)">account_circle</mat-icon>
+              <span>{{ outlookStatus()!.accountEmail }}</span>
+              <button class="disconnect-btn" (click)="disconnectOutlook()" [disabled]="outlookConnecting()">Disconnect</button>
+            </div>
+
+            <!-- Events -->
+            @if (outlookEventsLoading()) {
+              <div class="events-loading"><span class="loading-dot"></span><span class="loading-dot"></span><span class="loading-dot"></span></div>
+            } @else {
+              <div class="events-section">
+                <div class="events-week-nav">
+                  <button class="week-nav-btn" (click)="prevWeek()" matTooltip="Previous week"><mat-icon>chevron_left</mat-icon></button>
+                  <span class="week-label">{{ weekLabel() }}</span>
+                  <button class="week-nav-btn" (click)="nextWeek()" matTooltip="Next week"><mat-icon>chevron_right</mat-icon></button>
+                </div>
+                @if (groupedEvents().length === 0) {
+                  <p class="events-empty">No events this week.</p>
+                } @else {
+                  @for (group of groupedEvents(); track group.date) {
+                    <div class="event-group">
+                      <div class="event-group__date">{{ group.label }}</div>
+                      @for (evt of group.events; track evt.subject + evt.start) {
+                        <div class="event-item" [class.event-item--allday]="evt.isAllDay" [class.event-item--oom]="evt.showAs === 'oof'">
+                          <div class="event-item__time">
+                            @if (evt.isAllDay) { <span>All day</span> }
+                            @else { <span>{{ formatTime(evt.start) }} – {{ formatTime(evt.end) }}</span> }
+                          </div>
+                          <div class="event-item__subject">{{ evt.subject }}</div>
+                          @if (evt.location) {
+                            <div class="event-item__loc"><mat-icon style="font-size:11px;width:11px;height:11px">place</mat-icon> {{ evt.location }}</div>
+                          }
+                          @if (evt.isOnlineMeeting && evt.joinUrl) {
+                            <a class="event-item__join" [href]="evt.joinUrl" target="_blank" rel="noopener">
+                              <mat-icon style="font-size:12px;width:12px;height:12px">videocam</mat-icon> Join
+                            </a>
+                          }
+                        </div>
+                      }
+                    </div>
+                  }
+                }
+              </div>
+            }
+          } @else {
+            <div class="service-card__connect">
+              <p class="service-card__hint">
+                Connect your Microsoft account to view your Outlook calendar directly here.
+                Requires <code>OUTLOOK_CLIENT_ID</code> and <code>OUTLOOK_CLIENT_SECRET</code> config variables.
+              </p>
+              <button class="connect-btn" (click)="connectOutlook()" [disabled]="outlookConnecting()">
+                @if (outlookConnecting()) { Connecting… } @else { Connect Outlook }
+              </button>
+            </div>
+          }
         </div>
+      </div>
+
+      <!-- API Actions -->
+      <div class="section-header" style="margin-top: 32px">
+        <mat-icon class="section-icon">api</mat-icon>
+        <span>API Actions</span>
+        <div style="flex:1"></div>
+        <button class="action-btn" (click)="exportConfigs()" matTooltip="Export all">
+          <mat-icon>download</mat-icon>
+        </button>
+        <button class="action-btn" (click)="triggerImport()" matTooltip="Import from JSON">
+          <mat-icon>upload</mat-icon>
+        </button>
+        <button class="primary-btn" (click)="openDialog()">
+          <mat-icon>add</mat-icon> New
+        </button>
       </div>
 
       @if (loading()) {
@@ -59,8 +156,8 @@ import { ConfigVariablesService } from '../settings/config-variables/config-vari
         @if (configs().length === 0) {
           <div class="empty-state">
             <mat-icon>api</mat-icon>
-            <p>No request configs yet.</p>
-            <button class="primary-btn" (click)="openDialog()"><mat-icon>add</mat-icon> Create your first config</button>
+            <p>No API actions configured yet.</p>
+            <button class="primary-btn" (click)="openDialog()"><mat-icon>add</mat-icon> Create your first action</button>
           </div>
         } @else {
           <div class="configs-list">
@@ -110,7 +207,7 @@ import { ConfigVariablesService } from '../settings/config-variables/config-vari
     </div>
   `,
   styles: [`
-    .configs-page { max-width: 900px; margin: 0 auto; padding: 8px; overflow-x: hidden; }
+    .configs-page { max-width: 900px; margin: 0 auto; padding: 8px 8px 80px; overflow-x: hidden; }
 
     .page-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 24px; flex-wrap: wrap; gap: 12px; }
     .header-left { display: flex; align-items: center; gap: 12px; }
@@ -118,6 +215,51 @@ import { ConfigVariablesService } from '../settings/config-variables/config-vari
     h1 { font-size: 1.3rem; font-weight: 700; color: rgba(255,255,255,0.9); margin: 0 0 2px; }
     .subtitle { font-size: 0.8rem; color: rgba(255,255,255,0.4); }
     .header-actions { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+
+    .section-header { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; font-size: 0.82rem; font-weight: 700; color: rgba(255,255,255,0.5); text-transform: uppercase; letter-spacing: 0.6px; }
+    .section-icon { font-size: 16px; width: 16px; height: 16px; }
+
+    .services-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 12px; }
+    .service-card { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 16px; transition: border-color 0.2s; }
+    .service-card--connected { border-color: rgba(0,120,212,0.4); background: rgba(0,120,212,0.05); }
+    .service-card__header { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+    .service-card__logo { flex-shrink: 0; }
+    .service-card__info { flex: 1; }
+    .service-card__name { font-size: 0.95rem; font-weight: 700; color: rgba(255,255,255,0.88); }
+    .service-card__desc { font-size: 0.75rem; color: rgba(255,255,255,0.4); margin-top: 2px; }
+    .service-badge { padding: 3px 8px; border-radius: 10px; font-size: 0.7rem; font-weight: 700; }
+    .service-badge--on { background: rgba(0,120,212,0.2); color: #50E6FF; }
+    .service-badge--off { background: rgba(255,255,255,0.07); color: rgba(255,255,255,0.35); }
+    .service-card__account { display: flex; align-items: center; gap: 6px; font-size: 0.78rem; color: rgba(255,255,255,0.55); margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.07); }
+    .service-card__account span { flex: 1; }
+    .service-card__connect { }
+    .service-card__hint { font-size: 0.78rem; color: rgba(255,255,255,0.4); margin: 0 0 12px; line-height: 1.5; }
+    .service-card__hint code { background: rgba(255,255,255,0.08); padding: 1px 5px; border-radius: 3px; font-size: 0.75rem; }
+    .connect-btn { background: rgba(0,120,212,0.15); border: 1px solid rgba(0,120,212,0.45); color: #50E6FF; padding: 7px 16px; border-radius: 6px; font-size: 0.83rem; font-weight: 600; cursor: pointer; font-family: inherit; transition: all 0.12s; }
+    .connect-btn:hover:not(:disabled) { background: rgba(0,120,212,0.28); }
+    .connect-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .disconnect-btn { background: transparent; border: 1px solid rgba(239,83,80,0.35); color: rgba(239,83,80,0.7); padding: 3px 10px; border-radius: 5px; font-size: 0.75rem; cursor: pointer; font-family: inherit; transition: all 0.12s; flex-shrink: 0; }
+    .disconnect-btn:hover:not(:disabled) { border-color: #ef5350; color: #ef5350; }
+    .disconnect-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    .events-loading { display: flex; gap: 5px; justify-content: center; padding: 16px; }
+    .events-section { }
+    .events-week-nav { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+    .week-label { flex: 1; text-align: center; font-size: 0.8rem; font-weight: 600; color: rgba(255,255,255,0.65); }
+    .week-nav-btn { background: transparent; border: none; color: rgba(255,255,255,0.4); cursor: pointer; padding: 2px; display: flex; align-items: center; border-radius: 4px; }
+    .week-nav-btn:hover { color: rgba(255,255,255,0.75); background: rgba(255,255,255,0.07); }
+    .week-nav-btn mat-icon { font-size: 18px; width: 18px; height: 18px; }
+    .events-empty { text-align: center; font-size: 0.8rem; color: rgba(255,255,255,0.3); padding: 12px; margin: 0; }
+    .event-group { margin-bottom: 10px; }
+    .event-group__date { font-size: 0.72rem; font-weight: 700; color: rgba(255,255,255,0.4); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; padding-bottom: 4px; border-bottom: 1px solid rgba(255,255,255,0.06); }
+    .event-item { padding: 6px 8px; border-radius: 6px; background: rgba(255,255,255,0.04); margin-bottom: 3px; border-left: 2px solid rgba(0,120,212,0.5); }
+    .event-item--allday { border-left-color: rgba(76,175,80,0.5); }
+    .event-item--oom { border-left-color: rgba(239,83,80,0.5); background: rgba(239,83,80,0.04); }
+    .event-item__time { font-size: 0.7rem; color: rgba(255,255,255,0.4); margin-bottom: 2px; }
+    .event-item__subject { font-size: 0.82rem; font-weight: 600; color: rgba(255,255,255,0.85); line-height: 1.3; }
+    .event-item__loc { font-size: 0.7rem; color: rgba(255,255,255,0.35); margin-top: 2px; display: flex; align-items: center; gap: 2px; }
+    .event-item__join { display: inline-flex; align-items: center; gap: 3px; margin-top: 4px; font-size: 0.72rem; color: #50E6FF; text-decoration: none; }
+    .event-item__join:hover { text-decoration: underline; }
 
     .action-btn { display: inline-flex; align-items: center; gap: 4px; padding: 6px 12px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; color: rgba(255,255,255,0.7); font-size: 0.8rem; cursor: pointer; font-family: inherit; transition: all 0.12s; }
     .action-btn mat-icon { font-size: 16px; width: 16px; height: 16px; }
@@ -173,26 +315,126 @@ export class ApiRequestConfigsComponent implements OnInit {
   private snackBar = inject(MatSnackBar);
   private dialog = inject(MatDialog);
   private credentials = inject(CredentialsService);
+  private outlookSvc = inject(OutlookCalendarService);
+  private route = inject(ActivatedRoute);
 
   loading = signal(true);
   configs = signal<ApiRequestConfig[]>([]);
 
+  outlookStatus = signal<OutlookStatus | null>(null);
+  outlookConnecting = signal(false);
+  outlookEvents = signal<OutlookEvent[]>([]);
+  outlookEventsLoading = signal(false);
+  calendarWeekOffset = signal(0);
+
+  readonly weekLabel = () => {
+    const start = this.weekStart();
+    const end = new Date(start);
+    end.setDate(end.getDate() + 6);
+    const fmt = (d: Date) => d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+    return `${fmt(start)} – ${fmt(end)}`;
+  };
+
+  private weekStart(): Date {
+    const now = new Date();
+    const day = now.getDay();
+    const monday = new Date(now);
+    monday.setDate(now.getDate() - (day === 0 ? 6 : day - 1) + this.calendarWeekOffset() * 7);
+    monday.setHours(0, 0, 0, 0);
+    return monday;
+  }
+
+  readonly groupedEvents = () => {
+    const events = this.outlookEvents();
+    const groups = new Map<string, OutlookEvent[]>();
+    for (const evt of events) {
+      const key = evt.start.substring(0, 10);
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)!.push(evt);
+    }
+    return Array.from(groups.entries()).map(([date, evts]) => ({
+      date,
+      label: this.formatDateLabel(date),
+      events: evts
+    }));
+  };
+
   ngOnInit() {
     this.load();
+    this.loadOutlookStatus();
+    const params = this.route.snapshot.queryParamMap;
+    if (params.get('outlook') === 'connected') {
+      this.snackBar.open('Outlook Calendar connected!', 'Close', { duration: 4000 });
+    } else if (params.get('outlook_error')) {
+      this.snackBar.open('Outlook connection failed: ' + params.get('outlook_error'), 'Close', { duration: 5000 });
+    }
   }
 
   load() {
     this.loading.set(true);
     this.svc.list().subscribe({
-      next: (data) => {
-        this.configs.set(data);
-        this.loading.set(false);
-      },
-      error: () => {
-        this.loading.set(false);
-        this.snackBar.open('Failed to load configs', 'Close', { duration: 3000 });
+      next: (data) => { this.configs.set(data); this.loading.set(false); },
+      error: () => { this.loading.set(false); this.snackBar.open('Failed to load configs', 'Close', { duration: 3000 }); }
+    });
+  }
+
+  loadOutlookStatus() {
+    this.outlookSvc.getStatus().subscribe({
+      next: (status) => {
+        this.outlookStatus.set(status);
+        if (status.isConnected) this.loadOutlookEvents();
       }
     });
+  }
+
+  loadOutlookEvents() {
+    this.outlookEventsLoading.set(true);
+    const start = this.weekStart();
+    const end = new Date(start);
+    end.setDate(end.getDate() + 7);
+    this.outlookSvc.getEvents(start, end).subscribe({
+      next: (evts) => { this.outlookEvents.set(evts); this.outlookEventsLoading.set(false); },
+      error: () => { this.outlookEventsLoading.set(false); }
+    });
+  }
+
+  prevWeek() { this.calendarWeekOffset.update(v => v - 1); this.loadOutlookEvents(); }
+  nextWeek() { this.calendarWeekOffset.update(v => v + 1); this.loadOutlookEvents(); }
+
+  connectOutlook() {
+    this.outlookConnecting.set(true);
+    this.outlookSvc.getAuthUrl().subscribe({
+      next: ({ url }) => { window.location.href = url; },
+      error: (err) => {
+        this.outlookConnecting.set(false);
+        const msg = err.error?.error ?? 'Failed to get auth URL. Check OUTLOOK_CLIENT_ID config variable.';
+        this.snackBar.open(msg, 'Close', { duration: 5000 });
+      }
+    });
+  }
+
+  disconnectOutlook() {
+    if (!confirm('Disconnect Outlook Calendar?')) return;
+    this.outlookSvc.disconnect().subscribe({
+      next: () => {
+        this.outlookStatus.set({ isConnected: false, accountEmail: null, connectedAt: null });
+        this.outlookEvents.set([]);
+        this.snackBar.open('Outlook disconnected', 'Close', { duration: 3000 });
+      }
+    });
+  }
+
+  formatTime(iso: string): string {
+    return new Date(iso + 'Z').toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+  }
+
+  formatDateLabel(dateStr: string): string {
+    const d = new Date(dateStr + 'T00:00:00');
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today); tomorrow.setDate(today.getDate() + 1);
+    if (d.getTime() === today.getTime()) return 'Today';
+    if (d.getTime() === tomorrow.getTime()) return 'Tomorrow';
+    return d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
   }
 
   getActionIcon(action: string): string {
