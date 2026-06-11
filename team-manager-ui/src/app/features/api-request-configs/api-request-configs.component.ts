@@ -807,7 +807,7 @@ export class ApiRequestConfigsComponent implements OnInit {
     </div>
   `,
   styles: [`
-    .dialog-content { width: min(600px, 96vw); box-sizing: border-box; overflow-x: hidden; }
+    .dialog-content { width: min(600px, 96vw); box-sizing: border-box; }
 
     .dialog-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px 0; }
     .dialog-title-row { display: flex; align-items: center; gap: 10px; }
