@@ -110,7 +110,7 @@ import { ConfigVariablesService } from '../settings/config-variables/config-vari
     </div>
   `,
   styles: [`
-    .configs-page { max-width: 900px; margin: 0 auto; padding: 8px; }
+    .configs-page { max-width: 900px; margin: 0 auto; padding: 8px; overflow-x: hidden; }
 
     .page-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 24px; flex-wrap: wrap; gap: 12px; }
     .header-left { display: flex; align-items: center; gap: 12px; }
@@ -151,9 +151,9 @@ import { ConfigVariablesService } from '../settings/config-variables/config-vari
     .card-action-row { display: flex; align-items: baseline; gap: 8px; }
     .action-label { font-size: 0.75rem; color: rgba(255,255,255,0.4); font-weight: 500; }
     .card-desc { font-size: 0.75rem; color: rgba(255,255,255,0.3); }
-    .card-url-row { display: flex; align-items: center; gap: 4px; }
+    .card-url-row { display: flex; align-items: center; gap: 4px; min-width: 0; overflow: hidden; }
     .url-icon { font-size: 12px; width: 12px; height: 12px; color: rgba(255,255,255,0.25); flex-shrink: 0; }
-    .card-url { font-size: 0.72rem; font-family: monospace; color: rgba(255,255,255,0.3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .card-url { font-size: 0.72rem; font-family: monospace; color: rgba(255,255,255,0.3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
     .card-actions { display: flex; flex-direction: column; justify-content: center; padding: 0 4px; }
     .delete-btn { color: rgba(239,83,80,0.6); }
     .delete-btn:hover { color: #ef5350; }
@@ -807,7 +807,7 @@ export class ApiRequestConfigsComponent implements OnInit {
     </div>
   `,
   styles: [`
-    .dialog-content { width: min(600px, 96vw); box-sizing: border-box; }
+    .dialog-content { width: min(600px, 96vw); box-sizing: border-box; overflow-x: hidden; }
 
     .dialog-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px 0; }
     .dialog-title-row { display: flex; align-items: center; gap: 10px; }
@@ -849,15 +849,16 @@ export class ApiRequestConfigsComponent implements OnInit {
     .add-row-btn mat-icon { font-size: 18px; width: 18px; height: 18px; }
 
     .full-width { width: 100%; }
-    .half-width { flex: 1; min-width: 120px; }
+    .half-width { flex: 1; min-width: 80px; }
     .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 4px; }
-    @media (max-width: 440px) { .two-col { grid-template-columns: 1fr; } }
+    @media (max-width: 500px) { .two-col { grid-template-columns: 1fr; } }
 
     .toggle-row { display: flex; gap: 20px; flex-wrap: wrap; padding: 4px 0 8px; }
     .toggle-item { display: flex; align-items: center; gap: 8px; }
     .toggle-hint { font-size: 0.72rem; color: rgba(255,255,255,0.3); }
 
-    .header-row { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 4px; }
+    .header-row { display: flex; align-items: flex-start; gap: 6px; margin-bottom: 4px; flex-wrap: nowrap; }
+    @media (max-width: 400px) { .header-row { flex-wrap: wrap; } }
     .remove-btn { margin-top: 4px; flex-shrink: 0; color: rgba(239,83,80,0.5); }
     .remove-btn:hover { color: #ef5350; }
     .lock-btn { margin-top: 4px; flex-shrink: 0; }
