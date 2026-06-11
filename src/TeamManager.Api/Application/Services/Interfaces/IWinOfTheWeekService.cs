@@ -17,4 +17,5 @@ public interface IWinOfTheWeekService
     Task<WinWeekDto> StartSuddenDeathAsync(Guid memberId, Guid seriesId, StartSuddenDeathRequest request);
     Task<IReadOnlyList<WinWeekHistoryDto>> GetHistoryAsync(Guid seriesId, int? year = null, int limit = 52);
     Task<WinWeekDetailDto> GetWeekDetailAsync(Guid weekId, Guid memberId);
+    Task AutoCloseExpiredSuddenDeathAsync(Guid weekId);
 }

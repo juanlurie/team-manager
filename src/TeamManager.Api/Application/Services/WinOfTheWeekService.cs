@@ -735,6 +735,13 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
         catch { return null; }
     }
 
+    public async Task AutoCloseExpiredSuddenDeathAsync(Guid weekId)
+    {
+        var week = await db.WinWeeks.FindAsync(weekId);
+        if (week is null || week.Status != WinWeekStatus.SuddenDeath) return;
+        await CheckAndAutoCloseSuddenDeathAsync(week, force: true);
+    }
+
     private async Task CheckAndAutoCloseSuddenDeathAsync(WinWeek week, bool force = false)
     {
         if (string.IsNullOrEmpty(week.TiedNominationIds)) return;

@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using Microsoft.EntityFrameworkCore;
 using TeamManager.Api.Application.DTOs.WinOfTheWeek;
+using TeamManager.Api.Application.Services.Interfaces;
 using TeamManager.Api.Domain.Entities;
 using TeamManager.Api.Domain.Enums;
 using TeamManager.Api.Infrastructure.Data;
@@ -8,7 +9,7 @@ using TeamManager.Api.Middleware;
 
 namespace TeamManager.Api.Application.Services;
 
-public class GuestWinOfTheWeekService(AppDbContext db, IHttpContextAccessor httpContextAccessor)
+public class GuestWinOfTheWeekService(AppDbContext db, IHttpContextAccessor httpContextAccessor, IWinOfTheWeekService wowService)
 {
     private const int MaxVotesPerPerson = 3;
     public async Task<GuestTokenDto> GetOrGenerateGuestTokenAsync(Guid weekId)
@@ -35,6 +36,16 @@ public class GuestWinOfTheWeekService(AppDbContext db, IHttpContextAccessor http
         var week = await db.WinWeeks
             .FirstOrDefaultAsync(w => w.GuestToken == token)
             ?? throw new KeyNotFoundException("Invalid or expired guest link.");
+
+        if (week.Status == WinWeekStatus.SuddenDeath &&
+            week.SuddenDeathEndsAt.HasValue &&
+            DateTimeOffset.UtcNow > week.SuddenDeathEndsAt.Value)
+        {
+            await wowService.AutoCloseExpiredSuddenDeathAsync(week.Id);
+            // Reload week state after auto-close
+            db.Entry(week).State = Microsoft.EntityFrameworkCore.EntityState.Detached;
+            week = await db.WinWeeks.FirstAsync(w => w.GuestToken == token);
+        }
 
         var nominations = await db.WinNominations
             .Include(n => n.TeamMember)
@@ -82,6 +93,7 @@ public class GuestWinOfTheWeekService(AppDbContext db, IHttpContextAccessor http
             WinnerNomineeName = winner != null ? $"{winner.Nominee.FirstName} {winner.Nominee.LastName}" : null,
             WinnerTitle = winner?.Title,
             WinnerStory = week.WinnerStory,
+            SuddenDeathEndsAt = week.SuddenDeathEndsAt,
             TiedNominationIds = !string.IsNullOrEmpty(week.TiedNominationIds)
                 ? System.Text.Json.JsonSerializer.Deserialize<List<Guid>>(week.TiedNominationIds) ?? []
                 : [],
