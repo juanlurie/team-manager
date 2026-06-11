@@ -1,20 +1,33 @@
-import { Component } from '@angular/core';
+import { Component, inject, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { FeatureAccessService } from '../../core/services/feature-access.service';
+
+interface TeamTab {
+  label: string;
+  route: string;
+  featureKey: string;
+  exact?: boolean;
+}
+
+const TEAM_TABS: TeamTab[] = [
+  { label: 'Members',  route: 'members',       featureKey: 'team' },
+  { label: 'Timesheet', route: 'timesheet',    featureKey: 'team' },
+  { label: 'Leave',    route: 'leave',         featureKey: 'leave' },
+  { label: 'Expenses',        route: 'expense-claim',  featureKey: 'expense-claim' },
+  { label: 'Access Requests', route: 'access-requests', featureKey: 'access-requests' },
+];
 
 @Component({
-  selector: 'app-meetings-hub',
+  selector: 'app-team-hub',
   standalone: true,
   imports: [CommonModule, RouterLink, RouterLinkActive, RouterOutlet],
   template: `
     <div class="hub">
       <nav class="hub-tabs" role="tablist">
-        <a class="hub-tab" routerLink="sessions" routerLinkActive="active" [routerLinkActiveOptions]="{exact: true}" role="tab">Sessions</a>
-        <a class="hub-tab" routerLink="series" routerLinkActive="active" role="tab">Series</a>
-        <a class="hub-tab" routerLink="my-meetings" routerLinkActive="active" role="tab">My Meetings</a>
-        <a class="hub-tab" routerLink="my-series" routerLinkActive="active" role="tab">My Series</a>
-        <a class="hub-tab" routerLink="locations" routerLinkActive="active" role="tab">Locations</a>
-        <a class="hub-tab" routerLink="session-types" routerLinkActive="active" role="tab">Session Types</a>
+        @for (tab of visibleTabs(); track tab.route) {
+          <a class="hub-tab" [routerLink]="tab.route" routerLinkActive="active" role="tab">{{ tab.label }}</a>
+        }
       </nav>
       <div class="hub-content">
         <router-outlet />
@@ -22,7 +35,7 @@ import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
     </div>
   `,
   styles: [`
-    .hub { max-width:900px;margin:0 auto;padding:8px; }
+    .hub { max-width:1100px;margin:0 auto;padding:8px; }
     .hub-tabs {
       display:flex;gap:0;margin-bottom:16px;
       border-bottom:1px solid rgba(255,255,255,0.08);
@@ -43,4 +56,7 @@ import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
     .hub-content { min-height:200px; }
   `]
 })
-export class MeetingsHubComponent {}
+export class TeamHubComponent {
+  private featureAccess = inject(FeatureAccessService);
+  visibleTabs = computed(() => TEAM_TABS.filter(t => this.featureAccess.hasAccess(t.featureKey)));
+}

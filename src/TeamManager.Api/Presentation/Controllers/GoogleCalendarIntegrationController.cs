@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using TeamManager.Api.Domain.Entities;
 using TeamManager.Api.Infrastructure.Data;
+using TeamManager.Api.Middleware;
 
 namespace TeamManager.Api.Presentation.Controllers;
 
@@ -13,7 +14,8 @@ namespace TeamManager.Api.Presentation.Controllers;
 public class GoogleCalendarIntegrationController(
     AppDbContext db,
     IHttpClientFactory httpClientFactory,
-    IHttpContextAccessor httpContextAccessor) : ControllerBase
+    IHttpContextAccessor httpContextAccessor,
+    ILogger<GoogleCalendarIntegrationController> logger) : ControllerBase
 {
     private const string Scopes = "openid email https://www.googleapis.com/auth/calendar.readonly";
 
@@ -94,7 +96,9 @@ public class GoogleCalendarIntegrationController(
             email = meDoc.RootElement.TryGetProperty("email", out var e) ? e.GetString() ?? "" : "";
         }
 
-        var existing = await db.GoogleCalendarTokens.FirstOrDefaultAsync(t => t.TeamMemberId == memberId);
+        // Match by email within this member's tokens (allows multiple accounts)
+        var existing = await db.GoogleCalendarTokens.FirstOrDefaultAsync(t =>
+            t.TeamMemberId == memberId && t.AccountEmail == email);
         if (existing is not null)
         {
             existing.AccessToken = accessToken;
@@ -122,84 +126,41 @@ public class GoogleCalendarIntegrationController(
     [HttpGet("status")]
     public async Task<IActionResult> GetStatus()
     {
-        var token = await db.GoogleCalendarTokens.FirstOrDefaultAsync(t => t.TeamMemberId == GetMemberId());
-        if (token is null)
-            return Ok(new { isConnected = false, accountEmail = (string?)null });
-        return Ok(new { isConnected = true, accountEmail = token.AccountEmail, connectedAt = token.ConnectedAt });
+        var tokens = await db.GoogleCalendarTokens
+            .Where(t => t.TeamMemberId == GetMemberId())
+            .OrderBy(t => t.ConnectedAt)
+            .ToListAsync();
+        return Ok(new
+        {
+            isConnected = tokens.Count > 0,
+            accounts = tokens.Select(t => new { id = t.Id, accountEmail = t.AccountEmail, connectedAt = t.ConnectedAt })
+        });
     }
 
     [HttpGet("events")]
     public async Task<IActionResult> GetEvents([FromQuery] string start, [FromQuery] string end)
     {
-        var token = await db.GoogleCalendarTokens.FirstOrDefaultAsync(t => t.TeamMemberId == GetMemberId());
-        if (token is null)
+        var tokens = await db.GoogleCalendarTokens
+            .Where(t => t.TeamMemberId == GetMemberId())
+            .ToListAsync();
+        if (tokens.Count == 0)
             return Unauthorized(new { error = "Google Calendar not connected." });
 
-        var accessToken = await GetValidAccessTokenAsync(token);
-
-        var client = httpClientFactory.CreateClient();
-        client.DefaultRequestHeaders.Authorization =
-            new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", accessToken);
-
-        var url = "https://www.googleapis.com/calendar/v3/calendars/primary/events"
-            + "?timeMin=" + Uri.EscapeDataString(start)
-            + "&timeMax=" + Uri.EscapeDataString(end)
-            + "&singleEvents=true"
-            + "&orderBy=startTime"
-            + "&maxResults=100"
-            + "&fields=items(summary,start,end,location,hangoutLink,conferenceData,status,transparency)";
-
-        var resp = await client.GetAsync(url);
-        if (!resp.IsSuccessStatusCode)
-            return StatusCode((int)resp.StatusCode, new { error = "Failed to fetch calendar events." });
-
-        using var doc = JsonDocument.Parse(await resp.Content.ReadAsStringAsync());
-        var events = doc.RootElement.GetProperty("items").EnumerateArray()
-            .Where(e => !(e.TryGetProperty("status", out var s) && s.GetString() == "cancelled"))
-            .Select(e =>
-            {
-                var startEl = e.GetProperty("start");
-                var endEl = e.GetProperty("end");
-                var isAllDay = startEl.TryGetProperty("date", out _) && !startEl.TryGetProperty("dateTime", out _);
-                var startStr = isAllDay
-                    ? startEl.GetProperty("date").GetString() + "T00:00:00"
-                    : startEl.GetProperty("dateTime").GetString();
-                var endStr = isAllDay
-                    ? endEl.GetProperty("date").GetString() + "T00:00:00"
-                    : endEl.GetProperty("dateTime").GetString();
-                var joinUrl = e.TryGetProperty("hangoutLink", out var hl) && hl.ValueKind != JsonValueKind.Null
-                    ? hl.GetString()
-                    : e.TryGetProperty("conferenceData", out var cd)
-                        && cd.TryGetProperty("entryPoints", out var eps)
-                        && eps.ValueKind == JsonValueKind.Array
-                        ? eps.EnumerateArray()
-                            .Where(ep => ep.TryGetProperty("entryPointType", out var t) && t.GetString() == "video")
-                            .Select(ep => ep.TryGetProperty("uri", out var u) ? u.GetString() : null)
-                            .FirstOrDefault()
-                        : null;
-                return new
-                {
-                    subject = e.TryGetProperty("summary", out var sub) ? sub.GetString() : "(No title)",
-                    start = startStr,
-                    end = endStr,
-                    isAllDay,
-                    location = e.TryGetProperty("location", out var loc) && loc.ValueKind != JsonValueKind.Null
-                        ? loc.GetString() : null,
-                    isOnlineMeeting = joinUrl != null,
-                    joinUrl,
-                    showAs = e.TryGetProperty("transparency", out var tr) && tr.GetString() == "transparent"
-                        ? "free" : null
-                };
-            })
+        var tasks = tokens.Select(token => FetchGoogleEventsAsync(token, start, end));
+        var results = await Task.WhenAll(tasks);
+        var merged = results
+            .SelectMany(r => r)
+            .OrderBy(e => e.Start)
             .ToList();
 
-        return Ok(events);
+        return Ok(merged);
     }
 
-    [HttpDelete]
-    public async Task<IActionResult> Disconnect()
+    [HttpDelete("{tokenId:guid}")]
+    public async Task<IActionResult> Disconnect(Guid tokenId)
     {
-        var token = await db.GoogleCalendarTokens.FirstOrDefaultAsync(t => t.TeamMemberId == GetMemberId());
+        var token = await db.GoogleCalendarTokens.FirstOrDefaultAsync(t =>
+            t.Id == tokenId && t.TeamMemberId == GetMemberId());
         if (token is not null)
         {
             db.GoogleCalendarTokens.Remove(token);
@@ -207,6 +168,108 @@ public class GoogleCalendarIntegrationController(
         }
         return NoContent();
     }
+
+    private async Task<IEnumerable<GoogleCalendarEventDto>> FetchGoogleEventsAsync(GoogleCalendarToken token, string start, string end)
+    {
+        var accessToken = await GetValidAccessTokenAsync(token);
+        var client = httpClientFactory.CreateClient();
+        client.DefaultRequestHeaders.Authorization =
+            new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", accessToken);
+
+        // Get all calendars the user has access to (includes "Other calendars" like subscribed ICS)
+        var calendarIds = new List<string> { "primary" };
+        try
+        {
+            var listResp = await client.GetAsync(
+                "https://www.googleapis.com/calendar/v3/users/me/calendarList?fields=items(id,selected,accessRole)");
+            if (listResp.IsSuccessStatusCode)
+            {
+                using var listDoc = JsonDocument.Parse(await listResp.Content.ReadAsStringAsync());
+                if (listDoc.RootElement.TryGetProperty("items", out var items))
+                {
+                    calendarIds = items.EnumerateArray()
+                        .Where(c =>
+                            // Include if selected (visible in Google Calendar) and we can read it
+                            (!c.TryGetProperty("selected", out var sel) || sel.GetBoolean()) &&
+                            c.TryGetProperty("accessRole", out var role) &&
+                            role.GetString() is "owner" or "writer" or "reader" or "freeBusyReader")
+                        .Select(c => c.GetProperty("id").GetString() ?? "primary")
+                        .Distinct()
+                        .ToList();
+
+                    if (calendarIds.Count == 0) calendarIds = ["primary"];
+                }
+            }
+        }
+        catch { /* fall back to primary only */ }
+
+        var allEvents = new List<GoogleCalendarEventDto>();
+
+        foreach (var calId in calendarIds)
+        {
+            var url = "https://www.googleapis.com/calendar/v3/calendars/" + Uri.EscapeDataString(calId) + "/events"
+                + "?timeMin=" + Uri.EscapeDataString(start)
+                + "&timeMax=" + Uri.EscapeDataString(end)
+                + "&singleEvents=true"
+                + "&orderBy=startTime"
+                + "&maxResults=100"
+                + "&fields=items(summary,start,end,location,hangoutLink,conferenceData,status,transparency)";
+
+            var resp = await client.GetAsync(url);
+            if (!resp.IsSuccessStatusCode)
+            {
+                logger.LogError("Google Calendar API error {Status} for calendar {Cal} token {Id}", (int)resp.StatusCode, calId, token.Id);
+                continue;
+            }
+
+            using var doc = JsonDocument.Parse(await resp.Content.ReadAsStringAsync());
+            if (!doc.RootElement.TryGetProperty("items", out var itemsEl))
+                continue;
+
+            allEvents.AddRange(itemsEl.EnumerateArray()
+                .Where(e => !(e.TryGetProperty("status", out var s) && s.GetString() == "cancelled"))
+                .Select(e =>
+                {
+                    var startEl = e.GetProperty("start");
+                    var endEl = e.GetProperty("end");
+                    var isAllDay = startEl.TryGetProperty("date", out _) && !startEl.TryGetProperty("dateTime", out _);
+                    var startStr = isAllDay
+                        ? startEl.GetProperty("date").GetString() + "T00:00:00"
+                        : startEl.GetProperty("dateTime").GetString() ?? "";
+                    var endStr = isAllDay
+                        ? endEl.GetProperty("date").GetString() + "T00:00:00"
+                        : endEl.GetProperty("dateTime").GetString() ?? "";
+                    var joinUrl = e.TryGetProperty("hangoutLink", out var hl) && hl.ValueKind != JsonValueKind.Null
+                        ? hl.GetString()
+                        : e.TryGetProperty("conferenceData", out var cd)
+                            && cd.TryGetProperty("entryPoints", out var eps)
+                            && eps.ValueKind == JsonValueKind.Array
+                            ? eps.EnumerateArray()
+                                .Where(ep => ep.TryGetProperty("entryPointType", out var t) && t.GetString() == "video")
+                                .Select(ep => ep.TryGetProperty("uri", out var u) ? u.GetString() : null)
+                                .FirstOrDefault()
+                            : null;
+                    return new GoogleCalendarEventDto(
+                        Subject: e.TryGetProperty("summary", out var sub) ? sub.GetString() : "(No title)",
+                        Start: startStr,
+                        End: endStr,
+                        IsAllDay: isAllDay,
+                        Location: e.TryGetProperty("location", out var loc) && loc.ValueKind != JsonValueKind.Null
+                            ? loc.GetString() : null,
+                        IsOnlineMeeting: joinUrl != null,
+                        JoinUrl: joinUrl,
+                        ShowAs: e.TryGetProperty("transparency", out var tr) && tr.GetString() == "transparent"
+                            ? "free" : null
+                    );
+                }));
+        }
+
+        return allEvents;
+    }
+
+    private record GoogleCalendarEventDto(
+        string? Subject, string Start, string End, bool IsAllDay,
+        string? Location, bool IsOnlineMeeting, string? JoinUrl, string? ShowAs);
 
     private async Task<string> GetValidAccessTokenAsync(GoogleCalendarToken token)
     {
@@ -241,11 +304,7 @@ public class GoogleCalendarIntegrationController(
         return token.AccessToken;
     }
 
-    private Guid GetMemberId()
-    {
-        var id = HttpContext.Items["TeamMemberId"]?.ToString();
-        return Guid.TryParse(id, out var g) ? g : Guid.Empty;
-    }
+    private Guid GetMemberId() => HttpContext.GetCurrentMemberId();
 
     private string GetConfigVar(string key)
         => db.ConfigVariables.Where(v => v.Key == key).Select(v => v.Value).FirstOrDefault() ?? "";

@@ -295,11 +295,11 @@ export class ShowcaseDataService {
 
   getFeatureCards(): FeatureCard[] {
     return [
-      { domain: 'PIs', icon: 'account_tree', color: '#42a5f5', route: '/sprints', tags: ['Program Increments', 'Sprint grouping'], description: 'Program Increments grouping sprints' },
-      { domain: 'Sprints', icon: 'directions_run', color: '#42a5f5', route: '/sprints', tags: ['Planning', 'Tracking', 'Retro'], description: 'Sprint planning and tracking' },
+      { domain: 'PIs', icon: 'account_tree', color: '#42a5f5', route: '/delivery/sprints', tags: ['Program Increments', 'Sprint grouping'], description: 'Program Increments grouping sprints' },
+      { domain: 'Sprints', icon: 'directions_run', color: '#42a5f5', route: '/delivery/sprints', tags: ['Planning', 'Tracking', 'Retro'], description: 'Sprint planning and tracking' },
       { domain: 'Team Members', icon: 'people', color: '#66bb6a', route: '/team', tags: ['CRUD', 'Skills', 'Notes'], description: 'Team member management' },
       { domain: 'Squads', icon: 'groups', color: '#66bb6a', route: '/team', tags: ['Organization', 'Multi-membership'], description: 'Squad organization' },
-      { domain: 'Work Items', icon: 'task_alt', color: '#42a5f5', route: '/sprints', tags: ['Tasks', 'Bugs', 'QA', 'Dev'], description: 'Tasks, bugs, analysis, dev, QA' },
+      { domain: 'Work Items', icon: 'task_alt', color: '#42a5f5', route: '/delivery/sprints', tags: ['Tasks', 'Bugs', 'QA', 'Dev'], description: 'Tasks, bugs, analysis, dev, QA' },
       { domain: 'Meetings', icon: 'event', color: '#ab47bc', route: '/meetings', tags: ['Series', 'Sessions', 'Availability'], description: 'Meeting series, sessions, availability' },
       { domain: 'Discussion', icon: 'forum', color: '#7e57c2', route: '/discussion', tags: ['Points', 'Tasks', 'Toggle'], description: 'Discussion points and tasks' },
       { domain: 'Timesheets', icon: 'schedule', color: '#26a69a', route: '/team', tags: ['Tracking', 'Export', 'Config'], description: 'Time tracking and export' },

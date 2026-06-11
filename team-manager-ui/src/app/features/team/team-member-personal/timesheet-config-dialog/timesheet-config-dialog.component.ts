@@ -305,6 +305,27 @@ export interface TimesheetConfigDialogData {
                 <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-top:2px">When an edit is queued for an entry that already has a pending edit sync event, replace it instead of adding a new one. Matches on the entry's correlation ID.</div>
               </div>
             </label>
+
+            <div style="margin-top:16px;padding-top:16px;border-top:1px solid rgba(255,255,255,0.06)">
+              <div class="sec-lbl" style="margin-bottom:4px">Calendar event defaults</div>
+              <div class="hint" style="margin-bottom:10px">When clicking a calendar event to pre-fill a timesheet entry, these values are pre-selected. Leave blank to open the form without defaults.</div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+                <div>
+                  <div class="sec-lbl" style="margin-bottom:4px">Default Project</div>
+                  <select class="sel" [ngModel]="calendarDefaultProject()" (ngModelChange)="calendarDefaultProject.set($event); markDirty()">
+                    <option value="">— None —</option>
+                    @for (p of allProjects(); track p) { <option [value]="p">{{ p }}</option> }
+                  </select>
+                </div>
+                <div>
+                  <div class="sec-lbl" style="margin-bottom:4px">Default Category</div>
+                  <select class="sel" [ngModel]="calendarDefaultCategory()" (ngModelChange)="calendarDefaultCategory.set($event); markDirty()" [disabled]="!calendarDefaultProject()">
+                    <option value="">— None —</option>
+                    @for (c of catsFor(calendarDefaultProject() ?? ''); track c) { <option [value]="c">{{ c }}</option> }
+                  </select>
+                </div>
+              </div>
+            </div>
           </div>
         }
       </div>
@@ -344,6 +365,8 @@ export class TimesheetConfigDialogComponent implements OnInit {
   workLocationOptions = signal<string[]>([]);
   mergeEntriesEnabled = signal(false);
   deduplicatePendingEditSync = signal(false);
+  calendarDefaultProject = signal<string>('');
+  calendarDefaultCategory = signal<string>('');
   locationIcons = signal<Record<string, string>>({});
   workLocationCorrelationIds = signal<Record<string, string>>({});
   categoryCorrelationIds = signal<Record<string, string>>({});
@@ -403,6 +426,8 @@ export class TimesheetConfigDialogComponent implements OnInit {
     this.workLocationOptions.set([...(c.workLocationOptions ?? ['Home', 'Client', 'Other'])]);
     this.mergeEntriesEnabled.set(c.mergeEntriesEnabled ?? false);
     this.deduplicatePendingEditSync.set(c.deduplicatePendingEditSync ?? false);
+    this.calendarDefaultProject.set(c.calendarDefaultProject ?? '');
+    this.calendarDefaultCategory.set(c.calendarDefaultCategory ?? '');
     this.locationIcons.set({ ...(c.locationIcons ?? {}) });
     this.workLocationCorrelationIds.set({ ...(c.workLocationCorrelationIds ?? {}) });
     this.categoryCorrelationIds.set({ ...(c.categoryCorrelationIds ?? {}) });
@@ -587,6 +612,8 @@ export class TimesheetConfigDialogComponent implements OnInit {
       workLocationOptions: this.workLocationOptions(),
       mergeEntriesEnabled: this.mergeEntriesEnabled(),
       deduplicatePendingEditSync: this.deduplicatePendingEditSync(),
+      calendarDefaultProject: this.calendarDefaultProject() || null,
+      calendarDefaultCategory: this.calendarDefaultCategory() || null,
       locationIcons: this.locationIcons(),
       workLocationCorrelationIds: this.workLocationCorrelationIds(),
       categoryCorrelationIds: this.categoryCorrelationIds(),

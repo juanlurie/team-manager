@@ -79,7 +79,7 @@ const STATUS_COLOR: Record<string, string> = {
     <!-- Active sprints -->
     <div style="display:flex;flex-direction:column;gap:6px">
       @for (s of activeSprints(); track s.id) {
-        <a class="sprint-card" [routerLink]="['/sprints', s.id]">
+        <a class="sprint-card" [routerLink]="['/delivery/sprints', s.id]">
           <div style="flex:1;min-width:0">
             <div style="font-weight:500;font-size:0.9rem">{{ s.name }}</div>
             <div style="font-size:0.78rem;opacity:0.5;margin-top:1px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
@@ -118,7 +118,7 @@ const STATUS_COLOR: Record<string, string> = {
         @if (pastExpanded()) {
           <div style="display:flex;flex-direction:column;gap:6px;margin-top:8px">
             @for (s of pastSprints(); track s.id) {
-              <a class="sprint-card sprint-card-past" [routerLink]="['/sprints', s.id]">
+              <a class="sprint-card sprint-card-past" [routerLink]="['/delivery/sprints', s.id]">
                 <div style="flex:1;min-width:0">
                   <div style="font-weight:500;font-size:0.88rem">{{ s.name }}</div>
                   <div style="font-size:0.75rem;opacity:0.5;margin-top:1px">

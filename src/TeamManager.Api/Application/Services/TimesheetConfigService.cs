@@ -50,6 +50,10 @@ public class TimesheetConfigService(AppDbContext db) : ITimesheetConfigService
             config.WorkLocationCorrelationIdsJson = JsonSerializer.Serialize(request.WorkLocationCorrelationIds);
         if (request.DeduplicatePendingEditSync is not null)
             config.DeduplicatePendingEditSync = request.DeduplicatePendingEditSync.Value;
+        if (request.CalendarDefaultProject is not null)
+            config.CalendarDefaultProject = string.IsNullOrEmpty(request.CalendarDefaultProject) ? null : request.CalendarDefaultProject;
+        if (request.CalendarDefaultCategory is not null)
+            config.CalendarDefaultCategory = string.IsNullOrEmpty(request.CalendarDefaultCategory) ? null : request.CalendarDefaultCategory;
 
         await db.SaveChangesAsync();
         return ToDto(config);
@@ -69,7 +73,9 @@ public class TimesheetConfigService(AppDbContext db) : ITimesheetConfigService
         c.ExternalEmployeeId,
         JsonSerializer.Deserialize<Dictionary<string, string>>(
             string.IsNullOrWhiteSpace(c.WorkLocationCorrelationIdsJson) ? "{}" : c.WorkLocationCorrelationIdsJson, Json) ?? [],
-        c.DeduplicatePendingEditSync
+        c.DeduplicatePendingEditSync,
+        c.CalendarDefaultProject,
+        c.CalendarDefaultCategory
     );
 
     private static TimesheetConfigDto Empty() => new([], [], [], ["Home", "Client", "Other"], [], [], false, [], []);

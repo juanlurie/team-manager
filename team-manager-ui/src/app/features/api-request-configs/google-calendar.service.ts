@@ -1,10 +1,13 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { OutlookStatus, OutlookEvent } from './outlook-calendar.service';
+import { CalendarAccount, OutlookEvent } from './outlook-calendar.service';
 
-// Reuse same shape — both return the same status/event structure
-export type GoogleCalendarStatus = OutlookStatus;
+export interface GoogleCalendarStatus {
+  isConnected: boolean;
+  accounts: CalendarAccount[];
+}
+
 export type GoogleCalendarEvent = OutlookEvent;
 
 @Injectable({ providedIn: 'root' })
@@ -26,7 +29,7 @@ export class GoogleCalendarService {
     return this.http.get<GoogleCalendarEvent[]>(`${this.base}/events?start=${encodeURIComponent(s)}&end=${encodeURIComponent(e)}`);
   }
 
-  disconnect(): Observable<void> {
-    return this.http.delete<void>(this.base);
+  disconnect(tokenId: string): Observable<void> {
+    return this.http.delete<void>(`${this.base}/${tokenId}`);
   }
 }

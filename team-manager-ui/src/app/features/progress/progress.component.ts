@@ -60,7 +60,7 @@ import { IconButtonComponent } from '../../shared/components/icon-btn/icon-btn.c
               <mat-icon style="font-size:15px;width:15px;height:15px;line-height:15px;opacity:0.4">
                 {{ sprint.isInnovationSprint ? 'lightbulb' : 'directions_run' }}
               </mat-icon>
-              <a [routerLink]="['/sprints', sprint.id]" class="sprint-link"
+              <a [routerLink]="['/delivery/sprints', sprint.id]" class="sprint-link"
                  style="font-size:0.82rem;font-weight:600">
                 {{ sprint.name }}
               </a>
@@ -105,7 +105,7 @@ import { IconButtonComponent } from '../../shared/components/icon-btn/icon-btn.c
                 }
 
                 <!-- Title -->
-                <a [routerLink]="['/sprints', sprint.id, 'features']" class="feat-link"
+                <a [routerLink]="['/delivery/sprints', sprint.id, 'features']" class="feat-link"
                    style="font-size:0.82rem;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"
                    [style.opacity]="f.status === 'Completed' || f.status === 'Released' ? 0.45 : 0.85">
                   {{ f.title }}
@@ -162,7 +162,7 @@ import { IconButtonComponent } from '../../shared/components/icon-btn/icon-btn.c
                   @if (f.externalTicketRef) {
                     <span style="font-size:0.72rem;font-family:monospace;opacity:0.45;flex-shrink:0">{{ f.externalTicketRef }}</span>
                   }
-                  <a [routerLink]="['/sprints', sprint.id, 'features']" class="feat-link"
+                  <a [routerLink]="['/delivery/sprints', sprint.id, 'features']" class="feat-link"
                      style="font-size:0.82rem;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;opacity:0.75">
                     {{ f.title }}
                   </a>

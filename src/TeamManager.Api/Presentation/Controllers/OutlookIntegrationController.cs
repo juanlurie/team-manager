@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using TeamManager.Api.Domain.Entities;
 using TeamManager.Api.Infrastructure.Data;
+using TeamManager.Api.Middleware;
 
 namespace TeamManager.Api.Presentation.Controllers;
 
@@ -100,7 +101,9 @@ public class OutlookIntegrationController(
                 : me.TryGetProperty("userPrincipalName", out var upn) ? upn.GetString() ?? "" : "";
         }
 
-        var existing = await db.OutlookTokens.FirstOrDefaultAsync(t => t.TeamMemberId == memberId);
+        // Match by email within this member's tokens (allows multiple accounts)
+        var existing = await db.OutlookTokens.FirstOrDefaultAsync(t =>
+            t.TeamMemberId == memberId && t.AccountEmail == email);
         if (existing is not null)
         {
             existing.AccessToken = accessToken;
@@ -128,21 +131,52 @@ public class OutlookIntegrationController(
     [HttpGet("status")]
     public async Task<IActionResult> GetStatus()
     {
-        var token = await db.OutlookTokens.FirstOrDefaultAsync(t => t.TeamMemberId == GetMemberId());
-        if (token is null)
-            return Ok(new { isConnected = false, accountEmail = (string?)null });
-        return Ok(new { isConnected = true, accountEmail = token.AccountEmail, connectedAt = token.ConnectedAt });
+        var tokens = await db.OutlookTokens
+            .Where(t => t.TeamMemberId == GetMemberId())
+            .OrderBy(t => t.ConnectedAt)
+            .ToListAsync();
+        return Ok(new
+        {
+            isConnected = tokens.Count > 0,
+            accounts = tokens.Select(t => new { id = t.Id, accountEmail = t.AccountEmail, connectedAt = t.ConnectedAt })
+        });
     }
 
     [HttpGet("events")]
     public async Task<IActionResult> GetEvents([FromQuery] string start, [FromQuery] string end)
     {
-        var token = await db.OutlookTokens.FirstOrDefaultAsync(t => t.TeamMemberId == GetMemberId());
-        if (token is null)
+        var tokens = await db.OutlookTokens
+            .Where(t => t.TeamMemberId == GetMemberId())
+            .ToListAsync();
+        if (tokens.Count == 0)
             return Unauthorized(new { error = "Outlook not connected." });
 
-        var accessToken = await GetValidAccessTokenAsync(token);
+        var tasks = tokens.Select(token => FetchOutlookEventsAsync(token, start, end));
+        var results = await Task.WhenAll(tasks);
+        var merged = results
+            .SelectMany(r => r)
+            .OrderBy(e => e.Start)
+            .ToList();
 
+        return Ok(merged);
+    }
+
+    [HttpDelete("{tokenId:guid}")]
+    public async Task<IActionResult> Disconnect(Guid tokenId)
+    {
+        var token = await db.OutlookTokens.FirstOrDefaultAsync(t =>
+            t.Id == tokenId && t.TeamMemberId == GetMemberId());
+        if (token is not null)
+        {
+            db.OutlookTokens.Remove(token);
+            await db.SaveChangesAsync();
+        }
+        return NoContent();
+    }
+
+    private async Task<IEnumerable<CalendarEventDto>> FetchOutlookEventsAsync(OutlookToken token, string start, string end)
+    {
+        var accessToken = await GetValidAccessTokenAsync(token);
         var client = httpClientFactory.CreateClient();
         client.DefaultRequestHeaders.Authorization =
             new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", accessToken);
@@ -156,46 +190,31 @@ public class OutlookIntegrationController(
             + "&$top=100";
 
         var resp = await client.GetAsync(url);
-        if (!resp.IsSuccessStatusCode)
-        {
-            var err = await resp.Content.ReadAsStringAsync();
-            return StatusCode((int)resp.StatusCode, new { error = "Failed to fetch calendar events.", detail = err });
-        }
+        if (!resp.IsSuccessStatusCode) return [];
 
         using var doc = JsonDocument.Parse(await resp.Content.ReadAsStringAsync());
-        var events = doc.RootElement.GetProperty("value").EnumerateArray()
+        return doc.RootElement.GetProperty("value").EnumerateArray()
             .Where(e => !e.TryGetProperty("isCancelled", out var c) || !c.GetBoolean())
-            .Select(e => new
-            {
-                subject = e.TryGetProperty("subject", out var s) ? s.GetString() : "(No subject)",
-                start = e.GetProperty("start").GetProperty("dateTime").GetString(),
-                end = e.GetProperty("end").GetProperty("dateTime").GetString(),
-                isAllDay = e.TryGetProperty("isAllDay", out var a) && a.GetBoolean(),
-                location = e.TryGetProperty("location", out var loc)
+            .Select(e => new CalendarEventDto(
+                Subject: e.TryGetProperty("subject", out var s) ? s.GetString() : "(No subject)",
+                Start: e.GetProperty("start").GetProperty("dateTime").GetString() ?? "",
+                End: e.GetProperty("end").GetProperty("dateTime").GetString() ?? "",
+                IsAllDay: e.TryGetProperty("isAllDay", out var a) && a.GetBoolean(),
+                Location: e.TryGetProperty("location", out var loc)
                     && loc.TryGetProperty("displayName", out var dn)
                     && dn.ValueKind != JsonValueKind.Null
                     ? dn.GetString() : null,
-                isOnlineMeeting = e.TryGetProperty("isOnlineMeeting", out var om) && om.GetBoolean(),
-                joinUrl = e.TryGetProperty("onlineMeetingUrl", out var ou) && ou.ValueKind != JsonValueKind.Null
+                IsOnlineMeeting: e.TryGetProperty("isOnlineMeeting", out var om) && om.GetBoolean(),
+                JoinUrl: e.TryGetProperty("onlineMeetingUrl", out var ou) && ou.ValueKind != JsonValueKind.Null
                     ? ou.GetString() : null,
-                showAs = e.TryGetProperty("showAs", out var sa) ? sa.GetString() : null
-            })
+                ShowAs: e.TryGetProperty("showAs", out var sa) ? sa.GetString() : null
+            ))
             .ToList();
-
-        return Ok(events);
     }
 
-    [HttpDelete]
-    public async Task<IActionResult> Disconnect()
-    {
-        var token = await db.OutlookTokens.FirstOrDefaultAsync(t => t.TeamMemberId == GetMemberId());
-        if (token is not null)
-        {
-            db.OutlookTokens.Remove(token);
-            await db.SaveChangesAsync();
-        }
-        return NoContent();
-    }
+    private record CalendarEventDto(
+        string? Subject, string Start, string End, bool IsAllDay,
+        string? Location, bool IsOnlineMeeting, string? JoinUrl, string? ShowAs);
 
     private async Task<string> GetValidAccessTokenAsync(OutlookToken token)
     {
@@ -231,11 +250,7 @@ public class OutlookIntegrationController(
         return token.AccessToken;
     }
 
-    private Guid GetMemberId()
-    {
-        var id = HttpContext.Items["TeamMemberId"]?.ToString();
-        return Guid.TryParse(id, out var g) ? g : Guid.Empty;
-    }
+    private Guid GetMemberId() => HttpContext.GetCurrentMemberId();
 
     private string GetConfigVar(string key)
         => db.ConfigVariables.Where(v => v.Key == key).Select(v => v.Value).FirstOrDefault() ?? "";

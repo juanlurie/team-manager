@@ -2,10 +2,15 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 
-export interface OutlookStatus {
-  isConnected: boolean;
+export interface CalendarAccount {
+  id: string;
   accountEmail: string | null;
   connectedAt: string | null;
+}
+
+export interface OutlookStatus {
+  isConnected: boolean;
+  accounts: CalendarAccount[];
 }
 
 export interface OutlookEvent {
@@ -38,7 +43,7 @@ export class OutlookCalendarService {
     return this.http.get<OutlookEvent[]>(`${this.base}/events?start=${encodeURIComponent(s)}&end=${encodeURIComponent(e)}`);
   }
 
-  disconnect(): Observable<void> {
-    return this.http.delete<void>(this.base);
+  disconnect(tokenId: string): Observable<void> {
+    return this.http.delete<void>(`${this.base}/${tokenId}`);
   }
 }

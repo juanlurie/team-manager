@@ -15,21 +15,19 @@ export const routes: Routes = [
         path: 'team',
         loadChildren: () => import('./features/team/team.routes').then(m => m.TEAM_ROUTES)
       },
-      {
-        path: 'sprints',
-        loadChildren: () => import('./features/sprints/sprints.routes').then(m => m.SPRINT_ROUTES)
-      },
+      { path: 'sprints', redirectTo: 'delivery/sprints', pathMatch: 'full' },
       {
         path: 'dashboard',
         loadChildren: () => import('./features/dashboard/dashboard.routes').then(m => m.DASHBOARD_ROUTES)
       },
       {
-        path: 'leave',
-        loadChildren: () => import('./features/leave/leave.routes').then(m => m.LEAVE_ROUTES)
+        path: 'delivery',
+        loadChildren: () => import('./features/delivery/delivery.routes').then(m => m.DELIVERY_ROUTES)
       },
       {
         path: 'export',
-        loadChildren: () => import('./features/export/export.routes').then(m => m.EXPORT_ROUTES)
+        redirectTo: 'delivery/export',
+        pathMatch: 'full'
       },
       {
         path: 'fun',
@@ -40,12 +38,8 @@ export const routes: Routes = [
         loadChildren: () => import('./features/discussion/discussion.routes').then(m => m.DISCUSSION_ROUTES)
       },
       {
-        path: 'features',
-        loadChildren: () => import('./features/all-features/all-features.routes').then(m => m.ALL_FEATURES_ROUTES)
-      },
-      {
-        path: 'progress',
-        loadComponent: () => import('./features/progress/progress.component').then(m => m.ProgressComponent)
+        path: 'meetings',
+        loadChildren: () => import('./features/meetings/meetings.routes').then(m => m.MEETING_ROUTES)
       },
       {
         path: 'pis',
@@ -59,17 +53,18 @@ export const routes: Routes = [
         path: 'profile',
         loadComponent: () => import('./features/profile/profile.component').then(m => m.ProfileComponent)
       },
-      {
-        path: 'session-types',
-        loadChildren: () => import('./features/session-types/session-types.routes').then(m => m.SESSION_TYPES_ROUTES)
-      },
+      // Moved into hubs — keep old paths working
+      { path: 'features', redirectTo: 'delivery/features', pathMatch: 'full' },
+      { path: 'progress', redirectTo: 'delivery/progress', pathMatch: 'full' },
+      { path: 'session-types', redirectTo: 'meetings/session-types', pathMatch: 'full' },
+      { path: 'leave', redirectTo: 'team/leave', pathMatch: 'prefix' },
       {
         path: 'showcase',
         loadComponent: () => import('./features/showcase/features-showcase.component').then(m => m.FeaturesShowcaseComponent)
       },
       {
         path: 'integrations',
-        loadComponent: () => import('./features/api-request-configs/api-request-configs.component').then(m => m.ApiRequestConfigsComponent)
+        loadChildren: () => import('./features/integrations/integrations.routes').then(m => m.INTEGRATIONS_ROUTES)
       },
       {
         path: 'request-configs',
@@ -78,7 +73,8 @@ export const routes: Routes = [
       },
       {
         path: 'sync-queue',
-        loadComponent: () => import('./features/sync-queue/sync-queue.component').then(m => m.SyncQueueComponent)
+        redirectTo: 'integrations/sync-queue',
+        pathMatch: 'full'
       },
       {
         path: 'settings',
@@ -94,30 +90,30 @@ export const routes: Routes = [
       },
       {
         path: 'settings/credentials',
-        loadComponent: () => import('./features/settings/portal-credentials/portal-credentials.component').then(m => m.PortalCredentialsComponent)
+        redirectTo: 'integrations/credentials',
+        pathMatch: 'full'
       },
       {
         path: 'settings/config-variables',
-        loadChildren: () => import('./features/settings/config-variables/config-variables.routes').then(m => m.CONFIG_VARIABLES_ROUTES)
+        redirectTo: 'integrations/config-variables',
+        pathMatch: 'full'
       },
       {
         path: 'settings/portal-credentials',
-        redirectTo: 'settings/credentials',
+        redirectTo: 'integrations/credentials',
         pathMatch: 'full'
       },
       {
         path: 'access-requests',
-        loadComponent: () => import('./features/access-requests/access-requests.component').then(m => m.AccessRequestsComponent)
+        redirectTo: 'team/access-requests',
+        pathMatch: 'full'
       },
       {
         path: 'expense-claim',
-        loadComponent: () => import('./features/expense-claim/expense-claim.component').then(m => m.ExpenseClaimComponent)
+        redirectTo: 'team/expense-claim',
+        pathMatch: 'full'
       },
-      {
-        path: 'timesheet',
-        loadComponent: () => import('./features/timesheet/timesheet-page.component').then(m => m.TimesheetPageComponent),
-        data: { featureKey: 'team' }
-      },
+      { path: 'timesheet', redirectTo: 'team/timesheet', pathMatch: 'full' },
     ]
   },
   // Guest access (no auth required)
