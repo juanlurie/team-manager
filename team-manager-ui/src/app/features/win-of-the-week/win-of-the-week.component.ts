@@ -13,6 +13,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatDividerModule } from '@angular/material/divider';
 import { Subscription, interval, map } from 'rxjs';
+import { WowCountdownComponent } from '../../shared/components/wow-countdown/wow-countdown.component';
 import { BreakpointObserver, Breakpoints } from '@angular/cdk/layout';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { WinOfTheWeekService } from '../../core/services/win-of-the-week.service';
@@ -34,7 +35,7 @@ import { WinSeriesService } from '../../core/services/win-series.service';
     CommonModule, FormsModule, MatIconModule, MatButtonModule,
     MatTooltipModule, MatDialogModule, MatSnackBarModule,
     MatFormFieldModule, MatSelectModule, MatInputModule, MatMenuModule, MatDividerModule,
-    WinOfTheWeekHistoryComponent, WinOfTheMonthComponent
+    WinOfTheWeekHistoryComponent, WinOfTheMonthComponent, WowCountdownComponent
   ],
   styles: [`
     @keyframes alertPulse {
@@ -270,7 +271,7 @@ import { WinSeriesService } from '../../core/services/win-series.service';
             <div style="font-size:0.75rem;opacity:0.6;margin-top:2px">Vote now — highest vote wins when time expires</div>
           </div>
           <div style="text-align:center;min-width:64px">
-            <div style="font-size:1.6rem;font-weight:800;font-variant-numeric:tabular-nums;color:#ef5350;letter-spacing:2px;line-height:1">{{timerDisplay()}}</div>
+            <app-wow-countdown [endsAt]="currentWeek()?.suddenDeathEndsAt ?? null" />
           </div>
         </div>
       }
@@ -487,7 +488,6 @@ export class WinOfTheWeekComponent implements OnInit, OnDestroy {
   isSpinning = signal(false);
   spinnerName = signal('');
   currentUserId = '';
-  now = signal(Date.now());
   guestUrl = signal<string | null>(null);
   qrDataUrl = signal<string | null>(null);
   series = signal<WinSeries[]>([]);
@@ -541,16 +541,6 @@ export class WinOfTheWeekComponent implements OnInit, OnDestroy {
     return new Set<string>();
   });
 
-  readonly timerDisplay = computed(() => {
-    const week = this.currentWeek();
-    if (!week?.suddenDeathEndsAt) return '—';
-    this.now(); // depend on tick
-    const remaining = Math.max(0, new Date(week.suddenDeathEndsAt).getTime() - Date.now());
-    const mins = Math.floor(remaining / 60000);
-    const secs = Math.floor((remaining % 60000) / 1000);
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  });
-
   readonly voteProgressPct = computed(() => {
     const week = this.currentWeek();
     if (!week || week.connectedMemberCount === 0) return 0;
@@ -586,7 +576,6 @@ export class WinOfTheWeekComponent implements OnInit, OnDestroy {
 
 
     this.timerSub = interval(1000).subscribe(() => {
-      this.now.set(Date.now());
       const week = this.currentWeek();
       if (week?.status === 'SuddenDeath' && week.suddenDeathEndsAt && this.timerExpiredWeekId !== week.id) {
         const remaining = new Date(week.suddenDeathEndsAt).getTime() - Date.now();

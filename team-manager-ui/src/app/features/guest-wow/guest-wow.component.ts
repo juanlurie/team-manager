@@ -6,6 +6,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { GuestWinOfTheWeekService } from './guest-wow.service';
 import { GuestWinWeek, GuestNomination, GuestCreateNominationRequest } from '../../core/models/win-week.model';
 import { AuthService } from '../../core/auth/auth.service';
+import { WowCountdownComponent } from '../../shared/components/wow-countdown/wow-countdown.component';
 
 const SESSION_NAME_KEY = 'wow_guest_name';
 const SESSION_ID_KEY = 'wow_guest_session_id';
@@ -13,8 +14,19 @@ const SESSION_ID_KEY = 'wow_guest_session_id';
 @Component({
   selector: 'app-guest-wow',
   standalone: true,
-  imports: [CommonModule, FormsModule, MatIconModule],
+  imports: [CommonModule, FormsModule, MatIconModule, WowCountdownComponent],
   template: `
+    <!-- Tie-break spin overlay -->
+    @if (isSpinning()) {
+      <div style="position:fixed;inset:0;background:rgba(0,0,0,0.9);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:2000;backdrop-filter:blur(6px)">
+        <div style="font-size:0.65rem;text-transform:uppercase;letter-spacing:3px;opacity:0.4;margin-bottom:28px">🎲 Breaking the tie</div>
+        <div class="spinner-name"
+             style="font-size:2.2rem;font-weight:800;color:#ef5350;min-width:300px;text-align:center;padding:24px 36px;background:rgba(239,83,80,0.08);border:2px solid rgba(239,83,80,0.4);border-radius:20px">
+          {{spinnerName()}}
+        </div>
+      </div>
+    }
+
     <div class="guest-wrap" [class.sudden-death]="isSuddenDeath()">
       <!-- Name capture screen -->
       @if (!guestName()) {
@@ -78,7 +90,7 @@ const SESSION_ID_KEY = 'wow_guest_session_id';
           </div>
 
           <!-- Winner banner -->
-          @if (week()!.status === 'Closed' && week()!.winnerNomineeName) {
+          @if (week()!.status === 'Closed' && week()!.winnerNomineeName && !isSpinning()) {
             <div class="winner-banner">
               <div class="winner-banner__trophy">🏆</div>
               <div>
@@ -162,6 +174,9 @@ const SESSION_ID_KEY = 'wow_guest_session_id';
             <div class="sudden-death-banner">
               <span class="sudden-death-banner__icon">⚡</span>
               <span>Tie-Breaker — 1 vote only!</span>
+              @if (week()!.suddenDeathEndsAt) {
+                <span class="sudden-death-countdown"><app-wow-countdown [endsAt]="week()!.suddenDeathEndsAt" /></span>
+              }
             </div>
           }
 
@@ -237,6 +252,13 @@ const SESSION_ID_KEY = 'wow_guest_session_id';
     </div>
   `,
   styles: [`
+    @keyframes spinnerPop {
+      0% { transform: scale(0.92); opacity: 0.6; }
+      50% { transform: scale(1.04); opacity: 1; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+    .spinner-name { animation: spinnerPop 0.12s ease-out; }
+
     .guest-wrap {
       position: fixed;
       inset: 0;
@@ -541,6 +563,7 @@ const SESSION_ID_KEY = 'wow_guest_session_id';
       margin-bottom: 1rem;
     }
     .sudden-death-banner__icon { font-size: 1.1rem; }
+    .sudden-death-countdown { margin-left: auto; }
 
     .nom-card--sudden-death {
       border-color: rgba(244,67,54,0.25);
@@ -605,11 +628,17 @@ export class GuestWowComponent implements OnInit, OnDestroy {
     description: ''
   };
 
+  isSpinning = signal(false);
+  spinnerName = signal('');
+
   private token = '';
   private sessionId = '';
   private ws: WebSocket | null = null;
   private wsReconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private pollInterval: ReturnType<typeof setInterval> | null = null;
+  private expiryCheckInterval: ReturnType<typeof setInterval> | null = null;
+  private timerExpiredWeekId: string | null = null;
+  private suddenDeathSnapshot: { nominations: GuestNomination[]; tiedNominationIds: string[] } | null = null;
 
   ngOnInit() {
     this.token = this.route.snapshot.paramMap.get('token') ?? '';
@@ -626,6 +655,7 @@ export class GuestWowComponent implements OnInit, OnDestroy {
     this.ws?.close();
     this.ws = null;
     if (this.pollInterval) clearInterval(this.pollInterval);
+    if (this.expiryCheckInterval) clearInterval(this.expiryCheckInterval);
   }
 
   login() {
@@ -780,14 +810,28 @@ export class GuestWowComponent implements OnInit, OnDestroy {
     const wowEvents = new Set([
       'nomination_created', 'nomination_updated', 'nomination_deleted',
       'vote_cast', 'vote_removed',
-      'voting_opened', 'voting_closed',
-      'nominations_reopened', 'sudden_death_started', 'win_story_ready'
+      'voting_opened', 'nominations_reopened', 'sudden_death_started', 'win_story_ready'
     ]);
 
     this.ws.onmessage = (event) => {
       try {
         const msg = JSON.parse(event.data);
-        if (wowEvents.has(msg.type)) this.refreshWeek();
+        if (msg.type === 'voting_closed') {
+          const wk = this.week();
+          const snap = this.suddenDeathSnapshot;
+          this.suddenDeathSnapshot = null;
+          const source = wk?.status === 'SuddenDeath' ? wk : snap ? { nominations: snap.nominations, tiedNominationIds: snap.tiedNominationIds } : null;
+          const tiedNoms = source ? source.nominations.filter(n => source.tiedNominationIds.includes(n.id)) : [];
+          if (tiedNoms.length > 0) {
+            const winnerId = msg.data?.winnerId as string;
+            const winner = tiedNoms.find(n => n.id === winnerId);
+            this.runTieBreakSpin(tiedNoms.map(n => n.nomineeName), winner?.nomineeName ?? tiedNoms[0].nomineeName);
+          } else {
+            this.refreshWeek();
+          }
+        } else if (wowEvents.has(msg.type)) {
+          this.refreshWeek();
+        }
       } catch { /* ignore */ }
     };
 
@@ -801,15 +845,13 @@ export class GuestWowComponent implements OnInit, OnDestroy {
     this.loading.set(true);
     this.service.getWeek(this.token, this.sessionId).subscribe({
       next: (week) => {
-        this.week.set(week);
+        this.updateWeek(week);
         this.loading.set(false);
         if (this.members().length === 0) {
           this.loadMembers();
         }
         if (!this.ws) {
           this.connectWebSocket();
-          // Fallback poll in case WS drops
-          this.pollInterval = setInterval(() => this.refreshWeek(), 30000);
         }
       },
       error: () => {
@@ -821,14 +863,63 @@ export class GuestWowComponent implements OnInit, OnDestroy {
 
   private refreshWeek() {
     this.service.getWeek(this.token, this.sessionId).subscribe({
-      next: (week) => this.week.set(week),
+      next: (week) => this.updateWeek(week),
       error: () => {
-        if (this.pollInterval) {
-          clearInterval(this.pollInterval);
-          this.pollInterval = null;
-        }
+        if (this.pollInterval) { clearInterval(this.pollInterval); this.pollInterval = null; }
       }
     });
+  }
+
+  private updateWeek(week: GuestWinWeek) {
+    this.week.set(week);
+    if (week.status === 'SuddenDeath') {
+      this.suddenDeathSnapshot = { nominations: week.nominations, tiedNominationIds: week.tiedNominationIds };
+    }
+    this.syncPoll(week);
+  }
+
+  private syncPoll(week: GuestWinWeek) {
+    if (week.status === 'SuddenDeath' && week.suddenDeathEndsAt) {
+      if (this.pollInterval) clearInterval(this.pollInterval);
+      this.pollInterval = setInterval(() => this.refreshWeek(), 5000);
+
+      if (this.expiryCheckInterval) clearInterval(this.expiryCheckInterval);
+      const endsAt = new Date(week.suddenDeathEndsAt).getTime();
+      this.expiryCheckInterval = setInterval(() => {
+        if (this.timerExpiredWeekId === week.id) return;
+        if (Date.now() >= endsAt) {
+          this.timerExpiredWeekId = week.id;
+          if (this.expiryCheckInterval) { clearInterval(this.expiryCheckInterval); this.expiryCheckInterval = null; }
+          setTimeout(() => this.refreshWeek(), 1500);
+        }
+      }, 1000);
+    } else {
+      if (this.expiryCheckInterval) { clearInterval(this.expiryCheckInterval); this.expiryCheckInterval = null; }
+      if (this.pollInterval) clearInterval(this.pollInterval);
+      this.pollInterval = setInterval(() => this.refreshWeek(), 30000);
+    }
+  }
+
+  private runTieBreakSpin(names: string[], winnerName: string) {
+    this.isSpinning.set(true);
+    this.spinnerName.set(names[0]);
+    let elapsed = 0;
+    const totalDuration = 3200;
+    let idx = 0;
+    const tick = () => {
+      const progress = elapsed / totalDuration;
+      const delay = 60 + 460 * (progress * progress);
+      if (elapsed + delay >= totalDuration) {
+        this.spinnerName.set(winnerName);
+        setTimeout(() => { this.isSpinning.set(false); this.refreshWeek(); }, 1800);
+        return;
+      }
+      elapsed += delay;
+      idx = (idx + 1) % names.length;
+      this.spinnerName.set(names[idx]);
+      setTimeout(tick, delay);
+    };
+    setTimeout(tick, 60);
   }
 
   private loadMembers() {

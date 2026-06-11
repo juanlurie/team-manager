@@ -132,6 +132,7 @@ export interface GuestWinWeek {
   winnerNomineeName: string | null;
   winnerTitle: string | null;
   winnerStory: string | null;
+  suddenDeathEndsAt: string | null;
   tiedNominationIds: string[];
   nominations: GuestNomination[];
 }
