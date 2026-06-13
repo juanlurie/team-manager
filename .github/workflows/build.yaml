@@ -16,6 +16,7 @@ jobs:
     permissions:
       contents: write
       packages: write
+      security-events: write
 
     steps:
       - uses: actions/checkout@v4
@@ -30,6 +31,11 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      - name: Audit .NET dependencies
+        run: dotnet list package --vulnerable --include-transitive
+        working-directory: ./src/TeamManager.Api
+        continue-on-error: true
+
       - name: Build and push API
         uses: docker/build-push-action@v5
         with:
@@ -41,6 +47,18 @@ jobs:
             ${{ env.REGISTRY }}/${{ env.OWNER }}/team-manager-api:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Scan API image
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ env.REGISTRY }}/${{ env.OWNER }}/team-manager-api:${{ github.sha }}
+          severity: HIGH,CRITICAL
+          exit-code: '0'
+          format: table
+
+      - name: Audit UI dependencies
+        run: npm audit --audit-level=high || true
+        working-directory: ./team-manager-ui
 
       - name: Build and push UI
         uses: docker/build-push-action@v5
@@ -54,6 +72,14 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      - name: Scan UI image
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ env.REGISTRY }}/${{ env.OWNER }}/team-manager-ui:${{ github.sha }}
+          severity: HIGH,CRITICAL
+          exit-code: '0'
+          format: table
+
       - name: Build and push MCP gateway
         uses: docker/build-push-action@v5
         with:
@@ -65,6 +91,14 @@ jobs:
             ${{ env.REGISTRY }}/${{ env.OWNER }}/team-manager-mcp:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Scan MCP image
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ env.REGISTRY }}/${{ env.OWNER }}/team-manager-mcp:${{ github.sha }}
+          severity: HIGH,CRITICAL
+          exit-code: '0'
+          format: table
 
       - name: Update k8s image tags
         run: |
