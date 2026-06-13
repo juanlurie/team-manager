@@ -5,6 +5,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatDialogModule, MatDialog } from '@angular/material/dialog';
 import { filter } from 'rxjs/operators';
+import { trigger, animate, style, transition } from '@angular/animations';
 import { QuickOpenDialogComponent } from './core/components/quick-open-dialog/quick-open-dialog.component';
 import { KPickerData, KPickerResult } from './core/components/k-picker/k-picker.types';
 import { TeamMember } from './core/models/team-member.model';
@@ -52,10 +53,18 @@ const ALL_MORE_NAV: NavItem[] = [
   { path: '/profile',        icon: 'person',         label: 'Profile' },
 ];
 
+const routeFade = trigger('routeFade', [
+  transition('* <=> *', [
+    style({ opacity: 0.4 }),
+    animate('180ms ease-out', style({ opacity: 1 })),
+  ]),
+]);
+
 @Component({
   selector: 'app-root',
   standalone: true,
   imports: [RouterOutlet, RouterLink, RouterLinkActive, CommonModule, MatIconModule, MatTooltipModule, MatDialogModule],
+  animations: [routeFade],
   template: `
     <div class="shell" [class.mobile]="isMobile()">
 
@@ -142,7 +151,7 @@ const ALL_MORE_NAV: NavItem[] = [
 
       <!-- ── Main content ── -->
       <main class="content">
-        <div class="page-wrap">
+        <div class="page-wrap" [@routeFade]="currentUrl()">
           <router-outlet />
         </div>
       </main>
@@ -377,7 +386,7 @@ export class AppComponent {
   private auth = inject(AuthService);
   private featureAccess = inject(FeatureAccessService);
   private tsd = inject(TimesheetDefaultsService);
-  private currentUrl = signal(this.router.url);
+  currentUrl = signal(this.router.url);
 
   primaryNav = computed(() => this.filterNav(ALL_PRIMARY_NAV));
   secondaryNav = computed(() => this.filterNav(ALL_SECONDARY_NAV));

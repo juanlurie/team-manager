@@ -21,19 +21,35 @@
             "outputPath": "dist/team-manager-ui",
             "index": "src/index.html",
             "browser": "src/main.ts",
-            "polyfills": ["zone.js"],
+            "polyfills": [
+              "zone.js"
+            ],
             "tsConfig": "tsconfig.json",
-            "assets": ["src/favicon.ico", "src/assets"],
-            "styles": ["src/styles.scss"],
+            "assets": [
+              "src/favicon.ico",
+              "src/assets"
+            ],
+            "styles": [
+              "src/styles.scss"
+            ],
             "scripts": []
           },
           "configurations": {
             "production": {
               "budgets": [
-                {"type": "initial", "maximumWarning": "500kB", "maximumError": "1MB"},
-                {"type": "anyComponentStyle", "maximumWarning": "10kB", "maximumError": "20kB"}
+                {
+                  "type": "initial",
+                  "maximumWarning": "500kB",
+                  "maximumError": "1MB"
+                },
+                {
+                  "type": "anyComponentStyle",
+                  "maximumWarning": "10kB",
+                  "maximumError": "20kB"
+                }
               ],
-              "outputHashing": "all"
+              "outputHashing": "all",
+              "serviceWorker": "ngsw-config.json"
             },
             "development": {
               "optimization": false,
@@ -46,8 +62,12 @@
         "serve": {
           "builder": "@angular-devkit/build-angular:dev-server",
           "configurations": {
-            "production": {"buildTarget": "team-manager-ui:build:production"},
-            "development": {"buildTarget": "team-manager-ui:build:development"}
+            "production": {
+              "buildTarget": "team-manager-ui:build:production"
+            },
+            "development": {
+              "buildTarget": "team-manager-ui:build:development"
+            }
           },
           "defaultConfiguration": "development"
         }
