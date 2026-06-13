@@ -20,13 +20,15 @@ import { WinOfTheWeekService } from '../../core/services/win-of-the-week.service
 import { WinOfTheMonthService } from '../../core/services/win-of-the-month.service';
 import { TeamMemberService } from '../../core/services/team-member.service';
 import { WebSocketService } from '../../core/websocket/websocket.service';
-import { WinWeek, WinNomination, WinSeries, CreateNominationRequest } from '../../core/models/win-week.model';
+import { WinWeek, WinNomination, WinSeries, CreateNominationRequest, WowNominationDisplay } from '../../core/models/win-week.model';
 import { TeamMember } from '../../core/models/team-member.model';
 import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/confirm-dialog.component';
 import { WinOfTheWeekHistoryComponent } from '../win-of-the-week-history/win-of-the-week-history.component';
 import { WinOfTheMonthComponent } from '../win-of-the-month/win-of-the-month.component';
 import { FeatureAccessService } from '../../core/services/feature-access.service';
 import { WinSeriesService } from '../../core/services/win-series.service';
+import { WowNominationCardComponent } from '../../shared/components/wow-nomination-card/wow-nomination-card.component';
+import { WowWinnerBannerComponent } from '../../shared/components/wow-winner-banner/wow-winner-banner.component';
 
 @Component({
   selector: 'app-win-of-the-week',
@@ -35,7 +37,8 @@ import { WinSeriesService } from '../../core/services/win-series.service';
     CommonModule, FormsModule, MatIconModule, MatButtonModule,
     MatTooltipModule, MatDialogModule, MatSnackBarModule,
     MatFormFieldModule, MatSelectModule, MatInputModule, MatMenuModule, MatDividerModule,
-    WinOfTheWeekHistoryComponent, WinOfTheMonthComponent, WowCountdownComponent
+    WinOfTheWeekHistoryComponent, WinOfTheMonthComponent, WowCountdownComponent,
+    WowNominationCardComponent, WowWinnerBannerComponent
   ],
   styles: [`
     @keyframes alertPulse {
@@ -284,26 +287,13 @@ import { WinSeriesService } from '../../core/services/win-series.service';
       <!-- Winner banner -->
       @let winner = currentWeek();
       @if (winner && winner.status === 'Closed' && winner.winnerNomineeName) {
-        <div style="background:linear-gradient(135deg,rgba(255,215,0,0.12),rgba(255,165,0,0.08));border:1px solid rgba(255,215,0,0.35);border-radius:14px;padding:20px 24px;margin-bottom:20px;text-align:center">
-          <div style="font-size:2.4rem;margin-bottom:4px">🏆</div>
-          <div style="font-size:1.2rem;font-weight:800;color:#FFD700">{{winner.winnerNomineeName}}</div>
-          <div style="font-size:0.95rem;opacity:0.8;margin-top:4px">{{winner.winnerTitle}}</div>
-          <div style="margin-top:12px;display:inline-block;background:rgba(255,215,0,0.15);border:1px solid rgba(255,215,0,0.4);border-radius:8px;padding:8px 14px">
-            <span style="font-size:0.85rem;font-weight:700;color:#B8860B">🏅 Weekly Champion +10 points</span>
-          </div>
-          @if (winner.winnerStory) {
-            <div style="margin-top:16px;background:rgba(0,0,0,0.25);border:1px solid rgba(255,215,0,0.2);border-radius:10px;padding:14px 16px;text-align:left">
-              <div style="font-size:0.7rem;text-transform:uppercase;letter-spacing:1px;color:#FFD700;opacity:0.7;margin-bottom:8px">✨ Hero Story</div>
-              <div style="font-size:0.88rem;line-height:1.6;opacity:0.85;white-space:pre-wrap">{{winner.winnerStory}}</div>
-              <button mat-stroked-button (click)="copyStory(winner.winnerStory)"
-                      style="margin-top:10px;font-size:0.75rem;height:28px;line-height:28px;min-width:0;padding:0 12px;color:rgba(255,215,0,0.8);border-color:rgba(255,215,0,0.3)">
-                <mat-icon style="font-size:14px;width:14px;height:14px;vertical-align:middle;margin-right:4px">content_copy</mat-icon>
-                Copy story
-              </button>
-            </div>
-          }
-          <div style="font-size:0.75rem;opacity:0.45;margin-top:12px">Winner of the Week</div>
-        </div>
+        <app-wow-winner-banner
+          [winnerNomineeName]="winner.winnerNomineeName"
+          [winnerTitle]="winner.winnerTitle"
+          [winnerStory]="winner.winnerStory"
+          [showPoints]="true"
+          (copyStory)="copyStory($event)"
+        />
       }
 
 
@@ -373,71 +363,17 @@ import { WinSeriesService } from '../../core/services/win-series.service';
       @if (!loading() && currentWeek() && currentWeek()!.nominations.length > 0) {
         <div style="display:flex;flex-direction:column;gap:10px">
           @for (nom of sortedNominations(); track nom.id) {
-            @let isTied = tiedNomIds().has(nom.id);
-            <div [style.border]="isTied ? '1px solid rgba(255,87,34,0.4)' : '1px solid rgba(255,255,255,0.08)'"
-                 [style.background]="isTied ? 'rgba(255,87,34,0.06)' : 'rgba(255,255,255,0.03)'"
-                 style="display:flex;align-items:flex-start;gap:14px;padding:16px;border-radius:12px;transition:border 0.3s,background 0.3s">
-              <!-- Avatar -->
-              <div [style.background]="isTied ? 'rgba(255,87,34,0.15)' : 'rgba(255,215,0,0.12)'"
-                   [style.color]="isTied ? '#ff7043' : '#FFD700'"
-                   [style.border]="isTied ? '1px solid rgba(255,87,34,0.4)' : '1px solid rgba(255,215,0,0.3)'"
-                   style="width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:0.85rem;font-weight:700">
-                {{getInitials(nom.nomineeName)}}
-              </div>
-
-              <!-- Content -->
-              <div style="flex:1;min-width:0">
-                <div style="font-weight:700;font-size:0.95rem">{{nom.nomineeName}}</div>
-                <div style="font-weight:600;font-size:0.85rem;margin-top:2px">{{nom.title}}</div>
-                @if (nom.description) {
-                  <div style="font-size:0.8rem;opacity:0.55;margin-top:4px;line-height:1.4">{{nom.description}}</div>
-                }
-                <div style="font-size:0.7rem;opacity:0.35;margin-top:8px">
-                  Nominated by {{nom.teamMemberName}}
-                </div>
-              </div>
-
-              <!-- Edit/Delete buttons (owner only, during nominating phase) -->
-              @if (nom.teamMemberId === currentUserId && currentWeek()?.status === 'Nominating') {
-                <div style="display:flex;gap:4px;flex-shrink:0">
-                  <button mat-icon-button style="width:32px;height:32px;line-height:32px" matTooltip="Edit nomination" (click)="showEditDialog(nom)">
-                    <mat-icon style="font-size:18px;width:18px;height:18px;color:rgba(255,255,255,0.4)">edit</mat-icon>
-                  </button>
-                  <button mat-icon-button style="width:32px;height:32px;line-height:32px" matTooltip="Delete nomination" (click)="deleteNomination(nom.id)">
-                    <mat-icon style="font-size:18px;width:18px;height:18px;color:rgba(239,83,80,0.6)">delete</mat-icon>
-                  </button>
-                </div>
-              }
-
-              <!-- Vote section (Voting, SuddenDeath, Closed) -->
-              @if (currentWeek()?.status === 'Voting' || currentWeek()?.status === 'SuddenDeath' || currentWeek()?.status === 'Closed') {
-                <div style="display:flex;flex-direction:column;align-items:center;gap:4px;flex-shrink:0;min-width:60px">
-                  <div style="font-size:1.1rem;font-weight:800;opacity:0.8">{{nom.voteCount}}</div>
-                  <div style="font-size:0.6rem;opacity:0.4;text-transform:uppercase">votes</div>
-
-                  @if (currentWeek()?.status === 'Voting' || currentWeek()?.status === 'SuddenDeath') {
-                    @if (nom.hasVoted) {
-                      <button mat-stroked-button color="warn" (click)="removeVote(nom.id)"
-                              style="font-size:0.7rem;height:28px;line-height:28px;min-width:0;padding:0 10px">
-                        Voted ✓
-                      </button>
-                    } @else {
-                      @if ((currentWeek()?.userVotesRemaining ?? 0) > 0) {
-                        <button mat-stroked-button color="primary" (click)="vote(nom.id)"
-                                style="font-size:0.7rem;height:28px;line-height:28px;min-width:0;padding:0 10px">
-                          Vote
-                        </button>
-                      } @else {
-                        <button mat-stroked-button disabled
-                                style="font-size:0.7rem;height:28px;line-height:28px;min-width:0;padding:0 10px">
-                          Max votes
-                        </button>
-                      }
-                    }
-                  }
-                </div>
-              }
-            </div>
+            <app-wow-nomination-card
+              [nomination]="toDisplay(nom)"
+              [weekStatus]="currentWeek()!.status"
+              [canEdit]="nom.teamMemberId === currentUserId"
+              [votesRemaining]="currentWeek()?.userVotesRemaining ?? 0"
+              [isTied]="tiedNomIds().has(nom.id)"
+              (voteClick)="vote($event)"
+              (removeVoteClick)="removeVote($event)"
+              (editClick)="showEditDialog($event)"
+              (deleteClick)="deleteNomination($event)"
+            />
           }
         </div>
       }
@@ -706,8 +642,18 @@ export class WinOfTheWeekComponent implements OnInit, OnDestroy {
     });
   }
 
-  getInitials(name: string): string {
-    return name.split(' ').map(s => s[0]).join('').toUpperCase().slice(0, 2);
+  toDisplay(nom: WinNomination): WowNominationDisplay {
+    return {
+      id: nom.id,
+      nomineeMemberId: nom.nomineeMemberId,
+      nomineeName: nom.nomineeName,
+      nominatorName: nom.teamMemberName,
+      title: nom.title,
+      description: nom.description,
+      voteCount: nom.voteCount,
+      hasVoted: nom.hasVoted,
+      isOwned: nom.teamMemberId === this.currentUserId
+    };
   }
 
   showNominateDialog() {
@@ -716,7 +662,7 @@ export class WinOfTheWeekComponent implements OnInit, OnDestroy {
     this.showDialog.set(true);
   }
 
-  showEditDialog(nom: WinNomination) {
+  showEditDialog(nom: WowNominationDisplay) {
     this.editingNominationId.set(nom.id);
     this.nominateForm = {
       nomineeMemberId: nom.nomineeMemberId,
