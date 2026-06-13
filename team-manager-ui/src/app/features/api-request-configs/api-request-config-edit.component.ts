@@ -1,4 +1,4 @@
-import { Component, inject, signal, effect, untracked, OnInit, OnDestroy } from '@angular/core';
+import { Component, inject, signal, effect, untracked, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
@@ -18,6 +18,7 @@ import {
 } from './api-request-configs.service';
 import { CredentialsService } from '../../core/services/credentials.service';
 import { ConfigVariablesService } from '../settings/config-variables/config-variables.service';
+import { MobileService } from '../../core/services/mobile.service';
 
 interface CodeSegment { text: string; kind: 'plain' | 'resolved' | 'missing'; }
 
@@ -102,8 +103,8 @@ interface CodeSegment { text: string; kind: 'plain' | 'resolved' | 'missing'; }
       }
 
       <!-- Master-detail shell -->
-      <div class="form-shell" [class.md]="isDesktop()">
-        @if (isDesktop()) {
+      <div class="form-shell" [class.md]="isDesktop">
+        @if (isDesktop) {
           <nav class="md-rail">
             @for (s of sectionList; track s.key) {
               @if (s.key === 'code') { <div class="rail-divider"></div> }
@@ -862,7 +863,7 @@ interface CodeSegment { text: string; kind: 'plain' | 'resolved' | 'missing'; }
     }
   `]
 })
-export class ApiRequestConfigEditComponent implements OnInit, OnDestroy {
+export class ApiRequestConfigEditComponent implements OnInit {
   private svc = inject(ApiRequestConfigsService);
   private snackBar = inject(MatSnackBar);
   private credentials = inject(CredentialsService);
@@ -931,32 +932,27 @@ export class ApiRequestConfigEditComponent implements OnInit, OnDestroy {
   discoveringPaths = signal(false);
   arrayLength = signal(0);
 
-  isDesktop = signal(typeof window !== 'undefined' ? window.innerWidth > 640 : true);
-  private mql = typeof window !== 'undefined' ? window.matchMedia('(min-width: 641px)') : null;
-  private mqlListener = (e: MediaQueryListEvent) => this.isDesktop.set(e.matches);
+  private mobile = inject(MobileService);
+  get isDesktop() { return !this.mobile.isMobile(); }
 
   expanded = signal<Set<string>>(new Set(['basic', 'request']));
   activeSection = signal<string>('basic');
 
   constructor() {
-    this.mql?.addEventListener('change', this.mqlListener);
     effect(() => {
-      const visible = this.isDesktop() ? this.activeSection() === 'code' : this.expanded().has('code');
+      const visible = this.isDesktop ? this.activeSection() === 'code' : this.expanded().has('code');
       if (visible) untracked(() => this.generateCode());
     });
     effect(() => {
-      const visible = this.isDesktop() ? this.activeSection() === 'body' : this.expanded().has('body');
+      const visible = this.isDesktop ? this.activeSection() === 'body' : this.expanded().has('body');
       if (visible) untracked(() => this.updateBodySegs());
     });
     effect(() => {
-      const visible = this.isDesktop() ? this.activeSection() === 'request' : this.expanded().has('request');
+      const visible = this.isDesktop ? this.activeSection() === 'request' : this.expanded().has('request');
       if (visible) untracked(() => this.updateUrlSegs());
     });
   }
 
-  ngOnDestroy() {
-    this.mql?.removeEventListener('change', this.mqlListener);
-  }
 
   get sectionList(): { key: string; title: string }[] {
     const base = [
@@ -973,7 +969,7 @@ export class ApiRequestConfigEditComponent implements OnInit, OnDestroy {
   }
 
   isOpen(key: string) { return this.expanded().has(key); }
-  showBody(key: string) { return this.isDesktop() ? this.activeSection() === key : this.isOpen(key); }
+  showBody(key: string) { return this.isDesktop ? this.activeSection() === key : this.isOpen(key); }
 
   toggleSection(key: string) {
     this.expanded.update(s => {

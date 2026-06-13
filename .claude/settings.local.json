@@ -1,5 +1,16 @@
 {
   "permissions": {
+    "deny": [
+      "Bash(git rebase *)",
+      "Bash(git push --force*)",
+      "Bash(git push -f *)",
+      "Bash(git push -f)",
+      "Bash(git reset --hard *)",
+      "Bash(git commit --amend *)",
+      "Bash(git commit --amend)",
+      "Bash(git clean -f *)",
+      "Bash(git checkout -- *)"
+    ],
     "allow": [
       "Bash(npm --version)",
       "Bash(~/.opencode/bin/opencode --help)",
@@ -92,7 +103,12 @@
       "Bash(grep -E \"\\\\.\\(ts|js\\)$\")",
       "Bash(grep -E \"\\\\.\\(ts|html\\)$\")",
       "Bash(grep -E \"\\\\.\\(cs\\)$\")",
-      "Bash(node *)"
+      "Bash(node *)",
+      "Bash(convert --version)",
+      "Bash(ssh *)",
+      "Bash(sudo mkdir -p /opt/services/beszel/k8s)",
+      "Bash(sudo chown juanlurie:juanlurie /opt/services/beszel/k8s)",
+      "Skill(update-config)"
     ]
   },
   "enabledMcpjsonServers": [

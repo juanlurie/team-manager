@@ -2,6 +2,16 @@ import { Routes } from '@angular/router';
 import { IntegrationsHubComponent } from './integrations-hub.component';
 
 export const INTEGRATIONS_ROUTES: Routes = [
+  // Standalone edit pages — must come before the hub route so Angular matches them directly
+  // without rendering the hub (tabs) around them.
+  {
+    path: 'api-configs/new',
+    loadComponent: () => import('../api-request-configs/api-request-config-edit.component').then(m => m.ApiRequestConfigEditComponent)
+  },
+  {
+    path: 'api-configs/:id/edit',
+    loadComponent: () => import('../api-request-configs/api-request-config-edit.component').then(m => m.ApiRequestConfigEditComponent)
+  },
   {
     path: '',
     component: IntegrationsHubComponent,
@@ -10,14 +20,6 @@ export const INTEGRATIONS_ROUTES: Routes = [
       {
         path: 'api-configs',
         loadComponent: () => import('../api-request-configs/api-request-configs.component').then(m => m.ApiRequestConfigsComponent)
-      },
-      {
-        path: 'api-configs/new',
-        loadComponent: () => import('../api-request-configs/api-request-config-edit.component').then(m => m.ApiRequestConfigEditComponent)
-      },
-      {
-        path: 'api-configs/:id/edit',
-        loadComponent: () => import('../api-request-configs/api-request-config-edit.component').then(m => m.ApiRequestConfigEditComponent)
       },
       {
         path: 'config-variables',
