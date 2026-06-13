@@ -19,8 +19,12 @@ html {
 html, body { height: 100%; margin: 0; }
 body { font-family: 'Geist', Roboto, "Helvetica Neue", sans-serif; background: #0f1117; color: #e0e0e0; }
 
-/* ── Geist font via Google Fonts ── */
-@import url('https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap');
+/* ── Self-hosted fonts ── */
+@import '@fontsource/geist/400.css';
+@import '@fontsource/geist/500.css';
+@import '@fontsource/geist/600.css';
+@import '@fontsource/geist/700.css';
+@import 'material-icons/iconfont/material-icons.css';
 
 /* Let mat-sidenav-content scroll naturally */
 mat-sidenav-content {
