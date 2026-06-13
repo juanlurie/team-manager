@@ -4,9 +4,11 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
 import { MatIconModule } from '@angular/material/icon';
 import { GuestWinOfTheWeekService } from './guest-wow.service';
-import { GuestWinWeek, GuestNomination, GuestCreateNominationRequest } from '../../core/models/win-week.model';
+import { GuestWinWeek, GuestNomination, GuestCreateNominationRequest, WowNominationDisplay } from '../../core/models/win-week.model';
 import { AuthService } from '../../core/auth/auth.service';
 import { WowCountdownComponent } from '../../shared/components/wow-countdown/wow-countdown.component';
+import { WowNominationCardComponent } from '../../shared/components/wow-nomination-card/wow-nomination-card.component';
+import { WowWinnerBannerComponent } from '../../shared/components/wow-winner-banner/wow-winner-banner.component';
 
 const SESSION_NAME_KEY = 'wow_guest_name';
 const SESSION_ID_KEY = 'wow_guest_session_id';
@@ -14,7 +16,7 @@ const SESSION_ID_KEY = 'wow_guest_session_id';
 @Component({
   selector: 'app-guest-wow',
   standalone: true,
-  imports: [CommonModule, FormsModule, MatIconModule, WowCountdownComponent],
+  imports: [CommonModule, FormsModule, MatIconModule, WowCountdownComponent, WowNominationCardComponent, WowWinnerBannerComponent],
   template: `
     <!-- Tie-break spin overlay -->
     @if (isSpinning()) {
@@ -91,16 +93,12 @@ const SESSION_ID_KEY = 'wow_guest_session_id';
 
           <!-- Winner banner -->
           @if (week()!.status === 'Closed' && week()!.winnerNomineeName && !isSpinning()) {
-            <div class="winner-banner">
-              <div class="winner-banner__trophy">🏆</div>
-              <div>
-                <div class="winner-banner__name">{{ week()!.winnerNomineeName }}</div>
-                <div class="winner-banner__title">{{ week()!.winnerTitle }}</div>
-              </div>
-            </div>
-            @if (week()!.winnerStory) {
-              <div class="winner-story">{{ week()!.winnerStory }}</div>
-            }
+            <app-wow-winner-banner
+              [winnerNomineeName]="week()!.winnerNomineeName!"
+              [winnerTitle]="week()!.winnerTitle"
+              [winnerStory]="week()!.winnerStory"
+              [showPoints]="false"
+            />
           }
 
           <!-- Nominate button -->
@@ -194,58 +192,41 @@ const SESSION_ID_KEY = 'wow_guest_session_id';
           }
 
           @for (nom of week()!.nominations; track nom.id) {
-            <div class="nom-card" [class.nom-card--voted]="nom.hasVoted" [class.nom-card--sudden-death]="isSuddenDeath()" [class.nom-card--tied]="tiedNomIds().has(nom.id)">
+            @if (editingId() === nom.id) {
               <!-- Inline edit form -->
-              @if (editingId() === nom.id) {
-                <div class="nom-edit-form">
-                  <label class="field-label">Nominee</label>
-                  <select class="field-input" [(ngModel)]="editForm.nomineeMemberId" name="edit-nominee">
-                    <option value="">Select a team member…</option>
-                    @for (m of members(); track m.id) {
-                      <option [value]="m.id">{{ m.name }}</option>
-                    }
-                  </select>
-                  <label class="field-label">Title / Achievement</label>
-                  <input class="field-input" type="text" [(ngModel)]="editForm.title" name="edit-title" maxlength="200" />
-                  <label class="field-label">Description (optional)</label>
-                  <textarea class="field-input field-textarea" [(ngModel)]="editForm.description" name="edit-desc" maxlength="2000" rows="2"></textarea>
-                  <div class="nom-form-card__actions">
-                    <button type="button" class="btn-secondary" (click)="cancelEdit()">Cancel</button>
-                    <button type="button" class="btn-primary" (click)="saveEdit(nom.id)" [disabled]="submitting() || !editForm.nomineeMemberId || !editForm.title.trim()">
-                      {{ submitting() ? 'Saving…' : 'Save' }}
-                    </button>
-                  </div>
-                  @if (formError()) { <p class="form-error">{{ formError() }}</p> }
-                </div>
-              } @else {
-                <div class="nom-card__header">
-                  <span class="nom-card__nominee">{{ nom.nomineeName }}</span>
-                  @if (week()!.status !== 'Nominating') {
-                    <span class="nom-card__votes">{{ nom.voteCount }} vote{{ nom.voteCount !== 1 ? 's' : '' }}</span>
+              <div style="background:#1e1e1e;border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:1.25rem;margin-bottom:0.75rem">
+                <label class="field-label">Nominee</label>
+                <select class="field-input" [(ngModel)]="editForm.nomineeMemberId" name="edit-nominee">
+                  <option value="">Select a team member…</option>
+                  @for (m of members(); track m.id) {
+                    <option [value]="m.id">{{ m.name }}</option>
                   }
+                </select>
+                <label class="field-label">Title / Achievement</label>
+                <input class="field-input" type="text" [(ngModel)]="editForm.title" name="edit-title" maxlength="200" />
+                <label class="field-label">Description (optional)</label>
+                <textarea class="field-input field-textarea" [(ngModel)]="editForm.description" name="edit-desc" maxlength="2000" rows="2"></textarea>
+                <div class="nom-form-card__actions">
+                  <button type="button" class="btn-secondary" (click)="cancelEdit()">Cancel</button>
+                  <button type="button" class="btn-primary" (click)="saveEdit(nom.id)" [disabled]="submitting() || !editForm.nomineeMemberId || !editForm.title.trim()">
+                    {{ submitting() ? 'Saving…' : 'Save' }}
+                  </button>
                 </div>
-                <div class="nom-card__title">{{ nom.title }}</div>
-                @if (nom.description) {
-                  <div class="nom-card__desc">{{ nom.description }}</div>
-                }
-                <div class="nom-card__footer">
-                  <span class="nom-card__by">Nominated by {{ nom.nominatorDisplayName }}</span>
-                  <div class="nom-card__actions">
-                    @if (nom.isOwned && week()!.isNominatingOpen) {
-                      <button class="btn-icon" title="Edit" (click)="startEdit(nom)"><mat-icon style="font-size:16px;width:16px;height:16px;line-height:16px">edit</mat-icon></button>
-                      <button class="btn-icon btn-icon--danger" title="Delete" (click)="deleteNomination(nom.id)" [disabled]="deletingId() === nom.id"><mat-icon style="font-size:16px;width:16px;height:16px;line-height:16px">delete</mat-icon></button>
-                    }
-                    @if (week()!.isVotingOpen) {
-                      @if (nom.hasVoted) {
-                        <button class="btn-voted" (click)="removeVote(nom.id)" [disabled]="votingId() === nom.id">✓ Voted</button>
-                      } @else if (week()!.userVotesRemaining > 0) {
-                        <button class="btn-vote" (click)="vote(nom.id)" [disabled]="votingId() === nom.id">Vote</button>
-                      }
-                    }
-                  </div>
-                </div>
-              }
-            </div>
+                @if (formError()) { <p class="form-error">{{ formError() }}</p> }
+              </div>
+            } @else {
+              <app-wow-nomination-card
+                [nomination]="toDisplay(nom)"
+                [weekStatus]="week()!.status"
+                [canEdit]="nom.isOwned && week()!.isNominatingOpen"
+                [votesRemaining]="week()!.userVotesRemaining"
+                [isTied]="tiedNomIds().has(nom.id)"
+                (voteClick)="vote($event)"
+                (removeVoteClick)="removeVote($event)"
+                (editClick)="startEdit($event)"
+                (deleteClick)="deleteNomination($event)"
+              />
+            }
           }
         </div>
       }
@@ -423,31 +404,6 @@ const SESSION_ID_KEY = 'wow_guest_session_id';
       padding: 0.15rem 0.6rem;
     }
 
-    .winner-banner {
-      display: flex;
-      align-items: center;
-      gap: 1rem;
-      background: rgba(255,215,0,0.1);
-      border: 1px solid rgba(255,215,0,0.3);
-      border-radius: 10px;
-      padding: 1rem 1.25rem;
-      margin-bottom: 1rem;
-    }
-    .winner-banner__trophy { font-size: 2rem; }
-    .winner-banner__name { font-size: 1.1rem; font-weight: 700; color: #FFD700; }
-    .winner-banner__title { color: rgba(255,255,255,0.7); font-size: 0.9rem; }
-
-    .winner-story {
-      background: rgba(255,255,255,0.04);
-      border-radius: 8px;
-      padding: 1rem 1.25rem;
-      color: rgba(255,255,255,0.75);
-      font-size: 0.95rem;
-      line-height: 1.6;
-      margin-bottom: 1rem;
-      white-space: pre-line;
-    }
-
     .nominate-bar { margin-bottom: 1rem; }
 
     .already-nominated {
@@ -487,61 +443,6 @@ const SESSION_ID_KEY = 'wow_guest_session_id';
       padding: 2rem 0;
     }
 
-    .nom-card {
-      background: #1e1e1e;
-      border: 1px solid rgba(255,255,255,0.08);
-      border-radius: 10px;
-      padding: 1rem 1.25rem;
-      margin-bottom: 0.75rem;
-    }
-    .nom-card__header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 0.25rem;
-    }
-    .nom-card__nominee { font-weight: 700; font-size: 1rem; }
-    .nom-card__votes { font-size: 0.85rem; color: rgba(255,255,255,0.5); }
-    .nom-card__title { color: rgba(255,255,255,0.85); font-size: 0.95rem; margin-bottom: 0.25rem; }
-    .nom-card__desc { color: rgba(255,255,255,0.55); font-size: 0.88rem; margin-bottom: 0.25rem; }
-    .nom-card__footer {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-top: 0.25rem;
-    }
-    .nom-card__by { font-size: 0.78rem; color: rgba(255,255,255,0.35); }
-
-    .nom-card--voted {
-      border-color: rgba(76,175,80,0.35);
-    }
-
-    .btn-vote {
-      background: transparent;
-      border: 1px solid rgba(255,215,0,0.5);
-      color: #FFD700;
-      border-radius: 6px;
-      padding: 0.25rem 0.75rem;
-      font-size: 0.82rem;
-      font-weight: 600;
-      cursor: pointer;
-      transition: background 0.15s;
-    }
-    .btn-vote:hover:not(:disabled) { background: rgba(255,215,0,0.1); }
-    .btn-vote:disabled { opacity: 0.5; cursor: not-allowed; }
-
-    .btn-voted {
-      background: rgba(76,175,80,0.15);
-      border: 1px solid rgba(76,175,80,0.4);
-      color: #4caf50;
-      border-radius: 6px;
-      padding: 0.25rem 0.75rem;
-      font-size: 0.82rem;
-      font-weight: 600;
-      cursor: pointer;
-    }
-    .btn-voted:disabled { opacity: 0.7; }
-
     .votes-remaining {
       font-size: 0.88rem;
       color: rgba(255,255,255,0.55);
@@ -564,40 +465,6 @@ const SESSION_ID_KEY = 'wow_guest_session_id';
     }
     .sudden-death-banner__icon { font-size: 1.1rem; }
     .sudden-death-countdown { margin-left: auto; }
-
-    .nom-card--sudden-death {
-      border-color: rgba(244,67,54,0.25);
-    }
-
-    .nom-card--tied {
-      border-color: rgba(255,87,34,0.4);
-      background: rgba(255,87,34,0.06);
-    }
-
-    .nom-card__actions {
-      display: flex;
-      align-items: center;
-      gap: 0.4rem;
-    }
-
-    .btn-icon {
-      background: transparent;
-      border: none;
-      cursor: pointer;
-      font-size: 0.9rem;
-      padding: 0.2rem 0.3rem;
-      border-radius: 4px;
-      opacity: 0.6;
-      transition: opacity 0.15s;
-      display: inline-flex;
-      align-items: center;
-      color: inherit;
-    }
-    .btn-icon:hover { opacity: 1; }
-    .btn-icon:disabled { opacity: 0.3; cursor: not-allowed; }
-    .btn-icon--danger:hover { background: rgba(244,67,54,0.15); }
-
-    .nom-edit-form { padding: 0.25rem 0; }
   `]
 })
 export class GuestWowComponent implements OnInit, OnDestroy {
@@ -702,7 +569,21 @@ export class GuestWowComponent implements OnInit, OnDestroy {
     this.resetForm();
   }
 
-  startEdit(nom: GuestNomination) {
+  toDisplay(nom: GuestNomination): WowNominationDisplay {
+    return {
+      id: nom.id,
+      nomineeMemberId: nom.nomineeMemberId,
+      nomineeName: nom.nomineeName,
+      nominatorName: nom.nominatorDisplayName,
+      title: nom.title,
+      description: nom.description,
+      voteCount: nom.voteCount,
+      hasVoted: nom.hasVoted,
+      isOwned: nom.isOwned
+    };
+  }
+
+  startEdit(nom: WowNominationDisplay) {
     this.editingId.set(nom.id);
     this.editForm = { nomineeMemberId: nom.nomineeMemberId, title: nom.title, description: nom.description ?? '' };
     this.formError.set('');

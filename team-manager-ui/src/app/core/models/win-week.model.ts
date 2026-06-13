@@ -150,6 +150,18 @@ export interface GuestNomination {
   createdAt: string;
 }
 
+export interface WowNominationDisplay {
+  id: string;
+  nomineeMemberId: string;
+  nomineeName: string;
+  nominatorName: string;
+  title: string;
+  description: string | null;
+  voteCount: number;
+  hasVoted: boolean;
+  isOwned: boolean;
+}
+
 export interface GuestCreateNominationRequest {
   guestSessionId: string;
   guestName: string;
