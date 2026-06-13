@@ -1,10 +1,9 @@
 import { Component, signal, computed, HostListener, inject } from '@angular/core';
-import { RouterOutlet, RouterLink, RouterLinkActive, Router, NavigationEnd } from '@angular/router';
+import { RouterOutlet, RouterLink, RouterLinkActive, Router, NavigationEnd, NavigationStart, NavigationCancel, NavigationError } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatDialogModule, MatDialog } from '@angular/material/dialog';
-import { filter } from 'rxjs/operators';
 import { trigger, animate, style, transition } from '@angular/animations';
 import { QuickOpenDialogComponent } from './core/components/quick-open-dialog/quick-open-dialog.component';
 import { KPickerData, KPickerResult } from './core/components/k-picker/k-picker.types';
@@ -66,6 +65,25 @@ const routeFade = trigger('routeFade', [
   imports: [RouterOutlet, RouterLink, RouterLinkActive, CommonModule, MatIconModule, MatTooltipModule, MatDialogModule],
   animations: [routeFade],
   template: `
+    <!-- ── Nav progress bar ── -->
+    @if (navLoading()) {
+      <div class="nav-progress"><div class="nav-progress-bar"></div></div>
+    }
+
+    <!-- ── Initial auth-checking splash ── -->
+    @if (authChecking()) {
+      <div class="splash">
+        <div class="splash-icon">
+          <span class="material-icons splash-groups">groups</span>
+          <div class="splash-ring"></div>
+        </div>
+        <div class="splash-name">Team Manager</div>
+        <div class="splash-dots">
+          <span></span><span></span><span></span>
+        </div>
+      </div>
+    }
+
     <div class="shell" [class.mobile]="isMobile()">
 
       <!-- ── Mobile bottom nav ── -->
@@ -377,6 +395,83 @@ const routeFade = trigger('routeFade', [
     .shell.mobile .content { padding-bottom: 60px; }
     .page-wrap { padding: 24px; max-width: 1200px; margin: 0 auto; }
     .shell.mobile .page-wrap { padding: 0 4px 72px; }
+
+    /* ── Nav progress bar ── */
+    .nav-progress {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+      z-index: 9999;
+      background: rgba(100,181,246,0.15);
+      overflow: hidden;
+    }
+    .nav-progress-bar {
+      height: 100%;
+      background: #64b5f6;
+      animation: nav-progress-slide 1.4s ease-in-out infinite;
+    }
+    @keyframes nav-progress-slide {
+      0%   { left: -45%; right: 100%; }
+      50%  { left: 30%;  right: 20%; }
+      100% { left: 100%; right: -10%; }
+    }
+
+    /* ── Auth-checking splash ── */
+    .splash {
+      position: fixed;
+      inset: 0;
+      background: #0f1117;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 20px;
+      z-index: 8000;
+    }
+    .splash-icon {
+      position: relative;
+      width: 72px; height: 72px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .splash-groups {
+      font-family: 'Material Icons';
+      font-size: 36px;
+      color: #64b5f6;
+      z-index: 1;
+    }
+    .splash-ring {
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      border: 2px solid transparent;
+      border-top-color: #64b5f6;
+      border-right-color: rgba(100,181,246,0.3);
+      animation: splash-spin 1s linear infinite;
+    }
+    @keyframes splash-spin {
+      to { transform: rotate(360deg); }
+    }
+    .splash-name {
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: rgba(255,255,255,0.6);
+      letter-spacing: 0.04em;
+    }
+    .splash-dots {
+      display: flex; gap: 6px;
+    }
+    .splash-dots span {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: rgba(100,181,246,0.5);
+      animation: splash-dot 1.2s ease-in-out infinite;
+    }
+    .splash-dots span:nth-child(2) { animation-delay: 0.2s; }
+    .splash-dots span:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes splash-dot {
+      0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }
+      40%            { transform: scale(1);   opacity: 1; }
+    }
   `]
 })
 export class AppComponent {
@@ -403,6 +498,8 @@ export class AppComponent {
   isMoreActive = computed(() => ALL_MORE_NAV.some(item => this.currentUrl().startsWith(item.path)));
   isLoginPage = computed(() => this.currentUrl() === '/login');
   isAuthorized = signal(false);
+  navLoading = signal(false);
+  authChecking = signal(true);
 
   expanded = signal(localStorage.getItem('nav-expanded') === 'true');
 
@@ -419,16 +516,24 @@ export class AppComponent {
     }
     this.checkMobile();
     this.auth.authStatus$.subscribe(status => {
+      this.authChecking.set(false);
       this.isAuthorized.set(status === 'authorized');
       if (status === 'authorized') {
         this.featureAccess.loadPermissions();
         this.tsd.load();
       }
     });
-    this.router.events.pipe(filter(e => e instanceof NavigationEnd)).subscribe(e => {
-      this.currentUrl.set((e as NavigationEnd).urlAfterRedirects);
-      this.moreOpen.set(false);
-      this.globalFilterSvc.clearFilters();
+    this.router.events.subscribe(e => {
+      if (e instanceof NavigationStart) {
+        this.navLoading.set(true);
+      } else if (e instanceof NavigationEnd) {
+        this.navLoading.set(false);
+        this.currentUrl.set(e.urlAfterRedirects);
+        this.moreOpen.set(false);
+        this.globalFilterSvc.clearFilters();
+      } else if (e instanceof NavigationCancel || e instanceof NavigationError) {
+        this.navLoading.set(false);
+      }
     });
     window.addEventListener('keydown', (event) => {
       if ((event.ctrlKey || event.metaKey) && event.key === 'p') {
