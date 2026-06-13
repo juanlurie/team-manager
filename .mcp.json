@@ -2,7 +2,7 @@
   "mcpServers": {
     "team-manager": {
       "type": "sse",
-      "url": "https://mcp.team.kakushi.dev/sse",
+      "url": "https://team-mcp.kakushi.dev/sse",
       "headers": {
         "Authorization": "Bearer tm_sAR0Te-qUfioIkqr0BFKI-sEqhtaGh5JEth2muLLbZg"
       }
