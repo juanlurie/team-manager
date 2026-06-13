@@ -34,7 +34,7 @@ jobs:
       - name: Audit .NET dependencies
         run: dotnet list package --vulnerable --include-transitive
         working-directory: ./src/TeamManager.Api
-        continue-on-error: true
+        continue-on-error: false
 
       - name: Build and push API
         uses: docker/build-push-action@v5
@@ -53,11 +53,11 @@ jobs:
         with:
           image-ref: ${{ env.REGISTRY }}/${{ env.OWNER }}/team-manager-api:${{ github.sha }}
           severity: HIGH,CRITICAL
-          exit-code: '0'
+          exit-code: '1'
           format: table
 
       - name: Audit UI dependencies
-        run: npm audit --audit-level=high || true
+        run: npm audit --audit-level=high
         working-directory: ./team-manager-ui
 
       - name: Build and push UI
@@ -77,7 +77,7 @@ jobs:
         with:
           image-ref: ${{ env.REGISTRY }}/${{ env.OWNER }}/team-manager-ui:${{ github.sha }}
           severity: HIGH,CRITICAL
-          exit-code: '0'
+          exit-code: '1'
           format: table
 
       - name: Build and push MCP gateway
@@ -97,7 +97,7 @@ jobs:
         with:
           image-ref: ${{ env.REGISTRY }}/${{ env.OWNER }}/team-manager-mcp:${{ github.sha }}
           severity: HIGH,CRITICAL
-          exit-code: '0'
+          exit-code: '1'
           format: table
 
       - name: Update k8s image tags
