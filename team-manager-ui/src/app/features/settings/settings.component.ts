@@ -25,7 +25,7 @@ const CONFIG_CARDS: ConfigCard[] = [
     icon: 'key',
     label: 'API Keys',
     description: 'Manage your personal API keys for programmatic access',
-    path: '/settings/api-keys',
+    path: '/integrations',
     color: '#4caf50'
   },
   {
