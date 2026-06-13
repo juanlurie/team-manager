@@ -1,7 +1,7 @@
 <div style="max-width:800px;margin:0 auto;padding:0 8px;overflow-x:hidden">
   <!-- Header -->
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">
-    <button class="icon-btn" routerLink="/settings" matTooltip="Back to Settings">
+    <button class="icon-btn" routerLink="/integrations" matTooltip="Back to Integrations">
       <mat-icon style="font-size:20px;height:20px;width:20px">arrow_back</mat-icon>
     </button>
     <mat-icon style="font-size:1.6rem;width:1.6rem;height:1.6rem;color:#64b5f6">key</mat-icon>
@@ -69,4 +69,42 @@
       }
     </div>
   }
+
+  <!-- MCP Setup Instructions -->
+  <div class="section" style="margin-top:24px">
+    <div class="section-header">
+      <mat-icon style="font-size:18px;height:18px;width:18px;opacity:0.5">smart_toy</mat-icon>
+      <span style="font-size:0.85rem;font-weight:600;flex:1">Claude MCP Connection</span>
+    </div>
+    <div style="font-size:0.8rem;opacity:0.55;margin-bottom:12px;line-height:1.6">
+      Connect Claude Desktop or Claude Code to this Team Manager instance using the MCP server.
+      Create an API key above, then add the following to your Claude configuration.
+    </div>
+
+    <div style="font-size:0.75rem;font-weight:600;opacity:0.45;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px">Claude Desktop — <code style="text-transform:none">claude_desktop_config.json</code></div>
+    <pre style="font-size:0.73rem;padding:12px;background:rgba(0,0,0,0.35);border-radius:8px;overflow-x:auto;border:1px solid rgba(255,255,255,0.07);margin:0 0 16px;line-height:1.6">&#123;
+  "mcpServers": &#123;
+    "team-manager": &#123;
+      "type": "sse",
+      "url": "http://&lt;mcp-gateway-host&gt;:8765/sse",
+      "headers": &#123;
+        "Authorization": "Bearer &lt;your-api-key&gt;"
+      &#125;
+    &#125;
+  &#125;
+&#125;</pre>
+
+    <div style="font-size:0.75rem;font-weight:600;opacity:0.45;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px">Claude Code — <code style="text-transform:none">.claude/settings.json</code></div>
+    <pre style="font-size:0.73rem;padding:12px;background:rgba(0,0,0,0.35);border-radius:8px;overflow-x:auto;border:1px solid rgba(255,255,255,0.07);margin:0;line-height:1.6">&#123;
+  "mcpServers": &#123;
+    "team-manager": &#123;
+      "type": "sse",
+      "url": "http://&lt;mcp-gateway-host&gt;:8765/sse",
+      "headers": &#123;
+        "Authorization": "Bearer &lt;your-api-key&gt;"
+      &#125;
+    &#125;
+  &#125;
+&#125;</pre>
+  </div>
 </div>

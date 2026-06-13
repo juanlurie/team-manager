@@ -15,6 +15,7 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
         <a class="hub-tab" routerLink="credentials" routerLinkActive="active" role="tab">Credentials</a>
         <a class="hub-tab" routerLink="sync-queue" routerLinkActive="active" role="tab">Sync Queue</a>
         <a class="hub-tab" routerLink="services" routerLinkActive="active" role="tab">Services</a>
+        <a class="hub-tab" routerLink="api-keys" routerLinkActive="active" role="tab">API Keys</a>
       </nav>
       <div class="hub-content">
         <router-outlet />
