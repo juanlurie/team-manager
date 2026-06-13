@@ -5,7 +5,6 @@ resources:
   - namespace.yaml
   - secrets.yaml
   - postgres.yaml
-  - migrate-job.yaml
   - api.yaml
   - mcp-gateway.yaml
   - ui.yaml
