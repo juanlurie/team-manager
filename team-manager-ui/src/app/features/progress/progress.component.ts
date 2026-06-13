@@ -1,5 +1,5 @@
-import { Component, OnInit, inject, signal, computed } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, OnInit, inject, signal, computed, ChangeDetectionStrategy } from '@angular/core';
+
 import { RouterLink } from '@angular/router';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
@@ -10,13 +10,14 @@ import { IconButtonComponent } from '../../shared/components/icon-btn/icon-btn.c
 @Component({
   selector: 'app-progress',
   standalone: true,
-  imports: [CommonModule, RouterLink, MatIconModule, MatButtonModule, IconButtonComponent],
+  imports: [RouterLink, MatIconModule, MatButtonModule, IconButtonComponent],
   styles: [`
     .sprint-link { color:rgba(255,255,255,0.7);text-decoration:none;transition:color 0.15s; }
     .sprint-link:hover { color:#64b5f6; }
     .feat-link { text-decoration:none;color:inherit; }
     .feat-link:hover { text-decoration:underline; }
   `],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div style="margin-bottom:24px;display:flex;align-items:center;gap:12px">
       <h2 style="margin:0;font-size:1.1rem;font-weight:600;opacity:0.85">PI Progress</h2>

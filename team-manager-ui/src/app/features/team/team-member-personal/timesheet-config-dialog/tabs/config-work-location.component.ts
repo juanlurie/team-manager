@@ -1,11 +1,11 @@
-import { Component, input, output } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, input, output, ChangeDetectionStrategy } from '@angular/core';
+
 import { FormsModule } from '@angular/forms';
 
 @Component({
   selector: 'app-config-work-location',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [FormsModule],
   styles: [`
     .hint { font-size:11px; color:rgba(255,255,255,0.28); margin-bottom:10px; }
     .row { display:flex; gap:7px; align-items:center; justify-content:space-between; margin-bottom:8px; }
@@ -13,6 +13,7 @@ import { FormsModule } from '@angular/forms';
     .sel:focus { border-color:rgba(100,181,246,0.7); }
     .sel option { background:#1a1c2a; }
   `],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div class="hint">Set your default work location for each day of the week.</div>
     @for (day of weekDays; track day) {

@@ -1,5 +1,5 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, OnInit, inject, signal, ChangeDetectionStrategy } from '@angular/core';
+
 import { ActivatedRoute } from '@angular/router';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { SprintDashboard } from '../../../core/models/dashboard.model';
@@ -9,7 +9,8 @@ import { SprintVotePanelComponent } from '../sprint-vote-panel/sprint-vote-panel
 @Component({
   selector: 'app-sprint-vote-tab',
   standalone: true,
-  imports: [CommonModule, MatProgressSpinnerModule, SprintVotePanelComponent],
+  imports: [MatProgressSpinnerModule, SprintVotePanelComponent],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     @if (loading()) {
       <div style="display:flex;justify-content:center;padding:80px">

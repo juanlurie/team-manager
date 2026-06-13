@@ -1,5 +1,5 @@
-import { Component, inject } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, inject, ChangeDetectionStrategy } from '@angular/core';
+
 import { MatIconModule } from '@angular/material/icon';
 import { RouterLink } from '@angular/router';
 import { ShowcaseDataService } from '../services/showcase-data.service';
@@ -8,7 +8,7 @@ import { FeatureCard } from '../models/showcase.model';
 @Component({
   selector: 'app-features-section',
   standalone: true,
-  imports: [CommonModule, MatIconModule, RouterLink],
+  imports: [MatIconModule, RouterLink],
   template: `
     <div class="section">
       <h2 class="section-title">System Features</h2>
@@ -31,6 +31,7 @@ import { FeatureCard } from '../models/showcase.model';
       </div>
     </div>
   `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .section { padding: 8px 0; }
     .section-title { font-size: 1.1rem; font-weight: 600; color: rgba(255,255,255,0.85); margin: 0 0 6px; }

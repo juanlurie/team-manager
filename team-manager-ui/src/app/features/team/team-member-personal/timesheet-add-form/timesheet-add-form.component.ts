@@ -1,12 +1,12 @@
-import { Component, input, output } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, input, output, ChangeDetectionStrategy } from '@angular/core';
+
 import { FormsModule } from '@angular/forms';
 import { QuickActionConfig } from '../../../../core/models/timesheet-config.model';
 
 @Component({
   selector: 'app-timesheet-add-form',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [FormsModule],
   styles: [`
     .panel { border-top:1px solid rgba(100,181,246,0.2); border-bottom:1px solid rgba(100,181,246,0.2); padding:10px 16px 12px; flex-shrink:0; }
     .r1 { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:8px; }
@@ -33,6 +33,7 @@ import { QuickActionConfig } from '../../../../core/models/timesheet-config.mode
     .btn:hover { background:#90caf9; }
     .btn:disabled { opacity:0.35; cursor:not-allowed; }
   `],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div class="panel">
       <div class="r1">

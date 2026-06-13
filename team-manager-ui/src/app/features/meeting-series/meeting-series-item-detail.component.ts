@@ -1,5 +1,5 @@
-import { Component, OnInit, inject, signal, computed } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, OnInit, inject, signal, computed, ChangeDetectionStrategy } from '@angular/core';
+
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -11,7 +11,7 @@ import { MeetingSeries, MeetingSeriesItem } from '../../core/models/meeting-seri
 @Component({
   selector: 'app-meeting-series-item-detail',
   standalone: true,
-  imports: [CommonModule, RouterLink, MatButtonModule, MatIconModule, MatProgressSpinnerModule],
+  imports: [RouterLink, MatButtonModule, MatIconModule, MatProgressSpinnerModule],
   template: `
     <div class="page">
       @if (loading()) {
@@ -111,6 +111,7 @@ import { MeetingSeries, MeetingSeriesItem } from '../../core/models/meeting-seri
       }
     </div>
   `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .page { max-width:900px;margin:0 auto;padding:8px; }
     .spinner-wrap { display:flex;justify-content:center;padding:60px; }

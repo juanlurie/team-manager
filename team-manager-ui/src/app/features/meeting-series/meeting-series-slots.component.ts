@@ -1,5 +1,5 @@
-import { Component, OnInit, inject, signal, computed } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, OnInit, inject, signal, computed, ChangeDetectionStrategy } from '@angular/core';
+
 import { ActivatedRoute, Router } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatSnackBar } from '@angular/material/snack-bar';
@@ -15,7 +15,7 @@ type SlotKey = string;
 @Component({
   selector: 'app-meeting-series-slots',
   standalone: true,
-  imports: [CommonModule, MatButtonModule],
+  imports: [MatButtonModule],
   template: `
     <div class="page">
       @if (!series()) {
@@ -129,6 +129,7 @@ type SlotKey = string;
       }
     </div>
   `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .page { max-width:900px;margin:0 auto;padding:8px; }
     .loading { text-align:center;padding:40px;opacity:0.5; }

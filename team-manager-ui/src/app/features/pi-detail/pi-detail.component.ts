@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, signal, computed } from '@angular/core';
+import { Component, OnInit, inject, signal, computed, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
@@ -180,6 +180,7 @@ interface MilestoneCreateDialogData {
       </div>
     }
   `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .timeline-node {
       width: 24px;height: 24px;
@@ -289,6 +290,7 @@ export class PIDetailComponent implements OnInit {
     MatDialogModule, MatButtonModule, MatIconModule,
     MatFormFieldModule, MatInputModule, MatSelectModule, MatRadioModule
   ],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <h2 mat-dialog-title style="margin:0 0 16px;font-size:1.1rem">{{ data.isEdit ? 'Edit milestone' : 'Add milestone' }}</h2>
     <mat-dialog-content style="min-width:360px">

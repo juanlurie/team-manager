@@ -1,5 +1,5 @@
-import { Component, OnInit, inject, signal, computed } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, OnInit, inject, signal, computed, ChangeDetectionStrategy } from '@angular/core';
+
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
@@ -24,11 +24,19 @@ import { SquadFilterComponent } from '../../../shared/components/squad-filter/sq
   selector: 'app-sprint-members-tab',
   standalone: true,
   imports: [
-    CommonModule, FormsModule, MatButtonModule, MatIconModule,
-    MatDialogModule, MatSelectModule, MatFormFieldModule,
-    MatTooltipModule, MatProgressSpinnerModule, SprintMemberCardComponent, IconButtonComponent,
-    SquadFilterComponent,
-  ],
+    FormsModule,
+    MatButtonModule,
+    MatIconModule,
+    MatDialogModule,
+    MatSelectModule,
+    MatFormFieldModule,
+    MatTooltipModule,
+    MatProgressSpinnerModule,
+    SprintMemberCardComponent,
+    IconButtonComponent,
+    SquadFilterComponent
+],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     @if (loading()) {
       <div style="display:flex;justify-content:center;padding:80px">

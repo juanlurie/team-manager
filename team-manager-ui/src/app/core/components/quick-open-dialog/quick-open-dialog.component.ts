@@ -1,5 +1,5 @@
-import { Component, inject, signal, computed, AfterViewInit, ViewChild, ElementRef, OnInit, HostListener } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, inject, signal, computed, AfterViewInit, ViewChild, ElementRef, OnInit, HostListener, ChangeDetectionStrategy } from '@angular/core';
+
 import { FormsModule } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
 import { MatDialogModule, MatDialogRef } from '@angular/material/dialog';
@@ -55,7 +55,7 @@ const QUICK_OPEN_ITEMS: QuickOpenItem[] = [
 @Component({
   selector: 'app-quick-open-dialog',
   standalone: true,
-  imports: [CommonModule, FormsModule, MatIconModule, MatDialogModule],
+  imports: [FormsModule, MatIconModule, MatDialogModule],
   template: `
     <div class="quick-open-wrapper">
       <div class="quick-open-header">
@@ -80,6 +80,7 @@ const QUICK_OPEN_ITEMS: QuickOpenItem[] = [
       </div>
     </div>
   `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .quick-open-wrapper {
       width: 90vw;

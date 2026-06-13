@@ -1,5 +1,5 @@
-import { Component, inject, signal, effect } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, inject, signal, effect, ChangeDetectionStrategy } from '@angular/core';
+
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { AuthService } from '../../core/auth/auth.service';
@@ -7,7 +7,7 @@ import { AuthService } from '../../core/auth/auth.service';
 @Component({
   selector: 'app-not-registered',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [FormsModule],
   template: `
     <div class="not-registered-page">
       <div class="not-registered-card">
@@ -109,6 +109,7 @@ import { AuthService } from '../../core/auth/auth.service';
       </div>
     </div>
   `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .not-registered-page {
       min-height: 100vh;

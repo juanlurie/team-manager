@@ -1,5 +1,5 @@
-import { Component, OnInit, inject, signal, computed } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, OnInit, inject, signal, computed, ChangeDetectionStrategy } from '@angular/core';
+
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
@@ -14,7 +14,7 @@ import { MeetingSeries } from '../../core/models/meeting-series.model';
 @Component({
   selector: 'app-meeting-series-item-create',
   standalone: true,
-  imports: [CommonModule, FormsModule, MatButtonModule, MatFormFieldModule, MatInputModule],
+  imports: [FormsModule, MatButtonModule, MatFormFieldModule, MatInputModule],
   template: `
     <div class="page">
       <div class="back-row">
@@ -103,6 +103,7 @@ import { MeetingSeries } from '../../core/models/meeting-series.model';
       }
     </div>
   `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .page { max-width:900px;margin:0 auto;padding:8px; }
     .back-row { display:flex;align-items:center;gap:12px;margin-bottom:24px; }

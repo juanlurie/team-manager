@@ -1,5 +1,5 @@
-import { Component, ElementRef, ViewChild, inject, HostListener, signal, afterNextRender } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, ElementRef, ViewChild, inject, HostListener, signal, afterNextRender, ChangeDetectionStrategy } from '@angular/core';
+
 import { FormsModule } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
@@ -156,7 +156,7 @@ const SKILL_CATEGORIES = ['Technical', 'Soft Skills'];
 @Component({
   selector: 'app-skill-add-dialog',
   standalone: true,
-  imports: [CommonModule, FormsModule, MatIconModule, MatButtonModule, MatDialogModule],
+  imports: [FormsModule, MatIconModule, MatButtonModule, MatDialogModule],
   template: `
     <div class="dialog-wrapper">
       <h2 mat-dialog-title>Add Skill</h2>
@@ -264,6 +264,7 @@ const SKILL_CATEGORIES = ['Technical', 'Soft Skills'];
       </div>
     </div>
   `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .dialog-wrapper { min-width: 320px; }
     .dialog-content { display: flex; flex-direction: column; gap: 18px; padding-top: 8px; }

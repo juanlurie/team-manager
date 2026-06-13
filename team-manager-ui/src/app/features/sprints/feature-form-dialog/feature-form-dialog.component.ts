@@ -1,5 +1,5 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, OnInit, inject, signal, ChangeDetectionStrategy } from '@angular/core';
+
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { MatDialogModule, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -13,8 +13,8 @@ import { FeatureService } from '../../../core/services/feature.service';
 @Component({
   selector: 'app-feature-form-dialog',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, MatDialogModule,
-    MatFormFieldModule, MatInputModule, MatSelectModule, MatButtonModule, MatCheckboxModule],
+  imports: [ReactiveFormsModule, MatDialogModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatButtonModule, MatCheckboxModule],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <h2 mat-dialog-title>{{ data.feature ? 'Edit' : 'Add' }} Feature</h2>
     <mat-dialog-content>

@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, inject, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
@@ -22,6 +22,7 @@ import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/c
     MatInputModule, MatFormFieldModule
   ],
   templateUrl: './manage-menus.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./manage-menus.component.scss']
 })
 export class ManageMenusComponent implements OnInit {

@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal, AfterViewInit, ViewChild, ElementRef } from '@angular/core';
+import { Component, inject, OnInit, signal, AfterViewInit, ViewChild, ElementRef, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
@@ -33,6 +33,7 @@ interface ExpenseItem {
     MatDialogModule,
   ],
   templateUrl: './expense-claim.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./expense-claim.component.scss'],
 })
 export class ExpenseClaimComponent implements OnInit {
@@ -161,7 +162,7 @@ export class ExpenseClaimComponent implements OnInit {
 
     const logoBytes = Uint8Array.from(atob(LOGO_BASE64), c => c.charCodeAt(0));
     const logoId = workbook.addImage({
-      buffer: logoBytes,
+      buffer: Buffer.from(logoBytes) as any,
       extension: 'jpeg',
     });
     worksheet.addImage(logoId, {

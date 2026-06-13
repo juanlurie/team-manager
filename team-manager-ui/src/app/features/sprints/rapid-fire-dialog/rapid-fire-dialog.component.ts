@@ -1,5 +1,5 @@
-import { Component, OnInit, inject, signal, computed, ElementRef, ViewChild } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, OnInit, inject, signal, computed, ElementRef, ViewChild, ChangeDetectionStrategy } from '@angular/core';
+
 import { ReactiveFormsModule, FormsModule } from '@angular/forms';
 import { MatDialogModule, MatDialogRef, MatDialog, MAT_DIALOG_DATA } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -29,10 +29,9 @@ interface ItemState {
 @Component({
   selector: 'app-rapid-fire-dialog',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, FormsModule, MatDialogModule,
-    MatFormFieldModule, MatInputModule, MatSelectModule, MatButtonModule,
-    MatIconModule, MatDividerModule, MatTooltipModule, CommentsComponent, CarryOverDialogComponent, IconButtonComponent],
+  imports: [ReactiveFormsModule, FormsModule, MatDialogModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatButtonModule, MatIconModule, MatDividerModule, MatTooltipModule, CommentsComponent, CarryOverDialogComponent, IconButtonComponent],
   templateUrl: './rapid-fire-dialog.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./rapid-fire-dialog.component.scss']
 })
 export class RapidFireDialogComponent implements OnInit {

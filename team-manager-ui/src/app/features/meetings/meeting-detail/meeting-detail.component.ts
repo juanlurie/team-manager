@@ -1,5 +1,5 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, OnInit, inject, signal, ChangeDetectionStrategy } from '@angular/core';
+
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -16,8 +16,7 @@ import { IconButtonComponent } from '../../../shared/components/icon-btn/icon-bt
 @Component({
   selector: 'app-meeting-detail',
   standalone: true,
-  imports: [CommonModule, MatButtonModule, MatIconModule, MatDialogModule,
-    MatProgressSpinnerModule, MatTooltipModule, RouterLink, IconButtonComponent],
+  imports: [MatButtonModule, MatIconModule, MatDialogModule, MatProgressSpinnerModule, MatTooltipModule, RouterLink, IconButtonComponent],
   template: `
     @if (loading()) {
       <div style="display:flex;justify-content:center;padding:80px">
@@ -177,6 +176,7 @@ import { IconButtonComponent } from '../../../shared/components/icon-btn/icon-bt
     }
     }
   `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .type-badge {
       font-size: 0.65rem; font-weight: 600; padding: 3px 10px; border-radius: 10px;

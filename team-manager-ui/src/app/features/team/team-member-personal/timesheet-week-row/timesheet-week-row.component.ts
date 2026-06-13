@@ -1,5 +1,5 @@
-import { Component, computed, input, output } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, computed, input, output, ChangeDetectionStrategy } from '@angular/core';
+
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { TimesheetEntry } from '../../../../core/models/timesheet.model';
@@ -8,7 +8,7 @@ import { IconButtonComponent } from '../../../../shared/components/icon-btn/icon
 @Component({
   selector: 'app-timesheet-week-row',
   standalone: true,
-  imports: [CommonModule, MatIconModule, MatTooltipModule, IconButtonComponent],
+  imports: [MatIconModule, MatTooltipModule, IconButtonComponent],
   styles: [`
     .entry-chip {
       display: inline-flex; align-items: center; gap: 4px;
@@ -18,6 +18,7 @@ import { IconButtonComponent } from '../../../../shared/components/icon-btn/icon
     }
     .entry-chip:hover { background: rgba(100,181,246,0.22); }
   `],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div style="padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.04)"
          [style.opacity]="isInCurrentMonth() ? '1' : '0.4'">

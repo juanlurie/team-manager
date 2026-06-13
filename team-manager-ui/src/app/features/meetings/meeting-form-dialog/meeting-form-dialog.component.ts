@@ -1,5 +1,5 @@
-import { Component, OnInit, inject, signal, computed } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, OnInit, inject, signal, computed, ChangeDetectionStrategy } from '@angular/core';
+
 import { FormsModule } from '@angular/forms';
 import { MatDialogModule, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
@@ -24,8 +24,7 @@ type SlotKey = string;
 @Component({
   selector: 'app-meeting-form-dialog',
   standalone: true,
-  imports: [CommonModule, FormsModule, MatDialogModule, MatButtonModule,
-    MatFormFieldModule, MatInputModule],
+  imports: [FormsModule, MatDialogModule, MatButtonModule, MatFormFieldModule, MatInputModule],
   template: `
     <div class="dialog">
       <h2 class="title">{{ isEdit ? 'Edit Session' : 'Quick Create Session' }}</h2>
@@ -156,6 +155,7 @@ type SlotKey = string;
       }
     </div>
   `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .dialog { display:flex;flex-direction:column;gap:0;padding:0; }
     .title { margin:0 0 12px;font-size:1.15rem;font-weight:700; }

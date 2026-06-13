@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, signal, computed, effect, untracked } from '@angular/core';
+import { Component, OnInit, inject, signal, computed, effect, untracked, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
@@ -56,7 +56,7 @@ import { Router } from '@angular/router';
       <div class="sprint-info">
         <h2 class="sprint-name">{{ dashboard()?.sprint?.name }}</h2>
         <div class="sprint-dates">
-          {{ dashboard()?.sprint?.startDate | date:'d MMM' }} – {{ dashboard()?.sprint?.endDate | date:'d MMM yyyy' }}
+          {{ $safeNavigationMigration(dashboard()?.sprint?.startDate) | date:'d MMM' }} – {{ $safeNavigationMigration(dashboard()?.sprint?.endDate) | date:'d MMM yyyy' }}
         </div>
         @if (dashboard()?.sprint?.goal) {
           <div class="sprint-goal">
@@ -180,6 +180,7 @@ import { Router } from '@angular/router';
       }
     }
   `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .tab-icon {
       font-size: 18px; width: 18px; height: 18px; line-height: 18px;
