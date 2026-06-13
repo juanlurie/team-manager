@@ -44,11 +44,13 @@ public class AccessRequestsController(AppDbContext db) : ControllerBase
         db.AccessRequests.Add(request);
         await db.SaveChangesAsync();
 
+        _ = WebSocketMiddleware.BroadcastAsync("access_request_submitted", new { id = request.Id, name = request.Name, email = request.Email });
+
         return Ok(new { id = request.Id, status = request.Status });
     }
 
     [HttpGet]
-    [Authorize(Roles = "TeamLead,TechLead")]
+    [Authorize]
     public async Task<IActionResult> List([FromQuery] string? status)
     {
         var query = db.AccessRequests.AsQueryable();
@@ -79,7 +81,7 @@ public class AccessRequestsController(AppDbContext db) : ControllerBase
     }
 
     [HttpPost("{id}/approve")]
-    [Authorize(Roles = "TeamLead,TechLead")]
+    [Authorize]
     public async Task<IActionResult> Approve(Guid id, [FromBody] ApproveDto? dto)
     {
         var request = await db.AccessRequests.FindAsync(id);
@@ -136,7 +138,7 @@ public class AccessRequestsController(AppDbContext db) : ControllerBase
     }
 
     [HttpPost("{id}/deny")]
-    [Authorize(Roles = "TeamLead,TechLead")]
+    [Authorize]
     public async Task<IActionResult> Deny(Guid id, [FromBody] ApproveDto? dto)
     {
         var request = await db.AccessRequests.FindAsync(id);
