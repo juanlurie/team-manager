@@ -11,6 +11,7 @@ import { WowNominationCardComponent } from '../../shared/components/wow-nominati
 import { WowWinnerBannerComponent } from '../../shared/components/wow-winner-banner/wow-winner-banner.component';
 import { WowTieBreakSpinnerComponent } from '../../shared/components/wow-tie-break-spinner/wow-tie-break-spinner.component';
 import { AppEmptyStateComponent } from '../../shared/components/app-empty-state/app-empty-state.component';
+import { wowPhaseInfo, runTieBreakSpin } from '../../shared/utils/wow.utils';
 
 const SESSION_NAME_KEY = 'wow_guest_name';
 const SESSION_ID_KEY = 'wow_guest_session_id';
@@ -73,8 +74,9 @@ const SESSION_ID_KEY = 'wow_guest_session_id';
         <div class="week-view">
           <div class="week-header">
             <div class="week-header__left">
-              <span class="phase-badge" [style.background]="phaseBg()" [style.color]="phaseColor()">
-                {{ phaseLabel() }}
+              @let phase = phaseInfo();
+              <span class="phase-badge" [style.background]="phase.bg" [style.color]="phase.text">
+                {{ phase.label }}
               </span>
               <span class="week-label">Week of {{ formatDate(week()!.weekStart) }}</span>
             </div>
@@ -631,33 +633,7 @@ export class GuestWowComponent implements OnInit, OnDestroy {
     return new Set();
   }
 
-  phaseLabel() {
-    switch (this.week()?.status) {
-      case 'Nominating': return 'Nominations Open';
-      case 'Voting': return 'Voting Open';
-      case 'SuddenDeath': return 'Tie-Breaker';
-      case 'Closed': return 'Closed';
-      default: return '';
-    }
-  }
-
-  phaseColor() {
-    switch (this.week()?.status) {
-      case 'Nominating': return '#FFD700';
-      case 'Voting': return '#4caf50';
-      case 'SuddenDeath': return '#f44336';
-      default: return '#fff';
-    }
-  }
-
-  phaseBg() {
-    switch (this.week()?.status) {
-      case 'Nominating': return 'rgba(255,215,0,0.15)';
-      case 'Voting': return 'rgba(76,175,80,0.15)';
-      case 'SuddenDeath': return 'rgba(244,67,54,0.15)';
-      default: return 'rgba(255,255,255,0.08)';
-    }
-  }
+  phaseInfo() { return wowPhaseInfo(this.week()?.status); }
 
   formatDate(dateStr: string) {
     const d = new Date(dateStr);
@@ -762,25 +738,11 @@ export class GuestWowComponent implements OnInit, OnDestroy {
   }
 
   private runTieBreakSpin(names: string[], winnerName: string) {
-    this.isSpinning.set(true);
-    this.spinnerName.set(names[0]);
-    let elapsed = 0;
-    const totalDuration = 3200;
-    let idx = 0;
-    const tick = () => {
-      const progress = elapsed / totalDuration;
-      const delay = 60 + 460 * (progress * progress);
-      if (elapsed + delay >= totalDuration) {
-        this.spinnerName.set(winnerName);
-        setTimeout(() => { this.isSpinning.set(false); this.refreshWeek(); }, 1800);
-        return;
-      }
-      elapsed += delay;
-      idx = (idx + 1) % names.length;
-      this.spinnerName.set(names[idx]);
-      setTimeout(tick, delay);
-    };
-    setTimeout(tick, 60);
+    runTieBreakSpin(names, winnerName,
+      n => this.spinnerName.set(n),
+      v => this.isSpinning.set(v),
+      () => this.refreshWeek()
+    );
   }
 
   private loadMembers() {
