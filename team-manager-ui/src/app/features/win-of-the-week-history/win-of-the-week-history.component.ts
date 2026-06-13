@@ -7,11 +7,13 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { WinOfTheWeekService } from '../../core/services/win-of-the-week.service';
 import { WinWeekHistory, WinWeekDetail, WinNomination } from '../../core/models/win-week.model';
+import { AppLoadingComponent } from '../../shared/components/app-loading/app-loading.component';
+import { AppEmptyStateComponent } from '../../shared/components/app-empty-state/app-empty-state.component';
 
 @Component({
   selector: 'app-win-of-the-week-history',
   standalone: true,
-  imports: [CommonModule, MatIconModule, MatButtonModule, MatSelectModule, MatFormFieldModule, MatTooltipModule],
+  imports: [CommonModule, MatIconModule, MatButtonModule, MatSelectModule, MatFormFieldModule, MatTooltipModule, AppLoadingComponent, AppEmptyStateComponent],
   template: `
     <div style="max-width:1000px;margin:0 auto;padding:0 8px 80px">
       <!-- Header -->
@@ -33,17 +35,12 @@ import { WinWeekHistory, WinWeekDetail, WinNomination } from '../../core/models/
       </div>
 
       <!-- Loading -->
-      @if (loading()) {
-        <div style="text-align:center;padding:64px;opacity:0.35">Loading...</div>
-      }
+      @if (loading()) { <app-loading /> }
 
       <!-- Empty state -->
       @if (!loading() && history().length === 0) {
-        <div style="text-align:center;padding:64px;opacity:0.35">
-          <mat-icon style="font-size:3rem;width:3rem;height:3rem;opacity:0.3">emoji_events</mat-icon>
-          <div style="margin-top:12px;font-weight:600">No winners yet</div>
-          <div style="margin-top:4px;font-size:0.85rem">Be the first to win! Nominate someone in Win of the Week.</div>
-        </div>
+        <app-empty-state icon="emoji_events" title="No winners yet"
+          subtitle="Be the first to win! Nominate someone in Win of the Week." />
       }
 
       <!-- Grid -->
