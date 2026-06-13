@@ -1,6 +1,8 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.EntityFrameworkCore;
+using TeamManager.Api.Domain.Entities;
+using TeamManager.Api.Domain.Enums;
 using TeamManager.Api.Infrastructure.Data;
 
 namespace TeamManager.Api.Middleware;
@@ -42,6 +44,33 @@ public class TeamMemberClaimsTransformer(AppDbContext db, ILogger<TeamMemberClai
                     logger.LogInformation("ClaimsTransformer: Auto-linked {Email} to {FirstName} {LastName} (sub={Sub})", email, tm.FirstName, tm.LastName, sub);
                 }
             }
+        }
+
+        // 3. First-ever login: no members exist yet — bootstrap the admin
+        if (tm == null && !await db.TeamMembers.AnyAsync())
+        {
+            var email = principal.FindFirst("email")?.Value
+                       ?? principal.FindFirst(ClaimTypes.Email)?.Value ?? string.Empty;
+            var firstName = principal.FindFirst("given_name")?.Value
+                           ?? principal.FindFirst("name")?.Value?.Split(' ')[0] ?? "Admin";
+            var lastName  = principal.FindFirst("family_name")?.Value
+                           ?? (principal.FindFirst("name")?.Value?.Contains(' ') == true
+                               ? principal.FindFirst("name")!.Value.Split(' ', 2)[1] : string.Empty);
+
+            tm = new TeamMember
+            {
+                Id = Guid.NewGuid(),
+                FirstName = firstName,
+                LastName = lastName,
+                Email = email,
+                Role = MemberRole.TeamLead,
+                ExternalSubjectId = sub,
+                IsActive = true
+            };
+
+            db.TeamMembers.Add(tm);
+            await db.SaveChangesAsync();
+            logger.LogInformation("ClaimsTransformer: Bootstrapped first admin {Email} (sub={Sub})", email, sub);
         }
 
         if (tm == null)
