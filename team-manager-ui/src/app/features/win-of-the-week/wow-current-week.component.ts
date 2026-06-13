@@ -57,6 +57,13 @@ import { AppInfoBannerComponent } from '../../shared/components/app-info-banner/
               </button>
             }
           }
+          <!-- Token balance pill -->
+          @if (w?.status === 'Nominating' && tokenBalance() > 0) {
+            <span matTooltip="Spend tokens on Power-ups or Chaos Cards for other people's nominations"
+                  style="font-size:0.72rem;font-weight:700;padding:3px 10px;border-radius:20px;background:rgba(255,215,0,0.1);color:#FFD700;cursor:default">
+              🎟️ {{ tokenBalance() }} token{{ tokenBalance() !== 1 ? 's' : '' }}
+            </span>
+          }
         </div>
 
         <!-- Sudden death countdown banner -->
@@ -85,7 +92,7 @@ import { AppInfoBannerComponent } from '../../shared/components/app-info-banner/
 
         <!-- Info banner during nominating phase -->
         @if (w?.status === 'Nominating') {
-          <app-info-banner type="info">💡 You can edit or delete your nominations before voting opens.</app-info-banner>
+          <app-info-banner type="info">💡 You can edit or delete your nominations before voting opens. Use tokens to apply Power-ups or Chaos Cards to others' nominations!</app-info-banner>
         }
 
         <!-- All votes used banner -->
@@ -139,10 +146,15 @@ import { AppInfoBannerComponent } from '../../shared/components/app-info-banner/
                 [canEdit]="nom.teamMemberId === currentUserId()"
                 [votesRemaining]="w.userVotesRemaining"
                 [isTied]="tiedNomIds().has(nom.id)"
+                [canApplyCards]="tokenBalance() > 0"
+                [isHost]="isHost()"
                 (voteClick)="voteClick.emit($event)"
                 (removeVoteClick)="removeVoteClick.emit($event)"
                 (editClick)="editClick.emit($event)"
                 (deleteClick)="deleteClick.emit($event)"
+                (hypeClick)="hypeClick.emit($event)"
+                (applyPowerUpClick)="applyPowerUpClick.emit($event)"
+                (applyChaosCardClick)="applyChaosCardClick.emit($event)"
               />
             }
           </div>
@@ -172,15 +184,19 @@ export class WowCurrentWeekComponent {
   isMobile      = input(false);
   qrDataUrl     = input<string | null>(null);
   currentUserId = input('');
+  tokenBalance  = input(0);
 
-  nominateClick  = output();
-  openWeekClick  = output();
-  voteClick      = output<string>();
-  removeVoteClick = output<string>();
-  editClick      = output<WowNominationDisplay>();
-  deleteClick    = output<string>();
-  copyStory      = output<string>();
-  shareClick     = output();
+  nominateClick       = output();
+  openWeekClick       = output();
+  voteClick           = output<string>();
+  removeVoteClick     = output<string>();
+  editClick           = output<WowNominationDisplay>();
+  deleteClick         = output<string>();
+  copyStory           = output<string>();
+  shareClick          = output();
+  hypeClick           = output<string>();
+  applyPowerUpClick   = output<{ nominationId: string; type: string }>();
+  applyChaosCardClick = output<{ nominationId: string; type: string }>();
 
   readonly phaseInfo = computed(() => wowPhaseInfo(this.week()?.status));
 
@@ -216,8 +232,12 @@ export class WowCurrentWeekComponent {
       noms = noms.filter(n => tied.has(n.id));
     }
     if (w.status === 'Voting' || w.status === 'SuddenDeath' || w.status === 'Closed')
-      return noms.sort((a, b) => b.voteCount - a.voteCount || new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-    return noms.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      noms = noms.sort((a, b) => b.voteCount - a.voteCount || new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    else
+      noms = noms.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+    // Spotlight nominations float to the top
+    return [...noms.filter(n => n.powerUp === 'Spotlight'), ...noms.filter(n => n.powerUp !== 'Spotlight')];
   });
 
   toDisplay(nom: WinNomination): WowNominationDisplay {
@@ -230,7 +250,10 @@ export class WowCurrentWeekComponent {
       description: nom.description,
       voteCount: nom.voteCount,
       hasVoted: nom.hasVoted,
-      isOwned: nom.teamMemberId === this.currentUserId()
+      isOwned: nom.teamMemberId === this.currentUserId(),
+      powerUp: nom.powerUp,
+      chaosCard: nom.chaosCard,
+      hypeMeterCount: nom.hypeMeterCount
     };
   }
 }

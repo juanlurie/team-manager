@@ -14,4 +14,7 @@ public record WinNominationDto
     public DateTimeOffset CreatedAt { get; init; }
     public int VoteCount { get; init; }
     public bool HasVoted { get; init; }
+    public string? PowerUp { get; init; }
+    public string? ChaosCard { get; init; }
+    public int HypeMeterCount { get; init; }
 }

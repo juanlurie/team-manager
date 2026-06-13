@@ -164,6 +164,7 @@ import { runTieBreakSpin } from '../../shared/utils/wow.utils';
             [isMobile]="isMobile"
             [qrDataUrl]="qrDataUrl()"
             [currentUserId]="currentUserId"
+            [tokenBalance]="tokenBalance()"
             (nominateClick)="showNominateDialog()"
             (openWeekClick)="openNextWeek()"
             (voteClick)="vote($event)"
@@ -172,6 +173,9 @@ import { runTieBreakSpin } from '../../shared/utils/wow.utils';
             (deleteClick)="deleteNomination($event)"
             (copyStory)="copyStory($event)"
             (shareClick)="copyShareLink()"
+            (hypeClick)="tapHype($event)"
+            (applyPowerUpClick)="applyPowerUp($event)"
+            (applyChaosCardClick)="applyChaosCard($event)"
           />
         }
         @case ('history') { <app-win-of-the-week-history /> }
@@ -280,6 +284,7 @@ export class WinOfTheWeekComponent implements OnInit, OnDestroy {
   currentSeriesId     = signal<string | null>(null);
   showNewSeriesDialog = signal(false);
   newSeriesName       = '';
+  tokenBalance        = signal(0);
 
   readonly isHost       = this.featureAccess.hasAccess$('wow-host');
   readonly hasWinOfMonth = this.featureAccess.hasAccess$('win-of-month');
@@ -324,6 +329,15 @@ export class WinOfTheWeekComponent implements OnInit, OnDestroy {
         case 'sudden_death_started': case 'nominations_reopened':
         case 'presence_changed': case 'win_story_ready':
           this.silentRefresh(); break;
+        case 'hype_meter_tapped': {
+          const nomId = msg.data['nominationId'] as string;
+          const count = msg.data['count'] as number;
+          this.currentWeek.update(w => {
+            if (!w) return w;
+            return { ...w, nominations: w.nominations.map(n => n.id === nomId ? { ...n, hypeMeterCount: count } : n) };
+          });
+          break;
+        }
         case 'voting_closed': {
           const wk = this.currentWeek();
           const snap = this.suddenDeathSnapshot;
@@ -363,6 +377,7 @@ export class WinOfTheWeekComponent implements OnInit, OnDestroy {
       next: (week) => { this.currentWeek.set(week); if (week) this.currentUserId = week.currentMemberId; this.loading.set(false); },
       error: () => { this.loading.set(false); this.snackBar.open('Failed to load Win of the Week', 'Close', { duration: 3000 }); }
     });
+    this.winSvc.getTokenBalance(sid).subscribe({ next: r => this.tokenBalance.set(r.balance), error: () => {} });
   }
 
   private silentRefresh() {
@@ -528,6 +543,24 @@ export class WinOfTheWeekComponent implements OnInit, OnDestroy {
         next: () => { this.snackBar.open('⚡ Sudden Death started! 90 seconds on the clock.', 'Close', { duration: 4000 }); this.refresh(); },
         error: (err) => this.snackBar.open(err.error?.error ?? err.error?.title ?? `Failed (${err.status})`, 'Close', { duration: 5000 })
       });
+    });
+  }
+
+  tapHype(nominationId: string) {
+    this.winSvc.incrementHypeMeter(nominationId).subscribe({ error: () => {} });
+  }
+
+  applyPowerUp(event: { nominationId: string; type: string }) {
+    this.winSvc.applyPowerUp(event.nominationId, { type: event.type }).subscribe({
+      next: () => { this.snackBar.open(`⭐ ${event.type} applied! Token spent.`, 'Close', { duration: 3000 }); this.refresh(); },
+      error: (err) => this.snackBar.open(err.error?.error || 'Failed to apply power-up', 'Close', { duration: 3000 })
+    });
+  }
+
+  applyChaosCard(event: { nominationId: string; type: string }) {
+    this.winSvc.applyChaosCard(event.nominationId, { type: event.type }).subscribe({
+      next: () => { this.snackBar.open(`🌶️ ${event.type} applied! Token spent.`, 'Close', { duration: 3000 }); this.refresh(); },
+      error: (err) => this.snackBar.open(err.error?.error || 'Failed to apply chaos card', 'Close', { duration: 3000 })
     });
   }
 

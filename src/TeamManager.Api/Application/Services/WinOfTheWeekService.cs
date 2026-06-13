@@ -107,7 +107,10 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
                 Description = n.Description,
                 CreatedAt = n.CreatedAt,
                 VoteCount = n.Votes.Count,
-                HasVoted = userVoteNominationIds.Contains(n.Id)
+                HasVoted = userVoteNominationIds.Contains(n.Id),
+                PowerUp = n.PowerUp,
+                ChaosCard = n.ChaosCard,
+                HypeMeterCount = n.HypeMeterCount
             }).ToList()
         };
     }
@@ -158,7 +161,10 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
             Description = nomination.Description,
             CreatedAt = nomination.CreatedAt,
             VoteCount = 0,
-            HasVoted = false
+            HasVoted = false,
+            PowerUp = nomination.PowerUp,
+            ChaosCard = nomination.ChaosCard,
+            HypeMeterCount = nomination.HypeMeterCount
         };
     }
 
@@ -200,7 +206,10 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
             Description = nomination.Description,
             CreatedAt = nomination.CreatedAt,
             VoteCount = nomination.Votes.Count,
-            HasVoted = false
+            HasVoted = false,
+            PowerUp = nomination.PowerUp,
+            ChaosCard = nomination.ChaosCard,
+            HypeMeterCount = nomination.HypeMeterCount
         };
     }
 
@@ -314,6 +323,10 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
         // Award weekly achievement to the winner
         await AwardWeeklyAchievementAsync(nomination.NomineeMemberId, week.WeekStart);
 
+        // Grant bonus token to whoever nominated the winner
+        if (nomination.TeamMemberId.HasValue)
+            await GrantBonusTokenAsync(nomination.TeamMemberId.Value, week.Id);
+
         // Load nominee name for story generation
         await db.Entry(nomination).Reference(n => n.Nominee).LoadAsync();
         var winnerName = $"{nomination.Nominee.FirstName} {nomination.Nominee.LastName}";
@@ -360,6 +373,8 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
 
         db.WinWeeks.Add(week);
         await db.SaveChangesAsync();
+
+        await GrantWeeklyTokensAsync(week.Id);
 
         return (await GetCurrentWeekAsync(memberId, seriesId))!;
     }
@@ -536,7 +551,10 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
                 Description = n.Description,
                 CreatedAt = n.CreatedAt,
                 VoteCount = n.Votes.Count,
-                HasVoted = userVoteIds.Contains(n.Id)
+                HasVoted = userVoteIds.Contains(n.Id),
+                PowerUp = n.PowerUp,
+                ChaosCard = n.ChaosCard,
+                HypeMeterCount = n.HypeMeterCount
             }).ToList()
         };
     }
@@ -716,6 +734,181 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
         });
     }
 
+    public async Task<int> GetTokenBalanceAsync(Guid memberId, Guid seriesId)
+    {
+        var week = await GetActiveWeekAsync(seriesId);
+        if (week is null) return 0;
+
+        await EnsureWeeklyTokenAsync(memberId, week.Id);
+
+        return await db.WowMemberTokens
+            .CountAsync(t => t.TeamMemberId == memberId && t.WinWeekId == week.Id && t.SpentAt == null);
+    }
+
+    public async Task<WinNominationDto> ApplyPowerUpAsync(Guid memberId, Guid nominationId, string type)
+    {
+        var validPowerUps = new HashSet<string> { "Spotlight", "HypeMeter", "Wildcard" };
+        if (!validPowerUps.Contains(type))
+            throw new InvalidOperationException($"Invalid power-up type: {type}");
+
+        var nomination = await db.WinNominations
+            .Include(n => n.TeamMember)
+            .Include(n => n.Nominee)
+            .Include(n => n.Votes)
+            .Include(n => n.WinWeek)
+            .FirstOrDefaultAsync(n => n.Id == nominationId);
+
+        if (nomination is null)
+            throw new KeyNotFoundException("Nomination not found.");
+
+        if (nomination.WinWeek.Status != WinWeekStatus.Nominating)
+            throw new InvalidOperationException("Power-ups can only be applied during the nominating phase.");
+
+        if (nomination.PowerUp is not null)
+            throw new InvalidOperationException("A power-up has already been applied to this nomination.");
+
+        // Wildcard is host-only — checked via feature access in the controller
+        await SpendTokenAsync(memberId, nomination.WinWeekId, nominationId);
+
+        nomination.PowerUp = type;
+        await db.SaveChangesAsync();
+
+        return MapNominationDto(nomination, false);
+    }
+
+    public async Task<WinNominationDto> ApplyChaosCardAsync(Guid memberId, Guid nominationId, string type)
+    {
+        var validCards = new HashSet<string> { "ClownMode", "TinyText", "Autocorrect", "DramaticReading" };
+        if (!validCards.Contains(type))
+            throw new InvalidOperationException($"Invalid chaos card type: {type}");
+
+        var nomination = await db.WinNominations
+            .Include(n => n.TeamMember)
+            .Include(n => n.Nominee)
+            .Include(n => n.Votes)
+            .Include(n => n.WinWeek)
+            .FirstOrDefaultAsync(n => n.Id == nominationId);
+
+        if (nomination is null)
+            throw new KeyNotFoundException("Nomination not found.");
+
+        if (nomination.WinWeek.Status != WinWeekStatus.Nominating)
+            throw new InvalidOperationException("Chaos cards can only be applied during the nominating phase.");
+
+        if (nomination.ChaosCard is not null)
+            throw new InvalidOperationException("A chaos card has already been applied to this nomination.");
+
+        await SpendTokenAsync(memberId, nomination.WinWeekId, nominationId);
+
+        nomination.ChaosCard = type;
+        await db.SaveChangesAsync();
+
+        return MapNominationDto(nomination, false);
+    }
+
+    public async Task<int> IncrementHypeMeterAsync(Guid nominationId)
+    {
+        var nomination = await db.WinNominations
+            .Include(n => n.WinWeek)
+            .FirstOrDefaultAsync(n => n.Id == nominationId);
+
+        if (nomination is null)
+            throw new KeyNotFoundException("Nomination not found.");
+
+        if (nomination.PowerUp != "HypeMeter")
+            throw new InvalidOperationException("This nomination does not have the Hype Meter power-up.");
+
+        if (nomination.WinWeek.Status != WinWeekStatus.Voting && nomination.WinWeek.Status != WinWeekStatus.SuddenDeath)
+            throw new InvalidOperationException("Hype meter is only active during voting.");
+
+        nomination.HypeMeterCount++;
+        await db.SaveChangesAsync();
+
+        return nomination.HypeMeterCount;
+    }
+
+    private WinNominationDto MapNominationDto(WinNomination n, bool hasVoted) => new()
+    {
+        Id = n.Id,
+        WinWeekId = n.WinWeekId,
+        TeamMemberId = n.TeamMemberId,
+        TeamMemberName = n.TeamMember != null
+            ? $"{n.TeamMember.FirstName} {n.TeamMember.LastName}"
+            : (n.GuestName ?? "Guest"),
+        IsGuestNomination = n.TeamMemberId == null,
+        NomineeMemberId = n.NomineeMemberId,
+        NomineeName = $"{n.Nominee.FirstName} {n.Nominee.LastName}",
+        Title = n.Title,
+        Description = n.Description,
+        CreatedAt = n.CreatedAt,
+        VoteCount = n.Votes.Count,
+        HasVoted = hasVoted,
+        PowerUp = n.PowerUp,
+        ChaosCard = n.ChaosCard,
+        HypeMeterCount = n.HypeMeterCount
+    };
+
+    private async Task SpendTokenAsync(Guid memberId, Guid winWeekId, Guid nominationId)
+    {
+        await EnsureWeeklyTokenAsync(memberId, winWeekId);
+
+        var token = await db.WowMemberTokens
+            .FirstOrDefaultAsync(t => t.TeamMemberId == memberId && t.WinWeekId == winWeekId && t.SpentAt == null);
+
+        if (token is null)
+            throw new InvalidOperationException("You don't have any tokens available this week.");
+
+        token.SpentAt = DateTimeOffset.UtcNow;
+        token.SpentOnNominationId = nominationId;
+        await db.SaveChangesAsync();
+    }
+
+    private async Task EnsureWeeklyTokenAsync(Guid memberId, Guid winWeekId)
+    {
+        var alreadyGranted = await db.WowMemberTokens
+            .AnyAsync(t => t.TeamMemberId == memberId && t.WinWeekId == winWeekId && t.Source == "Weekly");
+
+        if (!alreadyGranted)
+        {
+            db.WowMemberTokens.Add(new WowMemberToken
+            {
+                TeamMemberId = memberId,
+                WinWeekId = winWeekId,
+                Source = "Weekly"
+            });
+            await db.SaveChangesAsync();
+        }
+    }
+
+    private async Task GrantWeeklyTokensAsync(Guid winWeekId)
+    {
+        var activeMembers = await db.TeamMembers
+            .Where(m => m.IsActive)
+            .Select(m => m.Id)
+            .ToListAsync();
+
+        var tokens = activeMembers.Select(memberId => new WowMemberToken
+        {
+            TeamMemberId = memberId,
+            WinWeekId = winWeekId,
+            Source = "Weekly"
+        });
+
+        db.WowMemberTokens.AddRange(tokens);
+        await db.SaveChangesAsync();
+    }
+
+    private async Task GrantBonusTokenAsync(Guid memberId, Guid winWeekId)
+    {
+        db.WowMemberTokens.Add(new WowMemberToken
+        {
+            TeamMemberId = memberId,
+            WinWeekId = winWeekId,
+            Source = "WinnerBonus"
+        });
+        await db.SaveChangesAsync();
+    }
+
     internal static string? ExtractTextAtPath(string json, string dotPath)
     {
         try
@@ -782,6 +975,8 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
             .FirstAsync(n => n.Id == week.WinnerNominationId!.Value);
 
         await AwardWeeklyAchievementAsync(winnerNom.NomineeMemberId, week.WeekStart);
+        if (winnerNom.TeamMemberId.HasValue)
+            await GrantBonusTokenAsync(winnerNom.TeamMemberId.Value, week.Id);
 
         EnqueueAndGenerateWinStory(week.Id, $"{winnerNom.Nominee.FirstName} {winnerNom.Nominee.LastName}", winnerNom.Title, winnerNom.Description);
 
