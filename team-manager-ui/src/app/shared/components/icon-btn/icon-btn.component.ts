@@ -1,5 +1,5 @@
-import { Component, Input, Output, EventEmitter, HostBinding, ViewEncapsulation } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, Input, Output, EventEmitter, HostBinding, ViewEncapsulation, ChangeDetectionStrategy } from '@angular/core';
+
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
@@ -7,7 +7,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 @Component({
   selector: 'app-icon-btn',
   standalone: true,
-  imports: [CommonModule, MatButtonModule, MatIconModule, MatTooltipModule],
+  imports: [MatButtonModule, MatIconModule, MatTooltipModule],
   encapsulation: ViewEncapsulation.None,
   template: `
     <button mat-icon-button class="app-icon-btn-inner"
@@ -19,6 +19,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
       <mat-icon>{{ icon }}</mat-icon>
     </button>
   `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     :host {
       display: inline-flex;

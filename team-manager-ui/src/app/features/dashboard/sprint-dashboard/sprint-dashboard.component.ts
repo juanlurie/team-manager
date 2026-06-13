@@ -1,5 +1,5 @@
-import { Component, OnInit, inject, signal, computed, effect, OnDestroy } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, OnInit, inject, signal, computed, effect, OnDestroy, ChangeDetectionStrategy } from '@angular/core';
+
 import { RouterLink, Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { MatSelectModule } from '@angular/material/select';
@@ -41,10 +41,9 @@ const STATUS_COLOR: Record<string, string> = {
 @Component({
   selector: 'app-sprint-dashboard',
   standalone: true,
-  imports: [CommonModule, RouterLink, FormsModule,
-    MatSelectModule, MatFormFieldModule, MatIconModule, MatDialogModule, MatProgressSpinnerModule,
-    IconButtonComponent, CurrentSprintCardComponent, LeaveSummaryCardComponent],
+  imports: [RouterLink, FormsModule, MatSelectModule, MatFormFieldModule, MatIconModule, MatDialogModule, MatProgressSpinnerModule, IconButtonComponent, CurrentSprintCardComponent, LeaveSummaryCardComponent],
   templateUrl: './sprint-dashboard.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./sprint-dashboard.component.scss']
 })
 export class SprintDashboardComponent implements OnInit, OnDestroy {

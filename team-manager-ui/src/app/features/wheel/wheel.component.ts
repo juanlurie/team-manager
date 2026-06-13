@@ -1,5 +1,5 @@
-import { Component, OnInit, inject, signal, computed, ElementRef, ViewChild, AfterViewInit, HostListener, effect } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, OnInit, inject, signal, computed, ElementRef, ViewChild, AfterViewInit, HostListener, effect, ChangeDetectionStrategy } from '@angular/core';
+
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -21,8 +21,9 @@ const COLORS = [
 @Component({
   selector: 'app-wheel',
   standalone: true,
-  imports: [CommonModule, FormsModule, MatButtonModule, MatIconModule, MatTooltipModule, MatDialogModule, MatProgressSpinnerModule],
+  imports: [FormsModule, MatButtonModule, MatIconModule, MatTooltipModule, MatDialogModule, MatProgressSpinnerModule],
   templateUrl: './wheel.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./wheel.component.scss']
 })
 export class WheelComponent implements OnInit, AfterViewInit {

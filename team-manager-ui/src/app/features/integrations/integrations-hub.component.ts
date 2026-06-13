@@ -1,12 +1,12 @@
-import { Component, inject, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, inject, OnInit, ChangeDetectionStrategy } from '@angular/core';
+
 import { RouterLink, RouterLinkActive, RouterOutlet, ActivatedRoute } from '@angular/router';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 
 @Component({
   selector: 'app-integrations-hub',
   standalone: true,
-  imports: [CommonModule, RouterLink, RouterLinkActive, RouterOutlet, MatSnackBarModule],
+  imports: [RouterLink, RouterLinkActive, RouterOutlet, MatSnackBarModule],
   template: `
     <div class="hub">
       <nav class="hub-tabs" role="tablist">
@@ -22,6 +22,7 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
       </div>
     </div>
   `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .hub { max-width:1100px;margin:0 auto;padding:8px; }
     .hub-tabs {

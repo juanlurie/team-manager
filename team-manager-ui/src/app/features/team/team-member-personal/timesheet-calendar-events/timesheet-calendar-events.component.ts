@@ -1,5 +1,5 @@
-import { Component, input, output, inject, signal, effect } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, input, output, inject, signal, effect, ChangeDetectionStrategy } from '@angular/core';
+
 import { HttpClient } from '@angular/common/http';
 import { forkJoin, of } from 'rxjs';
 import { catchError, switchMap } from 'rxjs/operators';
@@ -19,7 +19,7 @@ interface CalEvent {
 @Component({
   selector: 'app-timesheet-calendar-events',
   standalone: true,
-  imports: [CommonModule],
+  imports: [],
   styles: [`
     .cal-panel { border-bottom: 1px solid rgba(100,181,246,0.15); padding: 8px 16px 10px; }
     .cal-hdr { display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; margin-bottom: 0; }
@@ -43,6 +43,7 @@ interface CalEvent {
     .cal-empty { font-size: 12px; color: rgba(255,255,255,0.25); padding: 4px 0; }
     .cal-loading { font-size: 12px; color: rgba(255,255,255,0.25); padding: 4px 0; }
   `],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     @if (hasAnyConnected()) {
       <div class="cal-panel">

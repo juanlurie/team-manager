@@ -1,4 +1,4 @@
-import { Component, signal, inject } from '@angular/core';
+import { Component, signal, inject, ChangeDetectionStrategy } from '@angular/core';
 import { RouterOutlet, Router, NavigationEnd, NavigationStart, NavigationCancel, NavigationError } from '@angular/router';
 import { MatDialogModule, MatDialog } from '@angular/material/dialog';
 import { trigger, animate, style, transition } from '@angular/animations';
@@ -61,6 +61,7 @@ const routeFade = trigger('routeFade', [
 
     </div>
   `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .shell {
       display: flex;

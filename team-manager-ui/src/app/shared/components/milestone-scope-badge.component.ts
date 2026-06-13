@@ -1,5 +1,5 @@
-import { Component, input, computed } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, input, computed, ChangeDetectionStrategy } from '@angular/core';
+
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MilestoneScope } from '../../core/models/milestone.model';
@@ -7,7 +7,7 @@ import { MilestoneScope } from '../../core/models/milestone.model';
 @Component({
   selector: 'app-milestone-scope-badge',
   standalone: true,
-  imports: [CommonModule, MatIconModule, MatTooltipModule],
+  imports: [MatIconModule, MatTooltipModule],
   template: `
     @if (scope() === 'Global') {
       <span class="badge badge-global" [matTooltip]="'Global milestone — visible to all'">
@@ -21,6 +21,7 @@ import { MilestoneScope } from '../../core/models/milestone.model';
       </span>
     }
   `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .badge {
       display: inline-flex;

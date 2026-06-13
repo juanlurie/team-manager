@@ -1,4 +1,4 @@
-import { Component, Input } from '@angular/core';
+import { Component, Input, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MemberSprintCard } from '../../../core/models/dashboard.model';
@@ -8,6 +8,7 @@ import { Sprint } from '../../../core/models/sprint.model';
   selector: 'app-sprint-workload-summary',
   standalone: true,
   imports: [CommonModule, MatTooltipModule],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <!-- Workload panel -->
     <div style="margin-bottom:12px;border-radius:10px;background:rgba(255,255,255,0.03);

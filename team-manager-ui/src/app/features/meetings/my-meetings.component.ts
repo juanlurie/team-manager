@@ -1,5 +1,5 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, OnInit, inject, signal, ChangeDetectionStrategy } from '@angular/core';
+
 import { Router, RouterLink } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -10,7 +10,7 @@ import { MyMeetingItem } from '../../core/models/meeting-series.model';
 @Component({
   selector: 'app-my-meetings',
   standalone: true,
-  imports: [CommonModule, RouterLink, MatButtonModule, MatIconModule, MatProgressSpinnerModule],
+  imports: [RouterLink, MatButtonModule, MatIconModule, MatProgressSpinnerModule],
   template: `
     <div class="page">
       @if (loading()) {
@@ -66,6 +66,7 @@ import { MyMeetingItem } from '../../core/models/meeting-series.model';
       }
     </div>
   `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .page { max-width:900px;margin:0 auto;padding:8px; }
     .spinner-wrap { display:flex;justify-content:center;padding:60px; }

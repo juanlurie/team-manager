@@ -1,8 +1,9 @@
 import {
   Component, inject, signal, computed, OnInit,
-  ViewChild, ElementRef, HostListener
+  ViewChild, ElementRef, HostListener,
+  ChangeDetectionStrategy
 } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { FormsModule } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
 import { MatDialogModule, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
@@ -20,10 +21,13 @@ import { FilterDropdownComponent } from './filter-dropdown.component';
   selector: 'app-k-picker-dialog',
   standalone: true,
   imports: [
-    CommonModule, FormsModule, MatIconModule, MatDialogModule,
-    MemberRowComponent, SelectedMemberChipComponent,
-    FilterDropdownComponent,
-  ],
+    FormsModule,
+    MatIconModule,
+    MatDialogModule,
+    MemberRowComponent,
+    SelectedMemberChipComponent,
+    FilterDropdownComponent
+],
   template: `
     <div class="k-frame" role="dialog" aria-modal="true"
          [attr.aria-busy]="isLoading()"
@@ -105,6 +109,7 @@ import { FilterDropdownComponent } from './filter-dropdown.component';
       </div>
     </div>
   `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     /* ═══════════════════════════════════════════════
        K Picker Dialog — Inline Styles

@@ -1,5 +1,5 @@
-import { Component, AfterViewInit, ViewChild, ElementRef, inject, signal, computed } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, AfterViewInit, ViewChild, ElementRef, inject, signal, computed, ChangeDetectionStrategy } from '@angular/core';
+
 import { FormsModule } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
@@ -24,7 +24,7 @@ interface CatResult { project: string; category: string; }
 @Component({
   selector: 'app-timesheet-quick-add-modal',
   standalone: true,
-  imports: [CommonModule, FormsModule, MatIconModule],
+  imports: [FormsModule, MatIconModule],
   styles: [`
     .modal { display:flex; flex-direction:column; outline:none; }
     .hdr { display:flex; align-items:center; gap:8px; padding:16px 20px 12px; border-bottom:1px solid rgba(255,255,255,0.07); }
@@ -75,6 +75,7 @@ interface CatResult { project: string; category: string; }
     .loc-chip.sel { border-color:rgba(100,181,246,0.5); color:#64b5f6; background:rgba(100,181,246,0.09); }
     .loc-icon { font-size:13px !important; width:13px !important; height:13px !important; line-height:13px !important; }
   `],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div class="modal" (keydown)="onModalKey($event)" tabindex="-1">
       <div class="hdr">

@@ -1,4 +1,4 @@
-import { Component, input, output, HostListener } from '@angular/core';
+import { Component, input, output, HostListener, ChangeDetectionStrategy } from '@angular/core';
 import { TeamMember } from '../../models/team-member.model';
 import { AvatarCircleComponent } from './avatar-circle.component';
 
@@ -19,6 +19,7 @@ import { AvatarCircleComponent } from './avatar-circle.component';
       <span class="k-row-meta">{{ memberMeta() }}</span>
     </div>
   `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .k-row {
       display: flex;

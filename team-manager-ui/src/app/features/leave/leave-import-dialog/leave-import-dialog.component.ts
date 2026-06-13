@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, signal, computed } from '@angular/core';
+import { Component, OnInit, inject, signal, computed, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatDialogModule, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
@@ -176,6 +176,7 @@ interface PreviewRow {
       }
     </mat-dialog-actions>
   `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .leave-badge { padding:2px 8px;border-radius:10px;font-size:0.7rem;font-weight:600;text-transform:uppercase;white-space:nowrap; }
     .annual              { background:rgba(76,175,80,0.15);color:#4caf50; }

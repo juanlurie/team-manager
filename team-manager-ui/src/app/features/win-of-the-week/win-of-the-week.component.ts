@@ -1,6 +1,6 @@
-import { Component, OnInit, OnDestroy, inject, signal, computed, effect, ElementRef, ViewChild, AfterViewInit } from '@angular/core';
+import { Component, OnInit, OnDestroy, inject, signal, computed, effect, ElementRef, ViewChild, AfterViewInit, ChangeDetectionStrategy } from '@angular/core';
 import QRCode from 'qrcode';
-import { CommonModule } from '@angular/common';
+
 import { FormsModule } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
@@ -34,12 +34,23 @@ import { runTieBreakSpin } from '../../shared/utils/wow.utils';
   selector: 'app-win-of-the-week',
   standalone: true,
   imports: [
-    CommonModule, FormsModule, MatIconModule, MatButtonModule,
-    MatTooltipModule, MatDialogModule, MatSnackBarModule,
-    MatFormFieldModule, MatSelectModule, MatInputModule, MatMenuModule, MatDividerModule,
-    WinOfTheWeekHistoryComponent, WinOfTheMonthComponent,
-    AppModalComponent, WowTieBreakSpinnerComponent, WowCurrentWeekComponent,
-  ],
+    FormsModule,
+    MatIconModule,
+    MatButtonModule,
+    MatTooltipModule,
+    MatDialogModule,
+    MatSnackBarModule,
+    MatFormFieldModule,
+    MatSelectModule,
+    MatInputModule,
+    MatMenuModule,
+    MatDividerModule,
+    WinOfTheWeekHistoryComponent,
+    WinOfTheMonthComponent,
+    AppModalComponent,
+    WowTieBreakSpinnerComponent,
+    WowCurrentWeekComponent
+],
   styles: [`
     @keyframes alertPulse {
       0%, 100% { box-shadow: 0 0 0 0 rgba(239,83,80,0); border-color: rgba(239,83,80,0.25); }
@@ -51,6 +62,7 @@ import { runTieBreakSpin } from '../../shared/utils/wow.utils';
       animation: alertPulse 2s ease-in-out infinite;
     }
   `],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <app-wow-tie-break-spinner [show]="isSpinning()" [name]="spinnerName()" />
 

@@ -1,5 +1,5 @@
-import { Component, signal } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, signal, ChangeDetectionStrategy } from '@angular/core';
+
 import { MatIconModule } from '@angular/material/icon';
 import { SearchesSectionComponent } from './sections/searches-section.component';
 import { TuiSectionComponent } from './sections/tui-section.component';
@@ -25,13 +25,12 @@ const TABS: TabDef[] = [
   selector: 'app-features-showcase',
   standalone: true,
   imports: [
-    CommonModule,
     MatIconModule,
     SearchesSectionComponent,
     TuiSectionComponent,
     McpSectionComponent,
-    FeaturesSectionComponent,
-  ],
+    FeaturesSectionComponent
+],
   template: `
     <div class="showcase">
       <div class="page-header">
@@ -60,6 +59,7 @@ const TABS: TabDef[] = [
       </div>
     </div>
   `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .showcase { max-width: 1200px; margin: 0 auto; }
 

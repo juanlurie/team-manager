@@ -1,5 +1,5 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, OnInit, inject, signal, ChangeDetectionStrategy } from '@angular/core';
+
 import { RouterLink, Router } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -14,8 +14,7 @@ import { ConfirmDialogComponent } from '../../../shared/components/confirm-dialo
 @Component({
   selector: 'app-meeting-planner',
   standalone: true,
-  imports: [CommonModule, RouterLink, MatButtonModule, MatIconModule,
-    MatDialogModule, MatProgressSpinnerModule],
+  imports: [RouterLink, MatButtonModule, MatIconModule, MatDialogModule, MatProgressSpinnerModule],
   template: `
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:24px;flex-wrap:wrap">
       <h2 style="margin:0;flex:1;min-width:120px">Meeting Planner</h2>
@@ -83,6 +82,7 @@ import { ConfirmDialogComponent } from '../../../shared/components/confirm-dialo
       </div>
     }
   `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .active-filter { background: rgba(100,181,246,0.15) !important; border-color: rgba(100,181,246,0.4) !important; color: #64b5f6 !important; }
     .session-card {
