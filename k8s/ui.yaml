@@ -27,7 +27,7 @@ spec:
     spec:
       containers:
         - name: ui
-          image: ghcr.io/juanlurie/team-manager-ui:dd64e47367dc6efcbf1d8727d3deb35b79d9b17a
+          image: ghcr.io/juanlurie/team-manager-ui:d055085d9f7462d4536c2f8ea01b7341f4adba6f
           ports:
             - containerPort: 80
           readinessProbe:
