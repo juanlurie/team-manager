@@ -27,7 +27,7 @@ spec:
     spec:
       initContainers:
         - name: migrate
-          image: ghcr.io/juanlurie/team-manager-api:dd64e47367dc6efcbf1d8727d3deb35b79d9b17a
+          image: ghcr.io/juanlurie/team-manager-api:d055085d9f7462d4536c2f8ea01b7341f4adba6f
           args: ["--migrate"]
           env:
             - name: ASPNETCORE_ENVIRONMENT
@@ -51,7 +51,7 @@ spec:
               value: "Host=db;Port=5432;Database=$(DB_NAME);Username=$(DB_USER);Password=$(DB_PASSWORD)"
       containers:
         - name: api
-          image: ghcr.io/juanlurie/team-manager-api:dd64e47367dc6efcbf1d8727d3deb35b79d9b17a
+          image: ghcr.io/juanlurie/team-manager-api:d055085d9f7462d4536c2f8ea01b7341f4adba6f
           ports:
             - containerPort: 5000
           env:
