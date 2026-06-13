@@ -5,7 +5,7 @@ Tracks work items, leave, notes, and releases per person per sprint — and expo
 
 **Stack:** Angular 19 · ASP.NET Core 9 · PostgreSQL 17
 
----
+---  
 
 ## Prerequisites
 
