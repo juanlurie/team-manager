@@ -219,6 +219,69 @@ public class WinOfTheWeekController(IWinOfTheWeekService service, WinSeriesServi
         }
     }
 
+    [HttpGet("tokens")]
+    public async Task<IActionResult> GetTokenBalance([FromQuery] Guid? seriesId = null)
+    {
+        var memberId = GetCurrentMemberId();
+        var sid = await ResolveSeriesIdAsync(seriesId);
+        if (sid == Guid.Empty) return Ok(new { balance = 0 });
+        var balance = await service.GetTokenBalanceAsync(memberId, sid);
+        return Ok(new { balance });
+    }
+
+    [HttpPost("nominations/{nominationId:guid}/powerup")]
+    public async Task<IActionResult> ApplyPowerUp(Guid nominationId, [FromBody] ApplyWowCardRequest request)
+    {
+        var memberId = GetCurrentMemberId();
+
+        if (request.Type == "Wildcard")
+        {
+            var memberId2 = GetCurrentMemberId();
+            var isHost = await db.Set<Domain.Entities.FeaturePermission>()
+                .AnyAsync(fp => fp.FeatureKey == "wow-host" && fp.IsEnabled);
+            var hasOverride = await db.Set<Domain.Entities.MemberFeatureOverride>()
+                .AnyAsync(o => o.TeamMemberId == memberId2 && o.FeatureKey == "wow-host" && o.IsEnabled);
+            if (!isHost && !hasOverride)
+                return Forbid();
+        }
+
+        try
+        {
+            var result = await service.ApplyPowerUpAsync(memberId, nominationId, request.Type);
+            _ = WebSocketMiddleware.BroadcastAsync("nomination_updated", new { nomination = result });
+            return Ok(result);
+        }
+        catch (KeyNotFoundException ex) { return NotFound(new { error = ex.Message }); }
+        catch (InvalidOperationException ex) { return BadRequest(new { error = ex.Message }); }
+    }
+
+    [HttpPost("nominations/{nominationId:guid}/chaoscard")]
+    public async Task<IActionResult> ApplyChaosCard(Guid nominationId, [FromBody] ApplyWowCardRequest request)
+    {
+        var memberId = GetCurrentMemberId();
+        try
+        {
+            var result = await service.ApplyChaosCardAsync(memberId, nominationId, request.Type);
+            _ = WebSocketMiddleware.BroadcastAsync("nomination_updated", new { nomination = result });
+            return Ok(result);
+        }
+        catch (KeyNotFoundException ex) { return NotFound(new { error = ex.Message }); }
+        catch (InvalidOperationException ex) { return BadRequest(new { error = ex.Message }); }
+    }
+
+    [HttpPost("nominations/{nominationId:guid}/hype")]
+    public async Task<IActionResult> IncrementHypeMeter(Guid nominationId)
+    {
+        try
+        {
+            var count = await service.IncrementHypeMeterAsync(nominationId);
+            _ = WebSocketMiddleware.BroadcastAsync("hype_meter_tapped", new { nominationId, count });
+            return Ok(new { count });
+        }
+        catch (KeyNotFoundException ex) { return NotFound(new { error = ex.Message }); }
+        catch (InvalidOperationException ex) { return BadRequest(new { error = ex.Message }); }
+    }
+
     [HttpGet("history")]
     public async Task<IActionResult> GetHistory([FromQuery] Guid? seriesId = null, [FromQuery] int? year = null, [FromQuery] int limit = 52)
     {

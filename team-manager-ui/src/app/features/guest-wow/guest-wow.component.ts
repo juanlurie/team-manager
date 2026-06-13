@@ -5,6 +5,7 @@ import { ActivatedRoute } from '@angular/router';
 import { MatIconModule } from '@angular/material/icon';
 import { GuestWinOfTheWeekService } from './guest-wow.service';
 import { GuestWinWeek, GuestNomination, GuestCreateNominationRequest, WowNominationDisplay } from '../../core/models/win-week.model';
+import { WinOfTheWeekService } from '../../core/services/win-of-the-week.service';
 import { AuthService } from '../../core/auth/auth.service';
 import { WowCountdownComponent } from '../../shared/components/wow-countdown/wow-countdown.component';
 import { WowNominationCardComponent } from '../../shared/components/wow-nomination-card/wow-nomination-card.component';
@@ -216,10 +217,12 @@ const SESSION_ID_KEY = 'wow_guest_session_id';
                 [canEdit]="nom.isOwned && week()!.isNominatingOpen"
                 [votesRemaining]="week()!.userVotesRemaining"
                 [isTied]="tiedNomIds().has(nom.id)"
+                [canApplyCards]="false"
                 (voteClick)="vote($event)"
                 (removeVoteClick)="removeVote($event)"
                 (editClick)="startEdit($event)"
                 (deleteClick)="deleteNomination($event)"
+                (hypeClick)="tapHype($event)"
               />
             }
           }
@@ -454,6 +457,7 @@ export class GuestWowComponent implements OnInit, OnDestroy {
   private route = inject(ActivatedRoute);
   private service = inject(GuestWinOfTheWeekService);
   private auth = inject(AuthService);
+  private winSvc = inject(WinOfTheWeekService);
 
   guestName = signal('');
   nameInput = '';
@@ -562,8 +566,15 @@ export class GuestWowComponent implements OnInit, OnDestroy {
       description: nom.description,
       voteCount: nom.voteCount,
       hasVoted: nom.hasVoted,
-      isOwned: nom.isOwned
+      isOwned: nom.isOwned,
+      powerUp: nom.powerUp,
+      chaosCard: nom.chaosCard,
+      hypeMeterCount: nom.hypeMeterCount
     };
+  }
+
+  tapHype(nominationId: string) {
+    this.winSvc.incrementHypeMeter(nominationId).subscribe({ error: () => {} });
   }
 
   startEdit(nom: WowNominationDisplay) {
@@ -654,6 +665,17 @@ export class GuestWowComponent implements OnInit, OnDestroy {
     this.ws.onmessage = (event) => {
       try {
         const msg = JSON.parse(event.data);
+        if (msg.type === 'hype_meter_tapped') {
+          const nomId = msg.data?.nominationId as string;
+          const count = msg.data?.count as number;
+          if (nomId && count !== undefined) {
+            this.week.update(w => w ? {
+              ...w,
+              nominations: w.nominations.map(n => n.id === nomId ? { ...n, hypeMeterCount: count } : n)
+            } : w);
+          }
+          return;
+        }
         if (msg.type === 'voting_closed') {
           const wk = this.week();
           const snap = this.suddenDeathSnapshot;
