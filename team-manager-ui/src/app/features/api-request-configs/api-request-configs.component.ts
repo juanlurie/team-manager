@@ -8,6 +8,7 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatDialog, MatDialogModule, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
+import { Router, ActivatedRoute } from '@angular/router';
 import { MatTableModule } from '@angular/material/table';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { FormsModule } from '@angular/forms';
@@ -181,6 +182,8 @@ export class ApiRequestConfigsComponent implements OnInit {
   private snackBar = inject(MatSnackBar);
   private dialog = inject(MatDialog);
   private credentials = inject(CredentialsService);
+  private router = inject(Router);
+  private route = inject(ActivatedRoute);
 
   loading = signal(true);
   configs = signal<ApiRequestConfig[]>([]);
@@ -220,18 +223,11 @@ export class ApiRequestConfigsComponent implements OnInit {
   }
 
   openDialog(config?: ApiRequestConfig) {
-    const dialogRef = this.dialog.open(ApiRequestConfigDialogComponent, {
-      width: '620px',
-      maxWidth: '100vw',
-      panelClass: 'dark-dialog',
-      data: config ? { ...config } : this.newConfig()
-    });
-
-    dialogRef.afterClosed().subscribe((result) => {
-      if (result) {
-        this.load();
-      }
-    });
+    if (config?.id) {
+      this.router.navigate([config.id, 'edit'], { relativeTo: this.route });
+    } else {
+      this.router.navigate(['new'], { relativeTo: this.route });
+    }
   }
 
   deleteConfig(config: ApiRequestConfig) {
