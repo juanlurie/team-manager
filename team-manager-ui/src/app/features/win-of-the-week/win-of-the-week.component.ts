@@ -149,7 +149,7 @@ import { runTieBreakSpin } from '../../shared/utils/wow.utils';
             [week]="currentWeek()"
             [loading]="loading()"
             [isHost]="isHost()"
-            [isMobile]="isMobile()"
+            [isMobile]="isMobile"
             [qrDataUrl]="qrDataUrl()"
             [currentUserId]="currentUserId"
             (nominateClick)="showNominateDialog()"
