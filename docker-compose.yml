@@ -77,7 +77,8 @@ services:
     volumes:
       - ./mcp-server:/app
     environment:
-      TEAM_MANAGER_API_URL: http://api:5000
+      TEAM_MANAGER_API_URL: https://team.kakushi.dev
+      TEAM_MANAGER_API_KEY: tm_sAR0Te-qUfioIkqr0BFKI-sEqhtaGh5JEth2muLLbZg
       MCP_PORT: "8765"
     depends_on:
       - api
