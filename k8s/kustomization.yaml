@@ -3,7 +3,6 @@ kind: Kustomization
 
 resources:
   - namespace.yaml
-  - secrets.yaml
   - postgres.yaml
   - api.yaml
   - mcp-gateway.yaml
