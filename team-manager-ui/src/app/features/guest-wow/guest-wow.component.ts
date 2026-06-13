@@ -9,6 +9,8 @@ import { AuthService } from '../../core/auth/auth.service';
 import { WowCountdownComponent } from '../../shared/components/wow-countdown/wow-countdown.component';
 import { WowNominationCardComponent } from '../../shared/components/wow-nomination-card/wow-nomination-card.component';
 import { WowWinnerBannerComponent } from '../../shared/components/wow-winner-banner/wow-winner-banner.component';
+import { WowTieBreakSpinnerComponent } from '../../shared/components/wow-tie-break-spinner/wow-tie-break-spinner.component';
+import { AppEmptyStateComponent } from '../../shared/components/app-empty-state/app-empty-state.component';
 
 const SESSION_NAME_KEY = 'wow_guest_name';
 const SESSION_ID_KEY = 'wow_guest_session_id';
@@ -16,18 +18,9 @@ const SESSION_ID_KEY = 'wow_guest_session_id';
 @Component({
   selector: 'app-guest-wow',
   standalone: true,
-  imports: [CommonModule, FormsModule, MatIconModule, WowCountdownComponent, WowNominationCardComponent, WowWinnerBannerComponent],
+  imports: [CommonModule, FormsModule, MatIconModule, WowCountdownComponent, WowNominationCardComponent, WowWinnerBannerComponent, WowTieBreakSpinnerComponent, AppEmptyStateComponent],
   template: `
-    <!-- Tie-break spin overlay -->
-    @if (isSpinning()) {
-      <div style="position:fixed;inset:0;background:rgba(0,0,0,0.9);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:2000;backdrop-filter:blur(6px)">
-        <div style="font-size:0.65rem;text-transform:uppercase;letter-spacing:3px;opacity:0.4;margin-bottom:28px">🎲 Breaking the tie</div>
-        <div class="spinner-name"
-             style="font-size:2.2rem;font-weight:800;color:#ef5350;min-width:300px;text-align:center;padding:24px 36px;background:rgba(239,83,80,0.08);border:2px solid rgba(239,83,80,0.4);border-radius:20px">
-          {{spinnerName()}}
-        </div>
-      </div>
-    }
+    <app-wow-tie-break-spinner [show]="isSpinning()" [name]="spinnerName()" />
 
     <div class="guest-wrap" [class.sudden-death]="isSuddenDeath()">
       <!-- Name capture screen -->
@@ -180,7 +173,7 @@ const SESSION_ID_KEY = 'wow_guest_session_id';
 
           <!-- Nominations list -->
           @if (week()!.nominations.length === 0) {
-            <p class="empty-state">No nominations yet — be the first!</p>
+            <app-empty-state icon="emoji_events" title="No nominations yet — be the first!" />
           }
 
           @if (week()!.isVotingOpen) {
@@ -233,13 +226,6 @@ const SESSION_ID_KEY = 'wow_guest_session_id';
     </div>
   `,
   styles: [`
-    @keyframes spinnerPop {
-      0% { transform: scale(0.92); opacity: 0.6; }
-      50% { transform: scale(1.04); opacity: 1; }
-      100% { transform: scale(1); opacity: 1; }
-    }
-    .spinner-name { animation: spinnerPop 0.12s ease-out; }
-
     .guest-wrap {
       position: fixed;
       inset: 0;
@@ -435,12 +421,6 @@ const SESSION_ID_KEY = 'wow_guest_session_id';
       color: #f44336;
       font-size: 0.85rem;
       margin: 0.5rem 0 0;
-    }
-
-    .empty-state {
-      color: rgba(255,255,255,0.4);
-      text-align: center;
-      padding: 2rem 0;
     }
 
     .votes-remaining {

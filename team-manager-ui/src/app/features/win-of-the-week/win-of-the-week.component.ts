@@ -29,6 +29,11 @@ import { FeatureAccessService } from '../../core/services/feature-access.service
 import { WinSeriesService } from '../../core/services/win-series.service';
 import { WowNominationCardComponent } from '../../shared/components/wow-nomination-card/wow-nomination-card.component';
 import { WowWinnerBannerComponent } from '../../shared/components/wow-winner-banner/wow-winner-banner.component';
+import { AppLoadingComponent } from '../../shared/components/app-loading/app-loading.component';
+import { AppEmptyStateComponent } from '../../shared/components/app-empty-state/app-empty-state.component';
+import { AppInfoBannerComponent } from '../../shared/components/app-info-banner/app-info-banner.component';
+import { AppModalComponent } from '../../shared/components/app-modal/app-modal.component';
+import { WowTieBreakSpinnerComponent } from '../../shared/components/wow-tie-break-spinner/wow-tie-break-spinner.component';
 
 @Component({
   selector: 'app-win-of-the-week',
@@ -38,7 +43,9 @@ import { WowWinnerBannerComponent } from '../../shared/components/wow-winner-ban
     MatTooltipModule, MatDialogModule, MatSnackBarModule,
     MatFormFieldModule, MatSelectModule, MatInputModule, MatMenuModule, MatDividerModule,
     WinOfTheWeekHistoryComponent, WinOfTheMonthComponent, WowCountdownComponent,
-    WowNominationCardComponent, WowWinnerBannerComponent
+    WowNominationCardComponent, WowWinnerBannerComponent,
+    AppLoadingComponent, AppEmptyStateComponent, AppInfoBannerComponent,
+    AppModalComponent, WowTieBreakSpinnerComponent
   ],
   styles: [`
     @keyframes alertPulse {
@@ -50,24 +57,9 @@ import { WowWinnerBannerComponent } from '../../shared/components/wow-winner-ban
       border-radius: 16px;
       animation: alertPulse 2s ease-in-out infinite;
     }
-    @keyframes spinnerPop {
-      0% { transform: scale(0.92); opacity: 0.6; }
-      50% { transform: scale(1.04); opacity: 1; }
-      100% { transform: scale(1); opacity: 1; }
-    }
-    .spinner-name { animation: spinnerPop 0.12s ease-out; }
   `],
   template: `
-    <!-- Tie-break spin overlay -->
-    @if (isSpinning()) {
-      <div style="position:fixed;inset:0;background:rgba(0,0,0,0.9);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:2000;backdrop-filter:blur(6px)">
-        <div style="font-size:0.65rem;text-transform:uppercase;letter-spacing:3px;opacity:0.4;margin-bottom:28px">🎲 Breaking the tie</div>
-        <div class="spinner-name"
-             style="font-size:2.2rem;font-weight:800;color:#ef5350;min-width:300px;text-align:center;padding:24px 36px;background:rgba(239,83,80,0.08);border:2px solid rgba(239,83,80,0.4);border-radius:20px">
-          {{spinnerName()}}
-        </div>
-      </div>
-    }
+    <app-wow-tie-break-spinner [show]="isSpinning()" [name]="spinnerName()" />
 
     <div [class.sudden-death-wrap]="currentWeek()?.status === 'SuddenDeath'"
          style="max-width:1060px;margin:0 auto;padding:0 8px 80px;overflow-x:hidden">
@@ -182,65 +174,49 @@ import { WowWinnerBannerComponent } from '../../shared/components/wow-winner-ban
     </div>
 
     <!-- Nominate/Edit Dialog -->
-    @if (showDialog()) {
-      <div style="position:fixed;inset:0;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;z-index:1000"
-           (click)="closeDialog()">
-        <div style="background:#1e1e2e;border-radius:16px;padding:24px;width:90%;max-width:440px;max-height:85dvh;overflow-y:auto;overscroll-behavior:contain;border:1px solid rgba(255,255,255,0.1);-webkit-overflow-scrolling:touch"
-             (click)="$event.stopPropagation()">
-          <h3 style="margin:0 0 16px;font-size:1.1rem;font-weight:700">{{editingNominationId() ? 'Edit Nomination' : 'Nominate a Win'}}</h3>
-
-          <div style="display:flex;flex-direction:column;gap:12px">
-            <mat-form-field appearance="outline" style="width:100%">
-              <mat-label>Who are you nominating?</mat-label>
-              <mat-select [(ngModel)]="nominateForm.nomineeMemberId">
-                @for (m of allMembers(); track m.id) {
-                  <mat-option [value]="m.id">{{m.firstName}} {{m.lastName}}</mat-option>
-                }
-              </mat-select>
-            </mat-form-field>
-
-            <mat-form-field appearance="outline" style="width:100%">
-              <mat-label>Title</mat-label>
-              <input matInput [(ngModel)]="nominateForm.title" placeholder="e.g. Fixed the production DB issue" maxlength="200">
-            </mat-form-field>
-
-            <mat-form-field appearance="outline" style="width:100%">
-              <mat-label>Description (optional)</mat-label>
-              <textarea matInput [(ngModel)]="nominateForm.description" rows="3" maxlength="2000"></textarea>
-            </mat-form-field>
-          </div>
-
-          <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px;position:sticky;bottom:0;background:#1e1e2e;padding-top:8px">
-            <button mat-stroked-button (click)="closeDialog()">Cancel</button>
-            <button mat-raised-button color="primary" (click)="submitNomination()"
-                    [disabled]="!nominateForm.nomineeMemberId || !nominateForm.title.trim() || submitting()">
-              {{ submitting() ? 'Submitting...' : (editingNominationId() ? 'Save Changes' : 'Submit') }}
-            </button>
-          </div>
-        </div>
+    <app-modal [title]="editingNominationId() ? 'Edit Nomination' : 'Nominate a Win'"
+               [show]="showDialog()" (closed)="closeDialog()">
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <mat-form-field appearance="outline" style="width:100%">
+          <mat-label>Who are you nominating?</mat-label>
+          <mat-select [(ngModel)]="nominateForm.nomineeMemberId">
+            @for (m of allMembers(); track m.id) {
+              <mat-option [value]="m.id">{{m.firstName}} {{m.lastName}}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+        <mat-form-field appearance="outline" style="width:100%">
+          <mat-label>Title</mat-label>
+          <input matInput [(ngModel)]="nominateForm.title" placeholder="e.g. Fixed the production DB issue" maxlength="200">
+        </mat-form-field>
+        <mat-form-field appearance="outline" style="width:100%">
+          <mat-label>Description (optional)</mat-label>
+          <textarea matInput [(ngModel)]="nominateForm.description" rows="3" maxlength="2000"></textarea>
+        </mat-form-field>
       </div>
-    }
+      <ng-container modal-footer>
+        <button mat-stroked-button (click)="closeDialog()">Cancel</button>
+        <button mat-raised-button color="primary" (click)="submitNomination()"
+                [disabled]="!nominateForm.nomineeMemberId || !nominateForm.title.trim() || submitting()">
+          {{ submitting() ? 'Submitting...' : (editingNominationId() ? 'Save Changes' : 'Submit') }}
+        </button>
+      </ng-container>
+    </app-modal>
 
     <!-- New Series Dialog -->
-    @if (showNewSeriesDialog()) {
-      <div style="position:fixed;inset:0;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;z-index:1000"
-           (click)="closeNewSeriesDialog()">
-        <div style="background:#1e1e2e;border-radius:16px;padding:24px;width:90%;max-width:380px;border:1px solid rgba(255,255,255,0.1)"
-             (click)="$event.stopPropagation()">
-          <h3 style="margin:0 0 16px;font-size:1.1rem;font-weight:700">New Series</h3>
-          <input [(ngModel)]="newSeriesName" placeholder="Series name (e.g. Backend Team)"
-                 style="width:100%;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.15);border-radius:8px;padding:10px 14px;color:#fff;font-size:0.95rem;outline:none;box-sizing:border-box"
-                 maxlength="100" (keydown.enter)="submitNewSeries()" autofocus />
-          <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
-            <button mat-stroked-button (click)="closeNewSeriesDialog()">Cancel</button>
-            <button mat-raised-button color="primary" (click)="submitNewSeries()"
-                    [disabled]="!newSeriesName.trim() || submitting()">
-              {{ submitting() ? 'Creating...' : 'Create' }}
-            </button>
-          </div>
-        </div>
-      </div>
-    }
+    <app-modal title="New Series" [show]="showNewSeriesDialog()" maxWidth="380px"
+               (closed)="closeNewSeriesDialog()">
+      <input [(ngModel)]="newSeriesName" placeholder="Series name (e.g. Backend Team)"
+             style="width:100%;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.15);border-radius:8px;padding:10px 14px;color:#fff;font-size:0.95rem;outline:none;box-sizing:border-box"
+             maxlength="100" (keydown.enter)="submitNewSeries()" autofocus />
+      <ng-container modal-footer>
+        <button mat-stroked-button (click)="closeNewSeriesDialog()">Cancel</button>
+        <button mat-raised-button color="primary" (click)="submitNewSeries()"
+                [disabled]="!newSeriesName.trim() || submitting()">
+          {{ submitting() ? 'Creating...' : 'Create' }}
+        </button>
+      </ng-container>
+    </app-modal>
 
     <!-- Current tab template -->
     <ng-template #currentTab>
@@ -297,18 +273,14 @@ import { WowWinnerBannerComponent } from '../../shared/components/wow-winner-ban
       }
 
 
-<!-- Info banner during nominating phase -->
+      <!-- Info banner during nominating phase -->
       @if (currentWeek()?.status === 'Nominating') {
-        <div style="background:rgba(100,181,246,0.08);border:1px solid rgba(100,181,246,0.15);border-radius:8px;padding:10px 14px;margin-bottom:16px;font-size:0.8rem;color:#64b5f6">
-          💡 You can edit or delete your nominations before voting opens.
-        </div>
+        <app-info-banner type="info">💡 You can edit or delete your nominations before voting opens.</app-info-banner>
       }
 
       <!-- All votes used banner (regular voting) -->
       @if (currentWeek()?.status === 'Voting' && (currentWeek()?.userVotesRemaining ?? 0) === 0) {
-        <div style="background:rgba(76,175,80,0.08);border:1px solid rgba(76,175,80,0.2);border-radius:8px;padding:10px 14px;margin-bottom:16px;font-size:0.8rem;color:#4caf50">
-          ✓ All votes cast! Results will be announced Sunday night.
-        </div>
+        <app-info-banner type="success">✓ All votes cast! Results will be announced Sunday night.</app-info-banner>
       }
 
       <!-- Vote progress bar (voting + sudden death) -->
@@ -330,33 +302,22 @@ import { WowWinnerBannerComponent } from '../../shared/components/wow-winner-ban
       }
 
       <!-- Loading -->
-      @if (loading()) {
-        <div style="text-align:center;padding:64px;opacity:0.35">Loading...</div>
-      }
+      @if (loading()) { <app-loading /> }
 
       <!-- No week yet for this series -->
       @if (!loading() && !currentWeek()) {
-        <div style="text-align:center;padding:64px;opacity:0.5">
-          <mat-icon style="font-size:3rem;width:3rem;height:3rem;opacity:0.3">emoji_events</mat-icon>
-          <div style="margin-top:12px;font-weight:600">No active week for this series</div>
-          @if (isHost()) {
-            <button mat-raised-button color="primary" (click)="openNextWeek()" style="margin-top:16px">Open First Week</button>
-          }
-        </div>
+        <app-empty-state icon="emoji_events" title="No active week for this series"
+          [actionLabel]="isHost() ? 'Open First Week' : ''"
+          (actionClick)="openNextWeek()" />
       }
 
       <!-- Empty state -->
       @if (!loading() && currentWeek() && currentWeek()!.nominations.length === 0) {
-        <div style="text-align:center;padding:64px;opacity:0.35">
-          <mat-icon style="font-size:3rem;width:3rem;height:3rem;opacity:0.3">emoji_events</mat-icon>
-          <div style="margin-top:12px;font-weight:600">No wins nominated yet this week</div>
-          <div style="margin-top:4px;font-size:0.85rem">Be the first to recognise a teammate!</div>
-          @if (currentWeek()?.status === 'Nominating' && (currentWeek()?.userNominationsRemaining ?? 0) > 0) {
-            <button mat-raised-button color="primary" (click)="showNominateDialog()" style="margin-top:16px">
-              Nominate a Win
-            </button>
-          }
-        </div>
+        <app-empty-state icon="emoji_events"
+          title="No wins nominated yet this week"
+          subtitle="Be the first to recognise a teammate!"
+          [actionLabel]="canNominate() ? 'Nominate a Win' : ''"
+          (actionClick)="showNominateDialog()" />
       }
 
       <!-- Nominations list -->
@@ -437,6 +398,9 @@ export class WinOfTheWeekComponent implements OnInit, OnDestroy {
 
   readonly isHost = this.featureAccess.hasAccess$('wow-host');
   readonly hasWinOfMonth = this.featureAccess.hasAccess$('win-of-month');
+  readonly canNominate = computed(() =>
+    this.currentWeek()?.status === 'Nominating' && (this.currentWeek()?.userNominationsRemaining ?? 0) > 0
+  );
 
   nominateForm: CreateNominationRequest = {
     nomineeMemberId: '',

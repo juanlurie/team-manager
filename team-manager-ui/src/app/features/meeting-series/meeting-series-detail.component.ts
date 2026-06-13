@@ -3,8 +3,8 @@ import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
-import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar } from '@angular/material/snack-bar';
+import { AppLoadingComponent } from '../../shared/components/app-loading/app-loading.component';
 import { MeetingSeriesService } from '../../core/services/meeting-series.service';
 import { SlotLocationService } from '../../core/services/slot-location.service';
 import { MeetingSeries, MeetingSeriesItem, CreateMeetingSeriesSlotRequest } from '../../core/models/meeting-series.model';
@@ -15,11 +15,11 @@ type SlotKey = string;
 @Component({
   selector: 'app-meeting-series-detail',
   standalone: true,
-  imports: [CommonModule, RouterLink, MatButtonModule, MatIconModule, MatProgressSpinnerModule],
+  imports: [CommonModule, RouterLink, MatButtonModule, MatIconModule, AppLoadingComponent],
   template: `
     <div class="page">
       @if (loading()) {
-        <div class="spinner-wrap"><mat-spinner diameter="40"></mat-spinner></div>
+        <app-loading [spinner]="true" />
       } @else if (!series()) {
         <div class="error-state">
           <h2>Series not found</h2>
@@ -213,7 +213,6 @@ type SlotKey = string;
   `,
   styles: [`
     .page { max-width:900px;margin:0 auto;padding:8px; }
-    .spinner-wrap { display:flex;justify-content:center;padding:60px; }
     .error-state { text-align:center;padding:60px; }
     .breadcrumb { font-size:0.75rem;opacity:0.5;margin-bottom:8px; }
     .breadcrumb a { color:#64b5f6;cursor:pointer; }
