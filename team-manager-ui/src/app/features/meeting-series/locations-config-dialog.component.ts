@@ -1,5 +1,5 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, OnInit, inject, signal, ChangeDetectionStrategy } from '@angular/core';
+
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -13,7 +13,7 @@ import { SlotLocation } from '../../core/models/slot-location.model';
 @Component({
   selector: 'app-locations-config-dialog',
   standalone: true,
-  imports: [CommonModule, FormsModule, MatButtonModule, MatIconModule, MatInputModule, MatFormFieldModule, MatDialogModule],
+  imports: [FormsModule, MatButtonModule, MatIconModule, MatInputModule, MatFormFieldModule, MatDialogModule],
   template: `
     <div class="dialog-header">
       <h2>Manage Locations</h2>
@@ -78,6 +78,7 @@ import { SlotLocation } from '../../core/models/slot-location.model';
       </div>
     </div>
   `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .dialog-header { display:flex;align-items:center;justify-content:space-between;padding:16px 24px 8px; }
     .dialog-header h2 { margin:0;font-size:1.2rem;font-weight:700; }

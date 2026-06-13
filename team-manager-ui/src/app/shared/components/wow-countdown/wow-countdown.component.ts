@@ -1,13 +1,14 @@
-import { Component, OnInit, OnDestroy, signal, computed, input } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, OnInit, OnDestroy, signal, computed, input, ChangeDetectionStrategy } from '@angular/core';
+
 
 @Component({
   selector: 'app-wow-countdown',
   standalone: true,
-  imports: [CommonModule],
+  imports: [],
   template: `
     <span class="wow-clock" [class.urgent]="isUrgent()">{{ display() }}</span>
   `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .wow-clock {
       font-size: 1.6rem;

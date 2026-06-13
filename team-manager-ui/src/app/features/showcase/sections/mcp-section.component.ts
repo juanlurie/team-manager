@@ -1,5 +1,5 @@
-import { Component, inject, signal } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, inject, signal, ChangeDetectionStrategy } from '@angular/core';
+
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { ShowcaseDataService } from '../services/showcase-data.service';
@@ -8,7 +8,7 @@ import { McpDomain, McpTool } from '../models/showcase.model';
 @Component({
   selector: 'app-mcp-section',
   standalone: true,
-  imports: [CommonModule, MatIconModule, MatTooltipModule],
+  imports: [MatIconModule, MatTooltipModule],
   template: `
     <div class="section">
       <div class="section-header">
@@ -58,6 +58,7 @@ import { McpDomain, McpTool } from '../models/showcase.model';
       </div>
     </div>
   `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .section { padding: 8px 0; }
     .section-title { font-size: 1.1rem; font-weight: 600; color: rgba(255,255,255,0.85); margin: 0 0 6px; }

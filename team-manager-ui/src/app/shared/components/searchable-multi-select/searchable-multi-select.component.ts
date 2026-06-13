@@ -1,5 +1,5 @@
-import { Component, computed, effect, forwardRef, input, output, signal, untracked } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, computed, effect, forwardRef, input, output, signal, untracked, ChangeDetectionStrategy } from '@angular/core';
+
 import { ControlValueAccessor, NG_VALUE_ACCESSOR } from '@angular/forms';
 import { MatAutocompleteModule, MatAutocompleteSelectedEvent } from '@angular/material/autocomplete';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -24,7 +24,7 @@ function safeDisplay(o: any): string {
 @Component({
   selector: 'app-searchable-multi-select',
   standalone: true,
-  imports: [CommonModule, MatAutocompleteModule, MatFormFieldModule, MatInputModule, MatIconModule, MatProgressSpinnerModule],
+  imports: [MatAutocompleteModule, MatFormFieldModule, MatInputModule, MatIconModule, MatProgressSpinnerModule],
   providers: [{
     provide: NG_VALUE_ACCESSOR,
     useExisting: forwardRef(() => SearchableMultiSelectComponent),
@@ -85,6 +85,7 @@ function safeDisplay(o: any): string {
       }
     </div>
   `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .ms-wrapper { display: block; }
     .ms-field { margin: 0; }

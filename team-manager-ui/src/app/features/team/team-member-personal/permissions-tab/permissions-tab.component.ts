@@ -1,5 +1,5 @@
-import { Component, OnInit, inject, signal, Input, computed } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, OnInit, inject, signal, Input, computed, ChangeDetectionStrategy } from '@angular/core';
+
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { MatTooltipModule } from '@angular/material/tooltip';
@@ -12,11 +12,14 @@ import { MemberFeatureOverride } from '../../../../core/models/feature-permissio
   selector: 'app-permissions-tab',
   standalone: true,
   imports: [
-    CommonModule,
-    MatIconModule, MatButtonModule, MatTooltipModule,
-    MatProgressSpinnerModule, MatSnackBarModule,
-  ],
+    MatIconModule,
+    MatButtonModule,
+    MatTooltipModule,
+    MatProgressSpinnerModule,
+    MatSnackBarModule
+],
   templateUrl: './permissions-tab.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./permissions-tab.component.scss'],
 })
 export class PermissionsTabComponent implements OnInit {

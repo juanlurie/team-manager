@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, signal, computed } from '@angular/core';
+import { Component, OnInit, inject, signal, computed, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
@@ -108,6 +108,7 @@ export interface ImportRow {
       .ftr-info { width:100%; flex:none; order:-1; text-align:center; }
     }
   `],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div class="dlg">
       <div class="hdr">

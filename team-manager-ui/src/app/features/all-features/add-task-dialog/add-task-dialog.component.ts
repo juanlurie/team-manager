@@ -1,5 +1,5 @@
-import { Component, inject, signal, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, inject, signal, OnInit, ChangeDetectionStrategy } from '@angular/core';
+
 import { FormsModule } from '@angular/forms';
 import { MatDialogModule, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
@@ -27,7 +27,8 @@ interface SprintMember {
 @Component({
   selector: 'app-add-task-dialog',
   standalone: true,
-  imports: [CommonModule, FormsModule, MatDialogModule, MatButtonModule, MatSelectModule],
+  imports: [FormsModule, MatDialogModule, MatButtonModule, MatSelectModule],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div style="min-width:320px">
       <h2 mat-dialog-title>Add Task</h2>

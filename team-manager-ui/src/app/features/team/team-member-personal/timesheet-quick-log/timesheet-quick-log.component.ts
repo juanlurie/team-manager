@@ -1,11 +1,11 @@
-import { Component, input, output } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, input, output, ChangeDetectionStrategy } from '@angular/core';
+
 import { QuickActionConfig } from '../../../../core/models/timesheet-config.model';
 
 @Component({
   selector: 'app-timesheet-quick-log',
   standalone: true,
-  imports: [CommonModule],
+  imports: [],
   styles: [`
     .ql { padding:4px 6px 5px; flex-shrink:0; overflow-x:hidden; }
     .ql-lbl { font-size:10px; font-weight:700; color:rgba(255,255,255,0.28); text-transform:uppercase; letter-spacing:0.06em; margin-bottom:6px; }
@@ -19,6 +19,7 @@ import { QuickActionConfig } from '../../../../core/models/timesheet-config.mode
     .ql-empty button { padding:6px 14px; background:rgba(100,181,246,0.15); border:1px solid rgba(100,181,246,0.3); border-radius:6px; color:#90caf9; font-size:11px; font-weight:600; cursor:pointer; transition:all 0.12s; font-family:inherit; }
     .ql-empty button:hover { background:rgba(100,181,246,0.25); border-color:rgba(100,181,246,0.5); }
   `],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div class="ql">
       <div class="ql-lbl">Quick log</div>

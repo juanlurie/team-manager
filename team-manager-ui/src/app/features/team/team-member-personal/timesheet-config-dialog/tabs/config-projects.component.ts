@@ -1,11 +1,11 @@
-import { Component, input, output } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, input, output, ChangeDetectionStrategy } from '@angular/core';
+
 import { FormsModule } from '@angular/forms';
 
 @Component({
   selector: 'app-config-projects',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [FormsModule],
   styles: [`
     .hint { font-size:11px; color:rgba(255,255,255,0.28); margin-bottom:10px; }
     .proj-list { display:flex; flex-direction:column; gap:8px; margin-bottom:12px; }
@@ -29,6 +29,7 @@ import { FormsModule } from '@angular/forms';
       .tag-rm { font-size:18px; padding:4px; }
     }
   `],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div class="hint">These projects are added to the default list. Use this for client projects or custom work categories.</div>
     <div class="proj-list">

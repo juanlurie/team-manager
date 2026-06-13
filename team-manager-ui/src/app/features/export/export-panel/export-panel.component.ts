@@ -1,5 +1,5 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, OnInit, inject, signal, ChangeDetectionStrategy } from '@angular/core';
+
 import { FormsModule } from '@angular/forms';
 import { forkJoin } from 'rxjs';
 import { MatButtonModule } from '@angular/material/button';
@@ -54,8 +54,8 @@ const TYPE_COLOR: Record<string, string> = {
 @Component({
   selector: 'app-export-panel',
   standalone: true,
-  imports: [CommonModule, FormsModule, MatButtonModule, MatFormFieldModule, MatInputModule,
-    MatSelectModule, MatCheckboxModule, MatIconModule, MatProgressSpinnerModule],
+  imports: [FormsModule, MatButtonModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatCheckboxModule, MatIconModule, MatProgressSpinnerModule],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <h2 style="margin:0 0 24px;font-size:1.2rem">Export</h2>
 

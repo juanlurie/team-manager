@@ -1,5 +1,5 @@
-import { Component } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, ChangeDetectionStrategy } from '@angular/core';
+
 import { RouterLink } from '@angular/router';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
@@ -33,7 +33,7 @@ const CONFIG_CARDS: ConfigCard[] = [
 @Component({
   selector: 'app-settings',
   standalone: true,
-  imports: [CommonModule, RouterLink, MatIconModule, MatButtonModule, MatTooltipModule],
+  imports: [RouterLink, MatIconModule, MatButtonModule, MatTooltipModule],
   template: `
     <div class="settings-page">
       <div class="page-header">
@@ -57,6 +57,7 @@ const CONFIG_CARDS: ConfigCard[] = [
       </div>
     </div>
   `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .settings-page { max-width: 900px; margin: 0 auto; padding: 8px; }
     .page-header { display: flex; align-items: center; gap: 12px; margin-bottom: 32px; }

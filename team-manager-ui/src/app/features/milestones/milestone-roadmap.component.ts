@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, signal, computed } from '@angular/core';
+import { Component, OnInit, inject, signal, computed, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
@@ -19,6 +19,7 @@ import { MilestoneScopeBadgeComponent } from '../../shared/components/milestone-
     MatTooltipModule, MatChipsModule,
     MilestoneScopeBadgeComponent
   ],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     @if (loading()) {
       <div style="text-align:center;padding:64px;opacity:0.35">Loading roadmap…</div>

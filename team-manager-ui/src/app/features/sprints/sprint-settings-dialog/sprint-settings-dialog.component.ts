@@ -1,5 +1,5 @@
-import { Component, inject } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, inject, ChangeDetectionStrategy } from '@angular/core';
+
 import { MatDialogModule, MatDialogRef, MAT_DIALOG_DATA, MatDialog } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -14,7 +14,7 @@ import { Router } from '@angular/router';
 @Component({
   selector: 'app-sprint-settings-dialog',
   standalone: true,
-  imports: [CommonModule, MatDialogModule, MatButtonModule, MatIconModule, MatListModule],
+  imports: [MatDialogModule, MatButtonModule, MatIconModule, MatListModule],
   template: `
     <h2 mat-dialog-title style="display:flex;align-items:center;gap:8px">
       <mat-icon>settings</mat-icon> Sprint Settings
@@ -61,6 +61,7 @@ import { Router } from '@angular/router';
       <button mat-button mat-dialog-close>Close</button>
     </mat-dialog-actions>
   `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .settings-list { display:flex;flex-direction:column;gap:4px;padding:8px 0; }
     .settings-item {

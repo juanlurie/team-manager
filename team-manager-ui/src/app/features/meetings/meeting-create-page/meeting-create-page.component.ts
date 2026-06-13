@@ -1,5 +1,5 @@
-import { Component, OnInit, inject, signal, computed } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, OnInit, inject, signal, computed, ChangeDetectionStrategy } from '@angular/core';
+
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
@@ -23,7 +23,7 @@ type SlotKey = string;
 @Component({
   selector: 'app-meeting-create-page',
   standalone: true,
-  imports: [CommonModule, FormsModule, MatButtonModule, MatFormFieldModule, MatInputModule],
+  imports: [FormsModule, MatButtonModule, MatFormFieldModule, MatInputModule],
   template: `
     <div class="page">
       <!-- Header -->
@@ -182,6 +182,7 @@ type SlotKey = string;
       }
     </div>
   `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .page { max-width:900px;margin:0 auto;padding:8px; }
     .back-btn { background:none;border:1px solid rgba(255,255,255,0.1);color:inherit;padding:6px 14px;border-radius:8px;cursor:pointer;font-size:0.85rem;font-family:inherit; }

@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, inject, signal, computed, effect } from '@angular/core';
+import { Component, OnInit, OnDestroy, inject, signal, computed, effect, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
@@ -23,6 +23,7 @@ import { WebSocketService } from '../../core/websocket/websocket.service';
   standalone: true,
   imports: [CommonModule, FormsModule, MatButtonModule, MatIconModule, MatTooltipModule, MatDialogModule, MatProgressSpinnerModule, MatSnackBarModule, MatSelectModule, MatInputModule, MatMenuModule],
   templateUrl: './coffee-run.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./coffee-run.component.scss']
 })
 export class CoffeeRunComponent implements OnInit, OnDestroy {

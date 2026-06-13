@@ -1,5 +1,5 @@
-import { Component, inject, signal, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, inject, signal, OnInit, ChangeDetectionStrategy } from '@angular/core';
+
 import { MatIconModule } from '@angular/material/icon';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { OutlookCalendarService, OutlookStatus } from '../api-request-configs/outlook-calendar.service';
@@ -8,7 +8,7 @@ import { GoogleCalendarService, GoogleCalendarStatus } from '../api-request-conf
 @Component({
   selector: 'app-connected-services',
   standalone: true,
-  imports: [CommonModule, MatIconModule, MatSnackBarModule],
+  imports: [MatIconModule, MatSnackBarModule],
   template: `
     <div class="services-page">
       <div class="services-grid">
@@ -129,6 +129,7 @@ import { GoogleCalendarService, GoogleCalendarStatus } from '../api-request-conf
       </div>
     </div>
   `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .services-page { max-width: 900px; margin: 0 auto; padding: 8px 8px 80px; }
 

@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, inject, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterLink, RouterLinkActive, RouterOutlet, Params } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
@@ -87,6 +87,7 @@ import { IconButtonComponent } from '../../../shared/components/icon-btn/icon-bt
     <!-- Tab content -->
     <router-outlet></router-outlet>
   `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .tab-link {
       display: inline-flex; align-items: center; gap: 6px;

@@ -1,4 +1,4 @@
-import { Component, computed, input } from '@angular/core';
+import { Component, computed, input, ChangeDetectionStrategy } from '@angular/core';
 
 type BannerType = 'info' | 'warning' | 'success' | 'error';
 
@@ -12,6 +12,7 @@ const COLORS: Record<BannerType, { bg: string; border: string; text: string }> =
 @Component({
   selector: 'app-info-banner',
   standalone: true,
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div [style.background]="colors().bg"
          [style.border]="'1px solid ' + colors().border"

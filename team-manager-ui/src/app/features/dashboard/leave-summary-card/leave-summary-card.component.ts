@@ -1,18 +1,19 @@
-import { Component, input, signal } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, input, signal, ChangeDetectionStrategy } from '@angular/core';
+
 import { MatIconModule } from '@angular/material/icon';
 import { DashboardLeaveSummary } from '../../../core/models/dashboard.model';
 
 @Component({
   selector: 'app-leave-summary-card',
   standalone: true,
-  imports: [CommonModule, MatIconModule],
+  imports: [MatIconModule],
   styles: [`
     .stat-card { transition:filter 0.15s; }
     .stat-card:hover { filter:brightness(1.25); }
     .member-card { transition:background 0.15s; }
     .member-card:hover { background:rgba(206,147,216,0.08); }
   `],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     @let summary = leaveSummary();
     @if (summary) {

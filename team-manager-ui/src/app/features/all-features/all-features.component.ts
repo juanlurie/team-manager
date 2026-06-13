@@ -1,5 +1,5 @@
-import { Component, OnInit, inject, signal, computed, effect, untracked } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, OnInit, inject, signal, computed, effect, untracked, ChangeDetectionStrategy } from '@angular/core';
+
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -44,10 +44,9 @@ const TASK_STATUS_TEXT: Record<string, string> = {
 @Component({
   selector: 'app-all-features',
   standalone: true,
-  imports: [CommonModule, FormsModule, MatButtonModule, MatIconModule,
-    MatTooltipModule, MatMenuModule, MatDialogModule,
-    MatProgressSpinnerModule, FilterBarComponent, CommentsComponent],
+  imports: [FormsModule, MatButtonModule, MatIconModule, MatTooltipModule, MatMenuModule, MatDialogModule, MatProgressSpinnerModule, FilterBarComponent, CommentsComponent],
   templateUrl: './all-features.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./all-features.component.scss']
 })
 export class AllFeaturesComponent implements OnInit {

@@ -1,4 +1,4 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnInit, inject, ChangeDetectionStrategy } from '@angular/core';
 import { Router } from '@angular/router';
 import { AuthService } from '../../core/auth/auth.service';
 
@@ -87,6 +87,7 @@ const FEATURES = [
 
     </div>
   `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     @import url('https://fonts.googleapis.com/icon?family=Material+Icons');
 
