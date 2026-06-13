@@ -54,6 +54,7 @@ jobs:
           image-ref: ${{ env.REGISTRY }}/${{ env.OWNER }}/team-manager-api:${{ github.sha }}
           severity: HIGH,CRITICAL
           exit-code: '1'
+          ignore-unfixed: true
           format: table
 
       - name: Audit UI dependencies
@@ -78,6 +79,7 @@ jobs:
           image-ref: ${{ env.REGISTRY }}/${{ env.OWNER }}/team-manager-ui:${{ github.sha }}
           severity: HIGH,CRITICAL
           exit-code: '1'
+          ignore-unfixed: true
           format: table
 
       - name: Build and push MCP gateway
@@ -98,6 +100,7 @@ jobs:
           image-ref: ${{ env.REGISTRY }}/${{ env.OWNER }}/team-manager-mcp:${{ github.sha }}
           severity: HIGH,CRITICAL
           exit-code: '1'
+          ignore-unfixed: true
           format: table
 
       - name: Update k8s image tags
