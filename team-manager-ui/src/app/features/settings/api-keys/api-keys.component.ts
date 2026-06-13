@@ -34,6 +34,19 @@ export class ApiKeysComponent implements OnInit {
   loading = signal(true);
 
   newlyCreatedKey: CreatedApiKeyResult | null = null;
+  configCopied = false;
+
+  private readonly mcpConfig = `{
+  "mcpServers": {
+    "team-manager": {
+      "type": "sse",
+      "url": "https://team-mcp.kakushi.dev/sse",
+      "headers": {
+        "Authorization": "Bearer <your-api-key>"
+      }
+    }
+  }
+}`;
 
   ngOnInit() {
     this.loadKeys();
@@ -67,6 +80,12 @@ export class ApiKeysComponent implements OnInit {
   copyKey(key: string) {
     this.clipboard.copy(key);
     this.snackBar.open('API key copied to clipboard', 'Close', { duration: 3000 });
+  }
+
+  copyConfig() {
+    this.clipboard.copy(this.mcpConfig);
+    this.configCopied = true;
+    setTimeout(() => this.configCopied = false, 2000);
   }
 
   dismissNewKey() {
