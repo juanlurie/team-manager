@@ -1,10 +1,11 @@
-import { Component, input } from '@angular/core';
+import { Component, input, ChangeDetectionStrategy } from '@angular/core';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
 @Component({
   selector: 'app-loading',
   standalone: true,
   imports: [MatProgressSpinnerModule],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     @if (spinner()) {
       <div style="display:flex;justify-content:center;padding:60px">

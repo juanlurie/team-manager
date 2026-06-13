@@ -1,5 +1,5 @@
-import { Component, inject, signal, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, inject, signal, OnInit, ChangeDetectionStrategy } from '@angular/core';
+
 import { MatIconModule } from '@angular/material/icon';
 import { MatDialogModule, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
@@ -22,7 +22,7 @@ const SOURCE_COLORS: Record<string, string> = {
 @Component({
   selector: 'app-member-points-history',
   standalone: true,
-  imports: [CommonModule, MatIconModule, MatDialogModule, MatProgressSpinnerModule],
+  imports: [MatIconModule, MatDialogModule, MatProgressSpinnerModule],
   template: `
     <div class="dialog-wrap">
       <div class="dialog-header">
@@ -71,6 +71,7 @@ const SOURCE_COLORS: Record<string, string> = {
       }
     </div>
   `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .dialog-wrap { background:#1a2636;border-radius:12px;width:480px;max-width:calc(100vw - 32px);max-height:80vh;display:flex;flex-direction:column; }
     .dialog-header { display:flex;justify-content:flex-end;padding:8px; }

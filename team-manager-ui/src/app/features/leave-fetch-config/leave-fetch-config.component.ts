@@ -1,5 +1,5 @@
-import { Component, inject, signal, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, inject, signal, OnInit, ChangeDetectionStrategy } from '@angular/core';
+
 import { FormsModule } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
@@ -14,10 +14,15 @@ import { LeaveFetchConfigService, LeaveFetchConfig, MappingConfig } from './leav
   selector: 'app-leave-fetch-config',
   standalone: true,
   imports: [
-    CommonModule, FormsModule, MatIconModule, MatButtonModule,
-    MatInputModule, MatFormFieldModule, MatSelectModule,
-    MatSlideToggleModule, MatSnackBarModule
-  ],
+    FormsModule,
+    MatIconModule,
+    MatButtonModule,
+    MatInputModule,
+    MatFormFieldModule,
+    MatSelectModule,
+    MatSlideToggleModule,
+    MatSnackBarModule
+],
   template: `
     <div class="config-page">
       <div class="page-header">
@@ -169,6 +174,7 @@ import { LeaveFetchConfigService, LeaveFetchConfig, MappingConfig } from './leav
       }
     </div>
   `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .config-page { max-width: 800px; margin: 0 auto; padding: 8px; }
     .page-header { display: flex; align-items: center; gap: 12px; margin-bottom: 24px; }

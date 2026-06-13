@@ -1,5 +1,5 @@
-import { Component, OnInit, inject, signal, computed, effect, untracked } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, OnInit, inject, signal, computed, effect, untracked, ChangeDetectionStrategy } from '@angular/core';
+
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -27,9 +27,8 @@ const PRIORITY_ORDER = ['High', 'Medium', 'Low'] as const;
 @Component({
   selector: 'app-discussion-points',
   standalone: true,
-  imports: [CommonModule, MatButtonModule, MatIconModule,
-    MatTooltipModule, MatDialogModule, CommentsComponent, MatProgressSpinnerModule,
-    MatDatepickerModule, MatCheckboxModule, IconButtonComponent, FilterBarComponent],
+  imports: [MatButtonModule, MatIconModule, MatTooltipModule, MatDialogModule, CommentsComponent, MatProgressSpinnerModule, MatDatepickerModule, MatCheckboxModule, IconButtonComponent, FilterBarComponent],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
       <h2 style="margin:0;font-size:1.2rem">Discussion Points</h2>

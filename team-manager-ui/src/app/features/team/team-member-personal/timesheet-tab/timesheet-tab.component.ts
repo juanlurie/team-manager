@@ -1,6 +1,6 @@
-import { Component, OnInit, OnDestroy, HostListener, inject, input, signal, computed } from '@angular/core';
+import { Component, OnInit, OnDestroy, HostListener, inject, input, signal, computed, ChangeDetectionStrategy } from '@angular/core';
 import { Subscription } from 'rxjs';
-import { CommonModule } from '@angular/common';
+
 import { FormsModule } from '@angular/forms';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatTooltipModule } from '@angular/material/tooltip';
@@ -28,8 +28,9 @@ const DN = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 @Component({
   selector: 'app-timesheet-tab',
   standalone: true,
-  imports: [CommonModule, FormsModule, MatDialogModule, MatTooltipModule, TimesheetEntryCardComponent, TimesheetImportDialogComponent],
+  imports: [FormsModule, MatDialogModule, MatTooltipModule, TimesheetEntryCardComponent, TimesheetImportDialogComponent],
   templateUrl: './timesheet-tab.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./timesheet-tab.component.scss']
 })
 export class TimesheetTabComponent implements OnInit, OnDestroy {

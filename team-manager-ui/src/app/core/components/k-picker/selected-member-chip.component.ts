@@ -1,4 +1,4 @@
-import { Component, input, output } from '@angular/core';
+import { Component, input, output, ChangeDetectionStrategy } from '@angular/core';
 import { TeamMember } from '../../models/team-member.model';
 import { AvatarCircleComponent } from './avatar-circle.component';
 
@@ -17,6 +17,7 @@ import { AvatarCircleComponent } from './avatar-circle.component';
               tabindex="0">×</button>
     </span>
   `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .k-chip {
       display: inline-flex;

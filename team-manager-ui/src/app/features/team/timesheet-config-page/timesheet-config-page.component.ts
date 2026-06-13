@@ -1,5 +1,5 @@
-import { Component, inject, signal, computed, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, inject, signal, computed, OnInit, ChangeDetectionStrategy } from '@angular/core';
+
 import { FormsModule } from '@angular/forms';
 import { Router, ActivatedRoute } from '@angular/router';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
@@ -32,7 +32,7 @@ const DEFAULT_LOCATION_OPTIONS = ['Home', 'Client', 'Other'];
 @Component({
   selector: 'app-timesheet-config-page',
   standalone: true,
-  imports: [CommonModule, FormsModule, MatDialogModule, MatIconModule, MatButtonModule, MatMenuModule, ConfigQuickActionsComponent, ConfigProjectsComponent, ConfigCategoriesComponent, ConfigWorkLocationComponent],
+  imports: [FormsModule, MatDialogModule, MatIconModule, MatButtonModule, MatMenuModule, ConfigQuickActionsComponent, ConfigProjectsComponent, ConfigCategoriesComponent, ConfigWorkLocationComponent],
   styles: [`
     @media (max-width:640px) {
       .wrap { padding:12px 4px 40px; }
@@ -59,6 +59,7 @@ const DEFAULT_LOCATION_OPTIONS = ['Home', 'Client', 'Other'];
     .btn-primary { background:#64b5f6; color:#0f1923; } .btn-primary:hover { background:#90caf9; } .btn-primary:disabled { opacity:0.35; cursor:not-allowed; }
     .loading { display:flex; justify-content:center; padding:80px; color:rgba(255,255,255,0.3); }
   `],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div class="wrap">
       <div class="hdr">

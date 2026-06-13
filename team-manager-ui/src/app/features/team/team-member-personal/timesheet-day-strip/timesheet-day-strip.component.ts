@@ -1,5 +1,5 @@
-import { Component, input, output } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, input, output, ChangeDetectionStrategy } from '@angular/core';
+
 import { DayStatus } from '../timesheet-sidebar/timesheet-sidebar.component';
 
 const DN = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
@@ -7,7 +7,7 @@ const DN = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 @Component({
   selector: 'app-timesheet-day-strip',
   standalone: true,
-  imports: [CommonModule],
+  imports: [],
   styles: [`
     .strip { display:flex; gap:2px; flex-shrink:0; padding:4px 4px 0; width:100%; overflow:hidden; }
     .wrap { overflow-x:hidden; }
@@ -28,6 +28,7 @@ const DN = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
     .err-banner svg { flex-shrink:0; }
     .err-banner span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   `],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div class="wrap">
     <div class="strip">

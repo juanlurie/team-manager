@@ -1,4 +1,4 @@
-import { Component, inject } from '@angular/core';
+import { Component, inject, ChangeDetectionStrategy } from '@angular/core';
 import { RouterLink, RouterLinkActive } from '@angular/router';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
@@ -49,6 +49,7 @@ import { AuthService } from '../../../core/auth/auth.service';
 
     </nav>
   `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .sidebar {
       width: 58px;

@@ -1,5 +1,5 @@
-import { Component, inject, computed } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, inject, computed, ChangeDetectionStrategy } from '@angular/core';
+
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { FeatureAccessService } from '../../core/services/feature-access.service';
 
@@ -19,7 +19,7 @@ const DELIVERY_TABS: DeliveryTab[] = [
 @Component({
   selector: 'app-delivery-hub',
   standalone: true,
-  imports: [CommonModule, RouterLink, RouterLinkActive, RouterOutlet],
+  imports: [RouterLink, RouterLinkActive, RouterOutlet],
   template: `
     <div class="hub">
       <nav class="hub-tabs" role="tablist">
@@ -32,6 +32,7 @@ const DELIVERY_TABS: DeliveryTab[] = [
       </div>
     </div>
   `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .hub { max-width:900px;margin:0 auto;padding:8px; }
     .hub-tabs {

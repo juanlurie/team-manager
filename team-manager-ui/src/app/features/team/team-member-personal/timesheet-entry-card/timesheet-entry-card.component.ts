@@ -1,5 +1,5 @@
-import { Component, input, output, signal, computed, inject, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, input, output, signal, computed, inject, OnInit, ChangeDetectionStrategy } from '@angular/core';
+
 import { FormsModule } from '@angular/forms';
 import { MatDialog, MatDialogModule, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
 import { MatTooltipModule } from '@angular/material/tooltip';
@@ -22,7 +22,7 @@ const LOCATIONS = ['Home', 'Client', 'Other'];
 @Component({
   selector: 'app-ts-delete-confirm',
   standalone: true,
-  imports: [CommonModule, MatDialogModule],
+  imports: [MatDialogModule],
   styles: [`
     :host { display: block; }
     .wrap { padding: 24px 24px 20px; }
@@ -34,6 +34,7 @@ const LOCATIONS = ['Home', 'Client', 'Other'];
     .btn-del { padding: 8px 16px; background: #ef5350; border: none; border-radius: 6px; color: #fff; font-size: 12px; font-weight: 700; cursor: pointer; font-family: inherit; }
     .btn-del:hover { background: #e53935; }
   `],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div class="wrap">
       <div class="title">Delete entry?</div>
@@ -55,7 +56,7 @@ export class TsDeleteConfirmComponent {
 @Component({
   selector: 'app-ts-edit-dialog',
   standalone: true,
-  imports: [CommonModule, FormsModule, MatDialogModule, MatIconModule],
+  imports: [FormsModule, MatDialogModule, MatIconModule],
   styles: [`
     :host { display: block; }
     .wrap { padding: 20px 20px 16px; display: flex; flex-direction: column; gap: 14px; min-width: min(340px, 90vw); }
@@ -87,6 +88,7 @@ export class TsDeleteConfirmComponent {
     .confirm-no { padding: 3px 8px; background: none; border: 1px solid rgba(255,255,255,0.15); border-radius: 4px; color: rgba(255,255,255,0.5); font-size: 11px; cursor: pointer; font-family: inherit; }
     .confirm-no:hover { color: rgba(255,255,255,0.85); }
   `],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div class="wrap">
       <div>
@@ -197,7 +199,7 @@ export class TsEditDialogComponent implements OnInit {
 @Component({
   selector: 'app-timesheet-entry-card',
   standalone: true,
-  imports: [CommonModule, FormsModule, MatTooltipModule, MatIconModule],
+  imports: [FormsModule, MatTooltipModule, MatIconModule],
   styles: [`
     .card {
       display:flex; align-items:center; gap:10px; padding:11px 14px; border-radius:10px;
@@ -266,6 +268,7 @@ export class TsEditDialogComponent implements OnInit {
       .m-r4 { display:flex; align-items:center; justify-content:space-between; }
     }
   `],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div class="card" [class.sync-pending]="syncStatus() === 'pending'" [class.sync-failed]="syncStatus() === 'failed'" [class.sync-unsynced]="syncStatus() === 'unsynced'" (click)="openEdit()">
 

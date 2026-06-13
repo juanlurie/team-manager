@@ -1,5 +1,5 @@
-import { Component, OnInit, inject, signal, computed, effect, untracked } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, OnInit, inject, signal, computed, effect, untracked, ChangeDetectionStrategy } from '@angular/core';
+
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatDialogModule, MatDialog } from '@angular/material/dialog';
@@ -27,9 +27,7 @@ import { MatMenuModule } from '@angular/material/menu';
 @Component({
   selector: 'app-team-list',
   standalone: true,
-  imports: [CommonModule, MatButtonModule, MatIconModule, MatDialogModule,
-    MatChipsModule, MatTooltipModule, MatProgressSpinnerModule,
-    IconButtonComponent, FilterBarComponent, MatMenuModule],
+  imports: [MatButtonModule, MatIconModule, MatDialogModule, MatChipsModule, MatTooltipModule, MatProgressSpinnerModule, IconButtonComponent, FilterBarComponent, MatMenuModule],
   template: `
     <div class="tl-header">
       <h2 class="tl-title">Team Members</h2>
@@ -115,6 +113,7 @@ import { MatMenuModule } from '@angular/material/menu';
     }
     }
   `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .tl-header {
       display:flex; align-items:center; margin-bottom:8px; gap:8px;

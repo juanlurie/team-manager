@@ -1,5 +1,5 @@
-import { Component, OnInit, OnDestroy, inject, signal, computed } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, OnInit, OnDestroy, inject, signal, computed, ChangeDetectionStrategy } from '@angular/core';
+
 import { RouterLink } from '@angular/router';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
@@ -12,7 +12,8 @@ import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/c
 @Component({
   selector: 'app-win-of-the-month',
   standalone: true,
-  imports: [CommonModule, RouterLink, MatIconModule, MatButtonModule, MatSnackBarModule, MatDialogModule],
+  imports: [RouterLink, MatIconModule, MatButtonModule, MatSnackBarModule, MatDialogModule],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div style="max-width:800px;margin:0 auto;padding:0 8px 80px">
       <!-- Header -->

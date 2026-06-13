@@ -1,5 +1,5 @@
-import { Component, OnInit, inject } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, OnInit, inject, ChangeDetectionStrategy } from '@angular/core';
+
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { MatDialogModule, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -27,9 +27,8 @@ function parseDate(s: string | null): Date | null {
 @Component({
   selector: 'app-sprint-form',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, MatDialogModule, MatFormFieldModule,
-    MatInputModule, MatSelectModule, MatButtonModule, MatCheckboxModule,
-    MatDatepickerModule, MatIconModule],
+  imports: [ReactiveFormsModule, MatDialogModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatButtonModule, MatCheckboxModule, MatDatepickerModule, MatIconModule],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <h2 mat-dialog-title>{{ title }}</h2>
     <mat-dialog-content>
