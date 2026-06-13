@@ -1,4 +1,4 @@
-import { Component, signal, computed, HostListener, inject } from '@angular/core';
+import { Component, signal, inject } from '@angular/core';
 import { RouterOutlet, Router, NavigationEnd, NavigationStart, NavigationCancel, NavigationError } from '@angular/router';
 import { MatDialogModule, MatDialog } from '@angular/material/dialog';
 import { trigger, animate, style, transition } from '@angular/animations';
@@ -8,41 +8,10 @@ import { GlobalFilterService } from './core/services/global-filter.service';
 import { AuthService } from './core/auth/auth.service';
 import { FeatureAccessService } from './core/services/feature-access.service';
 import { TimesheetDefaultsService } from './core/services/timesheet-defaults.service';
-import { NavItem } from './core/nav/nav.types';
+import { NavService } from './core/nav/nav.service';
+import { MobileService } from './core/services/mobile.service';
 import { AppSidebarComponent } from './shared/components/app-sidebar/app-sidebar.component';
 import { AppBottomNavComponent } from './shared/components/app-bottom-nav/app-bottom-nav.component';
-
-const ALL_PRIMARY_NAV: NavItem[] = [
-  { path: '/dashboard',      icon: 'dashboard',       label: 'Dashboard',    featureKey: 'dashboard' },
-  { path: '/delivery',       icon: 'rocket_launch',   label: 'Delivery',     featureKey: 'features' },
-  { path: '/discussion',     icon: 'forum',           label: 'Discussion',   featureKey: 'discussion' },
-  { path: '/meetings',       icon: 'event',           label: 'Meetings',     featureKey: 'meetings' },
-  { path: '/team',           icon: 'people',          label: 'Team',         featureKey: 'team' },
-  { path: '/fun',            icon: 'casino',          label: 'Fun Hub',      featureKey: 'fun-hub' },
-];
-
-const ALL_SECONDARY_NAV: NavItem[] = [
-  { path: '/integrations', icon: 'hub',      label: 'Integrations', featureKey: 'settings' },
-  { path: '/settings',     icon: 'settings', label: 'Settings',     featureKey: 'settings' },
-  { path: '/profile',      icon: 'person',   label: 'Profile' },
-];
-
-const ALL_BOTTOM_NAV: NavItem[] = [
-  { path: '/dashboard',      icon: 'dashboard',       label: 'Dashboard',    featureKey: 'dashboard' },
-  { path: '/delivery',       icon: 'rocket_launch',   label: 'Delivery',     featureKey: 'features' },
-  { path: '/team/timesheet', icon: 'schedule',        label: 'Timesheet',    featureKey: 'team' },
-  { path: '/team/members',   icon: 'people',          label: 'Team',         featureKey: 'team' },
-];
-
-const ALL_MORE_NAV: NavItem[] = [
-  { path: '/delivery',       icon: 'rocket_launch',  label: 'Delivery',      featureKey: 'features' },
-  { path: '/discussion',     icon: 'forum',          label: 'Discussion',    featureKey: 'discussion' },
-  { path: '/meetings',       icon: 'event',          label: 'Meetings',      featureKey: 'meetings' },
-  { path: '/fun',            icon: 'casino',         label: 'Fun Hub',       featureKey: 'fun-hub' },
-  { path: '/integrations',   icon: 'hub',            label: 'Integrations',  featureKey: 'settings' },
-  { path: '/settings',       icon: 'settings',       label: 'Settings',      featureKey: 'settings' },
-  { path: '/profile',        icon: 'person',         label: 'Profile' },
-];
 
 const routeFade = trigger('routeFade', [
   transition('* <=> *', [
@@ -57,12 +26,10 @@ const routeFade = trigger('routeFade', [
   imports: [RouterOutlet, MatDialogModule, AppSidebarComponent, AppBottomNavComponent],
   animations: [routeFade],
   template: `
-    <!-- ── Nav progress bar ── -->
     @if (navLoading()) {
       <div class="nav-progress"><div class="nav-progress-bar"></div></div>
     }
 
-    <!-- ── Initial auth-checking splash ── -->
     @if (authChecking()) {
       <div class="splash">
         <div class="splash-icon">
@@ -76,27 +43,18 @@ const routeFade = trigger('routeFade', [
       </div>
     }
 
-    <div class="shell" [class.mobile]="isMobile()">
+    <div class="shell" [class.mobile]="mobile.isMobile()">
 
-      @if (isMobile() && !isLoginPage() && isAuthorized()) {
-        <app-bottom-nav
-          [items]="bottomNav()"
-          [moreItems]="moreNav()"
-          [isMoreActive]="isMoreActive()"
-          (logout)="onLogout()" />
+      @if (mobile.isMobile() && !nav.isLoginPage() && isAuthorized()) {
+        <app-bottom-nav />
       }
 
-      @if (!isMobile() && !isLoginPage() && isAuthorized()) {
-        <app-sidebar
-          [primaryNav]="primaryNav()"
-          [secondaryNav]="secondaryNav()"
-          [expanded]="expanded()"
-          (toggleExpand)="toggleExpanded()"
-          (logout)="onLogout()" />
+      @if (!mobile.isMobile() && !nav.isLoginPage() && isAuthorized()) {
+        <app-sidebar />
       }
 
       <main class="content">
-        <div class="page-wrap" [@routeFade]="currentUrl()">
+        <div class="page-wrap" [@routeFade]="nav.currentUrl()">
           <router-outlet />
         </div>
       </main>
@@ -111,13 +69,11 @@ const routeFade = trigger('routeFade', [
       background: #0f1923;
     }
 
-    /* ── Main content ── */
     .content { flex: 1; overflow-y: auto; min-width: 0; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
     .shell.mobile .content { padding-bottom: 60px; }
     .page-wrap { padding: 24px; max-width: 1200px; margin: 0 auto; }
     .shell.mobile .page-wrap { padding: 0 4px 72px; }
 
-    /* ── Nav progress bar ── */
     .nav-progress {
       position: fixed;
       top: 0; left: 0; right: 0;
@@ -137,7 +93,6 @@ const routeFade = trigger('routeFade', [
       100% { left: 100%; right: -10%; }
     }
 
-    /* ── Auth-checking splash ── */
     .splash {
       position: fixed;
       inset: 0;
@@ -178,9 +133,7 @@ const routeFade = trigger('routeFade', [
       color: rgba(255,255,255,0.6);
       letter-spacing: 0.04em;
     }
-    .splash-dots {
-      display: flex; gap: 6px;
-    }
+    .splash-dots { display: flex; gap: 6px; }
     .splash-dots span {
       width: 6px; height: 6px;
       border-radius: 50%;
@@ -203,33 +156,14 @@ export class AppComponent {
   private featureAccess = inject(FeatureAccessService);
   private tsd = inject(TimesheetDefaultsService);
 
-  currentUrl = signal(this.router.url);
+  nav = inject(NavService);
+  mobile = inject(MobileService);
 
-  primaryNav = computed(() => this.filterNav(ALL_PRIMARY_NAV));
-  secondaryNav = computed(() => this.filterNav(ALL_SECONDARY_NAV));
-  bottomNav = computed(() => this.filterNav(ALL_BOTTOM_NAV));
-  moreNav = computed(() => this.filterNav(ALL_MORE_NAV));
-
-  isMoreActive = computed(() => ALL_MORE_NAV.some(item => this.currentUrl().startsWith(item.path)));
-  isLoginPage = computed(() => this.currentUrl() === '/login');
   isAuthorized = signal(false);
   navLoading = signal(false);
   authChecking = signal(true);
-  isMobile = signal(false);
-
-  expanded = signal(localStorage.getItem('nav-expanded') === 'true');
-
-  private forceDesktop = false;
 
   constructor() {
-    if (new URLSearchParams(window.location.search).get('desktop') === 'true') {
-      this.forceDesktop = true;
-      sessionStorage.setItem('force-desktop', 'true');
-    } else if (sessionStorage.getItem('force-desktop') === 'true') {
-      this.forceDesktop = true;
-    }
-    this.checkMobile();
-
     this.auth.authStatus$.subscribe(status => {
       this.authChecking.set(false);
       this.isAuthorized.set(status === 'authorized');
@@ -244,7 +178,6 @@ export class AppComponent {
         this.navLoading.set(true);
       } else if (e instanceof NavigationEnd) {
         this.navLoading.set(false);
-        this.currentUrl.set(e.urlAfterRedirects);
         this.globalFilterSvc.clearFilters();
       } else if (e instanceof NavigationCancel || e instanceof NavigationError) {
         this.navLoading.set(false);
@@ -263,23 +196,6 @@ export class AppComponent {
         this.openKPicker();
       }
     }, true);
-  }
-
-  @HostListener('window:resize')
-  checkMobile() { this.isMobile.set(!this.forceDesktop && window.innerWidth < 768); }
-
-  toggleExpanded() {
-    const next = !this.expanded();
-    this.expanded.set(next);
-    localStorage.setItem('nav-expanded', String(next));
-  }
-
-  onLogout() {
-    this.auth.logout();
-  }
-
-  private filterNav(items: NavItem[]): NavItem[] {
-    return items.filter(item => !item.featureKey || this.featureAccess.hasAccess(item.featureKey));
   }
 
   private openQuickOpen(): void {
