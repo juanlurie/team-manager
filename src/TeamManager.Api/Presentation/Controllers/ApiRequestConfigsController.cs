@@ -119,6 +119,7 @@ public class ApiRequestConfigsController : ControllerBase
 
         var exportData = configs.Select(c => new
         {
+            c.Action,
             c.Name,
             c.Description,
             c.Enabled,
