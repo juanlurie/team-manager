@@ -52,6 +52,7 @@ import { AuthService } from '../../../core/auth/auth.service';
   styles: [`
     .sidebar {
       width: 58px;
+      height: 100%;
       flex-shrink: 0;
       display: flex;
       flex-direction: column;
