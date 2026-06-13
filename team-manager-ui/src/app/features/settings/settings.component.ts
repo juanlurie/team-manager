@@ -22,13 +22,6 @@ const CONFIG_CARDS: ConfigCard[] = [
     color: '#64b5f6'
   },
   {
-    icon: 'key',
-    label: 'API Keys',
-    description: 'Manage your personal API keys for programmatic access',
-    path: '/integrations',
-    color: '#4caf50'
-  },
-  {
     icon: 'auto_awesome',
     label: 'Showcase',
     description: 'Tour of searches, TUI, MCP and feature highlights',

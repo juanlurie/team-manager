@@ -3015,7 +3015,7 @@ async def main_stdio():
 
 # ── SSE HTTP server ───────────────────────────────────────────────────────────
 
-_sse = SseServerTransport("/mcp/messages/")
+_sse = SseServerTransport("/messages/")
 
 
 async def handle_sse(request: Request) -> Response:
