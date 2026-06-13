@@ -1,7 +1,8 @@
-import { Component, inject, input, output, signal } from '@angular/core';
+import { Component, inject, signal } from '@angular/core';
 import { RouterLink, RouterLinkActive, Router, NavigationEnd } from '@angular/router';
 import { MatIconModule } from '@angular/material/icon';
-import { NavItem } from '../../../core/nav/nav.types';
+import { NavService } from '../../../core/nav/nav.service';
+import { AuthService } from '../../../core/auth/auth.service';
 
 @Component({
   selector: 'app-bottom-nav',
@@ -9,13 +10,13 @@ import { NavItem } from '../../../core/nav/nav.types';
   imports: [RouterLink, RouterLinkActive, MatIconModule],
   template: `
     <nav class="bottom-nav">
-      @for (item of items(); track item.path) {
+      @for (item of nav.bottomNav(); track item.path) {
         <a class="bnav-item" [routerLink]="item.path" routerLinkActive="active">
           <mat-icon class="bnav-icon">{{ item.icon }}</mat-icon>
           <span class="bnav-label">{{ item.label }}</span>
         </a>
       }
-      <button class="bnav-item" [class.active]="isMoreActive()"
+      <button class="bnav-item" [class.active]="nav.isMoreActive()"
               (click)="moreOpen.set(!moreOpen())">
         <mat-icon class="bnav-icon">{{ moreOpen() ? 'close' : 'more_horiz' }}</mat-icon>
         <span class="bnav-label">More</span>
@@ -27,14 +28,14 @@ import { NavItem } from '../../../core/nav/nav.types';
       <div class="more-sheet">
         <div class="more-handle"></div>
         <div class="more-grid">
-          @for (item of moreItems(); track item.path) {
+          @for (item of nav.moreNav(); track item.path) {
             <a class="more-item" [routerLink]="item.path" routerLinkActive="active"
                (click)="moreOpen.set(false)">
               <mat-icon class="more-icon">{{ item.icon }}</mat-icon>
               <span>{{ item.label }}</span>
             </a>
           }
-          <button class="more-item more-logout" (click)="logout.emit()">
+          <button class="more-item more-logout" (click)="onLogout()">
             <mat-icon class="more-icon">logout</mat-icon>
             <span>Logout</span>
           </button>
@@ -128,11 +129,8 @@ import { NavItem } from '../../../core/nav/nav.types';
   `]
 })
 export class AppBottomNavComponent {
-  items = input.required<NavItem[]>();
-  moreItems = input.required<NavItem[]>();
-  isMoreActive = input.required<boolean>();
-  logout = output<void>();
-
+  nav = inject(NavService);
+  private auth = inject(AuthService);
   moreOpen = signal(false);
 
   constructor() {
@@ -140,4 +138,6 @@ export class AppBottomNavComponent {
       if (e instanceof NavigationEnd) this.moreOpen.set(false);
     });
   }
+
+  onLogout() { this.auth.logout(); }
 }

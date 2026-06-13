@@ -1,29 +1,30 @@
-import { Component, input, output } from '@angular/core';
+import { Component, inject } from '@angular/core';
 import { RouterLink, RouterLinkActive } from '@angular/router';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { NavItem } from '../../../core/nav/nav.types';
+import { NavService } from '../../../core/nav/nav.service';
+import { AuthService } from '../../../core/auth/auth.service';
 
 @Component({
   selector: 'app-sidebar',
   standalone: true,
   imports: [RouterLink, RouterLinkActive, MatIconModule, MatTooltipModule],
   template: `
-    <nav class="sidebar" [class.expanded]="expanded()">
+    <nav class="sidebar" [class.expanded]="nav.expanded()">
 
-      <button class="sidebar-header" (click)="toggleExpand.emit()"
-              [matTooltip]="expanded() ? '' : 'Expand sidebar'" matTooltipPosition="right">
+      <button class="sidebar-header" (click)="nav.toggleExpanded()"
+              [matTooltip]="nav.expanded() ? '' : 'Expand sidebar'" matTooltipPosition="right">
         <mat-icon class="brand-icon">groups</mat-icon>
         <span class="brand">Team Manager</span>
         <mat-icon class="collapse-icon">
-          {{ expanded() ? 'chevron_left' : 'chevron_right' }}
+          {{ nav.expanded() ? 'chevron_left' : 'chevron_right' }}
         </mat-icon>
       </button>
 
       <div class="nav-items">
-        @for (item of primaryNav(); track item.path) {
+        @for (item of nav.primaryNav(); track item.path) {
           <a class="nav-link" [routerLink]="item.path" routerLinkActive="active"
-             [matTooltip]="expanded() ? '' : item.label" matTooltipPosition="right">
+             [matTooltip]="nav.expanded() ? '' : item.label" matTooltipPosition="right">
             <mat-icon class="nav-icon">{{ item.icon }}</mat-icon>
             <span class="nav-label">{{ item.label }}</span>
           </a>
@@ -31,17 +32,17 @@ import { NavItem } from '../../../core/nav/nav.types';
 
         <div class="nav-divider"></div>
 
-        @for (item of secondaryNav(); track item.path) {
+        @for (item of nav.secondaryNav(); track item.path) {
           <a class="nav-link nav-secondary" [routerLink]="item.path" routerLinkActive="active"
-             [matTooltip]="expanded() ? '' : item.label" matTooltipPosition="right">
+             [matTooltip]="nav.expanded() ? '' : item.label" matTooltipPosition="right">
             <mat-icon class="nav-icon">{{ item.icon }}</mat-icon>
             <span class="nav-label">{{ item.label }}</span>
           </a>
         }
       </div>
 
-      <button class="sidebar-logout" (click)="logout.emit()"
-              [matTooltip]="expanded() ? '' : 'Logout'" matTooltipPosition="right">
+      <button class="sidebar-logout" (click)="onLogout()"
+              [matTooltip]="nav.expanded() ? '' : 'Logout'" matTooltipPosition="right">
         <mat-icon class="nav-icon">logout</mat-icon>
         <span class="nav-label">Logout</span>
       </button>
@@ -177,9 +178,8 @@ import { NavItem } from '../../../core/nav/nav.types';
   `]
 })
 export class AppSidebarComponent {
-  primaryNav = input.required<NavItem[]>();
-  secondaryNav = input.required<NavItem[]>();
-  expanded = input.required<boolean>();
-  toggleExpand = output<void>();
-  logout = output<void>();
+  nav = inject(NavService);
+  private auth = inject(AuthService);
+
+  onLogout() { this.auth.logout(); }
 }
