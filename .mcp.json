@@ -1,11 +1,10 @@
 {
   "mcpServers": {
     "team-manager": {
-      "command": "python3",
-      "args": ["/opt/services/team-manager/mcp-server/server.py", "--stdio"],
-      "env": {
-        "TEAM_MANAGER_API_URL": "http://localhost:5000",
-        "TEAM_MANAGER_API_KEY": "tm_R0MiYgI0dBIFT3-tFmT-U-Tg6-NIC77_PYRpLZngtto"
+      "type": "sse",
+      "url": "https://mcp.team.kakushi.dev/sse",
+      "headers": {
+        "Authorization": "Bearer tm_sAR0Te-qUfioIkqr0BFKI-sEqhtaGh5JEth2muLLbZg"
       }
     }
   }
