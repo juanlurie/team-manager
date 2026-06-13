@@ -1,5 +1,5 @@
-import { Component, inject, computed } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, inject, computed, ChangeDetectionStrategy } from '@angular/core';
+
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { FeatureAccessService } from '../../core/services/feature-access.service';
 
@@ -21,7 +21,7 @@ const TEAM_TABS: TeamTab[] = [
 @Component({
   selector: 'app-team-hub',
   standalone: true,
-  imports: [CommonModule, RouterLink, RouterLinkActive, RouterOutlet],
+  imports: [RouterLink, RouterLinkActive, RouterOutlet],
   template: `
     <div class="hub">
       <nav class="hub-tabs" role="tablist">
@@ -34,6 +34,7 @@ const TEAM_TABS: TeamTab[] = [
       </div>
     </div>
   `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .hub { max-width:1100px;margin:0 auto;padding:8px; }
     .hub-tabs {

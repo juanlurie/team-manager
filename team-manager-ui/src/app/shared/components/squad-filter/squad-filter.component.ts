@@ -1,5 +1,5 @@
-import { Component, computed, ElementRef, input, output, signal, viewChild, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, computed, ElementRef, input, output, signal, viewChild, OnInit, ChangeDetectionStrategy } from '@angular/core';
+
 import { FormsModule } from '@angular/forms';
 import { MatAutocompleteModule } from '@angular/material/autocomplete';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -10,7 +10,8 @@ import { SquadSummary } from '../../../core/models/squad.model';
 @Component({
   selector: 'app-squad-filter',
   standalone: true,
-  imports: [CommonModule, FormsModule, MatAutocompleteModule, MatFormFieldModule, MatInputModule, MatIconModule],
+  imports: [FormsModule, MatAutocompleteModule, MatFormFieldModule, MatInputModule, MatIconModule],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <mat-form-field appearance="outline" style="width:170px;margin:0" subscriptSizing="dynamic">
       <mat-label>Squad</mat-label>

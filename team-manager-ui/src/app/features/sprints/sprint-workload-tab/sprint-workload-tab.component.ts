@@ -1,5 +1,5 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, OnInit, inject, signal, ChangeDetectionStrategy } from '@angular/core';
+
 import { ActivatedRoute } from '@angular/router';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { SprintDashboard } from '../../../core/models/dashboard.model';
@@ -9,7 +9,8 @@ import { SprintWorkloadSummaryComponent } from '../sprint-workload-summary/sprin
 @Component({
   selector: 'app-sprint-workload-tab',
   standalone: true,
-  imports: [CommonModule, MatProgressSpinnerModule, SprintWorkloadSummaryComponent],
+  imports: [MatProgressSpinnerModule, SprintWorkloadSummaryComponent],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     @if (loading()) {
       <div style="display:flex;justify-content:center;padding:80px">

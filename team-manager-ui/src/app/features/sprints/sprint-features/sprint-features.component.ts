@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, computed, signal } from '@angular/core';
+import { Component, OnInit, inject, computed, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
@@ -38,7 +38,7 @@ interface FeatureView {
           <h2 style="margin:0;font-size:1.2rem">{{ dashboard()?.sprint?.name }} · Features</h2>
         </div>
         <div style="font-size:0.8rem;opacity:0.5;margin-top:2px;margin-left:44px">
-          {{ dashboard()?.sprint?.startDate | date:'d MMM' }} – {{ dashboard()?.sprint?.endDate | date:'d MMM yyyy' }}
+          {{ $safeNavigationMigration(dashboard()?.sprint?.startDate) | date:'d MMM' }} – {{ $safeNavigationMigration(dashboard()?.sprint?.endDate) | date:'d MMM yyyy' }}
         </div>
       </div>
       <span style="flex:1"></span>
@@ -134,6 +134,7 @@ interface FeatureView {
        }
     </div>
   `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .fs-planned          { padding:2px 8px;border-radius:8px;font-size:0.7rem;font-weight:600;background:rgba(158,158,158,0.15);color:#9e9e9e; }
     .fs-inprogress       { padding:2px 8px;border-radius:8px;font-size:0.7rem;font-weight:600;background:rgba(33,150,243,0.15);color:#64b5f6; }

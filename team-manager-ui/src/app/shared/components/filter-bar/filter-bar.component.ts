@@ -1,5 +1,5 @@
-import { Component, computed, effect, input, output, signal, untracked, inject, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, computed, effect, input, output, signal, untracked, inject, OnInit, ChangeDetectionStrategy } from '@angular/core';
+
 import { FormsModule } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
@@ -30,8 +30,9 @@ export function extractMentionNames(text: string): string[] {
 @Component({
   selector: 'app-filter-bar',
   standalone: true,
-  imports: [CommonModule, FormsModule, MatIconModule, MatButtonModule, MatMenuModule, MatDialogModule],
+  imports: [FormsModule, MatIconModule, MatButtonModule, MatMenuModule, MatDialogModule],
   templateUrl: './filter-bar.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./filter-bar.component.scss']
 })
 export class FilterBarComponent implements OnInit {

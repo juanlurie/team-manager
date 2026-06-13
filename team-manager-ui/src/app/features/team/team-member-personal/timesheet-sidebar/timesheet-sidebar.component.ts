@@ -1,5 +1,5 @@
-import { Component, input, output, signal } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, input, output, signal, ChangeDetectionStrategy } from '@angular/core';
+
 import { MatTooltipModule } from '@angular/material/tooltip';
 
 export interface DayStatus { color: string; error: string | null; }
@@ -10,7 +10,7 @@ const DN = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 @Component({
   selector: 'app-timesheet-sidebar',
   standalone: true,
-  imports: [CommonModule, MatTooltipModule],
+  imports: [MatTooltipModule],
   styles: [`
     .sb { width:346px; flex-shrink:0; border-right:1px solid rgba(255,255,255,0.07); overflow-y:auto; padding:14px 0; }
     .sb::-webkit-scrollbar { width:3px; }
@@ -37,6 +37,7 @@ const DN = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
     .tot-val { font-size:19px; font-weight:700; }
     .tot-sub { font-size:11px; color:rgba(255,255,255,0.28); margin-top:2px; }
   `],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div class="sb">
       <div class="sb-hdr">

@@ -1,4 +1,4 @@
-import { Component, input, output, signal, HostListener, ElementRef, viewChild } from '@angular/core';
+import { Component, input, output, signal, HostListener, ElementRef, viewChild, ChangeDetectionStrategy } from '@angular/core';
 import { FilterOption } from './k-picker.types';
 
 @Component({
@@ -30,6 +30,7 @@ import { FilterOption } from './k-picker.types';
       }
     </div>
   `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .k-filter-wrapper {
       position: relative;

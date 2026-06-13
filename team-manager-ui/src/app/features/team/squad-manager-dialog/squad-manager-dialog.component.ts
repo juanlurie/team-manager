@@ -1,5 +1,5 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, OnInit, inject, signal, ChangeDetectionStrategy } from '@angular/core';
+
 import { FormsModule } from '@angular/forms';
 import { MatDialogModule, MatDialogRef, MatDialog } from '@angular/material/dialog';
 import { ConfirmDialogComponent } from '../../../shared/components/confirm-dialog/confirm-dialog.component';
@@ -21,9 +21,7 @@ const PALETTE = ['#42A5F5','#66BB6A','#FFA726','#AB47BC','#26C6DA','#EC407A','#8
 @Component({
   selector: 'app-squad-manager-dialog',
   standalone: true,
-  imports: [CommonModule, FormsModule, MatDialogModule, MatButtonModule, MatIconModule,
-    MatInputModule, MatFormFieldModule, MatTooltipModule, MatProgressSpinnerModule,
-    ConfirmDialogComponent, IconButtonComponent, SearchableMultiSelectComponent],
+  imports: [FormsModule, MatDialogModule, MatButtonModule, MatIconModule, MatInputModule, MatFormFieldModule, MatTooltipModule, MatProgressSpinnerModule, ConfirmDialogComponent, IconButtonComponent, SearchableMultiSelectComponent],
   styles: [`
     .squad-card { border-radius:10px;border:1px solid rgba(255,255,255,0.08);margin-bottom:10px; }
     .squad-header { display:flex;align-items:center;gap:10px;padding:12px 14px;cursor:pointer; }
@@ -31,6 +29,7 @@ const PALETTE = ['#42A5F5','#66BB6A','#FFA726','#AB47BC','#26C6DA','#EC407A','#8
     .color-dot { width:20px;height:20px;border-radius:50%;cursor:pointer;border:2px solid transparent;flex-shrink:0; }
     .color-dot.selected { border-color:rgba(255,255,255,0.8); }
   `],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div style="display:flex;align-items:center;gap:10px;padding:20px 24px 0">
       <mat-icon style="color:#5c6bc0">groups</mat-icon>

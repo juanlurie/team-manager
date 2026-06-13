@@ -1,5 +1,5 @@
-import { Component, forwardRef, input, output, signal } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, forwardRef, input, output, signal, ChangeDetectionStrategy } from '@angular/core';
+
 import { FormsModule, ControlValueAccessor, NG_VALUE_ACCESSOR } from '@angular/forms';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
@@ -8,7 +8,7 @@ import { MatIconModule } from '@angular/material/icon';
 @Component({
   selector: 'app-search-input',
   standalone: true,
-  imports: [CommonModule, FormsModule, MatFormFieldModule, MatInputModule, MatIconModule],
+  imports: [FormsModule, MatFormFieldModule, MatInputModule, MatIconModule],
   providers: [{
     provide: NG_VALUE_ACCESSOR,
     useExisting: forwardRef(() => SearchInputComponent),
@@ -38,6 +38,7 @@ import { MatIconModule } from '@angular/material/icon';
       <div class="si-mention-hint" aria-hidden="true">{{ mentionHint() }}</div>
     }
   `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .search-prefix { opacity:0.35; font-size:18px; width:18px; height:18px; line-height:18px; }
     .clear-btn {

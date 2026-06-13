@@ -1,5 +1,5 @@
-import { Component, OnInit, inject, signal, computed } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, OnInit, inject, signal, computed, ChangeDetectionStrategy } from '@angular/core';
+
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { MatSelectModule } from '@angular/material/select';
@@ -13,7 +13,8 @@ import { AppEmptyStateComponent } from '../../shared/components/app-empty-state/
 @Component({
   selector: 'app-win-of-the-week-history',
   standalone: true,
-  imports: [CommonModule, MatIconModule, MatButtonModule, MatSelectModule, MatFormFieldModule, MatTooltipModule, AppLoadingComponent, AppEmptyStateComponent],
+  imports: [MatIconModule, MatButtonModule, MatSelectModule, MatFormFieldModule, MatTooltipModule, AppLoadingComponent, AppEmptyStateComponent],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div style="max-width:1000px;margin:0 auto;padding:0 8px 80px">
       <!-- Header -->

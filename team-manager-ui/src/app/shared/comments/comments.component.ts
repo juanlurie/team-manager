@@ -1,4 +1,4 @@
-import { Component, Input, OnInit, inject, signal, computed } from '@angular/core';
+import { Component, Input, OnInit, inject, signal, computed, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule, DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
@@ -15,6 +15,7 @@ import { ConfirmDialogComponent } from '../components/confirm-dialog/confirm-dia
   selector: 'app-comments',
   standalone: true,
   imports: [CommonModule, FormsModule, MatIconModule, MatButtonModule, MatDialogModule, DatePipe],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div style="margin-top:6px">
       <button mat-button (click)="toggle()" style="font-size:0.78rem;min-height:32px;line-height:1">

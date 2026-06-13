@@ -1,5 +1,5 @@
-import { Component, inject, signal, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, inject, signal, OnInit, ChangeDetectionStrategy } from '@angular/core';
+
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
@@ -15,9 +15,11 @@ import {
   selector: 'app-api-request-configs',
   standalone: true,
   imports: [
-    CommonModule, MatIconModule, MatButtonModule,
-    MatSnackBarModule, MatTooltipModule
-  ],
+    MatIconModule,
+    MatButtonModule,
+    MatSnackBarModule,
+    MatTooltipModule
+],
   template: `
     <div class="configs-page">
       <div class="page-header">
@@ -102,6 +104,7 @@ import {
       <input type="file" #fileInput accept=".json" style="display:none" (change)="handleImport($event)" />
     </div>
   `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .configs-page { max-width: 900px; margin: 0 auto; padding: 8px 8px 80px; overflow-x: hidden; }
 

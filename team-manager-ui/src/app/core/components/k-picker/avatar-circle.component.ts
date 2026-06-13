@@ -1,4 +1,4 @@
-import { Component, computed, input } from '@angular/core';
+import { Component, computed, input, ChangeDetectionStrategy } from '@angular/core';
 import { getAvatarColor, getInitials } from './k-picker.utils';
 
 @Component({
@@ -11,6 +11,7 @@ import { getAvatarColor, getInitials } from './k-picker.utils';
       {{ initials() }}
     </div>
   `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .k-avatar {
       display: inline-flex;

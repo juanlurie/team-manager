@@ -1,5 +1,5 @@
-import { Component, inject, signal, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, inject, signal, OnInit, ChangeDetectionStrategy } from '@angular/core';
+
 import { FormsModule } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
@@ -13,10 +13,14 @@ import { ConfigVariablesService, ConfigVariable } from './config-variables.servi
   selector: 'app-config-variables',
   standalone: true,
   imports: [
-    CommonModule, FormsModule, MatIconModule, MatButtonModule,
-    MatInputModule, MatFormFieldModule,
-    MatSnackBarModule, MatTooltipModule
-  ],
+    FormsModule,
+    MatIconModule,
+    MatButtonModule,
+    MatInputModule,
+    MatFormFieldModule,
+    MatSnackBarModule,
+    MatTooltipModule
+],
   template: `
     <div class="page">
       <div class="page-header">
@@ -149,6 +153,7 @@ import { ConfigVariablesService, ConfigVariable } from './config-variables.servi
       }
     </div>
   `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .page { max-width: 900px; margin: 0 auto; padding: 8px; }
     .page-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; flex-wrap: wrap; gap: 10px; }

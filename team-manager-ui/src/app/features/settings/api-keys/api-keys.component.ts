@@ -1,5 +1,5 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, OnInit, inject, signal, ChangeDetectionStrategy } from '@angular/core';
+
 import { RouterLink } from '@angular/router';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
@@ -17,11 +17,17 @@ import { CreateApiKeyDialogComponent } from './create-api-key-dialog.component';
   selector: 'app-api-keys',
   standalone: true,
   imports: [
-    CommonModule, RouterLink,
-    MatIconModule, MatButtonModule, MatTooltipModule,
-    MatProgressSpinnerModule, MatDialogModule, MatSnackBarModule, ClipboardModule,
-  ],
+    RouterLink,
+    MatIconModule,
+    MatButtonModule,
+    MatTooltipModule,
+    MatProgressSpinnerModule,
+    MatDialogModule,
+    MatSnackBarModule,
+    ClipboardModule
+],
   templateUrl: './api-keys.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./api-keys.component.scss'],
 })
 export class ApiKeysComponent implements OnInit {

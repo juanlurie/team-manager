@@ -1,10 +1,10 @@
-import { Component, output, signal } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, output, signal, ChangeDetectionStrategy } from '@angular/core';
+
 
 @Component({
   selector: 'app-timesheet-fab-menu',
   standalone: true,
-  imports: [CommonModule],
+  imports: [],
   styles: [`
     .fab { position:fixed; bottom:80px; right:16px; z-index:1000; }
     .fab-btn { width:56px; height:56px; border-radius:50%; background:#64b5f6; border:none; color:#0f1923; font-size:24px; font-weight:700; display:flex; align-items:center; justify-content:center; cursor:pointer; box-shadow:0 4px 12px rgba(0,0,0,0.4); transition:transform 0.1s, box-shadow 0.1s; }
@@ -16,6 +16,7 @@ import { CommonModule } from '@angular/common';
     .opt-btn.add { background:#64b5f6; color:#0f1923; }
     .opt-btn.cfg { background:rgba(255,255,255,0.15); color:rgba(255,255,255,0.8); }
   `],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div class="fab">
       @if (open()) {

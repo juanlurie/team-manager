@@ -1,5 +1,5 @@
-import { Component, input, output } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, input, output, ChangeDetectionStrategy } from '@angular/core';
+
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { MatTooltipModule } from '@angular/material/tooltip';
@@ -8,7 +8,8 @@ import { WowNominationDisplay } from '../../../core/models/win-week.model';
 @Component({
   selector: 'app-wow-nomination-card',
   standalone: true,
-  imports: [CommonModule, MatIconModule, MatButtonModule, MatTooltipModule],
+  imports: [MatIconModule, MatButtonModule, MatTooltipModule],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div [style.border]="isTied() ? '1px solid rgba(255,87,34,0.4)' : '1px solid rgba(255,255,255,0.08)'"
          [style.background]="isTied() ? 'rgba(255,87,34,0.06)' : 'rgba(255,255,255,0.03)'"

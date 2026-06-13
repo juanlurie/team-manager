@@ -1,5 +1,5 @@
-import { Component, inject, computed, signal, effect, OnDestroy } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, inject, computed, signal, effect, OnDestroy, ChangeDetectionStrategy } from '@angular/core';
+
 import { FormsModule } from '@angular/forms';
 import { MatDialogModule, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
@@ -22,7 +22,7 @@ export interface TimesheetEntryDialogData {
 @Component({
   selector: 'app-timesheet-entry-dialog',
   standalone: true,
-  imports: [CommonModule, FormsModule, MatDialogModule, MatButtonModule, MatIconModule, MatProgressSpinnerModule, IconButtonComponent],
+  imports: [FormsModule, MatDialogModule, MatButtonModule, MatIconModule, MatProgressSpinnerModule, IconButtonComponent],
   styles: [`
     .date-nav {
       display: flex; align-items: center; gap: 8px;
@@ -127,6 +127,7 @@ export interface TimesheetEntryDialogData {
       .action-btn { width: 100%; }
     }
   `],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <mat-dialog-content style="padding-top:12px;min-width:min(480px,90vw)">
 

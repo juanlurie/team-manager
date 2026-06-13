@@ -1,5 +1,5 @@
-import { Component, OnInit, OnDestroy, inject, signal, computed } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, OnInit, OnDestroy, inject, signal, computed, ChangeDetectionStrategy } from '@angular/core';
+
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -20,7 +20,7 @@ import { WebSocketService } from '../../core/websocket/websocket.service';
 @Component({
   selector: 'app-create-session-dialog',
   standalone: true,
-  imports: [CommonModule, FormsModule, MatButtonModule, MatDialogModule],
+  imports: [FormsModule, MatButtonModule, MatDialogModule],
   styles: [`
     .field-label { font-size:0.78rem;opacity:0.6;display:block;margin-bottom:4px }
     .field { background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.12);border-radius:6px;
@@ -28,6 +28,7 @@ import { WebSocketService } from '../../core/websocket/websocket.service';
              box-sizing:border-box;margin-bottom:12px;transition:border-color 0.2s }
     .field:focus { border-color:#64b5f6 }
   `],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <h2 mat-dialog-title style="font-size:1rem;margin:0 0 4px">New Scrum Poker Session</h2>
     <mat-dialog-content style="padding-top:12px;min-width:340px">
@@ -71,10 +72,16 @@ export class CreateSessionDialogComponent {
   selector: 'app-scrum-poker',
   standalone: true,
   imports: [
-    CommonModule, FormsModule, MatButtonModule, MatIconModule,
-    MatTooltipModule, MatDialogModule, MatSnackBarModule, MatProgressSpinnerModule
-  ],
+    FormsModule,
+    MatButtonModule,
+    MatIconModule,
+    MatTooltipModule,
+    MatDialogModule,
+    MatSnackBarModule,
+    MatProgressSpinnerModule
+],
   templateUrl: './scrum-poker.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./scrum-poker.component.scss']
 })
 export class ScrumPokerComponent implements OnInit, OnDestroy {

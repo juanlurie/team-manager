@@ -1,5 +1,5 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, OnInit, inject, signal, ChangeDetectionStrategy } from '@angular/core';
+
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -12,7 +12,7 @@ import { SessionType } from '../../core/models/session-type.model';
 @Component({
   selector: 'app-session-types',
   standalone: true,
-  imports: [CommonModule, FormsModule, MatButtonModule, MatIconModule, MatInputModule, MatFormFieldModule],
+  imports: [FormsModule, MatButtonModule, MatIconModule, MatInputModule, MatFormFieldModule],
   template: `
     <div style="max-width:800px;margin:0 auto;padding:0 8px">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
@@ -72,6 +72,7 @@ import { SessionType } from '../../core/models/session-type.model';
       </div>
     </div>
   `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .form-row { display:flex;gap:8px;align-items:center;margin-bottom:12px; }
     .type-row {

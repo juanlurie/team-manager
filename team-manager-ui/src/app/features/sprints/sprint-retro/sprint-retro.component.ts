@@ -1,7 +1,8 @@
 import {
-  Component, Input, OnInit, OnDestroy, signal, computed, inject, HostListener
+  Component, Input, OnInit, OnDestroy, signal, computed, inject, HostListener,
+  ChangeDetectionStrategy
 } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -28,7 +29,7 @@ const COL_META = {
 @Component({
   selector: 'app-sprint-retro',
   standalone: true,
-  imports: [CommonModule, FormsModule, MatButtonModule, MatIconModule, MatTooltipModule, IconButtonComponent],
+  imports: [FormsModule, MatButtonModule, MatIconModule, MatTooltipModule, IconButtonComponent],
   styles: [`
     :host { display:block; }
 
@@ -158,6 +159,7 @@ const COL_META = {
     .action-input:focus { border-color:rgba(100,181,246,.6); }
     .new-action-row { display:flex; gap:6px; margin-top:10px; align-items:center; }
   `],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
 <div class="retro-wrap">
 
