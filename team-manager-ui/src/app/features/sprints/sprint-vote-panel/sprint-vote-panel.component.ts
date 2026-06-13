@@ -1,4 +1,4 @@
-import { Component, inject, Input, OnInit } from '@angular/core';
+import { Component, inject, Input, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
@@ -10,6 +10,7 @@ import { DashboardService } from '../../../core/services/dashboard.service';
   selector: 'app-sprint-vote-panel',
   standalone: true,
   imports: [MatButtonModule, MatIconModule, MatTooltipModule],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     @if (members.length === 0) {
       <div style="opacity:0.4;font-size:0.85rem;padding:24px 0">No members in this sprint yet.</div>

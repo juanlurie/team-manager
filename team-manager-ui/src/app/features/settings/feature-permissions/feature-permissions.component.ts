@@ -1,5 +1,5 @@
-import { Component, OnInit, inject, signal, computed } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, OnInit, inject, signal, computed, ChangeDetectionStrategy } from '@angular/core';
+
 import { RouterLink } from '@angular/router';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
@@ -19,11 +19,15 @@ interface FeatureRow {
   selector: 'app-feature-permissions',
   standalone: true,
   imports: [
-    CommonModule, RouterLink,
-    MatIconModule, MatButtonModule, MatTooltipModule,
-    MatProgressSpinnerModule, MatSnackBarModule,
-  ],
+    RouterLink,
+    MatIconModule,
+    MatButtonModule,
+    MatTooltipModule,
+    MatProgressSpinnerModule,
+    MatSnackBarModule
+],
   templateUrl: './feature-permissions.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./feature-permissions.component.scss'],
 })
 export class FeaturePermissionsComponent implements OnInit {

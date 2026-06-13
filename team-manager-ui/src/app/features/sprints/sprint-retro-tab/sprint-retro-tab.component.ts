@@ -1,6 +1,6 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, inject, signal, ChangeDetectionStrategy } from '@angular/core';
 import { filter, take } from 'rxjs';
-import { CommonModule } from '@angular/common';
+
 import { ActivatedRoute } from '@angular/router';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { SprintDashboard } from '../../../core/models/dashboard.model';
@@ -11,7 +11,8 @@ import { SprintRetroComponent } from '../sprint-retro/sprint-retro.component';
 @Component({
   selector: 'app-sprint-retro-tab',
   standalone: true,
-  imports: [CommonModule, MatProgressSpinnerModule, SprintRetroComponent],
+  imports: [MatProgressSpinnerModule, SprintRetroComponent],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     @if (loading()) {
       <div style="display:flex;justify-content:center;padding:80px">

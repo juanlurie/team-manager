@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, signal, computed } from '@angular/core';
+import { Component, OnInit, inject, signal, computed, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -41,6 +41,7 @@ const MAP_CATEGORIES: MapCategory[] = [
   standalone: true,
   imports: [CommonModule, FormsModule, MatIconModule, MatButtonModule, MatTooltipModule, MatTabsModule, MatDialogModule, MatProgressSpinnerModule, TimesheetTabComponent, PermissionsTabComponent, IconButtonComponent],
   templateUrl: './team-member-personal.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./team-member-personal.component.scss']
 })
 export class TeamMemberPersonalComponent implements OnInit {

@@ -1,5 +1,5 @@
-import { Component, OnDestroy, OnInit, inject, signal } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, OnDestroy, OnInit, inject, signal, ChangeDetectionStrategy } from '@angular/core';
+
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
 import { MatIconModule } from '@angular/material/icon';
@@ -19,7 +19,7 @@ const SESSION_ID_KEY = 'wow_guest_session_id';
 @Component({
   selector: 'app-guest-wow',
   standalone: true,
-  imports: [CommonModule, FormsModule, MatIconModule, WowCountdownComponent, WowNominationCardComponent, WowWinnerBannerComponent, WowTieBreakSpinnerComponent, AppEmptyStateComponent],
+  imports: [FormsModule, MatIconModule, WowCountdownComponent, WowNominationCardComponent, WowWinnerBannerComponent, WowTieBreakSpinnerComponent, AppEmptyStateComponent],
   template: `
     <app-wow-tie-break-spinner [show]="isSpinning()" [name]="spinnerName()" />
 
@@ -227,6 +227,7 @@ const SESSION_ID_KEY = 'wow_guest_session_id';
       }
     </div>
   `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .guest-wrap {
       position: fixed;

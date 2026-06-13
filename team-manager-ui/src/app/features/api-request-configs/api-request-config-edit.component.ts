@@ -1,4 +1,4 @@
-import { Component, inject, signal, effect, untracked, OnInit } from '@angular/core';
+import { Component, inject, signal, effect, untracked, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
@@ -654,6 +654,7 @@ interface CodeSegment { text: string; kind: 'plain' | 'resolved' | 'missing'; }
       } <!-- end @else if data -->
     </div>
   `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .edit-page { max-width: 960px; margin: 0 auto; padding: 8px 12px 100px; }
 

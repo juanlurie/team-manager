@@ -1,4 +1,4 @@
-import { Component, input } from '@angular/core';
+import { Component, input, ChangeDetectionStrategy } from '@angular/core';
 
 @Component({
   selector: 'app-wow-tie-break-spinner',
@@ -11,6 +11,7 @@ import { Component, input } from '@angular/core';
     }
     .spinner-name { animation: spinnerPop 0.12s ease-out; }
   `],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     @if (show()) {
       <div style="position:fixed;inset:0;background:rgba(0,0,0,0.9);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:2000;backdrop-filter:blur(6px)">

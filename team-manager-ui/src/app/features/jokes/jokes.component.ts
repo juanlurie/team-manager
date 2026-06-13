@@ -1,5 +1,5 @@
-import { Component, inject, signal, OnInit, OnDestroy } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, inject, signal, OnInit, OnDestroy, ChangeDetectionStrategy } from '@angular/core';
+
 import { HttpClient } from '@angular/common/http';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
@@ -50,7 +50,7 @@ const JOKE_TYPES: JokeType[] = [
 @Component({
   selector: 'app-jokes',
   standalone: true,
-  imports: [CommonModule, MatIconModule, MatButtonModule, MatProgressSpinnerModule],
+  imports: [MatIconModule, MatButtonModule, MatProgressSpinnerModule],
   styles: [`
     .jokes-wrap { max-width: 640px; margin: 0 auto; padding: 8px 0; }
     .section-title { font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 1.5px; color: rgba(255,255,255,0.35); margin-bottom: 12px; }
@@ -85,6 +85,7 @@ const JOKE_TYPES: JokeType[] = [
     .unconfigured mat-icon { font-size: 40px; width: 40px; height: 40px; opacity: 0.3; margin-bottom: 12px; display: block; margin-left: auto; margin-right: auto; }
     .unconfigured p { color: rgba(255,255,255,0.45); font-size: 0.88rem; line-height: 1.5; }
   `],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div class="jokes-wrap">
       <p class="section-title">Pick a vibe</p>

@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, computed, signal, effect } from '@angular/core';
+import { Component, OnInit, inject, computed, signal, effect, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
@@ -202,6 +202,7 @@ const STATUS_COLOR: Record<string, string> = {
 
     } <!-- end @else -->
   `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .active-filter { background: rgba(100,181,246,0.15) !important; border-color: rgba(100,181,246,0.4) !important; color: #64b5f6 !important; }
     .sprint-card {

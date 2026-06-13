@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, signal, computed, effect, untracked } from '@angular/core';
+import { Component, OnInit, inject, signal, computed, effect, untracked, ChangeDetectionStrategy } from '@angular/core';
 import { toObservable } from '@angular/core/rxjs-interop';
 import { skip } from 'rxjs';
 import { CommonModule } from '@angular/common';
@@ -59,6 +59,7 @@ interface WeekRow {
     MatDialogModule, MatChipsModule, MatMenuModule, IconButtonComponent, FilterBarComponent
   ],
   templateUrl: './leave-overview.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./leave-overview.component.scss']
 })
 export class LeaveOverviewComponent implements OnInit {

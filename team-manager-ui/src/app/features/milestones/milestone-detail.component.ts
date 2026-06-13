@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, signal, computed } from '@angular/core';
+import { Component, OnInit, inject, signal, computed, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
@@ -254,6 +254,7 @@ import { MilestoneScopeBadgeComponent } from '../../shared/components/milestone-
       </div>
     }
   `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .ms-upcoming   { background:rgba(158,158,158,0.15);color:#9e9e9e; }
     .ms-inprogress { background:rgba(33,150,243,0.15);color:#64b5f6; }

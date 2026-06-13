@@ -1,4 +1,4 @@
-import { Component, input, output, computed } from '@angular/core';
+import { Component, input, output, computed, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { MatIconModule } from '@angular/material/icon';
@@ -19,6 +19,7 @@ const STATUS_COLOR: Record<string, string> = {
   selector: 'app-current-sprint-card',
   standalone: true,
   imports: [CommonModule, RouterLink, MatIconModule, MatChipsModule, MatTooltipModule, IconButtonComponent],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <a [routerLink]="['/delivery/sprints', sprint().id]"
        style="padding:18px 20px;border-radius:12px;display:block;text-decoration:none;color:inherit;cursor:pointer;

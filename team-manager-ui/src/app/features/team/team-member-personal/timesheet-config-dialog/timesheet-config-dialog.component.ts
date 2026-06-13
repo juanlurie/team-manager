@@ -1,5 +1,5 @@
-import { Component, inject, signal, computed, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, inject, signal, computed, OnInit, ChangeDetectionStrategy } from '@angular/core';
+
 import { FormsModule } from '@angular/forms';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
@@ -32,7 +32,7 @@ export interface TimesheetConfigDialogData {
 @Component({
   selector: 'app-timesheet-config-dialog',
   standalone: true,
-  imports: [CommonModule, FormsModule, MatIconModule, MatSnackBarModule],
+  imports: [FormsModule, MatIconModule, MatSnackBarModule],
   styles: [`
     .dlg { display:flex; flex-direction:column; width:560px; max-width:100%; max-height:80vh; background:#131e2b; border-radius:12px; overflow:hidden; }
     .dlg-hdr { display:flex; align-items:center; justify-content:space-between; padding:18px 22px 14px; border-bottom:1px solid rgba(255,255,255,0.07); flex-shrink:0; }
@@ -113,6 +113,7 @@ export interface TimesheetConfigDialogData {
     .billable-check { display:flex; align-items:center; gap:8px; cursor:pointer; font-size:12px; }
     .billable-check input { width:15px; height:15px; cursor:pointer; accent-color:#64b5f6; }
   `],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div class="dlg">
       <div class="dlg-hdr">

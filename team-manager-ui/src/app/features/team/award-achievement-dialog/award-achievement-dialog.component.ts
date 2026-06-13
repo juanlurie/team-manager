@@ -1,5 +1,5 @@
-import { Component, OnInit, inject } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, OnInit, inject, ChangeDetectionStrategy } from '@angular/core';
+
 import { MatDialogModule, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
 import { MatTooltipModule } from '@angular/material/tooltip';
@@ -22,7 +22,8 @@ const CATEGORY_TEXT: Record<string, string> = {
 @Component({
   selector: 'app-award-achievement-dialog',
   standalone: true,
-  imports: [CommonModule, MatDialogModule, MatButtonModule, MatTooltipModule],
+  imports: [MatDialogModule, MatButtonModule, MatTooltipModule],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <h2 mat-dialog-title style="margin-bottom:4px">Award a Badge</h2>
     <p style="margin:0 24px 12px;font-size:0.8rem;opacity:0.5">to {{ data.memberName }}</p>

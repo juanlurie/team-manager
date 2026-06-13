@@ -1,11 +1,11 @@
-import { Component, input, output } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, input, output, ChangeDetectionStrategy } from '@angular/core';
+
 import { FormsModule } from '@angular/forms';
 
 @Component({
   selector: 'app-config-categories',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [FormsModule],
   styles: [`
     .hint { font-size:11px; color:rgba(255,255,255,0.28); margin-bottom:10px; }
     .proj-sel-row { display:flex; gap:7px; align-items:center; margin-bottom:10px; }
@@ -24,6 +24,7 @@ import { FormsModule } from '@angular/forms';
     .btn-add:hover { background:rgba(100,181,246,0.18); } .btn-add:disabled { opacity:0.35; cursor:not-allowed; }
     @media (max-width:640px) { .tag-rm { font-size:18px; padding:4px; } }
   `],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div class="hint">Add custom categories to any project (including your extra projects).</div>
     <div class="proj-sel-row">

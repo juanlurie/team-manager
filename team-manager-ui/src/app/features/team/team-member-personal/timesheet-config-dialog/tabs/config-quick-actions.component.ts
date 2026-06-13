@@ -1,5 +1,5 @@
-import { Component, input, output } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, input, output, ChangeDetectionStrategy } from '@angular/core';
+
 import { FormsModule } from '@angular/forms';
 import { QuickActionConfig } from '../../../../../core/models/timesheet-config.model';
 
@@ -15,7 +15,7 @@ const DUR_CHIPS: [string, number][] = [['15m', 15], ['30m', 30], ['1h', 60], ['2
 @Component({
   selector: 'app-config-quick-actions',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [FormsModule],
   styles: [`
     .hint { font-size:11px; color:rgba(255,255,255,0.28); margin-bottom:10px; }
     .qa-card { background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.07); border-radius:8px; padding:12px 14px; margin-bottom:8px; }
@@ -48,6 +48,7 @@ const DUR_CHIPS: [string, number][] = [['15m', 15], ['30m', 30], ['1h', 60], ['2
     .qa-scroll::-webkit-scrollbar-thumb { background:rgba(255,255,255,0.08); border-radius:2px; }
     @media (max-width:640px) { .qa-fields { grid-template-columns:1fr; } .qa-btn { font-size:22px; } .color-dot { width:24px; height:24px; } .dur-chip { padding:8px 10px; font-size:13px; } .qa-scroll { max-height:65vh; } }
   `],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div class="hint">Quick actions appear in the form and let you pre-fill project, category, and an optional note.</div>
     <button class="btn-add" (click)="add.emit()" style="margin-bottom:10px">+ Add quick action</button>

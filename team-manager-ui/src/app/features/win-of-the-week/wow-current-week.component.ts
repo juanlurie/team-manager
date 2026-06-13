@@ -1,5 +1,5 @@
-import { Component, computed, input, output } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, computed, input, output, ChangeDetectionStrategy } from '@angular/core';
+
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { WinWeek, WinNomination, WowNominationDisplay } from '../../core/models/win-week.model';
@@ -15,10 +15,16 @@ import { AppInfoBannerComponent } from '../../shared/components/app-info-banner/
   selector: 'app-wow-current-week',
   standalone: true,
   imports: [
-    CommonModule, MatButtonModule, MatIconModule,
-    WowNominationCardComponent, WowWinnerBannerComponent, WowCountdownComponent,
-    AppLoadingComponent, AppEmptyStateComponent, AppInfoBannerComponent,
+    MatButtonModule,
+    MatIconModule,
+    WowNominationCardComponent,
+    WowWinnerBannerComponent,
+    WowCountdownComponent,
+    AppLoadingComponent,
+    AppEmptyStateComponent,
+    AppInfoBannerComponent
   ],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     @let w = week();
     @let phase = phaseInfo();

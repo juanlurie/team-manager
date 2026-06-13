@@ -1,5 +1,5 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, OnInit, inject, signal, ChangeDetectionStrategy } from '@angular/core';
+
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatDialog } from '@angular/material/dialog';
@@ -24,13 +24,14 @@ const SOURCE_COLORS: Record<string, { bg: string; text: string }> = {
 @Component({
   selector: 'app-leaderboard',
   standalone: true,
-  imports: [CommonModule, MatIconModule, MatTooltipModule, MatDialogModule],
+  imports: [MatIconModule, MatTooltipModule, MatDialogModule],
   styles: [`
     .podium-card { transition:opacity 0.15s; }
     .podium-card:hover { opacity:0.8; }
     .rank-row { transition:opacity 0.15s; }
     .rank-row:hover { opacity:0.75; }
   `],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div style="max-width:900px;margin:0 auto;padding:0 8px">
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:24px">

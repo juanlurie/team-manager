@@ -1,5 +1,5 @@
-import { Component, computed, inject, input, output, signal } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, computed, inject, input, output, signal, ChangeDetectionStrategy } from '@angular/core';
+
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import {
@@ -12,7 +12,7 @@ import { CreateTimesheetEntryRequest } from '../../../../core/models/timesheet.m
 @Component({
   selector: 'app-timesheet-inline-entry',
   standalone: true,
-  imports: [CommonModule, FormsModule, MatButtonModule],
+  imports: [FormsModule, MatButtonModule],
   styles: [`
     .combo-chip {
       padding: 7px 14px; border-radius: 16px; font-size: 0.8rem; font-weight: 600;
@@ -40,6 +40,7 @@ import { CreateTimesheetEntryRequest } from '../../../../core/models/timesheet.m
     }
     .c-select:disabled { opacity: 0.4; cursor: not-allowed; }
   `],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div style="border-top:1px solid rgba(255,255,255,0.07);padding:10px 0 6px;margin-top:4px">
 
