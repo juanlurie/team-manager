@@ -57,7 +57,7 @@ public class GuestWinOfTheWeekController(GuestWinOfTheWeekService service) : Con
     }
 
     [HttpPut("{token}/nominations/{nominationId:guid}")]
-    public async Task<IActionResult> UpdateNomination(string token, Guid nominationId, [FromQuery] string sessionId, [FromBody] GuestCreateNominationRequest request)
+    public async Task<IActionResult> UpdateNomination(string token, Guid nominationId, [FromQuery] string sessionId, [FromBody] GuestUpdateNominationRequest request)
     {
         try
         {

@@ -32,6 +32,15 @@ public class ApiSyncController(AppDbContext db, IHttpClientFactory httpClientFac
         if (config is null)
             return BadRequest($"No enabled config found for action '{payload.Action}'");
 
+        // Reject early if config needs {cookie} but none is available
+        var configNeedsCookie = config.Url.Contains("{cookie}")
+            || config.BodyTemplate.Contains("{cookie}")
+            || config.HeadersJson.Contains("{cookie}");
+        var cookieAvailable = !string.IsNullOrWhiteSpace(config.StoredCookie)
+            || !string.IsNullOrWhiteSpace(payload.Cookie);
+        if (configNeedsCookie && !cookieAvailable)
+            return BadRequest(new { message = "Cookie required for this action. Set one in Settings → Credentials." });
+
         var parameters = JsonSerializer.Deserialize<Dictionary<string, string>>(
             string.IsNullOrWhiteSpace(config.ParametersJson) ? "{}" : config.ParametersJson) ?? [];
         var headers = JsonSerializer.Deserialize<Dictionary<string, string>>(config.HeadersJson) ?? [];
@@ -608,5 +617,7 @@ public record EnqueuePayload(
     string? Label = null,
     string? SourceId = null,
     string? SourceType = null,
-    Dictionary<string, string>? Variables = null
+    Dictionary<string, string>? Variables = null,
+    string? Cookie = null,
+    Dictionary<string, string>? Credentials = null
 );

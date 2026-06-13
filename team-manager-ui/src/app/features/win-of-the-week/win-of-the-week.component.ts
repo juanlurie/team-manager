@@ -72,14 +72,11 @@ import { WinSeriesService } from '../../core/services/win-series.service';
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap">
         <mat-icon style="font-size:1.6rem;width:1.6rem;height:1.6rem;color:#FFD700">emoji_events</mat-icon>
         <h2 style="margin:0;font-size:1.3rem;font-weight:700">Win of the Week</h2>
-        @if (series().length > 1 || isHost()) {
+        @if (series().length > 1) {
           <select [ngModel]="currentSeriesId()" (ngModelChange)="selectSeries($event)"
                   style="background:#1e1e2e;color:rgba(255,255,255,0.8);border:1px solid rgba(255,255,255,0.12);border-radius:6px;padding:4px 8px;font-size:0.82rem;cursor:pointer">
             @for (s of series(); track s.id) {
               <option [value]="s.id">{{ s.name }}</option>
-            }
-            @if (isHost()) {
-              <option value="__new__">+ New Series</option>
             }
           </select>
         }
@@ -131,6 +128,13 @@ import { WinSeriesService } from '../../core/services/win-series.service';
               </button>
             }
           }
+          @if (isHost()) {
+            <mat-divider />
+            <button mat-menu-item (click)="showNewSeriesPrompt()">
+              <mat-icon>add_circle_outline</mat-icon>Start Another Series
+            </button>
+          }
+          <mat-divider />
           <button mat-menu-item (click)="copyShareLink()">
             <mat-icon>share</mat-icon>Copy share link
           </button>
@@ -670,6 +674,11 @@ export class WinOfTheWeekComponent implements OnInit, OnDestroy {
     this.guestUrl.set(null);
     this.qrDataUrl.set(null);
     this.refresh();
+  }
+
+  showNewSeriesPrompt() {
+    this.newSeriesName = '';
+    this.showNewSeriesDialog.set(true);
   }
 
   closeNewSeriesDialog() {

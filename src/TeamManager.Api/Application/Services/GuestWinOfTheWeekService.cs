@@ -169,7 +169,7 @@ public class GuestWinOfTheWeekService(AppDbContext db, IHttpContextAccessor http
         return dto;
     }
 
-    public async Task<GuestNominationDto> UpdateGuestNominationAsync(string token, Guid nominationId, string guestSessionId, GuestCreateNominationRequest request)
+    public async Task<GuestNominationDto> UpdateGuestNominationAsync(string token, Guid nominationId, string guestSessionId, GuestUpdateNominationRequest request)
     {
         var nomination = await db.WinNominations
             .Include(n => n.WinWeek)

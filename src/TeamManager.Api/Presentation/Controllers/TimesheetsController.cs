@@ -1,11 +1,13 @@
 using TeamManager.Api.Middleware;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using TeamManager.Api.Application.DTOs.Timesheet;
 using TeamManager.Api.Application.Services.Interfaces;
+using TeamManager.Api.Infrastructure.Data;
 
 namespace TeamManager.Api.Presentation.Controllers;
 
-public record EnqueueSyncRequest(Guid[] EntryIds);
+public record EnqueueSyncRequest(Guid[] EntryIds, string? Cookie = null);
 
 [ApiController]
 [RequireFeature("team")]
@@ -51,8 +53,24 @@ public class TimesheetsController(ITimesheetService service) : ControllerBase
     }
 
     [HttpPost("enqueue-sync")]
-    public async Task<IActionResult> EnqueueSync(Guid memberId, [FromBody] EnqueueSyncRequest req)
+    public async Task<IActionResult> EnqueueSync(Guid memberId, [FromBody] EnqueueSyncRequest req, [FromServices] AppDbContext db)
     {
+        var addConfig = await db.ApiRequestConfigs
+            .Where(c => c.Action == "AddTimesheetEntry" && c.Enabled)
+            .Select(c => new { c.Url, c.BodyTemplate, c.HeadersJson, c.StoredCookie })
+            .FirstOrDefaultAsync();
+
+        if (addConfig != null)
+        {
+            var needsCookie = addConfig.Url.Contains("{cookie}")
+                || addConfig.BodyTemplate.Contains("{cookie}")
+                || addConfig.HeadersJson.Contains("{cookie}");
+            var cookieAvailable = !string.IsNullOrWhiteSpace(addConfig.StoredCookie)
+                || !string.IsNullOrWhiteSpace(req.Cookie);
+            if (needsCookie && !cookieAvailable)
+                return BadRequest(new { message = "Cookie required for sync. Set one in Settings → Credentials." });
+        }
+
         var count = await service.EnqueueSyncAsync(memberId, req.EntryIds);
         return Ok(new { enqueued = count });
     }
