@@ -140,6 +140,8 @@ public class FeaturePermissionService : IFeaturePermissionService
         }
     }
 
+    private static readonly HashSet<string> DefaultOffFeatures = ["wow-host", "settings", "api-keys", "access-requests", "showcase", "export"];
+
     public async Task<bool> IsFeatureEnabledForMemberAsync(Guid memberId, string featureKey)
     {
         var member = await db.TeamMembers.FindAsync(memberId);
@@ -159,7 +161,7 @@ public class FeaturePermissionService : IFeaturePermissionService
         if (rolePermission != null)
             return rolePermission.IsEnabled;
 
-        return true;
+        return !DefaultOffFeatures.Contains(featureKey);
     }
 
     private static FeatureDef? GetFeatureDefinition(string featureKey)
