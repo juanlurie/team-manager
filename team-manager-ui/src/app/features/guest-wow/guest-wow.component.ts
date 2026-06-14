@@ -1,54 +1,85 @@
-import { Component, OnDestroy, OnInit, inject, signal, ChangeDetectionStrategy } from '@angular/core';
-
+import { Component, OnDestroy, OnInit, inject, signal, computed, ChangeDetectionStrategy } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
-import { MatIconModule } from '@angular/material/icon';
+import { MatButtonModule } from '@angular/material/button';
 import { GuestWinOfTheWeekService } from './guest-wow.service';
-import { GuestWinWeek, GuestNomination, GuestCreateNominationRequest, WowNominationDisplay } from '../../core/models/win-week.model';
+import { GuestWinWeek, GuestNomination, GuestCreateNominationRequest, WowNominationDisplay, WinWeek, WinNomination } from '../../core/models/win-week.model';
 import { WinOfTheWeekService } from '../../core/services/win-of-the-week.service';
 import { AuthService } from '../../core/auth/auth.service';
-import { WowCountdownComponent } from '../../shared/components/wow-countdown/wow-countdown.component';
-import { WowNominationCardComponent } from '../../shared/components/wow-nomination-card/wow-nomination-card.component';
-import { WowWinnerBannerComponent } from '../../shared/components/wow-winner-banner/wow-winner-banner.component';
+import { MobileService } from '../../core/services/mobile.service';
+import { WowCurrentWeekComponent } from '../win-of-the-week/wow-current-week.component';
 import { WowTieBreakSpinnerComponent } from '../../shared/components/wow-tie-break-spinner/wow-tie-break-spinner.component';
-import { AppEmptyStateComponent } from '../../shared/components/app-empty-state/app-empty-state.component';
+import { AppModalComponent } from '../../shared/components/app-modal/app-modal.component';
 import { wowPhaseInfo, runTieBreakSpin } from '../../shared/utils/wow.utils';
 
-const SESSION_NAME_KEY = 'wow_guest_name';
 const SESSION_ID_KEY = 'wow_guest_session_id';
+// Unique sentinel so WowCurrentWeekComponent knows which nominations the guest owns
+const GUEST_OWNED_ID = '__guest__';
+
+function nameKey(token: string) { return `wow_guest_name_${token}`; }
+
+function adaptToWinWeek(week: GuestWinWeek): WinWeek {
+  const nominations: WinNomination[] = week.nominations.map(n => ({
+    id: n.id,
+    winWeekId: week.id,
+    teamMemberId: n.isOwned ? GUEST_OWNED_ID : null,
+    teamMemberName: n.nominatorDisplayName,
+    isGuestNomination: true,
+    nomineeMemberId: n.nomineeMemberId,
+    nomineeName: n.nomineeName,
+    title: n.title,
+    description: n.description,
+    createdAt: n.createdAt,
+    voteCount: n.voteCount,
+    hasVoted: n.hasVoted,
+    powerUp: n.powerUp,
+    chaosCard: n.chaosCard,
+    hypeMeterCount: n.hypeMeterCount,
+  }));
+  return {
+    id: week.id,
+    seriesId: '',
+    seriesName: '',
+    weekStart: week.weekStart,
+    status: week.status,
+    winnerNominationId: null,
+    winnerTitle: week.winnerTitle,
+    winnerNomineeName: week.winnerNomineeName,
+    openedAt: week.weekStart,
+    closedAt: null,
+    suddenDeathEndsAt: week.suddenDeathEndsAt,
+    currentMemberId: GUEST_OWNED_ID,
+    userVotesRemaining: week.userVotesRemaining,
+    userNominationsRemaining: week.userNominationsRemaining,
+    totalVotesCast: 0,
+    activeMemberCount: 0,
+    connectedMemberCount: 0,
+    tiedNominationIds: week.tiedNominationIds,
+    winnerStory: week.winnerStory,
+    nominations,
+  };
+}
 
 @Component({
   selector: 'app-guest-wow',
   standalone: true,
-  imports: [FormsModule, MatIconModule, WowCountdownComponent, WowNominationCardComponent, WowWinnerBannerComponent, WowTieBreakSpinnerComponent, AppEmptyStateComponent],
+  imports: [FormsModule, MatButtonModule, WowCurrentWeekComponent, WowTieBreakSpinnerComponent, AppModalComponent],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <app-wow-tie-break-spinner [show]="isSpinning()" [name]="spinnerName()" />
 
-    <div class="guest-wrap" [class.sudden-death]="isSuddenDeath()">
+    <div class="guest-wrap" [class.sudden-death]="week()?.status === 'SuddenDeath'">
+
       <!-- Name capture screen -->
       @if (!guestName()) {
         <div class="name-card">
           <div class="name-card__logo">🏆</div>
           <h2 class="name-card__title">Win of the Week</h2>
-          <p class="name-card__sub">Sign in with your account for the full experience, or continue as a guest.</p>
-
-          <button class="btn-primary" type="button" (click)="login()" style="width:100%;margin-bottom:16px">
-            Sign In
-          </button>
-
-          <div class="divider">
-            <span class="divider__label">or continue as guest</span>
-          </div>
-
+          <p class="name-card__sub">Sign in for the full experience, or continue as a guest.</p>
+          <button mat-raised-button color="primary" type="button" (click)="login()" style="width:100%;margin-bottom:16px">Sign In</button>
+          <div class="divider"><span class="divider__label">or continue as guest</span></div>
           <form (ngSubmit)="saveName()" class="name-form" style="margin-top:16px">
-            <input
-              class="name-input"
-              type="text"
-              placeholder="Your name"
-              [(ngModel)]="nameInput"
-              name="guestName"
-              maxlength="100"
-            />
+            <input class="name-input" type="text" placeholder="Your name" [(ngModel)]="nameInput" name="guestName" maxlength="100" autofocus />
             <button class="btn-secondary" type="submit" [disabled]="!nameInput.trim()">Continue as Guest</button>
           </form>
         </div>
@@ -65,172 +96,94 @@ const SESSION_ID_KEY = 'wow_guest_session_id';
 
       <!-- Loading -->
       @if (guestName() && !tokenInvalid() && loading()) {
-        <div class="loading-wrap">
-          <div class="spinner"></div>
-        </div>
+        <div class="loading-wrap"><div class="spinner"></div></div>
       }
 
       <!-- Week view -->
       @if (guestName() && !tokenInvalid() && !loading() && week()) {
         <div class="week-view">
+          <!-- Header -->
           <div class="week-header">
             <div class="week-header__left">
               @let phase = phaseInfo();
-              <span class="phase-badge" [style.background]="phase.bg" [style.color]="phase.text">
-                {{ phase.label }}
-              </span>
+              <span class="phase-badge" [style.background]="phase.bg" [style.color]="phase.text">{{ phase.label }}</span>
               <span class="week-label">Week of {{ formatDate(week()!.weekStart) }}</span>
             </div>
             <div class="week-header__right">
-              <span class="guest-tag">Guest View</span>
+              <button class="btn-name" type="button" (click)="changeName()" title="Change name">
+                👤 {{ guestName() }}
+              </button>
               <button class="btn-login" type="button" (click)="login()">Sign In</button>
             </div>
           </div>
 
-          <!-- Winner banner -->
-          @if (week()!.status === 'Closed' && week()!.winnerNomineeName && !isSpinning()) {
-            <app-wow-winner-banner
-              [winnerNomineeName]="week()!.winnerNomineeName!"
-              [winnerTitle]="week()!.winnerTitle"
-              [winnerStory]="week()!.winnerStory"
-              [showPoints]="false"
-            />
-          }
-
-          <!-- Nominate button -->
-          @if (week()!.isNominatingOpen && week()!.userNominationsRemaining > 0) {
-            <div class="nominate-bar">
-              <button class="btn-primary" (click)="showForm.set(true)" [disabled]="showForm()">
-                + Nominate a Win
-              </button>
-            </div>
-          }
-
-          <!-- Nomination form -->
-          @if (showForm()) {
-            <div class="nom-form-card">
-              <h3 class="nom-form-card__title">Submit a Nomination</h3>
-              <form (ngSubmit)="submitNomination()">
-                <label class="field-label">Nominee</label>
-                <select class="field-input" [(ngModel)]="nomForm.nomineeMemberId" name="nominee" required>
-                  <option value="">Select a team member…</option>
-                  @for (m of members(); track m.id) {
-                    <option [value]="m.id">{{ m.name }}</option>
-                  }
-                </select>
-
-                <label class="field-label">Title / Achievement</label>
-                <input
-                  class="field-input"
-                  type="text"
-                  [(ngModel)]="nomForm.title"
-                  name="title"
-                  maxlength="200"
-                  placeholder="What did they do?"
-                  required
-                />
-
-                <label class="field-label">Description (optional)</label>
-                <textarea
-                  class="field-input field-textarea"
-                  [(ngModel)]="nomForm.description"
-                  name="description"
-                  maxlength="2000"
-                  placeholder="More details…"
-                  rows="3"
-                ></textarea>
-
-                <div class="nom-form-card__actions">
-                  <button type="button" class="btn-secondary" (click)="cancelForm()">Cancel</button>
-                  <button
-                    type="submit"
-                    class="btn-primary"
-                    [disabled]="submitting() || !nomForm.nomineeMemberId || !nomForm.title.trim()"
-                  >
-                    {{ submitting() ? 'Submitting…' : 'Submit' }}
-                  </button>
-                </div>
-
-                @if (formError()) {
-                  <p class="form-error">{{ formError() }}</p>
-                }
-              </form>
-            </div>
-          }
-
-          <!-- Already nominated -->
-          @if (week()!.isNominatingOpen && week()!.userNominationsRemaining === 0 && !showForm() && !editingId()) {
-            <p class="already-nominated">You have already submitted a nomination this week.</p>
-          }
-
-          <!-- Sudden death banner -->
-          @if (isSuddenDeath()) {
-            <div class="sudden-death-banner">
-              <span class="sudden-death-banner__icon">⚡</span>
-              <span>Tie-Breaker — 1 vote only!</span>
-              @if (week()!.suddenDeathEndsAt) {
-                <span class="sudden-death-countdown"><app-wow-countdown [endsAt]="week()!.suddenDeathEndsAt" /></span>
-              }
-            </div>
-          }
-
-          <!-- Nominations list -->
-          @if (week()!.nominations.length === 0) {
-            <app-empty-state icon="emoji_events" title="No nominations yet — be the first!" />
-          }
-
-          @if (week()!.isVotingOpen) {
-            <p class="votes-remaining">
-              Votes remaining: <strong>{{ week()!.userVotesRemaining }}</strong>
-              @if (isSuddenDeath()) { (tie-breaker — 1 vote) }
-              @else { /3 }
-            </p>
-          }
-
-          @for (nom of week()!.nominations; track nom.id) {
-            @if (editingId() === nom.id) {
-              <!-- Inline edit form -->
-              <div style="background:#1e1e1e;border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:1.25rem;margin-bottom:0.75rem">
-                <label class="field-label">Nominee</label>
-                <select class="field-input" [(ngModel)]="editForm.nomineeMemberId" name="edit-nominee">
-                  <option value="">Select a team member…</option>
-                  @for (m of members(); track m.id) {
-                    <option [value]="m.id">{{ m.name }}</option>
-                  }
-                </select>
-                <label class="field-label">Title / Achievement</label>
-                <input class="field-input" type="text" [(ngModel)]="editForm.title" name="edit-title" maxlength="200" />
-                <label class="field-label">Description (optional)</label>
-                <textarea class="field-input field-textarea" [(ngModel)]="editForm.description" name="edit-desc" maxlength="2000" rows="2"></textarea>
-                <div class="nom-form-card__actions">
-                  <button type="button" class="btn-secondary" (click)="cancelEdit()">Cancel</button>
-                  <button type="button" class="btn-primary" (click)="saveEdit(nom.id)" [disabled]="submitting() || !editForm.nomineeMemberId || !editForm.title.trim()">
-                    {{ submitting() ? 'Saving…' : 'Save' }}
-                  </button>
-                </div>
-                @if (formError()) { <p class="form-error">{{ formError() }}</p> }
-              </div>
-            } @else {
-              <app-wow-nomination-card
-                [nomination]="toDisplay(nom)"
-                [weekStatus]="week()!.status"
-                [canEdit]="nom.isOwned && week()!.isNominatingOpen"
-                [votesRemaining]="week()!.userVotesRemaining"
-                [isTied]="tiedNomIds().has(nom.id)"
-                [canApplyCards]="false"
-                (voteClick)="vote($event)"
-                (removeVoteClick)="removeVote($event)"
-                (editClick)="startEdit($event)"
-                (deleteClick)="deleteNomination($event)"
-                (hypeClick)="tapHype($event)"
-              />
-            }
-          }
+          <!-- Week content — reuses the same component as the logged-in view -->
+          <app-wow-current-week
+            [week]="adaptedWeek()"
+            [loading]="false"
+            [isHost]="false"
+            [isGuest]="true"
+            [isMobile]="isMobile"
+            [qrDataUrl]="null"
+            [currentUserId]="GUEST_OWNED_ID"
+            [tokenBalance]="0"
+            (nominateClick)="showForm.set(true)"
+            (voteClick)="vote($event)"
+            (removeVoteClick)="removeVote($event)"
+            (editClick)="startEdit($event)"
+            (deleteClick)="deleteNomination($event)"
+            (hypeClick)="tapHype($event)"
+          />
         </div>
       }
     </div>
+
+    <!-- Nominate modal -->
+    <app-modal title="Nominate a Win" [show]="showForm()" (closed)="cancelForm()">
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <label class="field-label">Nominee</label>
+        <select class="field-input" [(ngModel)]="nomForm.nomineeMemberId" name="nominee">
+          <option value="">Select a team member…</option>
+          @for (m of members(); track m.id) { <option [value]="m.id">{{ m.name }}</option> }
+        </select>
+        <label class="field-label">Title / Achievement</label>
+        <input class="field-input" type="text" [(ngModel)]="nomForm.title" name="title" maxlength="200" placeholder="What did they do?" />
+        <label class="field-label">Description (optional)</label>
+        <textarea class="field-input field-textarea" [(ngModel)]="nomForm.description" name="description" maxlength="2000" placeholder="More details…" rows="3"></textarea>
+        @if (formError()) { <p class="form-error">{{ formError() }}</p> }
+      </div>
+      <ng-container modal-footer>
+        <button class="btn-secondary-sm" type="button" (click)="cancelForm()">Cancel</button>
+        <button class="btn-primary-sm" type="button" (click)="submitNomination()"
+                [disabled]="submitting() || !nomForm.nomineeMemberId || !nomForm.title.trim()">
+          {{ submitting() ? 'Submitting…' : 'Submit' }}
+        </button>
+      </ng-container>
+    </app-modal>
+
+    <!-- Edit modal -->
+    <app-modal title="Edit Nomination" [show]="!!editingId()" (closed)="cancelEdit()">
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <label class="field-label">Nominee</label>
+        <select class="field-input" [(ngModel)]="editForm.nomineeMemberId" name="edit-nominee">
+          <option value="">Select a team member…</option>
+          @for (m of members(); track m.id) { <option [value]="m.id">{{ m.name }}</option> }
+        </select>
+        <label class="field-label">Title / Achievement</label>
+        <input class="field-input" type="text" [(ngModel)]="editForm.title" name="edit-title" maxlength="200" />
+        <label class="field-label">Description (optional)</label>
+        <textarea class="field-input field-textarea" [(ngModel)]="editForm.description" name="edit-desc" maxlength="2000" rows="3"></textarea>
+        @if (formError()) { <p class="form-error">{{ formError() }}</p> }
+      </div>
+      <ng-container modal-footer>
+        <button class="btn-secondary-sm" type="button" (click)="cancelEdit()">Cancel</button>
+        <button class="btn-primary-sm" type="button" (click)="saveEdit(editingId()!)"
+                [disabled]="submitting() || !editForm.nomineeMemberId || !editForm.title.trim()">
+          {{ submitting() ? 'Saving…' : 'Save' }}
+        </button>
+      </ng-container>
+    </app-modal>
   `,
-  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .guest-wrap {
       position: fixed;
@@ -265,11 +218,9 @@ const SESSION_ID_KEY = 'wow_guest_session_id';
       margin-top: 4rem;
       border: 1px solid rgba(255,255,255,0.08);
     }
-
     .name-card__logo { font-size: 3rem; margin-bottom: 0.5rem; }
     .name-card__title { font-size: 1.5rem; margin: 0 0 0.5rem; }
     .name-card__sub { color: rgba(255,255,255,0.6); margin: 0 0 1.5rem; font-size: 0.95rem; }
-
     .error-card__icon { font-size: 3rem; margin-bottom: 0.5rem; }
     .error-card h2 { margin: 0 0 0.5rem; }
     .error-card p { color: rgba(255,255,255,0.6); margin: 0; }
@@ -287,26 +238,9 @@ const SESSION_ID_KEY = 'wow_guest_session_id';
       box-sizing: border-box;
       outline: none;
     }
-    .name-input:focus, .field-input:focus {
-      border-color: rgba(255,215,0,0.5);
-    }
+    .name-input:focus, .field-input:focus { border-color: rgba(255,215,0,0.5); }
     .field-textarea { resize: vertical; min-height: 80px; }
-
     select.field-input option { background: #1e1e1e; }
-
-    .btn-primary {
-      background: #FFD700;
-      color: #121212;
-      border: none;
-      border-radius: 6px;
-      padding: 0.6rem 1.2rem;
-      font-weight: 700;
-      font-size: 0.95rem;
-      cursor: pointer;
-      transition: opacity 0.2s;
-    }
-    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
-    .btn-primary:hover:not(:disabled) { opacity: 0.85; }
 
     .btn-secondary {
       background: transparent;
@@ -321,6 +255,30 @@ const SESSION_ID_KEY = 'wow_guest_session_id';
     .btn-secondary:disabled { opacity: 0.5; cursor: not-allowed; }
     .btn-secondary:hover:not(:disabled) { background: rgba(255,255,255,0.05); }
 
+    .btn-primary-sm {
+      background: #FFD700;
+      color: #121212;
+      border: none;
+      border-radius: 6px;
+      padding: 0.5rem 1.1rem;
+      font-weight: 700;
+      font-size: 0.88rem;
+      cursor: pointer;
+    }
+    .btn-primary-sm:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-primary-sm:hover:not(:disabled) { opacity: 0.85; }
+
+    .btn-secondary-sm {
+      background: transparent;
+      color: rgba(255,255,255,0.7);
+      border: 1px solid rgba(255,255,255,0.2);
+      border-radius: 6px;
+      padding: 0.5rem 1.1rem;
+      font-size: 0.88rem;
+      cursor: pointer;
+    }
+    .btn-secondary-sm:hover { background: rgba(255,255,255,0.05); }
+
     .btn-login {
       background: #FFD700;
       color: #121212;
@@ -333,6 +291,21 @@ const SESSION_ID_KEY = 'wow_guest_session_id';
       transition: opacity 0.2s;
     }
     .btn-login:hover { opacity: 0.85; }
+
+    .btn-name {
+      background: transparent;
+      color: rgba(255,255,255,0.55);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 20px;
+      padding: 0.2rem 0.7rem;
+      font-size: 0.78rem;
+      cursor: pointer;
+      white-space: nowrap;
+      max-width: 140px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .btn-name:hover { border-color: rgba(255,255,255,0.3); color: rgba(255,255,255,0.8); }
 
     .divider {
       display: flex;
@@ -364,10 +337,7 @@ const SESSION_ID_KEY = 'wow_guest_session_id';
     }
     @keyframes spin { to { transform: rotate(360deg); } }
 
-    .week-view {
-      max-width: 640px;
-      width: 100%;
-    }
+    .week-view { max-width: 680px; width: 100%; }
 
     .week-header {
       display: flex;
@@ -388,104 +358,54 @@ const SESSION_ID_KEY = 'wow_guest_session_id';
       letter-spacing: 0.03em;
     }
     .week-label { color: rgba(255,255,255,0.5); font-size: 0.9rem; }
-    .guest-tag {
-      font-size: 0.75rem;
-      color: rgba(255,255,255,0.35);
-      border: 1px solid rgba(255,255,255,0.12);
-      border-radius: 20px;
-      padding: 0.15rem 0.6rem;
-    }
-
-    .nominate-bar { margin-bottom: 1rem; }
-
-    .already-nominated {
-      color: rgba(255,255,255,0.45);
-      font-size: 0.9rem;
-      margin-bottom: 1rem;
-    }
-
-    .nom-form-card {
-      background: #1e1e1e;
-      border: 1px solid rgba(255,255,255,0.1);
-      border-radius: 10px;
-      padding: 1.25rem;
-      margin-bottom: 1.25rem;
-    }
-    .nom-form-card__title { margin: 0 0 1rem; font-size: 1rem; }
-    .nom-form-card__actions { display: flex; gap: 0.5rem; justify-content: flex-end; margin-top: 0.75rem; }
 
     .field-label {
       display: block;
       font-size: 0.8rem;
       color: rgba(255,255,255,0.5);
-      margin: 0.75rem 0 0.25rem;
+      margin: 0.25rem 0 0.15rem;
       text-transform: uppercase;
       letter-spacing: 0.05em;
     }
-
-    .form-error {
-      color: #f44336;
-      font-size: 0.85rem;
-      margin: 0.5rem 0 0;
-    }
-
-    .votes-remaining {
-      font-size: 0.88rem;
-      color: rgba(255,255,255,0.55);
-      margin-bottom: 0.75rem;
-    }
-    .votes-remaining strong { color: #fff; }
-
-    .sudden-death-banner {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      background: rgba(244,67,54,0.12);
-      border: 1px solid rgba(244,67,54,0.4);
-      border-radius: 8px;
-      padding: 0.6rem 1rem;
-      color: #f44336;
-      font-weight: 700;
-      font-size: 0.9rem;
-      margin-bottom: 1rem;
-    }
-    .sudden-death-banner__icon { font-size: 1.1rem; }
-    .sudden-death-countdown { margin-left: auto; }
+    .form-error { color: #f44336; font-size: 0.85rem; margin: 0.25rem 0 0; }
   `]
 })
 export class GuestWowComponent implements OnInit, OnDestroy {
-  private route = inject(ActivatedRoute);
-  private service = inject(GuestWinOfTheWeekService);
-  private auth = inject(AuthService);
-  private winSvc = inject(WinOfTheWeekService);
+  readonly GUEST_OWNED_ID = GUEST_OWNED_ID;
 
-  guestName = signal('');
-  nameInput = '';
-  week = signal<GuestWinWeek | null>(null);
-  members = signal<{ id: string; name: string }[]>([]);
-  loading = signal(false);
+  private route    = inject(ActivatedRoute);
+  private service  = inject(GuestWinOfTheWeekService);
+  private auth     = inject(AuthService);
+  private winSvc   = inject(WinOfTheWeekService);
+  private mobileSvc = inject(MobileService);
+
+  get isMobile() { return this.mobileSvc.isMobile(); }
+
+  guestName    = signal('');
+  nameInput    = '';
+  week         = signal<GuestWinWeek | null>(null);
+  members      = signal<{ id: string; name: string }[]>([]);
+  loading      = signal(false);
   tokenInvalid = signal(false);
-  showForm = signal(false);
-  submitting = signal(false);
-  votingId = signal<string | null>(null);
-  editingId = signal<string | null>(null);
-  deletingId = signal<string | null>(null);
-  formError = signal('');
+  showForm     = signal(false);
+  submitting   = signal(false);
+  votingId     = signal<string | null>(null);
+  editingId    = signal<string | null>(null);
+  deletingId   = signal<string | null>(null);
+  formError    = signal('');
 
-  editForm: { nomineeMemberId: string; title: string; description: string } = {
-    nomineeMemberId: '', title: '', description: ''
-  };
+  editForm: { nomineeMemberId: string; title: string; description: string } = { nomineeMemberId: '', title: '', description: '' };
+  nomForm:  { nomineeMemberId: string; title: string; description: string } = { nomineeMemberId: '', title: '', description: '' };
 
-  nomForm: { nomineeMemberId: string; title: string; description: string } = {
-    nomineeMemberId: '',
-    title: '',
-    description: ''
-  };
+  isSpinning   = signal(false);
+  spinnerName  = signal('');
 
-  isSpinning = signal(false);
-  spinnerName = signal('');
+  readonly adaptedWeek = computed(() => {
+    const w = this.week();
+    return w ? adaptToWinWeek(w) : null;
+  });
 
-  private token = '';
+  private token    = '';
   private sessionId = '';
   private ws: WebSocket | null = null;
   private wsReconnectTimer: ReturnType<typeof setTimeout> | null = null;
@@ -497,7 +417,7 @@ export class GuestWowComponent implements OnInit, OnDestroy {
   ngOnInit() {
     this.token = this.route.snapshot.paramMap.get('token') ?? '';
     this.sessionId = this.getOrCreateSessionId();
-    const savedName = localStorage.getItem(SESSION_NAME_KEY) ?? '';
+    const savedName = localStorage.getItem(nameKey(this.token)) ?? '';
     if (savedName) {
       this.guestName.set(savedName);
       this.loadWeek();
@@ -512,14 +432,23 @@ export class GuestWowComponent implements OnInit, OnDestroy {
     if (this.expiryCheckInterval) clearInterval(this.expiryCheckInterval);
   }
 
-  login() {
-    this.auth.login('/fun/win-of-the-week');
+  login() { this.auth.login('/fun/win-of-the-week'); }
+
+  changeName() {
+    localStorage.removeItem(nameKey(this.token));
+    this.guestName.set('');
+    this.nameInput = '';
+    if (this.wsReconnectTimer) clearTimeout(this.wsReconnectTimer);
+    this.ws?.close();
+    this.ws = null;
+    if (this.pollInterval) clearInterval(this.pollInterval);
+    if (this.expiryCheckInterval) clearInterval(this.expiryCheckInterval);
   }
 
   saveName() {
     const name = this.nameInput.trim();
     if (!name) return;
-    localStorage.setItem(SESSION_NAME_KEY, name);
+    localStorage.setItem(nameKey(this.token), name);
     this.guestName.set(name);
     this.loadWeek();
   }
@@ -528,7 +457,6 @@ export class GuestWowComponent implements OnInit, OnDestroy {
     if (this.submitting()) return;
     this.formError.set('');
     this.submitting.set(true);
-
     const request: GuestCreateNominationRequest = {
       guestSessionId: this.sessionId,
       guestName: this.guestName(),
@@ -536,46 +464,13 @@ export class GuestWowComponent implements OnInit, OnDestroy {
       title: this.nomForm.title.trim(),
       description: this.nomForm.description.trim() || undefined
     };
-
     this.service.createNomination(this.token, request).subscribe({
-      next: () => {
-        this.submitting.set(false);
-        this.showForm.set(false);
-        this.resetForm();
-        this.loadWeek();
-      },
-      error: (err) => {
-        this.submitting.set(false);
-        this.formError.set(err.error?.error ?? 'Failed to submit nomination.');
-      }
+      next: () => { this.submitting.set(false); this.showForm.set(false); this.resetForm(); this.refreshWeek(); },
+      error: (err) => { this.submitting.set(false); this.formError.set(err.error?.error ?? 'Failed to submit nomination.'); }
     });
   }
 
-  cancelForm() {
-    this.showForm.set(false);
-    this.resetForm();
-  }
-
-  toDisplay(nom: GuestNomination): WowNominationDisplay {
-    return {
-      id: nom.id,
-      nomineeMemberId: nom.nomineeMemberId,
-      nomineeName: nom.nomineeName,
-      nominatorName: nom.nominatorDisplayName,
-      title: nom.title,
-      description: nom.description,
-      voteCount: nom.voteCount,
-      hasVoted: nom.hasVoted,
-      isOwned: nom.isOwned,
-      powerUp: nom.powerUp,
-      chaosCard: nom.chaosCard,
-      hypeMeterCount: nom.hypeMeterCount
-    };
-  }
-
-  tapHype(nominationId: string) {
-    this.winSvc.incrementHypeMeter(nominationId).subscribe({ error: () => {} });
-  }
+  cancelForm() { this.showForm.set(false); this.resetForm(); }
 
   startEdit(nom: WowNominationDisplay) {
     this.editingId.set(nom.id);
@@ -583,10 +478,7 @@ export class GuestWowComponent implements OnInit, OnDestroy {
     this.formError.set('');
   }
 
-  cancelEdit() {
-    this.editingId.set(null);
-    this.formError.set('');
-  }
+  cancelEdit() { this.editingId.set(null); this.formError.set(''); }
 
   saveEdit(nominationId: string) {
     if (this.submitting()) return;
@@ -629,38 +521,21 @@ export class GuestWowComponent implements OnInit, OnDestroy {
     });
   }
 
-  isSuddenDeath() {
-    return this.week()?.status === 'SuddenDeath';
-  }
-
-  tiedNomIds(): Set<string> {
-    const w = this.week();
-    if (!w || w.nominations.length === 0) return new Set();
-    if (w.status === 'SuddenDeath') return new Set(w.nominations.map(n => n.id));
-    if (w.status === 'Voting') {
-      const maxVotes = Math.max(...w.nominations.map(n => n.voteCount));
-      if (maxVotes > 0 && w.nominations.filter(n => n.voteCount === maxVotes).length > 1)
-        return new Set(w.nominations.filter(n => n.voteCount === maxVotes).map(n => n.id));
-    }
-    return new Set();
+  tapHype(nominationId: string) {
+    this.winSvc.incrementHypeMeter(nominationId).subscribe({ error: () => {} });
   }
 
   phaseInfo() { return wowPhaseInfo(this.week()?.status); }
 
   formatDate(dateStr: string) {
-    const d = new Date(dateStr);
-    return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+    return new Date(dateStr).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
   }
 
   private connectWebSocket() {
+    if (this.wsReconnectTimer) { clearTimeout(this.wsReconnectTimer); this.wsReconnectTimer = null; }
+
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     this.ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
-
-    const wowEvents = new Set([
-      'nomination_created', 'nomination_updated', 'nomination_deleted',
-      'vote_cast', 'vote_removed',
-      'voting_opened', 'nominations_reopened', 'sudden_death_started', 'win_story_ready'
-    ]);
 
     this.ws.onmessage = (event) => {
       try {
@@ -680,19 +555,28 @@ export class GuestWowComponent implements OnInit, OnDestroy {
           const wk = this.week();
           const snap = this.suddenDeathSnapshot;
           this.suddenDeathSnapshot = null;
-          const source = wk?.status === 'SuddenDeath' ? wk : snap ? { nominations: snap.nominations, tiedNominationIds: snap.tiedNominationIds } : null;
+          const source = wk?.status === 'SuddenDeath' ? wk : snap ?? null;
           const tiedNoms = source ? source.nominations.filter(n => source.tiedNominationIds.includes(n.id)) : [];
           if (tiedNoms.length > 0) {
-            const winnerId = msg.data?.winnerId as string;
-            const winner = tiedNoms.find(n => n.id === winnerId);
-            this.runTieBreakSpin(tiedNoms.map(n => n.nomineeName), winner?.nomineeName ?? tiedNoms[0].nomineeName);
+            const winner = tiedNoms.find(n => n.id === (msg.data?.winnerId as string));
+            runTieBreakSpin(
+              tiedNoms.map(n => n.nomineeName),
+              winner?.nomineeName ?? tiedNoms[0].nomineeName,
+              n => this.spinnerName.set(n),
+              v => this.isSpinning.set(v),
+              () => this.refreshWeek()
+            );
           } else {
             this.refreshWeek();
           }
-        } else if (wowEvents.has(msg.type)) {
+        } else {
           this.refreshWeek();
         }
       } catch { /* ignore */ }
+    };
+
+    this.ws.onerror = () => {
+      this.ws?.close();
     };
 
     this.ws.onclose = () => {
@@ -707,17 +591,10 @@ export class GuestWowComponent implements OnInit, OnDestroy {
       next: (week) => {
         this.updateWeek(week);
         this.loading.set(false);
-        if (this.members().length === 0) {
-          this.loadMembers();
-        }
-        if (!this.ws) {
-          this.connectWebSocket();
-        }
+        if (this.members().length === 0) this.loadMembers();
+        if (!this.ws) this.connectWebSocket();
       },
-      error: () => {
-        this.tokenInvalid.set(true);
-        this.loading.set(false);
-      }
+      error: () => { this.tokenInvalid.set(true); this.loading.set(false); }
     });
   }
 
@@ -760,18 +637,8 @@ export class GuestWowComponent implements OnInit, OnDestroy {
     }
   }
 
-  private runTieBreakSpin(names: string[], winnerName: string) {
-    runTieBreakSpin(names, winnerName,
-      n => this.spinnerName.set(n),
-      v => this.isSpinning.set(v),
-      () => this.refreshWeek()
-    );
-  }
-
   private loadMembers() {
-    this.service.getMembers(this.token).subscribe({
-      next: (members) => this.members.set(members)
-    });
+    this.service.getMembers(this.token).subscribe({ next: (m) => this.members.set(m) });
   }
 
   private resetForm() {
@@ -781,10 +648,7 @@ export class GuestWowComponent implements OnInit, OnDestroy {
 
   private getOrCreateSessionId(): string {
     let id = localStorage.getItem(SESSION_ID_KEY);
-    if (!id) {
-      id = crypto.randomUUID();
-      localStorage.setItem(SESSION_ID_KEY, id);
-    }
+    if (!id) { id = crypto.randomUUID(); localStorage.setItem(SESSION_ID_KEY, id); }
     return id;
   }
 }

@@ -92,7 +92,7 @@ import { AppInfoBannerComponent } from '../../shared/components/app-info-banner/
 
         <!-- Info banner during nominating phase -->
         @if (w?.status === 'Nominating') {
-          <app-info-banner type="info">💡 You can edit or delete your nominations before voting opens. Use tokens to apply Power-ups or Chaos Cards to others' nominations!</app-info-banner>
+          <app-info-banner type="info">💡 You can edit or delete your nominations before voting opens.{{ isGuest() ? '' : " Use tokens to apply Power-ups or Chaos Cards to others' nominations!" }}</app-info-banner>
         }
 
         <!-- All votes used banner -->
@@ -101,7 +101,7 @@ import { AppInfoBannerComponent } from '../../shared/components/app-info-banner/
         }
 
         <!-- Vote progress bar -->
-        @if (w && (w.status === 'Voting' || w.status === 'SuddenDeath')) {
+        @if (!isGuest() && w && (w.status === 'Voting' || w.status === 'SuddenDeath')) {
           @let pct = voteProgressPct();
           <div style="margin-bottom:16px">
             <div style="display:flex;justify-content:space-between;font-size:0.7rem;opacity:0.5;margin-bottom:4px">
@@ -181,6 +181,7 @@ export class WowCurrentWeekComponent {
   week          = input<WinWeek | null>(null);
   loading       = input(false);
   isHost        = input(false);
+  isGuest       = input(false);
   isMobile      = input(false);
   qrDataUrl     = input<string | null>(null);
   currentUserId = input('');
