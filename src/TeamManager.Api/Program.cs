@@ -157,6 +157,7 @@ app.UseMiddleware<WebSocketMiddleware>();
 
 app.UseAuthorization();
 app.MapHealthChecks("/health").AllowAnonymous();
+app.MapGet("/ws-status", () => Results.Ok(new { connections = TeamManager.Api.Middleware.WebSocketMiddleware.GetConnectedMemberCount(), total = TeamManager.Api.Middleware.WebSocketMiddleware.GetTotalConnectionCount() })).AllowAnonymous();
 app.MapControllers();
 
 app.Run();

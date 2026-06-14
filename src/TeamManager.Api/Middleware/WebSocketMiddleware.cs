@@ -52,6 +52,8 @@ public class WebSocketMiddleware
         return memberIds;
     }
 
+    public static int GetTotalConnectionCount() => _connections.Count;
+
     private static async Task WaitForClose(WebSocket ws)
     {
         var buffer = new byte[1024 * 4];
