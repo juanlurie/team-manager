@@ -2,6 +2,7 @@ import { Component, computed, input, output, ChangeDetectionStrategy } from '@an
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { WinWeek, WinNomination, WowNominationDisplay } from '../../core/models/win-week.model';
 import { wowPhaseInfo } from '../../shared/utils/wow.utils';
 import { WowNominationCardComponent } from '../../shared/components/wow-nomination-card/wow-nomination-card.component';
@@ -19,6 +20,7 @@ import { AppInfoBannerComponent } from '../../shared/components/app-info-banner/
     MatButtonModule,
     MatIconModule,
     MatTooltipModule,
+    MatSlideToggleModule,
     WowNominationCardComponent,
     WowWinnerBannerComponent,
     WowCountdownComponent,
@@ -34,18 +36,14 @@ import { AppInfoBannerComponent } from '../../shared/components/app-info-banner/
     .host-ctrl { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1); border-radius: 14px; padding: 14px 16px; margin-bottom: 16px; }
     .ctrl-label { font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; opacity: 0.45; margin-bottom: 8px; }
     .dur-input { width: 60px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15); border-radius: 6px; padding: 4px 8px; color: #fff; font-size: 0.85rem; text-align: center; outline: none; }
-    .ctrl-btn { font-size: 0.78rem; height: 30px; line-height: 30px; padding: 0 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.15); background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.8); cursor: pointer; transition: background 0.15s; }
+    .ctrl-btn { font-size: 0.75rem; height: 28px; line-height: 26px; padding: 0 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.15); background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.75); cursor: pointer; transition: background 0.15s; white-space: nowrap; }
     .ctrl-btn:hover { background: rgba(255,255,255,0.12); }
-    .ctrl-btn.active { background: rgba(255,87,34,0.2); border-color: rgba(255,87,34,0.5); color: #ff7043; }
-    .ctrl-btn.danger { background: rgba(239,83,80,0.12); border-color: rgba(239,83,80,0.35); color: #ef5350; }
+    .ctrl-btn.stop { background: rgba(255,87,34,0.15); border-color: rgba(255,87,34,0.4); color: #ff7043; }
+    .ctrl-btn.danger { background: rgba(239,83,80,0.1); border-color: rgba(239,83,80,0.3); color: #ef5350; }
+    .ctrl-btn.sd-btn { background: rgba(255,87,34,0.18); border-color: rgba(255,87,34,0.5); color: #ff7043; font-weight: 700; }
     .ctrl-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-    .picker-row { display: flex; align-items: center; gap: 4px; }
-    .picker-row app-wow-duration-picker { flex: 1; }
-    .play-btn { width: 32px !important; height: 32px !important; line-height: 32px !important; color: rgba(255,255,255,0.55) !important; flex-shrink: 0; }
-    .play-btn mat-icon { font-size: 20px; width: 20px; height: 20px; }
-    .play-btn:hover { color: rgba(255,255,255,0.9) !important; }
-    .play-btn.active { color: #ff7043 !important; }
-    .play-btn.sd { color: #ff7043 !important; background: rgba(255,87,34,0.12) !important; border-radius: 50%; }
+    .picker-row { display: flex; align-items: center; gap: 6px; }
+    .picker-row app-wow-duration-picker { flex: 1; min-width: 0; }
   `],
   template: `
     @let w = week();
@@ -226,13 +224,10 @@ import { AppInfoBannerComponent } from '../../shared/components/app-info-banner/
               </div>
 
               <!-- Power-ups toggle (always visible) -->
-              <button class="ctrl-btn" style="width:100%;margin-bottom:12px;text-align:left"
-                      (click)="togglePowerUpsClick.emit()">
-                <mat-icon style="font-size:14px;width:14px;height:14px;vertical-align:middle;margin-right:4px">
-                  {{ powerUpsEnabled() ? 'toggle_on' : 'toggle_off' }}
-                </mat-icon>
-                {{ powerUpsEnabled() ? 'Power-ups On' : 'Power-ups Off' }}
-              </button>
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+                <span style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;opacity:0.45">Power-ups &amp; Cards</span>
+                <mat-slide-toggle [checked]="powerUpsEnabled()" (change)="togglePowerUpsClick.emit()" color="accent" />
+              </div>
 
               @if (w.status === 'Voting' || w.status === 'SuddenDeath') {
                 <!-- Timer row -->
@@ -245,13 +240,9 @@ import { AppInfoBannerComponent } from '../../shared/components/app-info-banner/
                     (valueChange)="timerDuration = $event"
                   />
                   @if (!activeTimerEndsAt()) {
-                    <button mat-icon-button class="play-btn" (click)="startTimerClick.emit(timerDuration)" matTooltip="Start timer">
-                      <mat-icon>play_arrow</mat-icon>
-                    </button>
+                    <button class="ctrl-btn" (click)="startTimerClick.emit(timerDuration)">Start</button>
                   } @else {
-                    <button mat-icon-button class="play-btn active" (click)="stopTimerClick.emit()" matTooltip="Stop timer">
-                      <mat-icon>stop</mat-icon>
-                    </button>
+                    <button class="ctrl-btn stop" (click)="stopTimerClick.emit()">Stop</button>
                   }
                 </div>
 
@@ -265,28 +256,22 @@ import { AppInfoBannerComponent } from '../../shared/components/app-info-banner/
                     (valueChange)="hypeBattleDuration = $event"
                   />
                   @if (!hypeBattleEndsAt()) {
-                    <button mat-icon-button class="play-btn" (click)="startHypeBattleClick.emit(hypeBattleDuration)" matTooltip="Start hype battle">
-                      <mat-icon>play_arrow</mat-icon>
-                    </button>
+                    <button class="ctrl-btn" (click)="startHypeBattleClick.emit(hypeBattleDuration)">Start</button>
                   } @else {
-                    <button mat-icon-button class="play-btn active" (click)="endHypeBattleClick.emit()" matTooltip="End battle">
-                      <mat-icon>stop</mat-icon>
-                    </button>
+                    <button class="ctrl-btn stop" (click)="endHypeBattleClick.emit()">Stop</button>
                   }
                 </div>
 
                 <!-- Sudden Death (only when there's a tie) -->
                 @if (w.status === 'Voting' && tiedNomIds().size > 0) {
-                  <div class="ctrl-label" style="color:#ff7043">⚡ Tie — Sudden Death available</div>
+                  <div class="ctrl-label" style="color:#ff7043;opacity:1">⚡ Tie detected</div>
                   <div class="picker-row" style="margin-bottom:8px">
                     <app-wow-duration-picker
                       [value]="suddenDeathDuration"
                       [max]="600"
                       (valueChange)="suddenDeathDuration = $event; suddenDeathDurationChange.emit($event)"
                     />
-                    <button mat-icon-button class="play-btn sd" (click)="startSuddenDeathClick.emit()" matTooltip="Start sudden death">
-                      <mat-icon>bolt</mat-icon>
-                    </button>
+                    <button class="ctrl-btn sd-btn" (click)="startSuddenDeathClick.emit()">⚡ Sudden Death</button>
                   </div>
                 }
 
@@ -295,8 +280,8 @@ import { AppInfoBannerComponent } from '../../shared/components/app-info-banner/
                   Reopen Nominations
                 </button>
 
-                <!-- End Voting -->
-                @if (w.status === 'Voting') {
+                <!-- End Voting — hidden when there's a tie (must use Sudden Death first) -->
+                @if (w.status === 'Voting' && tiedNomIds().size === 0) {
                   <button class="ctrl-btn danger" style="width:100%" (click)="endVotingClick.emit()">
                     End Voting
                   </button>
