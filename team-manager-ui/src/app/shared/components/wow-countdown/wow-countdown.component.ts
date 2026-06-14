@@ -6,7 +6,7 @@ import { Component, OnInit, OnDestroy, signal, computed, input, ChangeDetectionS
   standalone: true,
   imports: [],
   template: `
-    <span class="wow-clock" [class.urgent]="isUrgent()">{{ display() }}</span>
+    <span class="wow-clock" [class.warning]="isWarning()" [class.urgent]="isUrgent()">{{ display() }}</span>
   `,
   changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
@@ -18,12 +18,15 @@ import { Component, OnInit, OnDestroy, signal, computed, input, ChangeDetectionS
       line-height: 1;
       color: #ef5350;
     }
+    .wow-clock.warning {
+      animation: clockPulse 1s ease-in-out infinite;
+    }
     .wow-clock.urgent {
-      animation: clockPulse 0.5s ease-in-out infinite;
+      animation: clockPulse 0.3s ease-in-out infinite;
     }
     @keyframes clockPulse {
       0%, 100% { opacity: 1; }
-      50% { opacity: 0.5; }
+      50% { opacity: 0.4; }
     }
   `]
 })
@@ -47,9 +50,14 @@ export class WowCountdownComponent implements OnInit, OnDestroy {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   });
 
+  readonly isWarning = computed(() => {
+    const r = this.remaining();
+    return r !== null && r < 30000 && r >= 10000;
+  });
+
   readonly isUrgent = computed(() => {
     const r = this.remaining();
-    return r !== null && r < 15000;
+    return r !== null && r < 10000;
   });
 
   ngOnInit() {

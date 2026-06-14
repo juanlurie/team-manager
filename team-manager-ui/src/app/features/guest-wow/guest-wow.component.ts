@@ -58,7 +58,7 @@ function adaptToWinWeek(week: GuestWinWeek): WinWeek {
     activeMemberCount: 0,
     connectedMemberCount: 0,
     tiedNominationIds: week.tiedNominationIds,
-    powerUpsEnabled: false,
+    powerUpsEnabled: week.powerUpsEnabled,
     guestToken: null,
     winnerStory: week.winnerStory,
     nominations,
@@ -131,13 +131,18 @@ function adaptToWinWeek(week: GuestWinWeek): WinWeek {
             [isMobile]="isMobile"
             [qrDataUrl]="null"
             [currentUserId]="GUEST_OWNED_ID"
-            [tokenBalance]="0"
+            [tokenBalance]="week()?.guestTokenBalance ?? 0"
+            [powerUpsEnabled]="week()?.powerUpsEnabled ?? false"
+            [activeTimerEndsAt]="activeTimerEndsAt()"
+            [hypeBattleEndsAt]="hypeBattleEndsAt()"
             (nominateClick)="showForm.set(true)"
             (voteClick)="vote($event)"
             (removeVoteClick)="removeVote($event)"
             (editClick)="startEdit($event)"
             (deleteClick)="deleteNomination($event)"
             (hypeClick)="tapHype($event)"
+            (applyPowerUpClick)="applyPowerUp($event)"
+            (applyChaosCardClick)="applyChaosCard($event)"
           />
         </div>
       }
@@ -403,9 +408,11 @@ export class GuestWowComponent implements OnInit, OnDestroy {
   editForm: { nomineeMemberId: string; title: string; description: string } = { nomineeMemberId: '', title: '', description: '' };
   nomForm:  { nomineeMemberId: string; title: string; description: string } = { nomineeMemberId: '', title: '', description: '' };
 
-  isSpinning   = signal(false);
+  isSpinning      = signal(false);
   spinnerName     = signal('');
   connectedCount  = signal(0);
+  activeTimerEndsAt  = signal<string | null>(null);
+  hypeBattleEndsAt   = signal<string | null>(null);
 
   readonly adaptedWeek = computed(() => {
     const w = this.week();
@@ -427,7 +434,15 @@ export class GuestWowComponent implements OnInit, OnDestroy {
 
     this.wsSub = this.wsSvc.messages$.subscribe(msg => {
       if (!msg || !this.guestName() || this.tokenInvalid()) return;
-      if (msg.type === 'hype_meter_tapped') {
+      if (msg.type === 'wow_timer_started') {
+        this.activeTimerEndsAt.set(msg.data['endsAt'] as string);
+      } else if (msg.type === 'wow_timer_stopped') {
+        this.activeTimerEndsAt.set(null);
+      } else if (msg.type === 'wow_hype_battle_started') {
+        this.hypeBattleEndsAt.set(msg.data['endsAt'] as string);
+      } else if (msg.type === 'wow_hype_battle_ended') {
+        this.hypeBattleEndsAt.set(null);
+      } else if (msg.type === 'hype_meter_tapped') {
         const nomId = msg.data['nominationId'] as string;
         const count = msg.data['count'] as number;
         if (nomId && count !== undefined) {
@@ -562,6 +577,20 @@ export class GuestWowComponent implements OnInit, OnDestroy {
 
   tapHype(nominationId: string) {
     this.winSvc.incrementHypeMeter(nominationId).subscribe({ error: () => {} });
+  }
+
+  applyPowerUp(event: { nominationId: string; type: string }) {
+    this.service.applyPowerUp(this.token, event.nominationId, this.sessionId, event.type).subscribe({
+      next: () => this.refreshWeek(),
+      error: () => {}
+    });
+  }
+
+  applyChaosCard(event: { nominationId: string; type: string }) {
+    this.service.applyChaosCard(this.token, event.nominationId, this.sessionId, event.type).subscribe({
+      next: () => this.refreshWeek(),
+      error: () => {}
+    });
   }
 
   phaseInfo() { return wowPhaseInfo(this.week()?.status); }

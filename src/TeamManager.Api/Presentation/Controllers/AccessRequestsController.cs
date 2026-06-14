@@ -108,6 +108,7 @@ public class AccessRequestsController(AppDbContext db) : ControllerBase
             request.ReviewedAt = DateTimeOffset.UtcNow;
             request.ReviewNotes = dto?.Notes;
             await db.SaveChangesAsync();
+            _ = WebSocketMiddleware.BroadcastAsync("access_request_approved", new { requestId = request.Id });
             return Ok(new { status = "Approved", note = "Member reactivated." });
         }
 
@@ -134,6 +135,7 @@ public class AccessRequestsController(AppDbContext db) : ControllerBase
 
         await db.SaveChangesAsync();
 
+        _ = WebSocketMiddleware.BroadcastAsync("access_request_approved", new { requestId = request.Id });
         return Ok(new { status = "Approved", memberId = member.Id });
     }
 
