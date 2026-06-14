@@ -1,7 +1,8 @@
 import { Component, computed, input, output, ChangeDetectionStrategy } from '@angular/core';
-
+import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { WinWeek, WinNomination, WowNominationDisplay } from '../../core/models/win-week.model';
 import { wowPhaseInfo } from '../../shared/utils/wow.utils';
 import { WowNominationCardComponent } from '../../shared/components/wow-nomination-card/wow-nomination-card.component';
@@ -15,8 +16,10 @@ import { AppInfoBannerComponent } from '../../shared/components/app-info-banner/
   selector: 'app-wow-current-week',
   standalone: true,
   imports: [
+    FormsModule,
     MatButtonModule,
     MatIconModule,
+    MatTooltipModule,
     WowNominationCardComponent,
     WowWinnerBannerComponent,
     WowCountdownComponent,
@@ -25,6 +28,18 @@ import { AppInfoBannerComponent } from '../../shared/components/app-info-banner/
     AppInfoBannerComponent
   ],
   changeDetection: ChangeDetectionStrategy.Eager,
+  styles: [`
+    @keyframes hypePulse { 0%,100%{opacity:1} 50%{opacity:0.7} }
+    .hype-battle-banner { animation: hypePulse 1.5s ease-in-out infinite; }
+    .host-ctrl { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1); border-radius: 14px; padding: 14px 16px; margin-bottom: 16px; }
+    .ctrl-label { font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; opacity: 0.45; margin-bottom: 8px; }
+    .dur-input { width: 60px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15); border-radius: 6px; padding: 4px 8px; color: #fff; font-size: 0.85rem; text-align: center; outline: none; }
+    .ctrl-btn { font-size: 0.78rem; height: 30px; line-height: 30px; padding: 0 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.15); background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.8); cursor: pointer; transition: background 0.15s; }
+    .ctrl-btn:hover { background: rgba(255,255,255,0.12); }
+    .ctrl-btn.active { background: rgba(255,87,34,0.2); border-color: rgba(255,87,34,0.5); color: #ff7043; }
+    .ctrl-btn.danger { background: rgba(239,83,80,0.12); border-color: rgba(239,83,80,0.35); color: #ef5350; }
+    .ctrl-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  `],
   template: `
     @let w = week();
     @let phase = phaseInfo();
@@ -33,6 +48,50 @@ import { AppInfoBannerComponent } from '../../shared/components/app-info-banner/
 
       <!-- Main column -->
       <div style="flex:1;min-width:0">
+
+        <!-- Host control panel (voting/sudden death only) -->
+        @if (isHost() && w && (w.status === 'Voting' || w.status === 'SuddenDeath')) {
+          <div class="host-ctrl">
+            <div style="font-size:0.75rem;font-weight:700;opacity:0.6;margin-bottom:12px;display:flex;align-items:center;gap:6px">
+              <mat-icon style="font-size:14px;width:14px;height:14px">tune</mat-icon> Host Controls
+            </div>
+
+            <!-- Timer row -->
+            <div class="ctrl-label">Countdown Timer</div>
+            <div class="ctrl-row" style="margin-bottom:12px">
+              <input class="dur-input" type="number" min="5" max="600" [(ngModel)]="timerDuration"
+                     [disabled]="!!activeTimerEndsAt()" />
+              <span style="font-size:0.75rem;opacity:0.45">sec</span>
+              @if (!activeTimerEndsAt()) {
+                <button class="ctrl-btn" (click)="startTimerClick.emit(timerDuration)">▶ Start Timer</button>
+              } @else {
+                <button class="ctrl-btn active" (click)="stopTimerClick.emit()">⏹ Stop Timer</button>
+              }
+            </div>
+
+            <!-- Hype Battle row -->
+            <div class="ctrl-label">Hype Battle</div>
+            <div class="ctrl-row" style="margin-bottom:12px">
+              <input class="dur-input" type="number" min="5" max="300" [(ngModel)]="hypeBattleDuration"
+                     [disabled]="!!hypeBattleEndsAt()" />
+              <span style="font-size:0.75rem;opacity:0.45">sec</span>
+              @if (!hypeBattleEndsAt()) {
+                <button class="ctrl-btn" (click)="startHypeBattleClick.emit(hypeBattleDuration)">🔥 Start Hype Battle</button>
+              } @else {
+                <button class="ctrl-btn active" (click)="endHypeBattleClick.emit()">⏹ End Battle</button>
+              }
+            </div>
+
+            <!-- Sudden Death duration -->
+            @if (w.status === 'Voting') {
+              <div class="ctrl-label">Sudden Death Duration</div>
+              <div class="ctrl-row">
+                <input class="dur-input" type="number" min="10" max="600" [(ngModel)]="suddenDeathDuration" />
+                <span style="font-size:0.75rem;opacity:0.45">sec (applies when you start sudden death)</span>
+              </div>
+            }
+          </div>
+        }
 
         <!-- Phase badge + quota row -->
         <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap">
@@ -65,6 +124,32 @@ import { AppInfoBannerComponent } from '../../shared/components/app-info-banner/
             </span>
           }
         </div>
+
+        <!-- Host countdown timer (visible to all) -->
+        @if (activeTimerEndsAt()) {
+          <div style="background:rgba(33,150,243,0.08);border:1px solid rgba(33,150,243,0.3);border-radius:12px;padding:12px 16px;margin-bottom:16px;display:flex;align-items:center;gap:14px">
+            <div style="flex:1">
+              <div style="font-weight:700;font-size:0.85rem;color:#42a5f5;text-transform:uppercase;letter-spacing:0.5px">⏱ Timer</div>
+              <div style="font-size:0.75rem;opacity:0.6;margin-top:2px">Time's ticking!</div>
+            </div>
+            <div style="text-align:center;min-width:64px">
+              <app-wow-countdown [endsAt]="activeTimerEndsAt()" />
+            </div>
+          </div>
+        }
+
+        <!-- Hype Battle banner (visible to all) -->
+        @if (hypeBattleEndsAt() && (w?.status === 'Voting' || w?.status === 'SuddenDeath')) {
+          <div class="hype-battle-banner" style="background:rgba(255,87,34,0.1);border:1px solid rgba(255,87,34,0.4);border-radius:12px;padding:12px 16px;margin-bottom:16px;display:flex;align-items:center;gap:14px">
+            <div style="flex:1">
+              <div style="font-weight:700;font-size:0.85rem;color:#ff7043;text-transform:uppercase;letter-spacing:0.5px">🔥 Hype Battle!</div>
+              <div style="font-size:0.75rem;opacity:0.6;margin-top:2px">Tap 🔥 Hype on your favourite nomination!</div>
+            </div>
+            <div style="text-align:center;min-width:64px">
+              <app-wow-countdown [endsAt]="hypeBattleEndsAt()" />
+            </div>
+          </div>
+        }
 
         <!-- Sudden death countdown banner -->
         @if (w?.status === 'SuddenDeath') {
@@ -148,6 +233,8 @@ import { AppInfoBannerComponent } from '../../shared/components/app-info-banner/
                 [isTied]="tiedNomIds().has(nom.id)"
                 [canApplyCards]="tokenBalance() > 0 && powerUpsEnabled()"
                 [isHost]="isHost()"
+                [hypeBattleActive]="!!hypeBattleEndsAt()"
+                [hypeBattleTotal]="hypeBattleTotal()"
                 (voteClick)="voteClick.emit($event)"
                 (removeVoteClick)="removeVoteClick.emit($event)"
                 (editClick)="editClick.emit($event)"
@@ -178,28 +265,40 @@ import { AppInfoBannerComponent } from '../../shared/components/app-info-banner/
   `
 })
 export class WowCurrentWeekComponent {
-  week          = input<WinWeek | null>(null);
-  loading       = input(false);
-  isHost          = input(false);
-  isGuest         = input(false);
-  isMobile        = input(false);
-  qrDataUrl       = input<string | null>(null);
-  currentUserId   = input('');
-  tokenBalance    = input(0);
-  powerUpsEnabled = input(true);
-  connectedCount  = input(0);
+  week             = input<WinWeek | null>(null);
+  loading          = input(false);
+  isHost           = input(false);
+  isGuest          = input(false);
+  isMobile         = input(false);
+  qrDataUrl        = input<string | null>(null);
+  currentUserId    = input('');
+  tokenBalance     = input(0);
+  powerUpsEnabled  = input(true);
+  connectedCount   = input(0);
+  activeTimerEndsAt   = input<string | null>(null);
+  hypeBattleEndsAt    = input<string | null>(null);
+  suddenDeathDurationOut = input(90);
 
-  nominateClick       = output();
-  openWeekClick       = output();
-  voteClick           = output<string>();
-  removeVoteClick     = output<string>();
-  editClick           = output<WowNominationDisplay>();
-  deleteClick         = output<string>();
-  copyStory           = output<string>();
-  shareClick          = output();
-  hypeClick           = output<string>();
-  applyPowerUpClick   = output<{ nominationId: string; type: string }>();
-  applyChaosCardClick = output<{ nominationId: string; type: string }>();
+  nominateClick           = output();
+  openWeekClick           = output();
+  voteClick               = output<string>();
+  removeVoteClick         = output<string>();
+  editClick               = output<WowNominationDisplay>();
+  deleteClick             = output<string>();
+  copyStory               = output<string>();
+  shareClick              = output();
+  hypeClick               = output<string>();
+  applyPowerUpClick       = output<{ nominationId: string; type: string }>();
+  applyChaosCardClick     = output<{ nominationId: string; type: string }>();
+  startTimerClick         = output<number>();
+  stopTimerClick          = output();
+  startHypeBattleClick    = output<number>();
+  endHypeBattleClick      = output();
+  suddenDeathDurationChange = output<number>();
+
+  timerDuration       = 60;
+  hypeBattleDuration  = 30;
+  suddenDeathDuration = 90;
 
   readonly phaseInfo = computed(() => wowPhaseInfo(this.week()?.status));
 
@@ -225,6 +324,12 @@ export class WowCurrentWeekComponent {
     const cc = this.connectedCount();
     if (!w || cc === 0) return 0;
     return Math.min(100, Math.round((w.totalVotesCast / (cc * 3)) * 100));
+  });
+
+  readonly hypeBattleTotal = computed(() => {
+    const w = this.week();
+    if (!w || !this.hypeBattleEndsAt()) return 0;
+    return w.nominations.reduce((sum, n) => sum + n.hypeMeterCount, 0);
   });
 
   readonly sortedNominations = computed(() => {

@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using TeamManager.Api.Application.DTOs.WinOfTheWeek;
 using TeamManager.Api.Application.Services;
 using TeamManager.Api.Application.Services.Interfaces;
+using TeamManager.Api.Domain.Enums;
 using TeamManager.Api.Infrastructure.Data;
 using TeamManager.Api.Middleware;
 
@@ -280,6 +281,84 @@ public class WinOfTheWeekController(IWinOfTheWeekService service, WinSeriesServi
         }
         catch (KeyNotFoundException ex) { return NotFound(new { error = ex.Message }); }
         catch (InvalidOperationException ex) { return BadRequest(new { error = ex.Message }); }
+    }
+
+    [HttpPost("timer/start")]
+    [RequireFeature("wow-host")]
+    public async Task<IActionResult> StartTimer([FromBody] WowTimerRequest request, [FromQuery] Guid? seriesId = null)
+    {
+        var sid = await ResolveSeriesIdAsync(seriesId);
+        var week = await db.WinWeeks
+            .Where(w => w.WinSeriesId == sid && w.Status != WinWeekStatus.Closed)
+            .OrderByDescending(w => w.WeekStart)
+            .Select(w => new { w.GuestToken })
+            .FirstOrDefaultAsync();
+
+        var endsAt = DateTimeOffset.UtcNow.AddSeconds(request.DurationSeconds);
+        if (week?.GuestToken is { } token)
+            _ = WebSocketMiddleware.BroadcastToSessionAsync("wow_timer_started", token, new { endsAt });
+        else
+            _ = WebSocketMiddleware.BroadcastAsync("wow_timer_started", new { endsAt }, guestAllowed: true);
+
+        return Ok(new { endsAt });
+    }
+
+    [HttpPost("timer/stop")]
+    [RequireFeature("wow-host")]
+    public async Task<IActionResult> StopTimer([FromQuery] Guid? seriesId = null)
+    {
+        var sid = await ResolveSeriesIdAsync(seriesId);
+        var week = await db.WinWeeks
+            .Where(w => w.WinSeriesId == sid && w.Status != WinWeekStatus.Closed)
+            .OrderByDescending(w => w.WeekStart)
+            .Select(w => new { w.GuestToken })
+            .FirstOrDefaultAsync();
+
+        if (week?.GuestToken is { } token)
+            _ = WebSocketMiddleware.BroadcastToSessionAsync("wow_timer_stopped", token, new { });
+        else
+            _ = WebSocketMiddleware.BroadcastAsync("wow_timer_stopped", new { }, guestAllowed: true);
+
+        return Ok();
+    }
+
+    [HttpPost("hype-battle/start")]
+    [RequireFeature("wow-host")]
+    public async Task<IActionResult> StartHypeBattle([FromBody] WowTimerRequest request, [FromQuery] Guid? seriesId = null)
+    {
+        var sid = await ResolveSeriesIdAsync(seriesId);
+        var week = await db.WinWeeks
+            .Where(w => w.WinSeriesId == sid && w.Status != WinWeekStatus.Closed)
+            .OrderByDescending(w => w.WeekStart)
+            .Select(w => new { w.GuestToken })
+            .FirstOrDefaultAsync();
+
+        var endsAt = DateTimeOffset.UtcNow.AddSeconds(request.DurationSeconds);
+        if (week?.GuestToken is { } token)
+            _ = WebSocketMiddleware.BroadcastToSessionAsync("wow_hype_battle_started", token, new { endsAt });
+        else
+            _ = WebSocketMiddleware.BroadcastAsync("wow_hype_battle_started", new { endsAt }, guestAllowed: true);
+
+        return Ok(new { endsAt });
+    }
+
+    [HttpPost("hype-battle/end")]
+    [RequireFeature("wow-host")]
+    public async Task<IActionResult> EndHypeBattle([FromQuery] Guid? seriesId = null)
+    {
+        var sid = await ResolveSeriesIdAsync(seriesId);
+        var week = await db.WinWeeks
+            .Where(w => w.WinSeriesId == sid && w.Status != WinWeekStatus.Closed)
+            .OrderByDescending(w => w.WeekStart)
+            .Select(w => new { w.GuestToken })
+            .FirstOrDefaultAsync();
+
+        if (week?.GuestToken is { } token)
+            _ = WebSocketMiddleware.BroadcastToSessionAsync("wow_hype_battle_ended", token, new { });
+        else
+            _ = WebSocketMiddleware.BroadcastAsync("wow_hype_battle_ended", new { }, guestAllowed: true);
+
+        return Ok();
     }
 
     [HttpGet("history")]

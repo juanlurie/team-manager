@@ -468,7 +468,7 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
 
         week.Status = WinWeekStatus.SuddenDeath;
         week.TiedNominationIds = JsonSerializer.Serialize(request.TiedNominationIds);
-        week.SuddenDeathEndsAt = DateTimeOffset.UtcNow.AddSeconds(90);
+        week.SuddenDeathEndsAt = DateTimeOffset.UtcNow.AddSeconds(request.DurationSeconds ?? 90);
         await db.SaveChangesAsync();
 
         _ = WebSocketMiddleware.BroadcastAsync("sudden_death_started", new
@@ -795,7 +795,7 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
 
     public async Task<WinNominationDto> ApplyChaosCardAsync(Guid memberId, Guid nominationId, string type)
     {
-        var validCards = new HashSet<string> { "ClownMode", "TinyText", "Autocorrect", "DramaticReading" };
+        var validCards = new HashSet<string> { "ClownMode", "TinyText", "Autocorrect", "DramaticReading", "RandomCase", "Hangman" };
         if (!validCards.Contains(type))
             throw new InvalidOperationException($"Invalid chaos card type: {type}");
 

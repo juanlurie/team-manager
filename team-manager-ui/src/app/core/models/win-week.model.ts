@@ -1,5 +1,5 @@
 export type WowPowerUp = 'Spotlight' | 'HypeMeter' | 'Wildcard';
-export type WowChaosCard = 'ClownMode' | 'TinyText' | 'Autocorrect' | 'DramaticReading';
+export type WowChaosCard = 'ClownMode' | 'TinyText' | 'Autocorrect' | 'DramaticReading' | 'RandomCase' | 'Hangman';
 
 export interface WinNomination {
   id: string;
@@ -128,6 +128,11 @@ export interface CloseWeekRequest {
 
 export interface StartSuddenDeathRequest {
   tiedNominationIds: string[];
+  durationSeconds?: number;
+}
+
+export interface WowTimerRequest {
+  durationSeconds: number;
 }
 
 export interface GuestWinWeek {
