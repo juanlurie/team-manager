@@ -32,7 +32,7 @@ public class WinOfTheWeekController(IWinOfTheWeekService service, WinSeriesServi
         try
         {
             var result = await service.CreateNominationAsync(memberId, request, sid);
-            _ = WebSocketMiddleware.BroadcastAsync("nomination_created", new { nomination = result });
+            _ = WebSocketMiddleware.BroadcastAsync("nomination_created", new { nomination = result }, guestAllowed: true);
             return Ok(result);
         }
         catch (InvalidOperationException ex)
@@ -48,7 +48,7 @@ public class WinOfTheWeekController(IWinOfTheWeekService service, WinSeriesServi
         try
         {
             var result = await service.UpdateNominationAsync(memberId, nominationId, request);
-            _ = WebSocketMiddleware.BroadcastAsync("nomination_updated", new { nomination = result });
+            _ = WebSocketMiddleware.BroadcastAsync("nomination_updated", new { nomination = result }, guestAllowed: true);
             return Ok(result);
         }
         catch (KeyNotFoundException)
@@ -68,7 +68,7 @@ public class WinOfTheWeekController(IWinOfTheWeekService service, WinSeriesServi
         try
         {
             await service.DeleteNominationAsync(memberId, nominationId);
-            _ = WebSocketMiddleware.BroadcastAsync("nomination_deleted", new { nominationId });
+            _ = WebSocketMiddleware.BroadcastAsync("nomination_deleted", new { nominationId }, guestAllowed: true);
             return NoContent();
         }
         catch (KeyNotFoundException)
@@ -88,7 +88,7 @@ public class WinOfTheWeekController(IWinOfTheWeekService service, WinSeriesServi
         try
         {
             var result = await service.VoteAsync(memberId, nominationId);
-            _ = WebSocketMiddleware.BroadcastAsync("vote_cast", new { nominationId, voterId = memberId });
+            _ = WebSocketMiddleware.BroadcastAsync("vote_cast", new { nominationId, voterId = memberId }, guestAllowed: true);
             return Ok(result);
         }
         catch (KeyNotFoundException)
@@ -107,7 +107,7 @@ public class WinOfTheWeekController(IWinOfTheWeekService service, WinSeriesServi
         var memberId = GetCurrentMemberId();
         var success = await service.RemoveVoteAsync(memberId, nominationId);
         if (success)
-            _ = WebSocketMiddleware.BroadcastAsync("vote_removed", new { nominationId, voterId = memberId });
+            _ = WebSocketMiddleware.BroadcastAsync("vote_removed", new { nominationId, voterId = memberId }, guestAllowed: true);
         return success ? NoContent() : NotFound();
     }
 
@@ -120,7 +120,7 @@ public class WinOfTheWeekController(IWinOfTheWeekService service, WinSeriesServi
         try
         {
             var result = await service.CloseWeekAsync(memberId, sid, request);
-            _ = WebSocketMiddleware.BroadcastAsync("voting_closed", new { weekId = result.Id, winnerId = request.WinnerNominationId });
+            _ = WebSocketMiddleware.BroadcastAsync("voting_closed", new { weekId = result.Id, winnerId = request.WinnerNominationId }, guestAllowed: true);
             return Ok(result);
         }
         catch (KeyNotFoundException)
@@ -159,7 +159,7 @@ public class WinOfTheWeekController(IWinOfTheWeekService service, WinSeriesServi
         try
         {
             var result = await service.OpenVotingAsync(memberId, sid);
-            _ = WebSocketMiddleware.BroadcastAsync("voting_opened", new { });
+            _ = WebSocketMiddleware.BroadcastAsync("voting_opened", new { }, guestAllowed: true);
             return Ok(result);
         }
         catch (InvalidOperationException ex)
@@ -177,7 +177,7 @@ public class WinOfTheWeekController(IWinOfTheWeekService service, WinSeriesServi
         try
         {
             var result = await service.ReopenNominationsAsync(memberId, sid);
-            _ = WebSocketMiddleware.BroadcastAsync("nominations_reopened", new { });
+            _ = WebSocketMiddleware.BroadcastAsync("nominations_reopened", new { }, guestAllowed: true);
             return Ok(result);
         }
         catch (InvalidOperationException ex)
@@ -195,7 +195,7 @@ public class WinOfTheWeekController(IWinOfTheWeekService service, WinSeriesServi
         try
         {
             var result = await service.StartSuddenDeathAsync(memberId, sid, request);
-            _ = WebSocketMiddleware.BroadcastAsync("sudden_death_started", new { });
+            _ = WebSocketMiddleware.BroadcastAsync("sudden_death_started", new { }, guestAllowed: true);
             return Ok(result);
         }
         catch (InvalidOperationException ex)
@@ -248,7 +248,7 @@ public class WinOfTheWeekController(IWinOfTheWeekService service, WinSeriesServi
         try
         {
             var result = await service.ApplyPowerUpAsync(memberId, nominationId, request.Type);
-            _ = WebSocketMiddleware.BroadcastAsync("nomination_updated", new { nomination = result });
+            _ = WebSocketMiddleware.BroadcastAsync("nomination_updated", new { nomination = result }, guestAllowed: true);
             return Ok(result);
         }
         catch (KeyNotFoundException ex) { return NotFound(new { error = ex.Message }); }
@@ -262,7 +262,7 @@ public class WinOfTheWeekController(IWinOfTheWeekService service, WinSeriesServi
         try
         {
             var result = await service.ApplyChaosCardAsync(memberId, nominationId, request.Type);
-            _ = WebSocketMiddleware.BroadcastAsync("nomination_updated", new { nomination = result });
+            _ = WebSocketMiddleware.BroadcastAsync("nomination_updated", new { nomination = result }, guestAllowed: true);
             return Ok(result);
         }
         catch (KeyNotFoundException ex) { return NotFound(new { error = ex.Message }); }
@@ -275,7 +275,7 @@ public class WinOfTheWeekController(IWinOfTheWeekService service, WinSeriesServi
         try
         {
             var count = await service.IncrementHypeMeterAsync(nominationId);
-            _ = WebSocketMiddleware.BroadcastAsync("hype_meter_tapped", new { nominationId, count });
+            _ = WebSocketMiddleware.BroadcastAsync("hype_meter_tapped", new { nominationId, count }, guestAllowed: true);
             return Ok(new { count });
         }
         catch (KeyNotFoundException ex) { return NotFound(new { error = ex.Message }); }

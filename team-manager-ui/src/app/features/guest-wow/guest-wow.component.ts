@@ -2,9 +2,12 @@ import { Component, OnDestroy, OnInit, inject, signal, computed, ChangeDetection
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
+import { Subscription } from 'rxjs';
 import { GuestWinOfTheWeekService } from './guest-wow.service';
+import { clearCacheForPattern } from '../../core/interceptors/http-cache.interceptor';
 import { GuestWinWeek, GuestNomination, GuestCreateNominationRequest, WowNominationDisplay, WinWeek, WinNomination } from '../../core/models/win-week.model';
 import { WinOfTheWeekService } from '../../core/services/win-of-the-week.service';
+import { WebSocketService } from '../../core/websocket/websocket.service';
 import { AuthService } from '../../core/auth/auth.service';
 import { MobileService } from '../../core/services/mobile.service';
 import { WowCurrentWeekComponent } from '../win-of-the-week/wow-current-week.component';
@@ -55,6 +58,7 @@ function adaptToWinWeek(week: GuestWinWeek): WinWeek {
     activeMemberCount: 0,
     connectedMemberCount: 0,
     tiedNominationIds: week.tiedNominationIds,
+    powerUpsEnabled: false,
     winnerStory: week.winnerStory,
     nominations,
   };
@@ -377,6 +381,7 @@ export class GuestWowComponent implements OnInit, OnDestroy {
   private service  = inject(GuestWinOfTheWeekService);
   private auth     = inject(AuthService);
   private winSvc   = inject(WinOfTheWeekService);
+  private wsSvc    = inject(WebSocketService);
   private mobileSvc = inject(MobileService);
 
   get isMobile() { return this.mobileSvc.isMobile(); }
@@ -398,17 +403,18 @@ export class GuestWowComponent implements OnInit, OnDestroy {
   nomForm:  { nomineeMemberId: string; title: string; description: string } = { nomineeMemberId: '', title: '', description: '' };
 
   isSpinning   = signal(false);
-  spinnerName  = signal('');
+  spinnerName     = signal('');
+  connectedCount  = signal(0);
 
   readonly adaptedWeek = computed(() => {
     const w = this.week();
-    return w ? adaptToWinWeek(w) : null;
+    if (!w) return null;
+    return { ...adaptToWinWeek(w), connectedMemberCount: this.connectedCount() };
   });
 
   private token    = '';
   private sessionId = '';
-  private ws: WebSocket | null = null;
-  private wsReconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  private wsSub: Subscription | null = null;
   private pollInterval: ReturnType<typeof setInterval> | null = null;
   private expiryCheckInterval: ReturnType<typeof setInterval> | null = null;
   private timerExpiredWeekId: string | null = null;
@@ -417,6 +423,43 @@ export class GuestWowComponent implements OnInit, OnDestroy {
   ngOnInit() {
     this.token = this.route.snapshot.paramMap.get('token') ?? '';
     this.sessionId = this.getOrCreateSessionId();
+
+    this.wsSub = this.wsSvc.messages$.subscribe(msg => {
+      if (!msg || !this.guestName() || this.tokenInvalid()) return;
+      if (msg.type === 'hype_meter_tapped') {
+        const nomId = msg.data['nominationId'] as string;
+        const count = msg.data['count'] as number;
+        if (nomId && count !== undefined) {
+          this.week.update(w => w ? {
+            ...w, nominations: w.nominations.map(n => n.id === nomId ? { ...n, hypeMeterCount: count } : n)
+          } : w);
+        }
+      } else if (msg.type === 'voting_closed') {
+        const wk = this.week();
+        const snap = this.suddenDeathSnapshot;
+        this.suddenDeathSnapshot = null;
+        const source = wk?.status === 'SuddenDeath' ? wk : snap ?? null;
+        const tiedNoms = source ? source.nominations.filter(n => source.tiedNominationIds.includes(n.id)) : [];
+        if (tiedNoms.length > 0) {
+          const winner = tiedNoms.find(n => n.id === (msg.data['winnerId'] as string));
+          runTieBreakSpin(
+            tiedNoms.map(n => n.nomineeName),
+            winner?.nomineeName ?? tiedNoms[0].nomineeName,
+            n => this.spinnerName.set(n),
+            v => this.isSpinning.set(v),
+            () => this.refreshWeek()
+          );
+        } else {
+          this.refreshWeek();
+        }
+      } else if (msg.type === 'presence_changed') {
+        const count = msg.data['connectedCount'] as number;
+        if (typeof count === 'number') this.connectedCount.set(count);
+      } else {
+        this.refreshWeek();
+      }
+    });
+
     const savedName = localStorage.getItem(nameKey(this.token)) ?? '';
     if (savedName) {
       this.guestName.set(savedName);
@@ -425,9 +468,7 @@ export class GuestWowComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy() {
-    if (this.wsReconnectTimer) clearTimeout(this.wsReconnectTimer);
-    this.ws?.close();
-    this.ws = null;
+    this.wsSub?.unsubscribe();
     if (this.pollInterval) clearInterval(this.pollInterval);
     if (this.expiryCheckInterval) clearInterval(this.expiryCheckInterval);
   }
@@ -438,9 +479,6 @@ export class GuestWowComponent implements OnInit, OnDestroy {
     localStorage.removeItem(nameKey(this.token));
     this.guestName.set('');
     this.nameInput = '';
-    if (this.wsReconnectTimer) clearTimeout(this.wsReconnectTimer);
-    this.ws?.close();
-    this.ws = null;
     if (this.pollInterval) clearInterval(this.pollInterval);
     if (this.expiryCheckInterval) clearInterval(this.expiryCheckInterval);
   }
@@ -531,60 +569,6 @@ export class GuestWowComponent implements OnInit, OnDestroy {
     return new Date(dateStr).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
   }
 
-  private connectWebSocket() {
-    if (this.wsReconnectTimer) { clearTimeout(this.wsReconnectTimer); this.wsReconnectTimer = null; }
-
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    this.ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
-
-    this.ws.onmessage = (event) => {
-      try {
-        const msg = JSON.parse(event.data);
-        if (msg.type === 'hype_meter_tapped') {
-          const nomId = msg.data?.nominationId as string;
-          const count = msg.data?.count as number;
-          if (nomId && count !== undefined) {
-            this.week.update(w => w ? {
-              ...w,
-              nominations: w.nominations.map(n => n.id === nomId ? { ...n, hypeMeterCount: count } : n)
-            } : w);
-          }
-          return;
-        }
-        if (msg.type === 'voting_closed') {
-          const wk = this.week();
-          const snap = this.suddenDeathSnapshot;
-          this.suddenDeathSnapshot = null;
-          const source = wk?.status === 'SuddenDeath' ? wk : snap ?? null;
-          const tiedNoms = source ? source.nominations.filter(n => source.tiedNominationIds.includes(n.id)) : [];
-          if (tiedNoms.length > 0) {
-            const winner = tiedNoms.find(n => n.id === (msg.data?.winnerId as string));
-            runTieBreakSpin(
-              tiedNoms.map(n => n.nomineeName),
-              winner?.nomineeName ?? tiedNoms[0].nomineeName,
-              n => this.spinnerName.set(n),
-              v => this.isSpinning.set(v),
-              () => this.refreshWeek()
-            );
-          } else {
-            this.refreshWeek();
-          }
-        } else {
-          this.refreshWeek();
-        }
-      } catch { /* ignore */ }
-    };
-
-    this.ws.onerror = () => {
-      this.ws?.close();
-    };
-
-    this.ws.onclose = () => {
-      this.ws = null;
-      this.wsReconnectTimer = setTimeout(() => this.connectWebSocket(), 3000);
-    };
-  }
-
   private loadWeek() {
     this.loading.set(true);
     this.service.getWeek(this.token, this.sessionId).subscribe({
@@ -592,13 +576,14 @@ export class GuestWowComponent implements OnInit, OnDestroy {
         this.updateWeek(week);
         this.loading.set(false);
         if (this.members().length === 0) this.loadMembers();
-        if (!this.ws) this.connectWebSocket();
+        this.wsSvc.connect();
       },
       error: () => { this.tokenInvalid.set(true); this.loading.set(false); }
     });
   }
 
   private refreshWeek() {
+    clearCacheForPattern('/api/v1/guest/wow');
     this.service.getWeek(this.token, this.sessionId).subscribe({
       next: (week) => this.updateWeek(week),
       error: () => {

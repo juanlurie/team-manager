@@ -6,6 +6,12 @@ const TTL_MS = 60_000;
 
 const SKIP_PATTERNS = ['/api/auth', '/api-keys', '/api/auth-mode'];
 
+export function clearCacheForPattern(pattern: string): void {
+  for (const key of cache.keys()) {
+    if (key.includes(pattern)) cache.delete(key);
+  }
+}
+
 export const httpCacheInterceptor: HttpInterceptorFn = (req, next) => {
   // Mutations invalidate all cached data for the same base path
   if (req.method !== 'GET') {

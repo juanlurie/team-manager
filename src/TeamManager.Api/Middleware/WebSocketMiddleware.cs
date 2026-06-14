@@ -9,20 +9,15 @@ public class WebSocketMiddleware
 {
     private static readonly ConcurrentDictionary<Guid, (WebSocket Socket, Guid? MemberId)> _connections = new();
     private static readonly SemaphoreSlim _broadcastLock = new(1, 1);
-
-    private static readonly HashSet<string> _guestAllowedEvents =
-    [
-        "nomination_created", "nomination_updated", "nomination_deleted",
-        "vote_cast", "vote_removed",
-        "voting_opened", "voting_closed",
-        "nominations_reopened", "sudden_death_started",
-        "win_story_ready", "presence_changed",
-        "hype_meter_tapped"
-    ];
+    private static ILogger? _logger;
 
     private readonly RequestDelegate _next;
 
-    public WebSocketMiddleware(RequestDelegate next) => _next = next;
+    public WebSocketMiddleware(RequestDelegate next, ILogger<WebSocketMiddleware> logger)
+    {
+        _next = next;
+        _logger = logger;
+    }
 
     public async Task InvokeAsync(HttpContext context)
     {
@@ -39,7 +34,7 @@ public class WebSocketMiddleware
         var connectionId = Guid.NewGuid();
         var ws = await context.WebSockets.AcceptWebSocketAsync();
         _connections[connectionId] = (ws, memberId);
-        _ = BroadcastAsync("presence_changed", new { connectedCount = GetConnectedMemberCount() });
+        _ = BroadcastAsync("presence_changed", new { connectedCount = GetConnectedMemberCount() }, guestAllowed: true);
 
         try
         {
@@ -48,7 +43,7 @@ public class WebSocketMiddleware
         finally
         {
             _connections.TryRemove(connectionId, out _);
-            _ = BroadcastAsync("presence_changed", new { connectedCount = GetConnectedMemberCount() });
+            _ = BroadcastAsync("presence_changed", new { connectedCount = GetConnectedMemberCount() }, guestAllowed: true);
         }
     }
 
@@ -61,6 +56,8 @@ public class WebSocketMiddleware
             .Count();
         return memberIds;
     }
+
+    public static int GetTotalConnectionCount() => _connections.Count;
 
     private static async Task WaitForClose(WebSocket ws)
     {
@@ -85,7 +82,7 @@ public class WebSocketMiddleware
         }
     }
 
-    public static async Task BroadcastAsync(string type, object data)
+    public static async Task BroadcastAsync(string type, object data, bool guestAllowed = false)
     {
         var message = JsonSerializer.Serialize(new { type, data });
         var bytes = Encoding.UTF8.GetBytes(message);
@@ -94,6 +91,8 @@ public class WebSocketMiddleware
         try
         {
             var dead = new List<Guid>();
+            var sent = 0;
+            var skipped = 0;
             foreach (var (id, entry) in _connections)
             {
                 if (entry.Socket.State != WebSocketState.Open)
@@ -101,12 +100,15 @@ public class WebSocketMiddleware
                     dead.Add(id);
                     continue;
                 }
-                // Guest connections (no MemberId) only receive WoW-related events
-                if (entry.MemberId == null && !_guestAllowedEvents.Contains(type))
+                if (entry.MemberId == null && !guestAllowed)
+                {
+                    skipped++;
                     continue;
+                }
                 try
                 {
                     await entry.Socket.SendAsync(new ArraySegment<byte>(bytes), WebSocketMessageType.Text, true, CancellationToken.None);
+                    sent++;
                 }
                 catch
                 {
@@ -115,6 +117,8 @@ public class WebSocketMiddleware
             }
             foreach (var id in dead)
                 _connections.TryRemove(id, out _);
+            _logger?.LogInformation("WS broadcast [{Type}] guestAllowed={GuestAllowed} total={Total} sent={Sent} skipped={Skipped} dead={Dead}",
+                type, guestAllowed, _connections.Count, sent, skipped, dead.Count);
         }
         finally
         {

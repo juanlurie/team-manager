@@ -91,6 +91,7 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
             TiedNominationIds = week.TiedNominationIds != null
                 ? JsonSerializer.Deserialize<List<Guid>>(week.TiedNominationIds) ?? []
                 : [],
+            PowerUpsEnabled = week.Series?.PowerUpsEnabled ?? true,
             WinnerStory = week.WinnerStory,
             Nominations = nominations.Select(n => new WinNominationDto
             {
@@ -418,6 +419,16 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
         week.Status = WinWeekStatus.Nominating;
         week.TiedNominationIds = null;
         week.SuddenDeathEndsAt = null;
+
+        var nominationIds = await db.WinNominations
+            .Where(n => n.WinWeekId == week.Id)
+            .Select(n => n.Id)
+            .ToListAsync();
+        var votes = await db.WinVotes
+            .Where(v => nominationIds.Contains(v.WinNominationId))
+            .ToListAsync();
+        db.WinVotes.RemoveRange(votes);
+
         await db.SaveChangesAsync();
 
         return (await GetCurrentWeekAsync(memberId, seriesId))!;
@@ -459,7 +470,7 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
             weekId = week.Id,
             endsAt = week.SuddenDeathEndsAt,
             tiedNominationIds = request.TiedNominationIds
-        });
+        }, guestAllowed: true);
 
         return (await GetCurrentWeekAsync(memberId, seriesId))!;
     }
@@ -712,7 +723,7 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
                             {
                                 winWeek.WinnerStory = story.Trim();
                                 await bgDb.SaveChangesAsync();
-                                _ = WebSocketMiddleware.BroadcastAsync("win_story_ready", new { weekId });
+                                _ = WebSocketMiddleware.BroadcastAsync("win_story_ready", new { weekId }, guestAllowed: true);
                             }
                         }
                     }
@@ -984,6 +995,6 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
         {
             weekId = week.Id,
             winnerId = week.WinnerNominationId
-        });
+        }, guestAllowed: true);
     }
 }

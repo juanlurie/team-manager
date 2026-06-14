@@ -19,7 +19,7 @@ export class WebSocketService {
   connected$ = this._connected$.asObservable();
 
   connect(): void {
-    if (this.ws?.readyState === WebSocket.OPEN) return;
+    if (this.ws && (this.ws.readyState === WebSocket.OPEN || this.ws.readyState === WebSocket.CONNECTING)) return;
 
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const host = window.location.host;
@@ -46,6 +46,7 @@ export class WebSocketService {
     this.ws.onclose = () => {
       this._connected$.next(false);
       this.ws = null;
+      clearTimeout(this.reconnectTimer);
       this.reconnectTimer = setTimeout(() => this.connect(), 3000);
     };
 

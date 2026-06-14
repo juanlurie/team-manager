@@ -18,6 +18,14 @@ public class WinSeriesController(WinSeriesService service, AppDbContext db) : Co
         return Ok(result);
     }
 
+    [HttpPatch("{id:guid}/power-ups")]
+    [RequireFeature("wow-host")]
+    public async Task<IActionResult> TogglePowerUps(Guid id)
+    {
+        var result = await service.TogglePowerUpsAsync(id);
+        return Ok(result);
+    }
+
     [HttpPost]
     [RequireFeature("wow-host")]
     public async Task<IActionResult> Create([FromBody] CreateWinSeriesRequest request)
