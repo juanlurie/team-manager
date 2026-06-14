@@ -136,10 +136,6 @@ import { AppInfoBannerComponent } from '../../shared/components/app-info-banner/
           <app-info-banner type="info">💡 You can edit or delete your nominations before voting opens.{{ (!isGuest() && powerUpsEnabled()) ? " Use tokens to apply Power-ups or Chaos Cards to others' nominations!" : '' }}</app-info-banner>
         }
 
-        <!-- All votes used banner -->
-        @if (w?.status === 'Voting' && (w?.userVotesRemaining ?? 0) === 0) {
-          <app-info-banner type="success">✓ All votes cast! Results will be announced Sunday night.</app-info-banner>
-        }
 
         <!-- Vote progress bar -->
         @if (!isGuest() && w && (w.status === 'Voting' || w.status === 'SuddenDeath')) {
@@ -212,11 +208,7 @@ import { AppInfoBannerComponent } from '../../shared/components/app-info-banner/
           <!-- QR code -->
           @if (qrDataUrl()) {
             <img [src]="qrDataUrl()!" alt="Guest QR code"
-                 style="width:280px;height:220px;border-radius:8px;display:block" />
-            <button mat-button (click)="shareClick.emit()"
-                    style="width:100%;border-radius:6px;background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.7)">
-              <mat-icon>share</mat-icon> Share link
-            </button>
+                 style="width:280px;height:280px;border-radius:8px;display:block" />
           }
 
           <!-- Host control panel (voting/sudden death only) -->
