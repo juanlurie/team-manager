@@ -44,4 +44,16 @@ export class GuestWinOfTheWeekService {
       params: { sessionId }
     });
   }
+
+  applyPowerUp(token: string, nominationId: string, sessionId: string, type: string) {
+    return this.http.post<unknown>(`${this.base}/${token}/nominations/${nominationId}/powerup`, { type }, {
+      params: { sessionId }
+    });
+  }
+
+  applyChaosCard(token: string, nominationId: string, sessionId: string, type: string) {
+    return this.http.post<unknown>(`${this.base}/${token}/nominations/${nominationId}/chaoscard`, { type }, {
+      params: { sessionId }
+    });
+  }
 }

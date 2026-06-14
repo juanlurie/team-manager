@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using TeamManager.Api.Application.DTOs.WinOfTheWeek;
 using TeamManager.Api.Application.Services;
+using TeamManager.Api.Middleware;
 
 namespace TeamManager.Api.Presentation.Controllers;
 
@@ -122,5 +123,31 @@ public class GuestWinOfTheWeekController(GuestWinOfTheWeekService service) : Con
         {
             return NotFound(new { error = ex.Message });
         }
+    }
+
+    [HttpPost("{token}/nominations/{nominationId:guid}/powerup")]
+    public async Task<IActionResult> ApplyPowerUp(string token, Guid nominationId, [FromQuery] string sessionId, [FromBody] ApplyWowCardRequest request)
+    {
+        try
+        {
+            var result = await service.ApplyGuestPowerUpAsync(token, nominationId, sessionId, request.Type);
+            _ = WebSocketMiddleware.BroadcastAsync("nomination_updated", new { nomination = result }, guestAllowed: true);
+            return Ok(result);
+        }
+        catch (KeyNotFoundException ex) { return NotFound(new { error = ex.Message }); }
+        catch (InvalidOperationException ex) { return BadRequest(new { error = ex.Message }); }
+    }
+
+    [HttpPost("{token}/nominations/{nominationId:guid}/chaoscard")]
+    public async Task<IActionResult> ApplyChaosCard(string token, Guid nominationId, [FromQuery] string sessionId, [FromBody] ApplyWowCardRequest request)
+    {
+        try
+        {
+            var result = await service.ApplyGuestChaosCardAsync(token, nominationId, sessionId, request.Type);
+            _ = WebSocketMiddleware.BroadcastAsync("nomination_updated", new { nomination = result }, guestAllowed: true);
+            return Ok(result);
+        }
+        catch (KeyNotFoundException ex) { return NotFound(new { error = ex.Message }); }
+        catch (InvalidOperationException ex) { return BadRequest(new { error = ex.Message }); }
     }
 }

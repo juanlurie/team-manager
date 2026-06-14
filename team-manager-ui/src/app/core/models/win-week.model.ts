@@ -148,6 +148,8 @@ export interface GuestWinWeek {
   winnerStory: string | null;
   suddenDeathEndsAt: string | null;
   tiedNominationIds: string[];
+  powerUpsEnabled: boolean;
+  guestTokenBalance: number;
   nominations: GuestNomination[];
 }
 

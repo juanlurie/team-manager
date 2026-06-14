@@ -14,6 +14,8 @@ public record GuestWinWeekDto
     public string? WinnerStory { get; init; }
     public DateTimeOffset? SuddenDeathEndsAt { get; init; }
     public IReadOnlyList<Guid> TiedNominationIds { get; init; } = [];
+    public bool PowerUpsEnabled { get; init; }
+    public int GuestTokenBalance { get; init; }
     public IReadOnlyList<GuestNominationDto> Nominations { get; init; } = [];
 }
 
