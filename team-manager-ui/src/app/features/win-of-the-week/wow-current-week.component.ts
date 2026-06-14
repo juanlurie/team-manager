@@ -8,7 +8,6 @@ import { wowPhaseInfo } from '../../shared/utils/wow.utils';
 import { WowNominationCardComponent } from '../../shared/components/wow-nomination-card/wow-nomination-card.component';
 import { WowWinnerBannerComponent } from '../../shared/components/wow-winner-banner/wow-winner-banner.component';
 import { WowCountdownComponent } from '../../shared/components/wow-countdown/wow-countdown.component';
-import { WowDurationPickerComponent } from '../../shared/components/wow-duration-picker/wow-duration-picker.component';
 import { AppLoadingComponent } from '../../shared/components/app-loading/app-loading.component';
 import { AppEmptyStateComponent } from '../../shared/components/app-empty-state/app-empty-state.component';
 import { AppInfoBannerComponent } from '../../shared/components/app-info-banner/app-info-banner.component';
@@ -24,7 +23,6 @@ import { AppInfoBannerComponent } from '../../shared/components/app-info-banner/
     WowNominationCardComponent,
     WowWinnerBannerComponent,
     WowCountdownComponent,
-    WowDurationPickerComponent,
     AppLoadingComponent,
     AppEmptyStateComponent,
     AppInfoBannerComponent
@@ -35,18 +33,17 @@ import { AppInfoBannerComponent } from '../../shared/components/app-info-banner/
     .hype-battle-banner { animation: hypePulse 1.5s ease-in-out infinite; }
     .host-ctrl { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1); border-radius: 14px; padding: 14px 16px; margin-bottom: 16px; }
     .ctrl-label { font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; opacity: 0.45; margin-bottom: 8px; }
-    .dur-input { width: 60px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15); border-radius: 6px; padding: 4px 8px; color: #fff; font-size: 0.85rem; text-align: center; outline: none; }
     .ctrl-btn { font-size: 0.75rem; height: 28px; line-height: 26px; padding: 0 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.15); background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.75); cursor: pointer; transition: background 0.15s; white-space: nowrap; }
     .ctrl-btn:hover { background: rgba(255,255,255,0.12); }
     .ctrl-btn.stop { background: rgba(255,87,34,0.15); border-color: rgba(255,87,34,0.4); color: #ff7043; }
     .ctrl-btn.danger { background: rgba(239,83,80,0.1); border-color: rgba(239,83,80,0.3); color: #ef5350; }
-    .ctrl-btn.sd-btn { background: rgba(255,87,34,0.18); border-color: rgba(255,87,34,0.5); color: #ff7043; font-weight: 700; }
-    .ctrl-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-    .picker-row { display: flex; align-items: center; gap: 6px; }
-    .picker-row app-wow-duration-picker { flex: 1; min-width: 0; }
     .label-row { display: flex; align-items: center; justify-content: space-between; width: 100%; }
     .ctrl-section { display: flex; flex-direction: column; gap: 6px; }
     .ctrl-sep { height: 1px; background: rgba(255,255,255,0.07); margin: 10px 0; }
+    .preset-row { display: flex; gap: 6px; }
+    .preset-btn { flex: 1; font-size: 0.75rem; height: 30px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.15); background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.8); cursor: pointer; font-weight: 600; transition: background 0.15s; font-family: inherit; }
+    .preset-btn:hover { background: rgba(255,255,255,0.14); }
+    .preset-btn.sd { background: rgba(255,87,34,0.15); border-color: rgba(255,87,34,0.4); color: #ff7043; }
   `],
   template: `
     @let w = week();
@@ -244,50 +241,48 @@ import { AppInfoBannerComponent } from '../../shared/components/app-info-banner/
               @if (w.status === 'Voting' || w.status === 'SuddenDeath') {
                 <!-- Timer section -->
                 <div class="ctrl-section">
-                  <div class="label-row">
-                    <span class="ctrl-label" style="margin:0">Countdown Timer</span>
-                    @if (!activeTimerEndsAt()) {
-                      <button class="ctrl-btn" (click)="startTimerClick.emit(timerDuration)">Start</button>
-                    } @else {
-                      <button class="ctrl-btn stop" (click)="stopTimerClick.emit()">Stop</button>
-                    }
-                  </div>
-                  <app-wow-duration-picker                    [value]="timerDuration" [max]="600"
-                    [disabled]="!!activeTimerEndsAt()"
-                    (valueChange)="timerDuration = $event" />
+                  <span class="ctrl-label">Countdown Timer</span>
+                  @if (!activeTimerEndsAt()) {
+                    <div class="preset-row">
+                      <button class="preset-btn" (click)="startTimerClick.emit(30)">30s</button>
+                      <button class="preset-btn" (click)="startTimerClick.emit(60)">1:00</button>
+                      <button class="preset-btn" (click)="startTimerClick.emit(90)">1:30</button>
+                    </div>
+                  } @else {
+                    <button class="ctrl-btn stop" style="width:100%" (click)="stopTimerClick.emit()">Stop Timer</button>
+                  }
                 </div>
 
                 <div class="ctrl-sep"></div>
 
-                <!-- Hype Battle section -->
-                <div class="ctrl-section">
-                  <div class="label-row">
-                    <span class="ctrl-label" style="margin:0">Hype Battle</span>
+                <!-- Hype Battle section (only when tied) -->
+                @if (tiedNomIds().size > 0) {
+                  <div class="ctrl-section">
+                    <span class="ctrl-label">🔥 Hype Battle</span>
                     @if (!hypeBattleEndsAt()) {
-                      <button class="ctrl-btn" (click)="startHypeBattleClick.emit(hypeBattleDuration)">Start</button>
+                      <div class="preset-row">
+                        <button class="preset-btn" (click)="startHypeBattleClick.emit(30)">30s</button>
+                        <button class="preset-btn" (click)="startHypeBattleClick.emit(60)">1:00</button>
+                        <button class="preset-btn" (click)="startHypeBattleClick.emit(90)">1:30</button>
+                      </div>
                     } @else {
-                      <button class="ctrl-btn stop" (click)="endHypeBattleClick.emit()">Stop</button>
+                      <button class="ctrl-btn stop" style="width:100%" (click)="endHypeBattleClick.emit()">Stop Battle</button>
                     }
                   </div>
-                  <app-wow-duration-picker                    [value]="hypeBattleDuration" [max]="300"
-                    [disabled]="!!hypeBattleEndsAt()"
-                    (valueChange)="hypeBattleDuration = $event" />
-                </div>
 
-                <div class="ctrl-sep"></div>
+                  <div class="ctrl-sep"></div>
+                }
 
                 <!-- End Voting / Sudden Death -->
                 <div class="ctrl-section">
                   @if (w.status === 'Voting') {
                     @if (tiedNomIds().size > 0) {
-                      <div class="label-row">
-                        <span class="ctrl-label" style="margin:0;color:#ff7043;opacity:1">Tie detected</span>
+                      <span class="ctrl-label" style="color:#ff7043;opacity:1">Tie detected</span>
+                      <div class="preset-row">
+                        <button class="preset-btn sd" (click)="suddenDeathDurationChange.emit(60); startSuddenDeathClick.emit()">1:00</button>
+                        <button class="preset-btn sd" (click)="suddenDeathDurationChange.emit(90); startSuddenDeathClick.emit()">1:30</button>
+                        <button class="preset-btn sd" (click)="suddenDeathDurationChange.emit(120); startSuddenDeathClick.emit()">2:00</button>
                       </div>
-                      <app-wow-duration-picker                        [value]="suddenDeathDuration" [max]="600"
-                        (valueChange)="suddenDeathDuration = $event; suddenDeathDurationChange.emit($event)" />
-                      <button class="ctrl-btn sd-btn" style="width:100%" (click)="startSuddenDeathClick.emit()">
-                        Sudden Death
-                      </button>
                     } @else {
                       <button class="ctrl-btn danger" style="width:100%" (click)="endVotingClick.emit()">
                         End Voting
@@ -339,9 +334,6 @@ export class WowCurrentWeekComponent {
   reopenNominationsClick    = output();
   suddenDeathDurationChange = output<number>();
 
-  timerDuration       = 60;
-  hypeBattleDuration  = 30;
-  suddenDeathDuration = 90;
 
   readonly phaseInfo = computed(() => wowPhaseInfo(this.week()?.status));
 
@@ -379,9 +371,12 @@ export class WowCurrentWeekComponent {
     const w = this.week();
     if (!w) return [];
     let noms = [...w.nominations];
+    const tiedIds = this.tiedNomIds();
     if (w.status === 'SuddenDeath' && w.tiedNominationIds?.length) {
       const tied = new Set(w.tiedNominationIds);
       noms = noms.filter(n => tied.has(n.id));
+    } else if (this.hypeBattleEndsAt() && tiedIds.size > 0) {
+      noms = noms.filter(n => tiedIds.has(n.id));
     }
     if (w.status === 'Voting' || w.status === 'SuddenDeath' || w.status === 'Closed')
       noms = noms.sort((a, b) => b.voteCount - a.voteCount || new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
