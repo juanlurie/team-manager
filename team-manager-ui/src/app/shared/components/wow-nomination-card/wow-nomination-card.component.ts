@@ -11,6 +11,7 @@ const AUTOCORRECT_SWAPS: Record<string, string> = {
   'the': 'teh', 'and': 'nad', 'done': 'doen', 'code': 'c0de', 'build': 'bild',
   'issue': 'isssue', 'problem': 'problam', 'team': 'tame', 'work': 'wrk', 'amazing': 'amzaing'
 };
+const CLOWN_COLORS = ['#FF6B6B', '#FFD93D', '#6BCB77', '#4D96FF', '#FF6FC8'];
 
 function seededPick<T>(arr: T[], seed: string): T {
   const h = [...seed].reduce((a, c) => (a * 31 + c.charCodeAt(0)) | 0, 0);
@@ -25,6 +26,19 @@ function autocorrect(text: string, seed: string): string {
   return words.map((w, i) => (i === idxA || i === idxB) ? trySwap(w) : w).join(' ');
 }
 
+function randomCase(text: string): string {
+  return [...text].map((c, i) => i % 2 === 0 ? c.toUpperCase() : c.toLowerCase()).join('');
+}
+
+function hangman(text: string, seed: string): string {
+  const h = Math.abs([...seed].reduce((a, c) => (a * 31 + c.charCodeAt(0)) | 0, 0));
+  return [...text].map((c, i) => {
+    if (c === ' ') return ' ';
+    const keep = ((h + i * 7) % 3) !== 0;
+    return keep ? c : '_';
+  }).join('');
+}
+
 const POWER_UP_META: Record<WowPowerUp, { icon: string; label: string; bg: string; color: string }> = {
   Spotlight: { icon: '⭐', label: 'Spotlight', bg: 'rgba(255,215,0,0.15)', color: '#FFD700' },
   HypeMeter: { icon: '🔥', label: 'Hype Meter', bg: 'rgba(255,87,34,0.12)', color: '#ff7043' },
@@ -35,7 +49,9 @@ const CHAOS_CARD_META: Record<WowChaosCard, { label: string }> = {
   ClownMode:      { label: 'Clown Mode' },
   TinyText:       { label: 'Tiny Text' },
   Autocorrect:    { label: 'Autocorrect' },
-  DramaticReading:{ label: 'Dramatic Reading' }
+  DramaticReading:{ label: 'Dramatic Reading' },
+  RandomCase:     { label: 'RaNdOm CaSe' },
+  Hangman:        { label: 'Hangman' }
 };
 
 @Component({
@@ -44,14 +60,20 @@ const CHAOS_CARD_META: Record<WowChaosCard, { label: string }> = {
   imports: [MatIconModule, MatButtonModule, MatTooltipModule, MatMenuModule],
   changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
+    @keyframes clownPulse { 0%,100%{filter:hue-rotate(0deg) brightness(1)} 25%{filter:hue-rotate(30deg) brightness(1.1)} 75%{filter:hue-rotate(-30deg) brightness(0.95)} }
+    @keyframes clownBorder { 0%,100%{border-color:rgba(255,87,34,0.5)} 33%{border-color:rgba(255,215,0,0.6)} 66%{border-color:rgba(171,71,188,0.5)} }
     .card { transition: border 0.3s, background 0.3s, transform 0.3s; position: relative; }
     .card.tiny { transform: scale(0.62); transform-origin: top left; }
-    .card.clown { border-color: rgba(255,87,34,0.5) !important; background: rgba(255,87,34,0.06) !important; }
+    .card.clown { animation: clownBorder 2s linear infinite; background: rgba(255,87,34,0.07) !important; }
+    .card.clown .card-title { animation: clownPulse 3s ease-in-out infinite; }
     .card.spotlight { border-color: rgba(255,215,0,0.5) !important; }
     .hype-btn { background: rgba(255,87,34,0.15); border: 1px solid rgba(255,87,34,0.35); border-radius: 20px; padding: 4px 12px; cursor: pointer; color: #ff7043; font-size: 0.82rem; font-weight: 700; transition: background 0.15s; }
     .hype-btn:hover { background: rgba(255,87,34,0.28); }
     .hype-btn:active { transform: scale(0.93); }
     .apply-menu-btn { font-size: 0.72rem; height: 26px; line-height: 26px; padding: 0 8px; opacity: 0.7; }
+    .flame-bar-wrap { margin-top: 10px; }
+    .flame-bar-bg { height: 6px; border-radius: 3px; background: rgba(255,255,255,0.08); overflow: hidden; }
+    .flame-bar-fill { height: 100%; border-radius: 3px; transition: width 0.5s ease; background: linear-gradient(90deg,#ff7043,#ffd600); }
   `],
   template: `
     @let nom = nomination();
@@ -62,7 +84,8 @@ const CHAOS_CARD_META: Record<WowChaosCard, { label: string }> = {
     @let isClown = showEffects && cc === 'ClownMode';
     @let isSpot = pu === 'Spotlight';
     @let dramaticVoice = cc === 'DramaticReading' ? seededPick(nom.id) : null;
-    @let displayTitle = (showEffects && cc === 'Autocorrect') ? autocorrectTitle() : nom.title;
+    @let displayTitle = showEffects ? transformedTitle() : nom.title;
+    @let flamePct = hypeBattleActive() && hypeBattleTotal() > 0 ? Math.round(nom.hypeMeterCount / hypeBattleTotal() * 100) : 0;
 
     <div [class.tiny]="isTiny" [class.clown]="isClown" [class.spotlight]="isSpot"
          [style.border]="cardBorder()" [style.background]="cardBg()"
@@ -76,14 +99,16 @@ const CHAOS_CARD_META: Record<WowChaosCard, { label: string }> = {
       <!-- Avatar -->
       <div [style.background]="avatarBg()" [style.color]="avatarColor()" [style.border]="avatarBorder()"
            style="width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:0.85rem;font-weight:700">
-        @if (isClown && showEffects) { 🤡 } @else { {{initials()}} }
+        @if (isClown && showEffects) { 🤡🎪 } @else { {{initials()}} }
       </div>
 
       <!-- Content -->
       <div style="flex:1;min-width:0">
-        <div style="font-weight:700;font-size:0.95rem">{{nom.nomineeName}}</div>
-        <div style="font-weight:600;font-size:0.85rem;margin-top:2px">
-          @if (isClown && showEffects) { 🤡 } {{displayTitle}} @if (isClown && showEffects) { 🤡 }
+        <div style="font-weight:700;font-size:0.95rem">
+          @if (isClown && showEffects) { <span [style.color]="clownNameColor()">{{nom.nomineeName}}</span> } @else { {{nom.nomineeName}} }
+        </div>
+        <div class="card-title" style="font-weight:600;font-size:0.85rem;margin-top:2px">
+          @if (isClown && showEffects) { 🎉 } {{displayTitle}} @if (isClown && showEffects) { 🎉 }
         </div>
         @if (nom.description) {
           <div style="font-size:0.8rem;opacity:0.55;margin-top:4px;line-height:1.4">{{nom.description}}</div>
@@ -121,6 +146,19 @@ const CHAOS_CARD_META: Record<WowChaosCard, { label: string }> = {
           <button class="hype-btn" style="margin-top:8px" (click)="hypeClick.emit(nom.id)">
             🔥 Hype! ({{nom.hypeMeterCount}})
           </button>
+        }
+
+        <!-- Hype Battle flame bar -->
+        @if (hypeBattleActive() && (weekStatus() === 'Voting' || weekStatus() === 'SuddenDeath')) {
+          <div class="flame-bar-wrap">
+            <div style="display:flex;justify-content:space-between;font-size:0.65rem;opacity:0.5;margin-bottom:3px">
+              <span>🔥 Hype Battle</span>
+              <span>{{flamePct}}%</span>
+            </div>
+            <div class="flame-bar-bg">
+              <div class="flame-bar-fill" [style.width]="flamePct + '%'"></div>
+            </div>
+          </div>
         }
 
         <!-- Apply card buttons (during nominating, for other members) -->
@@ -202,7 +240,7 @@ const CHAOS_CARD_META: Record<WowChaosCard, { label: string }> = {
     <!-- Chaos card menu -->
     <mat-menu #ccMenu="matMenu">
       <button mat-menu-item (click)="applyChaosCardClick.emit({ nominationId: nom.id, type: 'ClownMode' })">
-        🤡 Clown Mode — silly styling
+        🤡 Clown Mode — animated party chaos
       </button>
       <button mat-menu-item (click)="applyChaosCardClick.emit({ nominationId: nom.id, type: 'TinyText' })">
         🔬 Tiny Text — comically small
@@ -213,17 +251,25 @@ const CHAOS_CARD_META: Record<WowChaosCard, { label: string }> = {
       <button mat-menu-item (click)="applyChaosCardClick.emit({ nominationId: nom.id, type: 'DramaticReading' })">
         🎭 Dramatic Reading — assigned voice
       </button>
+      <button mat-menu-item (click)="applyChaosCardClick.emit({ nominationId: nom.id, type: 'RandomCase' })">
+        🔡 RaNdOm CaSe — aLtErNaTiNg CaPs
+      </button>
+      <button mat-menu-item (click)="applyChaosCardClick.emit({ nominationId: nom.id, type: 'Hangman' })">
+        🪤 Hangman — partially obscured text
+      </button>
     </mat-menu>
   `
 })
 export class WowNominationCardComponent {
-  nomination    = input.required<WowNominationDisplay>();
-  weekStatus    = input.required<'Nominating' | 'Voting' | 'SuddenDeath' | 'Closed'>();
-  canEdit       = input(false);
-  votesRemaining = input(0);
-  isTied        = input(false);
-  canApplyCards = input(false);
-  isHost        = input(false);
+  nomination      = input.required<WowNominationDisplay>();
+  weekStatus      = input.required<'Nominating' | 'Voting' | 'SuddenDeath' | 'Closed'>();
+  canEdit         = input(false);
+  votesRemaining  = input(0);
+  isTied          = input(false);
+  canApplyCards   = input(false);
+  isHost          = input(false);
+  hypeBattleActive = input(false);
+  hypeBattleTotal  = input(0);
 
   voteClick           = output<string>();
   removeVoteClick     = output<string>();
@@ -233,7 +279,21 @@ export class WowNominationCardComponent {
   applyPowerUpClick   = output<{ nominationId: string; type: string }>();
   applyChaosCardClick = output<{ nominationId: string; type: string }>();
 
-  readonly autocorrectTitle = computed(() => autocorrect(this.nomination().title, this.nomination().id));
+  readonly Math = Math;
+
+  readonly transformedTitle = computed(() => {
+    const nom = this.nomination();
+    switch (nom.chaosCard) {
+      case 'Autocorrect': return autocorrect(nom.title, nom.id);
+      case 'RandomCase':  return randomCase(nom.title);
+      case 'Hangman':     return hangman(nom.title, nom.id);
+      default:            return nom.title;
+    }
+  });
+
+  clownNameColor() {
+    return seededPick(CLOWN_COLORS, this.nomination().id);
+  }
 
   seededPick(id: string): string {
     return seededPick(DRAMATIC_VOICES, id);

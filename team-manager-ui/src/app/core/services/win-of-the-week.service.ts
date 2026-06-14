@@ -1,6 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { WinWeek, WinNomination, WinVote, CreateNominationRequest, CloseWeekRequest, StartSuddenDeathRequest, WinWeekHistory, WinWeekDetail, ApplyWowCardRequest } from '../models/win-week.model';
+import { WinWeek, WinNomination, WinVote, CreateNominationRequest, CloseWeekRequest, StartSuddenDeathRequest, WinWeekHistory, WinWeekDetail, ApplyWowCardRequest, WowTimerRequest } from '../models/win-week.model';
 
 @Injectable({ providedIn: 'root' })
 export class WinOfTheWeekService {
@@ -96,5 +96,29 @@ export class WinOfTheWeekService {
 
   incrementHypeMeter(nominationId: string) {
     return this.http.post<{ count: number }>(`${this.base}/nominations/${nominationId}/hype`, {});
+  }
+
+  startTimer(request: WowTimerRequest, seriesId?: string) {
+    const params: any = {};
+    if (seriesId) params.seriesId = seriesId;
+    return this.http.post<{ endsAt: string }>(`${this.base}/timer/start`, request, { params });
+  }
+
+  stopTimer(seriesId?: string) {
+    const params: any = {};
+    if (seriesId) params.seriesId = seriesId;
+    return this.http.post<void>(`${this.base}/timer/stop`, {}, { params });
+  }
+
+  startHypeBattle(request: WowTimerRequest, seriesId?: string) {
+    const params: any = {};
+    if (seriesId) params.seriesId = seriesId;
+    return this.http.post<{ endsAt: string }>(`${this.base}/hype-battle/start`, request, { params });
+  }
+
+  endHypeBattle(seriesId?: string) {
+    const params: any = {};
+    if (seriesId) params.seriesId = seriesId;
+    return this.http.post<void>(`${this.base}/hype-battle/end`, {}, { params });
   }
 }
