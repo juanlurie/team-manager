@@ -132,6 +132,10 @@ import { clearCacheForPattern } from '../../core/interceptors/http-cache.interce
           }
           @if (isHost()) {
             <mat-divider />
+            <button mat-menu-item (click)="togglePowerUps()">
+              <mat-icon>{{ powerUpsEnabled() ? 'toggle_on' : 'toggle_off' }}</mat-icon>
+              {{ powerUpsEnabled() ? 'Disable' : 'Enable' }} Power-ups &amp; Chaos Cards
+            </button>
             <button mat-menu-item (click)="showNewSeriesPrompt()">
               <mat-icon>add_circle_outline</mat-icon>Start Another Series
             </button>
@@ -166,6 +170,8 @@ import { clearCacheForPattern } from '../../core/interceptors/http-cache.interce
             [qrDataUrl]="qrDataUrl()"
             [currentUserId]="currentUserId"
             [tokenBalance]="tokenBalance()"
+            [powerUpsEnabled]="powerUpsEnabled()"
+            [connectedCount]="connectedCount()"
             (nominateClick)="showNominateDialog()"
             (openWeekClick)="openNextWeek()"
             (voteClick)="vote($event)"
@@ -287,6 +293,13 @@ export class WinOfTheWeekComponent implements OnInit, OnDestroy {
   newSeriesName       = '';
   tokenBalance        = signal(0);
 
+  connectedCount      = signal(0);
+
+  readonly powerUpsEnabled = computed(() => {
+    const sid = this.currentSeriesId();
+    return this.series().find(s => s.id === sid)?.powerUpsEnabled ?? true;
+  });
+
   readonly isHost       = this.featureAccess.hasAccess$('wow-host');
   readonly hasWinOfMonth = this.featureAccess.hasAccess$('win-of-month');
 
@@ -325,10 +338,14 @@ export class WinOfTheWeekComponent implements OnInit, OnDestroy {
     this.wsSub = this.wsSvc.messages$.subscribe(msg => {
       if (!msg || this.activeTab() !== 'current') return;
       switch (msg.type) {
+        case 'presence_changed': {
+          const count = msg.data['connectedCount'] as number;
+          if (typeof count === 'number') this.connectedCount.set(count);
+          break;
+        }
         case 'vote_cast': case 'vote_removed': case 'nomination_created':
         case 'nomination_updated': case 'nomination_deleted': case 'voting_opened':
-        case 'sudden_death_started': case 'nominations_reopened':
-        case 'presence_changed': case 'win_story_ready':
+        case 'sudden_death_started': case 'nominations_reopened': case 'win_story_ready':
           this.silentRefresh(); break;
         case 'hype_meter_tapped': {
           const nomId = msg.data['nominationId'] as string;
@@ -375,7 +392,7 @@ export class WinOfTheWeekComponent implements OnInit, OnDestroy {
     if (!sid) { this.loading.set(false); return; }
     this.loading.set(true);
     this.winSvc.getCurrentWeek(sid).subscribe({
-      next: (week) => { this.currentWeek.set(week); if (week) this.currentUserId = week.currentMemberId; this.loading.set(false); },
+      next: (week) => { this.currentWeek.set(week); if (week) { this.currentUserId = week.currentMemberId; this.connectedCount.set(week.connectedMemberCount); } this.loading.set(false); },
       error: () => { this.loading.set(false); this.snackBar.open('Failed to load Win of the Week', 'Close', { duration: 3000 }); }
     });
     this.winSvc.getTokenBalance(sid).subscribe({ next: r => this.tokenBalance.set(r.balance), error: () => {} });
@@ -386,7 +403,7 @@ export class WinOfTheWeekComponent implements OnInit, OnDestroy {
     if (!sid) return;
     clearCacheForPattern('/api/v1/win-of-the-week');
     this.winSvc.getCurrentWeek(sid).subscribe({
-      next: (week) => { this.currentWeek.set(week); if (week) this.currentUserId = week.currentMemberId; }
+      next: (week) => { this.currentWeek.set(week); if (week) { this.currentUserId = week.currentMemberId; this.connectedCount.set(week.connectedMemberCount); } }
     });
   }
 
@@ -396,6 +413,15 @@ export class WinOfTheWeekComponent implements OnInit, OnDestroy {
     this.guestUrl.set(null);
     this.qrDataUrl.set(null);
     this.refresh();
+  }
+
+  togglePowerUps() {
+    const sid = this.currentSeriesId();
+    if (!sid) return;
+    this.seriesSvc.togglePowerUps(sid).subscribe({
+      next: (updated) => this.series.update(list => list.map(s => s.id === updated.id ? updated : s)),
+      error: () => this.snackBar.open('Failed to toggle power-ups', 'Close', { duration: 3000 })
+    });
   }
 
   showNewSeriesPrompt()  { this.newSeriesName = ''; this.showNewSeriesDialog.set(true); }

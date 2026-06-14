@@ -9,10 +9,15 @@ public class WebSocketMiddleware
 {
     private static readonly ConcurrentDictionary<Guid, (WebSocket Socket, Guid? MemberId)> _connections = new();
     private static readonly SemaphoreSlim _broadcastLock = new(1, 1);
+    private static ILogger? _logger;
 
     private readonly RequestDelegate _next;
 
-    public WebSocketMiddleware(RequestDelegate next) => _next = next;
+    public WebSocketMiddleware(RequestDelegate next, ILogger<WebSocketMiddleware> logger)
+    {
+        _next = next;
+        _logger = logger;
+    }
 
     public async Task InvokeAsync(HttpContext context)
     {
@@ -86,6 +91,8 @@ public class WebSocketMiddleware
         try
         {
             var dead = new List<Guid>();
+            var sent = 0;
+            var skipped = 0;
             foreach (var (id, entry) in _connections)
             {
                 if (entry.Socket.State != WebSocketState.Open)
@@ -94,10 +101,14 @@ public class WebSocketMiddleware
                     continue;
                 }
                 if (entry.MemberId == null && !guestAllowed)
+                {
+                    skipped++;
                     continue;
+                }
                 try
                 {
                     await entry.Socket.SendAsync(new ArraySegment<byte>(bytes), WebSocketMessageType.Text, true, CancellationToken.None);
+                    sent++;
                 }
                 catch
                 {
@@ -106,6 +117,8 @@ public class WebSocketMiddleware
             }
             foreach (var id in dead)
                 _connections.TryRemove(id, out _);
+            _logger?.LogInformation("WS broadcast [{Type}] guestAllowed={GuestAllowed} total={Total} sent={Sent} skipped={Skipped} dead={Dead}",
+                type, guestAllowed, _connections.Count, sent, skipped, dead.Count);
         }
         finally
         {

@@ -58,6 +58,7 @@ function adaptToWinWeek(week: GuestWinWeek): WinWeek {
     activeMemberCount: 0,
     connectedMemberCount: 0,
     tiedNominationIds: week.tiedNominationIds,
+    powerUpsEnabled: false,
     winnerStory: week.winnerStory,
     nominations,
   };
@@ -402,11 +403,13 @@ export class GuestWowComponent implements OnInit, OnDestroy {
   nomForm:  { nomineeMemberId: string; title: string; description: string } = { nomineeMemberId: '', title: '', description: '' };
 
   isSpinning   = signal(false);
-  spinnerName  = signal('');
+  spinnerName     = signal('');
+  connectedCount  = signal(0);
 
   readonly adaptedWeek = computed(() => {
     const w = this.week();
-    return w ? adaptToWinWeek(w) : null;
+    if (!w) return null;
+    return { ...adaptToWinWeek(w), connectedMemberCount: this.connectedCount() };
   });
 
   private token    = '';
@@ -449,7 +452,10 @@ export class GuestWowComponent implements OnInit, OnDestroy {
         } else {
           this.refreshWeek();
         }
-      } else if (msg.type !== 'presence_changed') {
+      } else if (msg.type === 'presence_changed') {
+        const count = msg.data['connectedCount'] as number;
+        if (typeof count === 'number') this.connectedCount.set(count);
+      } else {
         this.refreshWeek();
       }
     });

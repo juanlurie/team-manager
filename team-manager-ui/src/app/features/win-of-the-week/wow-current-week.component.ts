@@ -58,7 +58,7 @@ import { AppInfoBannerComponent } from '../../shared/components/app-info-banner/
             }
           }
           <!-- Token balance pill -->
-          @if (w?.status === 'Nominating' && tokenBalance() > 0) {
+          @if (w?.status === 'Nominating' && tokenBalance() > 0 && powerUpsEnabled()) {
             <span matTooltip="Spend tokens on Power-ups or Chaos Cards for other people's nominations"
                   style="font-size:0.72rem;font-weight:700;padding:3px 10px;border-radius:20px;background:rgba(255,215,0,0.1);color:#FFD700;cursor:default">
               🎟️ {{ tokenBalance() }} token{{ tokenBalance() !== 1 ? 's' : '' }}
@@ -92,7 +92,7 @@ import { AppInfoBannerComponent } from '../../shared/components/app-info-banner/
 
         <!-- Info banner during nominating phase -->
         @if (w?.status === 'Nominating') {
-          <app-info-banner type="info">💡 You can edit or delete your nominations before voting opens.{{ isGuest() ? '' : " Use tokens to apply Power-ups or Chaos Cards to others' nominations!" }}</app-info-banner>
+          <app-info-banner type="info">💡 You can edit or delete your nominations before voting opens.{{ (!isGuest() && powerUpsEnabled()) ? " Use tokens to apply Power-ups or Chaos Cards to others' nominations!" : '' }}</app-info-banner>
         }
 
         <!-- All votes used banner -->
@@ -107,9 +107,9 @@ import { AppInfoBannerComponent } from '../../shared/components/app-info-banner/
             <div style="display:flex;justify-content:space-between;font-size:0.7rem;opacity:0.5;margin-bottom:4px">
               <span>
                 <mat-icon style="font-size:12px;width:12px;height:12px;vertical-align:middle">people</mat-icon>
-                {{ w.connectedMemberCount }} connected
+                {{ connectedCount() }} connected
               </span>
-              <span>{{ w.totalVotesCast }}{{ w.connectedMemberCount > 0 ? ' / ' + (w.connectedMemberCount * 3) : '' }} votes cast</span>
+              <span>{{ w.totalVotesCast }}{{ connectedCount() > 0 ? ' / ' + (connectedCount() * 3) : '' }} votes cast</span>
             </div>
             <div style="height:4px;border-radius:2px;background:rgba(255,255,255,0.08);overflow:hidden">
               <div [style.width]="pct + '%'" style="height:100%;background:#4caf50;border-radius:2px;transition:width 0.4s ease"></div>
@@ -146,7 +146,7 @@ import { AppInfoBannerComponent } from '../../shared/components/app-info-banner/
                 [canEdit]="nom.teamMemberId === currentUserId()"
                 [votesRemaining]="w.userVotesRemaining"
                 [isTied]="tiedNomIds().has(nom.id)"
-                [canApplyCards]="tokenBalance() > 0"
+                [canApplyCards]="tokenBalance() > 0 && powerUpsEnabled()"
                 [isHost]="isHost()"
                 (voteClick)="voteClick.emit($event)"
                 (removeVoteClick)="removeVoteClick.emit($event)"
@@ -180,12 +180,14 @@ import { AppInfoBannerComponent } from '../../shared/components/app-info-banner/
 export class WowCurrentWeekComponent {
   week          = input<WinWeek | null>(null);
   loading       = input(false);
-  isHost        = input(false);
-  isGuest       = input(false);
-  isMobile      = input(false);
-  qrDataUrl     = input<string | null>(null);
-  currentUserId = input('');
-  tokenBalance  = input(0);
+  isHost          = input(false);
+  isGuest         = input(false);
+  isMobile        = input(false);
+  qrDataUrl       = input<string | null>(null);
+  currentUserId   = input('');
+  tokenBalance    = input(0);
+  powerUpsEnabled = input(true);
+  connectedCount  = input(0);
 
   nominateClick       = output();
   openWeekClick       = output();
@@ -220,8 +222,9 @@ export class WowCurrentWeekComponent {
 
   readonly voteProgressPct = computed(() => {
     const w = this.week();
-    if (!w || w.connectedMemberCount === 0) return 0;
-    return Math.min(100, Math.round((w.totalVotesCast / (w.connectedMemberCount * 3)) * 100));
+    const cc = this.connectedCount();
+    if (!w || cc === 0) return 0;
+    return Math.min(100, Math.round((w.totalVotesCast / (cc * 3)) * 100));
   });
 
   readonly sortedNominations = computed(() => {
