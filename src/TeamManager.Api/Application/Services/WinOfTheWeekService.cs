@@ -87,11 +87,12 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
             UserNominationsRemaining = MaxNominationsPerPerson - userNominationCount,
             TotalVotesCast = totalVotesCast,
             ActiveMemberCount = activeMemberCount,
-            ConnectedMemberCount = WebSocketMiddleware.GetConnectedMemberCount(),
+            ConnectedMemberCount = week.GuestToken != null ? WebSocketMiddleware.GetSessionCount(week.GuestToken) : 0,
             TiedNominationIds = week.TiedNominationIds != null
                 ? JsonSerializer.Deserialize<List<Guid>>(week.TiedNominationIds) ?? []
                 : [],
             PowerUpsEnabled = week.Series?.PowerUpsEnabled ?? true,
+            GuestToken = week.GuestToken,
             WinnerStory = week.WinnerStory,
             Nominations = nominations.Select(n => new WinNominationDto
             {

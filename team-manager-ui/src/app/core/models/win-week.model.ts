@@ -53,6 +53,7 @@ export interface WinWeek {
   connectedMemberCount: number;
   tiedNominationIds: string[];
   powerUpsEnabled: boolean;
+  guestToken: string | null;
   winnerStory: string | null;
   nominations: WinNomination[];
 }
