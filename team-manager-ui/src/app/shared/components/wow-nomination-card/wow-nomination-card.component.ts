@@ -141,10 +141,10 @@ const CHAOS_CARD_META: Record<WowChaosCard, { label: string }> = {
           }
         </div>
 
-        <!-- Hype Meter tap button (during call) -->
-        @if (showEffects && pu === 'HypeMeter' && weekStatus() !== 'Closed') {
+        <!-- Hype Meter tap button (always during call if HypeMeter; or during hype battle for any nomination) -->
+        @if (showEffects && weekStatus() !== 'Closed' && (pu === 'HypeMeter' || hypeBattleActive())) {
           <button class="hype-btn" style="margin-top:8px" (click)="hypeClick.emit(nom.id)">
-            🔥 Hype! ({{nom.hypeMeterCount}})
+            🔥 @if (hypeBattleActive()) { Battle Hype! } @else { Hype! } ({{nom.hypeMeterCount}})
           </button>
         }
 

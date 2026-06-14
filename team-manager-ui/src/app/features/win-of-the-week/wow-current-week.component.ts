@@ -1,5 +1,4 @@
 import { Component, computed, input, output, ChangeDetectionStrategy } from '@angular/core';
-import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
@@ -8,6 +7,7 @@ import { wowPhaseInfo } from '../../shared/utils/wow.utils';
 import { WowNominationCardComponent } from '../../shared/components/wow-nomination-card/wow-nomination-card.component';
 import { WowWinnerBannerComponent } from '../../shared/components/wow-winner-banner/wow-winner-banner.component';
 import { WowCountdownComponent } from '../../shared/components/wow-countdown/wow-countdown.component';
+import { WowDurationPickerComponent } from '../../shared/components/wow-duration-picker/wow-duration-picker.component';
 import { AppLoadingComponent } from '../../shared/components/app-loading/app-loading.component';
 import { AppEmptyStateComponent } from '../../shared/components/app-empty-state/app-empty-state.component';
 import { AppInfoBannerComponent } from '../../shared/components/app-info-banner/app-info-banner.component';
@@ -16,13 +16,13 @@ import { AppInfoBannerComponent } from '../../shared/components/app-info-banner/
   selector: 'app-wow-current-week',
   standalone: true,
   imports: [
-    FormsModule,
     MatButtonModule,
     MatIconModule,
     MatTooltipModule,
     WowNominationCardComponent,
     WowWinnerBannerComponent,
     WowCountdownComponent,
+    WowDurationPickerComponent,
     AppLoadingComponent,
     AppEmptyStateComponent,
     AppInfoBannerComponent
@@ -48,50 +48,6 @@ import { AppInfoBannerComponent } from '../../shared/components/app-info-banner/
 
       <!-- Main column -->
       <div style="flex:1;min-width:0">
-
-        <!-- Host control panel (voting/sudden death only) -->
-        @if (isHost() && w && (w.status === 'Voting' || w.status === 'SuddenDeath')) {
-          <div class="host-ctrl">
-            <div style="font-size:0.75rem;font-weight:700;opacity:0.6;margin-bottom:12px;display:flex;align-items:center;gap:6px">
-              <mat-icon style="font-size:14px;width:14px;height:14px">tune</mat-icon> Host Controls
-            </div>
-
-            <!-- Timer row -->
-            <div class="ctrl-label">Countdown Timer</div>
-            <div class="ctrl-row" style="margin-bottom:12px">
-              <input class="dur-input" type="number" min="5" max="600" [(ngModel)]="timerDuration"
-                     [disabled]="!!activeTimerEndsAt()" />
-              <span style="font-size:0.75rem;opacity:0.45">sec</span>
-              @if (!activeTimerEndsAt()) {
-                <button class="ctrl-btn" (click)="startTimerClick.emit(timerDuration)">▶ Start Timer</button>
-              } @else {
-                <button class="ctrl-btn active" (click)="stopTimerClick.emit()">⏹ Stop Timer</button>
-              }
-            </div>
-
-            <!-- Hype Battle row -->
-            <div class="ctrl-label">Hype Battle</div>
-            <div class="ctrl-row" style="margin-bottom:12px">
-              <input class="dur-input" type="number" min="5" max="300" [(ngModel)]="hypeBattleDuration"
-                     [disabled]="!!hypeBattleEndsAt()" />
-              <span style="font-size:0.75rem;opacity:0.45">sec</span>
-              @if (!hypeBattleEndsAt()) {
-                <button class="ctrl-btn" (click)="startHypeBattleClick.emit(hypeBattleDuration)">🔥 Start Hype Battle</button>
-              } @else {
-                <button class="ctrl-btn active" (click)="endHypeBattleClick.emit()">⏹ End Battle</button>
-              }
-            </div>
-
-            <!-- Sudden Death duration -->
-            @if (w.status === 'Voting') {
-              <div class="ctrl-label">Sudden Death Duration</div>
-              <div class="ctrl-row">
-                <input class="dur-input" type="number" min="10" max="600" [(ngModel)]="suddenDeathDuration" />
-                <span style="font-size:0.75rem;opacity:0.45">sec (applies when you start sudden death)</span>
-              </div>
-            }
-          </div>
-        }
 
         <!-- Phase badge + quota row -->
         <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap">
@@ -249,15 +205,83 @@ import { AppInfoBannerComponent } from '../../shared/components/app-info-banner/
 
       </div>
 
-      <!-- Desktop QR sidebar -->
-      @if (isHost() && qrDataUrl() && !isMobile()) {
-        <div style="flex-shrink:0;width:180px;position:sticky;top:16px">
-          <img [src]="qrDataUrl()!" alt="Guest QR code"
-               style="width:180px;height:180px;border-radius:8px;display:block" />
-          <button mat-button (click)="shareClick.emit()"
-                  style="margin-top:8px;width:100%;border-radius:6px;background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.7)">
-            <mat-icon>share</mat-icon> Share link
-          </button>
+      <!-- Desktop sidebar (QR + host controls) -->
+      @if (isHost() && !isMobile()) {
+        <div style="flex-shrink:0;width:220px;position:sticky;top:16px;display:flex;flex-direction:column;gap:12px">
+
+          <!-- QR code -->
+          @if (qrDataUrl()) {
+            <img [src]="qrDataUrl()!" alt="Guest QR code"
+                 style="width:220px;height:220px;border-radius:8px;display:block" />
+            <button mat-button (click)="shareClick.emit()"
+                    style="width:100%;border-radius:6px;background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.7)">
+              <mat-icon>share</mat-icon> Share link
+            </button>
+          }
+
+          <!-- Host control panel (voting/sudden death only) -->
+          @if (w && (w.status === 'Voting' || w.status === 'SuddenDeath')) {
+            <div class="host-ctrl">
+              <div style="font-size:0.75rem;font-weight:700;opacity:0.6;margin-bottom:12px;display:flex;align-items:center;gap:6px">
+                <mat-icon style="font-size:14px;width:14px;height:14px">tune</mat-icon> Host Controls
+              </div>
+
+              <!-- Timer row -->
+              <div class="ctrl-label">Countdown Timer</div>
+              <div style="margin-bottom:12px">
+                <app-wow-duration-picker
+                  [value]="timerDuration"
+                  [max]="600"
+                  [disabled]="!!activeTimerEndsAt()"
+                  (valueChange)="timerDuration = $event"
+                />
+                <div class="ctrl-row" style="margin-top:6px">
+                  @if (!activeTimerEndsAt()) {
+                    <button class="ctrl-btn" (click)="startTimerClick.emit(timerDuration)">▶ Start</button>
+                  } @else {
+                    <button class="ctrl-btn active" (click)="stopTimerClick.emit()">⏹ Stop</button>
+                  }
+                </div>
+              </div>
+
+              <!-- Hype Battle row -->
+              <div class="ctrl-label">Hype Battle</div>
+              <div style="margin-bottom:12px">
+                <app-wow-duration-picker
+                  [value]="hypeBattleDuration"
+                  [max]="300"
+                  [disabled]="!!hypeBattleEndsAt()"
+                  (valueChange)="hypeBattleDuration = $event"
+                />
+                <div class="ctrl-row" style="margin-top:6px">
+                  @if (!hypeBattleEndsAt()) {
+                    <button class="ctrl-btn" (click)="startHypeBattleClick.emit(hypeBattleDuration)">🔥 Start Battle</button>
+                  } @else {
+                    <button class="ctrl-btn active" (click)="endHypeBattleClick.emit()">⏹ End Battle</button>
+                  }
+                </div>
+              </div>
+
+              <!-- Sudden Death duration (voting phase only) -->
+              @if (w.status === 'Voting') {
+                <div class="ctrl-label">Sudden Death Duration</div>
+                <div style="margin-bottom:12px">
+                  <app-wow-duration-picker
+                    [value]="suddenDeathDuration"
+                    [max]="600"
+                    (valueChange)="suddenDeathDuration = $event; suddenDeathDurationChange.emit($event)"
+                  />
+                </div>
+              }
+
+              <!-- End Voting / End Sudden Death -->
+              @if (w.status === 'Voting') {
+                <button class="ctrl-btn danger" style="width:100%;margin-top:4px" (click)="endVotingClick.emit()">
+                  🏁 End Voting
+                </button>
+              }
+            </div>
+          }
         </div>
       }
 
@@ -277,7 +301,6 @@ export class WowCurrentWeekComponent {
   connectedCount   = input(0);
   activeTimerEndsAt   = input<string | null>(null);
   hypeBattleEndsAt    = input<string | null>(null);
-  suddenDeathDurationOut = input(90);
 
   nominateClick           = output();
   openWeekClick           = output();
@@ -290,10 +313,11 @@ export class WowCurrentWeekComponent {
   hypeClick               = output<string>();
   applyPowerUpClick       = output<{ nominationId: string; type: string }>();
   applyChaosCardClick     = output<{ nominationId: string; type: string }>();
-  startTimerClick         = output<number>();
-  stopTimerClick          = output();
-  startHypeBattleClick    = output<number>();
-  endHypeBattleClick      = output();
+  startTimerClick           = output<number>();
+  stopTimerClick            = output();
+  startHypeBattleClick      = output<number>();
+  endHypeBattleClick        = output();
+  endVotingClick            = output();
   suddenDeathDurationChange = output<number>();
 
   timerDuration       = 60;

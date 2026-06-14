@@ -34,6 +34,7 @@ public class GuestWinOfTheWeekService(AppDbContext db, IHttpContextAccessor http
     public async Task<GuestWinWeekDto> GetWeekByTokenAsync(string token, string guestSessionId)
     {
         var week = await db.WinWeeks
+            .Include(w => w.Series)
             .FirstOrDefaultAsync(w => w.GuestToken == token)
             ?? throw new KeyNotFoundException("Invalid or expired guest link.");
 
@@ -57,6 +58,7 @@ public class GuestWinOfTheWeekService(AppDbContext db, IHttpContextAccessor http
 
         var nominationIds = nominations.Select(n => n.Id).ToList();
         var guestNominationCount = nominations.Count(n => n.GuestSessionId == guestSessionId);
+        var guestCardsSpent = nominations.Count(n => n.GuestCardAppliedBySessionId == guestSessionId);
 
         var guestVotedIds = await db.WinVotes
             .Where(v => v.GuestSessionId == guestSessionId && nominationIds.Contains(v.WinNominationId))
@@ -97,6 +99,8 @@ public class GuestWinOfTheWeekService(AppDbContext db, IHttpContextAccessor http
             TiedNominationIds = !string.IsNullOrEmpty(week.TiedNominationIds)
                 ? System.Text.Json.JsonSerializer.Deserialize<List<Guid>>(week.TiedNominationIds) ?? []
                 : [],
+            PowerUpsEnabled = week.Series?.PowerUpsEnabled ?? true,
+            GuestTokenBalance = Math.Max(0, 1 - guestCardsSpent),
             Nominations = nominations.Select(n => new GuestNominationDto
             {
                 Id = n.Id,
@@ -312,6 +316,103 @@ public class GuestWinOfTheWeekService(AppDbContext db, IHttpContextAccessor http
 
         return true;
     }
+
+    public async Task<GuestNominationDto> ApplyGuestPowerUpAsync(string token, Guid nominationId, string guestSessionId, string type)
+    {
+        var validPowerUps = new HashSet<string> { "Spotlight", "HypeMeter" };
+        if (!validPowerUps.Contains(type))
+            throw new InvalidOperationException($"Invalid power-up type: {type}");
+
+        var nomination = await db.WinNominations
+            .Include(n => n.WinWeek).ThenInclude(w => w.Series)
+            .Include(n => n.Nominee)
+            .Include(n => n.Votes)
+            .FirstOrDefaultAsync(n => n.Id == nominationId)
+            ?? throw new KeyNotFoundException("Nomination not found.");
+
+        if (nomination.WinWeek.GuestToken != token)
+            throw new KeyNotFoundException("Invalid or expired guest link.");
+
+        if (!(nomination.WinWeek.Series?.PowerUpsEnabled ?? true))
+            throw new InvalidOperationException("Power-ups are disabled for this series.");
+
+        if (nomination.WinWeek.Status != WinWeekStatus.Nominating)
+            throw new InvalidOperationException("Power-ups can only be applied during the nominating phase.");
+
+        if (nomination.GuestSessionId == guestSessionId)
+            throw new InvalidOperationException("You cannot apply a power-up to your own nomination.");
+
+        if (nomination.PowerUp is not null)
+            throw new InvalidOperationException("A power-up has already been applied to this nomination.");
+
+        var alreadySpent = await db.WinNominations
+            .AnyAsync(n => n.WinWeekId == nomination.WinWeekId && n.GuestCardAppliedBySessionId == guestSessionId);
+        if (alreadySpent)
+            throw new InvalidOperationException("You have already spent your token this week.");
+
+        nomination.PowerUp = type;
+        nomination.GuestCardAppliedBySessionId = guestSessionId;
+        await db.SaveChangesAsync();
+
+        return MapGuestNominationDto(nomination, guestSessionId);
+    }
+
+    public async Task<GuestNominationDto> ApplyGuestChaosCardAsync(string token, Guid nominationId, string guestSessionId, string type)
+    {
+        var validCards = new HashSet<string> { "ClownMode", "TinyText", "Autocorrect", "DramaticReading", "RandomCase", "Hangman" };
+        if (!validCards.Contains(type))
+            throw new InvalidOperationException($"Invalid chaos card type: {type}");
+
+        var nomination = await db.WinNominations
+            .Include(n => n.WinWeek).ThenInclude(w => w.Series)
+            .Include(n => n.Nominee)
+            .Include(n => n.Votes)
+            .FirstOrDefaultAsync(n => n.Id == nominationId)
+            ?? throw new KeyNotFoundException("Nomination not found.");
+
+        if (nomination.WinWeek.GuestToken != token)
+            throw new KeyNotFoundException("Invalid or expired guest link.");
+
+        if (!(nomination.WinWeek.Series?.PowerUpsEnabled ?? true))
+            throw new InvalidOperationException("Power-ups are disabled for this series.");
+
+        if (nomination.WinWeek.Status != WinWeekStatus.Nominating)
+            throw new InvalidOperationException("Chaos cards can only be applied during the nominating phase.");
+
+        if (nomination.GuestSessionId == guestSessionId)
+            throw new InvalidOperationException("You cannot apply a chaos card to your own nomination.");
+
+        if (nomination.ChaosCard is not null)
+            throw new InvalidOperationException("A chaos card has already been applied to this nomination.");
+
+        var alreadySpent = await db.WinNominations
+            .AnyAsync(n => n.WinWeekId == nomination.WinWeekId && n.GuestCardAppliedBySessionId == guestSessionId);
+        if (alreadySpent)
+            throw new InvalidOperationException("You have already spent your token this week.");
+
+        nomination.ChaosCard = type;
+        nomination.GuestCardAppliedBySessionId = guestSessionId;
+        await db.SaveChangesAsync();
+
+        return MapGuestNominationDto(nomination, guestSessionId);
+    }
+
+    private static GuestNominationDto MapGuestNominationDto(WinNomination n, string guestSessionId) => new()
+    {
+        Id = n.Id,
+        NomineeMemberId = n.NomineeMemberId,
+        NomineeName = $"{n.Nominee.FirstName} {n.Nominee.LastName}",
+        NominatorDisplayName = n.TeamMember != null ? $"{n.TeamMember.FirstName} {n.TeamMember.LastName}" : (n.GuestName ?? "Guest"),
+        Title = n.Title,
+        Description = n.Description,
+        VoteCount = n.Votes.Count,
+        HasVoted = false,
+        IsOwned = n.GuestSessionId == guestSessionId,
+        CreatedAt = n.CreatedAt,
+        PowerUp = n.PowerUp,
+        ChaosCard = n.ChaosCard,
+        HypeMeterCount = n.HypeMeterCount
+    };
 
     public async Task<IReadOnlyList<object>> GetMembersAsync(string token)
     {

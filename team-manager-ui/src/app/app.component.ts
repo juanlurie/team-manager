@@ -1,6 +1,7 @@
 import { Component, signal, inject, ChangeDetectionStrategy } from '@angular/core';
 import { RouterOutlet, Router, NavigationEnd, NavigationStart, NavigationCancel, NavigationError } from '@angular/router';
 import { MatDialogModule, MatDialog } from '@angular/material/dialog';
+import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { trigger, animate, style, transition } from '@angular/animations';
 import { QuickOpenDialogComponent } from './core/components/quick-open-dialog/quick-open-dialog.component';
 import { KPickerData, KPickerResult } from './core/components/k-picker/k-picker.types';
@@ -10,6 +11,7 @@ import { FeatureAccessService } from './core/services/feature-access.service';
 import { TimesheetDefaultsService } from './core/services/timesheet-defaults.service';
 import { NavService } from './core/nav/nav.service';
 import { MobileService } from './core/services/mobile.service';
+import { WebSocketService } from './core/websocket/websocket.service';
 import { AppSidebarComponent } from './shared/components/app-sidebar/app-sidebar.component';
 import { AppBottomNavComponent } from './shared/components/app-bottom-nav/app-bottom-nav.component';
 
@@ -23,7 +25,7 @@ const routeFade = trigger('routeFade', [
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [RouterOutlet, MatDialogModule, AppSidebarComponent, AppBottomNavComponent],
+  imports: [RouterOutlet, MatDialogModule, MatSnackBarModule, AppSidebarComponent, AppBottomNavComponent],
   animations: [routeFade],
   template: `
     @if (navLoading()) {
@@ -152,10 +154,12 @@ const routeFade = trigger('routeFade', [
 export class AppComponent {
   private router = inject(Router);
   private dialog = inject(MatDialog);
+  private snackBar = inject(MatSnackBar);
   private globalFilterSvc = inject(GlobalFilterService);
   private auth = inject(AuthService);
   private featureAccess = inject(FeatureAccessService);
   private tsd = inject(TimesheetDefaultsService);
+  private wsSvc = inject(WebSocketService);
 
   nav = inject(NavService);
   mobile = inject(MobileService);
@@ -171,6 +175,15 @@ export class AppComponent {
       if (status === 'authorized') {
         this.featureAccess.loadPermissions();
         this.tsd.load();
+      }
+    });
+
+    this.wsSvc.messages$.subscribe(msg => {
+      if (!msg) return;
+      if (msg.type === 'access_request_submitted' && this.featureAccess.hasAccess('access-requests')) {
+        const name = msg.data['name'] as string;
+        const ref = this.snackBar.open(`🔔 Access request from ${name}`, 'Review', { duration: 8000 });
+        ref.onAction().subscribe(() => this.router.navigate(['/team/access-requests']));
       }
     });
 
