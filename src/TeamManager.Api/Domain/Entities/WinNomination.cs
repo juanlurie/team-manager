@@ -15,5 +15,9 @@ public class WinNomination
     public WinWeek WinWeek { get; set; } = null!;
     public TeamMember? TeamMember { get; set; }   // submitter; null for guest nominations
     public TeamMember Nominee { get; set; } = null!;       // nominated
+    public string? PowerUp { get; set; }
+    public string? ChaosCard { get; set; }
+    public int HypeMeterCount { get; set; } = 0;
+
     public ICollection<WinVote> Votes { get; set; } = [];
 }

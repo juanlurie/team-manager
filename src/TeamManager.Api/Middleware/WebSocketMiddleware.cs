@@ -16,7 +16,8 @@ public class WebSocketMiddleware
         "vote_cast", "vote_removed",
         "voting_opened", "voting_closed",
         "nominations_reopened", "sudden_death_started",
-        "win_story_ready", "presence_changed"
+        "win_story_ready", "presence_changed",
+        "hype_meter_tapped"
     ];
 
     private readonly RequestDelegate _next;

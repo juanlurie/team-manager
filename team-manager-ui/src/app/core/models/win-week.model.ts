@@ -1,3 +1,6 @@
+export type WowPowerUp = 'Spotlight' | 'HypeMeter' | 'Wildcard';
+export type WowChaosCard = 'ClownMode' | 'TinyText' | 'Autocorrect' | 'DramaticReading';
+
 export interface WinNomination {
   id: string;
   winWeekId: string;
@@ -11,6 +14,9 @@ export interface WinNomination {
   createdAt: string;
   voteCount: number;
   hasVoted: boolean;
+  powerUp: WowPowerUp | null;
+  chaosCard: WowChaosCard | null;
+  hypeMeterCount: number;
 }
 
 export interface WinVote {
@@ -148,6 +154,9 @@ export interface GuestNomination {
   hasVoted: boolean;
   isOwned: boolean;
   createdAt: string;
+  powerUp: WowPowerUp | null;
+  chaosCard: WowChaosCard | null;
+  hypeMeterCount: number;
 }
 
 export interface WowNominationDisplay {
@@ -160,6 +169,13 @@ export interface WowNominationDisplay {
   voteCount: number;
   hasVoted: boolean;
   isOwned: boolean;
+  powerUp: WowPowerUp | null;
+  chaosCard: WowChaosCard | null;
+  hypeMeterCount: number;
+}
+
+export interface ApplyWowCardRequest {
+  type: string;
 }
 
 export interface GuestCreateNominationRequest {
