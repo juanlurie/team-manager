@@ -632,8 +632,9 @@ export class GuestWowComponent implements OnInit, OnDestroy {
   }
 
   private getOrCreateSessionId(): string {
-    let id = localStorage.getItem(SESSION_ID_KEY);
-    if (!id) { id = crypto.randomUUID(); localStorage.setItem(SESSION_ID_KEY, id); }
+    const key = `${SESSION_ID_KEY}_${this.token}`;
+    let id = sessionStorage.getItem(key);
+    if (!id) { id = crypto.randomUUID(); sessionStorage.setItem(key, id); }
     return id;
   }
 }
