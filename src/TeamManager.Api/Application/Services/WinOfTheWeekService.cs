@@ -91,6 +91,7 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
             TiedNominationIds = week.TiedNominationIds != null
                 ? JsonSerializer.Deserialize<List<Guid>>(week.TiedNominationIds) ?? []
                 : [],
+            PowerUpsEnabled = week.Series?.PowerUpsEnabled ?? true,
             WinnerStory = week.WinnerStory,
             Nominations = nominations.Select(n => new WinNominationDto
             {
@@ -418,6 +419,16 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
         week.Status = WinWeekStatus.Nominating;
         week.TiedNominationIds = null;
         week.SuddenDeathEndsAt = null;
+
+        var nominationIds = await db.WinNominations
+            .Where(n => n.WinWeekId == week.Id)
+            .Select(n => n.Id)
+            .ToListAsync();
+        var votes = await db.WinVotes
+            .Where(v => nominationIds.Contains(v.WinNominationId))
+            .ToListAsync();
+        db.WinVotes.RemoveRange(votes);
+
         await db.SaveChangesAsync();
 
         return (await GetCurrentWeekAsync(memberId, seriesId))!;

@@ -6,6 +6,7 @@ public class WinSeries
     public string Name { get; set; } = string.Empty;
     public Guid CreatedByMemberId { get; set; }
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
+    public bool PowerUpsEnabled { get; set; } = true;
 
     public TeamMember? CreatedBy { get; set; }
     public ICollection<WinWeek> Weeks { get; set; } = [];

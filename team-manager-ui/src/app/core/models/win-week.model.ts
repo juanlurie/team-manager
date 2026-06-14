@@ -30,6 +30,7 @@ export interface WinSeries {
   id: string;
   name: string;
   createdAt: string;
+  powerUpsEnabled: boolean;
 }
 
 export interface WinWeek {
@@ -51,6 +52,7 @@ export interface WinWeek {
   activeMemberCount: number;
   connectedMemberCount: number;
   tiedNominationIds: string[];
+  powerUpsEnabled: boolean;
   winnerStory: string | null;
   nominations: WinNomination[];
 }

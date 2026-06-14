@@ -11,7 +11,7 @@ public class WinSeriesService(AppDbContext db)
     {
         return await db.WinSeries
             .OrderBy(s => s.CreatedAt)
-            .Select(s => new WinSeriesDto { Id = s.Id, Name = s.Name, CreatedAt = s.CreatedAt })
+            .Select(s => new WinSeriesDto { Id = s.Id, Name = s.Name, CreatedAt = s.CreatedAt, PowerUpsEnabled = s.PowerUpsEnabled })
             .ToListAsync();
     }
 
@@ -26,6 +26,15 @@ public class WinSeriesService(AppDbContext db)
         db.WinSeries.Add(series);
         await db.SaveChangesAsync();
 
-        return new WinSeriesDto { Id = series.Id, Name = series.Name, CreatedAt = series.CreatedAt };
+        return new WinSeriesDto { Id = series.Id, Name = series.Name, CreatedAt = series.CreatedAt, PowerUpsEnabled = series.PowerUpsEnabled };
+    }
+
+    public async Task<WinSeriesDto> TogglePowerUpsAsync(Guid seriesId)
+    {
+        var series = await db.WinSeries.FindAsync(seriesId)
+            ?? throw new KeyNotFoundException("Series not found.");
+        series.PowerUpsEnabled = !series.PowerUpsEnabled;
+        await db.SaveChangesAsync();
+        return new WinSeriesDto { Id = series.Id, Name = series.Name, CreatedAt = series.CreatedAt, PowerUpsEnabled = series.PowerUpsEnabled };
     }
 }
