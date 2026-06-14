@@ -29,6 +29,7 @@ import { AppModalComponent } from '../../shared/components/app-modal/app-modal.c
 import { WowTieBreakSpinnerComponent } from '../../shared/components/wow-tie-break-spinner/wow-tie-break-spinner.component';
 import { WowCurrentWeekComponent } from './wow-current-week.component';
 import { runTieBreakSpin } from '../../shared/utils/wow.utils';
+import { clearCacheForPattern } from '../../core/interceptors/http-cache.interceptor';
 
 @Component({
   selector: 'app-win-of-the-week',
@@ -383,6 +384,7 @@ export class WinOfTheWeekComponent implements OnInit, OnDestroy {
   private silentRefresh() {
     const sid = this.currentSeriesId();
     if (!sid) return;
+    clearCacheForPattern('/api/v1/win-of-the-week');
     this.winSvc.getCurrentWeek(sid).subscribe({
       next: (week) => { this.currentWeek.set(week); if (week) this.currentUserId = week.currentMemberId; }
     });

@@ -4,6 +4,7 @@ import { ActivatedRoute } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { Subscription } from 'rxjs';
 import { GuestWinOfTheWeekService } from './guest-wow.service';
+import { clearCacheForPattern } from '../../core/interceptors/http-cache.interceptor';
 import { GuestWinWeek, GuestNomination, GuestCreateNominationRequest, WowNominationDisplay, WinWeek, WinNomination } from '../../core/models/win-week.model';
 import { WinOfTheWeekService } from '../../core/services/win-of-the-week.service';
 import { WebSocketService } from '../../core/websocket/websocket.service';
@@ -576,6 +577,7 @@ export class GuestWowComponent implements OnInit, OnDestroy {
   }
 
   private refreshWeek() {
+    clearCacheForPattern('/api/v1/guest/wow');
     this.service.getWeek(this.token, this.sessionId).subscribe({
       next: (week) => this.updateWeek(week),
       error: () => {
