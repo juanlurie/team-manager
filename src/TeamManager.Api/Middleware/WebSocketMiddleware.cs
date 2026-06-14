@@ -47,15 +47,8 @@ public class WebSocketMiddleware
         }
     }
 
-    public static int GetConnectedMemberCount()
-    {
-        var memberIds = _connections.Values
-            .Where(c => c.MemberId.HasValue)
-            .Select(c => c.MemberId!.Value)
-            .Distinct()
-            .Count();
-        return memberIds;
-    }
+    public static int GetConnectedMemberCount() =>
+        _connections.Values.Count(c => c.MemberId.HasValue);
 
     public static int GetTotalConnectionCount() => _connections.Count;
 
