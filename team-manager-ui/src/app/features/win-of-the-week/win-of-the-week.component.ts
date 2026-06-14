@@ -268,7 +268,10 @@ export class WinOfTheWeekComponent implements OnInit, OnDestroy {
       if (!week || !this.isHost() || week.id === lastTokenWeekId) return;
       lastTokenWeekId = week.id;
       this.winSvc.generateGuestToken(week.id).subscribe({
-        next: (result) => this.guestUrl.set(`${window.location.origin}/guest/wow/${result.token}`),
+        next: (result) => {
+          this.guestUrl.set(`${window.location.origin}/guest/wow/${result.token}`);
+          this.wsSvc.send({ type: 'join_wow', sessionKey: result.token });
+        },
         error: () => {}
       });
     });
@@ -334,6 +337,14 @@ export class WinOfTheWeekComponent implements OnInit, OnDestroy {
     });
 
     this.wsSvc.connect();
+    // Re-join session when WS reconnects (handles reconnects mid-session)
+    const connSub = this.wsSvc.connected$.subscribe(connected => {
+      if (connected) {
+        const token = this.currentWeek()?.guestToken;
+        if (token) this.wsSvc.send({ type: 'join_wow', sessionKey: token });
+      }
+    });
+    this.wsSub?.add(connSub);
     this.wsSub = this.wsSvc.messages$.subscribe(msg => {
       if (!msg || this.activeTab() !== 'current') return;
       switch (msg.type) {
@@ -391,7 +402,7 @@ export class WinOfTheWeekComponent implements OnInit, OnDestroy {
     if (!sid) { this.loading.set(false); return; }
     this.loading.set(true);
     this.winSvc.getCurrentWeek(sid).subscribe({
-      next: (week) => { this.currentWeek.set(week); if (week) { this.currentUserId = week.currentMemberId; this.connectedCount.set(week.connectedMemberCount); } this.loading.set(false); },
+      next: (week) => { this.currentWeek.set(week); if (week) { this.currentUserId = week.currentMemberId; this.connectedCount.set(week.connectedMemberCount); if (week.guestToken) this.wsSvc.send({ type: 'join_wow', sessionKey: week.guestToken }); } this.loading.set(false); },
       error: () => { this.loading.set(false); this.snackBar.open('Failed to load Win of the Week', 'Close', { duration: 3000 }); }
     });
     this.winSvc.getTokenBalance(sid).subscribe({ next: r => this.tokenBalance.set(r.balance), error: () => {} });
@@ -402,7 +413,7 @@ export class WinOfTheWeekComponent implements OnInit, OnDestroy {
     if (!sid) return;
     clearCacheForPattern('/api/v1/win-of-the-week');
     this.winSvc.getCurrentWeek(sid).subscribe({
-      next: (week) => { this.currentWeek.set(week); if (week) { this.currentUserId = week.currentMemberId; this.connectedCount.set(week.connectedMemberCount); } }
+      next: (week) => { this.currentWeek.set(week); if (week) { this.currentUserId = week.currentMemberId; this.connectedCount.set(week.connectedMemberCount); if (week.guestToken) this.wsSvc.send({ type: 'join_wow', sessionKey: week.guestToken }); } }
     });
   }
 

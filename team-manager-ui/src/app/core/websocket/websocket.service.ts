@@ -55,6 +55,12 @@ export class WebSocketService {
     };
   }
 
+  send(data: object): void {
+    if (this.ws?.readyState === WebSocket.OPEN) {
+      this.ws.send(JSON.stringify(data));
+    }
+  }
+
   disconnect(): void {
     clearTimeout(this.reconnectTimer);
     this.ws?.close();
