@@ -113,34 +113,12 @@ import { clearCacheForPattern } from '../../core/interceptors/http-cache.interce
                 <mat-icon>how_to_vote</mat-icon>Open Voting
               </button>
             }
-            @if (currentWeek()?.status === 'Voting' && (currentWeek()?.nominations?.length ?? 0) > 0) {
-              @if (hasTie()) {
-                <button mat-menu-item (click)="startTieBreaker()">
-                  <mat-icon style="color:#ff7043">bolt</mat-icon>Start Sudden Death
-                </button>
-              } @else {
-                <button mat-menu-item (click)="closeWeek()">
-                  <mat-icon>lock</mat-icon>Close &amp; Pick Winner
-                </button>
-              }
-            }
-            @if (currentWeek()?.status === 'Voting' || currentWeek()?.status === 'SuddenDeath') {
-              <button mat-menu-item (click)="reopenNominations()">
-                <mat-icon>edit_note</mat-icon>Reopen Nominations
-              </button>
-            }
             @if (currentWeek()?.status === 'Closed') {
               <button mat-menu-item (click)="openNextWeek()">
                 <mat-icon>add_circle</mat-icon>Open Next Week
               </button>
             }
-          }
-          @if (isHost()) {
             <mat-divider />
-            <button mat-menu-item (click)="togglePowerUps()">
-              <mat-icon>{{ powerUpsEnabled() ? 'toggle_on' : 'toggle_off' }}</mat-icon>
-              {{ powerUpsEnabled() ? 'Disable' : 'Enable' }} Power-ups &amp; Chaos Cards
-            </button>
             <button mat-menu-item (click)="showNewSeriesPrompt()">
               <mat-icon>add_circle_outline</mat-icon>Start Another Series
             </button>
@@ -191,6 +169,9 @@ import { clearCacheForPattern } from '../../core/interceptors/http-cache.interce
             (startHypeBattleClick)="startHypeBattle($event)"
             (endHypeBattleClick)="endHypeBattle()"
             (endVotingClick)="endVoting()"
+            (startSuddenDeathClick)="startTieBreaker()"
+            (togglePowerUpsClick)="togglePowerUps()"
+            (reopenNominationsClick)="reopenNominations()"
             (suddenDeathDurationChange)="onSuddenDeathDurationChange($event)"
           />
         }
