@@ -191,6 +191,7 @@ import { clearCacheForPattern } from '../../core/interceptors/http-cache.interce
             (startHypeBattleClick)="startHypeBattle($event)"
             (endHypeBattleClick)="endHypeBattle()"
             (endVotingClick)="endVoting()"
+            (startSuddenDeathClick)="startTieBreaker()"
             (suddenDeathDurationChange)="onSuddenDeathDurationChange($event)"
           />
         }
