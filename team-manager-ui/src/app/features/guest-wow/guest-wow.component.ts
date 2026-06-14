@@ -575,9 +575,7 @@ export class GuestWowComponent implements OnInit, OnDestroy {
       } catch { /* ignore */ }
     };
 
-    this.ws.onerror = () => {
-      this.ws?.close();
-    };
+    this.ws.onerror = () => { /* onclose will fire next and schedule reconnect */ };
 
     this.ws.onclose = () => {
       this.ws = null;
