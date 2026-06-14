@@ -5,12 +5,12 @@ import { Component, input, output, computed, ChangeDetectionStrategy } from '@an
   standalone: true,
   changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
-    :host { display: flex; align-items: center; gap: 6px; }
-    .step-btn { border: 1px solid rgba(255,255,255,0.15); background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.75); border-radius: 6px; padding: 4px 9px; font-size: 0.75rem; font-weight: 600; cursor: pointer; transition: background 0.12s; white-space: nowrap; }
+    :host { display: flex; align-items: center; gap: 4px; flex-wrap: nowrap; }
+    .step-btn { border: 1px solid rgba(255,255,255,0.15); background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.75); border-radius: 6px; padding: 4px 7px; font-size: 0.72rem; font-weight: 600; cursor: pointer; transition: background 0.12s; white-space: nowrap; }
     .step-btn:hover:not(:disabled) { background: rgba(255,255,255,0.14); }
     .step-btn:disabled { opacity: 0.35; cursor: not-allowed; }
     .step-btn.lg { color: rgba(255,255,255,0.5); }
-    .display { min-width: 52px; text-align: center; font-size: 1rem; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: 1px; }
+    .display { min-width: 46px; text-align: center; font-size: 0.95rem; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: 1px; }
   `],
   template: `
     <button class="step-btn lg" (click)="adjust(-30)" [disabled]="disabled() || value() <= 15">−30s</button>
