@@ -448,7 +448,7 @@ export class GuestWowComponent implements OnInit, OnDestroy {
         } else {
           this.refreshWeek();
         }
-      } else {
+      } else if (msg.type !== 'presence_changed') {
         this.refreshWeek();
       }
     });
