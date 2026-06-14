@@ -363,13 +363,18 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
         if (existing is not null)
             throw new InvalidOperationException("A week already exists for this period.");
 
+        // Carry the guest token forward so existing share links keep working
+        var carryToken = latestWeek?.GuestToken;
+        if (carryToken != null) latestWeek!.GuestToken = null;
+
         var week = new WinWeek
         {
             WeekStart = weekStart,
             WeekEnd = weekStart.AddDays(6),
             Status = WinWeekStatus.Nominating,
             CreatedByMemberId = memberId,
-            WinSeriesId = seriesId
+            WinSeriesId = seriesId,
+            GuestToken = carryToken
         };
 
         db.WinWeeks.Add(week);
