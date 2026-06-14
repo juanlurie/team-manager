@@ -189,6 +189,7 @@ import { clearCacheForPattern } from '../../core/interceptors/http-cache.interce
             (stopTimerClick)="stopTimer()"
             (startHypeBattleClick)="startHypeBattle($event)"
             (endHypeBattleClick)="endHypeBattle()"
+            (endVotingClick)="endVoting()"
             (suddenDeathDurationChange)="onSuddenDeathDurationChange($event)"
           />
         }
@@ -649,6 +650,10 @@ export class WinOfTheWeekComponent implements OnInit, OnDestroy {
 
   onSuddenDeathDurationChange(val: number) {
     this.suddenDeathDuration.set(val);
+  }
+
+  endVoting() {
+    this.closeWeek();
   }
 
   tapHype(nominationId: string) {

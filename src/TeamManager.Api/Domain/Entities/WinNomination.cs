@@ -17,6 +17,7 @@ public class WinNomination
     public TeamMember Nominee { get; set; } = null!;       // nominated
     public string? PowerUp { get; set; }
     public string? ChaosCard { get; set; }
+    public string? GuestCardAppliedBySessionId { get; set; }
     public int HypeMeterCount { get; set; } = 0;
 
     public ICollection<WinVote> Votes { get; set; } = [];

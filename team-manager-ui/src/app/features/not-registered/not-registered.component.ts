@@ -1,8 +1,9 @@
-import { Component, inject, signal, effect, ChangeDetectionStrategy } from '@angular/core';
-
+import { Component, inject, signal, effect, OnDestroy, ChangeDetectionStrategy } from '@angular/core';
+import { Subscription } from 'rxjs';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { AuthService } from '../../core/auth/auth.service';
+import { WebSocketService } from '../../core/websocket/websocket.service';
 
 @Component({
   selector: 'app-not-registered',
@@ -254,9 +255,12 @@ import { AuthService } from '../../core/auth/auth.service';
     .logout-btn:hover { background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.9); }
   `]
 })
-export class NotRegisteredComponent {
+export class NotRegisteredComponent implements OnDestroy {
   private auth = inject(AuthService);
   private http = inject(HttpClient);
+  private wsSvc = inject(WebSocketService);
+  private wsSub: Subscription | null = null;
+  private pendingRequestId: string | null = null;
 
   googleName = signal('');
   googleEmail = signal('');
@@ -289,15 +293,17 @@ export class NotRegisteredComponent {
     this.submitting.set(true);
     this.error.set('');
 
-    this.http.post('/api/accessrequests/submit', {
+    this.http.post<{ id: string }>('/api/accessrequests/submit', {
       name,
       email,
       reason: null,
       googleSub: this.auth.pendingClaims()?.sub || null
     }).subscribe({
-      next: () => {
+      next: (res) => {
         this.submitting.set(false);
         this.requestSent.set(true);
+        this.pendingRequestId = res.id;
+        this.listenForApproval();
       },
       error: (err) => {
         this.submitting.set(false);
@@ -308,5 +314,21 @@ export class NotRegisteredComponent {
 
   onLogout() {
     this.auth.logout();
+  }
+
+  ngOnDestroy() {
+    this.wsSub?.unsubscribe();
+  }
+
+  private listenForApproval() {
+    this.wsSvc.connect();
+    this.wsSub = this.wsSvc.messages$.subscribe(msg => {
+      if (!msg || msg.type !== 'access_request_approved') return;
+      const requestId = msg.data['requestId'] as string;
+      if (requestId === this.pendingRequestId) {
+        this.wsSub?.unsubscribe();
+        this.auth.login();
+      }
+    });
   }
 }
