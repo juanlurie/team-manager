@@ -211,12 +211,12 @@ import { AppInfoBannerComponent } from '../../shared/components/app-info-banner/
 
       <!-- Desktop sidebar (QR + host controls) -->
       @if (isHost() && !isMobile()) {
-        <div style="flex-shrink:0;width:280px;position:sticky;top:16px;display:flex;flex-direction:column;gap:12px">
+        <div style="flex-shrink:0;width:248px;position:sticky;top:16px;display:flex;flex-direction:column;gap:12px">
 
           <!-- QR code -->
           @if (qrDataUrl()) {
             <img [src]="qrDataUrl()!" alt="Guest QR code"
-                 style="width:280px;height:280px;border-radius:8px;display:block" />
+                 style="width:248px;height:280px;border-radius:8px;display:block" />
           }
 
           <!-- Host control panel (any active week) -->
@@ -226,11 +226,20 @@ import { AppInfoBannerComponent } from '../../shared/components/app-info-banner/
                 <mat-icon style="font-size:14px;width:14px;height:14px">tune</mat-icon> Host Controls
               </div>
 
-              <!-- Power-ups toggle (always visible) -->
-              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+              <!-- Power-ups toggle -->
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
                 <span style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;opacity:0.45">Power-ups &amp; Cards</span>
                 <mat-slide-toggle [checked]="powerUpsEnabled()" (change)="togglePowerUpsClick.emit()" color="accent" />
               </div>
+
+              <!-- Reopen Nominations (top, always visible during voting/sudden death) -->
+              @if (w.status === 'Voting' || w.status === 'SuddenDeath') {
+                <button class="ctrl-btn" style="width:100%;margin-bottom:8px" (click)="reopenNominationsClick.emit()">
+                  Reopen Nominations
+                </button>
+              }
+
+              <div class="ctrl-sep" style="margin-bottom:10px"></div>
 
               @if (w.status === 'Voting' || w.status === 'SuddenDeath') {
                 <!-- Timer section -->
@@ -269,11 +278,8 @@ import { AppInfoBannerComponent } from '../../shared/components/app-info-banner/
 
                 <div class="ctrl-sep"></div>
 
-                <!-- Reopen + End Voting / Sudden Death -->
+                <!-- End Voting / Sudden Death -->
                 <div class="ctrl-section">
-                  <button class="ctrl-btn" style="width:100%" (click)="reopenNominationsClick.emit()">
-                    Reopen Nominations
-                  </button>
                   @if (w.status === 'Voting') {
                     @if (tiedNomIds().size > 0) {
                       <div class="label-row">
