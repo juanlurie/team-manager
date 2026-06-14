@@ -39,6 +39,13 @@ import { AppInfoBannerComponent } from '../../shared/components/app-info-banner/
     .ctrl-btn.active { background: rgba(255,87,34,0.2); border-color: rgba(255,87,34,0.5); color: #ff7043; }
     .ctrl-btn.danger { background: rgba(239,83,80,0.12); border-color: rgba(239,83,80,0.35); color: #ef5350; }
     .ctrl-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .picker-row { display: flex; align-items: center; gap: 4px; }
+    .picker-row app-wow-duration-picker { flex: 1; }
+    .play-btn { width: 32px !important; height: 32px !important; line-height: 32px !important; color: rgba(255,255,255,0.55) !important; flex-shrink: 0; }
+    .play-btn mat-icon { font-size: 20px; width: 20px; height: 20px; }
+    .play-btn:hover { color: rgba(255,255,255,0.9) !important; }
+    .play-btn.active { color: #ff7043 !important; }
+    .play-btn.sd { color: #ff7043 !important; background: rgba(255,87,34,0.12) !important; border-radius: 50%; }
   `],
   template: `
     @let w = week();
@@ -220,56 +227,63 @@ import { AppInfoBannerComponent } from '../../shared/components/app-info-banner/
 
               <!-- Timer row -->
               <div class="ctrl-label">Countdown Timer</div>
-              <div style="margin-bottom:12px">
+              <div class="picker-row" style="margin-bottom:12px">
                 <app-wow-duration-picker
                   [value]="timerDuration"
                   [max]="600"
                   [disabled]="!!activeTimerEndsAt()"
                   (valueChange)="timerDuration = $event"
                 />
-                <div class="ctrl-row" style="margin-top:6px">
-                  @if (!activeTimerEndsAt()) {
-                    <button class="ctrl-btn" (click)="startTimerClick.emit(timerDuration)">▶ Start</button>
-                  } @else {
-                    <button class="ctrl-btn active" (click)="stopTimerClick.emit()">⏹ Stop</button>
-                  }
-                </div>
+                @if (!activeTimerEndsAt()) {
+                  <button mat-icon-button class="play-btn" (click)="startTimerClick.emit(timerDuration)" matTooltip="Start timer">
+                    <mat-icon>play_arrow</mat-icon>
+                  </button>
+                } @else {
+                  <button mat-icon-button class="play-btn active" (click)="stopTimerClick.emit()" matTooltip="Stop timer">
+                    <mat-icon>stop</mat-icon>
+                  </button>
+                }
               </div>
 
               <!-- Hype Battle row -->
               <div class="ctrl-label">Hype Battle</div>
-              <div style="margin-bottom:12px">
+              <div class="picker-row" style="margin-bottom:12px">
                 <app-wow-duration-picker
                   [value]="hypeBattleDuration"
                   [max]="300"
                   [disabled]="!!hypeBattleEndsAt()"
                   (valueChange)="hypeBattleDuration = $event"
                 />
-                <div class="ctrl-row" style="margin-top:6px">
-                  @if (!hypeBattleEndsAt()) {
-                    <button class="ctrl-btn" (click)="startHypeBattleClick.emit(hypeBattleDuration)">🔥 Start Battle</button>
-                  } @else {
-                    <button class="ctrl-btn active" (click)="endHypeBattleClick.emit()">⏹ End Battle</button>
-                  }
-                </div>
+                @if (!hypeBattleEndsAt()) {
+                  <button mat-icon-button class="play-btn" (click)="startHypeBattleClick.emit(hypeBattleDuration)" matTooltip="Start hype battle">
+                    <mat-icon>play_arrow</mat-icon>
+                  </button>
+                } @else {
+                  <button mat-icon-button class="play-btn active" (click)="endHypeBattleClick.emit()" matTooltip="End battle">
+                    <mat-icon>stop</mat-icon>
+                  </button>
+                }
               </div>
 
-              <!-- Sudden Death duration (voting phase only) -->
-              @if (w.status === 'Voting') {
-                <div class="ctrl-label">Sudden Death Duration</div>
-                <div style="margin-bottom:12px">
+              <!-- Sudden Death (only when there's a tie) -->
+              @if (w.status === 'Voting' && tiedNomIds().size > 0) {
+                <div class="ctrl-label" style="color:#ff7043">⚡ Tie detected — Sudden Death available</div>
+                <div class="picker-row" style="margin-bottom:8px">
                   <app-wow-duration-picker
                     [value]="suddenDeathDuration"
                     [max]="600"
                     (valueChange)="suddenDeathDuration = $event; suddenDeathDurationChange.emit($event)"
                   />
+                  <button mat-icon-button class="play-btn sd" (click)="startSuddenDeathClick.emit()" matTooltip="Start sudden death">
+                    <mat-icon>bolt</mat-icon>
+                  </button>
                 </div>
               }
 
-              <!-- End Voting / End Sudden Death -->
+              <!-- End Voting -->
               @if (w.status === 'Voting') {
                 <button class="ctrl-btn danger" style="width:100%;margin-top:4px" (click)="endVotingClick.emit()">
-                  🏁 End Voting
+                  End Voting
                 </button>
               }
             </div>
@@ -310,6 +324,7 @@ export class WowCurrentWeekComponent {
   startHypeBattleClick      = output<number>();
   endHypeBattleClick        = output();
   endVotingClick            = output();
+  startSuddenDeathClick     = output();
   suddenDeathDurationChange = output<number>();
 
   timerDuration       = 60;
