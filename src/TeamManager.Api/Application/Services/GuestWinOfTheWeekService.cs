@@ -110,7 +110,10 @@ public class GuestWinOfTheWeekService(AppDbContext db, IHttpContextAccessor http
                 VoteCount = n.Votes.Count,
                 HasVoted = guestVotedIds.Contains(n.Id),
                 IsOwned = n.GuestSessionId == guestSessionId,
-                CreatedAt = n.CreatedAt
+                CreatedAt = n.CreatedAt,
+                PowerUp = n.PowerUp,
+                ChaosCard = n.ChaosCard,
+                HypeMeterCount = n.HypeMeterCount
             }).ToList()
         };
     }

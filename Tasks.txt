@@ -2,6 +2,16 @@ TEAM MANAGER — BACKLOG
 ======================
 
 == PENDING ==
+[x] Win of the Week — Power-ups & Chaos Cards
+    - Token economy: 1 token per member per week (granted on OpenNextWeek); +1 bonus to whoever nominated the week's winner
+    - Power-ups (apply during Nominating phase, revealed during call): Spotlight (pins to top), Hype Meter (live tap counter during voting), Wildcard (host-only, shows ×2 badge)
+    - Chaos Cards (cosmetic): Clown Mode (🤡 avatar + emojis), Tiny Text (scale(0.62) card), Autocorrect (scrambled title words, seeded deterministically), Dramatic Reading (seeded voice badge: Robot/Pirate/Newsreader/Villain/Sports Commentator)
+    - Backend: PowerUp + ChaosCard + HypeMeterCount columns on WinNomination; WowMemberTokens table; migration AddWowPowerUpsAndTokens
+    - API endpoints: GET /tokens, POST /nominations/{id}/powerup, POST /nominations/{id}/chaoscard, POST /nominations/{id}/hype
+    - Hype Meter increments via WebSocket broadcast (hype_meter_tapped) — live across all clients including guest view
+    - Guest view and host view both render effects; only authenticated members can spend tokens and apply cards
+    - Spotlight nominations sorted to top of list in both views
+
 [ ] Timesheets
     - Should allow export as excel. I've added a file called TimeSheetUpload.xlsx to the root. That is how it should export.
     - The categories it allows are in that file. There a main category and a sub category.

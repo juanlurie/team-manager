@@ -1,6 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { WinWeek, WinNomination, WinVote, CreateNominationRequest, CloseWeekRequest, StartSuddenDeathRequest, WinWeekHistory, WinWeekDetail } from '../models/win-week.model';
+import { WinWeek, WinNomination, WinVote, CreateNominationRequest, CloseWeekRequest, StartSuddenDeathRequest, WinWeekHistory, WinWeekDetail, ApplyWowCardRequest } from '../models/win-week.model';
 
 @Injectable({ providedIn: 'root' })
 export class WinOfTheWeekService {
@@ -78,5 +78,23 @@ export class WinOfTheWeekService {
 
   generateGuestToken(weekId: string) {
     return this.http.post<{ token: string; guestUrl: string }>(`${this.base}/${weekId}/guest-token`, {});
+  }
+
+  getTokenBalance(seriesId?: string) {
+    const params: any = {};
+    if (seriesId) params.seriesId = seriesId;
+    return this.http.get<{ balance: number }>(`${this.base}/tokens`, { params });
+  }
+
+  applyPowerUp(nominationId: string, request: ApplyWowCardRequest) {
+    return this.http.post<WinNomination>(`${this.base}/nominations/${nominationId}/powerup`, request);
+  }
+
+  applyChaosCard(nominationId: string, request: ApplyWowCardRequest) {
+    return this.http.post<WinNomination>(`${this.base}/nominations/${nominationId}/chaoscard`, request);
+  }
+
+  incrementHypeMeter(nominationId: string) {
+    return this.http.post<{ count: number }>(`${this.base}/nominations/${nominationId}/hype`, {});
   }
 }

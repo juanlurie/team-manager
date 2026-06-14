@@ -29,4 +29,7 @@ public record GuestNominationDto
     public bool HasVoted { get; init; }
     public bool IsOwned { get; init; }
     public DateTimeOffset CreatedAt { get; init; }
+    public string? PowerUp { get; init; }
+    public string? ChaosCard { get; init; }
+    public int HypeMeterCount { get; init; }
 }
