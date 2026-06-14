@@ -459,7 +459,7 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
             weekId = week.Id,
             endsAt = week.SuddenDeathEndsAt,
             tiedNominationIds = request.TiedNominationIds
-        });
+        }, guestAllowed: true);
 
         return (await GetCurrentWeekAsync(memberId, seriesId))!;
     }
@@ -712,7 +712,7 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
                             {
                                 winWeek.WinnerStory = story.Trim();
                                 await bgDb.SaveChangesAsync();
-                                _ = WebSocketMiddleware.BroadcastAsync("win_story_ready", new { weekId });
+                                _ = WebSocketMiddleware.BroadcastAsync("win_story_ready", new { weekId }, guestAllowed: true);
                             }
                         }
                     }
@@ -984,6 +984,6 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
         {
             weekId = week.Id,
             winnerId = week.WinnerNominationId
-        });
+        }, guestAllowed: true);
     }
 }
