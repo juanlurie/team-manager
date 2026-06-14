@@ -207,12 +207,12 @@ import { AppInfoBannerComponent } from '../../shared/components/app-info-banner/
 
       <!-- Desktop sidebar (QR + host controls) -->
       @if (isHost() && !isMobile()) {
-        <div style="flex-shrink:0;width:220px;position:sticky;top:16px;display:flex;flex-direction:column;gap:12px">
+        <div style="flex-shrink:0;width:280px;position:sticky;top:16px;display:flex;flex-direction:column;gap:12px">
 
           <!-- QR code -->
           @if (qrDataUrl()) {
             <img [src]="qrDataUrl()!" alt="Guest QR code"
-                 style="width:220px;height:220px;border-radius:8px;display:block" />
+                 style="width:280px;height:220px;border-radius:8px;display:block" />
             <button mat-button (click)="shareClick.emit()"
                     style="width:100%;border-radius:6px;background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.7)">
               <mat-icon>share</mat-icon> Share link
