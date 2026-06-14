@@ -83,6 +83,11 @@ import { clearCacheForPattern } from '../../core/interceptors/http-cache.interce
           </select>
         }
         <div style="flex:1"></div>
+        @if (currentWeek()?.guestToken) {
+          <button mat-icon-button (click)="copyShareLink()" matTooltip="Copy share link" style="color:rgba(255,255,255,0.5)">
+            <mat-icon>share</mat-icon>
+          </button>
+        }
         <button mat-icon-button [matMenuTriggerFor]="moreMenu" style="color:rgba(255,255,255,0.5)">
           <mat-icon>more_vert</mat-icon>
         </button>
@@ -140,10 +145,6 @@ import { clearCacheForPattern } from '../../core/interceptors/http-cache.interce
               <mat-icon>add_circle_outline</mat-icon>Start Another Series
             </button>
           }
-          <mat-divider />
-          <button mat-menu-item (click)="copyShareLink()">
-            <mat-icon>share</mat-icon>Copy share link
-          </button>
         </mat-menu>
       </div>
 
