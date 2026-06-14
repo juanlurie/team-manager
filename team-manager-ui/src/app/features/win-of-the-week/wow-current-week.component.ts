@@ -44,7 +44,9 @@ import { AppInfoBannerComponent } from '../../shared/components/app-info-banner/
     .ctrl-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
     .picker-row { display: flex; align-items: center; gap: 6px; }
     .picker-row app-wow-duration-picker { flex: 1; min-width: 0; }
-    .label-row { display: flex; align-items: center; justify-content: space-between; }
+    .label-row { display: flex; align-items: center; justify-content: space-between; width: 100%; }
+    .ctrl-section { display: flex; flex-direction: column; gap: 6px; }
+    .ctrl-sep { height: 1px; background: rgba(255,255,255,0.07); margin: 10px 0; }
   `],
   template: `
     @let w = week();
@@ -231,63 +233,65 @@ import { AppInfoBannerComponent } from '../../shared/components/app-info-banner/
               </div>
 
               @if (w.status === 'Voting' || w.status === 'SuddenDeath') {
-                <!-- Timer row -->
-                <div class="label-row" style="margin-bottom:6px">
-                  <span class="ctrl-label" style="margin:0">Countdown Timer</span>
-                  @if (!activeTimerEndsAt()) {
-                    <button class="ctrl-btn" (click)="startTimerClick.emit(timerDuration)">Start</button>
-                  } @else {
-                    <button class="ctrl-btn stop" (click)="stopTimerClick.emit()">Stop</button>
+                <!-- Timer section -->
+                <div class="ctrl-section">
+                  <div class="label-row">
+                    <span class="ctrl-label" style="margin:0">Countdown Timer</span>
+                    @if (!activeTimerEndsAt()) {
+                      <button class="ctrl-btn" (click)="startTimerClick.emit(timerDuration)">Start</button>
+                    } @else {
+                      <button class="ctrl-btn stop" (click)="stopTimerClick.emit()">Stop</button>
+                    }
+                  </div>
+                  <app-wow-duration-picker style="width:100%;display:flex"
+                    [value]="timerDuration" [max]="600"
+                    [disabled]="!!activeTimerEndsAt()"
+                    (valueChange)="timerDuration = $event" />
+                </div>
+
+                <div class="ctrl-sep"></div>
+
+                <!-- Hype Battle section -->
+                <div class="ctrl-section">
+                  <div class="label-row">
+                    <span class="ctrl-label" style="margin:0">Hype Battle</span>
+                    @if (!hypeBattleEndsAt()) {
+                      <button class="ctrl-btn" (click)="startHypeBattleClick.emit(hypeBattleDuration)">Start</button>
+                    } @else {
+                      <button class="ctrl-btn stop" (click)="endHypeBattleClick.emit()">Stop</button>
+                    }
+                  </div>
+                  <app-wow-duration-picker style="width:100%;display:flex"
+                    [value]="hypeBattleDuration" [max]="300"
+                    [disabled]="!!hypeBattleEndsAt()"
+                    (valueChange)="hypeBattleDuration = $event" />
+                </div>
+
+                <div class="ctrl-sep"></div>
+
+                <!-- Reopen + End Voting / Sudden Death -->
+                <div class="ctrl-section">
+                  <button class="ctrl-btn" style="width:100%" (click)="reopenNominationsClick.emit()">
+                    Reopen Nominations
+                  </button>
+                  @if (w.status === 'Voting') {
+                    @if (tiedNomIds().size > 0) {
+                      <div class="label-row">
+                        <span class="ctrl-label" style="margin:0;color:#ff7043;opacity:1">Tie detected</span>
+                      </div>
+                      <app-wow-duration-picker style="width:100%;display:flex"
+                        [value]="suddenDeathDuration" [max]="600"
+                        (valueChange)="suddenDeathDuration = $event; suddenDeathDurationChange.emit($event)" />
+                      <button class="ctrl-btn sd-btn" style="width:100%" (click)="startSuddenDeathClick.emit()">
+                        Sudden Death
+                      </button>
+                    } @else {
+                      <button class="ctrl-btn danger" style="width:100%" (click)="endVotingClick.emit()">
+                        End Voting
+                      </button>
+                    }
                   }
                 </div>
-                <app-wow-duration-picker
-                  style="display:flex;margin-bottom:12px"
-                  [value]="timerDuration" [max]="600"
-                  [disabled]="!!activeTimerEndsAt()"
-                  (valueChange)="timerDuration = $event"
-                />
-
-                <!-- Hype Battle row -->
-                <div class="label-row" style="margin-bottom:6px">
-                  <span class="ctrl-label" style="margin:0">Hype Battle</span>
-                  @if (!hypeBattleEndsAt()) {
-                    <button class="ctrl-btn" (click)="startHypeBattleClick.emit(hypeBattleDuration)">Start</button>
-                  } @else {
-                    <button class="ctrl-btn stop" (click)="endHypeBattleClick.emit()">Stop</button>
-                  }
-                </div>
-                <app-wow-duration-picker
-                  style="display:flex;margin-bottom:12px"
-                  [value]="hypeBattleDuration" [max]="300"
-                  [disabled]="!!hypeBattleEndsAt()"
-                  (valueChange)="hypeBattleDuration = $event"
-                />
-
-                <!-- Reopen Nominations -->
-                <button class="ctrl-btn" style="width:100%;margin-bottom:6px" (click)="reopenNominationsClick.emit()">
-                  Reopen Nominations
-                </button>
-
-                <!-- Sudden Death (replaces End Voting when there's a tie) -->
-                @if (w.status === 'Voting') {
-                  @if (tiedNomIds().size > 0) {
-                    <div class="label-row" style="margin-bottom:6px">
-                      <span class="ctrl-label" style="margin:0;color:#ff7043;opacity:1">Tie detected</span>
-                    </div>
-                    <app-wow-duration-picker
-                      style="display:flex;margin-bottom:6px"
-                      [value]="suddenDeathDuration" [max]="600"
-                      (valueChange)="suddenDeathDuration = $event; suddenDeathDurationChange.emit($event)"
-                    />
-                    <button class="ctrl-btn sd-btn" style="width:100%" (click)="startSuddenDeathClick.emit()">
-                      Sudden Death
-                    </button>
-                  } @else {
-                    <button class="ctrl-btn danger" style="width:100%" (click)="endVotingClick.emit()">
-                      End Voting
-                    </button>
-                  }
-                }
               }
             </div>
           }
