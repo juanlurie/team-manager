@@ -1,6 +1,24 @@
+# Environment
 .env
+.env.*
+
+# Aider
 .aider*
-src/TeamManager.Api/bin/**/*
-team-manager-ui/dist/**/*
-src/TeamManager.Api/obj/**/*
-team-manager-ui/.angular/**/*
+
+# Claude Code
+.claude/settings.local.json
+
+# .NET build output
+src/TeamManager.Api/bin/
+src/TeamManager.Api/obj/
+
+# Angular build output and cache
+team-manager-ui/dist/
+team-manager-ui/.angular/
+
+# Node
+team-manager-ui/node_modules/
+
+# OS
+.DS_Store
+Thumbs.db
