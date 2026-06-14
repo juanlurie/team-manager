@@ -262,12 +262,11 @@ export class WinOfTheWeekComponent implements OnInit, OnDestroy {
         .then(dataUrl => this.qrDataUrl.set(dataUrl));
     });
 
-    let lastTokenSeriesId: string | null = null;
+    let lastTokenWeekId: string | null = null;
     effect(() => {
       const week = this.currentWeek();
-      const sid = this.currentSeriesId();
-      if (!week || !this.isHost() || sid === lastTokenSeriesId) return;
-      lastTokenSeriesId = sid;
+      if (!week || !this.isHost() || week.id === lastTokenWeekId) return;
+      lastTokenWeekId = week.id;
       this.winSvc.generateGuestToken(week.id).subscribe({
         next: (result) => this.guestUrl.set(`${window.location.origin}/guest/wow/${result.token}`),
         error: () => {}
