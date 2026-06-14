@@ -167,7 +167,7 @@ public class GuestWinOfTheWeekService(AppDbContext db, IHttpContextAccessor http
             CreatedAt = nomination.CreatedAt
         };
 
-        _ = WebSocketMiddleware.BroadcastAsync("nomination_created", new { nomination = dto });
+        _ = WebSocketMiddleware.BroadcastAsync("nomination_created", new { nomination = dto }, guestAllowed: true);
 
         return dto;
     }
@@ -211,7 +211,7 @@ public class GuestWinOfTheWeekService(AppDbContext db, IHttpContextAccessor http
             CreatedAt = nomination.CreatedAt
         };
 
-        _ = WebSocketMiddleware.BroadcastAsync("nomination_updated", new { nomination = dto });
+        _ = WebSocketMiddleware.BroadcastAsync("nomination_updated", new { nomination = dto }, guestAllowed: true);
         return dto;
     }
 
@@ -231,7 +231,7 @@ public class GuestWinOfTheWeekService(AppDbContext db, IHttpContextAccessor http
         db.WinNominations.Remove(nomination);
         await db.SaveChangesAsync();
 
-        _ = WebSocketMiddleware.BroadcastAsync("nomination_deleted", new { nominationId });
+        _ = WebSocketMiddleware.BroadcastAsync("nomination_deleted", new { nominationId }, guestAllowed: true);
     }
 
     public async Task<WinVoteDto> VoteAsync(string token, Guid nominationId, string guestSessionId)
@@ -279,7 +279,7 @@ public class GuestWinOfTheWeekService(AppDbContext db, IHttpContextAccessor http
         db.WinVotes.Add(vote);
         await db.SaveChangesAsync();
 
-        _ = WebSocketMiddleware.BroadcastAsync("vote_cast", new { nominationId });
+        _ = WebSocketMiddleware.BroadcastAsync("vote_cast", new { nominationId }, guestAllowed: true);
 
         return new WinVoteDto
         {
@@ -308,7 +308,7 @@ public class GuestWinOfTheWeekService(AppDbContext db, IHttpContextAccessor http
         db.WinVotes.Remove(vote);
         await db.SaveChangesAsync();
 
-        _ = WebSocketMiddleware.BroadcastAsync("vote_removed", new { nominationId });
+        _ = WebSocketMiddleware.BroadcastAsync("vote_removed", new { nominationId }, guestAllowed: true);
 
         return true;
     }

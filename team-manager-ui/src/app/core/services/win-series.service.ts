@@ -14,4 +14,8 @@ export class WinSeriesService {
   create(name: string) {
     return this.http.post<WinSeries>(this.base, { name });
   }
+
+  togglePowerUps(seriesId: string) {
+    return this.http.patch<WinSeries>(`${this.base}/${seriesId}/power-ups`, {});
+  }
 }
