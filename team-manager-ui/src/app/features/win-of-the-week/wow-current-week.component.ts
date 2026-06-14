@@ -252,7 +252,7 @@ import { AppInfoBannerComponent } from '../../shared/components/app-info-banner/
                       <button class="ctrl-btn stop" (click)="stopTimerClick.emit()">Stop</button>
                     }
                   </div>
-                  <app-wow-duration-picker style="width:100%;display:flex"
+                  <app-wow-duration-picker style="display:flex"
                     [value]="timerDuration" [max]="600"
                     [disabled]="!!activeTimerEndsAt()"
                     (valueChange)="timerDuration = $event" />
@@ -270,7 +270,7 @@ import { AppInfoBannerComponent } from '../../shared/components/app-info-banner/
                       <button class="ctrl-btn stop" (click)="endHypeBattleClick.emit()">Stop</button>
                     }
                   </div>
-                  <app-wow-duration-picker style="width:100%;display:flex"
+                  <app-wow-duration-picker style="display:flex"
                     [value]="hypeBattleDuration" [max]="300"
                     [disabled]="!!hypeBattleEndsAt()"
                     (valueChange)="hypeBattleDuration = $event" />
@@ -285,7 +285,7 @@ import { AppInfoBannerComponent } from '../../shared/components/app-info-banner/
                       <div class="label-row">
                         <span class="ctrl-label" style="margin:0;color:#ff7043;opacity:1">Tie detected</span>
                       </div>
-                      <app-wow-duration-picker style="width:100%;display:flex"
+                      <app-wow-duration-picker style="display:flex"
                         [value]="suddenDeathDuration" [max]="600"
                         (valueChange)="suddenDeathDuration = $event; suddenDeathDurationChange.emit($event)" />
                       <button class="ctrl-btn sd-btn" style="width:100%" (click)="startSuddenDeathClick.emit()">
