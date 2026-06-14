@@ -211,7 +211,7 @@ import { AppInfoBannerComponent } from '../../shared/components/app-info-banner/
 
       <!-- Desktop sidebar (QR + host controls) -->
       @if (isHost() && !isMobile()) {
-        <div style="flex-shrink:0;width:248px;position:sticky;top:16px;display:flex;flex-direction:column;gap:12px">
+        <div style="flex-shrink:0;width:248px;position:sticky;top:16px;display:flex;flex-direction:column;gap:12px;margin-right:16px">
 
           <!-- QR code -->
           @if (qrDataUrl()) {
