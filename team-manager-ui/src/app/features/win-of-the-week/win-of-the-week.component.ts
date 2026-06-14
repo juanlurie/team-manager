@@ -168,6 +168,7 @@ import { clearCacheForPattern } from '../../core/interceptors/http-cache.interce
             (stopTimerClick)="stopTimer()"
             (startHypeBattleClick)="startHypeBattle($event)"
             (endHypeBattleClick)="endHypeBattle()"
+            (openVotingClick)="openVoting()"
             (endVotingClick)="endVoting()"
             (startSuddenDeathClick)="startTieBreaker()"
             (togglePowerUpsClick)="togglePowerUps()"
