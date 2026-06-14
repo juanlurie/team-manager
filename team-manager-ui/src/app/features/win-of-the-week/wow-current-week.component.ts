@@ -47,7 +47,7 @@ import { AppInfoBannerComponent } from '../../shared/components/app-info-banner/
     .preset-btn { flex: 1; font-size: 0.75rem; height: 30px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.15); background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.8); cursor: pointer; font-weight: 600; transition: background 0.15s; font-family: inherit; }
     .preset-btn:hover { background: rgba(255,255,255,0.14); }
     .preset-btn.sd { background: rgba(255,87,34,0.15); border-color: rgba(255,87,34,0.4); color: #ff7043; }
-    .mob-tabs { display: flex; border-bottom: 1px solid rgba(255,255,255,0.08); margin-bottom: 16px; }
+    .mob-tabs { display: flex; border-bottom: 1px solid rgba(255,255,255,0.08); margin-bottom: 16px; position: sticky; top: 0; z-index: 10; background: #0f1923; }
     .mob-tab { flex: 1; padding: 10px 0; font-size: 0.8rem; font-weight: 600; text-align: center; cursor: pointer; color: rgba(255,255,255,0.45); border: none; background: none; font-family: inherit; transition: color 0.15s; border-bottom: 2px solid transparent; margin-bottom: -1px; }
     .mob-tab.active { color: #64b5f6; border-bottom-color: #64b5f6; }
   `],
@@ -57,6 +57,7 @@ import { AppInfoBannerComponent } from '../../shared/components/app-info-banner/
 
     <!-- Host controls template (reused on desktop sidebar + mobile tab) -->
     <ng-template #ctrlsTpl>
+      @let w = week();
       @if (w && w.status !== 'Closed') {
         <div class="host-ctrl">
           <div style="font-size:0.75rem;font-weight:700;opacity:0.6;margin-bottom:12px;display:flex;align-items:center;gap:6px">
