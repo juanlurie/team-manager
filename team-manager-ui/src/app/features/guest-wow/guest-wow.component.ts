@@ -59,6 +59,7 @@ function adaptToWinWeek(week: GuestWinWeek): WinWeek {
     connectedMemberCount: 0,
     tiedNominationIds: week.tiedNominationIds,
     powerUpsEnabled: false,
+    guestToken: null,
     winnerStory: week.winnerStory,
     nominations,
   };
@@ -577,6 +578,9 @@ export class GuestWowComponent implements OnInit, OnDestroy {
         this.loading.set(false);
         if (this.members().length === 0) this.loadMembers();
         this.wsSvc.connect();
+        const connSub = this.wsSvc.connected$.subscribe(connected => {
+          if (connected) { this.wsSvc.send({ type: 'join_wow', sessionKey: this.token }); connSub.unsubscribe(); }
+        });
       },
       error: () => { this.tokenInvalid.set(true); this.loading.set(false); }
     });
