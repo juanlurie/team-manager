@@ -43,36 +43,19 @@
               @for (row of group.rows; track row.featureKey) {
                 <tr style="border-bottom:1px solid rgba(255,255,255,0.03)">
                   <td style="padding:8px 12px;font-weight:500">{{ row.label }}</td>
-                  <td style="text-align:center;padding:8px 12px">
-                    <button class="icon-btn" [style.color]="row.roleEnabled['Member'] ? '#4caf50' : 'rgba(255,255,255,0.2)'"
-                            (click)="togglePermission(row.featureKey, 'Member', row.roleEnabled['Member'] ?? true)"
-                            [disabled]="isSaving(row.featureKey, 'Member')"
-                            [matTooltip]="(row.roleEnabled['Member'] ?? true) ? 'Enabled - click to disable' : 'Disabled - click to enable'">
-                      <mat-icon style="font-size:20px;height:20px;width:20px">
-                        {{ isSaving(row.featureKey, 'Member') ? 'hourglass_empty' : ((row.roleEnabled['Member'] ?? true) ? 'toggle_on' : 'toggle_off') }}
-                      </mat-icon>
-                    </button>
-                  </td>
-                  <td style="text-align:center;padding:8px 12px">
-                    <button class="icon-btn" [style.color]="row.roleEnabled['TeamLead'] ? '#4caf50' : 'rgba(255,255,255,0.2)'"
-                            (click)="togglePermission(row.featureKey, 'TeamLead', row.roleEnabled['TeamLead'] ?? true)"
-                            [disabled]="isSaving(row.featureKey, 'TeamLead')"
-                            [matTooltip]="(row.roleEnabled['TeamLead'] ?? true) ? 'Enabled - click to disable' : 'Disabled - click to enable'">
-                      <mat-icon style="font-size:20px;height:20px;width:20px">
-                        {{ isSaving(row.featureKey, 'TeamLead') ? 'hourglass_empty' : ((row.roleEnabled['TeamLead'] ?? true) ? 'toggle_on' : 'toggle_off') }}
-                      </mat-icon>
-                    </button>
-                  </td>
-                  <td style="text-align:center;padding:8px 12px">
-                    <button class="icon-btn" [style.color]="row.roleEnabled['TechLead'] ? '#4caf50' : 'rgba(255,255,255,0.2)'"
-                            (click)="togglePermission(row.featureKey, 'TechLead', row.roleEnabled['TechLead'] ?? true)"
-                            [disabled]="isSaving(row.featureKey, 'TechLead')"
-                            [matTooltip]="(row.roleEnabled['TechLead'] ?? true) ? 'Enabled - click to disable' : 'Disabled - click to enable'">
-                      <mat-icon style="font-size:20px;height:20px;width:20px">
-                        {{ isSaving(row.featureKey, 'TechLead') ? 'hourglass_empty' : ((row.roleEnabled['TechLead'] ?? true) ? 'toggle_on' : 'toggle_off') }}
-                      </mat-icon>
-                    </button>
-                  </td>
+                  @for (role of roles; track role) {
+                    <td style="text-align:center;padding:8px 12px">
+                      @if (isSaving(row.featureKey, role)) {
+                        <mat-spinner diameter="18" style="display:inline-block"></mat-spinner>
+                      } @else {
+                        <mat-slide-toggle
+                          [checked]="row.roleEnabled[role] ?? true"
+                          (change)="togglePermission(row.featureKey, role, row.roleEnabled[role] ?? true)"
+                          color="primary">
+                        </mat-slide-toggle>
+                      }
+                    </td>
+                  }
                 </tr>
               }
             </tbody>

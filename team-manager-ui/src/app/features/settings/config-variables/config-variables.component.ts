@@ -124,7 +124,7 @@ import { ConfigVariablesService, ConfigVariable } from './config-variables.servi
                   </div>
                 </div>
               } @else {
-                <div class="var-row">
+                <div class="var-row" (click)="startEdit(v)" style="cursor:pointer">
                   <div class="var-key"><code>{{ '{' + v.key + '}' }}</code></div>
                   <div class="var-value">
                     @if (v.isSecret) {
@@ -138,10 +138,7 @@ import { ConfigVariablesService, ConfigVariable } from './config-variables.servi
                     @if (v.isSecret) {
                       <mat-icon class="secret-icon" matTooltip="Secret — value never sent to browser">lock</mat-icon>
                     }
-                    <button mat-icon-button (click)="startEdit(v)" matTooltip="Edit">
-                      <mat-icon>edit</mat-icon>
-                    </button>
-                    <button mat-icon-button color="warn" (click)="deleteVar(v)" matTooltip="Delete">
+                    <button mat-icon-button color="warn" (click)="deleteVar(v); $event.stopPropagation()" matTooltip="Delete">
                       <mat-icon>delete</mat-icon>
                     </button>
                   </div>

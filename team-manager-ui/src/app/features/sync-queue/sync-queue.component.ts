@@ -96,7 +96,8 @@ interface SyncEvent {
       } @else {
         <div class="events-list">
           @for (evt of filtered(); track evt.id) {
-            <div class="event-card" [class.sent]="evt.status === 'sent'" [class.failed]="evt.status === 'failed'">
+            <div class="event-card" [class.sent]="evt.status === 'sent'" [class.failed]="evt.status === 'failed'"
+                 (click)="toggleExpand(evt.id)" style="cursor:pointer">
               <div class="event-header">
                 <div class="event-meta">
                   <span class="action-chip">{{ evt.configName || evt.action }}</span>
@@ -107,6 +108,9 @@ interface SyncEvent {
                   @if (evt.externalId) {
                     <span class="external-id" matTooltip="External ID">#{{ evt.externalId }}</span>
                   }
+                  <mat-icon style="font-size:18px;width:18px;height:18px;opacity:0.4">
+                    {{ expandedId() === evt.id ? 'expand_less' : 'expand_more' }}
+                  </mat-icon>
                 </div>
               </div>
 
@@ -115,10 +119,6 @@ interface SyncEvent {
                   <span class="method-badge" [class.get]="evt.httpMethod === 'GET'">{{ evt.httpMethod || 'POST' }}</span>
                   <span class="url-text">{{ evt.resolvedUrl }}</span>
                 </div>
-                <button class="body-toggle" (click)="toggleExpand(evt.id)">
-                  <mat-icon>{{ expandedId() === evt.id ? 'expand_less' : 'expand_more' }}</mat-icon>
-                  {{ expandedId() === evt.id ? 'Hide' : 'Show' }} request detail
-                </button>
                 @if (expandedId() === evt.id) {
                   <div class="request-detail">
                     <div class="detail-section">
@@ -149,10 +149,10 @@ interface SyncEvent {
                   <div class="curl-preview-header">
                     <span class="curl-preview-label">cURL</span>
                     <div class="curl-preview-actions">
-                      <button mat-icon-button (click)="copyCurl()" matTooltip="Copy">
+                      <button mat-icon-button (click)="copyCurl(); $event.stopPropagation()" matTooltip="Copy">
                         <mat-icon>content_copy</mat-icon>
                       </button>
-                      <button mat-icon-button (click)="curlPreviewId.set(null)" class="close-curl-btn">
+                      <button mat-icon-button (click)="curlPreviewId.set(null); $event.stopPropagation()" class="close-curl-btn">
                         <mat-icon>close</mat-icon>
                       </button>
                     </div>
@@ -161,7 +161,7 @@ interface SyncEvent {
                 </div>
               }
 
-              <div class="event-footer">
+              <div class="event-footer" (click)="$event.stopPropagation()">
                 <span class="event-time">{{ evt.createdAt | date:'dd MMM HH:mm' }}</span>
                 <div class="action-btns">
                   <button mat-icon-button (click)="toggleCurl(evt)" matTooltip="cURL">

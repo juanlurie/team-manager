@@ -35,7 +35,7 @@ interface EntryState {
           <div class="entry-card" [class.has-value]="hasValue(es)">
 
             <!-- Header row -->
-            <div class="entry-hdr">
+            <div class="entry-hdr" (click)="toggleEdit(es)" style="cursor:pointer">
               <div class="entry-hdr-left">
                 <div class="entry-name">{{ es.entry.name }}</div>
                 <div class="entry-key"><mat-icon>vpn_key</mat-icon>{{ es.entry.keyName }}</div>
@@ -45,10 +45,7 @@ interface EntryState {
                   <mat-icon>{{ hasValue(es) ? 'check_circle' : 'cancel' }}</mat-icon>
                   {{ hasValue(es) ? 'Present' : 'Missing' }}
                 </div>
-                <button class="icon-btn" (click)="toggleEdit(es)" [class.active]="es.editing" matTitle="Edit">
-                  <mat-icon>edit</mat-icon>
-                </button>
-                <button class="icon-btn danger" (click)="removeEntry(es)" title="Remove cookie">
+                <button class="icon-btn danger" (click)="removeEntry(es); $event.stopPropagation()" title="Remove cookie">
                   <mat-icon>delete</mat-icon>
                 </button>
               </div>
