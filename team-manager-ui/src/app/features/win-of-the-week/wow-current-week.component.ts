@@ -168,7 +168,6 @@ import { AppInfoBannerComponent } from '../../shared/components/app-info-banner/
           <mat-icon style="font-size:20px;width:20px;height:20px">more_vert</mat-icon>
         </button>
         <mat-menu #mobMenu="matMenu">
-          @let w2 = week();
           @if (guestToken()) {
             <button mat-menu-item (click)="shareClick.emit()">
               <mat-icon>share</mat-icon>Share Link
@@ -184,12 +183,12 @@ import { AppInfoBannerComponent } from '../../shared/components/app-info-banner/
           }
           @if (isHost()) {
             <mat-divider />
-            @if (w2?.status === 'Nominating' && (w2?.nominations?.length ?? 0) > 0) {
+            @if (week()?.status === 'Nominating' && (week()?.nominations?.length ?? 0) > 0) {
               <button mat-menu-item (click)="openVotingClick.emit()">
                 <mat-icon>how_to_vote</mat-icon>Open Voting
               </button>
             }
-            @if (w2?.status === 'Closed') {
+            @if (week()?.status === 'Closed') {
               <button mat-menu-item (click)="openNextWeekClick.emit()">
                 <mat-icon>add_circle</mat-icon>Open Next Week
               </button>
