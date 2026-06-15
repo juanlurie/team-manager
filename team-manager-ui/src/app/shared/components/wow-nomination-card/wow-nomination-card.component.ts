@@ -182,13 +182,11 @@ const CHAOS_CARD_META: Record<WowChaosCard, { label: string }> = {
       <!-- Edit/Delete (owner, nominating phase) -->
       @if (canEdit() && weekStatus() === 'Nominating') {
         <div style="display:flex;gap:4px;flex-shrink:0">
-          <button mat-icon-button style="width:32px;height:32px;line-height:32px"
-                  matTooltip="Edit nomination" (click)="editClick.emit(nomination())">
-            <mat-icon style="font-size:18px;width:18px;height:18px;color:rgba(255,255,255,0.4)">edit</mat-icon>
+          <button mat-icon-button matTooltip="Edit nomination" (click)="editClick.emit(nomination())">
+            <mat-icon style="font-size:18px;color:rgba(255,255,255,0.4)">edit</mat-icon>
           </button>
-          <button mat-icon-button style="width:32px;height:32px;line-height:32px"
-                  matTooltip="Delete nomination" (click)="deleteClick.emit(nomination().id)">
-            <mat-icon style="font-size:18px;width:18px;height:18px;color:rgba(239,83,80,0.6)">delete</mat-icon>
+          <button mat-icon-button matTooltip="Delete nomination" (click)="deleteClick.emit(nomination().id)">
+            <mat-icon style="font-size:18px;color:rgba(239,83,80,0.6)">delete</mat-icon>
           </button>
         </div>
       }

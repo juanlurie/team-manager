@@ -98,8 +98,8 @@ interface FeatureView {
             </div>
             <div style="display:flex;align-items:center;gap:4px;flex-shrink:0">
               <span style="font-size:0.75rem;opacity:0.4">{{ fv.tasks.length }} task{{ fv.tasks.length !== 1 ? 's' : '' }}</span>
-              <button mat-icon-button [matMenuTriggerFor]="featureMenu" style="color:rgba(255,255,255,0.4);width:28px;height:28px">
-                <mat-icon style="font-size:18px;width:18px;height:18px;line-height:18px">more_vert</mat-icon>
+              <button mat-icon-button [matMenuTriggerFor]="featureMenu" style="color:rgba(255,255,255,0.4)">
+                <mat-icon style="font-size:18px">more_vert</mat-icon>
               </button>
               <mat-menu #featureMenu="matMenu">
                 <button mat-menu-item (click)="editFeature(fv.feature)">

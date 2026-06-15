@@ -152,7 +152,7 @@ import { MilestoneScopeBadgeComponent } from '../../shared/components/milestone-
               {{ m.completedCriteriaCount }} / {{ m.criteriaCount }}
             </span>
             <span style="flex:1"></span>
-            <button mat-icon-button (click)="addCriterion()" style="color:rgba(255,255,255,0.4);width:28px;height:28px" matTooltip="Add criterion">
+            <button mat-icon-button (click)="addCriterion()" style="color:rgba(255,255,255,0.4)" matTooltip="Add criterion">
               <mat-icon style="font-size:18px">add</mat-icon>
             </button>
           </div>
@@ -172,7 +172,7 @@ import { MilestoneScopeBadgeComponent } from '../../shared/components/milestone-
                       [style.opacity]="c.completed ? 0.4 : 1">
                   {{ c.label }}
                 </span>
-                <button mat-icon-button (click)="deleteCriterion(c)" style="color:rgba(255,255,255,0.2);width:24px;height:24px">
+                <button mat-icon-button (click)="deleteCriterion(c)" style="color:rgba(255,255,255,0.2)">
                   <mat-icon style="font-size:16px">close</mat-icon>
                 </button>
               </div>
@@ -240,7 +240,7 @@ import { MilestoneScopeBadgeComponent } from '../../shared/components/milestone-
                       <td style="padding:8px 12px;opacity:0.5;min-width:100px">{{ t.sprintName }}</td>
                       <td style="padding:8px 4px">
                         <button mat-icon-button (click)="unlinkTask(t)" matTooltip="Unlink from milestone"
-                                style="color:rgba(255,255,255,0.25);width:24px;height:24px">
+                                style="color:rgba(255,255,255,0.25)">
                           <mat-icon style="font-size:16px">link_off</mat-icon>
                         </button>
                       </td>
