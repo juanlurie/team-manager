@@ -176,7 +176,7 @@ interface PreviewRow {
       }
     </mat-dialog-actions>
   `,
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.Default,
   styles: [`
     .leave-badge { padding:2px 8px;border-radius:10px;font-size:0.7rem;font-weight:600;text-transform:uppercase;white-space:nowrap; }
     .annual              { background:rgba(76,175,80,0.15);color:#4caf50; }

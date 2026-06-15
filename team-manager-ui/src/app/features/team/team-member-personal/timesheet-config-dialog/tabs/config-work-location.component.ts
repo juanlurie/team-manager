@@ -13,7 +13,7 @@ import { FormsModule } from '@angular/forms';
     .sel:focus { border-color:rgba(100,181,246,0.7); }
     .sel option { background:#1a1c2a; }
   `],
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.Default,
   template: `
     <div class="hint">Set your default work location for each day of the week.</div>
     @for (day of weekDays; track day) {

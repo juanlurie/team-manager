@@ -11,7 +11,7 @@ import { SquadSummary } from '../../../core/models/squad.model';
   selector: 'app-squad-filter',
   standalone: true,
   imports: [FormsModule, MatAutocompleteModule, MatFormFieldModule, MatInputModule, MatIconModule],
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.Default,
   template: `
     <mat-form-field appearance="outline" style="width:170px;margin:0" subscriptSizing="dynamic">
       <mat-label>Squad</mat-label>

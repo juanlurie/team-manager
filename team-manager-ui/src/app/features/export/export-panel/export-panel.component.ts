@@ -55,7 +55,7 @@ const TYPE_COLOR: Record<string, string> = {
   selector: 'app-export-panel',
   standalone: true,
   imports: [FormsModule, MatButtonModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatCheckboxModule, MatIconModule, MatProgressSpinnerModule],
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.Default,
   template: `
     <h2 style="margin:0 0 24px;font-size:1.2rem">Export</h2>
 

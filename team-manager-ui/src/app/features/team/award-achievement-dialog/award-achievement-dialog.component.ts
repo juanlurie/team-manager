@@ -23,7 +23,7 @@ const CATEGORY_TEXT: Record<string, string> = {
   selector: 'app-award-achievement-dialog',
   standalone: true,
   imports: [MatDialogModule, MatButtonModule, MatTooltipModule],
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.Default,
   template: `
     <h2 mat-dialog-title style="margin-bottom:4px">Award a Badge</h2>
     <p style="margin:0 24px 12px;font-size:0.8rem;opacity:0.5">to {{ data.memberName }}</p>

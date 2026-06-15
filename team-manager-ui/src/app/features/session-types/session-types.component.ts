@@ -72,7 +72,7 @@ import { SessionType } from '../../core/models/session-type.model';
       </div>
     </div>
   `,
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.Default,
   styles: [`
     .form-row { display:flex;gap:8px;align-items:center;margin-bottom:12px; }
     .type-row {

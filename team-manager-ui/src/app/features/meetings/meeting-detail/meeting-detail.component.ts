@@ -176,7 +176,7 @@ import { IconButtonComponent } from '../../../shared/components/icon-btn/icon-bt
     }
     }
   `,
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.Default,
   styles: [`
     .type-badge {
       font-size: 0.65rem; font-weight: 600; padding: 3px 10px; border-radius: 10px;

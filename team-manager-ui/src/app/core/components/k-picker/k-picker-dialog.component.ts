@@ -109,7 +109,7 @@ import { FilterDropdownComponent } from './filter-dropdown.component';
       </div>
     </div>
   `,
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.Default,
   styles: [`
     /* ═══════════════════════════════════════════════
        K Picker Dialog — Inline Styles

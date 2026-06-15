@@ -57,7 +57,7 @@ const CONFIG_CARDS: ConfigCard[] = [
       </div>
     </div>
   `,
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.Default,
   styles: [`
     .settings-page { max-width: 900px; margin: 0 auto; padding: 8px; }
     .page-header { display: flex; align-items: center; gap: 12px; margin-bottom: 32px; }

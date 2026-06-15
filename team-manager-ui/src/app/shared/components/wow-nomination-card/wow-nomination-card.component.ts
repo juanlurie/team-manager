@@ -58,7 +58,7 @@ const CHAOS_CARD_META: Record<WowChaosCard, { label: string }> = {
   selector: 'app-wow-nomination-card',
   standalone: true,
   imports: [MatIconModule, MatButtonModule, MatTooltipModule, MatMenuModule],
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.Default,
   styles: [`
     @keyframes clownPulse { 0%,100%{filter:hue-rotate(0deg) brightness(1)} 25%{filter:hue-rotate(30deg) brightness(1.1)} 75%{filter:hue-rotate(-30deg) brightness(0.95)} }
     @keyframes clownBorder { 0%,100%{border-color:rgba(255,87,34,0.5)} 33%{border-color:rgba(255,215,0,0.6)} 66%{border-color:rgba(171,71,188,0.5)} }

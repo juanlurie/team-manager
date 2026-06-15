@@ -43,7 +43,7 @@ const STATUS_COLOR: Record<string, string> = {
   standalone: true,
   imports: [RouterLink, FormsModule, MatSelectModule, MatFormFieldModule, MatIconModule, MatDialogModule, MatProgressSpinnerModule, IconButtonComponent, CurrentSprintCardComponent, LeaveSummaryCardComponent],
   templateUrl: './sprint-dashboard.component.html',
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.Default,
   styleUrls: ['./sprint-dashboard.component.scss']
 })
 export class SprintDashboardComponent implements OnInit, OnDestroy {

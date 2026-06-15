@@ -67,7 +67,7 @@ import { MyMeetingSeries } from '../../core/models/meeting-series.model';
       }
     </div>
   `,
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.Default,
   styles: [`
     .page { max-width:900px;margin:0 auto;padding:8px; }
     .spinner-wrap { display:flex;justify-content:center;padding:60px; }

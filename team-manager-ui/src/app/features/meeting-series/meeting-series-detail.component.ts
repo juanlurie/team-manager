@@ -211,7 +211,7 @@ type SlotKey = string;
       }
     </div>
   `,
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.Default,
   styles: [`
     .page { max-width:900px;margin:0 auto;padding:8px; }
     .error-state { text-align:center;padding:60px; }

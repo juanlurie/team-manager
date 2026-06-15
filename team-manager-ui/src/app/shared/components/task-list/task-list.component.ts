@@ -32,7 +32,7 @@ export interface TaskItem {
     .wi-readyforrelease  { background:rgba(255,193,7,0.15);color:#ffd54f; }
     .wi-released         { background:rgba(255,255,255,0.1);color:#e0e0e0;border:1px solid rgba(255,255,255,0.2); }
   `],
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.Default,
   template: `
     @if (tasks.length === 0) {
       <div style="padding:12px 16px;font-size:0.8rem;opacity:0.3;font-style:italic">

@@ -17,7 +17,7 @@ import { AvatarCircleComponent } from './avatar-circle.component';
               tabindex="0">×</button>
     </span>
   `,
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.Default,
   styles: [`
     .k-chip {
       display: inline-flex;

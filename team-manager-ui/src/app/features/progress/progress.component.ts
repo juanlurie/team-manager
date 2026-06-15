@@ -17,7 +17,7 @@ import { IconButtonComponent } from '../../shared/components/icon-btn/icon-btn.c
     .feat-link { text-decoration:none;color:inherit; }
     .feat-link:hover { text-decoration:underline; }
   `],
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.Default,
   template: `
     <div style="margin-bottom:24px;display:flex;align-items:center;gap:12px">
       <h2 style="margin:0;font-size:1.1rem;font-weight:600;opacity:0.85">PI Progress</h2>

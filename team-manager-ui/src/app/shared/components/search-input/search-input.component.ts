@@ -38,7 +38,7 @@ import { MatIconModule } from '@angular/material/icon';
       <div class="si-mention-hint" aria-hidden="true">{{ mentionHint() }}</div>
     }
   `,
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.Default,
   styles: [`
     .search-prefix { opacity:0.35; font-size:18px; width:18px; height:18px; line-height:18px; }
     .clear-btn {

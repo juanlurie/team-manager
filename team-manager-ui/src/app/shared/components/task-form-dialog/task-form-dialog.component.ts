@@ -37,7 +37,7 @@ export interface TaskFormData {
   selector: 'app-task-form-dialog',
   standalone: true,
   imports: [FormsModule, MatDialogModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatButtonModule, MatIconModule, MatDividerModule, MatTooltipModule, CommentsComponent],
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.Default,
   template: `
     <h2 mat-dialog-title>{{ isEdit ? 'Edit task' : 'Add task' }}</h2>
     <mat-dialog-content>

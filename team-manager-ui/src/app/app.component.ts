@@ -65,7 +65,7 @@ const routeFade = trigger('routeFade', [
 
     </div>
   `,
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.Default,
   styles: [`
     .shell {
       display: flex;

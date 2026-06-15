@@ -8,7 +8,7 @@ import { Sprint } from '../../../core/models/sprint.model';
   selector: 'app-sprint-workload-summary',
   standalone: true,
   imports: [CommonModule, MatTooltipModule],
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.Default,
   template: `
     <!-- Workload panel -->
     <div style="margin-bottom:12px;border-radius:10px;background:rgba(255,255,255,0.03);

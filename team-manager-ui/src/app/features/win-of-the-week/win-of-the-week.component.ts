@@ -63,7 +63,7 @@ import { clearCacheForPattern } from '../../core/interceptors/http-cache.interce
       animation: alertPulse 2s ease-in-out infinite;
     }
   `],
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.Default,
   template: `
     <app-wow-tie-break-spinner [show]="isSpinning()" [name]="spinnerName()" />
 
@@ -108,9 +108,7 @@ import { clearCacheForPattern } from '../../core/interceptors/http-cache.interce
             [hypeBattleEndsAt]="hypeBattleEndsAt()"
             [guestToken]="currentWeek()?.guestToken ?? null"
             [hasWinOfMonth]="hasWinOfMonth()"
-            [series]="series()"
-            [currentSeriesId]="currentSeriesId()"
-            (seriesChange)="selectSeries($event)"
+            (switchSeriesClick)="series().length > 1 && showSeriesDialog.set(true)"
             (nominateClick)="showNominateDialog()"
             (openWeekClick)="openNextWeek()"
             (voteClick)="vote($event)"
@@ -171,6 +169,26 @@ import { clearCacheForPattern } from '../../core/interceptors/http-cache.interce
           {{ submitting() ? 'Submitting...' : (editingNominationId() ? 'Save Changes' : 'Submit') }}
         </button>
       </ng-container>
+    </app-modal>
+
+    <!-- Switch Series dialog -->
+    <app-modal title="Switch Series" [show]="showSeriesDialog()" maxWidth="360px"
+               (closed)="showSeriesDialog.set(false)">
+      <div style="display:flex;flex-direction:column;gap:8px">
+        @for (s of series(); track s.id) {
+          <button (click)="selectSeries(s.id); showSeriesDialog.set(false)"
+                  style="display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:10px;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.04);color:inherit;font-size:0.9rem;cursor:pointer;text-align:left;font-family:inherit;transition:background 0.15s"
+                  [style.background]="s.id === currentSeriesId() ? 'rgba(100,181,246,0.12)' : ''"
+                  [style.border-color]="s.id === currentSeriesId() ? 'rgba(100,181,246,0.4)' : ''">
+            @if (s.id === currentSeriesId()) {
+              <mat-icon style="font-size:18px;width:18px;height:18px;color:#64b5f6">check_circle</mat-icon>
+            } @else {
+              <mat-icon style="font-size:18px;width:18px;height:18px;opacity:0.3">radio_button_unchecked</mat-icon>
+            }
+            {{ s.name }}
+          </button>
+        }
+      </div>
     </app-modal>
 
     <!-- New Series modal -->
@@ -245,6 +263,7 @@ export class WinOfTheWeekComponent implements OnInit, OnDestroy {
   series              = signal<WinSeries[]>([]);
   currentSeriesId     = signal<string | null>(null);
   showNewSeriesDialog = signal(false);
+  showSeriesDialog    = signal(false);
   newSeriesName       = '';
   tokenBalance        = signal(0);
 

@@ -34,7 +34,7 @@ const LOCATIONS = ['Home', 'Client', 'Other'];
     .btn-del { padding: 8px 16px; background: #ef5350; border: none; border-radius: 6px; color: #fff; font-size: 12px; font-weight: 700; cursor: pointer; font-family: inherit; }
     .btn-del:hover { background: #e53935; }
   `],
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.Default,
   template: `
     <div class="wrap">
       <div class="title">Delete entry?</div>
@@ -88,7 +88,7 @@ export class TsDeleteConfirmComponent {
     .confirm-no { padding: 3px 8px; background: none; border: 1px solid rgba(255,255,255,0.15); border-radius: 4px; color: rgba(255,255,255,0.5); font-size: 11px; cursor: pointer; font-family: inherit; }
     .confirm-no:hover { color: rgba(255,255,255,0.85); }
   `],
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.Default,
   template: `
     <div class="wrap">
       <div>
@@ -268,7 +268,7 @@ export class TsEditDialogComponent implements OnInit {
       .m-r4 { display:flex; align-items:center; justify-content:space-between; }
     }
   `],
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.Default,
   template: `
     <div class="card" [class.sync-pending]="syncStatus() === 'pending'" [class.sync-failed]="syncStatus() === 'failed'" [class.sync-unsynced]="syncStatus() === 'unsynced'" (click)="openEdit()">
 

@@ -22,7 +22,7 @@ import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/c
     MatInputModule, MatFormFieldModule
   ],
   templateUrl: './manage-menus.component.html',
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.Default,
   styleUrls: ['./manage-menus.component.scss']
 })
 export class ManageMenusComponent implements OnInit {

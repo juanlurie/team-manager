@@ -26,7 +26,7 @@ const NEW_FEATURE_KEY = '__new__';
   selector: 'app-work-item-form',
   standalone: true,
   imports: [ReactiveFormsModule, FormsModule, MatDialogModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatButtonModule, MatIconModule, MatDividerModule, CommentsComponent, CarryOverDialogComponent],
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.Default,
   template: `
     <h2 mat-dialog-title>{{ data.workItem ? 'Edit task' : 'Add task' }}</h2>
     <mat-dialog-content>

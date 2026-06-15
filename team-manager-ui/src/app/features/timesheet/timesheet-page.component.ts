@@ -7,7 +7,7 @@ import { TimesheetTabComponent } from '../team/team-member-personal/timesheet-ta
   selector: 'app-timesheet-page',
   standalone: true,
   imports: [TimesheetTabComponent],
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.Default,
   template: `
     @if (memberId()) {
       <app-timesheet-tab [memberId]="memberId()!" />

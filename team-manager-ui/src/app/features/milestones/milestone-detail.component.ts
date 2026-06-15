@@ -254,7 +254,7 @@ import { MilestoneScopeBadgeComponent } from '../../shared/components/milestone-
       </div>
     }
   `,
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.Default,
   styles: [`
     .ms-upcoming   { background:rgba(158,158,158,0.15);color:#9e9e9e; }
     .ms-inprogress { background:rgba(33,150,243,0.15);color:#64b5f6; }

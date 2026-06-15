@@ -33,7 +33,7 @@ import { QuickActionConfig } from '../../../../core/models/timesheet-config.mode
     .btn:hover { background:#90caf9; }
     .btn:disabled { opacity:0.35; cursor:not-allowed; }
   `],
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.Default,
   template: `
     <div class="panel">
       <div class="r1">

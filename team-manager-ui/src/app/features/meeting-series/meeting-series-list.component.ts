@@ -116,7 +116,7 @@ import { LocationsConfigDialogComponent } from './locations-config-dialog.compon
       }
     </div>
   `,
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.Default,
   styles: [`
     .page { max-width:900px;margin:0 auto;padding:8px; }
     .header { display:flex;justify-content:space-between;align-items:center;margin-bottom:24px; }

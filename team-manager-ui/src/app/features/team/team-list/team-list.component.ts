@@ -113,7 +113,7 @@ import { MatMenuModule } from '@angular/material/menu';
     }
     }
   `,
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.Default,
   styles: [`
     .tl-header {
       display:flex; align-items:center; margin-bottom:8px; gap:8px;

@@ -13,7 +13,7 @@ import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/c
   selector: 'app-win-of-the-month',
   standalone: true,
   imports: [RouterLink, MatIconModule, MatButtonModule, MatSnackBarModule, MatDialogModule],
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.Default,
   template: `
     <div style="max-width:800px;margin:0 auto;padding:0 8px 80px">
       <!-- Header -->

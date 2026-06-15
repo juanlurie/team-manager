@@ -69,7 +69,7 @@ function adaptToWinWeek(week: GuestWinWeek): WinWeek {
   selector: 'app-guest-wow',
   standalone: true,
   imports: [FormsModule, MatButtonModule, WowCurrentWeekComponent, WowTieBreakSpinnerComponent, AppModalComponent],
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.Default,
   template: `
     <app-wow-tie-break-spinner [show]="isSpinning()" [name]="spinnerName()" />
 

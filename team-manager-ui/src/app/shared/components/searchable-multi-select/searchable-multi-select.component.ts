@@ -85,7 +85,7 @@ function safeDisplay(o: any): string {
       }
     </div>
   `,
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.Default,
   styles: [`
     .ms-wrapper { display: block; }
     .ms-field { margin: 0; }

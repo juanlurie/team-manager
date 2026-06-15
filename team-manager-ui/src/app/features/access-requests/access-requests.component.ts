@@ -93,7 +93,7 @@ interface AccessRequest {
       }
     </div>
   `,
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.Default,
   styles: [`
     .status-badge { font-size:0.68rem;font-weight:600;padding:2px 8px;border-radius:10px;text-transform:uppercase;letter-spacing:0.04em; }
     .status-pending { background:rgba(255,152,0,0.15);color:#ffb74d;border:1px solid rgba(255,152,0,0.25); }

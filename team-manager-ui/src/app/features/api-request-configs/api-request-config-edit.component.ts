@@ -654,7 +654,7 @@ interface CodeSegment { text: string; kind: 'plain' | 'resolved' | 'missing'; }
       } <!-- end @else if data -->
     </div>
   `,
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.Default,
   styles: [`
     .edit-page { max-width: 960px; margin: 0 auto; padding: 8px 12px 100px; }
 

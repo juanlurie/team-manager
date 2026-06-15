@@ -75,7 +75,7 @@ interface CatResult { project: string; category: string; }
     .loc-chip.sel { border-color:rgba(100,181,246,0.5); color:#64b5f6; background:rgba(100,181,246,0.09); }
     .loc-icon { font-size:13px !important; width:13px !important; height:13px !important; line-height:13px !important; }
   `],
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.Default,
   template: `
     <div class="modal" (keydown)="onModalKey($event)" tabindex="-1">
       <div class="hdr">

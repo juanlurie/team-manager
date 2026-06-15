@@ -8,7 +8,7 @@ import { Component, OnInit, OnDestroy, signal, computed, input, ChangeDetectionS
   template: `
     <span class="wow-clock" [class.warning]="isWarning()" [class.urgent]="isUrgent()">{{ display() }}</span>
   `,
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.Default,
   styles: [`
     .wow-clock {
       font-size: 1.6rem;

@@ -28,7 +28,7 @@ import { WebSocketService } from '../../core/websocket/websocket.service';
              box-sizing:border-box;margin-bottom:12px;transition:border-color 0.2s }
     .field:focus { border-color:#64b5f6 }
   `],
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.Default,
   template: `
     <h2 mat-dialog-title style="font-size:1rem;margin:0 0 4px">New Scrum Poker Session</h2>
     <mat-dialog-content style="padding-top:12px;min-width:340px">
@@ -81,7 +81,7 @@ export class CreateSessionDialogComponent {
     MatProgressSpinnerModule
 ],
   templateUrl: './scrum-poker.component.html',
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.Default,
   styleUrls: ['./scrum-poker.component.scss']
 })
 export class ScrumPokerComponent implements OnInit, OnDestroy {

@@ -19,7 +19,7 @@ import { AvatarCircleComponent } from './avatar-circle.component';
       <span class="k-row-meta">{{ memberMeta() }}</span>
     </div>
   `,
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.Default,
   styles: [`
     .k-row {
       display: flex;

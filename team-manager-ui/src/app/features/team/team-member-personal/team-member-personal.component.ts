@@ -41,7 +41,7 @@ const MAP_CATEGORIES: MapCategory[] = [
   standalone: true,
   imports: [CommonModule, FormsModule, MatIconModule, MatButtonModule, MatTooltipModule, MatTabsModule, MatDialogModule, MatProgressSpinnerModule, TimesheetTabComponent, PermissionsTabComponent, IconButtonComponent],
   templateUrl: './team-member-personal.component.html',
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.Default,
   styleUrls: ['./team-member-personal.component.scss']
 })
 export class TeamMemberPersonalComponent implements OnInit {

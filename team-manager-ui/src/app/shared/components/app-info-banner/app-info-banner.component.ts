@@ -12,7 +12,7 @@ const COLORS: Record<BannerType, { bg: string; border: string; text: string }> =
 @Component({
   selector: 'app-info-banner',
   standalone: true,
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.Default,
   template: `
     <div [style.background]="colors().bg"
          [style.border]="'1px solid ' + colors().border"

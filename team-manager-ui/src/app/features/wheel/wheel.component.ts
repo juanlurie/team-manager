@@ -23,7 +23,7 @@ const COLORS = [
   standalone: true,
   imports: [FormsModule, MatButtonModule, MatIconModule, MatTooltipModule, MatDialogModule, MatProgressSpinnerModule],
   templateUrl: './wheel.component.html',
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.Default,
   styleUrls: ['./wheel.component.scss']
 })
 export class WheelComponent implements OnInit, AfterViewInit {

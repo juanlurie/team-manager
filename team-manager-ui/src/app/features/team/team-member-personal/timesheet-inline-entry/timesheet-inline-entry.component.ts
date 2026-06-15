@@ -40,7 +40,7 @@ import { CreateTimesheetEntryRequest } from '../../../../core/models/timesheet.m
     }
     .c-select:disabled { opacity: 0.4; cursor: not-allowed; }
   `],
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.Default,
   template: `
     <div style="border-top:1px solid rgba(255,255,255,0.07);padding:10px 0 6px;margin-top:4px">
 
