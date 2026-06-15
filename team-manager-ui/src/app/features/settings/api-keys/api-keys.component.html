@@ -61,9 +61,9 @@
               @if (key.expiresAt) { · Expires {{ formatDate(key.expiresAt) }} }
             </div>
           </div>
-          <button class="icon-btn" style="color:rgba(239,83,80,0.6)" [disabled]="!key.isActive"
+          <button mat-icon-button color="warn" [disabled]="!key.isActive"
                   (click)="revokeKey(key.id, key.name)" matTooltip="Revoke key">
-            <mat-icon style="font-size:18px;height:18px;width:18px">delete_outline</mat-icon>
+            <mat-icon>delete_outline</mat-icon>
           </button>
         </div>
       }
