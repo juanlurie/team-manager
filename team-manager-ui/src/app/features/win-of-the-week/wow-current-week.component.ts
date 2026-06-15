@@ -150,57 +150,55 @@ import { AppInfoBannerComponent } from '../../shared/components/app-info-banner/
       }
     </ng-template>
 
-    <!-- Mobile tab bar + context menu -->
-    @if (isMobile()) {
-      <div class="mob-tabs">
-        @if (isHost() && w && w.status !== 'Closed') {
-          <button class="mob-tab" [class.active]="mobileTab() === 'nominations'" (click)="mobileTab.set('nominations')">
-            Nominations
-          </button>
-          <button class="mob-tab" [class.active]="mobileTab() === 'controls'" (click)="mobileTab.set('controls')">
-            Controls
-          </button>
-        } @else {
-          <div style="flex:1"></div>
-        }
-        <!-- ⋮ context menu -->
-        <button class="mob-tab mob-more" [matMenuTriggerFor]="mobMenu">
-          <mat-icon style="font-size:20px;width:20px;height:20px">more_vert</mat-icon>
+    <!-- Tab bar + context menu (mobile: tabs + ⋮, desktop: ⋮ only) -->
+    <div class="mob-tabs">
+      @if (isHost() && isMobile() && w && w.status !== 'Closed') {
+        <button class="mob-tab" [class.active]="mobileTab() === 'nominations'" (click)="mobileTab.set('nominations')">
+          Nominations
         </button>
-        <mat-menu #mobMenu="matMenu">
-          @if (guestToken()) {
-            <button mat-menu-item (click)="shareClick.emit()">
-              <mat-icon>share</mat-icon>Share Link
-            </button>
-          }
-          <button mat-menu-item (click)="historyClick.emit()">
-            <mat-icon>history</mat-icon>History
+        <button class="mob-tab" [class.active]="mobileTab() === 'controls'" (click)="mobileTab.set('controls')">
+          Controls
+        </button>
+      } @else {
+        <div style="flex:1"></div>
+      }
+      <!-- ⋮ context menu -->
+      <button class="mob-tab mob-more" [matMenuTriggerFor]="mobMenu">
+        <mat-icon style="font-size:20px;width:20px;height:20px">more_vert</mat-icon>
+      </button>
+      <mat-menu #mobMenu="matMenu">
+        @if (guestToken()) {
+          <button mat-menu-item (click)="shareClick.emit()">
+            <mat-icon>share</mat-icon>Share Link
           </button>
-          @if (hasWinOfMonth()) {
-            <button mat-menu-item (click)="winOfMonthClick.emit()">
-              <mat-icon>calendar_month</mat-icon>Win of the Month
+        }
+        <button mat-menu-item (click)="historyClick.emit()">
+          <mat-icon>history</mat-icon>History
+        </button>
+        @if (hasWinOfMonth()) {
+          <button mat-menu-item (click)="winOfMonthClick.emit()">
+            <mat-icon>calendar_month</mat-icon>Win of the Month
+          </button>
+        }
+        @if (isHost()) {
+          <mat-divider />
+          @if (week()?.status === 'Nominating' && (week()?.nominations?.length ?? 0) > 0) {
+            <button mat-menu-item (click)="openVotingClick.emit()">
+              <mat-icon>how_to_vote</mat-icon>Open Voting
             </button>
           }
-          @if (isHost()) {
-            <mat-divider />
-            @if (week()?.status === 'Nominating' && (week()?.nominations?.length ?? 0) > 0) {
-              <button mat-menu-item (click)="openVotingClick.emit()">
-                <mat-icon>how_to_vote</mat-icon>Open Voting
-              </button>
-            }
-            @if (week()?.status === 'Closed') {
-              <button mat-menu-item (click)="openNextWeekClick.emit()">
-                <mat-icon>add_circle</mat-icon>Open Next Week
-              </button>
-            }
-            <mat-divider />
-            <button mat-menu-item (click)="newSeriesClick.emit()">
-              <mat-icon>add_circle_outline</mat-icon>Start Another Series
+          @if (week()?.status === 'Closed') {
+            <button mat-menu-item (click)="openNextWeekClick.emit()">
+              <mat-icon>add_circle</mat-icon>Open Next Week
             </button>
           }
-        </mat-menu>
-      </div>
-    }
+          <mat-divider />
+          <button mat-menu-item (click)="newSeriesClick.emit()">
+            <mat-icon>add_circle_outline</mat-icon>Start Another Series
+          </button>
+        }
+      </mat-menu>
+    </div>
 
     <div [style.display]="isMobile() ? 'block' : 'flex'" style="gap:24px;align-items:flex-start">
 
