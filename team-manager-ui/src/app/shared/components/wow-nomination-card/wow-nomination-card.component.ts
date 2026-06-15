@@ -89,6 +89,8 @@ const CHAOS_CARD_META: Record<WowChaosCard, { label: string }> = {
 
     <div [class.tiny]="isTiny" [class.clown]="isClown" [class.spotlight]="isSpot"
          [style.border]="cardBorder()" [style.background]="cardBg()"
+         [style.cursor]="canEdit() && weekStatus() === 'Nominating' ? 'pointer' : 'default'"
+         (click)="canEdit() && weekStatus() === 'Nominating' && editClick.emit(nom)"
          class="card" style="display:flex;align-items:flex-start;gap:14px;padding:16px;border-radius:12px">
 
       <!-- Spotlight pin -->
@@ -143,7 +145,7 @@ const CHAOS_CARD_META: Record<WowChaosCard, { label: string }> = {
 
         <!-- Hype Meter tap button (always during call if HypeMeter; or during hype battle for any nomination) -->
         @if (showEffects && weekStatus() !== 'Closed' && (pu === 'HypeMeter' || hypeBattleActive())) {
-          <button class="hype-btn" style="margin-top:8px" (click)="hypeClick.emit(nom.id)">
+          <button class="hype-btn" style="margin-top:8px" (click)="hypeClick.emit(nom.id); $event.stopPropagation()">
             🔥 @if (hypeBattleActive()) { Battle Hype! } @else { Hype! } ({{nom.hypeMeterCount}})
           </button>
         }
@@ -165,10 +167,12 @@ const CHAOS_CARD_META: Record<WowChaosCard, { label: string }> = {
         @if (weekStatus() === 'Nominating' && !nom.isOwned && canApplyCards() && !pu && !cc) {
           <div style="display:flex;gap:6px;margin-top:10px">
             <button mat-stroked-button class="apply-menu-btn" [matMenuTriggerFor]="puMenu"
+                    (click)="$event.stopPropagation()"
                     matTooltip="Spend a token to apply a Power-up">
               ⚡ Power-up
             </button>
             <button mat-stroked-button class="apply-menu-btn" [matMenuTriggerFor]="ccMenu"
+                    (click)="$event.stopPropagation()"
                     matTooltip="Spend a token to apply a Chaos Card">
               🌶️ Chaos Card
             </button>
@@ -179,13 +183,10 @@ const CHAOS_CARD_META: Record<WowChaosCard, { label: string }> = {
         }
       </div>
 
-      <!-- Edit/Delete (owner, nominating phase) -->
+      <!-- Delete (owner, nominating phase) -->
       @if (canEdit() && weekStatus() === 'Nominating') {
         <div style="display:flex;gap:4px;flex-shrink:0">
-          <button mat-icon-button matTooltip="Edit nomination" (click)="editClick.emit(nomination())">
-            <mat-icon style="font-size:18px;color:rgba(255,255,255,0.4)">edit</mat-icon>
-          </button>
-          <button mat-icon-button matTooltip="Delete nomination" (click)="deleteClick.emit(nomination().id)">
+          <button mat-icon-button matTooltip="Delete nomination" (click)="deleteClick.emit(nomination().id); $event.stopPropagation()">
             <mat-icon style="font-size:18px;color:rgba(239,83,80,0.6)">delete</mat-icon>
           </button>
         </div>
