@@ -40,6 +40,8 @@ export class FeaturePermissionsComponent implements OnInit {
   saving = signal<string | null>(null);
   rawGroups = signal<FeatureCategoryGroup[]>([]);
   roles = ROLES;
+  searchQuery = signal('');
+  collapsedCategories = signal<Set<string>>(new Set());
 
   matrixGroups = computed(() => {
     return this.rawGroups().map(group => ({
@@ -47,6 +49,28 @@ export class FeaturePermissionsComponent implements OnInit {
       rows: this.buildMatrix(group),
     }));
   });
+
+  filteredGroups = computed(() => {
+    const q = this.searchQuery().toLowerCase().trim();
+    const groups = this.matrixGroups();
+    if (!q) return groups;
+    return groups
+      .map(g => ({ ...g, rows: g.rows.filter(r => r.label.toLowerCase().includes(q)) }))
+      .filter(g => g.rows.length > 0);
+  });
+
+  isExpanded(category: string): boolean {
+    if (this.searchQuery().trim()) return true;
+    return !this.collapsedCategories().has(category);
+  }
+
+  toggleCategory(category: string) {
+    this.collapsedCategories.update(set => {
+      const next = new Set(set);
+      next.has(category) ? next.delete(category) : next.add(category);
+      return next;
+    });
+  }
 
   ngOnInit() {
     this.loadPermissions();

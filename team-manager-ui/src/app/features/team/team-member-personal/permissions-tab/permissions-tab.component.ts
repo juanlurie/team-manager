@@ -35,6 +35,8 @@ export class PermissionsTabComponent implements OnInit {
   saving = signal<string | null>(null);
   overrides = signal<MemberFeatureOverride[]>([]);
   categories = signal<string[]>([]);
+  searchQuery = signal('');
+  collapsedCategories = signal<Set<string>>(new Set());
 
   overrideCount = computed(() => this.overrides().filter(o => !o.roleDefault).length);
   hasOverrides = computed(() => this.overrideCount() > 0);
@@ -47,6 +49,33 @@ export class PermissionsTabComponent implements OnInit {
     }
     return groups;
   });
+
+  filteredCategories = computed(() => {
+    const q = this.searchQuery().toLowerCase().trim();
+    if (!q) return this.categories();
+    return this.categories().filter(cat =>
+      this.groupedOverrides()[cat]?.some(item => item.label.toLowerCase().includes(q))
+    );
+  });
+
+  filteredItems(cat: string): MemberFeatureOverride[] {
+    const q = this.searchQuery().toLowerCase().trim();
+    const items = this.groupedOverrides()[cat] ?? [];
+    return q ? items.filter(item => item.label.toLowerCase().includes(q)) : items;
+  }
+
+  isExpanded(cat: string): boolean {
+    if (this.searchQuery().trim()) return true;
+    return !this.collapsedCategories().has(cat);
+  }
+
+  toggleCategory(cat: string) {
+    this.collapsedCategories.update(set => {
+      const next = new Set(set);
+      next.has(cat) ? next.delete(cat) : next.add(cat);
+      return next;
+    });
+  }
 
   ngOnInit() {
     this.loadOverrides();
