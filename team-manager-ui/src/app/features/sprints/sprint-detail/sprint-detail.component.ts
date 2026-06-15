@@ -180,7 +180,7 @@ import { Router } from '@angular/router';
       }
     }
   `,
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.Default,
   styles: [`
     .tab-icon {
       font-size: 18px; width: 18px; height: 18px; line-height: 18px;

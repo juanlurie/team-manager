@@ -202,7 +202,7 @@ const STATUS_COLOR: Record<string, string> = {
 
     } <!-- end @else -->
   `,
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.Default,
   styles: [`
     .active-filter { background: rgba(100,181,246,0.15) !important; border-color: rgba(100,181,246,0.4) !important; color: #64b5f6 !important; }
     .sprint-card {

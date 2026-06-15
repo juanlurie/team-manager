@@ -2,6 +2,8 @@ import { Component, signal, inject, ChangeDetectionStrategy } from '@angular/cor
 import { RouterOutlet, Router, NavigationEnd, NavigationStart, NavigationCancel, NavigationError } from '@angular/router';
 import { MatDialogModule, MatDialog } from '@angular/material/dialog';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { SwUpdate, VersionReadyEvent } from '@angular/service-worker';
+import { filter } from 'rxjs/operators';
 import { trigger, animate, style, transition } from '@angular/animations';
 import { QuickOpenDialogComponent } from './core/components/quick-open-dialog/quick-open-dialog.component';
 import { KPickerData, KPickerResult } from './core/components/k-picker/k-picker.types';
@@ -63,7 +65,7 @@ const routeFade = trigger('routeFade', [
 
     </div>
   `,
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.Default,
   styles: [`
     .shell {
       display: flex;
@@ -155,6 +157,7 @@ export class AppComponent {
   private router = inject(Router);
   private dialog = inject(MatDialog);
   private snackBar = inject(MatSnackBar);
+  private swUpdate = inject(SwUpdate);
   private globalFilterSvc = inject(GlobalFilterService);
   private auth = inject(AuthService);
   private featureAccess = inject(FeatureAccessService);
@@ -169,6 +172,20 @@ export class AppComponent {
   authChecking = signal(true);
 
   constructor() {
+    if (this.swUpdate.isEnabled) {
+      this.swUpdate.versionUpdates.pipe(
+        filter((e): e is VersionReadyEvent => e.type === 'VERSION_READY')
+      ).subscribe(() => {
+        const ref = this.snackBar.open('A new version is available', 'Reload', {
+          duration: 0,
+          panelClass: 'update-snack',
+        });
+        ref.onAction().subscribe(() =>
+          this.swUpdate.activateUpdate().then(() => location.reload())
+        );
+      });
+    }
+
     this.auth.authStatus$.subscribe(status => {
       this.authChecking.set(false);
       this.isAuthorized.set(status === 'authorized');

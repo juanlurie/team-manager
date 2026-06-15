@@ -16,7 +16,7 @@ import { Component, output, signal, ChangeDetectionStrategy } from '@angular/cor
     .opt-btn.add { background:#64b5f6; color:#0f1923; }
     .opt-btn.cfg { background:rgba(255,255,255,0.15); color:rgba(255,255,255,0.8); }
   `],
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.Default,
   template: `
     <div class="fab">
       @if (open()) {

@@ -18,7 +18,7 @@ import { IconButtonComponent } from '../../../../shared/components/icon-btn/icon
     }
     .entry-chip:hover { background: rgba(100,181,246,0.22); }
   `],
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.Default,
   template: `
     <div style="padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.04)"
          [style.opacity]="isInCurrentMonth() ? '1' : '0.4'">

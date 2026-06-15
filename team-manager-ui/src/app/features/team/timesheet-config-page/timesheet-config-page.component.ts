@@ -59,7 +59,7 @@ const DEFAULT_LOCATION_OPTIONS = ['Home', 'Client', 'Other'];
     .btn-primary { background:#64b5f6; color:#0f1923; } .btn-primary:hover { background:#90caf9; } .btn-primary:disabled { opacity:0.35; cursor:not-allowed; }
     .loading { display:flex; justify-content:center; padding:80px; color:rgba(255,255,255,0.3); }
   `],
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.Default,
   template: `
     <div class="wrap">
       <div class="hdr">

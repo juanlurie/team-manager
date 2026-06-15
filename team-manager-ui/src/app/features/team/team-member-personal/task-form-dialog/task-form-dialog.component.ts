@@ -55,7 +55,7 @@ export interface TaskFormDialogData {
       </div>
     </div>
   `,
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.Default,
   styles: [`
     .dialog-wrapper { min-width: 320px; max-width: 400px; }
     .dialog-content { display: flex; flex-direction: column; gap: 18px; padding-top: 8px; }

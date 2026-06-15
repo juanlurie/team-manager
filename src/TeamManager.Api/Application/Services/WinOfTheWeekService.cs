@@ -832,9 +832,6 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
         if (nomination is null)
             throw new KeyNotFoundException("Nomination not found.");
 
-        if (nomination.PowerUp != "HypeMeter")
-            throw new InvalidOperationException("This nomination does not have the Hype Meter power-up.");
-
         if (nomination.WinWeek.Status != WinWeekStatus.Voting && nomination.WinWeek.Status != WinWeekStatus.SuddenDeath)
             throw new InvalidOperationException("Hype meter is only active during voting.");
 

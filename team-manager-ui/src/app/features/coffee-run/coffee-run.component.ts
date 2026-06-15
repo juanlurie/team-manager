@@ -23,7 +23,7 @@ import { WebSocketService } from '../../core/websocket/websocket.service';
   standalone: true,
   imports: [CommonModule, FormsModule, MatButtonModule, MatIconModule, MatTooltipModule, MatDialogModule, MatProgressSpinnerModule, MatSnackBarModule, MatSelectModule, MatInputModule, MatMenuModule],
   templateUrl: './coffee-run.component.html',
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.Default,
   styleUrls: ['./coffee-run.component.scss']
 })
 export class CoffeeRunComponent implements OnInit, OnDestroy {

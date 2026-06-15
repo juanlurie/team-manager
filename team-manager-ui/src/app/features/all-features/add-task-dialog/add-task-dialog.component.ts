@@ -28,7 +28,7 @@ interface SprintMember {
   selector: 'app-add-task-dialog',
   standalone: true,
   imports: [FormsModule, MatDialogModule, MatButtonModule, MatSelectModule],
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.Default,
   template: `
     <div style="min-width:320px">
       <h2 mat-dialog-title>Add Task</h2>

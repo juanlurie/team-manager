@@ -46,7 +46,7 @@ const TASK_STATUS_TEXT: Record<string, string> = {
   standalone: true,
   imports: [FormsModule, MatButtonModule, MatIconModule, MatTooltipModule, MatMenuModule, MatDialogModule, MatProgressSpinnerModule, FilterBarComponent, CommentsComponent],
   templateUrl: './all-features.component.html',
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.Default,
   styleUrls: ['./all-features.component.scss']
 })
 export class AllFeaturesComponent implements OnInit {

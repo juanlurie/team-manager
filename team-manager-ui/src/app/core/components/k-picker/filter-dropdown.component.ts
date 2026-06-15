@@ -30,7 +30,7 @@ import { FilterOption } from './k-picker.types';
       }
     </div>
   `,
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.Default,
   styles: [`
     .k-filter-wrapper {
       position: relative;

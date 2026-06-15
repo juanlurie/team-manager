@@ -28,7 +28,7 @@ const DN = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
     .err-banner svg { flex-shrink:0; }
     .err-banner span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   `],
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.Default,
   template: `
     <div class="wrap">
     <div class="strip">

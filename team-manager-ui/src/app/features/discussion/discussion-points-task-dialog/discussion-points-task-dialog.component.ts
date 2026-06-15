@@ -24,7 +24,7 @@ export interface TaskDialogData {
   selector: 'app-discussion-points-task-dialog',
   standalone: true,
   imports: [FormsModule, MatDialogModule, MatButtonModule, MatInputModule, MatFormFieldModule, MatSelectModule, MatDatepickerModule, MatNativeDateModule, MatCheckboxModule],
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.Default,
   template: `
     <div style="padding:4px 4px 0">
       <h2 mat-dialog-title style="margin:0 0 16px;font-size:1.2rem;font-weight:600">

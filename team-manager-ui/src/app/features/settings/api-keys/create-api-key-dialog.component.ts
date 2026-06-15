@@ -22,7 +22,7 @@ import { CreatedApiKeyResult } from '../../../core/models/api-key.model';
     MatIconModule,
     MatProgressSpinnerModule
 ],
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.Default,
   template: `
     <h2 mat-dialog-title>Create API Key</h2>
     <mat-dialog-content>

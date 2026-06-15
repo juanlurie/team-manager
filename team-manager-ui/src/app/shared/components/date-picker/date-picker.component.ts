@@ -28,7 +28,7 @@ import { MatDatepickerModule, DateFilterFn } from '@angular/material/datepicker'
       <mat-datepicker #picker (closed)="onTouched()"></mat-datepicker>
     </mat-form-field>
   `,
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.Default,
   styles: [`
     :host { display: block; }
   `],

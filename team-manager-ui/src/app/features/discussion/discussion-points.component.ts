@@ -28,7 +28,7 @@ const PRIORITY_ORDER = ['High', 'Medium', 'Low'] as const;
   selector: 'app-discussion-points',
   standalone: true,
   imports: [MatButtonModule, MatIconModule, MatTooltipModule, MatDialogModule, CommentsComponent, MatProgressSpinnerModule, MatDatepickerModule, MatCheckboxModule, IconButtonComponent, FilterBarComponent],
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.Default,
   template: `
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
       <h2 style="margin:0;font-size:1.2rem">Discussion Points</h2>

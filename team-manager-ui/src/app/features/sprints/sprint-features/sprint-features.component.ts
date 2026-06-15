@@ -134,7 +134,7 @@ interface FeatureView {
        }
     </div>
   `,
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.Default,
   styles: [`
     .fs-planned          { padding:2px 8px;border-radius:8px;font-size:0.7rem;font-weight:600;background:rgba(158,158,158,0.15);color:#9e9e9e; }
     .fs-inprogress       { padding:2px 8px;border-radius:8px;font-size:0.7rem;font-weight:600;background:rgba(33,150,243,0.15);color:#64b5f6; }

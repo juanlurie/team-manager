@@ -72,7 +72,7 @@ import { SlotLocation } from '../../core/models/slot-location.model';
       </div>
     </div>
   `,
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.Default,
   styles: [`
     .page { max-width:800px;margin:0 auto;padding:8px; }
     .header { display:flex;align-items:center;justify-content:space-between;margin-bottom:16px; }

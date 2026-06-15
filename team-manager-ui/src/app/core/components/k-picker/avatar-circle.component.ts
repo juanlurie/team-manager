@@ -11,7 +11,7 @@ import { getAvatarColor, getInitials } from './k-picker.utils';
       {{ initials() }}
     </div>
   `,
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.Default,
   styles: [`
     .k-avatar {
       display: inline-flex;

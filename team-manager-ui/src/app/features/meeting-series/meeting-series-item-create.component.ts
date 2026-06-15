@@ -103,7 +103,7 @@ import { MeetingSeries } from '../../core/models/meeting-series.model';
       }
     </div>
   `,
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.Default,
   styles: [`
     .page { max-width:900px;margin:0 auto;padding:8px; }
     .back-row { display:flex;align-items:center;gap:12px;margin-bottom:24px; }

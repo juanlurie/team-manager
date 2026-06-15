@@ -110,7 +110,7 @@ import { WebSocketService } from '../../core/websocket/websocket.service';
       </div>
     </div>
   `,
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.Default,
   styles: [`
     .not-registered-page {
       min-height: 100vh;

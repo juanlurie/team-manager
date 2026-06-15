@@ -17,7 +17,7 @@ import { countWorkingDays, isWeekend, toDateString, parseDateString, getSAPublic
   selector: 'app-leave-form-dialog',
   standalone: true,
   imports: [ReactiveFormsModule, MatDialogModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatButtonModule, MatDatepickerModule, MatIconModule],
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.Default,
   template: `
     <h2 mat-dialog-title>{{ data.record ? 'Edit' : 'Add' }} Leave</h2>
     <mat-dialog-content>

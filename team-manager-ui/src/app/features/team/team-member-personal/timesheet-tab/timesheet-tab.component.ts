@@ -30,7 +30,7 @@ const DN = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
   standalone: true,
   imports: [FormsModule, MatDialogModule, MatTooltipModule, TimesheetEntryCardComponent, TimesheetImportDialogComponent],
   templateUrl: './timesheet-tab.component.html',
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.Default,
   styleUrls: ['./timesheet-tab.component.scss']
 })
 export class TimesheetTabComponent implements OnInit, OnDestroy {

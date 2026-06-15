@@ -29,7 +29,7 @@ import { FormsModule } from '@angular/forms';
       .tag-rm { font-size:18px; padding:4px; }
     }
   `],
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.Default,
   template: `
     <div class="hint">These projects are added to the default list. Use this for client projects or custom work categories.</div>
     <div class="proj-list">

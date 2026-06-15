@@ -61,7 +61,7 @@ import { Router } from '@angular/router';
       <button mat-button mat-dialog-close>Close</button>
     </mat-dialog-actions>
   `,
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.Default,
   styles: [`
     .settings-list { display:flex;flex-direction:column;gap:4px;padding:8px 0; }
     .settings-item {

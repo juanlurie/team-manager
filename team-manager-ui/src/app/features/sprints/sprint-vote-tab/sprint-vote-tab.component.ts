@@ -10,7 +10,7 @@ import { SprintVotePanelComponent } from '../sprint-vote-panel/sprint-vote-panel
   selector: 'app-sprint-vote-tab',
   standalone: true,
   imports: [MatProgressSpinnerModule, SprintVotePanelComponent],
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.Default,
   template: `
     @if (loading()) {
       <div style="display:flex;justify-content:center;padding:80px">

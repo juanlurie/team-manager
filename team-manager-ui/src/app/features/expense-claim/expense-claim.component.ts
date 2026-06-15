@@ -33,7 +33,7 @@ interface ExpenseItem {
     MatDialogModule,
   ],
   templateUrl: './expense-claim.component.html',
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.Default,
   styleUrls: ['./expense-claim.component.scss'],
 })
 export class ExpenseClaimComponent implements OnInit {

@@ -59,7 +59,7 @@ const TABS: TabDef[] = [
       </div>
     </div>
   `,
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.Default,
   styles: [`
     .showcase { max-width: 1200px; margin: 0 auto; }
 
