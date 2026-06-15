@@ -150,9 +150,10 @@ import { AppInfoBannerComponent } from '../../shared/components/app-info-banner/
       }
     </ng-template>
 
-    <!-- Tab bar + context menu (mobile: tabs + ⋮, desktop: ⋮ only) -->
+    <!-- Tab bar (mobile only) -->
+    @if (isMobile()) {
     <div class="mob-tabs">
-      @if (isHost() && isMobile() && w && w.status !== 'Closed') {
+      @if (isHost() && w && w.status !== 'Closed') {
         <button class="mob-tab" [class.active]="mobileTab() === 'nominations'" (click)="mobileTab.set('nominations')">
           Nominations
         </button>
@@ -162,11 +163,13 @@ import { AppInfoBannerComponent } from '../../shared/components/app-info-banner/
       } @else {
         <div style="flex:1"></div>
       }
-      <!-- ⋮ context menu -->
       <button class="mob-tab mob-more" [matMenuTriggerFor]="mobMenu">
         <mat-icon style="font-size:20px;width:20px;height:20px">more_vert</mat-icon>
       </button>
-      <mat-menu #mobMenu="matMenu">
+    </div>
+    }
+    <!-- mat-menu (declared outside so desktop trigger can reference it too) -->
+    <mat-menu #mobMenu="matMenu">
         <button mat-menu-item (click)="switchSeriesClick.emit()">
           <mat-icon>swap_horiz</mat-icon>Switch Series
         </button>
@@ -192,8 +195,7 @@ import { AppInfoBannerComponent } from '../../shared/components/app-info-banner/
             </button>
           }
         }
-      </mat-menu>
-    </div>
+    </mat-menu>
 
     <div [style.display]="isMobile() ? 'block' : 'flex'" style="gap:24px;align-items:flex-start">
 
@@ -238,11 +240,17 @@ import { AppInfoBannerComponent } from '../../shared/components/app-info-banner/
                   Nominate a Win
                 </button>
               }
-              @if (!isMobile() && guestToken()) {
-                <button mat-icon-button (click)="shareClick.emit()"
-                        style="color:rgba(255,255,255,0.5);width:34px;height:34px"
-                        matTooltip="Copy share link">
-                  <mat-icon style="font-size:20px;width:20px;height:20px">share</mat-icon>
+              @if (!isMobile()) {
+                @if (guestToken()) {
+                  <button mat-icon-button (click)="shareClick.emit()"
+                          style="color:rgba(255,255,255,0.5);width:34px;height:34px"
+                          matTooltip="Copy share link">
+                    <mat-icon style="font-size:20px;width:20px;height:20px">share</mat-icon>
+                  </button>
+                }
+                <button mat-icon-button [matMenuTriggerFor]="mobMenu"
+                        style="color:rgba(255,255,255,0.5);width:34px;height:34px">
+                  <mat-icon style="font-size:20px;width:20px;height:20px">more_vert</mat-icon>
                 </button>
               }
             </div>
