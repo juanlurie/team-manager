@@ -174,7 +174,7 @@ import { LeaveFetchConfigService, LeaveFetchConfig, MappingConfig } from './leav
       }
     </div>
   `,
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.Default,
   styles: [`
     .config-page { max-width: 800px; margin: 0 auto; padding: 8px; }
     .page-header { display: flex; align-items: center; gap: 12px; margin-bottom: 24px; }

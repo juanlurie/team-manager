@@ -71,7 +71,7 @@ const SOURCE_COLORS: Record<string, string> = {
       }
     </div>
   `,
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.Default,
   styles: [`
     .dialog-wrap { background:#1a2636;border-radius:12px;width:480px;max-width:calc(100vw - 32px);max-height:80vh;display:flex;flex-direction:column; }
     .dialog-header { display:flex;justify-content:flex-end;padding:8px; }

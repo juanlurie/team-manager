@@ -9,7 +9,7 @@ import { AuthService } from '../../core/auth/auth.service';
   standalone: true,
   imports: [MatCardModule, MatIconModule],
   templateUrl: './profile.component.html',
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.Default,
   styleUrls: ['./profile.component.scss'],
 })
 export class ProfileComponent {

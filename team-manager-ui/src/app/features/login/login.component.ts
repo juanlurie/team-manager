@@ -87,7 +87,7 @@ const FEATURES = [
 
     </div>
   `,
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.Default,
   styles: [`
     @import url('https://fonts.googleapis.com/icon?family=Material+Icons');
 

@@ -264,7 +264,7 @@ const SKILL_CATEGORIES = ['Technical', 'Soft Skills'];
       </div>
     </div>
   `,
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.Default,
   styles: [`
     .dialog-wrapper { min-width: 320px; }
     .dialog-content { display: flex; flex-direction: column; gap: 18px; padding-top: 8px; }

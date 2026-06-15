@@ -31,7 +31,7 @@ interface ItemState {
   standalone: true,
   imports: [ReactiveFormsModule, FormsModule, MatDialogModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatButtonModule, MatIconModule, MatDividerModule, MatTooltipModule, CommentsComponent, CarryOverDialogComponent, IconButtonComponent],
   templateUrl: './rapid-fire-dialog.component.html',
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.Default,
   styleUrls: ['./rapid-fire-dialog.component.scss']
 })
 export class RapidFireDialogComponent implements OnInit {

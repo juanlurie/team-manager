@@ -10,7 +10,7 @@ import { Component, input, output, ChangeDetectionStrategy } from '@angular/core
     .btn { background:none; border:none; cursor:pointer; color:rgba(255,255,255,0.3); padding:3px; border-radius:4px; display:flex; align-items:center; }
     .btn:hover { color:rgba(255,255,255,0.85); background:rgba(255,255,255,0.06); }
   `],
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.Default,
   template: `
     <div class="nav">
       <button class="btn" (click)="prev.emit()"><svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 2L4 7l5 5"/></svg></button>

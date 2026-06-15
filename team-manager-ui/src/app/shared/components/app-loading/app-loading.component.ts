@@ -5,7 +5,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
   selector: 'app-loading',
   standalone: true,
   imports: [MatProgressSpinnerModule],
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.Default,
   template: `
     @if (spinner()) {
       <div style="display:flex;justify-content:center;padding:60px">

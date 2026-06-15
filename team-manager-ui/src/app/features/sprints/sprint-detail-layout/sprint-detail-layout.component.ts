@@ -87,7 +87,7 @@ import { IconButtonComponent } from '../../../shared/components/icon-btn/icon-bt
     <!-- Tab content -->
     <router-outlet></router-outlet>
   `,
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.Default,
   styles: [`
     .tab-link {
       display: inline-flex; align-items: center; gap: 6px;

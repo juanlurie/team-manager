@@ -155,7 +155,7 @@ type SlotKey = string;
       }
     </div>
   `,
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.Default,
   styles: [`
     .dialog { display:flex;flex-direction:column;gap:0;padding:0; }
     .title { margin:0 0 12px;font-size:1.15rem;font-weight:700; }

@@ -12,6 +12,7 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatInputModule } from '@angular/material/input';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatDividerModule } from '@angular/material/divider';
+import { MatBottomSheet, MatBottomSheetModule, MatBottomSheetRef, MAT_BOTTOM_SHEET_DATA } from '@angular/material/bottom-sheet';
 import { Subscription, interval } from 'rxjs';
 import { WinOfTheWeekService } from '../../core/services/win-of-the-week.service';
 import { WinOfTheMonthService } from '../../core/services/win-of-the-month.service';
@@ -32,6 +33,41 @@ import { runTieBreakSpin } from '../../shared/utils/wow.utils';
 import { clearCacheForPattern } from '../../core/interceptors/http-cache.interceptor';
 
 @Component({
+  selector: 'app-wow-series-sheet',
+  standalone: true,
+  imports: [MatIconModule],
+  template: `
+    <div style="padding:16px 0 8px">
+      <div style="font-size:0.75rem;font-weight:600;opacity:0.45;letter-spacing:0.1em;text-transform:uppercase;padding:0 16px 10px">Switch Series</div>
+      @for (s of data.series; track s.id) {
+        <button (click)="select(s.id)"
+                style="display:flex;align-items:center;gap:14px;width:100%;padding:14px 20px;border:none;cursor:pointer;font-family:inherit;font-size:0.95rem;text-align:left;transition:background 0.12s"
+                [style.background]="s.id === data.currentSeriesId ? 'rgba(100,181,246,0.1)' : 'transparent'"
+                [style.color]="s.id === data.currentSeriesId ? '#64b5f6' : 'rgba(255,255,255,0.85)'">
+          @if (s.id === data.currentSeriesId) {
+            <mat-icon style="font-size:20px;width:20px;height:20px;color:#64b5f6;flex-shrink:0">check_circle</mat-icon>
+          } @else {
+            <mat-icon style="font-size:20px;width:20px;height:20px;opacity:0.3;flex-shrink:0">radio_button_unchecked</mat-icon>
+          }
+          {{ s.name }}
+        </button>
+      }
+      <div style="height:1px;background:rgba(255,255,255,0.07);margin:6px 0"></div>
+      <button (click)="ref.dismiss('__new__')"
+              style="display:flex;align-items:center;gap:14px;width:100%;padding:14px 20px;border:none;background:transparent;color:rgba(100,181,246,0.8);cursor:pointer;font-family:inherit;font-size:0.95rem;text-align:left">
+        <mat-icon style="font-size:20px;width:20px;height:20px;flex-shrink:0">add_circle_outline</mat-icon>
+        New Series
+      </button>
+    </div>
+  `
+})
+export class WowSeriesSheetComponent {
+  data = inject<{ series: WinSeries[], currentSeriesId: string | null }>(MAT_BOTTOM_SHEET_DATA);
+  ref = inject(MatBottomSheetRef);
+  select(id: string) { this.ref.dismiss(id); }
+}
+
+@Component({
   selector: 'app-win-of-the-week',
   standalone: true,
   imports: [
@@ -46,6 +82,8 @@ import { clearCacheForPattern } from '../../core/interceptors/http-cache.interce
     MatInputModule,
     MatMenuModule,
     MatDividerModule,
+    MatBottomSheetModule,
+    WowSeriesSheetComponent,
     WinOfTheWeekHistoryComponent,
     WinOfTheMonthComponent,
     AppModalComponent,
@@ -63,7 +101,7 @@ import { clearCacheForPattern } from '../../core/interceptors/http-cache.interce
       animation: alertPulse 2s ease-in-out infinite;
     }
   `],
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.Default,
   template: `
     <app-wow-tie-break-spinner [show]="isSpinning()" [name]="spinnerName()" />
 
@@ -71,60 +109,13 @@ import { clearCacheForPattern } from '../../core/interceptors/http-cache.interce
          style="max-width:1060px;margin:0 auto;padding:0 8px 80px;overflow-x:hidden">
 
       <!-- Header -->
-      <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap">
-        <mat-icon style="font-size:1.6rem;width:1.6rem;height:1.6rem;color:#FFD700">emoji_events</mat-icon>
-        <h2 style="margin:0;font-size:1.3rem;font-weight:700">Win of the Week</h2>
-        @if (series().length > 1) {
-          <select [ngModel]="currentSeriesId()" (ngModelChange)="selectSeries($event)"
-                  style="background:#1e1e2e;color:rgba(255,255,255,0.8);border:1px solid rgba(255,255,255,0.12);border-radius:6px;padding:4px 8px;font-size:0.82rem;cursor:pointer">
-            @for (s of series(); track s.id) {
-              <option [value]="s.id">{{ s.name }}</option>
-            }
-          </select>
-        }
-        <div style="flex:1"></div>
-        @if (currentWeek()?.guestToken) {
+      @if (!isMobile && currentWeek()?.guestToken) {
+        <div style="display:flex;justify-content:flex-end;margin-bottom:8px">
           <button mat-icon-button (click)="copyShareLink()" matTooltip="Copy share link" style="color:rgba(255,255,255,0.5)">
             <mat-icon>share</mat-icon>
           </button>
-        }
-        <button mat-icon-button [matMenuTriggerFor]="moreMenu" style="color:rgba(255,255,255,0.5)">
-          <mat-icon>more_vert</mat-icon>
-        </button>
-        <mat-menu #moreMenu="matMenu">
-          @if (activeTab() !== 'current') {
-            <button mat-menu-item (click)="activeTab.set('current')">
-              <mat-icon>emoji_events</mat-icon>Current Week
-            </button>
-            <mat-divider />
-          }
-          <button mat-menu-item (click)="activeTab.set('history')">
-            <mat-icon>history</mat-icon>History
-          </button>
-          @if (hasWinOfMonth()) {
-            <button mat-menu-item (click)="activeTab.set('month')">
-              <mat-icon>calendar_month</mat-icon>Win of the Month
-            </button>
-          }
-          <mat-divider />
-          @if (activeTab() === 'current' && isHost()) {
-            @if (currentWeek()?.status === 'Nominating' && (currentWeek()?.nominations?.length ?? 0) > 0) {
-              <button mat-menu-item (click)="openVoting()">
-                <mat-icon>how_to_vote</mat-icon>Open Voting
-              </button>
-            }
-            @if (currentWeek()?.status === 'Closed') {
-              <button mat-menu-item (click)="openNextWeek()">
-                <mat-icon>add_circle</mat-icon>Open Next Week
-              </button>
-            }
-            <mat-divider />
-            <button mat-menu-item (click)="showNewSeriesPrompt()">
-              <mat-icon>add_circle_outline</mat-icon>Start Another Series
-            </button>
-          }
-        </mat-menu>
-      </div>
+        </div>
+      }
 
       <!-- Back button for sub-views -->
       @if (activeTab() !== 'current') {
@@ -153,6 +144,9 @@ import { clearCacheForPattern } from '../../core/interceptors/http-cache.interce
             [connectedCount]="connectedCount()"
             [activeTimerEndsAt]="activeTimerEndsAt()"
             [hypeBattleEndsAt]="hypeBattleEndsAt()"
+            [guestToken]="currentWeek()?.guestToken ?? null"
+            [hasWinOfMonth]="hasWinOfMonth()"
+            (switchSeriesClick)="series().length > 1 && openSeriesPicker()"
             (nominateClick)="showNominateDialog()"
             (openWeekClick)="openNextWeek()"
             (voteClick)="vote($event)"
@@ -168,11 +162,15 @@ import { clearCacheForPattern } from '../../core/interceptors/http-cache.interce
             (stopTimerClick)="stopTimer()"
             (startHypeBattleClick)="startHypeBattle($event)"
             (endHypeBattleClick)="endHypeBattle()"
+            (openVotingClick)="openVoting()"
             (endVotingClick)="endVoting()"
             (startSuddenDeathClick)="startTieBreaker()"
             (togglePowerUpsClick)="togglePowerUps()"
             (reopenNominationsClick)="reopenNominations()"
             (suddenDeathDurationChange)="onSuddenDeathDurationChange($event)"
+            (historyClick)="activeTab.set('history')"
+            (winOfMonthClick)="activeTab.set('month')"
+(openNextWeekClick)="openNextWeek()"
           />
         }
         @case ('history') { <app-win-of-the-week-history /> }
@@ -210,6 +208,32 @@ import { clearCacheForPattern } from '../../core/interceptors/http-cache.interce
       </ng-container>
     </app-modal>
 
+    <!-- Switch Series dialog -->
+    <app-modal title="Switch Series" [show]="showSeriesDialog()" maxWidth="360px"
+               (closed)="showSeriesDialog.set(false)">
+      <div style="display:flex;flex-direction:column;gap:8px">
+        @for (s of series(); track s.id) {
+          <button (click)="selectSeries(s.id); showSeriesDialog.set(false)"
+                  style="display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:10px;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.04);color:inherit;font-size:0.9rem;cursor:pointer;text-align:left;font-family:inherit;transition:background 0.15s"
+                  [style.background]="s.id === currentSeriesId() ? 'rgba(100,181,246,0.12)' : ''"
+                  [style.border-color]="s.id === currentSeriesId() ? 'rgba(100,181,246,0.4)' : ''">
+            @if (s.id === currentSeriesId()) {
+              <mat-icon style="font-size:18px;width:18px;height:18px;color:#64b5f6">check_circle</mat-icon>
+            } @else {
+              <mat-icon style="font-size:18px;width:18px;height:18px;opacity:0.3">radio_button_unchecked</mat-icon>
+            }
+            {{ s.name }}
+          </button>
+        }
+        <div style="height:1px;background:rgba(255,255,255,0.07);margin:2px 0"></div>
+        <button (click)="showSeriesDialog.set(false); showNewSeriesPrompt()"
+                style="display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:10px;border:1px solid rgba(100,181,246,0.2);background:rgba(100,181,246,0.06);color:rgba(100,181,246,0.85);font-size:0.9rem;cursor:pointer;text-align:left;font-family:inherit;transition:background 0.15s">
+          <mat-icon style="font-size:18px;width:18px;height:18px">add_circle_outline</mat-icon>
+          New Series
+        </button>
+      </div>
+    </app-modal>
+
     <!-- New Series modal -->
     <app-modal title="New Series" [show]="showNewSeriesDialog()" maxWidth="380px"
                (closed)="closeNewSeriesDialog()">
@@ -234,6 +258,7 @@ export class WinOfTheWeekComponent implements OnInit, OnDestroy {
   private wsSvc       = inject(WebSocketService);
   private dialog      = inject(MatDialog);
   private snackBar    = inject(MatSnackBar);
+  private bottomSheet = inject(MatBottomSheet);
   private featureAccess = inject(FeatureAccessService);
   private mobileSvc   = inject(MobileService);
 
@@ -282,6 +307,7 @@ export class WinOfTheWeekComponent implements OnInit, OnDestroy {
   series              = signal<WinSeries[]>([]);
   currentSeriesId     = signal<string | null>(null);
   showNewSeriesDialog = signal(false);
+  showSeriesDialog    = signal(false);
   newSeriesName       = '';
   tokenBalance        = signal(0);
 
@@ -449,6 +475,21 @@ export class WinOfTheWeekComponent implements OnInit, OnDestroy {
       next: (updated) => this.series.update(list => list.map(s => s.id === updated.id ? updated : s)),
       error: () => this.snackBar.open('Failed to toggle power-ups', 'Close', { duration: 3000 })
     });
+  }
+
+  openSeriesPicker() {
+    if (this.isMobile) {
+      const ref = this.bottomSheet.open(WowSeriesSheetComponent, {
+        data: { series: this.series(), currentSeriesId: this.currentSeriesId() },
+        panelClass: 'wow-series-sheet'
+      });
+      ref.afterDismissed().subscribe(result => {
+        if (result === '__new__') this.showNewSeriesPrompt();
+        else if (result) this.selectSeries(result);
+      });
+    } else {
+      this.showSeriesDialog.set(true);
+    }
   }
 
   showNewSeriesPrompt()  { this.newSeriesName = ''; this.showNewSeriesDialog.set(true); }

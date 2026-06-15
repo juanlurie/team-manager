@@ -1,13 +1,16 @@
-import { Component, computed, input, output, ChangeDetectionStrategy } from '@angular/core';
+import { Component, computed, input, output, signal, ChangeDetectionStrategy } from '@angular/core';
+import { NgTemplateOutlet } from '@angular/common';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatSlideToggleModule } from '@angular/material/slide-toggle';
+import { MatMenuModule } from '@angular/material/menu';
+import { MatDividerModule } from '@angular/material/divider';
 import { WinWeek, WinNomination, WowNominationDisplay } from '../../core/models/win-week.model';
 import { wowPhaseInfo } from '../../shared/utils/wow.utils';
 import { WowNominationCardComponent } from '../../shared/components/wow-nomination-card/wow-nomination-card.component';
 import { WowWinnerBannerComponent } from '../../shared/components/wow-winner-banner/wow-winner-banner.component';
 import { WowCountdownComponent } from '../../shared/components/wow-countdown/wow-countdown.component';
-import { WowDurationPickerComponent } from '../../shared/components/wow-duration-picker/wow-duration-picker.component';
 import { AppLoadingComponent } from '../../shared/components/app-loading/app-loading.component';
 import { AppEmptyStateComponent } from '../../shared/components/app-empty-state/app-empty-state.component';
 import { AppInfoBannerComponent } from '../../shared/components/app-info-banner/app-info-banner.component';
@@ -16,287 +19,126 @@ import { AppInfoBannerComponent } from '../../shared/components/app-info-banner/
   selector: 'app-wow-current-week',
   standalone: true,
   imports: [
+    NgTemplateOutlet,
     MatButtonModule,
     MatIconModule,
     MatTooltipModule,
+    MatSlideToggleModule,
+    MatMenuModule,
+    MatDividerModule,
     WowNominationCardComponent,
     WowWinnerBannerComponent,
     WowCountdownComponent,
-    WowDurationPickerComponent,
     AppLoadingComponent,
     AppEmptyStateComponent,
     AppInfoBannerComponent
   ],
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.Default,
   styles: [`
     @keyframes hypePulse { 0%,100%{opacity:1} 50%{opacity:0.7} }
     .hype-battle-banner { animation: hypePulse 1.5s ease-in-out infinite; }
     .host-ctrl { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1); border-radius: 14px; padding: 14px 16px; margin-bottom: 16px; }
     .ctrl-label { font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; opacity: 0.45; margin-bottom: 8px; }
-    .dur-input { width: 60px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15); border-radius: 6px; padding: 4px 8px; color: #fff; font-size: 0.85rem; text-align: center; outline: none; }
-    .ctrl-btn { font-size: 0.78rem; height: 30px; line-height: 30px; padding: 0 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.15); background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.8); cursor: pointer; transition: background 0.15s; }
+    .ctrl-btn { font-size: 0.75rem; height: 28px; line-height: 26px; padding: 0 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.15); background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.75); cursor: pointer; transition: background 0.15s; white-space: nowrap; }
     .ctrl-btn:hover { background: rgba(255,255,255,0.12); }
-    .ctrl-btn.active { background: rgba(255,87,34,0.2); border-color: rgba(255,87,34,0.5); color: #ff7043; }
-    .ctrl-btn.danger { background: rgba(239,83,80,0.12); border-color: rgba(239,83,80,0.35); color: #ef5350; }
-    .ctrl-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-    .picker-row { display: flex; align-items: center; gap: 4px; }
-    .picker-row app-wow-duration-picker { flex: 1; }
-    .play-btn { width: 32px !important; height: 32px !important; line-height: 32px !important; color: rgba(255,255,255,0.55) !important; flex-shrink: 0; }
-    .play-btn mat-icon { font-size: 20px; width: 20px; height: 20px; }
-    .play-btn:hover { color: rgba(255,255,255,0.9) !important; }
-    .play-btn.active { color: #ff7043 !important; }
-    .play-btn.sd { color: #ff7043 !important; background: rgba(255,87,34,0.12) !important; border-radius: 50%; }
+    .ctrl-btn.stop { background: rgba(255,87,34,0.15); border-color: rgba(255,87,34,0.4); color: #ff7043; }
+    .ctrl-btn.danger { background: rgba(239,83,80,0.1); border-color: rgba(239,83,80,0.3); color: #ef5350; }
+    .ctrl-btn.primary { background: rgba(100,181,246,0.15); border-color: rgba(100,181,246,0.4); color: #64b5f6; font-weight: 600; }
+    .label-row { display: flex; align-items: center; justify-content: space-between; width: 100%; }
+    .ctrl-section { display: flex; flex-direction: column; gap: 6px; }
+    .ctrl-sep { height: 1px; background: rgba(255,255,255,0.07); margin: 10px 0; }
+    .preset-row { display: flex; gap: 6px; }
+    .preset-btn { flex: 1; font-size: 0.75rem; height: 30px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.15); background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.8); cursor: pointer; font-weight: 600; transition: background 0.15s; font-family: inherit; }
+    .preset-btn:hover { background: rgba(255,255,255,0.14); }
+    .preset-btn.sd { background: rgba(255,87,34,0.15); border-color: rgba(255,87,34,0.4); color: #ff7043; }
+    .mob-tabs { display: flex; align-items: stretch; border-bottom: 1px solid rgba(255,255,255,0.08); margin-bottom: 16px; position: sticky; top: 0; z-index: 10; background: #0f1923; }
+    .mob-tab { flex: 1; padding: 10px 0; font-size: 0.8rem; font-weight: 600; text-align: center; cursor: pointer; color: rgba(255,255,255,0.45); border: none; background: none; font-family: inherit; transition: color 0.15s; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+    .mob-tab.active { color: #64b5f6; border-bottom-color: #64b5f6; }
+    .mob-more { flex: 0 0 44px; display: flex; align-items: center; justify-content: center; color: rgba(255,255,255,0.4); }
   `],
   template: `
     @let w = week();
     @let phase = phaseInfo();
 
-    <div [style.display]="isMobile() ? 'block' : 'flex'" style="gap:24px;align-items:flex-start">
+    <!-- Host controls template (reused on desktop sidebar + mobile tab) -->
+    <ng-template #ctrlsTpl>
+      @let w = week();
+      @if (w && w.status !== 'Closed') {
+        <div class="host-ctrl">
+          <div style="font-size:0.75rem;font-weight:700;opacity:0.6;margin-bottom:12px;display:flex;align-items:center;gap:6px">
+            <mat-icon style="font-size:14px;width:14px;height:14px">tune</mat-icon> Host Controls
+          </div>
 
-      <!-- Main column -->
-      <div style="flex:1;min-width:0">
+          <!-- Power-ups toggle -->
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+            <span style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;opacity:0.45">Power-ups &amp; Cards</span>
+            <mat-slide-toggle [checked]="powerUpsEnabled()" (change)="togglePowerUpsClick.emit()" color="accent" />
+          </div>
 
-        <!-- Phase badge + quota row -->
-        <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap">
-          <span [style.background]="phase.bg" [style.color]="phase.text"
-                style="font-size:0.75rem;font-weight:700;padding:4px 12px;border-radius:20px;text-transform:uppercase;letter-spacing:0.3px">
-            {{ phase.label }}
-          </span>
-          @if (w?.status === 'Voting') {
-            <span style="font-size:0.8rem;opacity:0.6">
-              Votes remaining: <strong>{{ w?.userVotesRemaining ?? 0 }}</strong>/3
-            </span>
-          }
-          @if (w?.status === 'Nominating') {
-            <span style="font-size:0.8rem;opacity:0.6">
-              Nominations remaining: <strong>{{ w?.userNominationsRemaining ?? 0 }}</strong>/3
-            </span>
-            @if ((w?.userNominationsRemaining ?? 0) > 0) {
-              <button mat-stroked-button color="accent" (click)="nominateClick.emit()"
-                      style="font-size:0.8rem;height:30px;margin-left:auto">
-                <mat-icon style="font-size:1rem;width:1rem;height:1rem">add</mat-icon>
-                Nominate a Win
+          @if (w.status === 'Nominating') {
+            <div class="ctrl-sep"></div>
+
+            <!-- Nominating controls -->
+            <div class="ctrl-section">
+              <button class="ctrl-btn primary" style="width:100%" (click)="openVotingClick.emit()">
+                Open Voting
               </button>
-            }
-          }
-          <!-- Token balance pill -->
-          @if (w?.status === 'Nominating' && tokenBalance() > 0 && powerUpsEnabled()) {
-            <span matTooltip="Spend tokens on Power-ups or Chaos Cards for other people's nominations"
-                  style="font-size:0.72rem;font-weight:700;padding:3px 10px;border-radius:20px;background:rgba(255,215,0,0.1);color:#FFD700;cursor:default">
-              🎟️ {{ tokenBalance() }} token{{ tokenBalance() !== 1 ? 's' : '' }}
-            </span>
-          }
-        </div>
-
-        <!-- Host countdown timer (visible to all) -->
-        @if (activeTimerEndsAt()) {
-          <div style="background:rgba(33,150,243,0.08);border:1px solid rgba(33,150,243,0.3);border-radius:12px;padding:12px 16px;margin-bottom:16px;display:flex;align-items:center;gap:14px">
-            <div style="flex:1">
-              <div style="font-weight:700;font-size:0.85rem;color:#42a5f5;text-transform:uppercase;letter-spacing:0.5px">⏱ Timer</div>
-              <div style="font-size:0.75rem;opacity:0.6;margin-top:2px">Time's ticking!</div>
             </div>
-            <div style="text-align:center;min-width:64px">
-              <app-wow-countdown [endsAt]="activeTimerEndsAt()" />
-            </div>
-          </div>
-        }
-
-        <!-- Hype Battle banner (visible to all) -->
-        @if (hypeBattleEndsAt() && (w?.status === 'Voting' || w?.status === 'SuddenDeath')) {
-          <div class="hype-battle-banner" style="background:rgba(255,87,34,0.1);border:1px solid rgba(255,87,34,0.4);border-radius:12px;padding:12px 16px;margin-bottom:16px;display:flex;align-items:center;gap:14px">
-            <div style="flex:1">
-              <div style="font-weight:700;font-size:0.85rem;color:#ff7043;text-transform:uppercase;letter-spacing:0.5px">🔥 Hype Battle!</div>
-              <div style="font-size:0.75rem;opacity:0.6;margin-top:2px">Tap 🔥 Hype on your favourite nomination!</div>
-            </div>
-            <div style="text-align:center;min-width:64px">
-              <app-wow-countdown [endsAt]="hypeBattleEndsAt()" />
-            </div>
-          </div>
-        }
-
-        <!-- Sudden death countdown banner -->
-        @if (w?.status === 'SuddenDeath') {
-          <div style="background:rgba(239,83,80,0.08);border:1px solid rgba(239,83,80,0.3);border-radius:12px;padding:12px 16px;margin-bottom:16px;display:flex;align-items:center;gap:14px">
-            <div style="flex:1">
-              <div style="font-weight:700;font-size:0.85rem;color:#ef5350;text-transform:uppercase;letter-spacing:0.5px">⚡ Tie-Breaker</div>
-              <div style="font-size:0.75rem;opacity:0.6;margin-top:2px">Vote now — highest vote wins when time expires</div>
-            </div>
-            <div style="text-align:center;min-width:64px">
-              <app-wow-countdown [endsAt]="w?.suddenDeathEndsAt ?? null" />
-            </div>
-          </div>
-        }
-
-        <!-- Winner banner -->
-        @if (w && w.status === 'Closed' && w.winnerNomineeName) {
-          <app-wow-winner-banner
-            [winnerNomineeName]="w.winnerNomineeName"
-            [winnerTitle]="w.winnerTitle"
-            [winnerStory]="w.winnerStory"
-            [showPoints]="true"
-            (copyStory)="copyStory.emit($event)"
-          />
-        }
-
-        <!-- Info banner during nominating phase -->
-        @if (w?.status === 'Nominating') {
-          <app-info-banner type="info">💡 You can edit or delete your nominations before voting opens.{{ (!isGuest() && powerUpsEnabled()) ? " Use tokens to apply Power-ups or Chaos Cards to others' nominations!" : '' }}</app-info-banner>
-        }
-
-
-        <!-- Vote progress bar -->
-        @if (!isGuest() && w && (w.status === 'Voting' || w.status === 'SuddenDeath')) {
-          @let pct = voteProgressPct();
-          <div style="margin-bottom:16px">
-            <div style="display:flex;justify-content:space-between;font-size:0.7rem;opacity:0.5;margin-bottom:4px">
-              <span>
-                <mat-icon style="font-size:12px;width:12px;height:12px;vertical-align:middle">people</mat-icon>
-                {{ connectedCount() }} connected
-              </span>
-              <span>{{ w.totalVotesCast }}{{ connectedCount() > 0 ? ' / ' + (connectedCount() * 3) : '' }} votes cast</span>
-            </div>
-            <div style="height:4px;border-radius:2px;background:rgba(255,255,255,0.08);overflow:hidden">
-              <div [style.width]="pct + '%'" style="height:100%;background:#4caf50;border-radius:2px;transition:width 0.4s ease"></div>
-            </div>
-          </div>
-        }
-
-        <!-- Loading -->
-        @if (loading()) { <app-loading /> }
-
-        <!-- No week yet -->
-        @if (!loading() && !w) {
-          <app-empty-state icon="emoji_events" title="No active week for this series"
-            [actionLabel]="isHost() ? 'Open First Week' : ''"
-            (actionClick)="openWeekClick.emit()" />
-        }
-
-        <!-- Empty nominations -->
-        @if (!loading() && w && w.nominations.length === 0) {
-          <app-empty-state icon="emoji_events"
-            title="No wins nominated yet this week"
-            subtitle="Be the first to recognise a teammate!"
-            [actionLabel]="canNominate() ? 'Nominate a Win' : ''"
-            (actionClick)="nominateClick.emit()" />
-        }
-
-        <!-- Nominations list -->
-        @if (!loading() && w && w.nominations.length > 0) {
-          <div style="display:flex;flex-direction:column;gap:10px">
-            @for (nom of sortedNominations(); track nom.id) {
-              <app-wow-nomination-card
-                [nomination]="toDisplay(nom)"
-                [weekStatus]="w.status"
-                [canEdit]="nom.teamMemberId === currentUserId()"
-                [votesRemaining]="w.userVotesRemaining"
-                [isTied]="tiedNomIds().has(nom.id)"
-                [canApplyCards]="tokenBalance() > 0 && powerUpsEnabled()"
-                [isHost]="isHost()"
-                [hypeBattleActive]="!!hypeBattleEndsAt()"
-                [hypeBattleTotal]="hypeBattleTotal()"
-                (voteClick)="voteClick.emit($event)"
-                (removeVoteClick)="removeVoteClick.emit($event)"
-                (editClick)="editClick.emit($event)"
-                (deleteClick)="deleteClick.emit($event)"
-                (hypeClick)="hypeClick.emit($event)"
-                (applyPowerUpClick)="applyPowerUpClick.emit($event)"
-                (applyChaosCardClick)="applyChaosCardClick.emit($event)"
-              />
-            }
-          </div>
-        }
-
-      </div>
-
-      <!-- Desktop sidebar (QR + host controls) -->
-      @if (isHost() && !isMobile()) {
-        <div style="flex-shrink:0;width:280px;position:sticky;top:16px;display:flex;flex-direction:column;gap:12px">
-
-          <!-- QR code -->
-          @if (qrDataUrl()) {
-            <img [src]="qrDataUrl()!" alt="Guest QR code"
-                 style="width:280px;height:280px;border-radius:8px;display:block" />
           }
 
-          <!-- Host control panel (any active week) -->
-          @if (w && w.status !== 'Closed') {
-            <div class="host-ctrl">
-              <div style="font-size:0.75rem;font-weight:700;opacity:0.6;margin-bottom:12px;display:flex;align-items:center;gap:6px">
-                <mat-icon style="font-size:14px;width:14px;height:14px">tune</mat-icon> Host Controls
+          @if (w.status === 'Voting' || w.status === 'SuddenDeath') {
+            <!-- Reopen Nominations -->
+            <button class="ctrl-btn" style="width:100%;margin-bottom:8px" (click)="reopenNominationsClick.emit()">
+              Reopen Nominations
+            </button>
+
+            <div class="ctrl-sep"></div>
+
+            <!-- Timer section -->
+            <div class="ctrl-section">
+              <span class="ctrl-label">Countdown Timer</span>
+              @if (!activeTimerEndsAt()) {
+                <div class="preset-row">
+                  <button class="preset-btn" (click)="startTimerClick.emit(30)">30s</button>
+                  <button class="preset-btn" (click)="startTimerClick.emit(60)">1:00</button>
+                  <button class="preset-btn" (click)="startTimerClick.emit(90)">1:30</button>
+                </div>
+              } @else {
+                <button class="ctrl-btn stop" style="width:100%" (click)="stopTimerClick.emit()">Stop Timer</button>
+              }
+            </div>
+
+            <div class="ctrl-sep"></div>
+
+            <!-- Hype Battle section (only when tied) -->
+            @if (tiedNomIds().size > 0) {
+              <div class="ctrl-section">
+                <span class="ctrl-label">🔥 Hype Battle</span>
+                @if (!hypeBattleEndsAt()) {
+                  <div class="preset-row">
+                    <button class="preset-btn" (click)="startHypeBattleClick.emit(30)">30s</button>
+                    <button class="preset-btn" (click)="startHypeBattleClick.emit(60)">1:00</button>
+                    <button class="preset-btn" (click)="startHypeBattleClick.emit(90)">1:30</button>
+                  </div>
+                } @else {
+                  <button class="ctrl-btn stop" style="width:100%" (click)="endHypeBattleClick.emit()">Stop Battle</button>
+                }
               </div>
 
-              <!-- Power-ups toggle (always visible) -->
-              <button class="ctrl-btn" style="width:100%;margin-bottom:12px;text-align:left"
-                      (click)="togglePowerUpsClick.emit()">
-                <mat-icon style="font-size:14px;width:14px;height:14px;vertical-align:middle;margin-right:4px">
-                  {{ powerUpsEnabled() ? 'toggle_on' : 'toggle_off' }}
-                </mat-icon>
-                {{ powerUpsEnabled() ? 'Power-ups On' : 'Power-ups Off' }}
-              </button>
+              <div class="ctrl-sep"></div>
+            }
 
-              @if (w.status === 'Voting' || w.status === 'SuddenDeath') {
-                <!-- Timer row -->
-                <div class="ctrl-label">Countdown Timer</div>
-                <div class="picker-row" style="margin-bottom:12px">
-                  <app-wow-duration-picker
-                    [value]="timerDuration"
-                    [max]="600"
-                    [disabled]="!!activeTimerEndsAt()"
-                    (valueChange)="timerDuration = $event"
-                  />
-                  @if (!activeTimerEndsAt()) {
-                    <button mat-icon-button class="play-btn" (click)="startTimerClick.emit(timerDuration)" matTooltip="Start timer">
-                      <mat-icon>play_arrow</mat-icon>
-                    </button>
-                  } @else {
-                    <button mat-icon-button class="play-btn active" (click)="stopTimerClick.emit()" matTooltip="Stop timer">
-                      <mat-icon>stop</mat-icon>
-                    </button>
-                  }
-                </div>
-
-                <!-- Hype Battle row -->
-                <div class="ctrl-label">Hype Battle</div>
-                <div class="picker-row" style="margin-bottom:12px">
-                  <app-wow-duration-picker
-                    [value]="hypeBattleDuration"
-                    [max]="300"
-                    [disabled]="!!hypeBattleEndsAt()"
-                    (valueChange)="hypeBattleDuration = $event"
-                  />
-                  @if (!hypeBattleEndsAt()) {
-                    <button mat-icon-button class="play-btn" (click)="startHypeBattleClick.emit(hypeBattleDuration)" matTooltip="Start hype battle">
-                      <mat-icon>play_arrow</mat-icon>
-                    </button>
-                  } @else {
-                    <button mat-icon-button class="play-btn active" (click)="endHypeBattleClick.emit()" matTooltip="End battle">
-                      <mat-icon>stop</mat-icon>
-                    </button>
-                  }
-                </div>
-
-                <!-- Sudden Death (only when there's a tie) -->
-                @if (w.status === 'Voting' && tiedNomIds().size > 0) {
-                  <div class="ctrl-label" style="color:#ff7043">⚡ Tie — Sudden Death available</div>
-                  <div class="picker-row" style="margin-bottom:8px">
-                    <app-wow-duration-picker
-                      [value]="suddenDeathDuration"
-                      [max]="600"
-                      (valueChange)="suddenDeathDuration = $event; suddenDeathDurationChange.emit($event)"
-                    />
-                    <button mat-icon-button class="play-btn sd" (click)="startSuddenDeathClick.emit()" matTooltip="Start sudden death">
-                      <mat-icon>bolt</mat-icon>
-                    </button>
+            <!-- End Voting / Sudden Death -->
+            <div class="ctrl-section">
+              @if (w.status === 'Voting') {
+                @if (tiedNomIds().size > 0) {
+                  <span class="ctrl-label" style="color:#ff7043;opacity:1">Tie detected — Sudden Death</span>
+                  <div class="preset-row">
+                    <button class="preset-btn sd" (click)="suddenDeathDurationChange.emit(60); startSuddenDeathClick.emit()">1:00</button>
+                    <button class="preset-btn sd" (click)="suddenDeathDurationChange.emit(90); startSuddenDeathClick.emit()">1:30</button>
+                    <button class="preset-btn sd" (click)="suddenDeathDurationChange.emit(120); startSuddenDeathClick.emit()">2:00</button>
                   </div>
-                }
-
-                <!-- Reopen Nominations -->
-                <button class="ctrl-btn" style="width:100%;margin-bottom:6px" (click)="reopenNominationsClick.emit()">
-                  Reopen Nominations
-                </button>
-
-                <!-- End Voting -->
-                @if (w.status === 'Voting') {
+                } @else {
                   <button class="ctrl-btn danger" style="width:100%" (click)="endVotingClick.emit()">
                     End Voting
                   </button>
@@ -304,6 +146,231 @@ import { AppInfoBannerComponent } from '../../shared/components/app-info-banner/
               }
             </div>
           }
+        </div>
+      }
+    </ng-template>
+
+    <!-- Tab bar + context menu (mobile: tabs + ⋮, desktop: ⋮ only) -->
+    <div class="mob-tabs">
+      @if (isHost() && isMobile() && w && w.status !== 'Closed') {
+        <button class="mob-tab" [class.active]="mobileTab() === 'nominations'" (click)="mobileTab.set('nominations')">
+          Nominations
+        </button>
+        <button class="mob-tab" [class.active]="mobileTab() === 'controls'" (click)="mobileTab.set('controls')">
+          Controls
+        </button>
+      } @else {
+        <div style="flex:1"></div>
+      }
+      <!-- ⋮ context menu -->
+      <button class="mob-tab mob-more" [matMenuTriggerFor]="mobMenu">
+        <mat-icon style="font-size:20px;width:20px;height:20px">more_vert</mat-icon>
+      </button>
+      <mat-menu #mobMenu="matMenu">
+        <button mat-menu-item (click)="switchSeriesClick.emit()">
+          <mat-icon>swap_horiz</mat-icon>Switch Series
+        </button>
+        <mat-divider />
+        @if (guestToken()) {
+          <button mat-menu-item (click)="shareClick.emit()">
+            <mat-icon>share</mat-icon>Share Link
+          </button>
+        }
+        <button mat-menu-item (click)="historyClick.emit()">
+          <mat-icon>history</mat-icon>History
+        </button>
+        @if (hasWinOfMonth()) {
+          <button mat-menu-item (click)="winOfMonthClick.emit()">
+            <mat-icon>calendar_month</mat-icon>Win of the Month
+          </button>
+        }
+        @if (isHost()) {
+          <mat-divider />
+          @if (week()?.status === 'Nominating' && (week()?.nominations?.length ?? 0) > 0) {
+            <button mat-menu-item (click)="openVotingClick.emit()">
+              <mat-icon>how_to_vote</mat-icon>Open Voting
+            </button>
+          }
+          @if (week()?.status === 'Closed') {
+            <button mat-menu-item (click)="openNextWeekClick.emit()">
+              <mat-icon>add_circle</mat-icon>Open Next Week
+            </button>
+          }
+        }
+      </mat-menu>
+    </div>
+
+    <div [style.display]="isMobile() ? 'block' : 'flex'" style="gap:24px;align-items:flex-start">
+
+      <!-- Mobile: Controls tab -->
+      @if (isHost() && isMobile() && mobileTab() === 'controls') {
+        <ng-container [ngTemplateOutlet]="ctrlsTpl" />
+      }
+
+      <!-- Main column (nominations) — hidden on mobile when Controls tab active -->
+      @if (!isMobile() || mobileTab() === 'nominations') {
+        <div style="flex:1;min-width:0">
+
+          <!-- Phase badge + quota row -->
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap">
+            <span [style.background]="phase.bg" [style.color]="phase.text"
+                  style="font-size:0.75rem;font-weight:700;padding:4px 12px;border-radius:20px;text-transform:uppercase;letter-spacing:0.3px">
+              {{ phase.label }}
+            </span>
+            @if (w?.status === 'Voting') {
+              <span style="font-size:0.8rem;opacity:0.6">
+                Votes remaining: <strong>{{ w?.userVotesRemaining ?? 0 }}</strong>/3
+              </span>
+            }
+            @if (w?.status === 'Nominating') {
+              <span style="font-size:0.8rem;opacity:0.6">
+                Nominations remaining: <strong>{{ w?.userNominationsRemaining ?? 0 }}</strong>/3
+              </span>
+              @if ((w?.userNominationsRemaining ?? 0) > 0) {
+                <button mat-stroked-button color="accent" (click)="nominateClick.emit()"
+                        style="font-size:0.8rem;height:30px;margin-left:auto">
+                  <mat-icon style="font-size:1rem;width:1rem;height:1rem">add</mat-icon>
+                  Nominate a Win
+                </button>
+              }
+            }
+            <!-- Token balance pill -->
+            @if (w?.status === 'Nominating' && tokenBalance() > 0 && powerUpsEnabled()) {
+              <span matTooltip="Spend tokens on Power-ups or Chaos Cards for other people's nominations"
+                    style="font-size:0.72rem;font-weight:700;padding:3px 10px;border-radius:20px;background:rgba(255,215,0,0.1);color:#FFD700;cursor:default">
+                🎟️ {{ tokenBalance() }} token{{ tokenBalance() !== 1 ? 's' : '' }}
+              </span>
+            }
+          </div>
+
+          <!-- Host countdown timer (visible to all) -->
+          @if (activeTimerEndsAt()) {
+            <div style="background:rgba(33,150,243,0.08);border:1px solid rgba(33,150,243,0.3);border-radius:12px;padding:12px 16px;margin-bottom:16px;display:flex;align-items:center;gap:14px">
+              <div style="flex:1">
+                <div style="font-weight:700;font-size:0.85rem;color:#42a5f5;text-transform:uppercase;letter-spacing:0.5px">⏱ Timer</div>
+                <div style="font-size:0.75rem;opacity:0.6;margin-top:2px">Time's ticking!</div>
+              </div>
+              <div style="text-align:center;min-width:64px">
+                <app-wow-countdown [endsAt]="activeTimerEndsAt()" />
+              </div>
+            </div>
+          }
+
+          <!-- Hype Battle banner (visible to all) -->
+          @if (hypeBattleEndsAt() && (w?.status === 'Voting' || w?.status === 'SuddenDeath')) {
+            <div class="hype-battle-banner" style="background:rgba(255,87,34,0.1);border:1px solid rgba(255,87,34,0.4);border-radius:12px;padding:12px 16px;margin-bottom:16px;display:flex;align-items:center;gap:14px">
+              <div style="flex:1">
+                <div style="font-weight:700;font-size:0.85rem;color:#ff7043;text-transform:uppercase;letter-spacing:0.5px">🔥 Hype Battle!</div>
+                <div style="font-size:0.75rem;opacity:0.6;margin-top:2px">Tap 🔥 Hype on your favourite nomination!</div>
+              </div>
+              <div style="text-align:center;min-width:64px">
+                <app-wow-countdown [endsAt]="hypeBattleEndsAt()" />
+              </div>
+            </div>
+          }
+
+          <!-- Sudden death countdown banner -->
+          @if (w?.status === 'SuddenDeath') {
+            <div style="background:rgba(239,83,80,0.08);border:1px solid rgba(239,83,80,0.3);border-radius:12px;padding:12px 16px;margin-bottom:16px;display:flex;align-items:center;gap:14px">
+              <div style="flex:1">
+                <div style="font-weight:700;font-size:0.85rem;color:#ef5350;text-transform:uppercase;letter-spacing:0.5px">⚡ Tie-Breaker</div>
+                <div style="font-size:0.75rem;opacity:0.6;margin-top:2px">Vote now — highest vote wins when time expires</div>
+              </div>
+              <div style="text-align:center;min-width:64px">
+                <app-wow-countdown [endsAt]="w?.suddenDeathEndsAt ?? null" />
+              </div>
+            </div>
+          }
+
+          <!-- Winner banner -->
+          @if (w && w.status === 'Closed' && w.winnerNomineeName) {
+            <app-wow-winner-banner
+              [winnerNomineeName]="w.winnerNomineeName"
+              [winnerTitle]="w.winnerTitle"
+              [winnerStory]="w.winnerStory"
+              [showPoints]="true"
+              (copyStory)="copyStory.emit($event)"
+            />
+          }
+
+          <!-- Info banner during nominating phase -->
+          @if (w?.status === 'Nominating') {
+            <app-info-banner type="info">💡 You can edit or delete your nominations before voting opens.{{ (!isGuest() && powerUpsEnabled()) ? " Use tokens to apply Power-ups or Chaos Cards to others' nominations!" : '' }}</app-info-banner>
+          }
+
+          <!-- Vote progress bar -->
+          @if (!isGuest() && w && (w.status === 'Voting' || w.status === 'SuddenDeath')) {
+            @let pct = voteProgressPct();
+            <div style="margin-bottom:16px">
+              <div style="display:flex;justify-content:space-between;font-size:0.7rem;opacity:0.5;margin-bottom:4px">
+                <span>
+                  <mat-icon style="font-size:12px;width:12px;height:12px;vertical-align:middle">people</mat-icon>
+                  {{ connectedCount() }} connected
+                </span>
+                <span>{{ w.totalVotesCast }}{{ connectedCount() > 0 ? ' / ' + (connectedCount() * 3) : '' }} votes cast</span>
+              </div>
+              <div style="height:4px;border-radius:2px;background:rgba(255,255,255,0.08);overflow:hidden">
+                <div [style.width]="pct + '%'" style="height:100%;background:#4caf50;border-radius:2px;transition:width 0.4s ease"></div>
+              </div>
+            </div>
+          }
+
+          <!-- Loading -->
+          @if (loading()) { <app-loading /> }
+
+          <!-- No week yet -->
+          @if (!loading() && !w) {
+            <app-empty-state icon="emoji_events" title="No active week for this series"
+              [actionLabel]="isHost() ? 'Open First Week' : ''"
+              (actionClick)="openWeekClick.emit()" />
+          }
+
+          <!-- Empty nominations -->
+          @if (!loading() && w && w.nominations.length === 0) {
+            <app-empty-state icon="emoji_events"
+              title="No wins nominated yet this week"
+              subtitle="Be the first to recognise a teammate!"
+              [actionLabel]="canNominate() ? 'Nominate a Win' : ''"
+              (actionClick)="nominateClick.emit()" />
+          }
+
+          <!-- Nominations list -->
+          @if (!loading() && w && w.nominations.length > 0) {
+            <div style="display:flex;flex-direction:column;gap:10px">
+              @for (nom of sortedNominations(); track nom.id) {
+                <app-wow-nomination-card
+                  [nomination]="toDisplay(nom)"
+                  [weekStatus]="w.status"
+                  [canEdit]="nom.teamMemberId === currentUserId()"
+                  [votesRemaining]="w.userVotesRemaining"
+                  [isTied]="tiedNomIds().has(nom.id)"
+                  [canApplyCards]="tokenBalance() > 0 && powerUpsEnabled()"
+                  [isHost]="isHost()"
+                  [hypeBattleActive]="!!hypeBattleEndsAt()"
+                  [hypeBattleTotal]="hypeBattleTotal()"
+                  (voteClick)="voteClick.emit($event)"
+                  (removeVoteClick)="removeVoteClick.emit($event)"
+                  (editClick)="editClick.emit($event)"
+                  (deleteClick)="deleteClick.emit($event)"
+                  (hypeClick)="hypeClick.emit($event)"
+                  (applyPowerUpClick)="applyPowerUpClick.emit($event)"
+                  (applyChaosCardClick)="applyChaosCardClick.emit($event)"
+                />
+              }
+            </div>
+          }
+
+        </div>
+      }
+
+      <!-- Desktop sidebar (QR + host controls) -->
+      @if (isHost() && !isMobile()) {
+        <div style="flex-shrink:0;width:248px;position:sticky;top:16px;display:flex;flex-direction:column;gap:12px;margin-right:16px">
+          @if (qrDataUrl()) {
+            <img [src]="qrDataUrl()!" alt="Guest QR code"
+                 style="width:248px;height:280px;border-radius:8px;display:block" />
+          }
+          <ng-container [ngTemplateOutlet]="ctrlsTpl" />
         </div>
       }
 
@@ -323,9 +390,12 @@ export class WowCurrentWeekComponent {
   connectedCount   = input(0);
   activeTimerEndsAt   = input<string | null>(null);
   hypeBattleEndsAt    = input<string | null>(null);
+  guestToken          = input<string | null>(null);
+  hasWinOfMonth       = input(false);
 
   nominateClick           = output();
   openWeekClick           = output();
+  openVotingClick         = output();
   voteClick               = output<string>();
   removeVoteClick         = output<string>();
   editClick               = output<WowNominationDisplay>();
@@ -344,10 +414,12 @@ export class WowCurrentWeekComponent {
   togglePowerUpsClick       = output();
   reopenNominationsClick    = output();
   suddenDeathDurationChange = output<number>();
+  historyClick              = output();
+  winOfMonthClick           = output();
+  openNextWeekClick         = output();
+  switchSeriesClick         = output();
 
-  timerDuration       = 60;
-  hypeBattleDuration  = 30;
-  suddenDeathDuration = 90;
+  mobileTab = signal<'nominations' | 'controls'>('nominations');
 
   readonly phaseInfo = computed(() => wowPhaseInfo(this.week()?.status));
 
@@ -385,9 +457,12 @@ export class WowCurrentWeekComponent {
     const w = this.week();
     if (!w) return [];
     let noms = [...w.nominations];
+    const tiedIds = this.tiedNomIds();
     if (w.status === 'SuddenDeath' && w.tiedNominationIds?.length) {
       const tied = new Set(w.tiedNominationIds);
       noms = noms.filter(n => tied.has(n.id));
+    } else if (this.hypeBattleEndsAt() && tiedIds.size > 0) {
+      noms = noms.filter(n => tiedIds.has(n.id));
     }
     if (w.status === 'Voting' || w.status === 'SuddenDeath' || w.status === 'Closed')
       noms = noms.sort((a, b) => b.voteCount - a.voteCount || new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());

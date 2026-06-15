@@ -43,7 +43,7 @@ import { AuthService } from '../../../core/auth/auth.service';
       </div>
     }
   `,
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.Default,
   styles: [`
     .bottom-nav {
       position: fixed;

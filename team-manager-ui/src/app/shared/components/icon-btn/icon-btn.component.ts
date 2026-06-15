@@ -19,7 +19,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
       <mat-icon>{{ icon }}</mat-icon>
     </button>
   `,
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.Default,
   styles: [`
     :host {
       display: inline-flex;

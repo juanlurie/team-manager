@@ -85,7 +85,7 @@ const JOKE_TYPES: JokeType[] = [
     .unconfigured mat-icon { font-size: 40px; width: 40px; height: 40px; opacity: 0.3; margin-bottom: 12px; display: block; margin-left: auto; margin-right: auto; }
     .unconfigured p { color: rgba(255,255,255,0.45); font-size: 0.88rem; line-height: 1.5; }
   `],
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.Default,
   template: `
     <div class="jokes-wrap">
       <p class="section-title">Pick a vibe</p>

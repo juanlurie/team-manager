@@ -31,7 +31,7 @@ const SOURCE_COLORS: Record<string, { bg: string; text: string }> = {
     .rank-row { transition:opacity 0.15s; }
     .rank-row:hover { opacity:0.75; }
   `],
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.Default,
   template: `
     <div style="max-width:900px;margin:0 auto;padding:0 8px">
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:24px">

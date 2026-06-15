@@ -29,7 +29,7 @@ const PALETTE = ['#42A5F5','#66BB6A','#FFA726','#AB47BC','#26C6DA','#EC407A','#8
     .color-dot { width:20px;height:20px;border-radius:50%;cursor:pointer;border:2px solid transparent;flex-shrink:0; }
     .color-dot.selected { border-color:rgba(255,255,255,0.8); }
   `],
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.Default,
   template: `
     <div style="display:flex;align-items:center;gap:10px;padding:20px 24px 0">
       <mat-icon style="color:#5c6bc0">groups</mat-icon>

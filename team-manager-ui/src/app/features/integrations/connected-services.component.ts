@@ -129,7 +129,7 @@ import { GoogleCalendarService, GoogleCalendarStatus } from '../api-request-conf
       </div>
     </div>
   `,
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.Default,
   styles: [`
     .services-page { max-width: 900px; margin: 0 auto; padding: 8px 8px 80px; }
 

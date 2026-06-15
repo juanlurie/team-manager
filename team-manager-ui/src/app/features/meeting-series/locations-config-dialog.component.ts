@@ -78,7 +78,7 @@ import { SlotLocation } from '../../core/models/slot-location.model';
       </div>
     </div>
   `,
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.Default,
   styles: [`
     .dialog-header { display:flex;align-items:center;justify-content:space-between;padding:16px 24px 8px; }
     .dialog-header h2 { margin:0;font-size:1.2rem;font-weight:700; }

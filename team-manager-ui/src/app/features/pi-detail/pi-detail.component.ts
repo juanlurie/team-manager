@@ -180,7 +180,7 @@ interface MilestoneCreateDialogData {
       </div>
     }
   `,
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.Default,
   styles: [`
     .timeline-node {
       width: 24px;height: 24px;
@@ -290,7 +290,7 @@ export class PIDetailComponent implements OnInit {
     MatDialogModule, MatButtonModule, MatIconModule,
     MatFormFieldModule, MatInputModule, MatSelectModule, MatRadioModule
   ],
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.Default,
   template: `
     <h2 mat-dialog-title style="margin:0 0 16px;font-size:1.1rem">{{ data.isEdit ? 'Edit milestone' : 'Add milestone' }}</h2>
     <mat-dialog-content style="min-width:360px">

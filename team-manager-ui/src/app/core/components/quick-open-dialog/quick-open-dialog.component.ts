@@ -80,7 +80,7 @@ const QUICK_OPEN_ITEMS: QuickOpenItem[] = [
       </div>
     </div>
   `,
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.Default,
   styles: [`
     .quick-open-wrapper {
       width: 90vw;

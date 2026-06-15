@@ -113,7 +113,7 @@ export interface TimesheetConfigDialogData {
     .billable-check { display:flex; align-items:center; gap:8px; cursor:pointer; font-size:12px; }
     .billable-check input { width:15px; height:15px; cursor:pointer; accent-color:#64b5f6; }
   `],
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.Default,
   template: `
     <div class="dlg">
       <div class="dlg-hdr">

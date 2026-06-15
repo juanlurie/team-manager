@@ -14,7 +14,7 @@ import { WorkItemService } from '../../../core/services/work-item.service';
   selector: 'app-carry-over-dialog',
   standalone: true,
   imports: [FormsModule, MatDialogModule, MatFormFieldModule, MatSelectModule, MatButtonModule],
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.Default,
   template: `
     <h2 mat-dialog-title>Carry Over Task</h2>
     <mat-dialog-content style="min-width:320px">

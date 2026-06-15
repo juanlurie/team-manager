@@ -6,7 +6,7 @@ import { MatButtonModule } from '@angular/material/button';
   selector: 'app-empty-state',
   standalone: true,
   imports: [MatIconModule, MatButtonModule],
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.Default,
   template: `
     <div style="text-align:center;padding:64px;opacity:0.35">
       @if (icon()) {

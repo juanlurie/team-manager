@@ -59,7 +59,7 @@ interface WeekRow {
     MatDialogModule, MatChipsModule, MatMenuModule, IconButtonComponent, FilterBarComponent
   ],
   templateUrl: './leave-overview.component.html',
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.Default,
   styleUrls: ['./leave-overview.component.scss']
 })
 export class LeaveOverviewComponent implements OnInit {

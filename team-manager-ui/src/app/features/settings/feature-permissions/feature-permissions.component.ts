@@ -27,7 +27,7 @@ interface FeatureRow {
     MatSnackBarModule
 ],
   templateUrl: './feature-permissions.component.html',
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.Default,
   styleUrls: ['./feature-permissions.component.scss'],
 })
 export class FeaturePermissionsComponent implements OnInit {

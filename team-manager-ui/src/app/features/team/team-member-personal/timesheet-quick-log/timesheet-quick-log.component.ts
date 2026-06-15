@@ -19,7 +19,7 @@ import { QuickActionConfig } from '../../../../core/models/timesheet-config.mode
     .ql-empty button { padding:6px 14px; background:rgba(100,181,246,0.15); border:1px solid rgba(100,181,246,0.3); border-radius:6px; color:#90caf9; font-size:11px; font-weight:600; cursor:pointer; transition:all 0.12s; font-family:inherit; }
     .ql-empty button:hover { background:rgba(100,181,246,0.25); border-color:rgba(100,181,246,0.5); }
   `],
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.Default,
   template: `
     <div class="ql">
       <div class="ql-lbl">Quick log</div>

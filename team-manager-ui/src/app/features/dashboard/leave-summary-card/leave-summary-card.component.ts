@@ -13,7 +13,7 @@ import { DashboardLeaveSummary } from '../../../core/models/dashboard.model';
     .member-card { transition:background 0.15s; }
     .member-card:hover { background:rgba(206,147,216,0.08); }
   `],
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.Default,
   template: `
     @let summary = leaveSummary();
     @if (summary) {

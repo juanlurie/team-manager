@@ -3,7 +3,7 @@ import { Component, input, output, ChangeDetectionStrategy } from '@angular/core
 @Component({
   selector: 'app-modal',
   standalone: true,
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.Default,
   template: `
     @if (show()) {
       <div style="position:fixed;inset:0;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;z-index:1000"

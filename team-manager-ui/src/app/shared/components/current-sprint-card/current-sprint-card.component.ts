@@ -19,7 +19,7 @@ const STATUS_COLOR: Record<string, string> = {
   selector: 'app-current-sprint-card',
   standalone: true,
   imports: [CommonModule, RouterLink, MatIconModule, MatChipsModule, MatTooltipModule, IconButtonComponent],
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.Default,
   template: `
     <a [routerLink]="['/delivery/sprints', sprint().id]"
        style="padding:18px 20px;border-radius:12px;display:block;text-decoration:none;color:inherit;cursor:pointer;

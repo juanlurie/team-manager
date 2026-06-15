@@ -19,7 +19,7 @@ import { MilestoneScopeBadgeComponent } from '../../shared/components/milestone-
     MatTooltipModule, MatChipsModule,
     MilestoneScopeBadgeComponent
   ],
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.Default,
   template: `
     @if (loading()) {
       <div style="text-align:center;padding:64px;opacity:0.35">Loading roadmap…</div>

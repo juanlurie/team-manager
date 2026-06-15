@@ -37,7 +37,7 @@ const DN = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
     .tot-val { font-size:19px; font-weight:700; }
     .tot-sub { font-size:11px; color:rgba(255,255,255,0.28); margin-top:2px; }
   `],
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.Default,
   template: `
     <div class="sb">
       <div class="sb-hdr">

@@ -12,7 +12,7 @@ import { SprintRetroComponent } from '../sprint-retro/sprint-retro.component';
   selector: 'app-sprint-retro-tab',
   standalone: true,
   imports: [MatProgressSpinnerModule, SprintRetroComponent],
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.Default,
   template: `
     @if (loading()) {
       <div style="display:flex;justify-content:center;padding:80px">

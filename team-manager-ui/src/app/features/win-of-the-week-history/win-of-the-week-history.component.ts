@@ -14,7 +14,7 @@ import { AppEmptyStateComponent } from '../../shared/components/app-empty-state/
   selector: 'app-win-of-the-week-history',
   standalone: true,
   imports: [MatIconModule, MatButtonModule, MatSelectModule, MatFormFieldModule, MatTooltipModule, AppLoadingComponent, AppEmptyStateComponent],
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.Default,
   template: `
     <div style="max-width:1000px;margin:0 auto;padding:0 8px 80px">
       <!-- Header -->

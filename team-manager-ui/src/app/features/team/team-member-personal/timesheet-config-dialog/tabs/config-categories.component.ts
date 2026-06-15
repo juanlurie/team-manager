@@ -24,7 +24,7 @@ import { FormsModule } from '@angular/forms';
     .btn-add:hover { background:rgba(100,181,246,0.18); } .btn-add:disabled { opacity:0.35; cursor:not-allowed; }
     @media (max-width:640px) { .tag-rm { font-size:18px; padding:4px; } }
   `],
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.Default,
   template: `
     <div class="hint">Add custom categories to any project (including your extra projects).</div>
     <div class="proj-sel-row">

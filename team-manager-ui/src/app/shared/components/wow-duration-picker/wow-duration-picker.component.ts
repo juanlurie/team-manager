@@ -3,9 +3,9 @@ import { Component, input, output, computed, ChangeDetectionStrategy } from '@an
 @Component({
   selector: 'app-wow-duration-picker',
   standalone: true,
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.Default,
   styles: [`
-    :host { display: flex; align-items: center; gap: 4px; flex-wrap: nowrap; }
+    :host { display: inline-flex; align-items: center; gap: 4px; flex-wrap: nowrap; }
     .step-btn { border: 1px solid rgba(255,255,255,0.15); background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.75); border-radius: 6px; padding: 4px 7px; font-size: 0.72rem; font-weight: 600; cursor: pointer; transition: background 0.12s; white-space: nowrap; }
     .step-btn:hover:not(:disabled) { background: rgba(255,255,255,0.14); }
     .step-btn:disabled { opacity: 0.35; cursor: not-allowed; }
