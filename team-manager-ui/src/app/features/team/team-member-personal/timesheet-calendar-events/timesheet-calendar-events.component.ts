@@ -43,7 +43,7 @@ interface CalEvent {
     .cal-empty { font-size: 12px; color: rgba(255,255,255,0.25); padding: 4px 0; }
     .cal-loading { font-size: 12px; color: rgba(255,255,255,0.25); padding: 4px 0; }
   `],
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.Default,
   template: `
     @if (hasAnyConnected()) {
       <div class="cal-panel">

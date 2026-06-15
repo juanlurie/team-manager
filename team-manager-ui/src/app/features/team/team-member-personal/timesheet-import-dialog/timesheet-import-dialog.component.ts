@@ -108,7 +108,7 @@ export interface ImportRow {
       .ftr-info { width:100%; flex:none; order:-1; text-align:center; }
     }
   `],
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.Default,
   template: `
     <div class="dlg">
       <div class="hdr">

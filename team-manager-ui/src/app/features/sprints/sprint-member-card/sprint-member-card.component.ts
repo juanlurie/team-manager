@@ -149,7 +149,7 @@ import { CarryOverDialogComponent } from '../carry-over-dialog/carry-over-dialog
 
     </div>
   `,
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.Default,
   styles: [`
     /* ── Card shell ── */
     .card { border-radius:10px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);

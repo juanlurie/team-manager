@@ -32,7 +32,7 @@ export function extractMentionNames(text: string): string[] {
   standalone: true,
   imports: [FormsModule, MatIconModule, MatButtonModule, MatMenuModule, MatDialogModule],
   templateUrl: './filter-bar.component.html',
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.Default,
   styleUrls: ['./filter-bar.component.scss']
 })
 export class FilterBarComponent implements OnInit {

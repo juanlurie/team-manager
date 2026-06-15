@@ -49,7 +49,7 @@ import { AuthService } from '../../../core/auth/auth.service';
 
     </nav>
   `,
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.Default,
   styles: [`
     .sidebar {
       width: 58px;

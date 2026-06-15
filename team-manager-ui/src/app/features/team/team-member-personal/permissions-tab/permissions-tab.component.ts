@@ -19,7 +19,7 @@ import { MemberFeatureOverride } from '../../../../core/models/feature-permissio
     MatSnackBarModule
 ],
   templateUrl: './permissions-tab.component.html',
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.Default,
   styleUrls: ['./permissions-tab.component.scss'],
 })
 export class PermissionsTabComponent implements OnInit {

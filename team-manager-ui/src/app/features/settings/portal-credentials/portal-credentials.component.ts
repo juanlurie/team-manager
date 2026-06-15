@@ -148,7 +148,7 @@ interface EntryState {
       }
     </div>
   `,
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.Default,
   styles: [`
     .wrap { max-width: 640px; margin: 0 auto; padding: 24px 16px 80px; }
 

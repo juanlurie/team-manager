@@ -36,7 +36,7 @@ const CATEGORY_COLORS: Record<string, { bg: string; text: string }> = {
   imports: [CommonModule, ReactiveFormsModule, FormsModule, MatDialogModule, MatFormFieldModule,
     MatInputModule, MatSelectModule, MatButtonModule, MatCheckboxModule, MatDatepickerModule, MatNativeDateModule,
     MatIconModule, MatTooltipModule, DatePipe, IconButtonComponent],
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.Default,
   template: `
     <h2 mat-dialog-title>{{ data.member ? 'Edit' : 'Add' }} Team Member</h2>
     <mat-dialog-content style="max-height:75vh;overflow-y:auto">

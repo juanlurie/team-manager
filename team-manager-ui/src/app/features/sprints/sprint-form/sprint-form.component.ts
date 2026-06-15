@@ -28,7 +28,7 @@ function parseDate(s: string | null): Date | null {
   selector: 'app-sprint-form',
   standalone: true,
   imports: [ReactiveFormsModule, MatDialogModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatButtonModule, MatCheckboxModule, MatDatepickerModule, MatIconModule],
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.Default,
   template: `
     <h2 mat-dialog-title>{{ title }}</h2>
     <mat-dialog-content>

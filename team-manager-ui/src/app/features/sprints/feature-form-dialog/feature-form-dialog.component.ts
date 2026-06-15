@@ -14,7 +14,7 @@ import { FeatureService } from '../../../core/services/feature.service';
   selector: 'app-feature-form-dialog',
   standalone: true,
   imports: [ReactiveFormsModule, MatDialogModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatButtonModule, MatCheckboxModule],
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.Default,
   template: `
     <h2 mat-dialog-title>{{ data.feature ? 'Edit' : 'Add' }} Feature</h2>
     <mat-dialog-content>

@@ -21,7 +21,7 @@ import { MilestoneScope } from '../../core/models/milestone.model';
       </span>
     }
   `,
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.Default,
   styles: [`
     .badge {
       display: inline-flex;

@@ -13,7 +13,7 @@ import { SprintService } from '../../../core/services/sprint.service';
   selector: 'app-sprint-clone-dialog',
   standalone: true,
   imports: [ReactiveFormsModule, MatDialogModule, MatFormFieldModule, MatInputModule, MatButtonModule, MatCheckboxModule],
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.Default,
   template: `
     <h2 mat-dialog-title>Clone Sprint</h2>
     <mat-dialog-content>

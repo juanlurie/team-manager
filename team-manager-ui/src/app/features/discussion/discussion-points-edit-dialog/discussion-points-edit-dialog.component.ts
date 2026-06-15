@@ -14,7 +14,7 @@ import { CreateDiscussionPointRequest } from '../../../core/models/discussion-po
   selector: 'app-discussion-points-edit-dialog',
   standalone: true,
   imports: [FormsModule, MatDialogModule, MatButtonModule, MatIconModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatDatepickerModule],
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.Default,
   template: `
     <h2 mat-dialog-title>{{ data.editId ? 'Edit Point' : 'New Discussion Point' }}</h2>
     <div mat-dialog-content style="display:flex;flex-direction:column;gap:12px;min-width:400px">

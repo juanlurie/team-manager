@@ -159,7 +159,7 @@ const COL_META = {
     .action-input:focus { border-color:rgba(100,181,246,.6); }
     .new-action-row { display:flex; gap:6px; margin-top:10px; align-items:center; }
   `],
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.Default,
   template: `
 <div class="retro-wrap">
 

@@ -127,7 +127,7 @@ export interface TimesheetEntryDialogData {
       .action-btn { width: 100%; }
     }
   `],
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.Default,
   template: `
     <mat-dialog-content style="padding-top:12px;min-width:min(480px,90vw)">
 

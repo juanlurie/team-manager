@@ -182,7 +182,7 @@ type SlotKey = string;
       }
     </div>
   `,
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.Default,
   styles: [`
     .page { max-width:900px;margin:0 auto;padding:8px; }
     .back-btn { background:none;border:1px solid rgba(255,255,255,0.1);color:inherit;padding:6px 14px;border-radius:8px;cursor:pointer;font-size:0.85rem;font-family:inherit; }

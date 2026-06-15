@@ -27,7 +27,7 @@ import { CreateApiKeyDialogComponent } from './create-api-key-dialog.component';
     ClipboardModule
 ],
   templateUrl: './api-keys.component.html',
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.Default,
   styleUrls: ['./api-keys.component.scss'],
 })
 export class ApiKeysComponent implements OnInit {

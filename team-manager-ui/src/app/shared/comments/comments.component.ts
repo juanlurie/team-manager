@@ -15,7 +15,7 @@ import { ConfirmDialogComponent } from '../components/confirm-dialog/confirm-dia
   selector: 'app-comments',
   standalone: true,
   imports: [CommonModule, FormsModule, MatIconModule, MatButtonModule, MatDialogModule, DatePipe],
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.Default,
   template: `
     <div style="margin-top:6px">
       <button mat-button (click)="toggle()" style="font-size:0.78rem;min-height:32px;line-height:1">
