@@ -6,7 +6,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatDividerModule } from '@angular/material/divider';
-import { WinWeek, WinNomination, WowNominationDisplay } from '../../core/models/win-week.model';
+import { WinWeek, WinNomination, WowNominationDisplay, WinSeries } from '../../core/models/win-week.model';
 import { wowPhaseInfo } from '../../shared/utils/wow.utils';
 import { WowNominationCardComponent } from '../../shared/components/wow-nomination-card/wow-nomination-card.component';
 import { WowWinnerBannerComponent } from '../../shared/components/wow-winner-banner/wow-winner-banner.component';
@@ -167,6 +167,19 @@ import { AppInfoBannerComponent } from '../../shared/components/app-info-banner/
         <mat-icon style="font-size:20px;width:20px;height:20px">more_vert</mat-icon>
       </button>
       <mat-menu #mobMenu="matMenu">
+        @if (series().length > 1) {
+          @for (s of series(); track s.id) {
+            <button mat-menu-item (click)="seriesChange.emit(s.id)">
+              @if (s.id === currentSeriesId()) {
+                <mat-icon>check</mat-icon>
+              } @else {
+                <mat-icon></mat-icon>
+              }
+              {{ s.name }}
+            </button>
+          }
+          <mat-divider />
+        }
         @if (guestToken()) {
           <button mat-menu-item (click)="shareClick.emit()">
             <mat-icon>share</mat-icon>Share Link
@@ -392,6 +405,8 @@ export class WowCurrentWeekComponent {
   hypeBattleEndsAt    = input<string | null>(null);
   guestToken          = input<string | null>(null);
   hasWinOfMonth       = input(false);
+  series              = input<WinSeries[]>([]);
+  currentSeriesId     = input<string | null>(null);
 
   nominateClick           = output();
   openWeekClick           = output();
@@ -418,6 +433,7 @@ export class WowCurrentWeekComponent {
   winOfMonthClick           = output();
   newSeriesClick            = output();
   openNextWeekClick         = output();
+  seriesChange              = output<string>();
 
   mobileTab = signal<'nominations' | 'controls'>('nominations');
 
