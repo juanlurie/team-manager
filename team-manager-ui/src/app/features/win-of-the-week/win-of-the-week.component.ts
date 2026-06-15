@@ -108,14 +108,6 @@ export class WowSeriesSheetComponent {
     <div [class.sudden-death-wrap]="currentWeek()?.status === 'SuddenDeath'"
          style="max-width:1060px;margin:0 auto;padding:0 8px 80px;overflow-x:hidden">
 
-      <!-- Header -->
-      @if (!isMobile && currentWeek()?.guestToken) {
-        <div style="display:flex;justify-content:flex-end;margin-bottom:8px">
-          <button mat-icon-button (click)="copyShareLink()" matTooltip="Copy share link" style="color:rgba(255,255,255,0.5)">
-            <mat-icon>share</mat-icon>
-          </button>
-        </div>
-      }
 
       <!-- Back button for sub-views -->
       @if (activeTab() !== 'current') {
