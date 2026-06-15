@@ -71,22 +71,13 @@ import { clearCacheForPattern } from '../../core/interceptors/http-cache.interce
          style="max-width:1060px;margin:0 auto;padding:0 8px 80px;overflow-x:hidden">
 
       <!-- Header -->
-      <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap">
-        @if (series().length > 1) {
-          <select [ngModel]="currentSeriesId()" (ngModelChange)="selectSeries($event)"
-                  style="background:#1e1e2e;color:rgba(255,255,255,0.8);border:1px solid rgba(255,255,255,0.12);border-radius:6px;padding:4px 8px;font-size:0.82rem;cursor:pointer">
-            @for (s of series(); track s.id) {
-              <option [value]="s.id">{{ s.name }}</option>
-            }
-          </select>
-        }
-        <div style="flex:1"></div>
-        @if (!isMobile && currentWeek()?.guestToken) {
+      @if (!isMobile && currentWeek()?.guestToken) {
+        <div style="display:flex;justify-content:flex-end;margin-bottom:8px">
           <button mat-icon-button (click)="copyShareLink()" matTooltip="Copy share link" style="color:rgba(255,255,255,0.5)">
             <mat-icon>share</mat-icon>
           </button>
-        }
-      </div>
+        </div>
+      }
 
       <!-- Back button for sub-views -->
       @if (activeTab() !== 'current') {
@@ -117,6 +108,9 @@ import { clearCacheForPattern } from '../../core/interceptors/http-cache.interce
             [hypeBattleEndsAt]="hypeBattleEndsAt()"
             [guestToken]="currentWeek()?.guestToken ?? null"
             [hasWinOfMonth]="hasWinOfMonth()"
+            [series]="series()"
+            [currentSeriesId]="currentSeriesId()"
+            (seriesChange)="selectSeries($event)"
             (nominateClick)="showNominateDialog()"
             (openWeekClick)="openNextWeek()"
             (voteClick)="vote($event)"
