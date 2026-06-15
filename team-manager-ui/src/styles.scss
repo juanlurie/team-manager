@@ -128,3 +128,11 @@ mat-sidenav-content {
   font-family: 'Geist', -apple-system, system-ui, 'Segoe UI', sans-serif;
 }
 
+/* WoW series bottom sheet */
+.wow-series-sheet .mat-bottom-sheet-container {
+  background: #1a2636;
+  border-radius: 16px 16px 0 0;
+  padding: 0;
+  min-width: 100vw;
+}
+

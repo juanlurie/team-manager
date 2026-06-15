@@ -12,6 +12,7 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatInputModule } from '@angular/material/input';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatDividerModule } from '@angular/material/divider';
+import { MatBottomSheet, MatBottomSheetModule, MatBottomSheetRef, MAT_BOTTOM_SHEET_DATA } from '@angular/material/bottom-sheet';
 import { Subscription, interval } from 'rxjs';
 import { WinOfTheWeekService } from '../../core/services/win-of-the-week.service';
 import { WinOfTheMonthService } from '../../core/services/win-of-the-month.service';
@@ -32,6 +33,35 @@ import { runTieBreakSpin } from '../../shared/utils/wow.utils';
 import { clearCacheForPattern } from '../../core/interceptors/http-cache.interceptor';
 
 @Component({
+  selector: 'app-wow-series-sheet',
+  standalone: true,
+  imports: [MatIconModule],
+  template: `
+    <div style="padding:16px 0 8px">
+      <div style="font-size:0.75rem;font-weight:600;opacity:0.45;letter-spacing:0.1em;text-transform:uppercase;padding:0 16px 10px">Switch Series</div>
+      @for (s of data.series; track s.id) {
+        <button (click)="select(s.id)"
+                style="display:flex;align-items:center;gap:14px;width:100%;padding:14px 20px;border:none;cursor:pointer;font-family:inherit;font-size:0.95rem;text-align:left;transition:background 0.12s"
+                [style.background]="s.id === data.currentSeriesId ? 'rgba(100,181,246,0.1)' : 'transparent'"
+                [style.color]="s.id === data.currentSeriesId ? '#64b5f6' : 'rgba(255,255,255,0.85)'">
+          @if (s.id === data.currentSeriesId) {
+            <mat-icon style="font-size:20px;width:20px;height:20px;color:#64b5f6;flex-shrink:0">check_circle</mat-icon>
+          } @else {
+            <mat-icon style="font-size:20px;width:20px;height:20px;opacity:0.3;flex-shrink:0">radio_button_unchecked</mat-icon>
+          }
+          {{ s.name }}
+        </button>
+      }
+    </div>
+  `
+})
+export class WowSeriesSheetComponent {
+  data = inject<{ series: WinSeries[], currentSeriesId: string | null }>(MAT_BOTTOM_SHEET_DATA);
+  private ref = inject(MatBottomSheetRef);
+  select(id: string) { this.ref.dismiss(id); }
+}
+
+@Component({
   selector: 'app-win-of-the-week',
   standalone: true,
   imports: [
@@ -46,6 +76,8 @@ import { clearCacheForPattern } from '../../core/interceptors/http-cache.interce
     MatInputModule,
     MatMenuModule,
     MatDividerModule,
+    MatBottomSheetModule,
+    WowSeriesSheetComponent,
     WinOfTheWeekHistoryComponent,
     WinOfTheMonthComponent,
     AppModalComponent,
@@ -108,7 +140,7 @@ import { clearCacheForPattern } from '../../core/interceptors/http-cache.interce
             [hypeBattleEndsAt]="hypeBattleEndsAt()"
             [guestToken]="currentWeek()?.guestToken ?? null"
             [hasWinOfMonth]="hasWinOfMonth()"
-            (switchSeriesClick)="series().length > 1 && showSeriesDialog.set(true)"
+            (switchSeriesClick)="series().length > 1 && openSeriesPicker()"
             (nominateClick)="showNominateDialog()"
             (openWeekClick)="openNextWeek()"
             (voteClick)="vote($event)"
@@ -215,6 +247,7 @@ export class WinOfTheWeekComponent implements OnInit, OnDestroy {
   private wsSvc       = inject(WebSocketService);
   private dialog      = inject(MatDialog);
   private snackBar    = inject(MatSnackBar);
+  private bottomSheet = inject(MatBottomSheet);
   private featureAccess = inject(FeatureAccessService);
   private mobileSvc   = inject(MobileService);
 
@@ -431,6 +464,18 @@ export class WinOfTheWeekComponent implements OnInit, OnDestroy {
       next: (updated) => this.series.update(list => list.map(s => s.id === updated.id ? updated : s)),
       error: () => this.snackBar.open('Failed to toggle power-ups', 'Close', { duration: 3000 })
     });
+  }
+
+  openSeriesPicker() {
+    if (this.isMobile) {
+      const ref = this.bottomSheet.open(WowSeriesSheetComponent, {
+        data: { series: this.series(), currentSeriesId: this.currentSeriesId() },
+        panelClass: 'wow-series-sheet'
+      });
+      ref.afterDismissed().subscribe(id => { if (id) this.selectSeries(id); });
+    } else {
+      this.showSeriesDialog.set(true);
+    }
   }
 
   showNewSeriesPrompt()  { this.newSeriesName = ''; this.showNewSeriesDialog.set(true); }
