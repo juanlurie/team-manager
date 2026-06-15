@@ -52,12 +52,18 @@ import { clearCacheForPattern } from '../../core/interceptors/http-cache.interce
           {{ s.name }}
         </button>
       }
+      <div style="height:1px;background:rgba(255,255,255,0.07);margin:6px 0"></div>
+      <button (click)="ref.dismiss('__new__')"
+              style="display:flex;align-items:center;gap:14px;width:100%;padding:14px 20px;border:none;background:transparent;color:rgba(100,181,246,0.8);cursor:pointer;font-family:inherit;font-size:0.95rem;text-align:left">
+        <mat-icon style="font-size:20px;width:20px;height:20px;flex-shrink:0">add_circle_outline</mat-icon>
+        New Series
+      </button>
     </div>
   `
 })
 export class WowSeriesSheetComponent {
   data = inject<{ series: WinSeries[], currentSeriesId: string | null }>(MAT_BOTTOM_SHEET_DATA);
-  private ref = inject(MatBottomSheetRef);
+  ref = inject(MatBottomSheetRef);
   select(id: string) { this.ref.dismiss(id); }
 }
 
@@ -164,8 +170,7 @@ export class WowSeriesSheetComponent {
             (suddenDeathDurationChange)="onSuddenDeathDurationChange($event)"
             (historyClick)="activeTab.set('history')"
             (winOfMonthClick)="activeTab.set('month')"
-            (newSeriesClick)="showNewSeriesPrompt()"
-            (openNextWeekClick)="openNextWeek()"
+(openNextWeekClick)="openNextWeek()"
           />
         }
         @case ('history') { <app-win-of-the-week-history /> }
@@ -220,6 +225,12 @@ export class WowSeriesSheetComponent {
             {{ s.name }}
           </button>
         }
+        <div style="height:1px;background:rgba(255,255,255,0.07);margin:2px 0"></div>
+        <button (click)="showSeriesDialog.set(false); showNewSeriesPrompt()"
+                style="display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:10px;border:1px solid rgba(100,181,246,0.2);background:rgba(100,181,246,0.06);color:rgba(100,181,246,0.85);font-size:0.9rem;cursor:pointer;text-align:left;font-family:inherit;transition:background 0.15s">
+          <mat-icon style="font-size:18px;width:18px;height:18px">add_circle_outline</mat-icon>
+          New Series
+        </button>
       </div>
     </app-modal>
 
@@ -472,7 +483,10 @@ export class WinOfTheWeekComponent implements OnInit, OnDestroy {
         data: { series: this.series(), currentSeriesId: this.currentSeriesId() },
         panelClass: 'wow-series-sheet'
       });
-      ref.afterDismissed().subscribe(id => { if (id) this.selectSeries(id); });
+      ref.afterDismissed().subscribe(result => {
+        if (result === '__new__') this.showNewSeriesPrompt();
+        else if (result) this.selectSeries(result);
+      });
     } else {
       this.showSeriesDialog.set(true);
     }

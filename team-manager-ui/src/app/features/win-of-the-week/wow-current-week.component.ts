@@ -196,10 +196,6 @@ import { AppInfoBannerComponent } from '../../shared/components/app-info-banner/
               <mat-icon>add_circle</mat-icon>Open Next Week
             </button>
           }
-          <mat-divider />
-          <button mat-menu-item (click)="newSeriesClick.emit()">
-            <mat-icon>add_circle_outline</mat-icon>Start Another Series
-          </button>
         }
       </mat-menu>
     </div>
@@ -420,7 +416,6 @@ export class WowCurrentWeekComponent {
   suddenDeathDurationChange = output<number>();
   historyClick              = output();
   winOfMonthClick           = output();
-  newSeriesClick            = output();
   openNextWeekClick         = output();
   switchSeriesClick         = output();
 
