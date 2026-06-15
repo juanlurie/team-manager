@@ -171,7 +171,7 @@ import { AppInfoBannerComponent } from '../../shared/components/app-info-banner/
           <mat-icon>swap_horiz</mat-icon>Switch Series
         </button>
         <mat-divider />
-        @if (guestToken()) {
+        @if (isMobile() && guestToken()) {
           <button mat-menu-item (click)="shareClick.emit()">
             <mat-icon>share</mat-icon>Share Link
           </button>
@@ -185,13 +185,8 @@ import { AppInfoBannerComponent } from '../../shared/components/app-info-banner/
           </button>
         }
         @if (isHost()) {
-          <mat-divider />
-          @if (week()?.status === 'Nominating' && (week()?.nominations?.length ?? 0) > 0) {
-            <button mat-menu-item (click)="openVotingClick.emit()">
-              <mat-icon>how_to_vote</mat-icon>Open Voting
-            </button>
-          }
           @if (week()?.status === 'Closed') {
+            <mat-divider />
             <button mat-menu-item (click)="openNextWeekClick.emit()">
               <mat-icon>add_circle</mat-icon>Open Next Week
             </button>
@@ -226,13 +221,6 @@ import { AppInfoBannerComponent } from '../../shared/components/app-info-banner/
               <span style="font-size:0.8rem;opacity:0.6">
                 Nominations remaining: <strong>{{ w?.userNominationsRemaining ?? 0 }}</strong>/3
               </span>
-              @if ((w?.userNominationsRemaining ?? 0) > 0) {
-                <button mat-stroked-button color="accent" (click)="nominateClick.emit()"
-                        style="font-size:0.8rem;height:30px;margin-left:auto">
-                  <mat-icon style="font-size:1rem;width:1rem;height:1rem">add</mat-icon>
-                  Nominate a Win
-                </button>
-              }
             }
             <!-- Token balance pill -->
             @if (w?.status === 'Nominating' && tokenBalance() > 0 && powerUpsEnabled()) {
@@ -241,6 +229,23 @@ import { AppInfoBannerComponent } from '../../shared/components/app-info-banner/
                 🎟️ {{ tokenBalance() }} token{{ tokenBalance() !== 1 ? 's' : '' }}
               </span>
             }
+            <!-- Right-side actions -->
+            <div style="margin-left:auto;display:flex;align-items:center;gap:4px">
+              @if (w?.status === 'Nominating' && (w?.userNominationsRemaining ?? 0) > 0) {
+                <button mat-stroked-button color="accent" (click)="nominateClick.emit()"
+                        style="font-size:0.8rem;height:30px">
+                  <mat-icon style="font-size:1rem;width:1rem;height:1rem">add</mat-icon>
+                  Nominate a Win
+                </button>
+              }
+              @if (!isMobile() && guestToken()) {
+                <button mat-icon-button (click)="shareClick.emit()"
+                        style="color:rgba(255,255,255,0.5);width:34px;height:34px"
+                        matTooltip="Copy share link">
+                  <mat-icon style="font-size:20px;width:20px;height:20px">share</mat-icon>
+                </button>
+              }
+            </div>
           </div>
 
           <!-- Host countdown timer (visible to all) -->
