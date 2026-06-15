@@ -243,14 +243,14 @@ import { AppInfoBannerComponent } from '../../shared/components/app-info-banner/
               @if (!isMobile()) {
                 @if (guestToken()) {
                   <button mat-icon-button (click)="shareClick.emit()"
-                          style="color:rgba(255,255,255,0.5);width:34px;height:34px"
+                          style="color:rgba(255,255,255,0.5)"
                           matTooltip="Copy share link">
-                    <mat-icon style="font-size:20px;width:20px;height:20px">share</mat-icon>
+                    <mat-icon>share</mat-icon>
                   </button>
                 }
                 <button mat-icon-button [matMenuTriggerFor]="mobMenu"
-                        style="color:rgba(255,255,255,0.5);width:34px;height:34px">
-                  <mat-icon style="font-size:20px;width:20px;height:20px">more_vert</mat-icon>
+                        style="color:rgba(255,255,255,0.5)">
+                  <mat-icon>more_vert</mat-icon>
                 </button>
               }
             </div>

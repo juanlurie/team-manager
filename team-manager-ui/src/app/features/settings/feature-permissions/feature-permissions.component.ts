@@ -6,6 +6,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { FeaturePermissionService } from '../../../core/services/feature-permission.service';
 import { FeatureCategoryGroup, ROLES } from '../../../core/models/feature-permissions.model';
 
@@ -24,7 +25,8 @@ interface FeatureRow {
     MatButtonModule,
     MatTooltipModule,
     MatProgressSpinnerModule,
-    MatSnackBarModule
+    MatSnackBarModule,
+    MatSlideToggleModule,
 ],
   templateUrl: './feature-permissions.component.html',
   changeDetection: ChangeDetectionStrategy.Default,

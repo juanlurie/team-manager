@@ -60,7 +60,7 @@ import {
         } @else {
           <div class="configs-list">
             @for (config of configs(); track config.id) {
-              <div class="config-card" [class.disabled]="!config.enabled">
+              <div class="config-card" [class.disabled]="!config.enabled" (click)="openDialog(config)" role="button" style="cursor:pointer">
                 <div class="card-accent" [style.background]="getAccentColor(config.action)"></div>
                 <div class="card-icon-col">
                   <mat-icon class="card-icon" [style.color]="getAccentColor(config.action)">{{ getActionIcon(config.action) }}</mat-icon>
@@ -92,8 +92,7 @@ import {
                   </div>
                 </div>
                 <div class="card-actions">
-                  <button mat-icon-button (click)="openDialog(config)" matTooltip="Edit"><mat-icon>edit</mat-icon></button>
-                  <button mat-icon-button class="delete-btn" (click)="deleteConfig(config)" matTooltip="Delete"><mat-icon>delete</mat-icon></button>
+                  <button mat-icon-button class="delete-btn" (click)="deleteConfig(config); $event.stopPropagation()" matTooltip="Delete"><mat-icon>delete</mat-icon></button>
                 </div>
               </div>
             }

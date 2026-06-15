@@ -32,14 +32,15 @@
                 <div style="font-size:0.7rem;opacity:0.3">Role default</div>
               }
             </div>
-            <button class="icon-btn" [style.color]="item.isEnabled ? '#4caf50' : 'rgba(255,255,255,0.2)'"
-                    (click)="toggleOverride(item.featureKey, item.isEnabled, item.roleDefault)"
-                    [disabled]="isSaving(item.featureKey)"
-                    matTooltip="{{ item.isEnabled ? 'Enabled' : 'Disabled' }}">
-              <mat-icon style="font-size:20px;height:20px;width:20px">
-                {{ isSaving(item.featureKey) ? 'hourglass_empty' : (item.isEnabled ? 'toggle_on' : 'toggle_off') }}
-              </mat-icon>
-            </button>
+            @if (isSaving(item.featureKey)) {
+              <mat-spinner diameter="18" style="display:inline-block"></mat-spinner>
+            } @else {
+              <mat-slide-toggle
+                [checked]="item.isEnabled"
+                (change)="toggleOverride(item.featureKey, item.isEnabled, item.roleDefault)"
+                color="primary">
+              </mat-slide-toggle>
+            }
           </div>
         }
       </div>
