@@ -72,8 +72,6 @@ import { clearCacheForPattern } from '../../core/interceptors/http-cache.interce
 
       <!-- Header -->
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap">
-        <mat-icon style="font-size:1.6rem;width:1.6rem;height:1.6rem;color:#FFD700">emoji_events</mat-icon>
-        <h2 style="margin:0;font-size:1.3rem;font-weight:700">Win of the Week</h2>
         @if (series().length > 1) {
           <select [ngModel]="currentSeriesId()" (ngModelChange)="selectSeries($event)"
                   style="background:#1e1e2e;color:rgba(255,255,255,0.8);border:1px solid rgba(255,255,255,0.12);border-radius:6px;padding:4px 8px;font-size:0.82rem;cursor:pointer">
@@ -83,47 +81,49 @@ import { clearCacheForPattern } from '../../core/interceptors/http-cache.interce
           </select>
         }
         <div style="flex:1"></div>
-        @if (currentWeek()?.guestToken) {
-          <button mat-icon-button (click)="copyShareLink()" matTooltip="Copy share link" style="color:rgba(255,255,255,0.5)">
-            <mat-icon>share</mat-icon>
+        @if (!isMobile) {
+          @if (currentWeek()?.guestToken) {
+            <button mat-icon-button (click)="copyShareLink()" matTooltip="Copy share link" style="color:rgba(255,255,255,0.5)">
+              <mat-icon>share</mat-icon>
+            </button>
+          }
+          <button mat-icon-button [matMenuTriggerFor]="moreMenu" style="color:rgba(255,255,255,0.5)">
+            <mat-icon>more_vert</mat-icon>
           </button>
+          <mat-menu #moreMenu="matMenu">
+            @if (activeTab() !== 'current') {
+              <button mat-menu-item (click)="activeTab.set('current')">
+                <mat-icon>emoji_events</mat-icon>Current Week
+              </button>
+              <mat-divider />
+            }
+            <button mat-menu-item (click)="activeTab.set('history')">
+              <mat-icon>history</mat-icon>History
+            </button>
+            @if (hasWinOfMonth()) {
+              <button mat-menu-item (click)="activeTab.set('month')">
+                <mat-icon>calendar_month</mat-icon>Win of the Month
+              </button>
+            }
+            <mat-divider />
+            @if (activeTab() === 'current' && isHost()) {
+              @if (currentWeek()?.status === 'Nominating' && (currentWeek()?.nominations?.length ?? 0) > 0) {
+                <button mat-menu-item (click)="openVoting()">
+                  <mat-icon>how_to_vote</mat-icon>Open Voting
+                </button>
+              }
+              @if (currentWeek()?.status === 'Closed') {
+                <button mat-menu-item (click)="openNextWeek()">
+                  <mat-icon>add_circle</mat-icon>Open Next Week
+                </button>
+              }
+              <mat-divider />
+              <button mat-menu-item (click)="showNewSeriesPrompt()">
+                <mat-icon>add_circle_outline</mat-icon>Start Another Series
+              </button>
+            }
+          </mat-menu>
         }
-        <button mat-icon-button [matMenuTriggerFor]="moreMenu" style="color:rgba(255,255,255,0.5)">
-          <mat-icon>more_vert</mat-icon>
-        </button>
-        <mat-menu #moreMenu="matMenu">
-          @if (activeTab() !== 'current') {
-            <button mat-menu-item (click)="activeTab.set('current')">
-              <mat-icon>emoji_events</mat-icon>Current Week
-            </button>
-            <mat-divider />
-          }
-          <button mat-menu-item (click)="activeTab.set('history')">
-            <mat-icon>history</mat-icon>History
-          </button>
-          @if (hasWinOfMonth()) {
-            <button mat-menu-item (click)="activeTab.set('month')">
-              <mat-icon>calendar_month</mat-icon>Win of the Month
-            </button>
-          }
-          <mat-divider />
-          @if (activeTab() === 'current' && isHost()) {
-            @if (currentWeek()?.status === 'Nominating' && (currentWeek()?.nominations?.length ?? 0) > 0) {
-              <button mat-menu-item (click)="openVoting()">
-                <mat-icon>how_to_vote</mat-icon>Open Voting
-              </button>
-            }
-            @if (currentWeek()?.status === 'Closed') {
-              <button mat-menu-item (click)="openNextWeek()">
-                <mat-icon>add_circle</mat-icon>Open Next Week
-              </button>
-            }
-            <mat-divider />
-            <button mat-menu-item (click)="showNewSeriesPrompt()">
-              <mat-icon>add_circle_outline</mat-icon>Start Another Series
-            </button>
-          }
-        </mat-menu>
       </div>
 
       <!-- Back button for sub-views -->
@@ -153,6 +153,8 @@ import { clearCacheForPattern } from '../../core/interceptors/http-cache.interce
             [connectedCount]="connectedCount()"
             [activeTimerEndsAt]="activeTimerEndsAt()"
             [hypeBattleEndsAt]="hypeBattleEndsAt()"
+            [guestToken]="currentWeek()?.guestToken ?? null"
+            [hasWinOfMonth]="hasWinOfMonth()"
             (nominateClick)="showNominateDialog()"
             (openWeekClick)="openNextWeek()"
             (voteClick)="vote($event)"
@@ -174,6 +176,10 @@ import { clearCacheForPattern } from '../../core/interceptors/http-cache.interce
             (togglePowerUpsClick)="togglePowerUps()"
             (reopenNominationsClick)="reopenNominations()"
             (suddenDeathDurationChange)="onSuddenDeathDurationChange($event)"
+            (historyClick)="activeTab.set('history')"
+            (winOfMonthClick)="activeTab.set('month')"
+            (newSeriesClick)="showNewSeriesPrompt()"
+            (openNextWeekClick)="openNextWeek()"
           />
         }
         @case ('history') { <app-win-of-the-week-history /> }

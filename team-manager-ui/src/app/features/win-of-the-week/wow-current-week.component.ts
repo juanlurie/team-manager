@@ -4,6 +4,8 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
+import { MatMenuModule } from '@angular/material/menu';
+import { MatDividerModule } from '@angular/material/divider';
 import { WinWeek, WinNomination, WowNominationDisplay } from '../../core/models/win-week.model';
 import { wowPhaseInfo } from '../../shared/utils/wow.utils';
 import { WowNominationCardComponent } from '../../shared/components/wow-nomination-card/wow-nomination-card.component';
@@ -22,6 +24,8 @@ import { AppInfoBannerComponent } from '../../shared/components/app-info-banner/
     MatIconModule,
     MatTooltipModule,
     MatSlideToggleModule,
+    MatMenuModule,
+    MatDividerModule,
     WowNominationCardComponent,
     WowWinnerBannerComponent,
     WowCountdownComponent,
@@ -47,9 +51,10 @@ import { AppInfoBannerComponent } from '../../shared/components/app-info-banner/
     .preset-btn { flex: 1; font-size: 0.75rem; height: 30px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.15); background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.8); cursor: pointer; font-weight: 600; transition: background 0.15s; font-family: inherit; }
     .preset-btn:hover { background: rgba(255,255,255,0.14); }
     .preset-btn.sd { background: rgba(255,87,34,0.15); border-color: rgba(255,87,34,0.4); color: #ff7043; }
-    .mob-tabs { display: flex; border-bottom: 1px solid rgba(255,255,255,0.08); margin-bottom: 16px; position: sticky; top: 0; z-index: 10; background: #0f1923; }
+    .mob-tabs { display: flex; align-items: stretch; border-bottom: 1px solid rgba(255,255,255,0.08); margin-bottom: 16px; position: sticky; top: 0; z-index: 10; background: #0f1923; }
     .mob-tab { flex: 1; padding: 10px 0; font-size: 0.8rem; font-weight: 600; text-align: center; cursor: pointer; color: rgba(255,255,255,0.45); border: none; background: none; font-family: inherit; transition: color 0.15s; border-bottom: 2px solid transparent; margin-bottom: -1px; }
     .mob-tab.active { color: #64b5f6; border-bottom-color: #64b5f6; }
+    .mob-more { flex: 0 0 44px; display: flex; align-items: center; justify-content: center; color: rgba(255,255,255,0.4); }
   `],
   template: `
     @let w = week();
@@ -145,15 +150,56 @@ import { AppInfoBannerComponent } from '../../shared/components/app-info-banner/
       }
     </ng-template>
 
-    <!-- Mobile tab bar (host only) -->
-    @if (isHost() && isMobile() && w && w.status !== 'Closed') {
+    <!-- Mobile tab bar + context menu -->
+    @if (isMobile()) {
       <div class="mob-tabs">
-        <button class="mob-tab" [class.active]="mobileTab() === 'nominations'" (click)="mobileTab.set('nominations')">
-          Nominations
+        @if (isHost() && w && w.status !== 'Closed') {
+          <button class="mob-tab" [class.active]="mobileTab() === 'nominations'" (click)="mobileTab.set('nominations')">
+            Nominations
+          </button>
+          <button class="mob-tab" [class.active]="mobileTab() === 'controls'" (click)="mobileTab.set('controls')">
+            Controls
+          </button>
+        } @else {
+          <div style="flex:1"></div>
+        }
+        <!-- ⋮ context menu -->
+        <button class="mob-tab mob-more" [matMenuTriggerFor]="mobMenu">
+          <mat-icon style="font-size:20px;width:20px;height:20px">more_vert</mat-icon>
         </button>
-        <button class="mob-tab" [class.active]="mobileTab() === 'controls'" (click)="mobileTab.set('controls')">
-          <mat-icon style="font-size:14px;width:14px;height:14px;vertical-align:middle;margin-right:4px">tune</mat-icon>Controls
-        </button>
+        <mat-menu #mobMenu="matMenu">
+          @let w2 = week();
+          @if (guestToken()) {
+            <button mat-menu-item (click)="shareClick.emit()">
+              <mat-icon>share</mat-icon>Share Link
+            </button>
+          }
+          <button mat-menu-item (click)="historyClick.emit()">
+            <mat-icon>history</mat-icon>History
+          </button>
+          @if (hasWinOfMonth()) {
+            <button mat-menu-item (click)="winOfMonthClick.emit()">
+              <mat-icon>calendar_month</mat-icon>Win of the Month
+            </button>
+          }
+          @if (isHost()) {
+            <mat-divider />
+            @if (w2?.status === 'Nominating' && (w2?.nominations?.length ?? 0) > 0) {
+              <button mat-menu-item (click)="openVotingClick.emit()">
+                <mat-icon>how_to_vote</mat-icon>Open Voting
+              </button>
+            }
+            @if (w2?.status === 'Closed') {
+              <button mat-menu-item (click)="openNextWeekClick.emit()">
+                <mat-icon>add_circle</mat-icon>Open Next Week
+              </button>
+            }
+            <mat-divider />
+            <button mat-menu-item (click)="newSeriesClick.emit()">
+              <mat-icon>add_circle_outline</mat-icon>Start Another Series
+            </button>
+          }
+        </mat-menu>
       </div>
     }
 
@@ -347,6 +393,8 @@ export class WowCurrentWeekComponent {
   connectedCount   = input(0);
   activeTimerEndsAt   = input<string | null>(null);
   hypeBattleEndsAt    = input<string | null>(null);
+  guestToken          = input<string | null>(null);
+  hasWinOfMonth       = input(false);
 
   nominateClick           = output();
   openWeekClick           = output();
@@ -369,6 +417,10 @@ export class WowCurrentWeekComponent {
   togglePowerUpsClick       = output();
   reopenNominationsClick    = output();
   suddenDeathDurationChange = output<number>();
+  historyClick              = output();
+  winOfMonthClick           = output();
+  newSeriesClick            = output();
+  openNextWeekClick         = output();
 
   mobileTab = signal<'nominations' | 'controls'>('nominations');
 
