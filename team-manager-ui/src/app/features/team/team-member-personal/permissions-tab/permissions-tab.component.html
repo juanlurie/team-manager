@@ -1,5 +1,6 @@
 <div style="padding-top:8px">
-  <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
+  <!-- Info row -->
+  <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
     <span style="font-size:0.8rem;opacity:0.4">
       Role: <strong>{{ memberRole }}</strong> — toggle to override defaults, click again to reset
     </span>
@@ -10,38 +11,68 @@
     }
   </div>
 
+  <!-- Search -->
+  <div style="position:relative;margin-bottom:16px">
+    <mat-icon style="position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:18px;width:18px;height:18px;opacity:0.4">search</mat-icon>
+    <input (input)="searchQuery.set($any($event.target).value)"
+           placeholder="Search features…"
+           style="width:100%;box-sizing:border-box;padding:9px 12px 9px 36px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:#e0e0e0;font-size:0.85rem;outline:none;font-family:inherit"
+           (focus)="$any($event.target).style.borderColor='rgba(100,181,246,0.5)'"
+           (blur)="$any($event.target).style.borderColor='rgba(255,255,255,0.1)'" />
+  </div>
+
   @if (loading()) {
     <div style="display:flex;justify-content:center;padding:40px">
       <mat-spinner diameter="32"></mat-spinner>
     </div>
+  } @else if (filteredCategories().length === 0) {
+    <div style="text-align:center;padding:40px;opacity:0.35;font-size:0.9rem">No features match "{{ searchQuery() }}"</div>
   } @else {
-    @for (cat of categories(); track cat) {
-      <div class="section" style="margin-bottom:12px">
-        <div class="section-header">
-          <mat-icon style="font-size:18px;height:18px;width:18px;opacity:0.5">folder</mat-icon>
-          <span style="font-size:0.85rem;font-weight:600;flex:1">{{ cat }}</span>
-        </div>
+    @for (cat of filteredCategories(); track cat) {
+      <div style="margin-bottom:8px;border:1px solid rgba(255,255,255,0.07);border-radius:10px;overflow:hidden">
 
-        @for (item of groupedOverrides()[cat]; track item.featureKey) {
-          <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border-bottom:1px solid rgba(255,255,255,0.03)">
-            <div style="flex:1;min-width:0">
-              <div style="font-size:0.82rem;font-weight:500">{{ item.label }}</div>
-              @if (!item.roleDefault) {
-                <div style="font-size:0.7rem;color:#ffb74d">Overridden</div>
+        <!-- Expandable header -->
+        <button (click)="toggleCategory(cat)"
+                style="width:100%;display:flex;align-items:center;gap:10px;padding:12px 14px;background:rgba(255,255,255,0.04);border:none;cursor:pointer;font-family:inherit;text-align:left;color:inherit;transition:background 0.15s"
+                (mouseenter)="$any($event.target).style.background='rgba(255,255,255,0.07)'"
+                (mouseleave)="$any($event.target).style.background='rgba(255,255,255,0.04)'">
+          <mat-icon style="font-size:18px;width:18px;height:18px;opacity:0.5;transition:transform 0.2s;flex-shrink:0"
+                    [style.transform]="isExpanded(cat) ? 'rotate(0deg)' : 'rotate(-90deg)'">
+            expand_more
+          </mat-icon>
+          <span style="font-size:0.88rem;font-weight:600;flex:1">{{ cat }}</span>
+          @let items = filteredItems(cat);
+          @let overriddenCount = items.filter(i => !i.roleDefault).length;
+          <span style="font-size:0.72rem;opacity:0.35;font-weight:500">{{ items.length }} feature{{ items.length !== 1 ? 's' : '' }}</span>
+          @if (overriddenCount > 0) {
+            <span style="font-size:0.7rem;padding:1px 7px;background:rgba(255,152,0,0.15);border-radius:8px;color:#ffb74d;margin-left:6px">
+              {{ overriddenCount }} override{{ overriddenCount !== 1 ? 's' : '' }}
+            </span>
+          }
+        </button>
+
+        @if (isExpanded(cat)) {
+          @for (item of filteredItems(cat); track item.featureKey) {
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 14px;border-bottom:1px solid rgba(255,255,255,0.03)">
+              <div style="flex:1;min-width:0">
+                <div style="font-size:0.82rem;font-weight:500">{{ item.label }}</div>
+                @if (!item.roleDefault) {
+                  <div style="font-size:0.7rem;color:#ffb74d">Overridden</div>
+                } @else {
+                  <div style="font-size:0.7rem;opacity:0.3">Role default</div>
+                }
+              </div>
+              @if (isSaving(item.featureKey)) {
+                <mat-spinner diameter="18" style="display:inline-block"></mat-spinner>
               } @else {
-                <div style="font-size:0.7rem;opacity:0.3">Role default</div>
+                <mat-slide-toggle
+                  [checked]="item.isEnabled"
+                  (change)="toggleOverride(item.featureKey, item.isEnabled, item.roleDefault)"
+                  color="primary">
+                </mat-slide-toggle>
               }
             </div>
-            @if (isSaving(item.featureKey)) {
-              <mat-spinner diameter="18" style="display:inline-block"></mat-spinner>
-            } @else {
-              <mat-slide-toggle
-                [checked]="item.isEnabled"
-                (change)="toggleOverride(item.featureKey, item.isEnabled, item.roleDefault)"
-                color="primary">
-              </mat-slide-toggle>
-            }
-          </div>
+          }
         }
       </div>
     }
