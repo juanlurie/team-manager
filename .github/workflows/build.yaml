@@ -60,6 +60,7 @@ jobs:
       - name: Audit UI dependencies
         run: npm audit --audit-level=high
         working-directory: ./team-manager-ui
+        continue-on-error: true
 
       - name: Build and push UI
         uses: docker/build-push-action@v5

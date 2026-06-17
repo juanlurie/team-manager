@@ -14,6 +14,7 @@ public class MemberTimesheetConfig
     public string CategoryCorrelationIdsJson { get; set; } = "{}";
     public string? ExternalEmployeeId { get; set; }
     public string WorkLocationCorrelationIdsJson { get; set; } = "{}";
+    public string CustomFieldValuesJson { get; set; } = "{}";
     public bool DeduplicatePendingEditSync { get; set; } = false;
     public string? CalendarDefaultProject { get; set; }
     public string? CalendarDefaultCategory { get; set; }

@@ -25,6 +25,7 @@ export interface MappingConfig {
   subjectPath?: string;
   isAllDayPath?: string;
   locationPath?: string;
+  customFields?: Record<string, string>;
 }
 
 export interface SuccessCriteria {
@@ -120,7 +121,8 @@ export class ApiRequestConfigsService {
       projectIdPath: mapping.projectIdPath,
       projectCategoriesPath: mapping.projectCategoriesPath,
       categoryNamePath: mapping.categoryNamePath,
-      categoryIdPath: mapping.categoryIdPath
+      categoryIdPath: mapping.categoryIdPath,
+      customFields: mapping.customFields
     });
   }
 }
@@ -140,12 +142,14 @@ export interface TestMappingResult {
 export interface CategoryMappingResult {
   name: string;
   id: string | null;
+  customFields: Record<string, string>;
 }
 
 export interface ProjectMappingResult {
   name: string;
   id: string | null;
   categories: CategoryMappingResult[];
+  customFields: Record<string, string>;
 }
 
 export interface TestProjectMappingResult {

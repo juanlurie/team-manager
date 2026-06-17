@@ -60,6 +60,8 @@ public class ApiSyncController(AppDbContext db, IHttpClientFactory httpClientFac
                         new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? [];
                     if (!string.IsNullOrWhiteSpace(entry.WorkedFrom) && locIds.TryGetValue(entry.WorkedFrom, out var locId))
                         parameters["workedFromLocationId"] = locId;
+
+                    MergeCustomFieldVars(memberCfg, entry, parameters);
                 }
             }
         }
@@ -250,6 +252,8 @@ public class ApiSyncController(AppDbContext db, IHttpClientFactory httpClientFac
                         string.IsNullOrWhiteSpace(memberCfg.WorkLocationCorrelationIdsJson) ? "{}" : memberCfg.WorkLocationCorrelationIdsJson, opts) ?? [];
                     if (!string.IsNullOrWhiteSpace(entry.WorkedFrom) && locIds.TryGetValue(entry.WorkedFrom, out var locId))
                         lateVars["workedFromLocationId"] = locId;
+
+                    MergeCustomFieldVars(memberCfg, entry, lateVars);
                 }
                 if (!string.IsNullOrWhiteSpace(entry.ExternalId))
                     lateVars["timesheetEntryId"] = entry.ExternalId;
@@ -489,6 +493,7 @@ public class ApiSyncController(AppDbContext db, IHttpClientFactory httpClientFac
             var projects = new List<string>();
             var categories = new Dictionary<string, List<string>>();
             var correlationIds = new Dictionary<string, string>();
+            var customFieldValues = new Dictionary<string, Dictionary<string, string>>();
 
             foreach (var proj in projectsEl.EnumerateArray())
             {
@@ -500,6 +505,8 @@ public class ApiSyncController(AppDbContext db, IHttpClientFactory httpClientFac
                 var projId = GetStringAt(proj, mapping.ProjectIdPath);
                 if (!string.IsNullOrWhiteSpace(projId))
                     correlationIds[projName] = projId;
+
+                ExtractCustomFields(proj, mapping.CustomFields, projName, customFieldValues);
 
                 if (!string.IsNullOrWhiteSpace(mapping.ProjectCategoriesPath))
                 {
@@ -515,6 +522,7 @@ public class ApiSyncController(AppDbContext db, IHttpClientFactory httpClientFac
                             var catId = GetStringAt(cat, mapping.CategoryIdPath);
                             if (!string.IsNullOrWhiteSpace(catId))
                                 correlationIds[catName] = catId;
+                            ExtractCustomFields(cat, mapping.CustomFields, catName, customFieldValues);
                         }
                         if (catList.Count > 0) categories[projName] = catList;
                     }
@@ -530,6 +538,7 @@ public class ApiSyncController(AppDbContext db, IHttpClientFactory httpClientFac
             sysConfig.DefaultProjectsJson = JsonSerializer.Serialize(projects);
             sysConfig.DefaultCategoriesJson = JsonSerializer.Serialize(categories);
             sysConfig.CorrelationIdsJson = JsonSerializer.Serialize(correlationIds);
+            sysConfig.CustomFieldValuesJson = JsonSerializer.Serialize(customFieldValues);
             sysConfig.UpdatedAt = DateTimeOffset.UtcNow;
 
             // Copy correlation IDs to the source member's config if a member was specified
@@ -542,6 +551,7 @@ public class ApiSyncController(AppDbContext db, IHttpClientFactory httpClientFac
                     db.MemberTimesheetConfigs.Add(memberConfig);
                 }
                 memberConfig.CategoryCorrelationIdsJson = JsonSerializer.Serialize(correlationIds);
+                memberConfig.CustomFieldValuesJson = JsonSerializer.Serialize(customFieldValues);
 
                 // Extract external employee ID if a pattern is configured
                 if (!string.IsNullOrWhiteSpace(mapping.EmployeeIdPattern))
@@ -583,6 +593,34 @@ public class ApiSyncController(AppDbContext db, IHttpClientFactory httpClientFac
         if (string.IsNullOrWhiteSpace(path)) return null;
         var target = NavigatePath(el, path);
         return target.ValueKind == JsonValueKind.Undefined ? null : target.ToString();
+    }
+
+    // Custom mapping properties are extracted per project/category (keyed by name) when the
+    // project/category sync runs. Look them up here so they flow into the request template as
+    // {label}, same as categoryId — try the entry's category first, then its project.
+    private static void MergeCustomFieldVars(Domain.Entities.MemberTimesheetConfig memberCfg, Domain.Entities.TimesheetEntry entry, Dictionary<string, string> target)
+    {
+        var customValues = JsonSerializer.Deserialize<Dictionary<string, Dictionary<string, string>>>(
+            string.IsNullOrWhiteSpace(memberCfg.CustomFieldValuesJson) ? "{}" : memberCfg.CustomFieldValuesJson,
+            new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? [];
+
+        if (!customValues.TryGetValue(entry.Category, out var fields))
+            customValues.TryGetValue(entry.Project, out fields);
+
+        if (fields is null) return;
+        foreach (var (label, value) in fields) target[label] = value;
+    }
+
+    private static void ExtractCustomFields(JsonElement el, Dictionary<string, string>? customFields, string itemName, Dictionary<string, Dictionary<string, string>> output)
+    {
+        if (customFields is null || customFields.Count == 0) return;
+        var values = new Dictionary<string, string>();
+        foreach (var (label, path) in customFields)
+        {
+            var val = GetStringAt(el, path);
+            if (!string.IsNullOrWhiteSpace(val)) values[label] = val;
+        }
+        if (values.Count > 0) output[itemName] = values;
     }
 
     private async Task<string?> TryExtractWinStoryAsync(string action, string responseBody)
