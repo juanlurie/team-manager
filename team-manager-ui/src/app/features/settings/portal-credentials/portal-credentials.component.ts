@@ -1,7 +1,6 @@
 import { Component, inject, signal, computed, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { CredentialsService, CredentialEntry } from '../../../core/services/credentials.service';
@@ -19,11 +18,10 @@ interface EntryState {
 @Component({
   selector: 'app-portal-credentials',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, MatIconModule, MatSnackBarModule],
+  imports: [CommonModule, FormsModule, MatIconModule, MatSnackBarModule],
   template: `
     <div class="wrap">
       <div class="hdr">
-        <a class="back-btn" routerLink="/settings"><mat-icon>arrow_back</mat-icon></a>
         <div>
           <h1>Credentials</h1>
           <p class="subtitle">Stored credentials (cookies, tokens) used by request configs and sync. Each entry is read from a localStorage key — typically written by your browser extension.</p>
@@ -150,8 +148,6 @@ interface EntryState {
     .wrap { max-width: 640px; margin: 0 auto; padding: 24px 16px 80px; }
 
     .hdr { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 24px; }
-    .back-btn { display: flex; align-items: center; justify-content: center; width: 36px; height: 36px; border-radius: 8px; color: rgba(255,255,255,0.5); text-decoration: none; flex-shrink: 0; margin-top: 2px; transition: background 0.15s, color 0.15s; }
-    .back-btn:hover { background: rgba(255,255,255,0.07); color: rgba(255,255,255,0.9); }
     h1 { font-size: 1.2rem; font-weight: 700; margin: 0 0 4px; }
     .subtitle { font-size: 0.8rem; color: rgba(255,255,255,0.4); margin: 0; line-height: 1.5; }
 

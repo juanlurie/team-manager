@@ -18,6 +18,9 @@ export interface MappingConfig {
   projectCategoriesPath: string;
   categoryNamePath: string;
   categoryIdPath: string;
+  responseFormat: string;
+  htmlJsonMarker: string;
+  employeeIdPattern: string;
   textResponsePath: string;
   subjectPath?: string;
   isAllDayPath?: string;
@@ -57,6 +60,7 @@ export const REQUEST_ACTIONS = [
   { value: 'EditTimesheetEntry', label: 'Edit Timesheet Entry', icon: 'edit_calendar' },
   { value: 'DeleteTimesheetEntry', label: 'Delete Timesheet Entry', icon: 'delete_forever' },
   { value: 'GetTimesheetProjects', label: 'Get Timesheet Projects', icon: 'folder_open' },
+  { value: 'GetTimesheetProjectCategories', label: 'Get Timesheet Project Categories', icon: 'category' },
   { value: 'AiChatWinStory', label: 'AI Chat — Win Story', icon: 'auto_awesome' },
   { value: 'GenerateJoke', label: 'Generate Joke', icon: 'sentiment_very_satisfied' },
 ] as const;
@@ -105,6 +109,20 @@ export class ApiRequestConfigsService {
       fields
     });
   }
+
+  testProjectMapping(sampleResponse: string, mapping: MappingConfig): Observable<TestProjectMappingResult> {
+    return this.http.post<TestProjectMappingResult>(`${this.baseUrl}/test-project-mapping`, {
+      sampleResponse,
+      responseFormat: mapping.responseFormat,
+      htmlJsonMarker: mapping.htmlJsonMarker,
+      projectsPath: mapping.projectsPath,
+      projectNamePath: mapping.projectNamePath,
+      projectIdPath: mapping.projectIdPath,
+      projectCategoriesPath: mapping.projectCategoriesPath,
+      categoryNamePath: mapping.categoryNamePath,
+      categoryIdPath: mapping.categoryIdPath
+    });
+  }
 }
 
 export interface TestRequestResult {
@@ -116,5 +134,21 @@ export interface TestRequestResult {
 export interface TestMappingResult {
   availablePaths: string[];
   testResults: Record<string, string | null>;
+  arrayLength: number;
+}
+
+export interface CategoryMappingResult {
+  name: string;
+  id: string | null;
+}
+
+export interface ProjectMappingResult {
+  name: string;
+  id: string | null;
+  categories: CategoryMappingResult[];
+}
+
+export interface TestProjectMappingResult {
+  projects: ProjectMappingResult[];
   arrayLength: number;
 }

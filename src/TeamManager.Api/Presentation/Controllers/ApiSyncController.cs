@@ -32,15 +32,6 @@ public class ApiSyncController(AppDbContext db, IHttpClientFactory httpClientFac
         if (config is null)
             return BadRequest($"No enabled config found for action '{payload.Action}'");
 
-        // Reject early if config needs {cookie} but none is available
-        var configNeedsCookie = config.Url.Contains("{cookie}")
-            || config.BodyTemplate.Contains("{cookie}")
-            || config.HeadersJson.Contains("{cookie}");
-        var cookieAvailable = !string.IsNullOrWhiteSpace(config.StoredCookie)
-            || !string.IsNullOrWhiteSpace(payload.Cookie);
-        if (configNeedsCookie && !cookieAvailable)
-            return BadRequest(new { message = "Cookie required for this action. Set one in Settings → Credentials." });
-
         var parameters = JsonSerializer.Deserialize<Dictionary<string, string>>(
             string.IsNullOrWhiteSpace(config.ParametersJson) ? "{}" : config.ParametersJson) ?? [];
         var headers = JsonSerializer.Deserialize<Dictionary<string, string>>(config.HeadersJson) ?? [];
@@ -104,6 +95,18 @@ public class ApiSyncController(AppDbContext db, IHttpClientFactory httpClientFac
             BodyFormat = config.BodyFormat ?? "urlencoded"
         };
 
+        var missing = FindUnresolvedPlaceholders(evt.ResolvedUrl, evt.ResolvedBody, evt.ResolvedHeadersJson);
+        if (missing.Count > 0)
+        {
+            evt.Status = "failed";
+            evt.ResponseBody = $"Missing template values: {string.Join(", ", missing)}";
+            evt.SentAt = DateTimeOffset.UtcNow;
+            db.ApiSyncEvents.Add(evt);
+            await db.SaveChangesAsync();
+            await PruneOldEventsAsync();
+            return Ok(new { evt.Id, evt.Action, evt.Label, evt.Status, AutoSynced = false, evt.ResponseBody });
+        }
+
         db.ApiSyncEvents.Add(evt);
         await db.SaveChangesAsync();
 
@@ -115,6 +118,26 @@ public class ApiSyncController(AppDbContext db, IHttpClientFactory httpClientFac
         }
 
         return Ok(new { evt.Id, evt.Action, evt.Label, evt.Status, AutoSynced = false });
+    }
+
+    private static readonly Regex PlaceholderRegex = new(@"\{([a-zA-Z0-9_]+)\}", RegexOptions.Compiled);
+
+    // "cookie" is deliberately left unresolved at enqueue time when no StoredCookie is
+    // configured — it gets injected later from the browser at send time (see ExecuteSendAsync).
+    private static List<string> FindUnresolvedPlaceholders(params string[] resolvedFields)
+    {
+        var found = new List<string>();
+        foreach (var field in resolvedFields)
+        {
+            foreach (Match m in PlaceholderRegex.Matches(field))
+            {
+                var name = m.Groups[1].Value;
+                if (name.Equals("cookie", StringComparison.OrdinalIgnoreCase)) continue;
+                if (!found.Contains(name))
+                    found.Add(name);
+            }
+        }
+        return found;
     }
 
     [HttpGet]
