@@ -940,6 +940,11 @@ interface CodeSegment { text: string; kind: 'plain' | 'resolved' | 'missing'; }
       .two-col { grid-template-columns: 1fr; gap: 28px; }
       .header-row { flex-wrap: wrap; }
       .page-footer { padding: 10px 12px; }
+      .curl-import-btn { padding: 6px 10px; gap: 8px; margin-bottom: 10px; }
+      .curl-import-icon-wrap { width: 24px; height: 24px; }
+      .curl-import-icon-wrap mat-icon { font-size: 14px; width: 14px; height: 14px; }
+      .curl-import-sub { display: none; }
+      .curl-import-label { font-size: 0.78rem; }
     }
   `]
 })
