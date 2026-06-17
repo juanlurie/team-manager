@@ -55,5 +55,9 @@ public record MappingConfigDto(
     // For FetchCalendarEvents: calendar-specific mapping fields
     string SubjectPath = "subject",
     string IsAllDayPath = "isAllDay",
-    string LocationPath = "location"
+    string LocationPath = "location",
+    // Extra project/category fields beyond the defaults above — label -> path
+    // (relative to the project or category object). Extracted per project/category
+    // and exposed as {label} template variables on AddTimesheetEntry, same as categoryId.
+    Dictionary<string, string>? CustomFields = null
 );
