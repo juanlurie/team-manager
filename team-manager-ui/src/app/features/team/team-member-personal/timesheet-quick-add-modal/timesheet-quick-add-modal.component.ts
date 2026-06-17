@@ -219,7 +219,7 @@ export class TimesheetQuickAddModalComponent implements AfterViewInit {
   ngAfterViewInit() {
     const p = this.data.prefill;
     if (p?.project) this.project.set(p.project);
-    if (p?.category) { this.category.set(p.category); this.catSearch.set(p.category); }
+    if (p?.category) { this.category.set(p.category); this.catSearch.set(''); }
     if (p?.note) this.note.set(this.cleanNote(p.note));
     if (p?.durationMins) this.durMins.set(p.durationMins);
 
@@ -259,7 +259,7 @@ export class TimesheetQuickAddModalComponent implements AfterViewInit {
   selectCat(r: CatResult) {
     this.project.set(r.project);
     this.category.set(r.category);
-    this.catSearch.set(r.category);
+    this.catSearch.set('');
     this.focusNote();
   }
 
@@ -273,7 +273,7 @@ export class TimesheetQuickAddModalComponent implements AfterViewInit {
   applyQuickAction(qa: QuickActionConfig) {
     this.project.set(qa.project);
     this.category.set(qa.category);
-    this.catSearch.set(qa.category);
+    this.catSearch.set('');
     if (qa.note) this.note.set(this.cleanNote(qa.note));
     if (qa.durationMins) this.durMins.set(qa.durationMins);
     this.focusNote();
@@ -341,7 +341,6 @@ export class TimesheetQuickAddModalComponent implements AfterViewInit {
     setTimeout(() => {
       const ta = this.noteArea?.nativeElement;
       if (!ta) return;
-      if (!this.note().trim()) this.note.set('- ');
       ta.focus();
       const len = ta.value.length;
       setTimeout(() => { ta.selectionStart = ta.selectionEnd = len; });
