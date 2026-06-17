@@ -970,7 +970,7 @@ interface CodeSegment { text: string; kind: 'plain' | 'resolved' | 'missing'; }
 
     @media (max-width: 640px) {
       .edit-page { padding: 8px 8px 100px; }
-      .two-col { grid-template-columns: 1fr; }
+      .two-col { grid-template-columns: 1fr; gap: 28px; }
       .header-row { flex-wrap: wrap; }
       .page-footer { padding: 10px 12px; }
     }
