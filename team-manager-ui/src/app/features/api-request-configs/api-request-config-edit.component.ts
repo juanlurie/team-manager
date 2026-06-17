@@ -945,6 +945,7 @@ interface CodeSegment { text: string; kind: 'plain' | 'resolved' | 'missing'; }
       .curl-import-icon-wrap mat-icon { font-size: 14px; width: 14px; height: 14px; }
       .curl-import-sub { display: none; }
       .curl-import-label { font-size: 0.78rem; }
+      .header-toggles { flex-basis: 100%; justify-content: flex-end; margin-top: 4px; }
     }
   `]
 })
