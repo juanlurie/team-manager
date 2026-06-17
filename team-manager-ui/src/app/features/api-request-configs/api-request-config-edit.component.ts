@@ -14,7 +14,8 @@ import {
   ApiRequestConfig,
   MappingConfig,
   REQUEST_ACTIONS,
-  TestRequestResult
+  TestRequestResult,
+  ProjectMappingResult
 } from './api-request-configs.service';
 import { CredentialsService } from '../../core/services/credentials.service';
 import { ConfigVariablesService } from '../settings/config-variables/config-variables.service';
@@ -396,13 +397,79 @@ interface CodeSegment { text: string; kind: 'plain' | 'resolved' | 'missing'; }
             </div>
           }
 
-          @if (data.action === 'GetTimesheetProjects') {
+          @if (data.action === 'GetTimesheetProjects' || data.action === 'GetTimesheetProjectCategories') {
             <div class="map-block">
+              <div class="map-sublabel-row">
+                <button mat-button color="primary" (click)="showProjectTest.set(!showProjectTest())" style="font-size:0.78rem">
+                  <mat-icon style="font-size:15px;width:15px;height:15px">science</mat-icon> Test Mapping
+                </button>
+              </div>
+
+              @if (showProjectTest()) {
+                <div class="path-picker">
+                  <mat-form-field appearance="outline" class="full-width">
+                    <mat-label>Paste a sample response{{ data.mapping.responseFormat === 'html' ? ' (HTML)' : ' (JSON)' }}</mat-label>
+                    <textarea matInput [(ngModel)]="projectSampleResponse" rows="6"
+                              [placeholder]="projectSamplePlaceholder()"></textarea>
+                  </mat-form-field>
+                  <div class="path-picker-actions">
+                    <button mat-button (click)="testProjectMapping()" [disabled]="!projectSampleResponse().trim() || testingProjectMapping()">
+                      {{ testingProjectMapping() ? 'Testing...' : 'Run Test' }}
+                    </button>
+                  </div>
+                  @if (projectMappingError()) {
+                    <div class="test-results">
+                      <span class="test-label" style="color:#ef5350">{{ projectMappingError() }}</span>
+                    </div>
+                  }
+                  @if (projectMappingResults()) {
+                    <div class="test-results">
+                      <h4>{{ projectMappingResults()!.length }} project(s) found</h4>
+                      @if (firstProjectBreakdown(); as rows) {
+                        <div class="map-field-breakdown">
+                          <div class="map-field-breakdown-title">How each field mapped (first project)</div>
+                          @for (row of rows; track row.label) {
+                            <div class="test-result-row">
+                              <span class="test-label">{{ row.label }} <code class="path-code">{{ row.path }}</code></span>
+                              <span class="test-value">→ {{ row.value }}</span>
+                            </div>
+                          }
+                        </div>
+                      }
+                      <div class="map-field-breakdown-title">All projects found</div>
+                      @for (proj of projectMappingResults(); track proj.name) {
+                        <div class="test-result-row">
+                          <span class="test-label">{{ proj.name }}{{ proj.id ? ' (' + proj.id + ')' : '' }}</span>
+                          <span class="test-value">
+                            {{ proj.categories.length > 0 ? proj.categories.map(c => c.name).join(', ') : 'no categories' }}
+                          </span>
+                        </div>
+                      }
+                    </div>
+                  }
+                </div>
+              }
+
               <mat-form-field appearance="outline" class="full-width">
-                <mat-label>Projects Path</mat-label>
-                <input matInput [(ngModel)]="data.mapping.projectsPath" placeholder="data.projects">
-                <mat-hint>Path to the projects array — leave empty if the root is the array</mat-hint>
+                <mat-label>Response Format</mat-label>
+                <mat-select [(ngModel)]="data.mapping.responseFormat">
+                  <mat-option value="json">JSON</mat-option>
+                  <mat-option value="html">HTML (JSON array embedded in a script/page)</mat-option>
+                </mat-select>
               </mat-form-field>
+              @if (data.mapping.responseFormat === 'html') {
+                <mat-form-field appearance="outline" class="full-width">
+                  <mat-label>HTML JSON Marker</mat-label>
+                  <input matInput [(ngModel)]="data.mapping.htmlJsonMarker" placeholder="new timesheet(">
+                  <mat-hint>The text that appears just before the project list in the page. We'll grab the "[ ... ]" array that starts right after it.</mat-hint>
+                </mat-form-field>
+              } @else {
+                <mat-form-field appearance="outline" class="full-width">
+                  <mat-label>Projects Path</mat-label>
+                  <input matInput [(ngModel)]="data.mapping.projectsPath" placeholder="data.projects">
+                  <mat-hint>Where to find the list of projects in the response. Leave blank if the response itself is that list.</mat-hint>
+                </mat-form-field>
+              }
               <div class="two-col">
                 <mat-form-field appearance="outline">
                   <mat-label>Project Name Path</mat-label>
@@ -411,14 +478,14 @@ interface CodeSegment { text: string; kind: 'plain' | 'resolved' | 'missing'; }
                 <mat-form-field appearance="outline">
                   <mat-label>Project ID Path</mat-label>
                   <input matInput [(ngModel)]="data.mapping.projectIdPath" placeholder="id">
-                  <mat-hint>Saved as correlation ID</mat-hint>
+                  <mat-hint>Optional. Stored so future syncs can match this project even if its name changes.</mat-hint>
                 </mat-form-field>
               </div>
               <div class="two-col">
                 <mat-form-field appearance="outline">
                   <mat-label>Categories Path</mat-label>
                   <input matInput [(ngModel)]="data.mapping.projectCategoriesPath" placeholder="categories">
-                  <mat-hint>Within each project object</mat-hint>
+                  <mat-hint>Where to find this project's categories, relative to the project itself (not the response root).</mat-hint>
                 </mat-form-field>
                 <mat-form-field appearance="outline">
                   <mat-label>Category Name Path</mat-label>
@@ -429,7 +496,7 @@ interface CodeSegment { text: string; kind: 'plain' | 'resolved' | 'missing'; }
                 <mat-form-field appearance="outline">
                   <mat-label>Category ID Path</mat-label>
                   <input matInput [(ngModel)]="data.mapping.categoryIdPath" placeholder="id">
-                  <mat-hint>Saved as correlation ID</mat-hint>
+                  <mat-hint>Optional. Stored so future syncs can match this category even if its name changes.</mat-hint>
                 </mat-form-field>
               </div>
             </div>
@@ -629,7 +696,14 @@ interface CodeSegment { text: string; kind: 'plain' | 'resolved' | 'missing'; }
                     <span class="test-status-code" [class.success]="testResult()!.success" [class.failure]="!testResult()!.success">
                       {{ testResult()!.statusCode || 'ERR' }} {{ testResult()!.success ? 'OK' : 'Failed' }}
                     </span>
-                    <button mat-icon-button (click)="testResult.set(null)" class="close-test-btn"><mat-icon>close</mat-icon></button>
+                    <div class="test-response-actions">
+                      @if (hasProjectMapping() && testResult()!.success) {
+                        <button mat-button color="primary" class="use-response-btn" (click)="useResponseForMapping()">
+                          <mat-icon style="font-size:15px;width:15px;height:15px">arrow_forward</mat-icon> Use this response to test mapping
+                        </button>
+                      }
+                      <button mat-icon-button (click)="testResult.set(null)" class="close-test-btn"><mat-icon>close</mat-icon></button>
+                    </div>
                   </div>
                   <pre class="test-response-body">{{ formatTestBody(testResult()!.body) }}</pre>
                 </div>
@@ -748,9 +822,9 @@ interface CodeSegment { text: string; kind: 'plain' | 'resolved' | 'missing'; }
     .add-row-btn { width: 28px; height: 28px; line-height: 28px; color: #64b5f6; }
     .add-row-btn mat-icon { font-size: 18px; width: 18px; height: 18px; }
 
-    .full-width { width: 100%; }
+    .full-width { width: 100%; display: block; margin-bottom: 18px; }
     .half-width { flex: 1; min-width: 80px; }
-    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 4px; }
+    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 18px; }
 
 .header-row { display: flex; align-items: flex-start; gap: 6px; margin-bottom: 4px; flex-wrap: nowrap; }
     .remove-btn { margin-top: 4px; flex-shrink: 0; color: rgba(239,83,80,0.5); }
@@ -778,9 +852,12 @@ interface CodeSegment { text: string; kind: 'plain' | 'resolved' | 'missing'; }
     .action-option-icon { font-size: 18px; width: 18px; height: 18px; margin-right: 8px; vertical-align: middle; }
     .test-results { margin-top: 12px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.08); }
     .test-results h4 { font-size: 0.8rem; color: rgba(255,255,255,0.4); margin: 0 0 8px 0; }
-    .test-result-row { display: flex; gap: 8px; font-size: 0.75rem; margin-bottom: 4px; }
+    .test-result-row { display: flex; gap: 8px; font-size: 0.75rem; margin-bottom: 4px; flex-wrap: wrap; }
     .test-label { color: rgba(255,255,255,0.4); min-width: 60px; }
     .test-value { color: #4caf50; font-family: monospace; }
+    .map-field-breakdown { background: rgba(100,181,246,0.06); border: 1px solid rgba(100,181,246,0.15); border-radius: 8px; padding: 10px 12px; margin-bottom: 12px; }
+    .map-field-breakdown-title { font-size: 0.72rem; font-weight: 700; color: rgba(255,255,255,0.45); text-transform: uppercase; letter-spacing: 0.4px; margin: 0 0 6px 0; }
+    .path-code { background: rgba(255,255,255,0.08); padding: 1px 5px; border-radius: 4px; color: rgba(255,255,255,0.6); }
 
     /* Code section */
     .code-toolbar { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
@@ -815,6 +892,8 @@ interface CodeSegment { text: string; kind: 'plain' | 'resolved' | 'missing'; }
     .test-status-code { font-size: 0.8rem; font-weight: 700; font-family: monospace; }
     .test-status-code.success { color: #4caf50; }
     .test-status-code.failure { color: #ef5350; }
+    .test-response-actions { display: flex; align-items: center; gap: 4px; }
+    .use-response-btn { font-size: 0.75rem; }
     .close-test-btn { width: 28px; height: 28px; line-height: 28px; }
     .close-test-btn mat-icon { font-size: 16px; width: 16px; height: 16px; }
     .test-response-body { margin: 0; padding: 8px 12px 12px; font-size: 0.72rem; font-family: monospace; color: rgba(255,255,255,0.65); white-space: pre-wrap; word-break: break-all; max-height: 300px; overflow-y: auto; }
@@ -933,6 +1012,12 @@ export class ApiRequestConfigEditComponent implements OnInit {
   discoveringPaths = signal(false);
   arrayLength = signal(0);
 
+  showProjectTest = signal(false);
+  projectSampleResponse = signal('');
+  testingProjectMapping = signal(false);
+  projectMappingResults = signal<ProjectMappingResult[] | null>(null);
+  projectMappingError = signal('');
+
   private mobile = inject(MobileService);
   get isDesktop() { return !this.mobile.isMobile(); }
 
@@ -999,7 +1084,7 @@ export class ApiRequestConfigEditComponent implements OnInit {
   }
 
   hasMapping(): boolean {
-    return this.data ? ['AddTimesheetEntry', 'GetTimesheetProjects', 'FetchLeave',
+    return this.data ? ['AddTimesheetEntry', 'GetTimesheetProjects', 'GetTimesheetProjectCategories', 'FetchLeave',
             'AiChatWinStory', 'GenerateJoke', 'FetchCalendarEvents'].includes(this.data.action) : false;
   }
 
@@ -1192,6 +1277,60 @@ export class ApiRequestConfigEditComponent implements OnInit {
     this.svc.testMapping(raw, this.data.mapping.arrayPath || '', fields).subscribe({
       next: (result) => { this.availablePaths.set(result.availablePaths); this.testResults.set(result.testResults); this.arrayLength.set(result.arrayLength); this.discoveringPaths.set(false); },
       error: () => { this.snackBar.open('Failed to parse JSON', 'Close', { duration: 3000 }); this.discoveringPaths.set(false); }
+    });
+  }
+
+  hasProjectMapping(): boolean {
+    return this.data?.action === 'GetTimesheetProjects' || this.data?.action === 'GetTimesheetProjectCategories';
+  }
+
+  useResponseForMapping() {
+    const body = this.testResult()?.body;
+    if (!body) return;
+    this.projectSampleResponse.set(body);
+    this.showProjectTest.set(true);
+    this.activeSection.set('mapping');
+    this.expanded.update(s => new Set(s).add('mapping'));
+    this.testProjectMapping();
+  }
+
+  firstProjectBreakdown(): { label: string; path: string; value: string }[] | null {
+    const results = this.projectMappingResults();
+    if (!results || results.length === 0 || !this.data) return null;
+    const first = results[0];
+    const m = this.data.mapping;
+    const rows = [
+      { label: 'Project Name Path', path: m.projectNamePath || '(not set)', value: first.name },
+      { label: 'Project ID Path', path: m.projectIdPath || '(not set)', value: first.id ?? '(empty)' }
+    ];
+    if (m.projectCategoriesPath) {
+      rows.push({ label: 'Categories Path', path: m.projectCategoriesPath, value: `${first.categories.length} found` });
+      if (first.categories.length > 0) {
+        rows.push({ label: 'Category Name Path', path: m.categoryNamePath || '(not set)', value: first.categories[0].name });
+        rows.push({ label: 'Category ID Path', path: m.categoryIdPath || '(not set)', value: first.categories[0].id ?? '(empty)' });
+      }
+    }
+    return rows;
+  }
+
+  projectSamplePlaceholder(): string {
+    const sample = JSON.stringify([{ name: 'Project A', categories: [{ name: 'Dev' }] }]);
+    return this.data?.mapping.responseFormat === 'html' ? `...new timesheet(${sample})...` : sample;
+  }
+
+  testProjectMapping() {
+    if (!this.data) return;
+    const raw = this.projectSampleResponse().trim();
+    if (!raw) return;
+    this.testingProjectMapping.set(true);
+    this.projectMappingError.set('');
+    this.projectMappingResults.set(null);
+    this.svc.testProjectMapping(raw, this.data.mapping).subscribe({
+      next: (result) => { this.projectMappingResults.set(result.projects); this.testingProjectMapping.set(false); },
+      error: (err) => {
+        this.projectMappingError.set(err.error || 'Failed to test mapping');
+        this.testingProjectMapping.set(false);
+      }
     });
   }
 
@@ -1455,6 +1594,7 @@ export class ApiRequestConfigEditComponent implements OnInit {
         daysPath: 'totalDays', statusPath: 'status', nameTransform: 'ExtractBeforeDash',
         externalIdPath: '', projectsPath: '', projectNamePath: 'name', projectIdPath: 'id',
         projectCategoriesPath: 'categories', categoryNamePath: 'name', categoryIdPath: 'id',
+        responseFormat: 'json', htmlJsonMarker: '', employeeIdPattern: '',
         textResponsePath: '', subjectPath: 'subject', isAllDayPath: 'isAllDay', locationPath: 'location'
       }
     };

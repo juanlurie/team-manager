@@ -68,7 +68,7 @@ public class TimesheetsController(ITimesheetService service) : ControllerBase
             var cookieAvailable = !string.IsNullOrWhiteSpace(addConfig.StoredCookie)
                 || !string.IsNullOrWhiteSpace(req.Cookie);
             if (needsCookie && !cookieAvailable)
-                return BadRequest(new { message = "Cookie required for sync. Set one in Settings → Credentials." });
+                return BadRequest(new { message = "Cookie required for sync. Set one in Integrations → Credentials." });
         }
 
         var count = await service.EnqueueSyncAsync(memberId, req.EntryIds);

@@ -346,6 +346,95 @@ public class ApiRequestConfigsController : ControllerBase
         }
     }
 
+    [HttpPost("test-project-mapping")]
+    [Authorize(Roles = "TeamLead")]
+    public IActionResult TestProjectMapping([FromBody] TestProjectMappingRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.SampleResponse))
+            return BadRequest("Sample response required");
+        if (string.IsNullOrWhiteSpace(request.ProjectNamePath))
+            return BadRequest("Project Name Path is required to test");
+
+        try
+        {
+            JsonElement projectsEl;
+
+            if (request.ResponseFormat == "html")
+            {
+                var marker = string.IsNullOrWhiteSpace(request.HtmlJsonMarker) ? "[" : request.HtmlJsonMarker;
+                var markerIdx = request.SampleResponse.IndexOf(marker, StringComparison.Ordinal);
+                if (markerIdx < 0) return BadRequest($"Marker \"{marker}\" not found in the sample response");
+
+                var arrayStart = request.SampleResponse.IndexOf('[', markerIdx);
+                if (arrayStart < 0) return BadRequest("No JSON array found after the marker");
+
+                var depth = 0;
+                var arrayEnd = -1;
+                for (var i = arrayStart; i < request.SampleResponse.Length; i++)
+                {
+                    if (request.SampleResponse[i] == '[') depth++;
+                    else if (request.SampleResponse[i] == ']') { depth--; if (depth == 0) { arrayEnd = i; break; } }
+                }
+                if (arrayEnd < 0) return BadRequest("Could not find the end of the JSON array");
+
+                var arrayJson = request.SampleResponse[arrayStart..(arrayEnd + 1)];
+                using var htmlDoc = JsonDocument.Parse(arrayJson);
+                projectsEl = htmlDoc.RootElement.Clone();
+            }
+            else
+            {
+                using var jsonDoc = JsonDocument.Parse(request.SampleResponse);
+                var root = jsonDoc.RootElement;
+                projectsEl = string.IsNullOrWhiteSpace(request.ProjectsPath)
+                    ? root.Clone()
+                    : NavigatePath(root, ParsePath(request.ProjectsPath)).Clone();
+            }
+
+            if (projectsEl.ValueKind != JsonValueKind.Array)
+                return BadRequest("Projects Path does not resolve to an array");
+
+            var results = new List<ProjectMappingResult>();
+            foreach (var proj in projectsEl.EnumerateArray())
+            {
+                var projName = GetMappedString(proj, request.ProjectNamePath);
+                if (string.IsNullOrWhiteSpace(projName)) continue;
+
+                var projId = GetMappedString(proj, request.ProjectIdPath);
+                var categories = new List<CategoryMappingResult>();
+
+                if (!string.IsNullOrWhiteSpace(request.ProjectCategoriesPath))
+                {
+                    var catsEl = NavigatePath(proj, ParsePath(request.ProjectCategoriesPath));
+                    if (catsEl.ValueKind == JsonValueKind.Array)
+                    {
+                        foreach (var cat in catsEl.EnumerateArray())
+                        {
+                            var catName = GetMappedString(cat, request.CategoryNamePath);
+                            if (string.IsNullOrWhiteSpace(catName)) continue;
+                            categories.Add(new CategoryMappingResult(catName, GetMappedString(cat, request.CategoryIdPath)));
+                        }
+                    }
+                }
+
+                results.Add(new ProjectMappingResult(projName, projId, categories));
+            }
+
+            return Ok(new TestProjectMappingResponse(results, projectsEl.GetArrayLength()));
+        }
+        catch (JsonException ex)
+        {
+            return BadRequest($"Invalid JSON: {ex.Message}");
+        }
+    }
+
+    private static string? GetMappedString(JsonElement el, string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path)) return null;
+        var target = NavigatePath(el, ParsePath(path));
+        if (target.ValueKind == JsonValueKind.Undefined) return null;
+        return target.ValueKind == JsonValueKind.String ? target.GetString() : target.ToString();
+    }
+
     private static JsonElement NavigatePath(JsonElement element, List<string> segments)
     {
         var current = element;
@@ -541,3 +630,19 @@ public record TestMappingResponse
     public Dictionary<string, string?> TestResults { get; set; } = new();
     public int ArrayLength { get; set; }
 }
+
+public record TestProjectMappingRequest(
+    string SampleResponse = "",
+    string ResponseFormat = "json",
+    string? HtmlJsonMarker = null,
+    string? ProjectsPath = null,
+    string ProjectNamePath = "",
+    string? ProjectIdPath = null,
+    string? ProjectCategoriesPath = null,
+    string? CategoryNamePath = null,
+    string? CategoryIdPath = null
+);
+
+public record CategoryMappingResult(string Name, string? Id);
+public record ProjectMappingResult(string Name, string? Id, List<CategoryMappingResult> Categories);
+public record TestProjectMappingResponse(List<ProjectMappingResult> Projects, int ArrayLength);
