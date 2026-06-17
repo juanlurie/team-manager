@@ -63,6 +63,16 @@ import { AppInfoBannerComponent } from '../../shared/components/app-info-banner/
     <!-- Host controls template (reused on desktop sidebar + mobile tab) -->
     <ng-template #ctrlsTpl>
       @let w = week();
+      @if (w && w.status === 'Closed') {
+        <div class="host-ctrl">
+          <div style="font-size:0.75rem;font-weight:700;opacity:0.6;margin-bottom:12px;display:flex;align-items:center;gap:6px">
+            <mat-icon style="font-size:14px;width:14px;height:14px">tune</mat-icon> Host Controls
+          </div>
+          <button class="ctrl-btn primary" style="width:100%" (click)="openNextWeekClick.emit()">
+            Open Next Week
+          </button>
+        </div>
+      }
       @if (w && w.status !== 'Closed') {
         <div class="host-ctrl">
           <div style="font-size:0.75rem;font-weight:700;opacity:0.6;margin-bottom:12px;display:flex;align-items:center;gap:6px">
@@ -153,7 +163,7 @@ import { AppInfoBannerComponent } from '../../shared/components/app-info-banner/
     <!-- Tab bar (mobile only) -->
     @if (isMobile()) {
     <div class="mob-tabs">
-      @if (isHost() && w && w.status !== 'Closed') {
+      @if (isHost() && w) {
         <button class="mob-tab" [class.active]="mobileTab() === 'nominations'" (click)="mobileTab.set('nominations')">
           Nominations
         </button>
@@ -169,7 +179,7 @@ import { AppInfoBannerComponent } from '../../shared/components/app-info-banner/
     </div>
     }
     <!-- mat-menu (declared outside so desktop trigger can reference it too) -->
-    <mat-menu #mobMenu="matMenu">
+    <mat-menu #mobMenu="matMenu" xPosition="before">
         <button mat-menu-item (click)="switchSeriesClick.emit()">
           <mat-icon>swap_horiz</mat-icon>Switch Series
         </button>
@@ -210,10 +220,12 @@ import { AppInfoBannerComponent } from '../../shared/components/app-info-banner/
 
           <!-- Phase badge + quota row -->
           <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap">
-            <span [style.background]="phase.bg" [style.color]="phase.text"
-                  style="font-size:0.75rem;font-weight:700;padding:4px 12px;border-radius:20px;text-transform:uppercase;letter-spacing:0.3px">
-              {{ phase.label }}
-            </span>
+            @if (w) {
+              <span [style.background]="phase.bg" [style.color]="phase.text"
+                    style="font-size:0.75rem;font-weight:700;padding:4px 12px;border-radius:20px;text-transform:uppercase;letter-spacing:0.3px">
+                {{ phase.label }}
+              </span>
+            }
             @if (w?.status === 'Voting') {
               <span style="font-size:0.8rem;opacity:0.6">
                 Votes remaining: <strong>{{ w?.userVotesRemaining ?? 0 }}</strong>/3

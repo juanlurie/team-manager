@@ -140,6 +140,7 @@ public class WinOfTheWeekController(IWinOfTheWeekService service, WinSeriesServi
     {
         var memberId = GetCurrentMemberId();
         var sid = await ResolveSeriesIdAsync(seriesId);
+        if (sid == Guid.Empty) return NotFound(new { error = "No series found. Create one first." });
         try
         {
             var result = await service.OpenNextWeekAsync(memberId, sid);
