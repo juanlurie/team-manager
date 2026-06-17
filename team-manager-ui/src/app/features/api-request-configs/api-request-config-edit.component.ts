@@ -1,4 +1,4 @@
-import { Component, inject, signal, effect, untracked, OnInit, OnDestroy, AfterViewInit, ViewChild, ElementRef, ChangeDetectionStrategy } from '@angular/core';
+import { Component, inject, signal, effect, untracked, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
@@ -116,27 +116,17 @@ interface CodeSegment { text: string; kind: 'plain' | 'resolved' | 'missing'; }
             }
           </nav>
         } @else {
-          <div class="mobile-step-bar-wrap">
-            <nav class="mobile-step-bar" #stepBarEl (scroll)="updateStepFades()">
-              @for (s of sectionList; track s.key) {
-                <button type="button" class="mobile-step-item" [class.active]="isOpen(s.key)" (click)="jumpToSection(s.key)">
-                  {{ s.title }}
-                </button>
-              }
-            </nav>
-            <button class="scroll-hint left" [class.show]="showStepLeftFade()" (click)="scrollStepBar(-120)" tabindex="-1" aria-hidden="true">‹</button>
-            <button class="scroll-hint right" [class.show]="showStepRightFade()" (click)="scrollStepBar(120)" tabindex="-1" aria-hidden="true">›</button>
+          <div class="mobile-wizard-nav">
+            <button type="button" class="wizard-nav-btn" [disabled]="currentStepIndex() === 0" (click)="prevStep()">‹ Back</button>
+            <span class="wizard-step-label">Step {{ currentStepIndex() + 1 }} of {{ sectionList.length }}</span>
+            <button type="button" class="wizard-nav-btn" [disabled]="currentStepIndex() === sectionList.length - 1" (click)="nextStep()">Next ›</button>
           </div>
+          <div class="wizard-step-title">{{ sectionList[currentStepIndex()].title }}</div>
         }
 
         <div class="form-grid">
           <!-- Basic Info -->
           <div class="form-section" id="section-basic" [class.open]="showBody('basic')">
-            <button type="button" class="section-toggle" (click)="toggleSection('basic')">
-              <mat-icon class="sec-chevron">{{ isOpen('basic') ? 'expand_more' : 'chevron_right' }}</mat-icon>
-              <span class="sec-title">Basic</span>
-              @if (!isOpen('basic')) { <span class="sec-summary">{{ data.name || 'unnamed' }}</span> }
-            </button>
             @if (showBody('basic')) {
             <div class="section-body">
             <mat-form-field appearance="outline" class="full-width">
@@ -169,11 +159,6 @@ interface CodeSegment { text: string; kind: 'plain' | 'resolved' | 'missing'; }
 
           <!-- Request -->
           <div class="form-section" id="section-request" [class.open]="showBody('request')">
-            <button type="button" class="section-toggle" (click)="toggleSection('request')">
-              <mat-icon class="sec-chevron">{{ isOpen('request') ? 'expand_more' : 'chevron_right' }}</mat-icon>
-              <span class="sec-title">Request</span>
-              @if (!isOpen('request')) { <span class="sec-summary">{{ sectionSummary('request') }}</span> }
-            </button>
             @if (showBody('request')) {
             <div class="section-body">
             <div class="tpl-field full-width">
@@ -221,11 +206,6 @@ interface CodeSegment { text: string; kind: 'plain' | 'resolved' | 'missing'; }
 
           <!-- Headers -->
           <div class="form-section" id="section-headers" [class.open]="showBody('headers')">
-            <button type="button" class="section-toggle" (click)="toggleSection('headers')">
-              <mat-icon class="sec-chevron">{{ isOpen('headers') ? 'expand_more' : 'chevron_right' }}</mat-icon>
-              <span class="sec-title">Headers</span>
-              <span class="sec-summary">{{ sectionSummary('headers') }}</span>
-            </button>
             @if (showBody('headers')) {
             <div class="section-body">
             <div class="section-add-row">
@@ -281,11 +261,6 @@ interface CodeSegment { text: string; kind: 'plain' | 'resolved' | 'missing'; }
 
           <!-- Parameters -->
           <div class="form-section" id="section-parameters" [class.open]="showBody('parameters')">
-            <button type="button" class="section-toggle" (click)="toggleSection('parameters')">
-              <mat-icon class="sec-chevron">{{ isOpen('parameters') ? 'expand_more' : 'chevron_right' }}</mat-icon>
-              <span class="sec-title">Parameters</span>
-              <span class="sec-summary">{{ sectionSummary('parameters') }}</span>
-            </button>
             @if (showBody('parameters')) {
             <div class="section-body">
             <div class="section-add-row">
@@ -317,11 +292,6 @@ interface CodeSegment { text: string; kind: 'plain' | 'resolved' | 'missing'; }
 
           <!-- Body -->
           <div class="form-section" id="section-body" [class.open]="showBody('body')">
-            <button type="button" class="section-toggle" (click)="toggleSection('body')">
-              <mat-icon class="sec-chevron">{{ isOpen('body') ? 'expand_more' : 'chevron_right' }}</mat-icon>
-              <span class="sec-title">Body Template</span>
-              <span class="sec-summary">{{ sectionSummary('body') }}</span>
-            </button>
             @if (showBody('body')) {
             <div class="section-body">
             <div class="body-field">
@@ -347,11 +317,6 @@ interface CodeSegment { text: string; kind: 'plain' | 'resolved' | 'missing'; }
 
           <!-- Success & Retry -->
           <div class="form-section" id="section-success" [class.open]="showBody('success')">
-            <button type="button" class="section-toggle" (click)="toggleSection('success')">
-              <mat-icon class="sec-chevron">{{ isOpen('success') ? 'expand_more' : 'chevron_right' }}</mat-icon>
-              <span class="sec-title">Success &amp; Retry</span>
-              <span class="sec-summary">{{ sectionSummary('success') }}</span>
-            </button>
             @if (showBody('success')) {
             <div class="section-body">
             <div class="two-col">
@@ -392,11 +357,6 @@ interface CodeSegment { text: string; kind: 'plain' | 'resolved' | 'missing'; }
           <!-- Response Mapping -->
           @if (hasMapping()) {
           <div class="form-section" id="section-mapping" [class.open]="showBody('mapping')">
-            <button type="button" class="section-toggle" (click)="toggleSection('mapping')">
-              <mat-icon class="sec-chevron">{{ isOpen('mapping') ? 'expand_more' : 'chevron_right' }}</mat-icon>
-              <span class="sec-title">Response Mapping</span>
-              <span class="sec-summary">{{ sectionSummary('mapping') }}</span>
-            </button>
             @if (showBody('mapping')) {
             <div class="section-body">
           @if (data.action === 'AddTimesheetEntry') {
@@ -688,10 +648,6 @@ interface CodeSegment { text: string; kind: 'plain' | 'resolved' | 'missing'; }
           }
           <!-- Code & Test -->
           <div class="form-section" id="section-code" [class.open]="showBody('code')">
-            <button type="button" class="section-toggle" (click)="toggleSection('code')">
-              <mat-icon class="sec-chevron">{{ isOpen('code') ? 'expand_more' : 'chevron_right' }}</mat-icon>
-              <span class="sec-title">Code</span>
-            </button>
             @if (showBody('code')) {
             <div class="section-body">
               <div class="code-toolbar">
@@ -835,54 +791,24 @@ interface CodeSegment { text: string; kind: 'plain' | 'resolved' | 'missing'; }
     .md-rail-sum { font-size: 0.68rem; color: rgba(255,255,255,0.35); font-family: monospace; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .md-rail-item.active .md-rail-sum { color: rgba(255,255,255,0.5); }
 
-    .mobile-step-bar-wrap { position:relative; margin-bottom:14px; }
-    .mobile-step-bar {
-      display:flex; gap:0;
-      border-bottom:1px solid rgba(255,255,255,0.08);
-      overflow-x:auto; scrollbar-width:none; -ms-overflow-style:none;
-    }
-    .mobile-step-bar::-webkit-scrollbar { display:none; }
-    .mobile-step-item {
-      padding:10px 14px; font-size:0.82rem; font-weight:500;
-      color:rgba(255,255,255,0.45); white-space:nowrap; cursor:pointer;
-      font-family:inherit; background:none; border:none; border-bottom:2px solid transparent;
-      transition:all 0.12s; flex-shrink:0;
-    }
-    .mobile-step-item:hover { color:rgba(255,255,255,0.75); }
-    .mobile-step-item.active { color:#64b5f6; border-bottom-color:#64b5f6; }
-    .scroll-hint {
-      position:absolute; top:50%; transform:translateY(-50%);
-      width:22px; height:22px; border-radius:50%;
-      background:#1c2a38; border:1px solid rgba(100,181,246,0.35);
-      color:#64b5f6; font-size:0.85rem; line-height:1;
-      display:flex; align-items:center; justify-content:center;
-      cursor:pointer; font-family:inherit;
-      opacity:0; pointer-events:none; transition:opacity 0.15s;
-      box-shadow:0 0 6px rgba(0,0,0,0.4);
-    }
-    .scroll-hint.show { opacity:1; pointer-events:auto; }
-    .scroll-hint.left { left:2px; }
-    .scroll-hint.right { right:2px; }
     .rail-divider { height: 1px; background: rgba(255,255,255,0.07); margin: 6px 0; }
 
-    /* On desktop, hide accordion toggles; rail drives navigation */
-    .form-shell.md .form-grid { gap: 0; }
-    .form-shell.md .section-toggle { display: none; }
-    .form-shell.md .form-section { border: none; background: none; border-radius: 0; overflow: visible; }
-    .form-shell.md .section-body { padding: 0; }
+    /* Mobile — wizard: one section visible at a time */
+    .mobile-wizard-nav { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:6px; }
+    .wizard-nav-btn { background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.1); color:#64b5f6; font-family:inherit; font-size:0.82rem; font-weight:600; padding:8px 14px; border-radius:8px; cursor:pointer; }
+    .wizard-nav-btn:disabled { color:rgba(255,255,255,0.25); cursor:default; }
+    .wizard-step-label { font-size:0.74rem; color:rgba(255,255,255,0.45); font-family:monospace; }
+    .wizard-step-title { font-size:1.05rem; font-weight:700; color:rgba(255,255,255,0.95); margin-bottom:12px; }
 
-    /* Form sections — accordion */
+    /* Form sections */
     .form-grid { display: flex; flex-direction: column; gap: 6px; }
-    .form-section { border: 1px solid rgba(255,255,255,0.07); border-radius: 10px; background: rgba(255,255,255,0.02); overflow: hidden; transition: border-color 0.15s, background 0.15s; }
-    .form-section.open { border-color: rgba(100,181,246,0.25); background: rgba(255,255,255,0.03); }
+    .form-section { overflow: hidden; transition: border-color 0.15s, background 0.15s; }
+    .form-section.open { border: 1px solid rgba(100,181,246,0.25); border-radius: 10px; background: rgba(255,255,255,0.03); }
 
-    .section-toggle { width: 100%; display: flex; align-items: center; gap: 8px; background: none; border: none; padding: 13px 14px; cursor: pointer; font-family: inherit; text-align: left; color: inherit; min-height: 48px; box-sizing: border-box; }
-    .section-toggle:hover { background: rgba(255,255,255,0.03); }
-    .sec-chevron { font-size: 20px; width: 20px; height: 20px; color: rgba(255,255,255,0.4); flex-shrink: 0; transition: color 0.15s; }
-    .form-section.open .sec-chevron { color: #64b5f6; }
-    .sec-title { font-size: 0.82rem; font-weight: 700; color: rgba(255,255,255,0.75); flex-shrink: 0; }
-    .form-section.open .sec-title { color: rgba(255,255,255,0.95); }
-    .sec-summary { font-size: 0.74rem; color: rgba(255,255,255,0.35); margin-left: auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; font-family: monospace; padding-left: 10px; }
+    /* On desktop, the rail drives navigation and there's no per-section border; on mobile, the wizard nav does */
+    .form-shell.md .form-grid { gap: 0; }
+    .form-shell.md .form-section.open { border: none; background: none; border-radius: 0; overflow: visible; }
+    .form-shell.md .section-body { padding: 0; }
 
     .section-body { padding: 4px 14px 16px; }
     .section-add-row { display: flex; justify-content: flex-end; margin-bottom: 2px; }
@@ -1017,7 +943,7 @@ interface CodeSegment { text: string; kind: 'plain' | 'resolved' | 'missing'; }
     }
   `]
 })
-export class ApiRequestConfigEditComponent implements OnInit, AfterViewInit, OnDestroy {
+export class ApiRequestConfigEditComponent implements OnInit {
   private svc = inject(ApiRequestConfigsService);
   private snackBar = inject(MatSnackBar);
   private credentials = inject(CredentialsService);
@@ -1096,21 +1022,17 @@ export class ApiRequestConfigEditComponent implements OnInit, AfterViewInit, OnD
   private mobile = inject(MobileService);
   get isDesktop() { return !this.mobile.isMobile(); }
 
-  expanded = signal<Set<string>>(new Set(['basic', 'request']));
   activeSection = signal<string>('basic');
 
   constructor() {
     effect(() => {
-      const visible = this.isDesktop ? this.activeSection() === 'code' : this.expanded().has('code');
-      if (visible) untracked(() => this.generateCode());
+      if (this.activeSection() === 'code') untracked(() => this.generateCode());
     });
     effect(() => {
-      const visible = this.isDesktop ? this.activeSection() === 'body' : this.expanded().has('body');
-      if (visible) untracked(() => this.updateBodySegs());
+      if (this.activeSection() === 'body') untracked(() => this.updateBodySegs());
     });
     effect(() => {
-      const visible = this.isDesktop ? this.activeSection() === 'request' : this.expanded().has('request');
-      if (visible) untracked(() => this.updateUrlSegs());
+      if (this.activeSection() === 'request') untracked(() => this.updateUrlSegs());
     });
   }
 
@@ -1129,47 +1051,23 @@ export class ApiRequestConfigEditComponent implements OnInit, AfterViewInit, OnD
     return base;
   }
 
-  isOpen(key: string) { return this.expanded().has(key); }
-  showBody(key: string) { return this.isDesktop ? this.activeSection() === key : this.isOpen(key); }
+  showBody(key: string) { return this.activeSection() === key; }
 
-  toggleSection(key: string) {
-    this.expanded.update(s => {
-      const next = new Set(s);
-      next.has(key) ? next.delete(key) : next.add(key);
-      return next;
-    });
+  currentStepIndex(): number {
+    const idx = this.sectionList.findIndex(s => s.key === this.activeSection());
+    return idx === -1 ? 0 : idx;
   }
 
-  @ViewChild('stepBarEl') stepBarEl?: ElementRef<HTMLElement>;
-  showStepLeftFade = signal(false);
-  showStepRightFade = signal(false);
-
-  updateStepFades = () => {
-    const el = this.stepBarEl?.nativeElement;
-    if (!el) return;
-    this.showStepLeftFade.set(el.scrollLeft > 2);
-    this.showStepRightFade.set(el.scrollLeft + el.clientWidth < el.scrollWidth - 2);
-  };
-
-  scrollStepBar(delta: number) {
-    this.stepBarEl?.nativeElement.scrollBy({ left: delta, behavior: 'smooth' });
+  prevStep() {
+    const list = this.sectionList;
+    const idx = this.currentStepIndex();
+    if (idx > 0) this.activeSection.set(list[idx - 1].key);
   }
 
-  jumpToSection(key: string) {
-    this.expanded.update(s => new Set(s).add(key));
-    setTimeout(() => {
-      document.getElementById('section-' + key)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      this.updateStepFades();
-    });
-  }
-
-  ngAfterViewInit() {
-    this.updateStepFades();
-    window.addEventListener('resize', this.updateStepFades);
-  }
-
-  ngOnDestroy() {
-    window.removeEventListener('resize', this.updateStepFades);
+  nextStep() {
+    const list = this.sectionList;
+    const idx = this.currentStepIndex();
+    if (idx < list.length - 1) this.activeSection.set(list[idx + 1].key);
   }
 
   sectionSummary(key: string): string {
@@ -1246,14 +1144,12 @@ export class ApiRequestConfigEditComponent implements OnInit, AfterViewInit, OnD
     if (this.isNew) {
       this.data = this.newConfig();
       this.pageLoading.set(false);
-      setTimeout(() => this.updateStepFades());
     } else {
       this.svc.get(id!).subscribe({
         next: (config) => {
           this.data = { ...config };
           this.initEntries();
           this.pageLoading.set(false);
-          setTimeout(() => this.updateStepFades());
         },
         error: () => {
           this.snackBar.open('Failed to load config', 'Close', { duration: 3000 });
@@ -1272,13 +1168,6 @@ export class ApiRequestConfigEditComponent implements OnInit, AfterViewInit, OnD
     this.parameterEntries.set(Object.entries(this.data.parameters || {}).map(([k, v]) => ({ key: k, value: v as string })));
     this.customFieldEntries.set(Object.entries(this.data.mapping.customFields || {}).map(([k, v]) => ({ key: k, value: v as string })));
 
-    if (!this.isNew) {
-      const open = new Set(['basic', 'request']);
-      if (this.headerEntries().length) open.add('headers');
-      if (this.parameterEntries().length) open.add('parameters');
-      if (this.data.bodyTemplate?.trim()) open.add('body');
-      this.expanded.set(open);
-    }
     this.updateBodySegs();
     this.updateUrlSegs();
   }
@@ -1403,7 +1292,6 @@ export class ApiRequestConfigEditComponent implements OnInit, AfterViewInit, OnD
     this.projectSampleResponse.set(body);
     this.showProjectTest.set(true);
     this.activeSection.set('mapping');
-    this.expanded.update(s => new Set(s).add('mapping'));
     this.testProjectMapping();
   }
 
