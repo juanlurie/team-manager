@@ -7,9 +7,11 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSelectModule } from '@angular/material/select';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { FormsModule } from '@angular/forms';
 import { TimesheetDefaultsService } from '../../core/services/timesheet-defaults.service';
 import { CredentialsService } from '../../core/services/credentials.service';
+import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/confirm-dialog.component';
 
 interface SyncEvent {
   id: string;
@@ -35,7 +37,7 @@ interface SyncEvent {
   selector: 'app-sync-queue',
   standalone: true,
   imports: [CommonModule, FormsModule, MatIconModule, MatButtonModule,
-            MatSnackBarModule, MatTooltipModule, MatProgressSpinnerModule, MatSelectModule],
+            MatSnackBarModule, MatTooltipModule, MatProgressSpinnerModule, MatSelectModule, MatDialogModule],
   template: `
     <div class="page">
       <div class="page-header">
@@ -265,6 +267,7 @@ export class SyncQueueComponent implements OnInit {
   private snackBar = inject(MatSnackBar);
   private tsd = inject(TimesheetDefaultsService);
   private credentials = inject(CredentialsService);
+  private dialog = inject(MatDialog);
 
   loading = signal(true);
   events = signal<SyncEvent[]>([]);
@@ -322,7 +325,7 @@ export class SyncQueueComponent implements OnInit {
   sendAll() {
     const { cookie, credentials } = this.getCredentials();
     if (!cookie) {
-      this.snackBar.open('No cookie found — set one in Settings → Credentials', 'Close', { duration: 4000 });
+      this.snackBar.open('No cookie found — set one in Integrations → Credentials', 'Close', { duration: 4000 });
     }
     const total = this.pendingCount();
     this.sendingAll.set(true);
@@ -345,7 +348,7 @@ export class SyncQueueComponent implements OnInit {
   send(evt: SyncEvent) {
     const { cookie, credentials } = this.getCredentials();
     if (!cookie) {
-      this.snackBar.open('No cookie found — set one in Settings → Credentials', 'Close', { duration: 4000 });
+      this.snackBar.open('No cookie found — set one in Integrations → Credentials', 'Close', { duration: 4000 });
     }
     this.sending.set(evt.id);
     this.http.post<any>(`/api/v1/sync-queue/${evt.id}/send`, { cookie, credentials }).subscribe({
@@ -398,20 +401,35 @@ export class SyncQueueComponent implements OnInit {
 
   clearByStatus() {
     const status = this.statusFilter();
-    this.http.delete(`/api/v1/sync-queue/by-status/${status}`).subscribe({
-      next: () => {
-        this.events.update(list => list.filter(e => e.status !== status));
-        this.snackBar.open(`Cleared all ${status} events`, 'Close', { duration: 3000 });
-      }
+    const count = this.countByStatus(status);
+    const ref = this.dialog.open(ConfirmDialogComponent, {
+      width: '360px',
+      data: { title: `Clear ${status} events?`, message: `This deletes ${count} ${status} event(s). This cannot be undone.`, confirmLabel: 'Clear', danger: true }
+    });
+    ref.afterClosed().subscribe(ok => {
+      if (!ok) return;
+      this.http.delete(`/api/v1/sync-queue/by-status/${status}`).subscribe({
+        next: () => {
+          this.events.update(list => list.filter(e => e.status !== status));
+          this.snackBar.open(`Cleared all ${status} events`, 'Close', { duration: 3000 });
+        }
+      });
     });
   }
 
   purgeAll() {
-    this.http.delete('/api/v1/sync-queue').subscribe({
-      next: () => {
-        this.events.set([]);
-        this.snackBar.open('Queue purged', 'Close', { duration: 3000 });
-      }
+    const ref = this.dialog.open(ConfirmDialogComponent, {
+      width: '360px',
+      data: { title: 'Purge entire queue?', message: `This deletes all ${this.events().length} event(s) — pending, sent, and failed. This cannot be undone.`, confirmLabel: 'Purge All', danger: true }
+    });
+    ref.afterClosed().subscribe(ok => {
+      if (!ok) return;
+      this.http.delete('/api/v1/sync-queue').subscribe({
+        next: () => {
+          this.events.set([]);
+          this.snackBar.open('Queue purged', 'Close', { duration: 3000 });
+        }
+      });
     });
   }
 
