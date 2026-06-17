@@ -411,12 +411,12 @@ public class ApiRequestConfigsController : ControllerBase
                         {
                             var catName = GetMappedString(cat, request.CategoryNamePath);
                             if (string.IsNullOrWhiteSpace(catName)) continue;
-                            categories.Add(new CategoryMappingResult(catName, GetMappedString(cat, request.CategoryIdPath)));
+                            categories.Add(new CategoryMappingResult(catName, GetMappedString(cat, request.CategoryIdPath), GetCustomFieldValues(cat, request.CustomFields)));
                         }
                     }
                 }
 
-                results.Add(new ProjectMappingResult(projName, projId, categories));
+                results.Add(new ProjectMappingResult(projName, projId, categories, GetCustomFieldValues(proj, request.CustomFields)));
             }
 
             return Ok(new TestProjectMappingResponse(results, projectsEl.GetArrayLength()));
@@ -433,6 +433,18 @@ public class ApiRequestConfigsController : ControllerBase
         var target = NavigatePath(el, ParsePath(path));
         if (target.ValueKind == JsonValueKind.Undefined) return null;
         return target.ValueKind == JsonValueKind.String ? target.GetString() : target.ToString();
+    }
+
+    private static Dictionary<string, string> GetCustomFieldValues(JsonElement el, Dictionary<string, string>? customFields)
+    {
+        var values = new Dictionary<string, string>();
+        if (customFields is null) return values;
+        foreach (var (label, path) in customFields)
+        {
+            var val = GetMappedString(el, path);
+            if (!string.IsNullOrWhiteSpace(val)) values[label] = val;
+        }
+        return values;
     }
 
     private static JsonElement NavigatePath(JsonElement element, List<string> segments)
@@ -640,9 +652,10 @@ public record TestProjectMappingRequest(
     string? ProjectIdPath = null,
     string? ProjectCategoriesPath = null,
     string? CategoryNamePath = null,
-    string? CategoryIdPath = null
+    string? CategoryIdPath = null,
+    Dictionary<string, string>? CustomFields = null
 );
 
-public record CategoryMappingResult(string Name, string? Id);
-public record ProjectMappingResult(string Name, string? Id, List<CategoryMappingResult> Categories);
+public record CategoryMappingResult(string Name, string? Id, Dictionary<string, string> CustomFields);
+public record ProjectMappingResult(string Name, string? Id, List<CategoryMappingResult> Categories, Dictionary<string, string> CustomFields);
 public record TestProjectMappingResponse(List<ProjectMappingResult> Projects, int ArrayLength);

@@ -499,6 +499,34 @@ interface CodeSegment { text: string; kind: 'plain' | 'resolved' | 'missing'; }
                   <mat-hint>Optional. Stored so future syncs can match this category even if its name changes.</mat-hint>
                 </mat-form-field>
               </div>
+
+              <div class="custom-fields-section">
+                <div class="custom-fields-header">
+                  <span class="custom-fields-title">Custom Properties</span>
+                  <button mat-icon-button color="primary" (click)="addCustomField()" matTooltip="Add property" class="add-row-btn">
+                    <mat-icon>add</mat-icon>
+                  </button>
+                </div>
+                <p class="custom-fields-hint">Extra fields this system needs beyond the defaults above. Each one is extracted per project/category and becomes available as <code class="path-code">{{ '{' }}label{{ '}' }}</code> when building other requests for that project/category (e.g. Add Timesheet Entry), the same way Category ID does.</p>
+                @for (entry of customFieldEntries(); track $index) {
+                  <div class="header-row">
+                    <mat-form-field appearance="outline" class="half-width">
+                      <mat-label>Label</mat-label>
+                      <input matInput [(ngModel)]="entry.key" placeholder="billingCode">
+                    </mat-form-field>
+                    <mat-form-field appearance="outline" class="half-width">
+                      <mat-label>Path</mat-label>
+                      <input matInput [(ngModel)]="entry.value" placeholder="billing.code">
+                    </mat-form-field>
+                    <button mat-icon-button class="remove-btn" (click)="removeCustomField(entry.key)">
+                      <mat-icon>delete</mat-icon>
+                    </button>
+                  </div>
+                }
+                @if (customFieldEntries().length === 0) {
+                  <div class="empty-rows-hint">No custom properties — click + to add one</div>
+                }
+              </div>
             </div>
           }
 
@@ -835,6 +863,11 @@ interface CodeSegment { text: string; kind: 'plain' | 'resolved' | 'missing'; }
     .change-secret-btn { font-size: 0.78rem; color: #64b5f6; }
     .empty-rows-hint { font-size: 0.75rem; color: rgba(255,255,255,0.25); padding: 4px 0 8px; }
 
+    .custom-fields-section { margin-top: 8px; padding-top: 14px; border-top: 1px solid rgba(255,255,255,0.07); }
+    .custom-fields-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+    .custom-fields-title { font-size: 0.78rem; font-weight: 700; color: rgba(255,255,255,0.6); text-transform: uppercase; letter-spacing: 0.4px; }
+    .custom-fields-hint { font-size: 0.74rem; color: rgba(255,255,255,0.35); margin: 0 0 10px; line-height: 1.5; }
+
     .config-vars-hint { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 2px 0 10px; }
     .config-vars-label { font-size: 0.72rem; color: rgba(255,255,255,0.3); flex-shrink: 0; }
     .config-var-chip { background: rgba(100,181,246,0.1); color: #64b5f6; border: 1px solid rgba(100,181,246,0.2); padding: 1px 7px; border-radius: 10px; font-size: 0.7rem; font-family: monospace; cursor: pointer; transition: background 0.12s; }
@@ -957,6 +990,7 @@ export class ApiRequestConfigEditComponent implements OnInit {
   saving = signal(false);
   headerEntries = signal<{key: string, value: string, secret: boolean, editing: boolean}[]>([]);
   parameterEntries = signal<{key: string, value: string}[]>([]);
+  customFieldEntries = signal<{key: string, value: string}[]>([]);
   actions = REQUEST_ACTIONS;
   configVars = signal<{key: string, value: string, isSecret: boolean}[]>([]);
   get configVarKeys() { return this.configVars().map(v => v.key); }
@@ -1161,6 +1195,7 @@ export class ApiRequestConfigEditComponent implements OnInit {
     const secretEntries = Object.entries(secretHeaders).map(([k, v]) => ({ key: k, value: v as string, secret: true, editing: false }));
     this.headerEntries.set([...regularHeaders, ...secretEntries]);
     this.parameterEntries.set(Object.entries(this.data.parameters || {}).map(([k, v]) => ({ key: k, value: v as string })));
+    this.customFieldEntries.set(Object.entries(this.data.mapping.customFields || {}).map(([k, v]) => ({ key: k, value: v as string })));
 
     if (!this.isNew) {
       const open = new Set(['basic', 'request']);
@@ -1218,6 +1253,9 @@ export class ApiRequestConfigEditComponent implements OnInit {
 
   addParameter() { this.parameterEntries.set([...this.parameterEntries(), { key: '', value: '' }]); }
   removeParameter(key: string) { this.parameterEntries.set(this.parameterEntries().filter(e => e.key !== key)); }
+
+  addCustomField() { this.customFieldEntries.set([...this.customFieldEntries(), { key: '', value: '' }]); }
+  removeCustomField(key: string) { this.customFieldEntries.set(this.customFieldEntries().filter(e => e.key !== key)); }
 
   private computeSegs(template: string): CodeSegment[] {
     const { params, cookieVars } = this.getResolveContext();
@@ -1303,11 +1341,20 @@ export class ApiRequestConfigEditComponent implements OnInit {
       { label: 'Project Name Path', path: m.projectNamePath || '(not set)', value: first.name },
       { label: 'Project ID Path', path: m.projectIdPath || '(not set)', value: first.id ?? '(empty)' }
     ];
+    for (const [label, path] of Object.entries(this.liveCustomFields())) {
+      const value = first.customFields[label];
+      rows.push({ label, path, value: value ?? '(empty)' });
+    }
     if (m.projectCategoriesPath) {
       rows.push({ label: 'Categories Path', path: m.projectCategoriesPath, value: `${first.categories.length} found` });
       if (first.categories.length > 0) {
-        rows.push({ label: 'Category Name Path', path: m.categoryNamePath || '(not set)', value: first.categories[0].name });
-        rows.push({ label: 'Category ID Path', path: m.categoryIdPath || '(not set)', value: first.categories[0].id ?? '(empty)' });
+        const firstCat = first.categories[0];
+        rows.push({ label: 'Category Name Path', path: m.categoryNamePath || '(not set)', value: firstCat.name });
+        rows.push({ label: 'Category ID Path', path: m.categoryIdPath || '(not set)', value: firstCat.id ?? '(empty)' });
+        for (const [label, path] of Object.entries(this.liveCustomFields())) {
+          const value = firstCat.customFields[label];
+          rows.push({ label: `${label} (category)`, path, value: value ?? '(empty)' });
+        }
       }
     }
     return rows;
@@ -1318,6 +1365,12 @@ export class ApiRequestConfigEditComponent implements OnInit {
     return this.data?.mapping.responseFormat === 'html' ? `...new timesheet(${sample})...` : sample;
   }
 
+  private liveCustomFields(): Record<string, string> {
+    const customFields: Record<string, string> = {};
+    for (const entry of this.customFieldEntries()) { if (entry.key.trim()) customFields[entry.key.trim()] = entry.value; }
+    return customFields;
+  }
+
   testProjectMapping() {
     if (!this.data) return;
     const raw = this.projectSampleResponse().trim();
@@ -1325,7 +1378,8 @@ export class ApiRequestConfigEditComponent implements OnInit {
     this.testingProjectMapping.set(true);
     this.projectMappingError.set('');
     this.projectMappingResults.set(null);
-    this.svc.testProjectMapping(raw, this.data.mapping).subscribe({
+    const mapping = { ...this.data.mapping, customFields: this.liveCustomFields() };
+    this.svc.testProjectMapping(raw, mapping).subscribe({
       next: (result) => { this.projectMappingResults.set(result.projects); this.testingProjectMapping.set(false); },
       error: (err) => {
         this.projectMappingError.set(err.error || 'Failed to test mapping');
@@ -1572,6 +1626,10 @@ export class ApiRequestConfigEditComponent implements OnInit {
     for (const entry of this.parameterEntries()) { if (entry.key.trim()) parameters[entry.key.trim()] = entry.value; }
     this.data.parameters = parameters;
 
+    const customFields: Record<string, string> = {};
+    for (const entry of this.customFieldEntries()) { if (entry.key.trim()) customFields[entry.key.trim()] = entry.value; }
+    this.data.mapping = { ...this.data.mapping, customFields };
+
     this.saving.set(true);
     const save$ = this.data.id ? this.svc.update(this.data.id, this.data) : this.svc.create(this.data);
     save$.subscribe({
@@ -1595,7 +1653,8 @@ export class ApiRequestConfigEditComponent implements OnInit {
         externalIdPath: '', projectsPath: '', projectNamePath: 'name', projectIdPath: 'id',
         projectCategoriesPath: 'categories', categoryNamePath: 'name', categoryIdPath: 'id',
         responseFormat: 'json', htmlJsonMarker: '', employeeIdPattern: '',
-        textResponsePath: '', subjectPath: 'subject', isAllDayPath: 'isAllDay', locationPath: 'location'
+        textResponsePath: '', subjectPath: 'subject', isAllDayPath: 'isAllDay', locationPath: 'location',
+        customFields: {}
       }
     };
   }
