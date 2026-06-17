@@ -1,4 +1,4 @@
-import { Component, inject, signal, effect, untracked, OnInit, ChangeDetectionStrategy } from '@angular/core';
+import { Component, inject, signal, effect, untracked, OnInit, OnDestroy, AfterViewInit, ViewChild, ElementRef, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
@@ -115,11 +115,23 @@ interface CodeSegment { text: string; kind: 'plain' | 'resolved' | 'missing'; }
               </button>
             }
           </nav>
+        } @else {
+          <div class="mobile-step-bar-wrap">
+            <nav class="mobile-step-bar" #stepBarEl (scroll)="updateStepFades()">
+              @for (s of sectionList; track s.key) {
+                <button type="button" class="mobile-step-item" [class.active]="isOpen(s.key)" (click)="jumpToSection(s.key)">
+                  {{ s.title }}
+                </button>
+              }
+            </nav>
+            <button class="scroll-hint left" [class.show]="showStepLeftFade()" (click)="scrollStepBar(-120)" tabindex="-1" aria-hidden="true">‹</button>
+            <button class="scroll-hint right" [class.show]="showStepRightFade()" (click)="scrollStepBar(120)" tabindex="-1" aria-hidden="true">›</button>
+          </div>
         }
 
         <div class="form-grid">
           <!-- Basic Info -->
-          <div class="form-section" [class.open]="showBody('basic')">
+          <div class="form-section" id="section-basic" [class.open]="showBody('basic')">
             <button type="button" class="section-toggle" (click)="toggleSection('basic')">
               <mat-icon class="sec-chevron">{{ isOpen('basic') ? 'expand_more' : 'chevron_right' }}</mat-icon>
               <span class="sec-title">Basic</span>
@@ -156,7 +168,7 @@ interface CodeSegment { text: string; kind: 'plain' | 'resolved' | 'missing'; }
           </div>
 
           <!-- Request -->
-          <div class="form-section" [class.open]="showBody('request')">
+          <div class="form-section" id="section-request" [class.open]="showBody('request')">
             <button type="button" class="section-toggle" (click)="toggleSection('request')">
               <mat-icon class="sec-chevron">{{ isOpen('request') ? 'expand_more' : 'chevron_right' }}</mat-icon>
               <span class="sec-title">Request</span>
@@ -208,7 +220,7 @@ interface CodeSegment { text: string; kind: 'plain' | 'resolved' | 'missing'; }
           </div>
 
           <!-- Headers -->
-          <div class="form-section" [class.open]="showBody('headers')">
+          <div class="form-section" id="section-headers" [class.open]="showBody('headers')">
             <button type="button" class="section-toggle" (click)="toggleSection('headers')">
               <mat-icon class="sec-chevron">{{ isOpen('headers') ? 'expand_more' : 'chevron_right' }}</mat-icon>
               <span class="sec-title">Headers</span>
@@ -268,7 +280,7 @@ interface CodeSegment { text: string; kind: 'plain' | 'resolved' | 'missing'; }
           </div>
 
           <!-- Parameters -->
-          <div class="form-section" [class.open]="showBody('parameters')">
+          <div class="form-section" id="section-parameters" [class.open]="showBody('parameters')">
             <button type="button" class="section-toggle" (click)="toggleSection('parameters')">
               <mat-icon class="sec-chevron">{{ isOpen('parameters') ? 'expand_more' : 'chevron_right' }}</mat-icon>
               <span class="sec-title">Parameters</span>
@@ -304,7 +316,7 @@ interface CodeSegment { text: string; kind: 'plain' | 'resolved' | 'missing'; }
           </div>
 
           <!-- Body -->
-          <div class="form-section" [class.open]="showBody('body')">
+          <div class="form-section" id="section-body" [class.open]="showBody('body')">
             <button type="button" class="section-toggle" (click)="toggleSection('body')">
               <mat-icon class="sec-chevron">{{ isOpen('body') ? 'expand_more' : 'chevron_right' }}</mat-icon>
               <span class="sec-title">Body Template</span>
@@ -334,7 +346,7 @@ interface CodeSegment { text: string; kind: 'plain' | 'resolved' | 'missing'; }
           </div>
 
           <!-- Success & Retry -->
-          <div class="form-section" [class.open]="showBody('success')">
+          <div class="form-section" id="section-success" [class.open]="showBody('success')">
             <button type="button" class="section-toggle" (click)="toggleSection('success')">
               <mat-icon class="sec-chevron">{{ isOpen('success') ? 'expand_more' : 'chevron_right' }}</mat-icon>
               <span class="sec-title">Success &amp; Retry</span>
@@ -379,7 +391,7 @@ interface CodeSegment { text: string; kind: 'plain' | 'resolved' | 'missing'; }
 
           <!-- Response Mapping -->
           @if (hasMapping()) {
-          <div class="form-section" [class.open]="showBody('mapping')">
+          <div class="form-section" id="section-mapping" [class.open]="showBody('mapping')">
             <button type="button" class="section-toggle" (click)="toggleSection('mapping')">
               <mat-icon class="sec-chevron">{{ isOpen('mapping') ? 'expand_more' : 'chevron_right' }}</mat-icon>
               <span class="sec-title">Response Mapping</span>
@@ -675,7 +687,7 @@ interface CodeSegment { text: string; kind: 'plain' | 'resolved' | 'missing'; }
           </div>
           }
           <!-- Code & Test -->
-          <div class="form-section" [class.open]="showBody('code')">
+          <div class="form-section" id="section-code" [class.open]="showBody('code')">
             <button type="button" class="section-toggle" (click)="toggleSection('code')">
               <mat-icon class="sec-chevron">{{ isOpen('code') ? 'expand_more' : 'chevron_right' }}</mat-icon>
               <span class="sec-title">Code</span>
@@ -822,6 +834,35 @@ interface CodeSegment { text: string; kind: 'plain' | 'resolved' | 'missing'; }
     .md-rail-title { font-size: 0.82rem; font-weight: 600; }
     .md-rail-sum { font-size: 0.68rem; color: rgba(255,255,255,0.35); font-family: monospace; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .md-rail-item.active .md-rail-sum { color: rgba(255,255,255,0.5); }
+
+    .mobile-step-bar-wrap { position:relative; margin-bottom:14px; }
+    .mobile-step-bar {
+      display:flex; gap:0;
+      border-bottom:1px solid rgba(255,255,255,0.08);
+      overflow-x:auto; scrollbar-width:none; -ms-overflow-style:none;
+    }
+    .mobile-step-bar::-webkit-scrollbar { display:none; }
+    .mobile-step-item {
+      padding:10px 14px; font-size:0.82rem; font-weight:500;
+      color:rgba(255,255,255,0.45); white-space:nowrap; cursor:pointer;
+      font-family:inherit; background:none; border:none; border-bottom:2px solid transparent;
+      transition:all 0.12s; flex-shrink:0;
+    }
+    .mobile-step-item:hover { color:rgba(255,255,255,0.75); }
+    .mobile-step-item.active { color:#64b5f6; border-bottom-color:#64b5f6; }
+    .scroll-hint {
+      position:absolute; top:50%; transform:translateY(-50%);
+      width:22px; height:22px; border-radius:50%;
+      background:#1c2a38; border:1px solid rgba(100,181,246,0.35);
+      color:#64b5f6; font-size:0.85rem; line-height:1;
+      display:flex; align-items:center; justify-content:center;
+      cursor:pointer; font-family:inherit;
+      opacity:0; pointer-events:none; transition:opacity 0.15s;
+      box-shadow:0 0 6px rgba(0,0,0,0.4);
+    }
+    .scroll-hint.show { opacity:1; pointer-events:auto; }
+    .scroll-hint.left { left:2px; }
+    .scroll-hint.right { right:2px; }
     .rail-divider { height: 1px; background: rgba(255,255,255,0.07); margin: 6px 0; }
 
     /* On desktop, hide accordion toggles; rail drives navigation */
@@ -976,7 +1017,7 @@ interface CodeSegment { text: string; kind: 'plain' | 'resolved' | 'missing'; }
     }
   `]
 })
-export class ApiRequestConfigEditComponent implements OnInit {
+export class ApiRequestConfigEditComponent implements OnInit, AfterViewInit, OnDestroy {
   private svc = inject(ApiRequestConfigsService);
   private snackBar = inject(MatSnackBar);
   private credentials = inject(CredentialsService);
@@ -1099,6 +1140,38 @@ export class ApiRequestConfigEditComponent implements OnInit {
     });
   }
 
+  @ViewChild('stepBarEl') stepBarEl?: ElementRef<HTMLElement>;
+  showStepLeftFade = signal(false);
+  showStepRightFade = signal(false);
+
+  updateStepFades = () => {
+    const el = this.stepBarEl?.nativeElement;
+    if (!el) return;
+    this.showStepLeftFade.set(el.scrollLeft > 2);
+    this.showStepRightFade.set(el.scrollLeft + el.clientWidth < el.scrollWidth - 2);
+  };
+
+  scrollStepBar(delta: number) {
+    this.stepBarEl?.nativeElement.scrollBy({ left: delta, behavior: 'smooth' });
+  }
+
+  jumpToSection(key: string) {
+    this.expanded.update(s => new Set(s).add(key));
+    setTimeout(() => {
+      document.getElementById('section-' + key)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      this.updateStepFades();
+    });
+  }
+
+  ngAfterViewInit() {
+    this.updateStepFades();
+    window.addEventListener('resize', this.updateStepFades);
+  }
+
+  ngOnDestroy() {
+    window.removeEventListener('resize', this.updateStepFades);
+  }
+
   sectionSummary(key: string): string {
     if (!this.data) return '';
     switch (key) {
@@ -1173,12 +1246,14 @@ export class ApiRequestConfigEditComponent implements OnInit {
     if (this.isNew) {
       this.data = this.newConfig();
       this.pageLoading.set(false);
+      setTimeout(() => this.updateStepFades());
     } else {
       this.svc.get(id!).subscribe({
         next: (config) => {
           this.data = { ...config };
           this.initEntries();
           this.pageLoading.set(false);
+          setTimeout(() => this.updateStepFades());
         },
         error: () => {
           this.snackBar.open('Failed to load config', 'Close', { duration: 3000 });
