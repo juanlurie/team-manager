@@ -118,7 +118,7 @@ function adaptToWinWeek(week: GuestWinWeek): WinWeek {
               👤 {{ guestName() }}
             </button>
             <button mat-icon-button (click)="login()" matTooltip="Sign in" style="color:rgba(255,255,255,0.5)">
-              <mat-icon>login</mat-icon>
+              <mat-icon>account_circle</mat-icon>
             </button>
           </div>
 
@@ -334,6 +334,12 @@ function adaptToWinWeek(week: GuestWinWeek): WinWeek {
     }
 
     .form-error { color: #f44336; font-size: 0.85rem; margin: 0.25rem 0 0; }
+
+    @media (max-width: 640px) {
+      .guest-wrap { padding: 0.75rem 0.5rem; }
+      .week-header { margin-bottom: 0.5rem; }
+      .name-card, .error-card { margin-top: 1rem; }
+    }
   `]
 })
 export class GuestWowComponent implements OnInit, OnDestroy {
