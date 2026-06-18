@@ -16,6 +16,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { IconButtonComponent } from '../../../shared/components/icon-btn/icon-btn.component';
 import { FilterBarComponent, FilterGroup, stripMentions } from '../../../shared/components/filter-bar/filter-bar.component';
 import { GlobalFilterService } from '../../../core/services/global-filter.service';
+import { AuthService } from '../../../core/auth/auth.service';
 
 const CRAFT_LABELS: Record<string, string> = {
   DevBE: 'Dev BE', DevFE: 'Dev FE', DevIOS: 'iOS', DevAndroid: 'Android',
@@ -62,8 +63,9 @@ import { MatMenuModule } from '@angular/material/menu';
 
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,280px),1fr));gap:10px;grid-auto-rows:1fr">
       @for (m of filteredMembers(); track m.id) {
-        <div (click)="openPersonal(m)" class="member-card"
-             style="border-radius:10px;border:1px solid rgba(255,255,255,0.08);padding:12px 14px;cursor:pointer;display:flex;flex-direction:column">
+        <div (click)="openPersonal(m)" class="member-card" [class.member-card-disabled]="!canOpen(m)"
+             [matTooltip]="canOpen(m) ? '' : 'You can only view your own profile'"
+             style="border-radius:10px;border:1px solid rgba(255,255,255,0.08);padding:12px 14px;display:flex;flex-direction:column">
           <div style="display:flex;align-items:center;gap:12px">
             <div style="width:36px;height:36px;border-radius:50%;background:rgba(100,181,246,0.15);
                         color:#64b5f6;font-size:0.75rem;font-weight:700;display:flex;align-items:center;
@@ -124,8 +126,10 @@ import { MatMenuModule } from '@angular/material/menu';
     .role-member    { background:rgba(158,158,158,0.12);color:#9e9e9e; }
     .role-teamlead  { background:rgba(100,181,246,0.15);color:#64b5f6; }
     .role-techlead  { background:rgba(171,71,188,0.15);color:#ce93d8; }
-    .member-card    { background:rgba(255,255,255,0.04);transition:background 0.15s;min-height:80px; }
+    .member-card    { background:rgba(255,255,255,0.04);transition:background 0.15s;min-height:80px;cursor:pointer; }
     .member-card:hover { background:rgba(255,255,255,0.08); }
+    .member-card-disabled { cursor:default; }
+    .member-card-disabled:hover { background:rgba(255,255,255,0.04); }
   `]
 })
 export class TeamListComponent implements OnInit {
@@ -134,6 +138,7 @@ export class TeamListComponent implements OnInit {
   private dialog = inject(MatDialog);
   private router = inject(Router);
   private globalFilterSvc = inject(GlobalFilterService);
+  private auth = inject(AuthService);
 
   constructor() {
     effect(() => { const h = this.globalFilterSvc.searchHint(); untracked(() => this.memberSearch.set(h)); });
@@ -314,7 +319,12 @@ export class TeamListComponent implements OnInit {
     ref.afterClosed().subscribe(() => this.load());
   }
 
+  canOpen(member: TeamMember): boolean {
+    return this.auth.isSelfOrLead(member.id);
+  }
+
   openPersonal(member: TeamMember) {
+    if (!this.canOpen(member)) return;
     this.router.navigate(['/team', member.id]);
   }
 }
