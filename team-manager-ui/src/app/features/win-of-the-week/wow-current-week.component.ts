@@ -243,7 +243,7 @@ import { AppInfoBannerComponent } from '../../shared/components/app-info-banner/
               </span>
             }
             <!-- Token balance pill -->
-            @if (w?.status === 'Nominating' && tokenBalance() > 0 && powerUpsEnabled()) {
+            @if ((w?.status === 'Voting' || w?.status === 'SuddenDeath') && tokenBalance() > 0 && powerUpsEnabled()) {
               <span matTooltip="Spend tokens on Power-ups or Chaos Cards for other people's nominations"
                     style="font-size:0.72rem;font-weight:700;padding:3px 10px;border-radius:20px;background:rgba(255,215,0,0.1);color:#FFD700;cursor:default">
                 🎟️ {{ tokenBalance() }} token{{ tokenBalance() !== 1 ? 's' : '' }}
@@ -328,7 +328,12 @@ import { AppInfoBannerComponent } from '../../shared/components/app-info-banner/
 
           <!-- Info banner during nominating phase -->
           @if (w?.status === 'Nominating') {
-            <app-info-banner type="info">💡 You can edit or delete your nominations before voting opens.{{ (!isGuest() && powerUpsEnabled()) ? " Use tokens to apply Power-ups or Chaos Cards to others' nominations!" : '' }}</app-info-banner>
+            <app-info-banner type="info">💡 You can edit or delete your nominations before voting opens.</app-info-banner>
+          }
+
+          <!-- Info banner during voting phase -->
+          @if (!isGuest() && (w?.status === 'Voting' || w?.status === 'SuddenDeath') && powerUpsEnabled() && tokenBalance() > 0) {
+            <app-info-banner type="info">💡 Use tokens to apply Power-ups or Chaos Cards to others' nominations!</app-info-banner>
           }
 
           <!-- Vote progress bar -->

@@ -764,7 +764,7 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
 
     public async Task<WinNominationDto> ApplyPowerUpAsync(Guid memberId, Guid nominationId, string type)
     {
-        var validPowerUps = new HashSet<string> { "Spotlight", "HypeMeter", "Wildcard" };
+        var validPowerUps = new HashSet<string> { "Spotlight", "Wildcard" };
         if (!validPowerUps.Contains(type))
             throw new InvalidOperationException($"Invalid power-up type: {type}");
 
@@ -778,8 +778,8 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
         if (nomination is null)
             throw new KeyNotFoundException("Nomination not found.");
 
-        if (nomination.WinWeek.Status != WinWeekStatus.Nominating)
-            throw new InvalidOperationException("Power-ups can only be applied during the nominating phase.");
+        if (nomination.WinWeek.Status != WinWeekStatus.Voting && nomination.WinWeek.Status != WinWeekStatus.SuddenDeath)
+            throw new InvalidOperationException("Power-ups can only be applied during voting.");
 
         if (nomination.PowerUp is not null)
             throw new InvalidOperationException("A power-up has already been applied to this nomination.");
@@ -809,8 +809,8 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
         if (nomination is null)
             throw new KeyNotFoundException("Nomination not found.");
 
-        if (nomination.WinWeek.Status != WinWeekStatus.Nominating)
-            throw new InvalidOperationException("Chaos cards can only be applied during the nominating phase.");
+        if (nomination.WinWeek.Status != WinWeekStatus.Voting && nomination.WinWeek.Status != WinWeekStatus.SuddenDeath)
+            throw new InvalidOperationException("Chaos cards can only be applied during voting.");
 
         if (nomination.ChaosCard is not null)
             throw new InvalidOperationException("A chaos card has already been applied to this nomination.");
