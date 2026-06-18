@@ -5,6 +5,8 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatSelectModule } from '@angular/material/select';
 import { MatInputModule } from '@angular/material/input';
+import { MatIconModule } from '@angular/material/icon';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { Subscription } from 'rxjs';
 import { GuestWinOfTheWeekService } from './guest-wow.service';
 import { clearCacheForPattern } from '../../core/interceptors/http-cache.interceptor';
@@ -16,7 +18,7 @@ import { MobileService } from '../../core/services/mobile.service';
 import { WowCurrentWeekComponent } from '../win-of-the-week/wow-current-week.component';
 import { WowTieBreakSpinnerComponent } from '../../shared/components/wow-tie-break-spinner/wow-tie-break-spinner.component';
 import { AppModalComponent } from '../../shared/components/app-modal/app-modal.component';
-import { wowPhaseInfo, runTieBreakSpin } from '../../shared/utils/wow.utils';
+import { runTieBreakSpin } from '../../shared/utils/wow.utils';
 
 const SESSION_ID_KEY = 'wow_guest_session_id';
 // Unique sentinel so WowCurrentWeekComponent knows which nominations the guest owns
@@ -71,7 +73,7 @@ function adaptToWinWeek(week: GuestWinWeek): WinWeek {
 @Component({
   selector: 'app-guest-wow',
   standalone: true,
-  imports: [FormsModule, MatButtonModule, MatFormFieldModule, MatSelectModule, MatInputModule, WowCurrentWeekComponent, WowTieBreakSpinnerComponent, AppModalComponent],
+  imports: [FormsModule, MatButtonModule, MatFormFieldModule, MatSelectModule, MatInputModule, MatIconModule, MatTooltipModule, WowCurrentWeekComponent, WowTieBreakSpinnerComponent, AppModalComponent],
   changeDetection: ChangeDetectionStrategy.Default,
   template: `
     <app-wow-tie-break-spinner [show]="isSpinning()" [name]="spinnerName()" />
@@ -110,19 +112,14 @@ function adaptToWinWeek(week: GuestWinWeek): WinWeek {
       <!-- Week view -->
       @if (guestName() && !tokenInvalid() && !loading() && week()) {
         <div class="week-view">
-          <!-- Header -->
+          <!-- Guest identity bar -->
           <div class="week-header">
-            <div class="week-header__left">
-              @let phase = phaseInfo();
-              <span class="phase-badge" [style.background]="phase.bg" [style.color]="phase.text">{{ phase.label }}</span>
-              <span class="week-label">Week of {{ formatDate(week()!.weekStart) }}</span>
-            </div>
-            <div class="week-header__right">
-              <button class="btn-name" type="button" (click)="changeName()" title="Change name">
-                👤 {{ guestName() }}
-              </button>
-              <button class="btn-login" type="button" (click)="login()">Sign In</button>
-            </div>
+            <button class="btn-name" type="button" (click)="changeName()" title="Change name">
+              👤 {{ guestName() }}
+            </button>
+            <button mat-icon-button (click)="login()" matTooltip="Sign in" style="color:rgba(255,255,255,0.5)">
+              <mat-icon>login</mat-icon>
+            </button>
           </div>
 
           <!-- Week content — reuses the same component as the logged-in view -->
@@ -280,18 +277,6 @@ function adaptToWinWeek(week: GuestWinWeek): WinWeek {
     .btn-secondary:disabled { opacity: 0.5; cursor: not-allowed; }
     .btn-secondary:hover:not(:disabled) { background: rgba(255,255,255,0.05); }
 
-    .btn-login {
-      background: #64b5f6;
-      color: #fff;
-      border: none;
-      border-radius: 5px;
-      padding: 0.3rem 0.75rem;
-      font-size: 0.78rem;
-      font-weight: 700;
-      cursor: pointer;
-      transition: opacity 0.2s;
-    }
-    .btn-login:hover { opacity: 0.85; }
 
     .btn-name {
       background: transparent;
@@ -343,22 +328,10 @@ function adaptToWinWeek(week: GuestWinWeek): WinWeek {
     .week-header {
       display: flex;
       align-items: center;
-      justify-content: space-between;
-      flex-wrap: wrap;
-      gap: 0.5rem;
+      justify-content: flex-end;
+      gap: 8px;
       margin-bottom: 1.25rem;
     }
-    .week-header__left { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
-    .week-header__right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
-
-    .phase-badge {
-      font-size: 0.8rem;
-      font-weight: 700;
-      padding: 0.2rem 0.6rem;
-      border-radius: 20px;
-      letter-spacing: 0.03em;
-    }
-    .week-label { color: rgba(255,255,255,0.5); font-size: 0.9rem; }
 
     .form-error { color: #f44336; font-size: 0.85rem; margin: 0.25rem 0 0; }
   `]
@@ -574,12 +547,6 @@ export class GuestWowComponent implements OnInit, OnDestroy {
       next: () => this.refreshWeek(),
       error: () => {}
     });
-  }
-
-  phaseInfo() { return wowPhaseInfo(this.week()?.status); }
-
-  formatDate(dateStr: string) {
-    return new Date(dateStr).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
   }
 
   private loadWeek() {
