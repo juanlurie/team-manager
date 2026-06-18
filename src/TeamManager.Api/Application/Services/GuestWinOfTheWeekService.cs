@@ -12,6 +12,7 @@ namespace TeamManager.Api.Application.Services;
 public class GuestWinOfTheWeekService(AppDbContext db, IHttpContextAccessor httpContextAccessor, IWinOfTheWeekService wowService)
 {
     private const int MaxVotesPerPerson = 3;
+    private const int MaxNominationsPerPerson = 3;
     public async Task<GuestTokenDto> GetOrGenerateGuestTokenAsync(Guid weekId)
     {
         var week = await db.WinWeeks.FindAsync(weekId)
@@ -90,7 +91,7 @@ public class GuestWinOfTheWeekService(AppDbContext db, IHttpContextAccessor http
             Status = week.Status.ToString(),
             IsNominatingOpen = week.Status == WinWeekStatus.Nominating,
             IsVotingOpen = week.Status == WinWeekStatus.Voting || week.Status == WinWeekStatus.SuddenDeath,
-            UserNominationsRemaining = Math.Max(0, 1 - guestNominationCount),
+            UserNominationsRemaining = Math.Max(0, MaxNominationsPerPerson - guestNominationCount),
             UserVotesRemaining = votesRemaining,
             WinnerNomineeName = winner != null ? $"{winner.Nominee.FirstName} {winner.Nominee.LastName}" : null,
             WinnerTitle = winner?.Title,
@@ -134,8 +135,8 @@ public class GuestWinOfTheWeekService(AppDbContext db, IHttpContextAccessor http
         var guestNominationCount = await db.WinNominations
             .CountAsync(n => n.WinWeekId == week.Id && n.GuestSessionId == request.GuestSessionId);
 
-        if (guestNominationCount >= 1)
-            throw new InvalidOperationException("You have already submitted a nomination this week.");
+        if (guestNominationCount >= MaxNominationsPerPerson)
+            throw new InvalidOperationException($"You can only submit up to {MaxNominationsPerPerson} nominations per week.");
 
         var nomineeExists = await db.TeamMembers
             .AnyAsync(m => m.Id == request.NomineeMemberId && m.IsActive);

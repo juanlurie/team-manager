@@ -1,21 +1,12 @@
-    <h2 style="margin:0 0 20px;font-size:1.2rem">Spin the Wheel</h2>
+    @if (!isMobile()) {
+      <h2 style="margin:0 0 20px;font-size:1.2rem">Spin the Wheel</h2>
+    }
 
     @if (loading()) {
       <div style="display:flex;justify-content:center;padding:80px">
         <mat-spinner diameter="48"></mat-spinner>
       </div>
     } @else {
-
-    <!-- Mobile step indicator -->
-    @if (isMobile()) {
-      <div class="step-nav">
-        <div class="step-dot" [class.active]="step()===1" [class.done]="step()>1" [class.pending]="step()<1">1</div>
-        <div class="step-line" [class.done]="step()>1"></div>
-        <div class="step-dot" [class.active]="step()===2" [class.done]="step()>2" [class.pending]="step()<2">2</div>
-        <div class="step-line" [class.done]="step()>2"></div>
-        <div class="step-dot" [class.active]="step()===3" [class.done]="false" [class.pending]="step()<3">3</div>
-      </div>
-    }
 
     <!-- Mobile step 3: winner result (replaces layout) -->
     @if (isMobile() && step() === 3) {
