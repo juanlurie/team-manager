@@ -7,6 +7,7 @@ namespace TeamManager.Api.Presentation.Controllers;
 
 [ApiController]
 [RequireFeature("team")]
+[RequireSelfOrLead]
 [Route("api/v1/team-members/{memberId:guid}")]
 public class MemberPersonalController(IMemberPersonalService service) : ControllerBase
 {

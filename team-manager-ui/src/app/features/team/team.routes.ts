@@ -1,5 +1,6 @@
 import { Routes } from '@angular/router';
 import { TeamHubComponent } from './team-hub.component';
+import { selfOrLeadGuard } from '../../core/guards/self-or-lead.guard';
 
 export const TEAM_ROUTES: Routes = [
   {
@@ -34,6 +35,7 @@ export const TEAM_ROUTES: Routes = [
   },
   {
     path: ':id',
+    canActivate: [selfOrLeadGuard],
     loadComponent: () => import('./team-member-personal/team-member-personal.component').then(m => m.TeamMemberPersonalComponent)
   }
 ];

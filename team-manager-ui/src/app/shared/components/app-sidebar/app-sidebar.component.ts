@@ -1,9 +1,13 @@
-import { Component, inject, ChangeDetectionStrategy } from '@angular/core';
+import { Component, inject, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { RouterLink, RouterLinkActive } from '@angular/router';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatDialog } from '@angular/material/dialog';
 import { NavService } from '../../../core/nav/nav.service';
 import { AuthService } from '../../../core/auth/auth.service';
+import { FeatureAccessService } from '../../../core/services/feature-access.service';
+import { AccessRequestsService } from '../../../core/services/access-requests.service';
+import { PendingApprovalsDialogComponent } from '../pending-approvals-dialog/pending-approvals-dialog.component';
 
 @Component({
   selector: 'app-sidebar',
@@ -40,6 +44,20 @@ import { AuthService } from '../../../core/auth/auth.service';
           </a>
         }
       </div>
+
+      @if (showApprovals()) {
+        <button class="sidebar-approvals" [class.flash]="(accessReqs.pendingCount() ?? 0) > 0"
+                (click)="openApprovals()"
+                [matTooltip]="nav.expanded() ? '' : 'Pending access requests'" matTooltipPosition="right">
+          <span class="approvals-icon-wrap">
+            <mat-icon class="nav-icon">person_add</mat-icon>
+            @if (accessReqs.pendingCount() > 0) {
+              <span class="approvals-badge">{{ accessReqs.pendingCount() }}</span>
+            }
+          </span>
+          <span class="nav-label">Approvals</span>
+        </button>
+      }
 
       <button class="sidebar-logout" (click)="onLogout()"
               [matTooltip]="nav.expanded() ? '' : 'Logout'" matTooltipPosition="right">
@@ -177,11 +195,58 @@ import { AuthService } from '../../../core/auth/auth.service';
     }
     .sidebar-logout:hover { background: rgba(239,83,80,0.1); color: #ef5350; }
     .sidebar.expanded .sidebar-logout { padding: 12px 16px; justify-content: flex-start; gap: 12px; }
+
+    .sidebar-approvals {
+      display: flex;
+      align-items: center;
+      gap: 0;
+      padding: 12px 0;
+      justify-content: center;
+      color: rgba(255,255,255,0.45);
+      background: none;
+      border: none;
+      border-top: 1px solid rgba(255,255,255,0.05);
+      cursor: pointer;
+      width: 100%;
+      transition: background 0.15s, color 0.15s;
+      white-space: nowrap;
+      overflow: hidden;
+      flex-shrink: 0;
+      font-family: inherit;
+    }
+    .sidebar-approvals:hover { background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.9); }
+    .sidebar.expanded .sidebar-approvals { padding: 12px 16px; justify-content: flex-start; gap: 12px; }
+    .approvals-icon-wrap { position: relative; display: inline-flex; flex-shrink: 0; }
+    .approvals-badge {
+      position: absolute; top: -6px; right: -8px;
+      min-width: 16px; height: 16px; padding: 0 4px;
+      border-radius: 8px; background: #ef5350; color: #fff;
+      font-size: 0.62rem; font-weight: 700; line-height: 16px; text-align: center;
+    }
+    .sidebar-approvals.flash { color: #ffb74d; }
+    .sidebar-approvals.flash .nav-icon { animation: approvals-pulse 1.4s ease-in-out infinite; }
+    @keyframes approvals-pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.55; transform: scale(1.12); }
+    }
   `]
 })
-export class AppSidebarComponent {
+export class AppSidebarComponent implements OnInit {
   nav = inject(NavService);
   private auth = inject(AuthService);
+  private dialog = inject(MatDialog);
+  private featureAccess = inject(FeatureAccessService);
+  accessReqs = inject(AccessRequestsService);
+
+  showApprovals() { return this.featureAccess.hasAccess('access-requests'); }
+
+  ngOnInit() {
+    if (this.showApprovals()) this.accessReqs.refreshCount();
+  }
+
+  openApprovals() {
+    this.dialog.open(PendingApprovalsDialogComponent, { width: '420px', maxWidth: '95vw' });
+  }
 
   onLogout() { this.auth.logout(); }
 }

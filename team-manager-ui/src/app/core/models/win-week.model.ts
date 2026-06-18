@@ -1,4 +1,4 @@
-export type WowPowerUp = 'Spotlight' | 'HypeMeter' | 'Wildcard';
+export type WowPowerUp = 'Spotlight' | 'Wildcard';
 export type WowChaosCard = 'ClownMode' | 'TinyText' | 'Autocorrect' | 'DramaticReading' | 'RandomCase' | 'Hangman';
 
 export interface WinNomination {

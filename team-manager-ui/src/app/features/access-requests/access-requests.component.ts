@@ -7,6 +7,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/confirm-dialog.component';
+import { AccessRequestsService } from '../../core/services/access-requests.service';
 
 interface AccessRequest {
   id: string;
@@ -105,6 +106,7 @@ export class AccessRequestsComponent {
   private http = inject(HttpClient);
   private snackBar = inject(MatSnackBar);
   private dialog = inject(MatDialog);
+  private accessReqs = inject(AccessRequestsService);
 
   requests = signal<AccessRequest[]>([]);
   loading = signal(true);
@@ -151,6 +153,7 @@ export class AccessRequestsComponent {
         next: () => {
           this.snackBar.open(`${req.name} approved and granted access`, 'Close', { duration: 3000 });
           this.loadRequests();
+          this.accessReqs.refreshCount();
         },
         error: () => this.snackBar.open('Failed to approve', 'Close', { duration: 3000 })
       });
@@ -173,6 +176,7 @@ export class AccessRequestsComponent {
         next: () => {
           this.snackBar.open(`Request from ${req.name} denied`, 'Close', { duration: 3000 });
           this.loadRequests();
+          this.accessReqs.refreshCount();
         },
         error: () => this.snackBar.open('Failed to deny', 'Close', { duration: 3000 })
       });

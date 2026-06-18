@@ -41,7 +41,6 @@ function hangman(text: string, seed: string): string {
 
 const POWER_UP_META: Record<WowPowerUp, { icon: string; label: string; bg: string; color: string }> = {
   Spotlight: { icon: '⭐', label: 'Spotlight', bg: 'rgba(255,215,0,0.15)', color: '#FFD700' },
-  HypeMeter: { icon: '🔥', label: 'Hype Meter', bg: 'rgba(255,87,34,0.12)', color: '#ff7043' },
   Wildcard:  { icon: '🃏', label: 'Wildcard ×2', bg: 'rgba(171,71,188,0.12)', color: '#ce93d8' }
 };
 
@@ -135,16 +134,10 @@ const CHAOS_CARD_META: Record<WowChaosCard, { label: string }> = {
             </span>
           }
 
-          <!-- Hype meter live count -->
-          @if (showEffects && pu === 'HypeMeter') {
-            <span style="font-size:0.68rem;font-weight:700;color:#ff7043">
-              🔥 ×{{nom.hypeMeterCount}}
-            </span>
-          }
         </div>
 
-        <!-- Hype Meter tap button (always during call if HypeMeter; or during hype battle for any nomination) -->
-        @if (showEffects && weekStatus() !== 'Closed' && (pu === 'HypeMeter' || hypeBattleActive())) {
+        <!-- Hype Meter tap button (during an active host-controlled Hype Battle) -->
+        @if (showEffects && weekStatus() !== 'Closed' && hypeBattleActive()) {
           <button class="hype-btn" style="margin-top:8px" (click)="hypeClick.emit(nom.id); $event.stopPropagation()">
             🔥 @if (hypeBattleActive()) { Battle Hype! } @else { Hype! } ({{nom.hypeMeterCount}})
           </button>
@@ -163,8 +156,8 @@ const CHAOS_CARD_META: Record<WowChaosCard, { label: string }> = {
           </div>
         }
 
-        <!-- Apply card buttons (during nominating, for other members) -->
-        @if (weekStatus() === 'Nominating' && !nom.isOwned && canApplyCards() && !pu && !cc) {
+        <!-- Apply card buttons (during voting, for other members) -->
+        @if ((weekStatus() === 'Voting' || weekStatus() === 'SuddenDeath') && !nom.isOwned && canApplyCards() && !pu && !cc) {
           <div style="display:flex;gap:6px;margin-top:10px">
             <button mat-stroked-button class="apply-menu-btn" [matMenuTriggerFor]="puMenu"
                     (click)="$event.stopPropagation()"
@@ -178,7 +171,7 @@ const CHAOS_CARD_META: Record<WowChaosCard, { label: string }> = {
             </button>
           </div>
         }
-        @if (weekStatus() === 'Nominating' && !nom.isOwned && canApplyCards() && (pu || cc)) {
+        @if ((weekStatus() === 'Voting' || weekStatus() === 'SuddenDeath') && !nom.isOwned && canApplyCards() && (pu || cc)) {
           <div style="margin-top:8px;font-size:0.7rem;opacity:0.45">Card applied ✓</div>
         }
       </div>
@@ -225,9 +218,6 @@ const CHAOS_CARD_META: Record<WowChaosCard, { label: string }> = {
     <mat-menu #puMenu="matMenu">
       <button mat-menu-item (click)="applyPowerUpClick.emit({ nominationId: nom.id, type: 'Spotlight' })">
         ⭐ Spotlight — pins to top
-      </button>
-      <button mat-menu-item (click)="applyPowerUpClick.emit({ nominationId: nom.id, type: 'HypeMeter' })">
-        🔥 Hype Meter — spammable during call
       </button>
       @if (isHost()) {
         <button mat-menu-item (click)="applyPowerUpClick.emit({ nominationId: nom.id, type: 'Wildcard' })">

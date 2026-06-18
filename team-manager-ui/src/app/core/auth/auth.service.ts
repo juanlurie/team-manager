@@ -40,10 +40,19 @@ export class AuthService {
     this.http.get<{ authRequired: boolean }>('/api/auth-mode').subscribe({
       next: ({ authRequired }) => {
         if (!authRequired) {
-          // Backend dev mode: no OAuth needed, proceed immediately.
+          // Backend dev mode: no OAuth needed. The backend's dev auth handler
+          // still resolves a real TeamMember, so fetch /api/auth/me before
+          // declaring authorized — role-based UI logic needs me$ populated
+          // by the time guards/components run, same ordering as the OAuth path.
           this.devMode = true;
-          this._authStatus$.next('authorized');
-          this._isDone$.next(true);
+          this.http.get<MeResponse>('/api/auth/me', { context: new HttpContext().set(SKIP_ERROR_TOAST, true) }).subscribe({
+            next: (me) => this._me$.next(me),
+            error: () => {},
+            complete: () => {
+              this._authStatus$.next('authorized');
+              this._isDone$.next(true);
+            },
+          });
         } else {
           this.initOAuth();
         }
@@ -128,7 +137,15 @@ export class AuthService {
   get identityClaims() { return this.oauth.getIdentityClaims(); }
 
   hasRole(role: string): boolean {
-    const claims = this.identityClaims as any;
-    return claims?.role === role;
+    return this._me$.value?.role === role;
+  }
+
+  isLead(): boolean {
+    const role = this._me$.value?.role;
+    return role === 'TeamLead' || role === 'TechLead';
+  }
+
+  isSelfOrLead(memberId: string): boolean {
+    return this.isLead() || this._me$.value?.id === memberId;
   }
 }
