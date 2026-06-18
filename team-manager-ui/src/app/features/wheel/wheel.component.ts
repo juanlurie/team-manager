@@ -71,7 +71,10 @@ export class WheelComponent implements OnInit, AfterViewInit {
     const mobile = window.innerWidth < 768;
     this.isMobile.set(mobile);
     if (mobile) {
-      this.canvasSize.set(Math.min(window.innerWidth - 48, 340));
+      const byWidth  = window.innerWidth - 32;
+      // Subtract tab bar + back/count row + mode toggle + spin button row + bottom nav + gaps
+      const byHeight = window.innerHeight - 290;
+      this.canvasSize.set(Math.max(Math.min(byWidth, byHeight, 460), 260));
     } else {
       // Fill available space: subtract sidebar + participant panel + gaps + page padding
       const byWidth  = window.innerWidth  - 58 - 48 - 280 - 64;
