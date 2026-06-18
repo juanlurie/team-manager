@@ -4,7 +4,7 @@ import { of, tap } from 'rxjs';
 const cache = new Map<string, { response: HttpResponse<unknown>; expires: number }>();
 const TTL_MS = 60_000;
 
-const SKIP_PATTERNS = ['/api/auth', '/api-keys', '/api/auth-mode'];
+const SKIP_PATTERNS = ['/api/auth', '/api-keys', '/api/auth-mode', '/api/accessrequests'];
 
 export function clearCacheForPattern(pattern: string): void {
   for (const key of cache.keys()) {
