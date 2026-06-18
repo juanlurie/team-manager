@@ -205,7 +205,7 @@ export class AppComponent {
         this.accessReqs.refreshCount();
         const name = msg.data['name'] as string;
         const ref = this.snackBar.open(`🔔 Access request from ${name}`, 'Review', { duration: 8000 });
-        ref.onAction().subscribe(() => this.dialog.open(PendingApprovalsDialogComponent, { width: '420px' }));
+        ref.onAction().subscribe(() => this.dialog.open(PendingApprovalsDialogComponent, { width: '420px', maxWidth: '95vw' }));
       }
     });
 

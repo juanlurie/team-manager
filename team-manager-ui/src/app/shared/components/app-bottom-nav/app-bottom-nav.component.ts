@@ -1,8 +1,12 @@
 import { Component, inject, signal, ChangeDetectionStrategy } from '@angular/core';
 import { RouterLink, RouterLinkActive, Router, NavigationEnd } from '@angular/router';
 import { MatIconModule } from '@angular/material/icon';
+import { MatDialog } from '@angular/material/dialog';
 import { NavService } from '../../../core/nav/nav.service';
 import { AuthService } from '../../../core/auth/auth.service';
+import { FeatureAccessService } from '../../../core/services/feature-access.service';
+import { AccessRequestsService } from '../../../core/services/access-requests.service';
+import { PendingApprovalsDialogComponent } from '../pending-approvals-dialog/pending-approvals-dialog.component';
 
 @Component({
   selector: 'app-bottom-nav',
@@ -18,7 +22,12 @@ import { AuthService } from '../../../core/auth/auth.service';
       }
       <button class="bnav-item" [class.active]="nav.isMoreActive()"
               (click)="moreOpen.set(!moreOpen())">
-        <mat-icon class="bnav-icon">{{ moreOpen() ? 'close' : 'more_horiz' }}</mat-icon>
+        <span class="bnav-icon-wrap">
+          <mat-icon class="bnav-icon">{{ moreOpen() ? 'close' : 'more_horiz' }}</mat-icon>
+          @if (!moreOpen() && showApprovals() && accessReqs.pendingCount() > 0) {
+            <span class="bnav-dot"></span>
+          }
+        </span>
         <span class="bnav-label">More</span>
       </button>
     </nav>
@@ -28,6 +37,17 @@ import { AuthService } from '../../../core/auth/auth.service';
       <div class="more-sheet">
         <div class="more-handle"></div>
         <div class="more-grid">
+          @if (showApprovals()) {
+            <button class="more-item" [class.flash]="accessReqs.pendingCount() > 0" (click)="openApprovals()">
+              <span class="more-icon-wrap">
+                <mat-icon class="more-icon">person_add</mat-icon>
+                @if (accessReqs.pendingCount() > 0) {
+                  <span class="more-badge">{{ accessReqs.pendingCount() }}</span>
+                }
+              </span>
+              <span>Approvals</span>
+            </button>
+          }
           @for (item of nav.moreNav(); track item.path) {
             <a class="more-item" [routerLink]="item.path" routerLinkActive="active"
                (click)="moreOpen.set(false)">
@@ -75,6 +95,12 @@ import { AuthService } from '../../../core/auth/auth.service';
     .bnav-item.active { color: #64b5f6; }
     .bnav-icon { font-size: 22px; width: 22px; height: 22px; line-height: 22px; }
     .bnav-label { font-size: 0.6rem; font-weight: 500; letter-spacing: 0.01em; }
+    .bnav-icon-wrap { position: relative; display: inline-flex; }
+    .bnav-dot {
+      position: absolute; top: -2px; right: -2px;
+      width: 8px; height: 8px; border-radius: 50%;
+      background: #ef5350; border: 1px solid #131e2b;
+    }
 
     .backdrop {
       position: fixed;
@@ -127,17 +153,41 @@ import { AuthService } from '../../../core/auth/auth.service';
     .more-icon { font-size: 26px; width: 26px; height: 26px; line-height: 26px; }
     .more-logout { color: rgba(239,83,80,0.7); }
     .more-logout:hover { background: rgba(239,83,80,0.1); color: #ef5350; }
+
+    .more-icon-wrap { position: relative; display: inline-flex; }
+    .more-badge {
+      position: absolute; top: -6px; right: -8px;
+      min-width: 16px; height: 16px; padding: 0 4px;
+      border-radius: 8px; background: #ef5350; color: #fff;
+      font-size: 0.62rem; font-weight: 700; line-height: 16px; text-align: center;
+    }
+    .more-item.flash { color: #ffb74d; }
+    .more-item.flash .more-icon { animation: bnav-approvals-pulse 1.4s ease-in-out infinite; }
+    @keyframes bnav-approvals-pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.55; transform: scale(1.12); }
+    }
   `]
 })
 export class AppBottomNavComponent {
   nav = inject(NavService);
   private auth = inject(AuthService);
+  private dialog = inject(MatDialog);
+  private featureAccess = inject(FeatureAccessService);
+  accessReqs = inject(AccessRequestsService);
   moreOpen = signal(false);
 
   constructor() {
     inject(Router).events.subscribe(e => {
       if (e instanceof NavigationEnd) this.moreOpen.set(false);
     });
+  }
+
+  showApprovals() { return this.featureAccess.hasAccess('access-requests'); }
+
+  openApprovals() {
+    this.moreOpen.set(false);
+    this.dialog.open(PendingApprovalsDialogComponent, { width: '420px', maxWidth: '95vw' });
   }
 
   onLogout() { this.auth.logout(); }
