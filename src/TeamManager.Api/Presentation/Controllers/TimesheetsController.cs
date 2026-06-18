@@ -11,6 +11,7 @@ public record EnqueueSyncRequest(Guid[] EntryIds, string? Cookie = null);
 
 [ApiController]
 [RequireFeature("team")]
+[RequireSelfOrLead]
 [Route("api/v1/team-members/{memberId:guid}/timesheets")]
 public class TimesheetsController(ITimesheetService service) : ControllerBase
 {
