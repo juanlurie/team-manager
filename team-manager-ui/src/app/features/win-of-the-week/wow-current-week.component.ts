@@ -161,7 +161,7 @@ import { AppInfoBannerComponent } from '../../shared/components/app-info-banner/
     </ng-template>
 
     <!-- Tab bar (mobile only) -->
-    @if (isMobile()) {
+    @if (isMobile() && (isHost() || hasMenuItems())) {
     <div class="mob-tabs">
       @if (isHost() && w) {
         <button class="mob-tab" [class.active]="mobileTab() === 'nominations'" (click)="mobileTab.set('nominations')">
@@ -173,25 +173,31 @@ import { AppInfoBannerComponent } from '../../shared/components/app-info-banner/
       } @else {
         <div style="flex:1"></div>
       }
-      <button class="mob-tab mob-more" [matMenuTriggerFor]="mobMenu">
-        <mat-icon style="font-size:20px;width:20px;height:20px">more_vert</mat-icon>
-      </button>
+      @if (hasMenuItems()) {
+        <button class="mob-tab mob-more" [matMenuTriggerFor]="mobMenu">
+          <mat-icon style="font-size:20px;width:20px;height:20px">more_vert</mat-icon>
+        </button>
+      }
     </div>
     }
     <!-- mat-menu (declared outside so desktop trigger can reference it too) -->
     <mat-menu #mobMenu="matMenu" xPosition="before">
-        <button mat-menu-item (click)="switchSeriesClick.emit()">
-          <mat-icon>swap_horiz</mat-icon>Switch Series
-        </button>
-        <mat-divider />
+        @if (!isGuest()) {
+          <button mat-menu-item (click)="switchSeriesClick.emit()">
+            <mat-icon>swap_horiz</mat-icon>Switch Series
+          </button>
+          <mat-divider />
+        }
         @if (isMobile() && guestToken()) {
           <button mat-menu-item (click)="shareClick.emit()">
             <mat-icon>share</mat-icon>Share Link
           </button>
         }
-        <button mat-menu-item (click)="historyClick.emit()">
-          <mat-icon>history</mat-icon>History
-        </button>
+        @if (!isGuest()) {
+          <button mat-menu-item (click)="historyClick.emit()">
+            <mat-icon>history</mat-icon>History
+          </button>
+        }
         @if (hasWinOfMonth()) {
           <button mat-menu-item (click)="winOfMonthClick.emit()">
             <mat-icon>calendar_month</mat-icon>Win of the Month
@@ -260,10 +266,12 @@ import { AppInfoBannerComponent } from '../../shared/components/app-info-banner/
                     <mat-icon>share</mat-icon>
                   </button>
                 }
+                @if (hasMenuItems()) {
                 <button mat-icon-button [matMenuTriggerFor]="mobMenu"
                         style="color:rgba(255,255,255,0.5)">
                   <mat-icon>more_vert</mat-icon>
                 </button>
+                }
               }
             </div>
           </div>
@@ -417,6 +425,12 @@ export class WowCurrentWeekComponent {
   hypeBattleEndsAt    = input<string | null>(null);
   guestToken          = input<string | null>(null);
   hasWinOfMonth       = input(false);
+
+  hasMenuItems = computed(() =>
+    !this.isGuest() ||
+    (this.isMobile() && !!this.guestToken()) ||
+    this.hasWinOfMonth()
+  );
 
   nominateClick           = output();
   openWeekClick           = output();
