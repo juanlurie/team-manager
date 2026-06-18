@@ -16,6 +16,8 @@ import { MobileService } from './core/services/mobile.service';
 import { WebSocketService } from './core/websocket/websocket.service';
 import { AppSidebarComponent } from './shared/components/app-sidebar/app-sidebar.component';
 import { AppBottomNavComponent } from './shared/components/app-bottom-nav/app-bottom-nav.component';
+import { AccessRequestsService } from './core/services/access-requests.service';
+import { PendingApprovalsDialogComponent } from './shared/components/pending-approvals-dialog/pending-approvals-dialog.component';
 
 const routeFade = trigger('routeFade', [
   transition('* <=> *', [
@@ -161,6 +163,7 @@ export class AppComponent {
   private globalFilterSvc = inject(GlobalFilterService);
   private auth = inject(AuthService);
   private featureAccess = inject(FeatureAccessService);
+  private accessReqs = inject(AccessRequestsService);
   private tsd = inject(TimesheetDefaultsService);
   private wsSvc = inject(WebSocketService);
 
@@ -192,15 +195,17 @@ export class AppComponent {
       if (status === 'authorized') {
         this.featureAccess.loadPermissions();
         this.tsd.load();
+        if (this.featureAccess.hasAccess('access-requests')) this.accessReqs.refreshCount();
       }
     });
 
     this.wsSvc.messages$.subscribe(msg => {
       if (!msg) return;
       if (msg.type === 'access_request_submitted' && this.featureAccess.hasAccess('access-requests')) {
+        this.accessReqs.refreshCount();
         const name = msg.data['name'] as string;
         const ref = this.snackBar.open(`🔔 Access request from ${name}`, 'Review', { duration: 8000 });
-        ref.onAction().subscribe(() => this.router.navigate(['/team/access-requests']));
+        ref.onAction().subscribe(() => this.dialog.open(PendingApprovalsDialogComponent, { width: '420px', maxWidth: '95vw' }));
       }
     });
 

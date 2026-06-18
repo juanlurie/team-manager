@@ -2,6 +2,11 @@ import { Component, OnDestroy, OnInit, inject, signal, computed, ChangeDetection
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatSelectModule } from '@angular/material/select';
+import { MatInputModule } from '@angular/material/input';
+import { MatIconModule } from '@angular/material/icon';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { Subscription } from 'rxjs';
 import { GuestWinOfTheWeekService } from './guest-wow.service';
 import { clearCacheForPattern } from '../../core/interceptors/http-cache.interceptor';
@@ -13,7 +18,7 @@ import { MobileService } from '../../core/services/mobile.service';
 import { WowCurrentWeekComponent } from '../win-of-the-week/wow-current-week.component';
 import { WowTieBreakSpinnerComponent } from '../../shared/components/wow-tie-break-spinner/wow-tie-break-spinner.component';
 import { AppModalComponent } from '../../shared/components/app-modal/app-modal.component';
-import { wowPhaseInfo, runTieBreakSpin } from '../../shared/utils/wow.utils';
+import { runTieBreakSpin } from '../../shared/utils/wow.utils';
 
 const SESSION_ID_KEY = 'wow_guest_session_id';
 // Unique sentinel so WowCurrentWeekComponent knows which nominations the guest owns
@@ -68,7 +73,7 @@ function adaptToWinWeek(week: GuestWinWeek): WinWeek {
 @Component({
   selector: 'app-guest-wow',
   standalone: true,
-  imports: [FormsModule, MatButtonModule, WowCurrentWeekComponent, WowTieBreakSpinnerComponent, AppModalComponent],
+  imports: [FormsModule, MatButtonModule, MatFormFieldModule, MatSelectModule, MatInputModule, MatIconModule, MatTooltipModule, WowCurrentWeekComponent, WowTieBreakSpinnerComponent, AppModalComponent],
   changeDetection: ChangeDetectionStrategy.Default,
   template: `
     <app-wow-tie-break-spinner [show]="isSpinning()" [name]="spinnerName()" />
@@ -107,19 +112,14 @@ function adaptToWinWeek(week: GuestWinWeek): WinWeek {
       <!-- Week view -->
       @if (guestName() && !tokenInvalid() && !loading() && week()) {
         <div class="week-view">
-          <!-- Header -->
+          <!-- Guest identity bar -->
           <div class="week-header">
-            <div class="week-header__left">
-              @let phase = phaseInfo();
-              <span class="phase-badge" [style.background]="phase.bg" [style.color]="phase.text">{{ phase.label }}</span>
-              <span class="week-label">Week of {{ formatDate(week()!.weekStart) }}</span>
-            </div>
-            <div class="week-header__right">
-              <button class="btn-name" type="button" (click)="changeName()" title="Change name">
-                👤 {{ guestName() }}
-              </button>
-              <button class="btn-login" type="button" (click)="login()">Sign In</button>
-            </div>
+            <button class="btn-name" type="button" (click)="changeName()" title="Change name">
+              👤 {{ guestName() }}
+            </button>
+            <button mat-icon-button (click)="login()" matTooltip="Sign in" style="color:rgba(255,255,255,0.5)">
+              <mat-icon>login</mat-icon>
+            </button>
           </div>
 
           <!-- Week content — reuses the same component as the logged-in view -->
@@ -150,21 +150,28 @@ function adaptToWinWeek(week: GuestWinWeek): WinWeek {
 
     <!-- Nominate modal -->
     <app-modal title="Nominate a Win" [show]="showForm()" (closed)="cancelForm()">
-      <div style="display:flex;flex-direction:column;gap:10px">
-        <label class="field-label">Nominee</label>
-        <select class="field-input" [(ngModel)]="nomForm.nomineeMemberId" name="nominee">
-          <option value="">Select a team member…</option>
-          @for (m of members(); track m.id) { <option [value]="m.id">{{ m.name }}</option> }
-        </select>
-        <label class="field-label">Title / Achievement</label>
-        <input class="field-input" type="text" [(ngModel)]="nomForm.title" name="title" maxlength="200" placeholder="What did they do?" />
-        <label class="field-label">Description (optional)</label>
-        <textarea class="field-input field-textarea" [(ngModel)]="nomForm.description" name="description" maxlength="2000" placeholder="More details…" rows="3"></textarea>
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <mat-form-field appearance="outline" style="width:100%">
+          <mat-label>Who are you nominating?</mat-label>
+          <mat-select [(ngModel)]="nomForm.nomineeMemberId" name="nominee">
+            @for (m of members(); track m.id) {
+              <mat-option [value]="m.id">{{ m.name }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+        <mat-form-field appearance="outline" style="width:100%">
+          <mat-label>Title</mat-label>
+          <input matInput [(ngModel)]="nomForm.title" name="title" maxlength="200" placeholder="e.g. Fixed the production DB issue">
+        </mat-form-field>
+        <mat-form-field appearance="outline" style="width:100%">
+          <mat-label>Description (optional)</mat-label>
+          <textarea matInput [(ngModel)]="nomForm.description" name="description" rows="3" maxlength="2000"></textarea>
+        </mat-form-field>
         @if (formError()) { <p class="form-error">{{ formError() }}</p> }
       </div>
       <ng-container modal-footer>
-        <button class="btn-secondary-sm" type="button" (click)="cancelForm()">Cancel</button>
-        <button class="btn-primary-sm" type="button" (click)="submitNomination()"
+        <button mat-stroked-button type="button" (click)="cancelForm()">Cancel</button>
+        <button mat-raised-button color="primary" type="button" (click)="submitNomination()"
                 [disabled]="submitting() || !nomForm.nomineeMemberId || !nomForm.title.trim()">
           {{ submitting() ? 'Submitting…' : 'Submit' }}
         </button>
@@ -173,21 +180,28 @@ function adaptToWinWeek(week: GuestWinWeek): WinWeek {
 
     <!-- Edit modal -->
     <app-modal title="Edit Nomination" [show]="!!editingId()" (closed)="cancelEdit()">
-      <div style="display:flex;flex-direction:column;gap:10px">
-        <label class="field-label">Nominee</label>
-        <select class="field-input" [(ngModel)]="editForm.nomineeMemberId" name="edit-nominee">
-          <option value="">Select a team member…</option>
-          @for (m of members(); track m.id) { <option [value]="m.id">{{ m.name }}</option> }
-        </select>
-        <label class="field-label">Title / Achievement</label>
-        <input class="field-input" type="text" [(ngModel)]="editForm.title" name="edit-title" maxlength="200" />
-        <label class="field-label">Description (optional)</label>
-        <textarea class="field-input field-textarea" [(ngModel)]="editForm.description" name="edit-desc" maxlength="2000" rows="3"></textarea>
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <mat-form-field appearance="outline" style="width:100%">
+          <mat-label>Who are you nominating?</mat-label>
+          <mat-select [(ngModel)]="editForm.nomineeMemberId" name="edit-nominee">
+            @for (m of members(); track m.id) {
+              <mat-option [value]="m.id">{{ m.name }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+        <mat-form-field appearance="outline" style="width:100%">
+          <mat-label>Title</mat-label>
+          <input matInput [(ngModel)]="editForm.title" name="edit-title" maxlength="200">
+        </mat-form-field>
+        <mat-form-field appearance="outline" style="width:100%">
+          <mat-label>Description (optional)</mat-label>
+          <textarea matInput [(ngModel)]="editForm.description" name="edit-desc" rows="3" maxlength="2000"></textarea>
+        </mat-form-field>
         @if (formError()) { <p class="form-error">{{ formError() }}</p> }
       </div>
       <ng-container modal-footer>
-        <button class="btn-secondary-sm" type="button" (click)="cancelEdit()">Cancel</button>
-        <button class="btn-primary-sm" type="button" (click)="saveEdit(editingId()!)"
+        <button mat-stroked-button type="button" (click)="cancelEdit()">Cancel</button>
+        <button mat-raised-button color="primary" type="button" (click)="saveEdit(editingId()!)"
                 [disabled]="submitting() || !editForm.nomineeMemberId || !editForm.title.trim()">
           {{ submitting() ? 'Saving…' : 'Save' }}
         </button>
@@ -199,7 +213,7 @@ function adaptToWinWeek(week: GuestWinWeek): WinWeek {
       position: fixed;
       inset: 0;
       overflow-y: auto;
-      background: #121212;
+      background: #0f1923;
       color: #fff;
       display: flex;
       justify-content: center;
@@ -218,7 +232,7 @@ function adaptToWinWeek(week: GuestWinWeek): WinWeek {
     }
 
     .name-card, .error-card {
-      background: #1e1e1e;
+      background: #1e1e2e;
       border-radius: 12px;
       padding: 2.5rem 2rem;
       text-align: center;
@@ -237,7 +251,7 @@ function adaptToWinWeek(week: GuestWinWeek): WinWeek {
 
     .name-form { display: flex; flex-direction: column; gap: 0.75rem; }
 
-    .name-input, .field-input {
+    .name-input {
       background: rgba(255,255,255,0.07);
       border: 1px solid rgba(255,255,255,0.15);
       border-radius: 6px;
@@ -248,9 +262,7 @@ function adaptToWinWeek(week: GuestWinWeek): WinWeek {
       box-sizing: border-box;
       outline: none;
     }
-    .name-input:focus, .field-input:focus { border-color: rgba(255,215,0,0.5); }
-    .field-textarea { resize: vertical; min-height: 80px; }
-    select.field-input option { background: #1e1e1e; }
+    .name-input:focus { border-color: rgba(100,181,246,0.5); }
 
     .btn-secondary {
       background: transparent;
@@ -265,42 +277,6 @@ function adaptToWinWeek(week: GuestWinWeek): WinWeek {
     .btn-secondary:disabled { opacity: 0.5; cursor: not-allowed; }
     .btn-secondary:hover:not(:disabled) { background: rgba(255,255,255,0.05); }
 
-    .btn-primary-sm {
-      background: #FFD700;
-      color: #121212;
-      border: none;
-      border-radius: 6px;
-      padding: 0.5rem 1.1rem;
-      font-weight: 700;
-      font-size: 0.88rem;
-      cursor: pointer;
-    }
-    .btn-primary-sm:disabled { opacity: 0.5; cursor: not-allowed; }
-    .btn-primary-sm:hover:not(:disabled) { opacity: 0.85; }
-
-    .btn-secondary-sm {
-      background: transparent;
-      color: rgba(255,255,255,0.7);
-      border: 1px solid rgba(255,255,255,0.2);
-      border-radius: 6px;
-      padding: 0.5rem 1.1rem;
-      font-size: 0.88rem;
-      cursor: pointer;
-    }
-    .btn-secondary-sm:hover { background: rgba(255,255,255,0.05); }
-
-    .btn-login {
-      background: #FFD700;
-      color: #121212;
-      border: none;
-      border-radius: 5px;
-      padding: 0.3rem 0.75rem;
-      font-size: 0.78rem;
-      font-weight: 700;
-      cursor: pointer;
-      transition: opacity 0.2s;
-    }
-    .btn-login:hover { opacity: 0.85; }
 
     .btn-name {
       background: transparent;
@@ -341,7 +317,7 @@ function adaptToWinWeek(week: GuestWinWeek): WinWeek {
     .spinner {
       width: 40px; height: 40px;
       border: 3px solid rgba(255,255,255,0.1);
-      border-top-color: #FFD700;
+      border-top-color: #64b5f6;
       border-radius: 50%;
       animation: spin 0.8s linear infinite;
     }
@@ -352,31 +328,11 @@ function adaptToWinWeek(week: GuestWinWeek): WinWeek {
     .week-header {
       display: flex;
       align-items: center;
-      justify-content: space-between;
-      flex-wrap: wrap;
-      gap: 0.5rem;
+      justify-content: flex-end;
+      gap: 8px;
       margin-bottom: 1.25rem;
     }
-    .week-header__left { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
-    .week-header__right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
 
-    .phase-badge {
-      font-size: 0.8rem;
-      font-weight: 700;
-      padding: 0.2rem 0.6rem;
-      border-radius: 20px;
-      letter-spacing: 0.03em;
-    }
-    .week-label { color: rgba(255,255,255,0.5); font-size: 0.9rem; }
-
-    .field-label {
-      display: block;
-      font-size: 0.8rem;
-      color: rgba(255,255,255,0.5);
-      margin: 0.25rem 0 0.15rem;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-    }
     .form-error { color: #f44336; font-size: 0.85rem; margin: 0.25rem 0 0; }
   `]
 })
@@ -591,12 +547,6 @@ export class GuestWowComponent implements OnInit, OnDestroy {
       next: () => this.refreshWeek(),
       error: () => {}
     });
-  }
-
-  phaseInfo() { return wowPhaseInfo(this.week()?.status); }
-
-  formatDate(dateStr: string) {
-    return new Date(dateStr).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
   }
 
   private loadWeek() {
