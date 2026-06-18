@@ -1,9 +1,9 @@
 # Team Manager
 
-Sprint-based team management app for 30 team members across 3 team leads and 1 tech lead.
+Sprint-based team management app for organizing team members across team leads and tech leads.
 Tracks work items, leave, notes, and releases per person per sprint — and exports to PowerPoint.
 
-**Stack:** Angular 19 · ASP.NET Core 9 · PostgreSQL 17
+**Stack:** Angular 22 · ASP.NET Core 9 · PostgreSQL 17
 
 ---  
 
@@ -51,7 +51,7 @@ Change the password if your PostgreSQL uses a different one.
 ## Running the Backend
 
 ```bash
-cd /Users/juan.lurie/team-manager/src/TeamManager.Api
+cd src/TeamManager.Api
 dotnet run
 ```
 
@@ -63,7 +63,7 @@ Swagger UI: `http://localhost:5000/swagger`
 ## Running the Frontend
 
 ```bash
-cd /Users/juan.lurie/team-manager/team-manager-ui
+cd team-manager-ui
 npm install
 ng serve
 ```
@@ -74,7 +74,7 @@ UI runs at `http://localhost:4200`
 
 ## First-Time Setup (in the app)
 
-1. Go to **Team** and add your 3 team leads, 1 tech lead, and 30 members — assign each member to their team lead.
+1. Go to **Team** and add your team leads, tech leads, and members — assign each member to their team lead.
 2. Go to **Sprints**, optionally create a PI first, then create sprints.
 3. Open a sprint and click **Initialize Members** — this auto-creates a sprint record for every active member.
 4. Add work items, leave, and notes for each person.
