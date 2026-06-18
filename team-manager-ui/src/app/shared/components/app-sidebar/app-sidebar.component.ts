@@ -245,7 +245,7 @@ export class AppSidebarComponent implements OnInit {
   }
 
   openApprovals() {
-    this.dialog.open(PendingApprovalsDialogComponent, { width: '420px' });
+    this.dialog.open(PendingApprovalsDialogComponent, { width: '420px', maxWidth: '95vw' });
   }
 
   onLogout() { this.auth.logout(); }

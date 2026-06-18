@@ -53,7 +53,7 @@ import { AccessRequestsService, AccessRequest } from '../../../core/services/acc
     .dialog-header { display:flex; align-items:center; gap:10px; padding:16px 16px 12px; border-bottom:1px solid rgba(255,255,255,0.07); }
     .header-icon { color:#64b5f6; }
     .dialog-header h2 { margin:0; font-size:1.05rem; font-weight:600; flex:1; }
-    .dialog-body { padding:14px 16px 18px; max-height:60vh; overflow-y:auto; min-width:340px; display:flex; flex-direction:column; gap:8px; }
+    .dialog-body { padding:14px 16px 18px; max-height:60vh; overflow-y:auto; min-width:min(340px,80vw); display:flex; flex-direction:column; gap:8px; }
     .empty-state { text-align:center; padding:30px 10px; opacity:0.45; display:flex; flex-direction:column; align-items:center; gap:8px; }
     .req-card { padding:12px 14px; border-radius:10px; border:1px solid rgba(255,255,255,0.07); background:rgba(255,255,255,0.02); display:flex; flex-direction:column; gap:10px; }
     .req-name { font-weight:600; font-size:0.92rem; }
