@@ -216,7 +216,7 @@ function adaptToWinWeek(week: GuestWinWeek): WinWeek {
       position: fixed;
       inset: 0;
       overflow-y: auto;
-      background: #121212;
+      background: #0f1923;
       color: #fff;
       display: flex;
       justify-content: center;
@@ -235,7 +235,7 @@ function adaptToWinWeek(week: GuestWinWeek): WinWeek {
     }
 
     .name-card, .error-card {
-      background: #1e1e1e;
+      background: #1e1e2e;
       border-radius: 12px;
       padding: 2.5rem 2rem;
       text-align: center;
@@ -265,7 +265,7 @@ function adaptToWinWeek(week: GuestWinWeek): WinWeek {
       box-sizing: border-box;
       outline: none;
     }
-    .name-input:focus { border-color: rgba(255,215,0,0.5); }
+    .name-input:focus { border-color: rgba(100,181,246,0.5); }
 
     .btn-secondary {
       background: transparent;
@@ -281,8 +281,8 @@ function adaptToWinWeek(week: GuestWinWeek): WinWeek {
     .btn-secondary:hover:not(:disabled) { background: rgba(255,255,255,0.05); }
 
     .btn-login {
-      background: #FFD700;
-      color: #121212;
+      background: #64b5f6;
+      color: #fff;
       border: none;
       border-radius: 5px;
       padding: 0.3rem 0.75rem;
@@ -332,7 +332,7 @@ function adaptToWinWeek(week: GuestWinWeek): WinWeek {
     .spinner {
       width: 40px; height: 40px;
       border: 3px solid rgba(255,255,255,0.1);
-      border-top-color: #FFD700;
+      border-top-color: #64b5f6;
       border-radius: 50%;
       animation: spin 0.8s linear infinite;
     }
