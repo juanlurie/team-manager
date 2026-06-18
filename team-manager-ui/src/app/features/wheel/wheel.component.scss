@@ -7,7 +7,7 @@
     .wheel-layout.mobile .wheel-area { width: 100%; }
 
     /* Step indicator (mobile) */
-    .step-nav { display: flex; align-items: center; margin-bottom: 20px; }
+    .step-nav { display: flex; align-items: center; margin-bottom: 14px; }
     .step-dot { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center;
                 justify-content: center; font-size: 0.78rem; font-weight: 700; flex-shrink: 0; }
     .step-dot.active  { background: rgba(100,181,246,0.2);  color: #64b5f6; border: 1px solid rgba(100,181,246,0.5); }
