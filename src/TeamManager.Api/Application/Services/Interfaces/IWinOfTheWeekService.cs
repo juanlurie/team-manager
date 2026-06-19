@@ -18,6 +18,7 @@ public interface IWinOfTheWeekService
     Task<IReadOnlyList<WinWeekHistoryDto>> GetHistoryAsync(Guid seriesId, int? year = null, int limit = 52);
     Task<WinWeekDetailDto> GetWeekDetailAsync(Guid weekId, Guid memberId);
     Task AutoCloseExpiredSuddenDeathAsync(Guid weekId);
+    Task AutoResolveExpiredHypeBattleAsync(Guid weekId);
     Task<int> GetTokenBalanceAsync(Guid memberId, Guid seriesId);
     Task<WinNominationDto> ApplyPowerUpAsync(Guid memberId, Guid nominationId, string type);
     Task<WinNominationDto> ApplyChaosCardAsync(Guid memberId, Guid nominationId, string type);

@@ -13,6 +13,7 @@ public record GuestWinWeekDto
     public string? WinnerTitle { get; init; }
     public string? WinnerStory { get; init; }
     public DateTimeOffset? SuddenDeathEndsAt { get; init; }
+    public DateTimeOffset? HypeBattleEndsAt { get; init; }
     public IReadOnlyList<Guid> TiedNominationIds { get; init; } = [];
     public bool PowerUpsEnabled { get; init; }
     public int GuestTokenBalance { get; init; }

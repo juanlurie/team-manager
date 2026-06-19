@@ -45,6 +45,7 @@ export interface WinWeek {
   openedAt: string;
   closedAt: string | null;
   suddenDeathEndsAt: string | null;
+  hypeBattleEndsAt: string | null;
   currentMemberId: string;
   userVotesRemaining: number;
   userNominationsRemaining: number;
@@ -147,6 +148,7 @@ export interface GuestWinWeek {
   winnerTitle: string | null;
   winnerStory: string | null;
   suddenDeathEndsAt: string | null;
+  hypeBattleEndsAt: string | null;
   tiedNominationIds: string[];
   powerUpsEnabled: boolean;
   guestTokenBalance: number;
