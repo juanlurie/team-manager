@@ -236,17 +236,6 @@ public class WinOfTheWeekController(IWinOfTheWeekService service, WinSeriesServi
     {
         var memberId = GetCurrentMemberId();
 
-        if (request.Type == "Wildcard")
-        {
-            var memberId2 = GetCurrentMemberId();
-            var isHost = await db.Set<Domain.Entities.FeaturePermission>()
-                .AnyAsync(fp => fp.FeatureKey == "wow-host" && fp.IsEnabled);
-            var hasOverride = await db.Set<Domain.Entities.MemberFeatureOverride>()
-                .AnyAsync(o => o.TeamMemberId == memberId2 && o.FeatureKey == "wow-host" && o.IsEnabled);
-            if (!isHost && !hasOverride)
-                return Forbid();
-        }
-
         try
         {
             var result = await service.ApplyPowerUpAsync(memberId, nominationId, request.Type);
@@ -357,6 +346,10 @@ public class WinOfTheWeekController(IWinOfTheWeekService service, WinSeriesServi
         if (week is not null)
         {
             week.HypeBattleEndsAt = endsAt;
+            // Always start fresh -- clear any taps left over from a previous battle this week.
+            await db.WinNominations
+                .Where(n => n.WinWeekId == week.Id)
+                .ExecuteUpdateAsync(s => s.SetProperty(n => n.HypeMeterCount, 0));
             await db.SaveChangesAsync();
         }
 

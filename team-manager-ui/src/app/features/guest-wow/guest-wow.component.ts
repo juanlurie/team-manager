@@ -64,6 +64,7 @@ function adaptToWinWeek(week: GuestWinWeek): WinWeek {
     connectedMemberCount: 0,
     tiedNominationIds: week.tiedNominationIds,
     powerUpsEnabled: week.powerUpsEnabled,
+    hideVoteCounts: week.hideVoteCounts,
     guestToken: null,
     winnerStory: week.winnerStory,
     nominations,
@@ -133,6 +134,7 @@ function adaptToWinWeek(week: GuestWinWeek): WinWeek {
             [currentUserId]="GUEST_OWNED_ID"
             [tokenBalance]="week()?.guestTokenBalance ?? 0"
             [powerUpsEnabled]="week()?.powerUpsEnabled ?? false"
+            [hideVoteCounts]="week()?.hideVoteCounts ?? false"
             [activeTimerEndsAt]="activeTimerEndsAt()"
             [hypeBattleEndsAt]="hypeBattleEndsAt()"
             [reactionEvents]="reactionEvents()"
@@ -406,6 +408,8 @@ export class GuestWowComponent implements OnInit, OnDestroy {
         this.activeTimerEndsAt.set(null);
       } else if (msg.type === 'wow_hype_battle_started') {
         this.hypeBattleEndsAt.set(msg.data['endsAt'] as string);
+        // Battles always start fresh -- mirror the server-side reset locally.
+        this.week.update(w => w ? { ...w, nominations: w.nominations.map(n => ({ ...n, hypeMeterCount: 0 })) } : w);
       } else if (msg.type === 'wow_hype_battle_ended') {
         this.hypeBattleEndsAt.set(null);
       } else if (msg.type === 'hype_meter_tapped') {
