@@ -259,6 +259,7 @@ export class WinOfTheWeekComponent implements OnInit, OnDestroy {
   private wsSub: Subscription | null = null;
   private timerSub: Subscription | null = null;
   private timerExpiredWeekId: string | null = null;
+  private hypeExpiredWeekId: string | null = null;
   private suddenDeathSnapshot: { nominations: WinNomination[], tiedNominationIds: string[] } | null = null;
 
   constructor() {
@@ -352,6 +353,10 @@ export class WinOfTheWeekComponent implements OnInit, OnDestroy {
       const battleEndsAt = this.hypeBattleEndsAt();
       if (battleEndsAt && new Date(battleEndsAt).getTime() - Date.now() <= 0) {
         this.hypeBattleEndsAt.set(null);
+        if (week && this.hypeExpiredWeekId !== week.id) {
+          this.hypeExpiredWeekId = week.id;
+          this.silentRefresh();
+        }
       }
     });
 
@@ -437,7 +442,7 @@ export class WinOfTheWeekComponent implements OnInit, OnDestroy {
     if (!sid) { this.loading.set(false); return; }
     this.loading.set(true);
     this.winSvc.getCurrentWeek(sid).subscribe({
-      next: (week) => { this.currentWeek.set(week); if (week) { this.currentUserId = week.currentMemberId; this.connectedCount.set(week.connectedMemberCount); if (week.guestToken) this.wsSvc.send({ type: 'join_wow', sessionKey: week.guestToken }); } this.loading.set(false); },
+      next: (week) => { this.currentWeek.set(week); if (week) { this.currentUserId = week.currentMemberId; this.connectedCount.set(week.connectedMemberCount); this.hypeBattleEndsAt.set(week.hypeBattleEndsAt); if (week.guestToken) this.wsSvc.send({ type: 'join_wow', sessionKey: week.guestToken }); } this.loading.set(false); },
       error: () => { this.loading.set(false); this.snackBar.open('Failed to load Win of the Week', 'Close', { duration: 3000 }); }
     });
     this.winSvc.getTokenBalance(sid).subscribe({ next: r => this.tokenBalance.set(r.balance), error: () => {} });
@@ -448,7 +453,7 @@ export class WinOfTheWeekComponent implements OnInit, OnDestroy {
     if (!sid) return;
     clearCacheForPattern('/api/v1/win-of-the-week');
     this.winSvc.getCurrentWeek(sid).subscribe({
-      next: (week) => { this.currentWeek.set(week); if (week) { this.currentUserId = week.currentMemberId; this.connectedCount.set(week.connectedMemberCount); if (week.guestToken) this.wsSvc.send({ type: 'join_wow', sessionKey: week.guestToken }); } }
+      next: (week) => { this.currentWeek.set(week); if (week) { this.currentUserId = week.currentMemberId; this.connectedCount.set(week.connectedMemberCount); this.hypeBattleEndsAt.set(week.hypeBattleEndsAt); if (week.guestToken) this.wsSvc.send({ type: 'join_wow', sessionKey: week.guestToken }); } }
     });
   }
 

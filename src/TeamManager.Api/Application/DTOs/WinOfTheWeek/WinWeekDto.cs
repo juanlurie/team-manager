@@ -13,6 +13,7 @@ public record WinWeekDto
     public DateTimeOffset OpenedAt { get; init; }
     public DateTimeOffset? ClosedAt { get; init; }
     public DateTimeOffset? SuddenDeathEndsAt { get; init; }
+    public DateTimeOffset? HypeBattleEndsAt { get; init; }
     public Guid CurrentMemberId { get; init; }
     public int UserVotesRemaining { get; init; }
     public int UserNominationsRemaining { get; init; }

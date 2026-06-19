@@ -56,4 +56,8 @@ export class GuestWinOfTheWeekService {
       params: { sessionId }
     });
   }
+
+  incrementHype(token: string, nominationId: string) {
+    return this.http.post<{ count: number }>(`${this.base}/${token}/nominations/${nominationId}/hype`, null);
+  }
 }

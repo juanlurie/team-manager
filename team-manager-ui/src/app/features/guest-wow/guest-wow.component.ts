@@ -11,7 +11,6 @@ import { Subscription } from 'rxjs';
 import { GuestWinOfTheWeekService } from './guest-wow.service';
 import { clearCacheForPattern } from '../../core/interceptors/http-cache.interceptor';
 import { GuestWinWeek, GuestNomination, GuestCreateNominationRequest, WowNominationDisplay, WinWeek, WinNomination } from '../../core/models/win-week.model';
-import { WinOfTheWeekService } from '../../core/services/win-of-the-week.service';
 import { WebSocketService } from '../../core/websocket/websocket.service';
 import { AuthService } from '../../core/auth/auth.service';
 import { MobileService } from '../../core/services/mobile.service';
@@ -56,6 +55,7 @@ function adaptToWinWeek(week: GuestWinWeek): WinWeek {
     openedAt: week.weekStart,
     closedAt: null,
     suddenDeathEndsAt: week.suddenDeathEndsAt,
+    hypeBattleEndsAt: week.hypeBattleEndsAt,
     currentMemberId: GUEST_OWNED_ID,
     userVotesRemaining: week.userVotesRemaining,
     userNominationsRemaining: week.userNominationsRemaining,
@@ -348,7 +348,6 @@ export class GuestWowComponent implements OnInit, OnDestroy {
   private route    = inject(ActivatedRoute);
   private service  = inject(GuestWinOfTheWeekService);
   private auth     = inject(AuthService);
-  private winSvc   = inject(WinOfTheWeekService);
   private wsSvc    = inject(WebSocketService);
   private mobileSvc = inject(MobileService);
 
@@ -387,6 +386,8 @@ export class GuestWowComponent implements OnInit, OnDestroy {
   private wsSub: Subscription | null = null;
   private pollInterval: ReturnType<typeof setInterval> | null = null;
   private expiryCheckInterval: ReturnType<typeof setInterval> | null = null;
+  private hypeExpiryCheckInterval: ReturnType<typeof setInterval> | null = null;
+  private hypeExpiredWeekId: string | null = null;
   private timerExpiredWeekId: string | null = null;
   private suddenDeathSnapshot: { nominations: GuestNomination[]; tiedNominationIds: string[] } | null = null;
 
@@ -449,6 +450,7 @@ export class GuestWowComponent implements OnInit, OnDestroy {
     this.wsSub?.unsubscribe();
     if (this.pollInterval) clearInterval(this.pollInterval);
     if (this.expiryCheckInterval) clearInterval(this.expiryCheckInterval);
+    if (this.hypeExpiryCheckInterval) clearInterval(this.hypeExpiryCheckInterval);
   }
 
   login() { this.auth.login('/fun/win-of-the-week'); }
@@ -459,6 +461,7 @@ export class GuestWowComponent implements OnInit, OnDestroy {
     this.nameInput = '';
     if (this.pollInterval) clearInterval(this.pollInterval);
     if (this.expiryCheckInterval) clearInterval(this.expiryCheckInterval);
+    if (this.hypeExpiryCheckInterval) clearInterval(this.hypeExpiryCheckInterval);
   }
 
   saveName() {
@@ -538,7 +541,7 @@ export class GuestWowComponent implements OnInit, OnDestroy {
   }
 
   tapHype(nominationId: string) {
-    this.winSvc.incrementHypeMeter(nominationId).subscribe({ error: () => {} });
+    this.service.incrementHype(this.token, nominationId).subscribe({ error: () => {} });
   }
 
   applyPowerUp(event: { nominationId: string; type: string }) {
@@ -583,10 +586,29 @@ export class GuestWowComponent implements OnInit, OnDestroy {
 
   private updateWeek(week: GuestWinWeek) {
     this.week.set(week);
+    this.hypeBattleEndsAt.set(week.hypeBattleEndsAt);
     if (week.status === 'SuddenDeath') {
       this.suddenDeathSnapshot = { nominations: week.nominations, tiedNominationIds: week.tiedNominationIds };
     }
     this.syncPoll(week);
+    this.syncHypeExpiry(week);
+  }
+
+  private syncHypeExpiry(week: GuestWinWeek) {
+    if (!week.hypeBattleEndsAt) {
+      if (this.hypeExpiryCheckInterval) { clearInterval(this.hypeExpiryCheckInterval); this.hypeExpiryCheckInterval = null; }
+      return;
+    }
+    if (this.hypeExpiryCheckInterval) clearInterval(this.hypeExpiryCheckInterval);
+    const endsAt = new Date(week.hypeBattleEndsAt).getTime();
+    this.hypeExpiryCheckInterval = setInterval(() => {
+      if (this.hypeExpiredWeekId === week.id) return;
+      if (Date.now() >= endsAt) {
+        this.hypeExpiredWeekId = week.id;
+        if (this.hypeExpiryCheckInterval) { clearInterval(this.hypeExpiryCheckInterval); this.hypeExpiryCheckInterval = null; }
+        setTimeout(() => this.refreshWeek(), 1500);
+      }
+    }, 1000);
   }
 
   private syncPoll(week: GuestWinWeek) {

@@ -13,6 +13,7 @@ public class WinWeek
     public DateTimeOffset OpenedAt { get; set; } = DateTimeOffset.UtcNow;
     public DateTimeOffset? ClosedAt { get; set; }
     public DateTimeOffset? SuddenDeathEndsAt { get; set; }
+    public DateTimeOffset? HypeBattleEndsAt { get; set; }
     public Guid CreatedByMemberId { get; set; }
     public Guid WinSeriesId { get; set; }
     public string? WinnerStory { get; set; }
