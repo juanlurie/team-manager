@@ -1,5 +1,5 @@
 export type WowPowerUp = 'Spotlight' | 'Wildcard';
-export type WowChaosCard = 'ClownMode' | 'TinyText' | 'Autocorrect' | 'DramaticReading' | 'RandomCase' | 'Hangman';
+export type WowChaosCard = 'TinyText' | 'Autocorrect' | 'RandomCase' | 'Hangman';
 
 export interface WinNomination {
   id: string;

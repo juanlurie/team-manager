@@ -320,7 +320,7 @@ public class GuestWinOfTheWeekService(AppDbContext db, IHttpContextAccessor http
 
     public async Task<GuestNominationDto> ApplyGuestPowerUpAsync(string token, Guid nominationId, string guestSessionId, string type)
     {
-        var validPowerUps = new HashSet<string> { "Spotlight", "HypeMeter" };
+        var validPowerUps = new HashSet<string> { "Spotlight" };
         if (!validPowerUps.Contains(type))
             throw new InvalidOperationException($"Invalid power-up type: {type}");
 
@@ -337,8 +337,8 @@ public class GuestWinOfTheWeekService(AppDbContext db, IHttpContextAccessor http
         if (!(nomination.WinWeek.Series?.PowerUpsEnabled ?? true))
             throw new InvalidOperationException("Power-ups are disabled for this series.");
 
-        if (nomination.WinWeek.Status != WinWeekStatus.Nominating)
-            throw new InvalidOperationException("Power-ups can only be applied during the nominating phase.");
+        if (nomination.WinWeek.Status != WinWeekStatus.Voting && nomination.WinWeek.Status != WinWeekStatus.SuddenDeath)
+            throw new InvalidOperationException("Power-ups can only be applied during voting.");
 
         if (nomination.GuestSessionId == guestSessionId)
             throw new InvalidOperationException("You cannot apply a power-up to your own nomination.");
@@ -360,7 +360,7 @@ public class GuestWinOfTheWeekService(AppDbContext db, IHttpContextAccessor http
 
     public async Task<GuestNominationDto> ApplyGuestChaosCardAsync(string token, Guid nominationId, string guestSessionId, string type)
     {
-        var validCards = new HashSet<string> { "ClownMode", "TinyText", "Autocorrect", "DramaticReading", "RandomCase", "Hangman" };
+        var validCards = new HashSet<string> { "TinyText", "Autocorrect", "RandomCase", "Hangman" };
         if (!validCards.Contains(type))
             throw new InvalidOperationException($"Invalid chaos card type: {type}");
 
@@ -377,8 +377,8 @@ public class GuestWinOfTheWeekService(AppDbContext db, IHttpContextAccessor http
         if (!(nomination.WinWeek.Series?.PowerUpsEnabled ?? true))
             throw new InvalidOperationException("Power-ups are disabled for this series.");
 
-        if (nomination.WinWeek.Status != WinWeekStatus.Nominating)
-            throw new InvalidOperationException("Chaos cards can only be applied during the nominating phase.");
+        if (nomination.WinWeek.Status != WinWeekStatus.Voting && nomination.WinWeek.Status != WinWeekStatus.SuddenDeath)
+            throw new InvalidOperationException("Chaos cards can only be applied during voting.");
 
         if (nomination.GuestSessionId == guestSessionId)
             throw new InvalidOperationException("You cannot apply a chaos card to your own nomination.");
