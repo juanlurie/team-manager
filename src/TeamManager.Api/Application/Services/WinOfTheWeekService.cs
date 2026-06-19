@@ -795,7 +795,7 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
 
     public async Task<WinNominationDto> ApplyChaosCardAsync(Guid memberId, Guid nominationId, string type)
     {
-        var validCards = new HashSet<string> { "ClownMode", "TinyText", "Autocorrect", "DramaticReading", "RandomCase", "Hangman" };
+        var validCards = new HashSet<string> { "TinyText", "Autocorrect", "RandomCase", "Hangman" };
         if (!validCards.Contains(type))
             throw new InvalidOperationException($"Invalid chaos card type: {type}");
 
