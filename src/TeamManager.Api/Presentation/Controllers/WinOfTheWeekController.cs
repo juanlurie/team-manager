@@ -284,6 +284,26 @@ public class WinOfTheWeekController(IWinOfTheWeekService service, WinSeriesServi
         catch (InvalidOperationException ex) { return BadRequest(new { error = ex.Message }); }
     }
 
+    private static readonly HashSet<string> ValidReactionEmojis = ["😂", "🔥", "👏", "❤️", "😮"];
+
+    // Purely cosmetic, no persistence -- members and guests share this one endpoint.
+    [HttpPost("nominations/react")]
+    [AllowAnonymous]
+    public IActionResult SendReaction([FromBody] SendReactionRequest request)
+    {
+        if (!ValidReactionEmojis.Contains(request.Emoji))
+            return BadRequest(new { error = "Invalid reaction emoji." });
+
+        _ = WebSocketMiddleware.BroadcastAsync("reaction_sent", new
+        {
+            nominationId = request.NominationId,
+            emoji = request.Emoji,
+            id = Guid.NewGuid()
+        }, guestAllowed: true);
+
+        return Ok();
+    }
+
     [HttpPost("timer/start")]
     [RequireFeature("wow-host")]
     public async Task<IActionResult> StartTimer([FromBody] WowTimerRequest request, [FromQuery] Guid? seriesId = null)

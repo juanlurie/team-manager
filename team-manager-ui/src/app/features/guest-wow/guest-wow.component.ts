@@ -135,12 +135,14 @@ function adaptToWinWeek(week: GuestWinWeek): WinWeek {
             [powerUpsEnabled]="week()?.powerUpsEnabled ?? false"
             [activeTimerEndsAt]="activeTimerEndsAt()"
             [hypeBattleEndsAt]="hypeBattleEndsAt()"
+            [reactionEvents]="reactionEvents()"
             (nominateClick)="showForm.set(true)"
             (voteClick)="vote($event)"
             (removeVoteClick)="removeVote($event)"
             (editClick)="startEdit($event)"
             (deleteClick)="deleteNomination($event)"
             (hypeClick)="tapHype($event)"
+            (reactionClick)="sendReaction($event)"
             (applyPowerUpClick)="applyPowerUp($event)"
             (applyChaosCardClick)="applyChaosCard($event)"
           />
@@ -374,6 +376,7 @@ export class GuestWowComponent implements OnInit, OnDestroy {
   connectedCount  = signal(0);
   activeTimerEndsAt  = signal<string | null>(null);
   hypeBattleEndsAt   = signal<string | null>(null);
+  reactionEvents     = signal<{ id: string; nominationId: string; emoji: string }[]>([]);
 
   readonly adaptedWeek = computed(() => {
     const w = this.week();
@@ -413,6 +416,11 @@ export class GuestWowComponent implements OnInit, OnDestroy {
             ...w, nominations: w.nominations.map(n => n.id === nomId ? { ...n, hypeMeterCount: count } : n)
           } : w);
         }
+      } else if (msg.type === 'reaction_sent') {
+        const id = msg.data['id'] as string;
+        const nominationId = msg.data['nominationId'] as string;
+        const emoji = msg.data['emoji'] as string;
+        this.reactionEvents.update(list => [...list.slice(-49), { id, nominationId, emoji }]);
       } else if (msg.type === 'voting_closed') {
         const wk = this.week();
         const snap = this.suddenDeathSnapshot;
@@ -542,6 +550,10 @@ export class GuestWowComponent implements OnInit, OnDestroy {
 
   tapHype(nominationId: string) {
     this.service.incrementHype(this.token, nominationId).subscribe({ error: () => {} });
+  }
+
+  sendReaction(event: { nominationId: string; emoji: string }) {
+    this.service.sendReaction(event.nominationId, event.emoji).subscribe({ error: () => {} });
   }
 
   applyPowerUp(event: { nominationId: string; type: string }) {

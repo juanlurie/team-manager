@@ -8,7 +8,7 @@ import { MatMenuModule } from '@angular/material/menu';
 import { MatDividerModule } from '@angular/material/divider';
 import { WinWeek, WinNomination, WowNominationDisplay } from '../../core/models/win-week.model';
 import { wowPhaseInfo } from '../../shared/utils/wow.utils';
-import { WowNominationCardComponent } from '../../shared/components/wow-nomination-card/wow-nomination-card.component';
+import { WowNominationCardComponent, ReactionBurst } from '../../shared/components/wow-nomination-card/wow-nomination-card.component';
 import { WowWinnerBannerComponent } from '../../shared/components/wow-winner-banner/wow-winner-banner.component';
 import { WowCountdownComponent } from '../../shared/components/wow-countdown/wow-countdown.component';
 import { AppLoadingComponent } from '../../shared/components/app-loading/app-loading.component';
@@ -384,6 +384,7 @@ import { AppInfoBannerComponent } from '../../shared/components/app-info-banner/
                   [isHost]="isHost()"
                   [hypeBattleActive]="!!hypeBattleEndsAt()"
                   [hypeBattleTotal]="hypeBattleTotal()"
+                  [reactionBursts]="burstsFor(nom.id)"
                   (voteClick)="voteClick.emit($event)"
                   (removeVoteClick)="removeVoteClick.emit($event)"
                   (editClick)="editClick.emit($event)"
@@ -391,6 +392,7 @@ import { AppInfoBannerComponent } from '../../shared/components/app-info-banner/
                   (hypeClick)="hypeClick.emit($event)"
                   (applyPowerUpClick)="applyPowerUpClick.emit($event)"
                   (applyChaosCardClick)="applyChaosCardClick.emit($event)"
+                  (reactionClick)="reactionClick.emit($event)"
                 />
               }
             </div>
@@ -428,6 +430,11 @@ export class WowCurrentWeekComponent {
   hypeBattleEndsAt    = input<string | null>(null);
   guestToken          = input<string | null>(null);
   hasWinOfMonth       = input(false);
+  reactionEvents      = input<(ReactionBurst & { nominationId: string })[]>([]);
+
+  burstsFor(nominationId: string): ReactionBurst[] {
+    return this.reactionEvents().filter(r => r.nominationId === nominationId);
+  }
 
   hasMenuItems = computed(() =>
     !this.isGuest() ||
@@ -447,6 +454,7 @@ export class WowCurrentWeekComponent {
   hypeClick               = output<string>();
   applyPowerUpClick       = output<{ nominationId: string; type: string }>();
   applyChaosCardClick     = output<{ nominationId: string; type: string }>();
+  reactionClick           = output<{ nominationId: string; emoji: string }>();
   startTimerClick           = output<number>();
   stopTimerClick            = output();
   startHypeBattleClick      = output<number>();
