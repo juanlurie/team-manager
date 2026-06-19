@@ -126,14 +126,16 @@ import { AppInfoBannerComponent } from '../../shared/components/app-info-banner/
                 <span class="ctrl-label" style="color:#ff7043;opacity:1">🔥 Tie Detected</span>
 
                 @if (w.status === 'Voting') {
+                  <div style="font-size:0.68rem;opacity:0.4;margin:2px 0 4px">Start Sudden Death — re-vote on the tied nominations:</div>
                   <div class="preset-row">
                     <button class="preset-btn sd" (click)="suddenDeathDurationChange.emit(60); startSuddenDeathClick.emit()">1:00</button>
                     <button class="preset-btn sd" (click)="suddenDeathDurationChange.emit(90); startSuddenDeathClick.emit()">1:30</button>
                     <button class="preset-btn sd" (click)="suddenDeathDurationChange.emit(120); startSuddenDeathClick.emit()">2:00</button>
                   </div>
+                  <div style="font-size:0.68rem;opacity:0.4;margin:10px 0 4px">Or settle it instantly with a hype battle — most taps wins (only if votes are still tied):</div>
+                } @else {
+                  <div style="font-size:0.68rem;opacity:0.4;margin:2px 0 4px">Settle it with a hype battle — most taps wins (only if votes are still tied):</div>
                 }
-
-                <div style="font-size:0.68rem;opacity:0.4;margin:8px 0 4px">Or settle it with a hype battle — most taps wins (only if votes are still tied):</div>
                 @if (!hypeBattleEndsAt()) {
                   <div class="preset-row">
                     <button class="preset-btn" (click)="startHypeBattleClick.emit(30)">30s</button>
