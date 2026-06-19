@@ -60,4 +60,9 @@ export class GuestWinOfTheWeekService {
   incrementHype(token: string, nominationId: string) {
     return this.http.post<{ count: number }>(`${this.base}/${token}/nominations/${nominationId}/hype`, null);
   }
+
+  sendReaction(nominationId: string, emoji: string) {
+    // Shared anonymous-allowed endpoint -- same one members use, no token/session needed.
+    return this.http.post<void>('/api/v1/win-of-the-week/nominations/react', { nominationId, emoji });
+  }
 }

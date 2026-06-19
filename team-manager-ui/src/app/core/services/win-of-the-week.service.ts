@@ -98,6 +98,10 @@ export class WinOfTheWeekService {
     return this.http.post<{ count: number }>(`${this.base}/nominations/${nominationId}/hype`, {});
   }
 
+  sendReaction(nominationId: string, emoji: string) {
+    return this.http.post<void>(`${this.base}/nominations/react`, { nominationId, emoji });
+  }
+
   startTimer(request: WowTimerRequest, seriesId?: string) {
     const params: any = {};
     if (seriesId) params.seriesId = seriesId;

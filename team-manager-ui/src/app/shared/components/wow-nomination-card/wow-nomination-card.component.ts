@@ -1,9 +1,13 @@
-import { Component, input, output, computed, ChangeDetectionStrategy } from '@angular/core';
+import { Component, input, output, computed, signal, effect, ChangeDetectionStrategy } from '@angular/core';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatMenuModule } from '@angular/material/menu';
 import { WowNominationDisplay, WowPowerUp, WowChaosCard } from '../../../core/models/win-week.model';
+
+export interface ReactionBurst { id: string; emoji: string; }
+
+const REACTION_EMOJIS = ['😂', '🔥', '👏', '❤️', '😮'];
 
 const AUTOCORRECT_SWAPS: Record<string, string> = {
   'fixed': 'fiksed', 'deployed': 'depoly', 'helped': 'halped', 'great': 'graet',
@@ -59,6 +63,17 @@ const CHAOS_CARD_META: Record<WowChaosCard, { label: string }> = {
     .hype-btn-big:active { transform: scale(0.92); }
     .hype-btn-big .flame-icon-big { font-size: 1.9rem; line-height: 1; }
     .hype-btn-big .hype-count-big { font-size: 0.78rem; font-weight: 800; color: #ff7043; }
+    .reaction-burst-layer { position: absolute; inset: 0; pointer-events: none; overflow: visible; }
+    @keyframes burstRise {
+      0%   { transform: translate(var(--burst-x, 0px), 0) scale(0.6); opacity: 0; }
+      15%  { opacity: 1; transform: translate(var(--burst-x, 0px), -10px) scale(1.2); }
+      100% { transform: translate(var(--burst-x, 0px), -90px) scale(1); opacity: 0; }
+    }
+    .reaction-burst { position: absolute; left: 50%; bottom: 8px; font-size: 1.6rem; animation: burstRise 1.6s ease-out forwards; }
+    .reaction-row { display: flex; gap: 4px; margin-top: 8px; }
+    .reaction-btn { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 16px; width: 30px; height: 30px; font-size: 1rem; cursor: pointer; touch-action: manipulation; transition: background 0.15s, transform 0.1s; display: flex; align-items: center; justify-content: center; padding: 0; }
+    .reaction-btn:hover { background: rgba(255,255,255,0.12); }
+    .reaction-btn:active { transform: scale(0.85); }
   `],
   template: `
     @let nom = nomination();
@@ -87,6 +102,13 @@ const CHAOS_CARD_META: Record<WowChaosCard, { label: string }> = {
         <div class="hype-fill" [style.width]="flamePct + '%'"></div>
       }
 
+      <!-- Floating reaction bursts -->
+      <div class="reaction-burst-layer">
+        @for (burst of activeBursts(); track burst.id) {
+          <span class="reaction-burst" [style.--burst-x]="burst.x + 'px'">{{burst.emoji}}</span>
+        }
+      </div>
+
       <!-- Avatar -->
       <div [style.background]="avatarBg()" [style.color]="avatarColor()" [style.border]="avatarBorder()"
            style="width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:0.85rem;font-weight:700">
@@ -105,6 +127,15 @@ const CHAOS_CARD_META: Record<WowChaosCard, { label: string }> = {
           <div style="font-size:0.8rem;opacity:0.55;margin-top:4px;line-height:1.4">{{nom.description}}</div>
         }
         <div style="font-size:0.7rem;opacity:0.35;margin-top:6px">Nominated by {{nom.nominatorName}}</div>
+
+        <!-- Reactions: purely cosmetic, no effect on votes/outcome -->
+        @if (weekStatus() !== 'Nominating') {
+          <div class="reaction-row">
+            @for (emoji of REACTION_EMOJIS; track emoji) {
+              <button class="reaction-btn" (click)="reactionClick.emit({ nominationId: nom.id, emoji }); $event.stopPropagation()">{{emoji}}</button>
+            }
+          </div>
+        }
 
         <!-- Badges row -->
         <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;align-items:center">
@@ -229,6 +260,7 @@ export class WowNominationCardComponent {
   isHost          = input(false);
   hypeBattleActive = input(false);
   hypeBattleTotal  = input(0);
+  reactionBursts   = input<ReactionBurst[]>([]);
 
   voteClick           = output<string>();
   removeVoteClick     = output<string>();
@@ -237,8 +269,24 @@ export class WowNominationCardComponent {
   hypeClick           = output<string>();
   applyPowerUpClick   = output<{ nominationId: string; type: string }>();
   applyChaosCardClick = output<{ nominationId: string; type: string }>();
+  reactionClick       = output<{ nominationId: string; emoji: string }>();
 
   readonly Math = Math;
+  readonly REACTION_EMOJIS = REACTION_EMOJIS;
+  readonly activeBursts = signal<(ReactionBurst & { x: number })[]>([]);
+  private seenBurstIds = new Set<string>();
+
+  constructor() {
+    effect(() => {
+      for (const burst of this.reactionBursts()) {
+        if (this.seenBurstIds.has(burst.id)) continue;
+        this.seenBurstIds.add(burst.id);
+        const withX = { ...burst, x: Math.round(Math.random() * 60 - 30) };
+        this.activeBursts.update(list => [...list, withX]);
+        setTimeout(() => this.activeBursts.update(list => list.filter(b => b.id !== burst.id)), 1600);
+      }
+    });
+  }
 
   readonly transformedTitle = computed(() => {
     const nom = this.nomination();

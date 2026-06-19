@@ -138,6 +138,7 @@ export class WowSeriesSheetComponent {
             [hypeBattleEndsAt]="hypeBattleEndsAt()"
             [guestToken]="currentWeek()?.guestToken ?? null"
             [hasWinOfMonth]="hasWinOfMonth()"
+            [reactionEvents]="reactionEvents()"
             (switchSeriesClick)="series().length > 1 && openSeriesPicker()"
             (nominateClick)="showNominateDialog()"
             (openWeekClick)="openNextWeek()"
@@ -148,6 +149,7 @@ export class WowSeriesSheetComponent {
             (copyStory)="copyStory($event)"
             (shareClick)="copyShareLink()"
             (hypeClick)="tapHype($event)"
+            (reactionClick)="sendReaction($event)"
             (applyPowerUpClick)="applyPowerUp($event)"
             (applyChaosCardClick)="applyChaosCard($event)"
             (startTimerClick)="startTimer($event)"
@@ -308,6 +310,7 @@ export class WinOfTheWeekComponent implements OnInit, OnDestroy {
   activeTimerEndsAt   = signal<string | null>(null);
   hypeBattleEndsAt    = signal<string | null>(null);
   suddenDeathDuration = signal(90);
+  reactionEvents      = signal<{ id: string; nominationId: string; emoji: string }[]>([]);
 
   readonly powerUpsEnabled = computed(() => {
     const sid = this.currentSeriesId();
@@ -404,6 +407,13 @@ export class WinOfTheWeekComponent implements OnInit, OnDestroy {
             if (!w) return w;
             return { ...w, nominations: w.nominations.map(n => n.id === nomId ? { ...n, hypeMeterCount: count } : n) };
           });
+          break;
+        }
+        case 'reaction_sent': {
+          const id = msg.data['id'] as string;
+          const nominationId = msg.data['nominationId'] as string;
+          const emoji = msg.data['emoji'] as string;
+          this.reactionEvents.update(list => [...list.slice(-49), { id, nominationId, emoji }]);
           break;
         }
         case 'voting_closed': {
@@ -678,6 +688,10 @@ export class WinOfTheWeekComponent implements OnInit, OnDestroy {
 
   tapHype(nominationId: string) {
     this.winSvc.incrementHypeMeter(nominationId).subscribe({ error: () => {} });
+  }
+
+  sendReaction(event: { nominationId: string; emoji: string }) {
+    this.winSvc.sendReaction(event.nominationId, event.emoji).subscribe({ error: () => {} });
   }
 
   applyPowerUp(event: { nominationId: string; type: string }) {
