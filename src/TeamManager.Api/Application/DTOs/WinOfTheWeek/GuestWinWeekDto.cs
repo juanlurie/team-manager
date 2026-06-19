@@ -16,6 +16,7 @@ public record GuestWinWeekDto
     public DateTimeOffset? HypeBattleEndsAt { get; init; }
     public IReadOnlyList<Guid> TiedNominationIds { get; init; } = [];
     public bool PowerUpsEnabled { get; init; }
+    public bool HideVoteCounts { get; init; }
     public int GuestTokenBalance { get; init; }
     public IReadOnlyList<GuestNominationDto> Nominations { get; init; } = [];
 }

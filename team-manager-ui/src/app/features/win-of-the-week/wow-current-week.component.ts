@@ -85,6 +85,12 @@ import { AppInfoBannerComponent } from '../../shared/components/app-info-banner/
             <mat-slide-toggle [checked]="powerUpsEnabled()" (change)="togglePowerUpsClick.emit()" color="accent" />
           </div>
 
+          <!-- Hide vote counts toggle -->
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+            <span style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;opacity:0.45">Hide Vote Counts</span>
+            <mat-slide-toggle [checked]="hideVoteCounts()" (change)="toggleHideVoteCountsClick.emit()" color="accent" />
+          </div>
+
           @if (w.status === 'Nominating') {
             <div class="ctrl-sep"></div>
 
@@ -126,15 +132,18 @@ import { AppInfoBannerComponent } from '../../shared/components/app-info-banner/
                 <span class="ctrl-label" style="color:#ff7043;opacity:1">🔥 Tie Detected</span>
 
                 @if (w.status === 'Voting') {
-                  <div style="font-size:0.68rem;opacity:0.4;margin:2px 0 4px">Start Sudden Death — re-vote on the tied nominations:</div>
+                  <span class="ctrl-label" style="margin-bottom:4px">Sudden Death</span>
+                  <div style="font-size:0.68rem;opacity:0.4;margin-bottom:4px">Re-vote on the tied nominations</div>
                   <div class="preset-row">
                     <button class="preset-btn sd" (click)="suddenDeathDurationChange.emit(60); startSuddenDeathClick.emit()">1:00</button>
                     <button class="preset-btn sd" (click)="suddenDeathDurationChange.emit(90); startSuddenDeathClick.emit()">1:30</button>
                     <button class="preset-btn sd" (click)="suddenDeathDurationChange.emit(120); startSuddenDeathClick.emit()">2:00</button>
                   </div>
-                  <div style="font-size:0.68rem;opacity:0.4;margin:10px 0 4px">Or settle it instantly with a hype battle — most taps wins (only if votes are still tied):</div>
+                  <span class="ctrl-label" style="margin:10px 0 4px">Hype Battle</span>
+                  <div style="font-size:0.68rem;opacity:0.4;margin-bottom:4px">Most taps wins instantly — only if votes are still tied</div>
                 } @else {
-                  <div style="font-size:0.68rem;opacity:0.4;margin:2px 0 4px">Settle it with a hype battle — most taps wins (only if votes are still tied):</div>
+                  <span class="ctrl-label" style="margin-bottom:4px">Hype Battle</span>
+                  <div style="font-size:0.68rem;opacity:0.4;margin-bottom:4px">Most taps wins instantly — only if votes are still tied</div>
                 }
                 @if (!hypeBattleEndsAt()) {
                   <div class="preset-row">
@@ -385,6 +394,7 @@ import { AppInfoBannerComponent } from '../../shared/components/app-info-banner/
                   [hypeBattleActive]="!!hypeBattleEndsAt()"
                   [hypeBattleTotal]="hypeBattleTotal()"
                   [reactionBursts]="burstsFor(nom.id)"
+                  [hideVoteCounts]="hideVoteCounts()"
                   (voteClick)="voteClick.emit($event)"
                   (removeVoteClick)="removeVoteClick.emit($event)"
                   (editClick)="editClick.emit($event)"
@@ -425,6 +435,7 @@ export class WowCurrentWeekComponent {
   currentUserId    = input('');
   tokenBalance     = input(0);
   powerUpsEnabled  = input(true);
+  hideVoteCounts   = input(false);
   connectedCount   = input(0);
   activeTimerEndsAt   = input<string | null>(null);
   hypeBattleEndsAt    = input<string | null>(null);
@@ -462,6 +473,7 @@ export class WowCurrentWeekComponent {
   endVotingClick            = output();
   startSuddenDeathClick     = output();
   togglePowerUpsClick       = output();
+  toggleHideVoteCountsClick = output();
   reopenNominationsClick    = output();
   suddenDeathDurationChange = output<number>();
   historyClick              = output();

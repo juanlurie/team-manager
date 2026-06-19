@@ -111,6 +111,7 @@ public class GuestWinOfTheWeekService(AppDbContext db, IHttpContextAccessor http
                 ? System.Text.Json.JsonSerializer.Deserialize<List<Guid>>(week.TiedNominationIds) ?? []
                 : [],
             PowerUpsEnabled = week.Series?.PowerUpsEnabled ?? true,
+            HideVoteCounts = week.Series?.HideVoteCounts ?? false,
             GuestTokenBalance = Math.Max(0, 1 - guestCardsSpent),
             Nominations = nominations.Select(n => new GuestNominationDto
             {

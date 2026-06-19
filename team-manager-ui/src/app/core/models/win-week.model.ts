@@ -1,4 +1,4 @@
-export type WowPowerUp = 'Spotlight' | 'Wildcard';
+export type WowPowerUp = 'Spotlight';
 export type WowChaosCard = 'TinyText' | 'Autocorrect' | 'RandomCase' | 'Hangman';
 
 export interface WinNomination {
@@ -31,6 +31,7 @@ export interface WinSeries {
   name: string;
   createdAt: string;
   powerUpsEnabled: boolean;
+  hideVoteCounts: boolean;
 }
 
 export interface WinWeek {
@@ -54,6 +55,7 @@ export interface WinWeek {
   connectedMemberCount: number;
   tiedNominationIds: string[];
   powerUpsEnabled: boolean;
+  hideVoteCounts: boolean;
   guestToken: string | null;
   winnerStory: string | null;
   nominations: WinNomination[];
@@ -151,6 +153,7 @@ export interface GuestWinWeek {
   hypeBattleEndsAt: string | null;
   tiedNominationIds: string[];
   powerUpsEnabled: boolean;
+  hideVoteCounts: boolean;
   guestTokenBalance: number;
   nominations: GuestNomination[];
 }

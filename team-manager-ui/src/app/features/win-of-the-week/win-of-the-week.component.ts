@@ -133,6 +133,7 @@ export class WowSeriesSheetComponent {
             [currentUserId]="currentUserId"
             [tokenBalance]="tokenBalance()"
             [powerUpsEnabled]="powerUpsEnabled()"
+            [hideVoteCounts]="hideVoteCounts()"
             [connectedCount]="connectedCount()"
             [activeTimerEndsAt]="activeTimerEndsAt()"
             [hypeBattleEndsAt]="hypeBattleEndsAt()"
@@ -160,6 +161,7 @@ export class WowSeriesSheetComponent {
             (endVotingClick)="endVoting()"
             (startSuddenDeathClick)="startTieBreaker()"
             (togglePowerUpsClick)="togglePowerUps()"
+            (toggleHideVoteCountsClick)="toggleHideVoteCounts()"
             (reopenNominationsClick)="reopenNominations()"
             (suddenDeathDurationChange)="onSuddenDeathDurationChange($event)"
             (historyClick)="activeTab.set('history')"
@@ -317,6 +319,11 @@ export class WinOfTheWeekComponent implements OnInit, OnDestroy {
     return this.series().find(s => s.id === sid)?.powerUpsEnabled ?? true;
   });
 
+  readonly hideVoteCounts = computed(() => {
+    const sid = this.currentSeriesId();
+    return this.series().find(s => s.id === sid)?.hideVoteCounts ?? false;
+  });
+
   readonly isHost       = this.featureAccess.hasAccess$('wow-host');
   readonly hasWinOfMonth = this.featureAccess.hasAccess$('win-of-month');
 
@@ -395,6 +402,8 @@ export class WinOfTheWeekComponent implements OnInit, OnDestroy {
         case 'wow_hype_battle_started': {
           const endsAt = msg.data['endsAt'] as string;
           if (endsAt) this.hypeBattleEndsAt.set(endsAt);
+          // Battles always start fresh -- mirror the server-side reset locally.
+          this.currentWeek.update(w => w ? { ...w, nominations: w.nominations.map(n => ({ ...n, hypeMeterCount: 0 })) } : w);
           break;
         }
         case 'wow_hype_battle_ended':
@@ -481,6 +490,15 @@ export class WinOfTheWeekComponent implements OnInit, OnDestroy {
     this.seriesSvc.togglePowerUps(sid).subscribe({
       next: (updated) => this.series.update(list => list.map(s => s.id === updated.id ? updated : s)),
       error: () => this.snackBar.open('Failed to toggle power-ups', 'Close', { duration: 3000 })
+    });
+  }
+
+  toggleHideVoteCounts() {
+    const sid = this.currentSeriesId();
+    if (!sid) return;
+    this.seriesSvc.toggleHideVoteCounts(sid).subscribe({
+      next: (updated) => this.series.update(list => list.map(s => s.id === updated.id ? updated : s)),
+      error: () => this.snackBar.open('Failed to toggle vote count visibility', 'Close', { duration: 3000 })
     });
   }
 

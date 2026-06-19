@@ -100,6 +100,7 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
                 ? JsonSerializer.Deserialize<List<Guid>>(week.TiedNominationIds) ?? []
                 : [],
             PowerUpsEnabled = week.Series?.PowerUpsEnabled ?? true,
+            HideVoteCounts = week.Series?.HideVoteCounts ?? false,
             GuestToken = week.GuestToken,
             WinnerStory = week.WinnerStory,
             Nominations = nominations.Select(n => new WinNominationDto
@@ -772,7 +773,7 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
 
     public async Task<WinNominationDto> ApplyPowerUpAsync(Guid memberId, Guid nominationId, string type)
     {
-        var validPowerUps = new HashSet<string> { "Spotlight", "Wildcard" };
+        var validPowerUps = new HashSet<string> { "Spotlight" };
         if (!validPowerUps.Contains(type))
             throw new InvalidOperationException($"Invalid power-up type: {type}");
 
@@ -792,7 +793,6 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
         if (nomination.PowerUp is not null)
             throw new InvalidOperationException("A power-up has already been applied to this nomination.");
 
-        // Wildcard is host-only — checked via feature access in the controller
         await SpendTokenAsync(memberId, nomination.WinWeekId, nominationId);
 
         nomination.PowerUp = type;

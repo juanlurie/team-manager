@@ -26,6 +26,14 @@ public class WinSeriesController(WinSeriesService service, AppDbContext db) : Co
         return Ok(result);
     }
 
+    [HttpPatch("{id:guid}/hide-vote-counts")]
+    [RequireFeature("wow-host")]
+    public async Task<IActionResult> ToggleHideVoteCounts(Guid id)
+    {
+        var result = await service.ToggleHideVoteCountsAsync(id);
+        return Ok(result);
+    }
+
     [HttpPost]
     [RequireFeature("wow-host")]
     public async Task<IActionResult> Create([FromBody] CreateWinSeriesRequest request)

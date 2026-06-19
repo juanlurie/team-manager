@@ -36,8 +36,7 @@ function hangman(text: string, seed: string): string {
 }
 
 const POWER_UP_META: Record<WowPowerUp, { icon: string; label: string; bg: string; color: string }> = {
-  Spotlight: { icon: '⭐', label: 'Spotlight', bg: 'rgba(255,215,0,0.15)', color: '#FFD700' },
-  Wildcard:  { icon: '🃏', label: 'Wildcard ×2', bg: 'rgba(171,71,188,0.12)', color: '#ce93d8' }
+  Spotlight: { icon: '⭐', label: 'Spotlight', bg: 'rgba(255,215,0,0.15)', color: '#FFD700' }
 };
 
 const CHAOS_CARD_META: Record<WowChaosCard, { label: string }> = {
@@ -195,10 +194,15 @@ const CHAOS_CARD_META: Record<WowChaosCard, { label: string }> = {
       } @else if (weekStatus() === 'Voting' || weekStatus() === 'SuddenDeath' || weekStatus() === 'Closed') {
         <!-- Vote section -->
         <div style="display:flex;flex-direction:column;align-items:center;gap:4px;flex-shrink:0;min-width:64px">
-          <div style="font-size:1.1rem;font-weight:800;opacity:0.8">
-            {{nom.voteCount}}@if (pu === 'Wildcard') { <span style="font-size:0.6rem;color:#ce93d8;vertical-align:super">×2</span> }
-          </div>
-          <div style="font-size:0.6rem;opacity:0.4;text-transform:uppercase">votes</div>
+          @if (hideVoteCounts() && (weekStatus() === 'Voting' || weekStatus() === 'SuddenDeath')) {
+            <mat-icon style="font-size:1.1rem;width:1.1rem;height:1.1rem;opacity:0.35" matTooltip="Vote counts are hidden until voting closes">lock</mat-icon>
+            <div style="font-size:0.6rem;opacity:0.4;text-transform:uppercase">hidden</div>
+          } @else {
+            <div style="font-size:1.1rem;font-weight:800;opacity:0.8">
+              {{nom.voteCount}}
+            </div>
+            <div style="font-size:0.6rem;opacity:0.4;text-transform:uppercase">votes</div>
+          }
           @if (weekStatus() === 'Voting' || weekStatus() === 'SuddenDeath') {
             @if (nom.hasVoted) {
               <button mat-stroked-button color="warn" (click)="removeVoteClick.emit(nom.id)"
@@ -226,11 +230,6 @@ const CHAOS_CARD_META: Record<WowChaosCard, { label: string }> = {
       <button mat-menu-item (click)="applyPowerUpClick.emit({ nominationId: nom.id, type: 'Spotlight' })">
         ⭐ Spotlight — pins to top
       </button>
-      @if (isHost()) {
-        <button mat-menu-item (click)="applyPowerUpClick.emit({ nominationId: nom.id, type: 'Wildcard' })">
-          🃏 Wildcard — doubles vote weight
-        </button>
-      }
     </mat-menu>
 
     <!-- Chaos card menu -->
@@ -260,6 +259,7 @@ export class WowNominationCardComponent {
   isHost          = input(false);
   hypeBattleActive = input(false);
   hypeBattleTotal  = input(0);
+  hideVoteCounts   = input(false);
   reactionBursts   = input<ReactionBurst[]>([]);
 
   voteClick           = output<string>();
