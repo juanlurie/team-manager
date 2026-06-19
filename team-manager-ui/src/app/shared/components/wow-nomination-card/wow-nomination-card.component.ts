@@ -52,13 +52,13 @@ const CHAOS_CARD_META: Record<WowChaosCard, { label: string }> = {
     .card { transition: border 0.3s, background 0.3s, transform 0.3s; position: relative; }
     .card.tiny { transform: scale(0.62); transform-origin: top left; }
     .card.spotlight { border-color: rgba(255,215,0,0.5) !important; }
-    .hype-btn { background: rgba(255,87,34,0.15); border: 1px solid rgba(255,87,34,0.35); border-radius: 20px; padding: 4px 12px; cursor: pointer; color: #ff7043; font-size: 0.82rem; font-weight: 700; transition: background 0.15s; }
-    .hype-btn:hover { background: rgba(255,87,34,0.28); }
-    .hype-btn:active { transform: scale(0.93); }
     .apply-menu-btn { font-size: 0.72rem; height: 26px; line-height: 26px; padding: 0 8px; opacity: 0.7; white-space: nowrap; flex-shrink: 0; }
-    .flame-bar-wrap { margin-top: 10px; }
-    .flame-bar-bg { height: 6px; border-radius: 3px; background: rgba(255,255,255,0.08); overflow: hidden; }
-    .flame-bar-fill { height: 100%; border-radius: 3px; transition: width 0.5s ease; background: linear-gradient(90deg,#ff7043,#ffd600); }
+    .hype-fill { position: absolute; top: 0; left: 0; bottom: 0; z-index: -1; border-radius: 12px; transition: width 0.6s ease; background: linear-gradient(90deg, rgba(255,87,34,0.4), rgba(255,214,0,0.22)); }
+    .hype-btn-big { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; flex-shrink: 0; width: 64px; height: 64px; border-radius: 50%; border: 2px solid rgba(255,87,34,0.5); background: rgba(255,87,34,0.2); cursor: pointer; touch-action: manipulation; transition: background 0.15s, transform 0.1s; }
+    .hype-btn-big:hover { background: rgba(255,87,34,0.32); }
+    .hype-btn-big:active { transform: scale(0.92); }
+    .hype-btn-big .flame-icon-big { font-size: 1.9rem; line-height: 1; }
+    .hype-btn-big .hype-count-big { font-size: 0.78rem; font-weight: 800; color: #ff7043; }
   `],
   template: `
     @let nom = nomination();
@@ -69,6 +69,7 @@ const CHAOS_CARD_META: Record<WowChaosCard, { label: string }> = {
     @let isSpot = pu === 'Spotlight';
     @let displayTitle = showEffects ? transformedTitle() : nom.title;
     @let flamePct = hypeBattleActive() && hypeBattleTotal() > 0 ? Math.round(nom.hypeMeterCount / hypeBattleTotal() * 100) : 0;
+    @let isHypeMode = hypeBattleActive() && (weekStatus() === 'Voting' || weekStatus() === 'SuddenDeath');
 
     <div [class.tiny]="isTiny" [class.spotlight]="isSpot"
          [style.border]="cardBorder()" [style.background]="cardBg()"
@@ -79,6 +80,11 @@ const CHAOS_CARD_META: Record<WowChaosCard, { label: string }> = {
       <!-- Spotlight pin -->
       @if (isSpot) {
         <div style="position:absolute;top:0;left:0;right:0;height:3px;border-radius:12px 12px 0 0;background:linear-gradient(90deg,#FFD700,rgba(255,215,0,0.2))"></div>
+      }
+
+      <!-- Hype Battle: whole-card fill showing this nomination's share of taps -->
+      @if (isHypeMode) {
+        <div class="hype-fill" [style.width]="flamePct + '%'"></div>
       }
 
       <!-- Avatar -->
@@ -120,26 +126,6 @@ const CHAOS_CARD_META: Record<WowChaosCard, { label: string }> = {
 
         </div>
 
-        <!-- Hype Meter tap button (during an active host-controlled Hype Battle) -->
-        @if (showEffects && weekStatus() !== 'Closed' && hypeBattleActive()) {
-          <button class="hype-btn" style="margin-top:8px" (click)="hypeClick.emit(nom.id); $event.stopPropagation()">
-            🔥 @if (hypeBattleActive()) { Battle Hype! } @else { Hype! } ({{nom.hypeMeterCount}})
-          </button>
-        }
-
-        <!-- Hype Battle flame bar -->
-        @if (hypeBattleActive() && (weekStatus() === 'Voting' || weekStatus() === 'SuddenDeath')) {
-          <div class="flame-bar-wrap">
-            <div style="display:flex;justify-content:space-between;font-size:0.65rem;opacity:0.5;margin-bottom:3px">
-              <span>🔥 Hype Battle</span>
-              <span>{{flamePct}}%</span>
-            </div>
-            <div class="flame-bar-bg">
-              <div class="flame-bar-fill" [style.width]="flamePct + '%'"></div>
-            </div>
-          </div>
-        }
-
         <!-- Apply card buttons (during voting, for other members) -->
         @if ((weekStatus() === 'Voting' || weekStatus() === 'SuddenDeath') && !nom.isOwned && canApplyCards() && !pu && !cc) {
           <div style="display:flex;gap:6px;margin-top:10px">
@@ -169,8 +155,14 @@ const CHAOS_CARD_META: Record<WowChaosCard, { label: string }> = {
         </div>
       }
 
-      <!-- Vote section -->
-      @if (weekStatus() === 'Voting' || weekStatus() === 'SuddenDeath' || weekStatus() === 'Closed') {
+      <!-- Hype Battle: big flame tap button, replaces votes while it's running -->
+      @if (isHypeMode) {
+        <button class="hype-btn-big" (click)="hypeClick.emit(nom.id); $event.stopPropagation()">
+          <span class="flame-icon-big">🔥</span>
+          <span class="hype-count-big">{{nom.hypeMeterCount}}</span>
+        </button>
+      } @else if (weekStatus() === 'Voting' || weekStatus() === 'SuddenDeath' || weekStatus() === 'Closed') {
+        <!-- Vote section -->
         <div style="display:flex;flex-direction:column;align-items:center;gap:4px;flex-shrink:0;min-width:64px">
           <div style="font-size:1.1rem;font-weight:800;opacity:0.8">
             {{nom.voteCount}}@if (pu === 'Wildcard') { <span style="font-size:0.6rem;color:#ce93d8;vertical-align:super">×2</span> }
