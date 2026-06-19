@@ -150,4 +150,17 @@ public class GuestWinOfTheWeekController(GuestWinOfTheWeekService service) : Con
         catch (KeyNotFoundException ex) { return NotFound(new { error = ex.Message }); }
         catch (InvalidOperationException ex) { return BadRequest(new { error = ex.Message }); }
     }
+
+    [HttpPost("{token}/nominations/{nominationId:guid}/hype")]
+    public async Task<IActionResult> IncrementHypeMeter(string token, Guid nominationId)
+    {
+        try
+        {
+            var count = await service.IncrementGuestHypeMeterAsync(token, nominationId);
+            _ = WebSocketMiddleware.BroadcastAsync("hype_meter_tapped", new { nominationId, count }, guestAllowed: true);
+            return Ok(new { count });
+        }
+        catch (KeyNotFoundException ex) { return NotFound(new { error = ex.Message }); }
+        catch (InvalidOperationException ex) { return BadRequest(new { error = ex.Message }); }
+    }
 }

@@ -49,6 +49,15 @@ public class GuestWinOfTheWeekService(AppDbContext db, IHttpContextAccessor http
             week = await db.WinWeeks.FirstAsync(w => w.GuestToken == token);
         }
 
+        if (week.Status != WinWeekStatus.Closed &&
+            week.HypeBattleEndsAt.HasValue &&
+            DateTimeOffset.UtcNow > week.HypeBattleEndsAt.Value)
+        {
+            await wowService.AutoResolveExpiredHypeBattleAsync(week.Id);
+            db.Entry(week).State = Microsoft.EntityFrameworkCore.EntityState.Detached;
+            week = await db.WinWeeks.FirstAsync(w => w.GuestToken == token);
+        }
+
         var nominations = await db.WinNominations
             .Include(n => n.TeamMember)
             .Include(n => n.Nominee)
@@ -97,6 +106,7 @@ public class GuestWinOfTheWeekService(AppDbContext db, IHttpContextAccessor http
             WinnerTitle = winner?.Title,
             WinnerStory = week.WinnerStory,
             SuddenDeathEndsAt = week.SuddenDeathEndsAt,
+            HypeBattleEndsAt = week.HypeBattleEndsAt,
             TiedNominationIds = !string.IsNullOrEmpty(week.TiedNominationIds)
                 ? System.Text.Json.JsonSerializer.Deserialize<List<Guid>>(week.TiedNominationIds) ?? []
                 : [],
@@ -396,6 +406,19 @@ public class GuestWinOfTheWeekService(AppDbContext db, IHttpContextAccessor http
         await db.SaveChangesAsync();
 
         return MapGuestNominationDto(nomination, guestSessionId);
+    }
+
+    public async Task<int> IncrementGuestHypeMeterAsync(string token, Guid nominationId)
+    {
+        var nomination = await db.WinNominations
+            .Include(n => n.WinWeek)
+            .FirstOrDefaultAsync(n => n.Id == nominationId)
+            ?? throw new KeyNotFoundException("Nomination not found.");
+
+        if (nomination.WinWeek.GuestToken != token)
+            throw new KeyNotFoundException("Invalid or expired guest link.");
+
+        return await wowService.IncrementHypeMeterAsync(nominationId);
     }
 
     private static GuestNominationDto MapGuestNominationDto(WinNomination n, string guestSessionId) => new()

@@ -120,10 +120,20 @@ import { AppInfoBannerComponent } from '../../shared/components/app-info-banner/
 
             <div class="ctrl-sep"></div>
 
-            <!-- Hype Battle section (only when tied) -->
+            <!-- Tie Detected: Sudden Death + Hype Battle, both tiebreaker options for the same tie -->
             @if (tiedNomIds().size > 0) {
               <div class="ctrl-section">
-                <span class="ctrl-label">🔥 Hype Battle</span>
+                <span class="ctrl-label" style="color:#ff7043;opacity:1">🔥 Tie Detected</span>
+
+                @if (w.status === 'Voting') {
+                  <div class="preset-row">
+                    <button class="preset-btn sd" (click)="suddenDeathDurationChange.emit(60); startSuddenDeathClick.emit()">1:00</button>
+                    <button class="preset-btn sd" (click)="suddenDeathDurationChange.emit(90); startSuddenDeathClick.emit()">1:30</button>
+                    <button class="preset-btn sd" (click)="suddenDeathDurationChange.emit(120); startSuddenDeathClick.emit()">2:00</button>
+                  </div>
+                }
+
+                <div style="font-size:0.68rem;opacity:0.4;margin:8px 0 4px">Or settle it with a hype battle — most taps wins (only if votes are still tied):</div>
                 @if (!hypeBattleEndsAt()) {
                   <div class="preset-row">
                     <button class="preset-btn" (click)="startHypeBattleClick.emit(30)">30s</button>
@@ -131,30 +141,16 @@ import { AppInfoBannerComponent } from '../../shared/components/app-info-banner/
                     <button class="preset-btn" (click)="startHypeBattleClick.emit(90)">1:30</button>
                   </div>
                 } @else {
-                  <button class="ctrl-btn stop" style="width:100%" (click)="endHypeBattleClick.emit()">Stop Battle</button>
+                  <button class="ctrl-btn stop" style="width:100%" (click)="endHypeBattleClick.emit()">Stop Hype Battle</button>
                 }
               </div>
-
-              <div class="ctrl-sep"></div>
+            } @else if (w.status === 'Voting') {
+              <div class="ctrl-section">
+                <button class="ctrl-btn danger" style="width:100%" (click)="endVotingClick.emit()">
+                  End Voting
+                </button>
+              </div>
             }
-
-            <!-- End Voting / Sudden Death -->
-            <div class="ctrl-section">
-              @if (w.status === 'Voting') {
-                @if (tiedNomIds().size > 0) {
-                  <span class="ctrl-label" style="color:#ff7043;opacity:1">Tie detected — Sudden Death</span>
-                  <div class="preset-row">
-                    <button class="preset-btn sd" (click)="suddenDeathDurationChange.emit(60); startSuddenDeathClick.emit()">1:00</button>
-                    <button class="preset-btn sd" (click)="suddenDeathDurationChange.emit(90); startSuddenDeathClick.emit()">1:30</button>
-                    <button class="preset-btn sd" (click)="suddenDeathDurationChange.emit(120); startSuddenDeathClick.emit()">2:00</button>
-                  </div>
-                } @else {
-                  <button class="ctrl-btn danger" style="width:100%" (click)="endVotingClick.emit()">
-                    End Voting
-                  </button>
-                }
-              }
-            </div>
           }
         </div>
       }

@@ -30,6 +30,13 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
             await CheckAndAutoCloseSuddenDeathAsync(week, force: true);
         }
 
+        if (week.Status != WinWeekStatus.Closed &&
+            week.HypeBattleEndsAt.HasValue &&
+            DateTimeOffset.UtcNow > week.HypeBattleEndsAt.Value)
+        {
+            await ResolveHypeBattleAsync(week);
+        }
+
         var nominations = await db.WinNominations
             .Include(n => n.TeamMember)
             .Include(n => n.Nominee)
@@ -82,6 +89,7 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
             OpenedAt = week.OpenedAt,
             ClosedAt = week.ClosedAt,
             SuddenDeathEndsAt = week.SuddenDeathEndsAt,
+            HypeBattleEndsAt = week.HypeBattleEndsAt,
             CurrentMemberId = currentMemberId,
             UserVotesRemaining = week.Status == WinWeekStatus.SuddenDeath ? Math.Max(0, 1 - userSuddenDeathVoteCount) : MaxVotesPerPerson - userVoteCount,
             UserNominationsRemaining = MaxNominationsPerPerson - userNominationCount,
@@ -947,6 +955,95 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
         var week = await db.WinWeeks.FindAsync(weekId);
         if (week is null || week.Status != WinWeekStatus.SuddenDeath) return;
         await CheckAndAutoCloseSuddenDeathAsync(week, force: true);
+    }
+
+    public async Task AutoResolveExpiredHypeBattleAsync(Guid weekId)
+    {
+        var week = await db.WinWeeks.FindAsync(weekId);
+        if (week is null || week.Status == WinWeekStatus.Closed) return;
+        await ResolveHypeBattleAsync(week);
+    }
+
+    private async Task ResolveHypeBattleAsync(WinWeek week)
+    {
+        week.HypeBattleEndsAt = null;
+
+        List<Guid> tiedIds;
+        if (!string.IsNullOrEmpty(week.TiedNominationIds))
+        {
+            tiedIds = JsonSerializer.Deserialize<List<Guid>>(week.TiedNominationIds) ?? [];
+        }
+        else
+        {
+            // Tie detected during Voting, before Sudden Death was started -- recompute from current votes.
+            var voteCounts = await db.WinNominations
+                .Where(n => n.WinWeekId == week.Id)
+                .Select(n => new { n.Id, VoteCount = n.Votes.Count })
+                .ToListAsync();
+            var topCount = voteCounts.Count > 0 ? voteCounts.Max(v => v.VoteCount) : 0;
+            tiedIds = topCount > 0
+                ? voteCounts.Where(v => v.VoteCount == topCount).Select(v => v.Id).ToList()
+                : [];
+        }
+
+        if (tiedIds.Count < 2)
+        {
+            await db.SaveChangesAsync();
+            return;
+        }
+
+        // A clear vote leader among the tied nominations wins outright -- hype only breaks a continuing tie.
+        var votes = await db.WinVotes
+            .Where(v => tiedIds.Contains(v.WinNominationId))
+            .GroupBy(v => v.WinNominationId)
+            .Select(g => new { NominationId = g.Key, VoteCount = g.Count() })
+            .ToListAsync();
+
+        var maxVotes = votes.Count > 0 ? votes.Max(v => v.VoteCount) : 0;
+        var voteLeaders = votes.Where(v => v.VoteCount == maxVotes).Select(v => v.NominationId).ToList();
+
+        Guid winnerId;
+        if (voteLeaders.Count == 1)
+        {
+            winnerId = voteLeaders[0];
+        }
+        else
+        {
+            var hypeCounts = await db.WinNominations
+                .Where(n => tiedIds.Contains(n.Id))
+                .Select(n => new { n.Id, n.HypeMeterCount })
+                .ToListAsync();
+
+            var maxHype = hypeCounts.Count > 0 ? hypeCounts.Max(h => h.HypeMeterCount) : 0;
+            var hypeLeaders = hypeCounts.Where(h => h.HypeMeterCount == maxHype).Select(h => h.Id).ToList();
+
+            winnerId = hypeLeaders.Count > 0
+                ? hypeLeaders[Random.Shared.Next(hypeLeaders.Count)]
+                : tiedIds[Random.Shared.Next(tiedIds.Count)];
+        }
+
+        week.Status = WinWeekStatus.Closed;
+        week.WinnerNominationId = winnerId;
+        week.ClosedAt = DateTimeOffset.UtcNow;
+        week.TiedNominationIds = null;
+        week.SuddenDeathEndsAt = null;
+        await db.SaveChangesAsync();
+
+        var winnerNom = await db.WinNominations
+            .Include(n => n.Nominee)
+            .FirstAsync(n => n.Id == week.WinnerNominationId!.Value);
+
+        await AwardWeeklyAchievementAsync(winnerNom.NomineeMemberId, week.WeekStart);
+        if (winnerNom.TeamMemberId.HasValue)
+            await GrantBonusTokenAsync(winnerNom.TeamMemberId.Value, week.Id);
+
+        EnqueueAndGenerateWinStory(week.Id, $"{winnerNom.Nominee.FirstName} {winnerNom.Nominee.LastName}", winnerNom.Title, winnerNom.Description);
+
+        _ = WebSocketMiddleware.BroadcastAsync("voting_closed", new
+        {
+            weekId = week.Id,
+            winnerId = week.WinnerNominationId
+        }, guestAllowed: true);
     }
 
     private async Task CheckAndAutoCloseSuddenDeathAsync(WinWeek week, bool force = false)

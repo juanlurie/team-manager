@@ -331,10 +331,15 @@ public class WinOfTheWeekController(IWinOfTheWeekService service, WinSeriesServi
         var week = await db.WinWeeks
             .Where(w => w.WinSeriesId == sid && w.Status != WinWeekStatus.Closed)
             .OrderByDescending(w => w.WeekStart)
-            .Select(w => new { w.GuestToken })
             .FirstOrDefaultAsync();
 
         var endsAt = DateTimeOffset.UtcNow.AddSeconds(request.DurationSeconds);
+        if (week is not null)
+        {
+            week.HypeBattleEndsAt = endsAt;
+            await db.SaveChangesAsync();
+        }
+
         if (week?.GuestToken is { } token)
             _ = WebSocketMiddleware.BroadcastToSessionAsync("wow_hype_battle_started", token, new { endsAt });
         else
@@ -351,8 +356,14 @@ public class WinOfTheWeekController(IWinOfTheWeekService service, WinSeriesServi
         var week = await db.WinWeeks
             .Where(w => w.WinSeriesId == sid && w.Status != WinWeekStatus.Closed)
             .OrderByDescending(w => w.WeekStart)
-            .Select(w => new { w.GuestToken })
             .FirstOrDefaultAsync();
+
+        // Manual stop just ends the mini-game -- no auto-resolve, unlike letting the timer run out.
+        if (week is not null)
+        {
+            week.HypeBattleEndsAt = null;
+            await db.SaveChangesAsync();
+        }
 
         if (week?.GuestToken is { } token)
             _ = WebSocketMiddleware.BroadcastToSessionAsync("wow_hype_battle_ended", token, new { });
