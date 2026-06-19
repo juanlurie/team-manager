@@ -69,7 +69,7 @@ const CHAOS_CARD_META: Record<WowChaosCard, { label: string }> = {
     .hype-btn { background: rgba(255,87,34,0.15); border: 1px solid rgba(255,87,34,0.35); border-radius: 20px; padding: 4px 12px; cursor: pointer; color: #ff7043; font-size: 0.82rem; font-weight: 700; transition: background 0.15s; }
     .hype-btn:hover { background: rgba(255,87,34,0.28); }
     .hype-btn:active { transform: scale(0.93); }
-    .apply-menu-btn { font-size: 0.72rem; height: 26px; line-height: 26px; padding: 0 8px; opacity: 0.7; }
+    .apply-menu-btn { font-size: 0.72rem; height: 26px; line-height: 26px; padding: 0 8px; opacity: 0.7; white-space: nowrap; flex-shrink: 0; }
     .flame-bar-wrap { margin-top: 10px; }
     .flame-bar-bg { height: 6px; border-radius: 3px; background: rgba(255,255,255,0.08); overflow: hidden; }
     .flame-bar-fill { height: 100%; border-radius: 3px; transition: width 0.5s ease; background: linear-gradient(90deg,#ff7043,#ffd600); }
