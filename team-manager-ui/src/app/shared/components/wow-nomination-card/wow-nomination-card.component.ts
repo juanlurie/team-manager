@@ -52,9 +52,10 @@ const CHAOS_CARD_META: Record<WowChaosCard, { label: string }> = {
     .card { transition: border 0.3s, background 0.3s, transform 0.3s; position: relative; }
     .card.tiny { transform: scale(0.62); transform-origin: top left; }
     .card.spotlight { border-color: rgba(255,215,0,0.5) !important; }
-    .hype-btn { background: rgba(255,87,34,0.15); border: 1px solid rgba(255,87,34,0.35); border-radius: 20px; padding: 4px 12px; cursor: pointer; color: #ff7043; font-size: 0.82rem; font-weight: 700; transition: background 0.15s; }
+    .hype-btn { background: rgba(255,87,34,0.15); border: 1px solid rgba(255,87,34,0.35); border-radius: 24px; padding: 8px 18px; cursor: pointer; color: #ff7043; font-size: 0.88rem; font-weight: 700; transition: background 0.15s; touch-action: manipulation; display: inline-flex; align-items: center; gap: 8px; }
     .hype-btn:hover { background: rgba(255,87,34,0.28); }
     .hype-btn:active { transform: scale(0.93); }
+    .hype-btn .flame-icon { font-size: 1.5rem; line-height: 1; }
     .apply-menu-btn { font-size: 0.72rem; height: 26px; line-height: 26px; padding: 0 8px; opacity: 0.7; white-space: nowrap; flex-shrink: 0; }
     .flame-bar-wrap { margin-top: 10px; }
     .flame-bar-bg { height: 6px; border-radius: 3px; background: rgba(255,255,255,0.08); overflow: hidden; }
@@ -123,7 +124,8 @@ const CHAOS_CARD_META: Record<WowChaosCard, { label: string }> = {
         <!-- Hype Meter tap button (during an active host-controlled Hype Battle) -->
         @if (showEffects && weekStatus() !== 'Closed' && hypeBattleActive()) {
           <button class="hype-btn" style="margin-top:8px" (click)="hypeClick.emit(nom.id); $event.stopPropagation()">
-            🔥 @if (hypeBattleActive()) { Battle Hype! } @else { Hype! } ({{nom.hypeMeterCount}})
+            <span class="flame-icon">🔥</span>
+            @if (hypeBattleActive()) { Battle Hype! } @else { Hype! } ({{nom.hypeMeterCount}})
           </button>
         }
 
