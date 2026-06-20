@@ -24,6 +24,7 @@ export interface QuizGameSession {
   currentOptions: string[];
   currentQuestionEndsAt: string | null;
   currentQuestionRevealed: boolean;
+  revealEndsAt: string | null;
   currentCorrectIndex: number | null;
   myAnswerIndex: number | null;
   answeredMemberIds: string[];

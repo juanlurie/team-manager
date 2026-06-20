@@ -12,6 +12,7 @@ import { QuizGameService } from '../../core/services/quiz-game.service';
 import { QuizGameSession, QuizGameSessionSummary } from '../../core/models/quiz-game.model';
 import { WebSocketService } from '../../core/websocket/websocket.service';
 import { WowCountdownComponent } from '../../shared/components/wow-countdown/wow-countdown.component';
+import { RevealProgressBarComponent } from '../../shared/components/reveal-progress-bar/reveal-progress-bar.component';
 
 @Component({
   selector: 'app-create-quiz-game-dialog',
@@ -55,7 +56,7 @@ export class CreateQuizGameDialogComponent {
   standalone: true,
   imports: [
     FormsModule, MatButtonModule, MatIconModule, MatDialogModule,
-    MatSnackBarModule, MatProgressSpinnerModule, WowCountdownComponent
+    MatSnackBarModule, MatProgressSpinnerModule, WowCountdownComponent, RevealProgressBarComponent
   ],
   changeDetection: ChangeDetectionStrategy.Default,
   styles: [`
@@ -125,12 +126,8 @@ export class CreateQuizGameDialogComponent {
           <div class="game-card">
             <div style="display:flex;justify-content:space-between;align-items:center">
               <div class="session-title" style="font-size:1.05rem">{{ s.title || 'Quiz Game' }}</div>
-              @if (s.status === 'InProgress') {
-                @if (!s.currentQuestionRevealed) {
-                  <app-wow-countdown [endsAt]="s.currentQuestionEndsAt" />
-                } @else {
-                  <span style="font-size:0.75rem;opacity:0.6;font-weight:600">Revealed!</span>
-                }
+              @if (s.status === 'InProgress' && !s.currentQuestionRevealed) {
+                <app-wow-countdown [endsAt]="s.currentQuestionEndsAt" />
               }
             </div>
 
@@ -174,6 +171,11 @@ export class CreateQuizGameDialogComponent {
 
               @if (s.isParticipant && s.myAnswerIndex !== null && !s.currentQuestionRevealed) {
                 <div style="font-size:0.78rem;opacity:0.5;margin-top:10px;text-align:center">Answer locked in — waiting on the others…</div>
+              }
+
+              @if (s.currentQuestionRevealed) {
+                <div style="font-size:0.75rem;opacity:0.6;font-weight:600;margin-top:10px;text-align:center">Next question coming up…</div>
+                <app-reveal-progress-bar [endsAt]="s.revealEndsAt" />
               }
 
               <div class="scoreboard">

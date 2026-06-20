@@ -14,6 +14,7 @@ import { WowCountdownComponent } from '../../shared/components/wow-countdown/wow
 import { AppLoadingComponent } from '../../shared/components/app-loading/app-loading.component';
 import { AppEmptyStateComponent } from '../../shared/components/app-empty-state/app-empty-state.component';
 import { AppInfoBannerComponent } from '../../shared/components/app-info-banner/app-info-banner.component';
+import { RevealProgressBarComponent } from '../../shared/components/reveal-progress-bar/reveal-progress-bar.component';
 
 @Component({
   selector: 'app-wow-current-week',
@@ -31,7 +32,8 @@ import { AppInfoBannerComponent } from '../../shared/components/app-info-banner/
     WowCountdownComponent,
     AppLoadingComponent,
     AppEmptyStateComponent,
-    AppInfoBannerComponent
+    AppInfoBannerComponent,
+    RevealProgressBarComponent
   ],
   changeDetection: ChangeDetectionStrategy.Default,
   styles: [`
@@ -385,6 +387,10 @@ import { AppInfoBannerComponent } from '../../shared/components/app-info-banner/
 
               @if (!w.quizRevealed && isQuizParticipant() && hasAnsweredQuiz()) {
                 <div style="font-size:0.8rem;opacity:0.5;margin-top:8px">Answer locked in — waiting on the others…</div>
+              }
+
+              @if (w.quizRevealed && !w.quizWinnerName) {
+                <app-reveal-progress-bar [endsAt]="w.quizRevealEndsAt" />
               }
 
               @if (w.quizWinnerName && isHost()) {

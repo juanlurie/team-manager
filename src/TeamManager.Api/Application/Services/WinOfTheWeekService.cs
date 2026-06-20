@@ -17,6 +17,7 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
 {
     private const int MaxNominationsPerPerson = 3;
     private const int MaxVotesPerPerson = 3;
+    internal const int QuizRevealDisplaySeconds = 5;
 
     public async Task<WinWeekDto?> GetCurrentWeekAsync(Guid currentMemberId, Guid seriesId)
     {
@@ -107,6 +108,8 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
             QuizAnsweredMemberIds = quizAnsweredMemberIds,
             QuizEligible = quizEligible,
             QuizRevealed = week.QuizRevealed,
+            QuizRevealEndsAt = week.QuizRevealed && !week.QuizWinnerMemberId.HasValue
+                ? week.QuizRevealedAt?.AddSeconds(QuizRevealDisplaySeconds) : null,
             QuizCorrectIndex = week.QuizRevealed ? week.QuizCorrectIndex : null,
             QuizMyAnswerIndex = quizMyAnswer?.SelectedIndex,
             QuizWinnerMemberId = week.QuizWinnerMemberId,
@@ -1123,7 +1126,7 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
             // A winner was found -- wait for the host to explicitly complete the week, don't auto-close.
             if (week.QuizWinnerMemberId.HasValue) return;
             // Nobody got it -- show the reveal for a few seconds, then loop into a fresh question automatically.
-            if (week.QuizRevealedAt is null || DateTimeOffset.UtcNow <= week.QuizRevealedAt.Value.AddSeconds(5)) return;
+            if (week.QuizRevealedAt is null || DateTimeOffset.UtcNow <= week.QuizRevealedAt.Value.AddSeconds(QuizRevealDisplaySeconds)) return;
             await BeginNextQuizRoundAsync(week);
             return;
         }
