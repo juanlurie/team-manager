@@ -978,7 +978,7 @@ export class ApiRequestConfigEditComponent implements OnInit {
       return [...base, 'id', 'date', 'project', 'category', 'categoryId', 'employeeId', 'workedFromLocationId', 'hours', 'minutes', 'billable', 'workedFrom', 'sentiment', 'description', 'ticketNumber'];
     }
     if (action === 'GenerateJoke') return [...base, 'jokeType', 'seed'];
-    if (action === 'GenerateQuizQuestion') return [...base, 'seed'];
+    if (action === 'GenerateQuizQuestion') return [...base, 'topic', 'angle', 'recentTopics'];
     if (action === 'AiChatWinStory') return [...base, 'nominee', 'title', 'description'];
     if (action === 'FetchLeave') return [...base, 'start', 'end', 'teamIds'];
     if (action === 'FetchCalendarEvents') return [...base, 'start', 'end', 'teamIds'];
@@ -999,7 +999,8 @@ export class ApiRequestConfigEditComponent implements OnInit {
     'start', 'end', 'teamIds', 'date', 'id', 'project', 'category',
     'hours', 'minutes', 'billable', 'workedFrom', 'sentiment',
     'description', 'ticketNumber', 'jokeType', 'seed', 'nominee', 'title',
-    'employeeId', 'categoryId', 'workedFromLocationId', 'timesheetEntryId'
+    'employeeId', 'categoryId', 'workedFromLocationId', 'timesheetEntryId',
+    'topic', 'angle', 'recentTopics'
   ]);
   codeFormat = signal<'curl' | 'http'>('curl');
   showTestVars = signal(false);
@@ -1138,7 +1139,8 @@ export class ApiRequestConfigEditComponent implements OnInit {
     const defaults: Record<string, string> = {
       date: today, hours: '1', minutes: '0', billable: 'true',
       workedFrom: '', sentiment: '', description: 'Test', ticketNumber: '', category: '', project: '', id: '',
-      seed: 'a1b2c3d4', jokeType: 'dad joke', nominee: 'Jane Doe', title: 'Shipped the new feature'
+      seed: 'a1b2c3d4', jokeType: 'dad joke', nominee: 'Jane Doe', title: 'Shipped the new feature',
+      topic: 'space and astronomy', angle: 'an obscure fact about', recentTopics: 'history, sports records'
     };
     return defaults[v] ?? '';
   }

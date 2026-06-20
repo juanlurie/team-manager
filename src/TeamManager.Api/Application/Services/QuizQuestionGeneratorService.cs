@@ -12,6 +12,35 @@ namespace TeamManager.Api.Application.Services;
 // is configured and enabled, falling back to a built-in question bank otherwise.
 public class QuizQuestionGeneratorService(AppDbContext db)
 {
+    private const int MaxGenerationAttempts = 3;
+    private const int RecentTopicsBufferSize = 10;
+    private const int SeenQuestionsBufferSize = 500;
+
+    private static readonly string[] TopicPool =
+    [
+        "ancient history", "world geography", "space and astronomy", "marine biology",
+        "classical music", "pop culture and movies", "video games", "sports records",
+        "world cuisine and food", "greek mythology", "norse mythology", "famous inventions",
+        "computer science", "human anatomy", "world currencies", "board games and card games",
+        "architecture and landmarks", "literature and authors", "wildlife and animals",
+        "chemistry and elements", "olympic history", "art history", "language and etymology",
+        "weather and natural phenomena",
+    ];
+
+    private static readonly string[] AngleModifiers =
+    [
+        "an obscure fact about", "a classic trivia question about", "a tricky question about",
+        "a fun fact about", "a lesser-known detail about", "a numbers-based question about",
+        "a who-or-what question about", "a surprising fact about",
+    ];
+
+    // Process-lifetime state shared across all callers (WoW Quiz Duel + standalone Quiz Game) --
+    // deliberately global rather than per-session, since the goal is just to avoid the AI repeating
+    // itself in quick succession, not to track history per game.
+    private static readonly object StateLock = new();
+    private static readonly Queue<string> RecentTopics = new();
+    private static readonly HashSet<string> SeenQuestions = new();
+
     private static readonly (string Question, string[] Options, int CorrectIndex)[] FallbackQuestions =
     [
         ("What is the capital of France?", ["Paris", "Berlin", "Madrid", "Rome"], 0),
@@ -37,11 +66,62 @@ public class QuizQuestionGeneratorService(AppDbContext db)
         return (q.Question, q.Options, q.CorrectIndex);
     }
 
+    // Picks a topic that isn't in the recent-use buffer (falls back to any topic if the whole
+    // pool is somehow excluded) plus a random angle, and records the topic as just-used.
+    private static (string Topic, string Angle, string RecentTopicsCsv) SelectTopicAndAngle()
+    {
+        lock (StateLock)
+        {
+            var recentSnapshot = RecentTopics.ToArray();
+            var available = TopicPool.Except(recentSnapshot).ToArray();
+            var pool = available.Length > 0 ? available : TopicPool;
+            var topic = pool[Random.Shared.Next(pool.Length)];
+            var angle = AngleModifiers[Random.Shared.Next(AngleModifiers.Length)];
+
+            RecentTopics.Enqueue(topic);
+            while (RecentTopics.Count > RecentTopicsBufferSize) RecentTopics.Dequeue();
+
+            return (topic, angle, string.Join(", ", recentSnapshot));
+        }
+    }
+
+    private static bool TryRecordIfNew(string question)
+    {
+        lock (StateLock)
+        {
+            if (!SeenQuestions.Add(question)) return false;
+            if (SeenQuestions.Count > SeenQuestionsBufferSize)
+            {
+                // Cheap unbounded-growth guard -- not strict LRU, just periodic resets.
+                SeenQuestions.Clear();
+                SeenQuestions.Add(question);
+            }
+            return true;
+        }
+    }
+
     public async Task<(string Question, string[] Options, int CorrectIndex)> GenerateAsync(string sourceType, string label)
     {
         var config = await db.ApiRequestConfigs.FirstOrDefaultAsync(c => c.Action == "GenerateQuizQuestion" && c.Enabled);
         if (config is null) return RandomFallback();
 
+        for (var attempt = 1; attempt <= MaxGenerationAttempts; attempt++)
+        {
+            var (topic, angle, recentTopicsCsv) = SelectTopicAndAngle();
+            var result = await TryGenerateOnceAsync(config, sourceType, $"{label} (attempt {attempt})", topic, angle, recentTopicsCsv);
+            if (result is null) continue; // call/parse failed -- try a different topic
+
+            if (TryRecordIfNew(result.Question))
+                return (result.Question, result.Options, result.CorrectIndex);
+            // Duplicate of a recently-seen question -- retry with a fresh topic/angle.
+        }
+
+        return RandomFallback();
+    }
+
+    private async Task<QuizGenResult?> TryGenerateOnceAsync(
+        ApiRequestConfig config, string sourceType, string label, string topic, string angle, string recentTopicsCsv)
+    {
         var parameters = string.IsNullOrWhiteSpace(config.ParametersJson)
             ? new Dictionary<string, string>()
             : JsonSerializer.Deserialize<Dictionary<string, string>>(config.ParametersJson) ?? new();
@@ -54,7 +134,12 @@ public class QuizQuestionGeneratorService(AppDbContext db)
             : JsonSerializer.Deserialize<MappingConfigDto>(config.MappingJson, mappingOpts) ?? new();
         var textPath = mapping.TextResponsePath;
 
-        parameters["seed"] = Guid.NewGuid().ToString("N")[..8];
+        // No "seed" -- it forced deterministic, repeated outputs. Topic/angle/recentTopics drive
+        // variety instead; the admin's stored prompt body needs {topic}/{angle}/{recentTopics}
+        // placeholders to actually use them.
+        parameters["topic"] = topic;
+        parameters["angle"] = angle;
+        parameters["recentTopics"] = recentTopicsCsv;
 
         // Storage: non-secret values only -- stored URL/body/headers are safe to return to clients.
         var publicConfigVars = await ConfigVariableResolver.LoadPublicAsync(db);
@@ -116,7 +201,7 @@ public class QuizQuestionGeneratorService(AppDbContext db)
             {
                 evt.Status = "failed";
                 await db.SaveChangesAsync();
-                return RandomFallback();
+                return null;
             }
 
             var extracted = WinOfTheWeekService.ExtractTextAtPath(responseBody, textPath ?? "");
@@ -126,12 +211,12 @@ public class QuizQuestionGeneratorService(AppDbContext db)
             {
                 evt.Status = "failed";
                 await db.SaveChangesAsync();
-                return RandomFallback();
+                return null;
             }
 
             evt.Status = "sent";
             await db.SaveChangesAsync();
-            return (parsed.Question, parsed.Options, parsed.CorrectIndex);
+            return parsed;
         }
         catch (Exception ex)
         {
@@ -139,7 +224,7 @@ public class QuizQuestionGeneratorService(AppDbContext db)
             evt.ResponseBody = ex.Message;
             evt.SentAt = DateTimeOffset.UtcNow;
             await db.SaveChangesAsync();
-            return RandomFallback();
+            return null;
         }
     }
 
