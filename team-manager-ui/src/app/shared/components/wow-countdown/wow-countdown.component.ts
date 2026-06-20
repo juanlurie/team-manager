@@ -62,9 +62,17 @@ export class WowCountdownComponent implements OnInit, OnDestroy {
 
   ngOnInit() {
     this.tick = setInterval(() => this.now.set(Date.now()), 1000);
+    // Mobile browsers throttle setInterval when the screen dims or the tab backgrounds --
+    // resync immediately on resume so the displayed time doesn't sit stale.
+    document.addEventListener('visibilitychange', this.onVisibilityChange);
   }
 
   ngOnDestroy() {
     if (this.tick) clearInterval(this.tick);
+    document.removeEventListener('visibilitychange', this.onVisibilityChange);
   }
+
+  private onVisibilityChange = () => {
+    if (document.visibilityState === 'visible') this.now.set(Date.now());
+  };
 }
