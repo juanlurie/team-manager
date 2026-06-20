@@ -1234,7 +1234,10 @@ export class ApiRequestConfigEditComponent implements OnInit {
   private computeSegs(template: string): CodeSegment[] {
     const { params, cookieVars } = this.getResolveContext();
     const segs: CodeSegment[] = [];
-    for (const part of template.split(/(\{[^}]+\})/)) {
+    // Split only on clean {word} tokens -- a naive "{ any non-} chars }" split would let an
+    // unrelated literal '{' earlier in the template (e.g. a JSON body's opening brace) swallow
+    // the next real placeholder up through its closing '}', leaving it unstyled.
+    for (const part of template.split(/(\{\w+\})/)) {
       const m = part.match(/^\{(\w+)\}$/);
       if (!m) { if (part) segs.push({ text: part, kind: 'plain' }); continue; }
       const k = m[1];
@@ -1394,7 +1397,9 @@ export class ApiRequestConfigEditComponent implements OnInit {
 
   private resolveToSegments(template: string, params: Record<string,string>, cookieVars: Record<string,string>): CodeSegment[] {
     const segs: CodeSegment[] = [];
-    const parts = template.split(/(\{[^}]+\})/);
+    // Same fix as computeSegs() -- split only on clean {word} tokens so an unrelated literal '{'
+    // earlier in the template can't swallow the next real placeholder.
+    const parts = template.split(/(\{\w+\})/);
     for (const part of parts) {
       const m = part.match(/^\{(\w+)\}$/);
       if (!m) { if (part) segs.push({ text: part, kind: 'plain' }); continue; }

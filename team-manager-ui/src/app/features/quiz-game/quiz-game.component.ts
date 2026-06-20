@@ -139,7 +139,10 @@ export class CreateQuizGameDialogComponent {
                 }
               </div>
               @if (s.isCreator) {
-                <button mat-flat-button color="primary" style="width:100%;margin-top:14px" (click)="startSession()">Start Game</button>
+                <button mat-flat-button color="primary" style="width:100%;margin-top:14px" [disabled]="starting()" (click)="startSession()">
+                  @if (starting()) { <mat-spinner diameter="18" style="display:inline-block;vertical-align:middle" /> Starting… }
+                  @else { Start Game }
+                </button>
               } @else if (!s.isParticipant) {
                 <button mat-stroked-button style="width:100%;margin-top:14px" (click)="joinSelected()">Join Game</button>
               }
@@ -174,8 +177,14 @@ export class CreateQuizGameDialogComponent {
               }
 
               @if (s.currentQuestionRevealed) {
-                <div style="font-size:0.75rem;opacity:0.6;font-weight:600;margin-top:10px;text-align:center">Next question coming up…</div>
-                <app-reveal-progress-bar [endsAt]="s.revealEndsAt" />
+                @if (loadingNextQuestion()) {
+                  <div style="font-size:0.78rem;opacity:0.6;text-align:center;margin-top:10px;display:flex;align-items:center;justify-content:center;gap:8px">
+                    <mat-spinner diameter="16" /> Loading next question…
+                  </div>
+                } @else {
+                  <div style="font-size:0.75rem;opacity:0.6;font-weight:600;margin-top:10px;text-align:center">Next question coming up…</div>
+                  <app-reveal-progress-bar [endsAt]="s.revealEndsAt" (drained)="loadingNextQuestion.set(true)" />
+                }
               }
 
               <div class="scoreboard">
@@ -223,6 +232,8 @@ export class QuizGameComponent implements OnInit, OnDestroy {
   sessions = signal<QuizGameSessionSummary[]>([]);
   selectedSession = signal<QuizGameSession | null>(null);
   selectedSessionLoading = signal(false);
+  starting = signal(false);
+  loadingNextQuestion = signal(false);
 
   topScore = computed(() => {
     const s = this.selectedSession();
@@ -287,13 +298,21 @@ export class QuizGameComponent implements OnInit, OnDestroy {
     });
   }
 
+  // Centralizes selectedSession updates so the "loading next question" spinner always clears
+  // the moment a fresh (non-revealed) question actually arrives.
+  private applySession(d: QuizGameSession) {
+    if (!d.currentQuestionRevealed) this.loadingNextQuestion.set(false);
+    this.selectedSession.set(d);
+  }
+
   selectSession(summary: QuizGameSessionSummary) {
     this.selectedSessionLoading.set(true);
+    this.loadingNextQuestion.set(false);
     const load = summary.status === 'Waiting'
       ? this.service.joinSession(summary.id)
       : this.service.getSession(summary.id);
     load.subscribe({
-      next: d => { this.selectedSession.set(d); this.selectedSessionLoading.set(false); },
+      next: d => { this.applySession(d); this.selectedSessionLoading.set(false); },
       error: () => { this.selectedSessionLoading.set(false); this.snackBar.open('Failed to open game', 'Close', { duration: 4000 }); }
     });
   }
@@ -302,20 +321,21 @@ export class QuizGameComponent implements OnInit, OnDestroy {
     const s = this.selectedSession();
     if (!s) return;
     this.service.joinSession(s.id).subscribe({
-      next: d => this.selectedSession.set(d),
+      next: d => this.applySession(d),
       error: () => this.snackBar.open('Failed to join', 'Close', { duration: 4000 })
     });
   }
 
   backToLobby() {
     this.selectedSession.set(null);
+    this.loadingNextQuestion.set(false);
     this.loadSessions();
   }
 
   refreshSelected() {
     const s = this.selectedSession();
     if (!s) return;
-    this.service.getSession(s.id).subscribe({ next: d => this.selectedSession.set(d) });
+    this.service.getSession(s.id).subscribe({ next: d => this.applySession(d) });
   }
 
   openCreateDialog() {
@@ -323,7 +343,7 @@ export class QuizGameComponent implements OnInit, OnDestroy {
       .afterClosed().subscribe(result => {
         if (!result) return;
         this.service.createSession({ title: result.title, questionCount: result.questionCount }).subscribe({
-          next: d => { this.selectedSession.set(d); this.snackBar.open('Game created — start it when ready', 'Close', { duration: 3000 }); },
+          next: d => { this.applySession(d); this.snackBar.open('Game created — start it when ready', 'Close', { duration: 3000 }); },
           error: () => this.snackBar.open('Failed to create game', 'Close', { duration: 4000 })
         });
       });
@@ -331,10 +351,11 @@ export class QuizGameComponent implements OnInit, OnDestroy {
 
   startSession() {
     const s = this.selectedSession();
-    if (!s) return;
+    if (!s || this.starting()) return;
+    this.starting.set(true);
     this.service.startSession(s.id).subscribe({
-      next: d => this.selectedSession.set(d),
-      error: (err) => this.snackBar.open(err.error?.error ?? 'Failed to start game', 'Close', { duration: 4000 })
+      next: d => { this.applySession(d); this.starting.set(false); },
+      error: (err) => { this.starting.set(false); this.snackBar.open(err.error?.error ?? 'Failed to start game', 'Close', { duration: 4000 }); }
     });
   }
 

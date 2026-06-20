@@ -1,8 +1,10 @@
-import { Component, computed, input, ChangeDetectionStrategy } from '@angular/core';
+import { Component, computed, input, output, ChangeDetectionStrategy } from '@angular/core';
 
 // Shows how long until the next round starts, while a quiz answer is revealed.
 // Driven entirely by a CSS animation sized to the remaining time at render -- no JS ticking needed,
 // since `endsAt` is a fixed timestamp that doesn't change again until the component is torn down.
+// Emits `drained` once the bar empties, so the parent can show a loading spinner if the next
+// question hasn't actually arrived yet (e.g. the AI call is taking a moment).
 @Component({
   selector: 'app-reveal-progress-bar',
   standalone: true,
@@ -10,7 +12,7 @@ import { Component, computed, input, ChangeDetectionStrategy } from '@angular/co
   template: `
     @if (durationMs() > 0) {
       <div class="bar-track">
-        <div class="bar-fill" [style.animation-duration]="durationMs() + 'ms'"></div>
+        <div class="bar-fill" [style.animation-duration]="durationMs() + 'ms'" (animationend)="drained.emit()"></div>
       </div>
     }
   `,
@@ -42,6 +44,7 @@ import { Component, computed, input, ChangeDetectionStrategy } from '@angular/co
 })
 export class RevealProgressBarComponent {
   endsAt = input<string | null>(null);
+  drained = output<void>();
 
   readonly durationMs = computed(() => {
     const e = this.endsAt();
