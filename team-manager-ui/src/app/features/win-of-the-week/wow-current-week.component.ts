@@ -164,7 +164,7 @@ import { AppInfoBannerComponent } from '../../shared/components/app-info-banner/
                       Needs every tied nominee logged in right now to start
                     }
                   </div>
-                  <button class="ctrl-btn" style="width:100%" [disabled]="!quizEligible()"
+                  <button class="ctrl-btn" style="width:100%" [style.opacity]="quizEligible() ? 1 : 0.6"
                           [matTooltip]="quizEligible() ? '' : 'All tied nominees must be logged in and connected right now'"
                           (click)="startQuizClick.emit()">
                     🧠 Start Quiz Duel
