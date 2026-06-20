@@ -135,44 +135,51 @@ import { AppInfoBannerComponent } from '../../shared/components/app-info-banner/
               <div class="ctrl-section">
                 <span class="ctrl-label" style="color:#ff7043;opacity:1">🔥 Tie Detected</span>
 
-                @if (w.status === 'Voting') {
-                  <span class="ctrl-label" style="margin-bottom:4px">Sudden Death</span>
-                  <div style="font-size:0.68rem;opacity:0.4;margin-bottom:4px">Re-vote on the tied nominations</div>
-                  <div class="preset-row">
-                    <button class="preset-btn sd" (click)="suddenDeathDurationChange.emit(60); startSuddenDeathClick.emit()">1:00</button>
-                    <button class="preset-btn sd" (click)="suddenDeathDurationChange.emit(90); startSuddenDeathClick.emit()">1:30</button>
-                    <button class="preset-btn sd" (click)="suddenDeathDurationChange.emit(120); startSuddenDeathClick.emit()">2:00</button>
-                  </div>
-                  <span class="ctrl-label" style="margin:10px 0 4px">Hype Battle</span>
-                  <div style="font-size:0.68rem;opacity:0.4;margin-bottom:4px">Most taps wins instantly — only if votes are still tied</div>
+                @if (w.quizQuestion) {
+                  <!-- Quiz Duel is the active tiebreaker -- only one mini-game shows at a time -->
+                  <span class="ctrl-label" style="margin-bottom:4px">🧠 Quiz Duel running</span>
+                  <div style="font-size:0.68rem;opacity:0.4;margin-bottom:8px">Loops automatically until someone wins</div>
+                  <button class="ctrl-btn stop" style="width:100%" (click)="stopQuizClick.emit()">Stop Quiz Duel</button>
                 } @else {
-                  <span class="ctrl-label" style="margin-bottom:4px">Hype Battle</span>
-                  <div style="font-size:0.68rem;opacity:0.4;margin-bottom:4px">Most taps wins instantly — only if votes are still tied</div>
-                }
-                @if (!hypeBattleEndsAt()) {
-                  <div class="preset-row">
-                    <button class="preset-btn" (click)="startHypeBattleClick.emit(30)">30s</button>
-                    <button class="preset-btn" (click)="startHypeBattleClick.emit(60)">1:00</button>
-                    <button class="preset-btn" (click)="startHypeBattleClick.emit(90)">1:30</button>
-                  </div>
-                } @else {
-                  <button class="ctrl-btn stop" style="width:100%" (click)="endHypeBattleClick.emit()">Stop Hype Battle</button>
-                }
+                  @if (w.status === 'Voting') {
+                    <span class="ctrl-label" style="margin-bottom:4px">Sudden Death</span>
+                    <div style="font-size:0.68rem;opacity:0.4;margin-bottom:4px">Re-vote on the tied nominations</div>
+                    <div class="preset-row">
+                      <button class="preset-btn sd" (click)="suddenDeathDurationChange.emit(60); startSuddenDeathClick.emit()">1:00</button>
+                      <button class="preset-btn sd" (click)="suddenDeathDurationChange.emit(90); startSuddenDeathClick.emit()">1:30</button>
+                      <button class="preset-btn sd" (click)="suddenDeathDurationChange.emit(120); startSuddenDeathClick.emit()">2:00</button>
+                    </div>
+                    <span class="ctrl-label" style="margin:10px 0 4px">Hype Battle</span>
+                    <div style="font-size:0.68rem;opacity:0.4;margin-bottom:4px">Most taps wins instantly — only if votes are still tied</div>
+                  } @else {
+                    <span class="ctrl-label" style="margin-bottom:4px">Hype Battle</span>
+                    <div style="font-size:0.68rem;opacity:0.4;margin-bottom:4px">Most taps wins instantly — only if votes are still tied</div>
+                  }
+                  @if (!hypeBattleEndsAt()) {
+                    <div class="preset-row">
+                      <button class="preset-btn" (click)="startHypeBattleClick.emit(30)">30s</button>
+                      <button class="preset-btn" (click)="startHypeBattleClick.emit(60)">1:00</button>
+                      <button class="preset-btn" (click)="startHypeBattleClick.emit(90)">1:30</button>
+                    </div>
+                  } @else {
+                    <button class="ctrl-btn stop" style="width:100%" (click)="endHypeBattleClick.emit()">Stop Hype Battle</button>
+                  }
 
-                @if (!w.quizEndsAt) {
-                  <span class="ctrl-label" style="margin:10px 0 4px">Quiz Duel</span>
-                  <div style="font-size:0.68rem;opacity:0.4;margin-bottom:4px">
-                    @if (quizEligible()) {
-                      Tied nominees race to answer first — needs everyone logged in now
-                    } @else {
-                      Needs every tied nominee logged in right now to start
-                    }
-                  </div>
-                  <button class="ctrl-btn" style="width:100%" [style.opacity]="quizEligible() ? 1 : 0.6"
-                          [matTooltip]="quizEligible() ? '' : 'All tied nominees must be logged in and connected right now'"
-                          (click)="startQuizClick.emit()">
-                    🧠 Start Quiz Duel
-                  </button>
+                  @if (!hypeBattleEndsAt() && w.status !== 'SuddenDeath') {
+                    <span class="ctrl-label" style="margin:10px 0 4px">Quiz Duel</span>
+                    <div style="font-size:0.68rem;opacity:0.4;margin-bottom:4px">
+                      @if (quizEligible()) {
+                        Tied nominees race to answer first — needs everyone logged in now
+                      } @else {
+                        Needs every tied nominee logged in right now to start
+                      }
+                    </div>
+                    <button class="ctrl-btn" style="width:100%" [style.opacity]="quizEligible() ? 1 : 0.6"
+                            [matTooltip]="quizEligible() ? '' : 'All tied nominees must be logged in and connected right now'"
+                            (click)="startQuizClick.emit()">
+                      🧠 Start Quiz Duel
+                    </button>
+                  }
                 }
               </div>
             } @else if (w.status === 'Voting') {
@@ -329,17 +336,19 @@ import { AppInfoBannerComponent } from '../../shared/components/app-info-banner/
             </div>
           }
 
-          <!-- Quiz Duel banner: stays visible through the reveal even after the timer/EndsAt clears -->
-          @if (w?.quizQuestion && w) {
-            <div [style.background]="w.quizRevealed ? 'rgba(255,255,255,0.04)' : 'rgba(171,71,188,0.1)'"
-                 [style.border]="'1px solid ' + (w.quizRevealed ? 'rgba(255,255,255,0.15)' : 'rgba(171,71,188,0.4)')"
+          <!-- Quiz Duel banner: only shown while it's the active tiebreaker (no other tiebreaker running) -->
+          @if (w?.quizQuestion && w && !w.suddenDeathEndsAt && !w.hypeBattleEndsAt) {
+            <div [style.background]="w.quizWinnerName ? 'rgba(102,187,106,0.1)' : w.quizRevealed ? 'rgba(255,255,255,0.04)' : 'rgba(171,71,188,0.1)'"
+                 [style.border]="'1px solid ' + (w.quizWinnerName ? 'rgba(102,187,106,0.5)' : w.quizRevealed ? 'rgba(255,255,255,0.15)' : 'rgba(171,71,188,0.4)')"
                  style="border-radius:12px;padding:16px;margin-bottom:16px">
               <div style="display:flex;align-items:center;gap:14px;margin-bottom:12px">
                 <div style="flex:1">
                   <div style="font-weight:700;font-size:0.85rem;color:#ce93d8;text-transform:uppercase;letter-spacing:0.5px">🧠 Quiz Duel</div>
                   <div style="font-size:0.75rem;opacity:0.6;margin-top:2px">
-                    @if (w.quizRevealed) {
-                      Nobody got it this round — try Sudden Death or Hype Battle
+                    @if (w.quizWinnerName) {
+                      🎉 {{ w.quizWinnerName }} wins!
+                    } @else if (w.quizRevealed) {
+                      Nobody got it — next question coming up…
                     } @else if (isQuizParticipant()) {
                       First correct answer wins it all!
                     } @else {
@@ -376,6 +385,13 @@ import { AppInfoBannerComponent } from '../../shared/components/app-info-banner/
 
               @if (!w.quizRevealed && isQuizParticipant() && hasAnsweredQuiz()) {
                 <div style="font-size:0.8rem;opacity:0.5;margin-top:8px">Answer locked in — waiting on the others…</div>
+              }
+
+              @if (w.quizWinnerName && isHost()) {
+                <button class="ctrl-btn" style="width:100%;margin-top:12px;background:rgba(102,187,106,0.15);border-color:rgba(102,187,106,0.4);color:#81c784"
+                        (click)="completeQuizWinnerClick.emit()">
+                  ✅ Complete Win of the Week
+                </button>
               }
             </div>
           }
@@ -564,6 +580,8 @@ export class WowCurrentWeekComponent {
   endHypeBattleClick        = output();
   startQuizClick            = output();
   submitQuizAnswerClick     = output<number>();
+  completeQuizWinnerClick   = output();
+  stopQuizClick             = output();
   endVotingClick            = output();
   startSuddenDeathClick     = output();
   togglePowerUpsClick       = output();

@@ -27,4 +27,6 @@ public interface IWinOfTheWeekService
     Task<bool> IsQuizEligibleAsync(Guid weekId);
     Task<WinWeekDto> StartQuizAsync(Guid memberId, Guid weekId);
     Task<bool> SubmitQuizAnswerAsync(Guid memberId, Guid weekId, int selectedIndex);
+    Task<WinWeekDto> CompleteQuizWinnerAsync(Guid memberId, Guid weekId);
+    Task<WinWeekDto> StopQuizAsync(Guid memberId, Guid weekId);
 }
