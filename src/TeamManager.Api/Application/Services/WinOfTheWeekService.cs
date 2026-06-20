@@ -37,6 +37,8 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
             await ResolveHypeBattleAsync(week);
         }
 
+        await ClearExpiredQuizAsync(week);
+
         var nominations = await db.WinNominations
             .Include(n => n.TeamMember)
             .Include(n => n.Nominee)
@@ -76,6 +78,13 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
             winner = nominations.FirstOrDefault(n => n.Id == week.WinnerNominationId.Value);
         }
 
+        var quizAnsweredMemberIds = await db.WinQuizAnswers
+            .Where(a => a.WinWeekId == week.Id)
+            .Select(a => a.MemberId)
+            .ToListAsync();
+        var quizEligible = week.Status != WinWeekStatus.Closed && string.IsNullOrEmpty(week.QuizQuestion)
+            && await IsQuizEligibleAsync(week.Id);
+
         return new WinWeekDto
         {
             Id = week.Id,
@@ -90,6 +99,11 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
             ClosedAt = week.ClosedAt,
             SuddenDeathEndsAt = week.SuddenDeathEndsAt,
             HypeBattleEndsAt = week.HypeBattleEndsAt,
+            QuizEndsAt = week.QuizEndsAt,
+            QuizQuestion = week.QuizQuestion,
+            QuizOptions = week.QuizOptionsJson != null ? JsonSerializer.Deserialize<List<string>>(week.QuizOptionsJson) ?? [] : [],
+            QuizAnsweredMemberIds = quizAnsweredMemberIds,
+            QuizEligible = quizEligible,
             CurrentMemberId = currentMemberId,
             UserVotesRemaining = week.Status == WinWeekStatus.SuddenDeath ? Math.Max(0, 1 - userSuddenDeathVoteCount) : MaxVotesPerPerson - userVoteCount,
             UserNominationsRemaining = MaxNominationsPerPerson - userNominationCount,
@@ -1022,11 +1036,21 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
                 : tiedIds[Random.Shared.Next(tiedIds.Count)];
         }
 
+        await CloseWeekWithWinnerAsync(week, winnerId);
+    }
+
+    private async Task CloseWeekWithWinnerAsync(WinWeek week, Guid winnerNominationId)
+    {
         week.Status = WinWeekStatus.Closed;
-        week.WinnerNominationId = winnerId;
+        week.WinnerNominationId = winnerNominationId;
         week.ClosedAt = DateTimeOffset.UtcNow;
         week.TiedNominationIds = null;
         week.SuddenDeathEndsAt = null;
+        week.HypeBattleEndsAt = null;
+        week.QuizEndsAt = null;
+        week.QuizQuestion = null;
+        week.QuizOptionsJson = null;
+        week.QuizCorrectIndex = null;
         await db.SaveChangesAsync();
 
         var winnerNom = await db.WinNominations
@@ -1074,27 +1098,214 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
         else
             winnerId = tiedIds[Random.Shared.Next(tiedIds.Count)];
 
-        week.Status = WinWeekStatus.Closed;
-        week.WinnerNominationId = winnerId;
-        week.ClosedAt = DateTimeOffset.UtcNow;
-        week.TiedNominationIds = null;
-        week.SuddenDeathEndsAt = null;
+        await CloseWeekWithWinnerAsync(week, winnerId);
+    }
+
+    public async Task ClearExpiredQuizAsync(WinWeek week)
+    {
+        if (week.Status == WinWeekStatus.Closed || !week.QuizEndsAt.HasValue || DateTimeOffset.UtcNow <= week.QuizEndsAt.Value)
+            return;
+
+        // No one answered correctly in time -- just clear it, host falls back to Sudden Death/Hype Battle.
+        week.QuizEndsAt = null;
+        week.QuizQuestion = null;
+        week.QuizOptionsJson = null;
+        week.QuizCorrectIndex = null;
+        await db.SaveChangesAsync();
+    }
+
+    public async Task<bool> IsQuizEligibleAsync(Guid weekId)
+    {
+        var week = await db.WinWeeks.FindAsync(weekId);
+        if (week is null) return false;
+
+        var tiedNomineeIds = await GetTiedNomineeMemberIdsAsync(week);
+        if (tiedNomineeIds.Count < 2) return false;
+
+        return tiedNomineeIds.All(WebSocketMiddleware.IsMemberConnected);
+    }
+
+    private async Task<List<Guid>> GetTiedNomineeMemberIdsAsync(WinWeek week)
+    {
+        List<Guid> tiedIds;
+        if (!string.IsNullOrEmpty(week.TiedNominationIds))
+        {
+            tiedIds = JsonSerializer.Deserialize<List<Guid>>(week.TiedNominationIds) ?? [];
+        }
+        else
+        {
+            var voteCounts = await db.WinNominations
+                .Where(n => n.WinWeekId == week.Id)
+                .Select(n => new { n.Id, VoteCount = n.Votes.Count })
+                .ToListAsync();
+            var topCount = voteCounts.Count > 0 ? voteCounts.Max(v => v.VoteCount) : 0;
+            tiedIds = topCount > 0
+                ? voteCounts.Where(v => v.VoteCount == topCount).Select(v => v.Id).ToList()
+                : [];
+        }
+
+        if (tiedIds.Count < 2) return [];
+
+        return await db.WinNominations
+            .Where(n => tiedIds.Contains(n.Id))
+            .Select(n => n.NomineeMemberId)
+            .Distinct()
+            .ToListAsync();
+    }
+
+    public async Task<WinWeekDto> StartQuizAsync(Guid memberId, Guid weekId)
+    {
+        var week = await db.WinWeeks.Include(w => w.Series).FirstOrDefaultAsync(w => w.Id == weekId)
+            ?? throw new KeyNotFoundException("Week not found.");
+
+        if (!await IsQuizEligibleAsync(weekId))
+            throw new InvalidOperationException("Quiz Duel needs every tied nominee to be logged in right now.");
+
+        db.WinQuizAnswers.RemoveRange(db.WinQuizAnswers.Where(a => a.WinWeekId == weekId));
+
+        var (question, options, correctIndex) = await GenerateQuizQuestionAsync();
+
+        week.QuizQuestion = question;
+        week.QuizOptionsJson = JsonSerializer.Serialize(options);
+        week.QuizCorrectIndex = correctIndex;
+        week.QuizEndsAt = DateTimeOffset.UtcNow.AddSeconds(45);
         await db.SaveChangesAsync();
 
-        var winnerNom = await db.WinNominations
-            .Include(n => n.Nominee)
-            .FirstAsync(n => n.Id == week.WinnerNominationId!.Value);
+        var endsAt = week.QuizEndsAt;
+        if (week.GuestToken is { } token)
+            _ = WebSocketMiddleware.BroadcastToSessionAsync("wow_quiz_started", token, new { question, options, endsAt });
+        else
+            _ = WebSocketMiddleware.BroadcastAsync("wow_quiz_started", new { question, options, endsAt }, guestAllowed: true);
 
-        await AwardWeeklyAchievementAsync(winnerNom.NomineeMemberId, week.WeekStart);
-        if (winnerNom.TeamMemberId.HasValue)
-            await GrantBonusTokenAsync(winnerNom.TeamMemberId.Value, week.Id);
-
-        EnqueueAndGenerateWinStory(week.Id, $"{winnerNom.Nominee.FirstName} {winnerNom.Nominee.LastName}", winnerNom.Title, winnerNom.Description);
-
-        _ = WebSocketMiddleware.BroadcastAsync("voting_closed", new
-        {
-            weekId = week.Id,
-            winnerId = week.WinnerNominationId
-        }, guestAllowed: true);
+        return await GetCurrentWeekAsync(memberId, week.WinSeriesId)
+            ?? throw new InvalidOperationException("Week not found after starting quiz.");
     }
+
+    public async Task<bool> SubmitQuizAnswerAsync(Guid memberId, Guid weekId, int selectedIndex)
+    {
+        var week = await db.WinWeeks.FindAsync(weekId)
+            ?? throw new KeyNotFoundException("Week not found.");
+
+        if (week.QuizEndsAt is null || DateTimeOffset.UtcNow > week.QuizEndsAt.Value)
+            throw new InvalidOperationException("There is no active quiz right now.");
+
+        var tiedNomineeIds = await GetTiedNomineeMemberIdsAsync(week);
+        if (!tiedNomineeIds.Contains(memberId))
+            throw new InvalidOperationException("Only the tied nominees can answer this quiz.");
+
+        var alreadyAnswered = await db.WinQuizAnswers.AnyAsync(a => a.WinWeekId == weekId && a.MemberId == memberId);
+        if (alreadyAnswered)
+            throw new InvalidOperationException("You've already submitted an answer.");
+
+        var isCorrect = selectedIndex == week.QuizCorrectIndex;
+        db.WinQuizAnswers.Add(new WinQuizAnswer
+        {
+            WinWeekId = weekId,
+            MemberId = memberId,
+            SelectedIndex = selectedIndex,
+            IsCorrect = isCorrect
+        });
+        await db.SaveChangesAsync();
+
+        _ = WebSocketMiddleware.BroadcastAsync("wow_quiz_answer_submitted", new { weekId, memberId }, guestAllowed: true);
+
+        if (!isCorrect) return false;
+
+        // First correct answer wins outright, even if someone else answers a split-second later.
+        var alreadyWon = week.Status == WinWeekStatus.Closed;
+        if (alreadyWon) return true;
+
+        var winningNomination = await db.WinNominations
+            .Where(n => n.WinWeekId == weekId && n.NomineeMemberId == memberId)
+            .Where(n => tiedNomineeIds.Contains(n.NomineeMemberId))
+            .FirstOrDefaultAsync();
+        if (winningNomination is null) return true;
+
+        await CloseWeekWithWinnerAsync(week, winningNomination.Id);
+        return true;
+    }
+
+    private static readonly (string Question, string[] Options, int CorrectIndex)[] FallbackQuizQuestions =
+    [
+        ("What is the capital of France?", ["Paris", "Berlin", "Madrid", "Rome"], 0),
+        ("How many continents are there on Earth?", ["5", "6", "7", "8"], 2),
+        ("What planet is known as the Red Planet?", ["Venus", "Mars", "Jupiter", "Saturn"], 1),
+        ("Who wrote 'Romeo and Juliet'?", ["Charles Dickens", "Mark Twain", "William Shakespeare", "Jane Austen"], 2),
+        ("What is the largest ocean on Earth?", ["Atlantic", "Indian", "Arctic", "Pacific"], 3),
+        ("How many sides does a hexagon have?", ["5", "6", "7", "8"], 1),
+        ("What gas do plants mainly absorb from the atmosphere?", ["Oxygen", "Nitrogen", "Carbon Dioxide", "Hydrogen"], 2),
+        ("What is the smallest prime number?", ["0", "1", "2", "3"], 2),
+        ("Which country is home to the kangaroo?", ["South Africa", "Australia", "Brazil", "India"], 1),
+        ("How many minutes are in a full day?", ["1200", "1440", "1000", "1800"], 1),
+    ];
+
+    private static (string Question, string[] Options, int CorrectIndex) RandomFallbackQuizQuestion()
+    {
+        var q = FallbackQuizQuestions[Random.Shared.Next(FallbackQuizQuestions.Length)];
+        return (q.Question, q.Options, q.CorrectIndex);
+    }
+
+    private async Task<(string Question, string[] Options, int CorrectIndex)> GenerateQuizQuestionAsync()
+    {
+        try
+        {
+            var config = await db.ApiRequestConfigs.FirstOrDefaultAsync(c => c.Action == "GenerateQuizQuestion" && c.Enabled);
+            if (config is null) return RandomFallbackQuizQuestion();
+
+            var parameters = string.IsNullOrWhiteSpace(config.ParametersJson)
+                ? new Dictionary<string, string>()
+                : JsonSerializer.Deserialize<Dictionary<string, string>>(config.ParametersJson) ?? new();
+            var headers = string.IsNullOrWhiteSpace(config.HeadersJson)
+                ? new Dictionary<string, string>()
+                : JsonSerializer.Deserialize<Dictionary<string, string>>(config.HeadersJson) ?? new();
+            var mappingOpts = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            var mapping = string.IsNullOrWhiteSpace(config.MappingJson)
+                ? new MappingConfigDto()
+                : JsonSerializer.Deserialize<MappingConfigDto>(config.MappingJson, mappingOpts) ?? new();
+            var textPath = mapping.TextResponsePath;
+
+            parameters["seed"] = Guid.NewGuid().ToString("N")[..8];
+
+            var allConfigVars = await ConfigVariableResolver.LoadAsync(db);
+            string ResolveForExecution(string template)
+            {
+                var result = ConfigVariableResolver.Apply(template, allConfigVars);
+                foreach (var (k, v) in parameters)
+                    result = result.Replace($"{{{k}}}", v);
+                return result;
+            }
+
+            var executionHeaders = headers.ToDictionary(kvp => kvp.Key, kvp => ResolveForExecution(kvp.Value));
+            var executionUrl = ResolveForExecution(config.Url);
+            var executionBody = ResolveForExecution(config.BodyTemplate ?? "");
+
+            using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(12) };
+            foreach (var (k, v) in executionHeaders)
+                client.DefaultRequestHeaders.TryAddWithoutValidation(k, v);
+
+            var mediaType = (config.BodyFormat ?? "json") == "urlencoded" ? "application/x-www-form-urlencoded" : "application/json";
+            var response = config.Method.ToUpper() == "GET"
+                ? await client.GetAsync(executionUrl)
+                : await client.PostAsync(executionUrl, new StringContent(executionBody, Encoding.UTF8, mediaType));
+
+            if (!response.IsSuccessStatusCode) return RandomFallbackQuizQuestion();
+
+            var responseBody = await response.Content.ReadAsStringAsync();
+            var extracted = ExtractTextAtPath(responseBody, textPath ?? "");
+            if (string.IsNullOrWhiteSpace(extracted)) return RandomFallbackQuizQuestion();
+
+            var parsed = JsonSerializer.Deserialize<QuizGenResult>(extracted, mappingOpts);
+            if (parsed is null || string.IsNullOrWhiteSpace(parsed.Question) || parsed.Options is null || parsed.Options.Length != 4
+                || parsed.CorrectIndex < 0 || parsed.CorrectIndex > 3)
+                return RandomFallbackQuizQuestion();
+
+            return (parsed.Question, parsed.Options, parsed.CorrectIndex);
+        }
+        catch
+        {
+            return RandomFallbackQuizQuestion();
+        }
+    }
+
+    private record QuizGenResult(string Question, string[] Options, int CorrectIndex);
 }

@@ -386,6 +386,61 @@ public class WinOfTheWeekController(IWinOfTheWeekService service, WinSeriesServi
         return Ok();
     }
 
+    [HttpGet("quiz/eligible")]
+    [RequireFeature("wow-host")]
+    public async Task<IActionResult> IsQuizEligible([FromQuery] Guid? seriesId = null)
+    {
+        var sid = await ResolveSeriesIdAsync(seriesId);
+        var week = await db.WinWeeks
+            .Where(w => w.WinSeriesId == sid && w.Status != WinWeekStatus.Closed)
+            .OrderByDescending(w => w.WeekStart)
+            .FirstOrDefaultAsync();
+
+        var eligible = week is not null && await service.IsQuizEligibleAsync(week.Id);
+        return Ok(new { eligible });
+    }
+
+    [HttpPost("quiz/start")]
+    [RequireFeature("wow-host")]
+    public async Task<IActionResult> StartQuiz([FromQuery] Guid? seriesId = null)
+    {
+        var memberId = GetCurrentMemberId();
+        var sid = await ResolveSeriesIdAsync(seriesId);
+        var week = await db.WinWeeks
+            .Where(w => w.WinSeriesId == sid && w.Status != WinWeekStatus.Closed)
+            .OrderByDescending(w => w.WeekStart)
+            .FirstOrDefaultAsync();
+        if (week is null) return NotFound(new { error = "No active week found." });
+
+        try
+        {
+            var result = await service.StartQuizAsync(memberId, week.Id);
+            return Ok(result);
+        }
+        catch (KeyNotFoundException ex) { return NotFound(new { error = ex.Message }); }
+        catch (InvalidOperationException ex) { return BadRequest(new { error = ex.Message }); }
+    }
+
+    [HttpPost("quiz/answer")]
+    public async Task<IActionResult> SubmitQuizAnswer([FromBody] SubmitQuizAnswerRequest request, [FromQuery] Guid? seriesId = null)
+    {
+        var memberId = GetCurrentMemberId();
+        var sid = await ResolveSeriesIdAsync(seriesId);
+        var week = await db.WinWeeks
+            .Where(w => w.WinSeriesId == sid && w.Status != WinWeekStatus.Closed)
+            .OrderByDescending(w => w.WeekStart)
+            .FirstOrDefaultAsync();
+        if (week is null) return NotFound(new { error = "No active week found." });
+
+        try
+        {
+            var isCorrect = await service.SubmitQuizAnswerAsync(memberId, week.Id, request.SelectedIndex);
+            return Ok(new { isCorrect });
+        }
+        catch (KeyNotFoundException ex) { return NotFound(new { error = ex.Message }); }
+        catch (InvalidOperationException ex) { return BadRequest(new { error = ex.Message }); }
+    }
+
     [HttpGet("history")]
     public async Task<IActionResult> GetHistory([FromQuery] Guid? seriesId = null, [FromQuery] int? year = null, [FromQuery] int limit = 52)
     {

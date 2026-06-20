@@ -154,6 +154,22 @@ import { AppInfoBannerComponent } from '../../shared/components/app-info-banner/
                 } @else {
                   <button class="ctrl-btn stop" style="width:100%" (click)="endHypeBattleClick.emit()">Stop Hype Battle</button>
                 }
+
+                @if (!w.quizEndsAt) {
+                  <span class="ctrl-label" style="margin:10px 0 4px">Quiz Duel</span>
+                  <div style="font-size:0.68rem;opacity:0.4;margin-bottom:4px">
+                    @if (quizEligible()) {
+                      Tied nominees race to answer first — needs everyone logged in now
+                    } @else {
+                      Needs every tied nominee logged in right now to start
+                    }
+                  </div>
+                  <button class="ctrl-btn" style="width:100%" [disabled]="!quizEligible()"
+                          [matTooltip]="quizEligible() ? '' : 'All tied nominees must be logged in and connected right now'"
+                          (click)="startQuizClick.emit()">
+                    🧠 Start Quiz Duel
+                  </button>
+                }
               </div>
             } @else if (w.status === 'Voting') {
               <div class="ctrl-section">
@@ -309,6 +325,47 @@ import { AppInfoBannerComponent } from '../../shared/components/app-info-banner/
             </div>
           }
 
+          <!-- Quiz Duel banner -->
+          @if (w?.quizEndsAt && w) {
+            <div style="background:rgba(171,71,188,0.1);border:1px solid rgba(171,71,188,0.4);border-radius:12px;padding:16px;margin-bottom:16px">
+              <div style="display:flex;align-items:center;gap:14px;margin-bottom:12px">
+                <div style="flex:1">
+                  <div style="font-weight:700;font-size:0.85rem;color:#ce93d8;text-transform:uppercase;letter-spacing:0.5px">🧠 Quiz Duel</div>
+                  <div style="font-size:0.75rem;opacity:0.6;margin-top:2px">
+                    @if (isQuizParticipant()) {
+                      First correct answer wins it all!
+                    } @else {
+                      {{ quizAnsweredCount() }} of {{ quizParticipantCount() }} nominees have answered
+                    }
+                  </div>
+                </div>
+                <div style="text-align:center;min-width:64px">
+                  <app-wow-countdown [endsAt]="w.quizEndsAt" />
+                </div>
+              </div>
+
+              <div style="font-weight:600;font-size:0.95rem;margin-bottom:10px">{{ w.quizQuestion }}</div>
+
+              @if (isQuizParticipant() && !hasAnsweredQuiz()) {
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+                  @for (opt of w.quizOptions; let i = $index; track i) {
+                    <button class="ctrl-btn" style="padding:10px;height:auto;white-space:normal;text-align:left" (click)="submitQuizAnswerClick.emit(i)">
+                      {{ opt }}
+                    </button>
+                  }
+                </div>
+              } @else if (isQuizParticipant() && hasAnsweredQuiz()) {
+                <div style="font-size:0.8rem;opacity:0.5">Answer submitted — waiting on the others…</div>
+              } @else {
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+                  @for (opt of w.quizOptions; track opt) {
+                    <div style="padding:10px;border-radius:6px;border:1px solid rgba(255,255,255,0.1);font-size:0.85rem;opacity:0.5">{{ opt }}</div>
+                  }
+                </div>
+              }
+            </div>
+          }
+
           <!-- Sudden death countdown banner -->
           @if (w?.status === 'SuddenDeath') {
             <div style="background:rgba(239,83,80,0.08);border:1px solid rgba(239,83,80,0.3);border-radius:12px;padding:12px 16px;margin-bottom:16px;display:flex;align-items:center;gap:14px">
@@ -439,6 +496,7 @@ export class WowCurrentWeekComponent {
   connectedCount   = input(0);
   activeTimerEndsAt   = input<string | null>(null);
   hypeBattleEndsAt    = input<string | null>(null);
+  quizEligible        = input(false);
   guestToken          = input<string | null>(null);
   hasWinOfMonth       = input(false);
   reactionEvents      = input<(ReactionBurst & { nominationId: string })[]>([]);
@@ -452,6 +510,26 @@ export class WowCurrentWeekComponent {
     (this.isMobile() && !!this.guestToken()) ||
     this.hasWinOfMonth()
   );
+
+  readonly quizParticipantNomineeIds = computed(() => {
+    const w = this.week();
+    if (!w) return new Set<string>();
+    const tied = this.tiedNomIds();
+    return new Set(w.nominations.filter(n => tied.has(n.id)).map(n => n.nomineeMemberId));
+  });
+
+  readonly isQuizParticipant = computed(() => this.quizParticipantNomineeIds().has(this.currentUserId()));
+  readonly hasAnsweredQuiz = computed(() => {
+    const w = this.week();
+    return !!w && (w.quizAnsweredMemberIds ?? []).includes(this.currentUserId());
+  });
+  readonly quizParticipantCount = computed(() => this.quizParticipantNomineeIds().size);
+  readonly quizAnsweredCount = computed(() => {
+    const w = this.week();
+    if (!w) return 0;
+    const participants = this.quizParticipantNomineeIds();
+    return (w.quizAnsweredMemberIds ?? []).filter(id => participants.has(id)).length;
+  });
 
   nominateClick           = output();
   openWeekClick           = output();
@@ -470,6 +548,8 @@ export class WowCurrentWeekComponent {
   stopTimerClick            = output();
   startHypeBattleClick      = output<number>();
   endHypeBattleClick        = output();
+  startQuizClick            = output();
+  submitQuizAnswerClick     = output<number>();
   endVotingClick            = output();
   startSuddenDeathClick     = output();
   togglePowerUpsClick       = output();

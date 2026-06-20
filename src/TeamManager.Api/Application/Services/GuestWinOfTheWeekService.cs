@@ -58,6 +58,8 @@ public class GuestWinOfTheWeekService(AppDbContext db, IHttpContextAccessor http
             week = await db.WinWeeks.FirstAsync(w => w.GuestToken == token);
         }
 
+        await wowService.ClearExpiredQuizAsync(week);
+
         var nominations = await db.WinNominations
             .Include(n => n.TeamMember)
             .Include(n => n.Nominee)
@@ -107,6 +109,12 @@ public class GuestWinOfTheWeekService(AppDbContext db, IHttpContextAccessor http
             WinnerStory = week.WinnerStory,
             SuddenDeathEndsAt = week.SuddenDeathEndsAt,
             HypeBattleEndsAt = week.HypeBattleEndsAt,
+            QuizEndsAt = week.QuizEndsAt,
+            QuizQuestion = week.QuizQuestion,
+            QuizOptions = week.QuizOptionsJson != null
+                ? System.Text.Json.JsonSerializer.Deserialize<List<string>>(week.QuizOptionsJson) ?? []
+                : [],
+            QuizAnsweredMemberIds = await db.WinQuizAnswers.Where(a => a.WinWeekId == week.Id).Select(a => a.MemberId).ToListAsync(),
             TiedNominationIds = !string.IsNullOrEmpty(week.TiedNominationIds)
                 ? System.Text.Json.JsonSerializer.Deserialize<List<Guid>>(week.TiedNominationIds) ?? []
                 : [],

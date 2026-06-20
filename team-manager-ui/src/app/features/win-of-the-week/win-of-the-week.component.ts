@@ -137,6 +137,7 @@ export class WowSeriesSheetComponent {
             [connectedCount]="connectedCount()"
             [activeTimerEndsAt]="activeTimerEndsAt()"
             [hypeBattleEndsAt]="hypeBattleEndsAt()"
+            [quizEligible]="currentWeek()?.quizEligible ?? false"
             [guestToken]="currentWeek()?.guestToken ?? null"
             [hasWinOfMonth]="hasWinOfMonth()"
             [reactionEvents]="reactionEvents()"
@@ -157,6 +158,8 @@ export class WowSeriesSheetComponent {
             (stopTimerClick)="stopTimer()"
             (startHypeBattleClick)="startHypeBattle($event)"
             (endHypeBattleClick)="endHypeBattle()"
+            (startQuizClick)="startQuiz()"
+            (submitQuizAnswerClick)="submitQuizAnswer($event)"
             (openVotingClick)="openVoting()"
             (endVotingClick)="endVoting()"
             (startSuddenDeathClick)="startTieBreaker()"
@@ -390,6 +393,7 @@ export class WinOfTheWeekComponent implements OnInit, OnDestroy {
         case 'vote_cast': case 'vote_removed': case 'nomination_created':
         case 'nomination_updated': case 'nomination_deleted': case 'voting_opened':
         case 'sudden_death_started': case 'nominations_reopened': case 'win_story_ready':
+        case 'wow_quiz_started': case 'wow_quiz_answer_submitted':
           this.silentRefresh(); break;
         case 'wow_timer_started': {
           const endsAt = msg.data['endsAt'] as string;
@@ -693,6 +697,23 @@ export class WinOfTheWeekComponent implements OnInit, OnDestroy {
     this.winSvc.endHypeBattle(this.currentSeriesId() ?? undefined).subscribe({
       next: () => this.hypeBattleEndsAt.set(null),
       error: () => {}
+    });
+  }
+
+  startQuiz() {
+    this.winSvc.startQuiz(this.currentSeriesId() ?? undefined).subscribe({
+      next: (week) => this.currentWeek.set(week),
+      error: (err) => this.snackBar.open(err.error?.error ?? 'Failed to start Quiz Duel', 'Close', { duration: 4000 })
+    });
+  }
+
+  submitQuizAnswer(selectedIndex: number) {
+    this.winSvc.submitQuizAnswer(selectedIndex, this.currentSeriesId() ?? undefined).subscribe({
+      next: (r) => {
+        if (!r.isCorrect) this.snackBar.open('Not quite — try again next time!', 'Close', { duration: 3000 });
+        this.silentRefresh();
+      },
+      error: (err) => this.snackBar.open(err.error?.error ?? 'Failed to submit answer', 'Close', { duration: 4000 })
     });
   }
 

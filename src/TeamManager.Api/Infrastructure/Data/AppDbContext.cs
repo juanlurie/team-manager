@@ -52,6 +52,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<WinMonthNomination> WinMonthNominations => Set<WinMonthNomination>();
     public DbSet<WinMonthVote> WinMonthVotes => Set<WinMonthVote>();
     public DbSet<WowMemberToken> WowMemberTokens => Set<WowMemberToken>();
+    public DbSet<WinQuizAnswer> WinQuizAnswers => Set<WinQuizAnswer>();
     public DbSet<MeetingSeries> MeetingSeries => Set<MeetingSeries>();
     public DbSet<MeetingSeriesSlot> MeetingSeriesSlots => Set<MeetingSeriesSlot>();
     public DbSet<MeetingSeriesItem> MeetingSeriesItems => Set<MeetingSeriesItem>();
