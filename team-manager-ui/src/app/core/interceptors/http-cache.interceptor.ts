@@ -7,7 +7,7 @@ const TTL_MS = 60_000;
 const SKIP_PATTERNS = [
   '/api/auth', '/api-keys', '/api/auth-mode', '/api/accessrequests',
   // Actively-polled, time-sensitive endpoints -- caching these makes live games/timers look stuck.
-  '/quiz-game/sessions', '/win-of-the-week/current', '/guest/wow/', '/scrum-poker/sessions',
+  '/quiz-game/sessions', '/win-of-the-week/current', '/guest/wow/', '/scrum-poker/sessions', '/polls',
 ];
 
 export function clearCacheForPattern(pattern: string): void {

@@ -131,14 +131,6 @@ export class AuthService {
     window.location.href = window.location.origin;
   }
 
-  // Called by the error interceptor when an API call 401s mid-session (token expired/revoked
-  // while the tab was open). Clears the stale token and flips auth state so guards send the
-  // user to /login instead of leaving them on a page that thinks it's still authorized.
-  handleSessionExpired() {
-    this.clearStoredTokens();
-    this._authStatus$.next('unauthenticated');
-  }
-
   // Removes OAuth tokens from storage (angular-oauth2-oidc storage) without the hard redirect --
   // used when a stale/expired token gets rejected so a fresh login attempt isn't confused by it.
   private clearStoredTokens() {
