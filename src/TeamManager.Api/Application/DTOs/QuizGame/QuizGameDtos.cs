@@ -29,6 +29,7 @@ public record QuizGameSessionDto
     public List<string> CurrentOptions { get; init; } = [];
     public DateTimeOffset? CurrentQuestionEndsAt { get; init; }
     public bool CurrentQuestionRevealed { get; init; }
+    public DateTimeOffset? RevealEndsAt { get; init; }
     public int? CurrentCorrectIndex { get; init; }
     public int? MyAnswerIndex { get; init; }
     public List<Guid> AnsweredMemberIds { get; init; } = [];

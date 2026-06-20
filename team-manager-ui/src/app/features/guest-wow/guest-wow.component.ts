@@ -62,6 +62,7 @@ function adaptToWinWeek(week: GuestWinWeek): WinWeek {
     quizAnsweredMemberIds: week.quizAnsweredMemberIds,
     quizEligible: false,
     quizRevealed: week.quizRevealed,
+    quizRevealEndsAt: week.quizRevealEndsAt,
     quizCorrectIndex: week.quizCorrectIndex,
     quizMyAnswerIndex: null,
     quizWinnerMemberId: null,

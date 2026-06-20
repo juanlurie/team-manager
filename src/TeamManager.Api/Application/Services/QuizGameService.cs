@@ -177,6 +177,7 @@ public class QuizGameService(AppDbContext db, QuizQuestionGeneratorService quest
                 : [],
             CurrentQuestionEndsAt = session.CurrentQuestionEndsAt,
             CurrentQuestionRevealed = session.CurrentQuestionRevealed,
+            RevealEndsAt = session.CurrentQuestionRevealedAt?.AddSeconds(RevealDisplaySeconds),
             CurrentCorrectIndex = session.CurrentQuestionRevealed ? session.CurrentCorrectIndex : null,
             MyAnswerIndex = myAnswer?.SelectedIndex,
             AnsweredMemberIds = answeredIds,

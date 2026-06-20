@@ -20,6 +20,7 @@ public record WinWeekDto
     public List<Guid> QuizAnsweredMemberIds { get; init; } = [];
     public bool QuizEligible { get; init; }
     public bool QuizRevealed { get; init; }
+    public DateTimeOffset? QuizRevealEndsAt { get; init; }
     public int? QuizCorrectIndex { get; init; }
     public int? QuizMyAnswerIndex { get; init; }
     public Guid? QuizWinnerMemberId { get; init; }
