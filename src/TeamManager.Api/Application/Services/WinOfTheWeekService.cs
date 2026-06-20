@@ -78,10 +78,9 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
             winner = nominations.FirstOrDefault(n => n.Id == week.WinnerNominationId.Value);
         }
 
-        var quizAnsweredMemberIds = await db.WinQuizAnswers
-            .Where(a => a.WinWeekId == week.Id)
-            .Select(a => a.MemberId)
-            .ToListAsync();
+        var quizAnswers = await db.WinQuizAnswers.Where(a => a.WinWeekId == week.Id).ToListAsync();
+        var quizAnsweredMemberIds = quizAnswers.Select(a => a.MemberId).ToList();
+        var quizMyAnswer = quizAnswers.FirstOrDefault(a => a.MemberId == currentMemberId);
         var quizEligible = week.Status != WinWeekStatus.Closed && string.IsNullOrEmpty(week.QuizQuestion)
             && await IsQuizEligibleAsync(week.Id);
 
@@ -104,6 +103,9 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
             QuizOptions = week.QuizOptionsJson != null ? JsonSerializer.Deserialize<List<string>>(week.QuizOptionsJson) ?? [] : [],
             QuizAnsweredMemberIds = quizAnsweredMemberIds,
             QuizEligible = quizEligible,
+            QuizRevealed = week.QuizRevealed,
+            QuizCorrectIndex = week.QuizRevealed ? week.QuizCorrectIndex : null,
+            QuizMyAnswerIndex = quizMyAnswer?.SelectedIndex,
             CurrentMemberId = currentMemberId,
             UserVotesRemaining = week.Status == WinWeekStatus.SuddenDeath ? Math.Max(0, 1 - userSuddenDeathVoteCount) : MaxVotesPerPerson - userVoteCount,
             UserNominationsRemaining = MaxNominationsPerPerson - userNominationCount,
@@ -1051,6 +1053,7 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
         week.QuizQuestion = null;
         week.QuizOptionsJson = null;
         week.QuizCorrectIndex = null;
+        week.QuizRevealed = false;
         await db.SaveChangesAsync();
 
         var winnerNom = await db.WinNominations
@@ -1103,15 +1106,42 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
 
     public async Task ClearExpiredQuizAsync(WinWeek week)
     {
-        if (week.Status == WinWeekStatus.Closed || !week.QuizEndsAt.HasValue || DateTimeOffset.UtcNow <= week.QuizEndsAt.Value)
-            return;
+        if (week.Status == WinWeekStatus.Closed || week.QuizQuestion is null || week.QuizRevealed) return;
+        if (!week.QuizEndsAt.HasValue || DateTimeOffset.UtcNow <= week.QuizEndsAt.Value) return;
 
-        // No one answered correctly in time -- just clear it, host falls back to Sudden Death/Hype Battle.
+        await TryResolveQuizAsync(week, force: true);
+    }
+
+    // Resolves once every tied nominee has answered, or (force) once the timer has expired.
+    // Never resolves earlier -- the duel stays suspenseful until everyone's in or time's up.
+    private async Task TryResolveQuizAsync(WinWeek week, bool force)
+    {
+        if (week.QuizQuestion is null || week.Status == WinWeekStatus.Closed || week.QuizRevealed) return;
+
+        var tiedNomineeIds = await GetTiedNomineeMemberIdsAsync(week);
+        var answers = await db.WinQuizAnswers.Where(a => a.WinWeekId == week.Id).ToListAsync();
+        var answeredIds = answers.Select(a => a.MemberId).ToHashSet();
+        var allAnswered = tiedNomineeIds.Count > 0 && tiedNomineeIds.All(answeredIds.Contains);
+
+        if (!allAnswered && !force) return;
+
+        var earliestCorrect = answers.Where(a => a.IsCorrect).OrderBy(a => a.AnsweredAt).FirstOrDefault();
+        if (earliestCorrect is not null)
+        {
+            var winningNomination = await db.WinNominations
+                .FirstOrDefaultAsync(n => n.WinWeekId == week.Id && n.NomineeMemberId == earliestCorrect.MemberId);
+            if (winningNomination is not null)
+            {
+                await CloseWeekWithWinnerAsync(week, winningNomination.Id);
+                return;
+            }
+        }
+
+        // Nobody got it (or the winning nomination vanished) -- reveal the correct answer, no winner this round.
+        week.QuizRevealed = true;
         week.QuizEndsAt = null;
-        week.QuizQuestion = null;
-        week.QuizOptionsJson = null;
-        week.QuizCorrectIndex = null;
         await db.SaveChangesAsync();
+        _ = WebSocketMiddleware.BroadcastAsync("wow_quiz_revealed", new { weekId = week.Id }, guestAllowed: true);
     }
 
     public async Task<bool> IsQuizEligibleAsync(Guid weekId)
@@ -1209,20 +1239,10 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
 
         _ = WebSocketMiddleware.BroadcastAsync("wow_quiz_answer_submitted", new { weekId, memberId }, guestAllowed: true);
 
-        if (!isCorrect) return false;
-
-        // First correct answer wins outright, even if someone else answers a split-second later.
-        var alreadyWon = week.Status == WinWeekStatus.Closed;
-        if (alreadyWon) return true;
-
-        var winningNomination = await db.WinNominations
-            .Where(n => n.WinWeekId == weekId && n.NomineeMemberId == memberId)
-            .Where(n => tiedNomineeIds.Contains(n.NomineeMemberId))
-            .FirstOrDefaultAsync();
-        if (winningNomination is null) return true;
-
-        await CloseWeekWithWinnerAsync(week, winningNomination.Id);
-        return true;
+        // Doesn't resolve yet just because this answer is correct -- waits for everyone to answer
+        // (or the timer to expire) so nobody sees "wrong" the instant they submit.
+        await TryResolveQuizAsync(week, force: false);
+        return isCorrect;
     }
 
     private static readonly (string Question, string[] Options, int CorrectIndex)[] FallbackQuizQuestions =
@@ -1247,34 +1267,61 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
 
     private async Task<(string Question, string[] Options, int CorrectIndex)> GenerateQuizQuestionAsync()
     {
+        var config = await db.ApiRequestConfigs.FirstOrDefaultAsync(c => c.Action == "GenerateQuizQuestion" && c.Enabled);
+        if (config is null) return RandomFallbackQuizQuestion();
+
+        var parameters = string.IsNullOrWhiteSpace(config.ParametersJson)
+            ? new Dictionary<string, string>()
+            : JsonSerializer.Deserialize<Dictionary<string, string>>(config.ParametersJson) ?? new();
+        var headers = string.IsNullOrWhiteSpace(config.HeadersJson)
+            ? new Dictionary<string, string>()
+            : JsonSerializer.Deserialize<Dictionary<string, string>>(config.HeadersJson) ?? new();
+        var mappingOpts = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+        var mapping = string.IsNullOrWhiteSpace(config.MappingJson)
+            ? new MappingConfigDto()
+            : JsonSerializer.Deserialize<MappingConfigDto>(config.MappingJson, mappingOpts) ?? new();
+        var textPath = mapping.TextResponsePath;
+
+        parameters["seed"] = Guid.NewGuid().ToString("N")[..8];
+
+        // Storage: non-secret values only -- stored URL/body/headers are safe to return to clients.
+        var publicConfigVars = await ConfigVariableResolver.LoadPublicAsync(db);
+        var allConfigVars = await ConfigVariableResolver.LoadAsync(db);
+
+        string ResolveForStorage(string template)
+        {
+            var result = ConfigVariableResolver.Apply(template ?? "", publicConfigVars);
+            foreach (var (k, v) in parameters)
+                result = result.Replace($"{{{k}}}", v);
+            return result;
+        }
+
+        string ResolveForExecution(string template)
+        {
+            var result = ConfigVariableResolver.Apply(template ?? "", allConfigVars);
+            foreach (var (k, v) in parameters)
+                result = result.Replace($"{{{k}}}", v);
+            return result;
+        }
+
+        var evt = new ApiSyncEvent
+        {
+            Action = config.Action,
+            ConfigName = config.Name,
+            Label = "Quiz Duel — generate question",
+            SourceType = "WowQuiz",
+            HttpMethod = config.Method.ToUpper(),
+            ResolvedUrl = ResolveForStorage(config.Url),
+            ResolvedHeadersJson = JsonSerializer.Serialize(headers.ToDictionary(kvp => kvp.Key, kvp => ResolveForStorage(kvp.Value))),
+            ResolvedBody = ResolveForStorage(config.BodyTemplate ?? ""),
+            BodyFormat = config.BodyFormat ?? "json",
+            Status = "pending"
+        };
+        db.ApiSyncEvents.Add(evt);
+        await db.SaveChangesAsync();
+
         try
         {
-            var config = await db.ApiRequestConfigs.FirstOrDefaultAsync(c => c.Action == "GenerateQuizQuestion" && c.Enabled);
-            if (config is null) return RandomFallbackQuizQuestion();
-
-            var parameters = string.IsNullOrWhiteSpace(config.ParametersJson)
-                ? new Dictionary<string, string>()
-                : JsonSerializer.Deserialize<Dictionary<string, string>>(config.ParametersJson) ?? new();
-            var headers = string.IsNullOrWhiteSpace(config.HeadersJson)
-                ? new Dictionary<string, string>()
-                : JsonSerializer.Deserialize<Dictionary<string, string>>(config.HeadersJson) ?? new();
-            var mappingOpts = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            var mapping = string.IsNullOrWhiteSpace(config.MappingJson)
-                ? new MappingConfigDto()
-                : JsonSerializer.Deserialize<MappingConfigDto>(config.MappingJson, mappingOpts) ?? new();
-            var textPath = mapping.TextResponsePath;
-
-            parameters["seed"] = Guid.NewGuid().ToString("N")[..8];
-
-            var allConfigVars = await ConfigVariableResolver.LoadAsync(db);
-            string ResolveForExecution(string template)
-            {
-                var result = ConfigVariableResolver.Apply(template, allConfigVars);
-                foreach (var (k, v) in parameters)
-                    result = result.Replace($"{{{k}}}", v);
-                return result;
-            }
-
             var executionHeaders = headers.ToDictionary(kvp => kvp.Key, kvp => ResolveForExecution(kvp.Value));
             var executionUrl = ResolveForExecution(config.Url);
             var executionBody = ResolveForExecution(config.BodyTemplate ?? "");
@@ -1288,21 +1335,38 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
                 ? await client.GetAsync(executionUrl)
                 : await client.PostAsync(executionUrl, new StringContent(executionBody, Encoding.UTF8, mediaType));
 
-            if (!response.IsSuccessStatusCode) return RandomFallbackQuizQuestion();
-
             var responseBody = await response.Content.ReadAsStringAsync();
-            var extracted = ExtractTextAtPath(responseBody, textPath ?? "");
-            if (string.IsNullOrWhiteSpace(extracted)) return RandomFallbackQuizQuestion();
+            evt.ResponseStatus = (int)response.StatusCode;
+            evt.ResponseBody = responseBody;
+            evt.SentAt = DateTimeOffset.UtcNow;
 
-            var parsed = JsonSerializer.Deserialize<QuizGenResult>(extracted, mappingOpts);
+            if (!response.IsSuccessStatusCode)
+            {
+                evt.Status = "failed";
+                await db.SaveChangesAsync();
+                return RandomFallbackQuizQuestion();
+            }
+
+            var extracted = ExtractTextAtPath(responseBody, textPath ?? "");
+            var parsed = string.IsNullOrWhiteSpace(extracted) ? null : JsonSerializer.Deserialize<QuizGenResult>(extracted, mappingOpts);
             if (parsed is null || string.IsNullOrWhiteSpace(parsed.Question) || parsed.Options is null || parsed.Options.Length != 4
                 || parsed.CorrectIndex < 0 || parsed.CorrectIndex > 3)
+            {
+                evt.Status = "failed";
+                await db.SaveChangesAsync();
                 return RandomFallbackQuizQuestion();
+            }
 
+            evt.Status = "sent";
+            await db.SaveChangesAsync();
             return (parsed.Question, parsed.Options, parsed.CorrectIndex);
         }
-        catch
+        catch (Exception ex)
         {
+            evt.Status = "failed";
+            evt.ResponseBody = ex.Message;
+            evt.SentAt = DateTimeOffset.UtcNow;
+            await db.SaveChangesAsync();
             return RandomFallbackQuizQuestion();
         }
     }

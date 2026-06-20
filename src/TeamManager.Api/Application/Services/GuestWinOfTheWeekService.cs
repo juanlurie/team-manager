@@ -115,6 +115,8 @@ public class GuestWinOfTheWeekService(AppDbContext db, IHttpContextAccessor http
                 ? System.Text.Json.JsonSerializer.Deserialize<List<string>>(week.QuizOptionsJson) ?? []
                 : [],
             QuizAnsweredMemberIds = await db.WinQuizAnswers.Where(a => a.WinWeekId == week.Id).Select(a => a.MemberId).ToListAsync(),
+            QuizRevealed = week.QuizRevealed,
+            QuizCorrectIndex = week.QuizRevealed ? week.QuizCorrectIndex : null,
             TiedNominationIds = !string.IsNullOrEmpty(week.TiedNominationIds)
                 ? System.Text.Json.JsonSerializer.Deserialize<List<Guid>>(week.TiedNominationIds) ?? []
                 : [],

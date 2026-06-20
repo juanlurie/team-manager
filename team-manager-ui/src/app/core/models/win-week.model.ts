@@ -52,6 +52,9 @@ export interface WinWeek {
   quizOptions: string[];
   quizAnsweredMemberIds: string[];
   quizEligible: boolean;
+  quizRevealed: boolean;
+  quizCorrectIndex: number | null;
+  quizMyAnswerIndex: number | null;
   currentMemberId: string;
   userVotesRemaining: number;
   userNominationsRemaining: number;
@@ -160,6 +163,8 @@ export interface GuestWinWeek {
   quizQuestion: string | null;
   quizOptions: string[];
   quizAnsweredMemberIds: string[];
+  quizRevealed: boolean;
+  quizCorrectIndex: number | null;
   tiedNominationIds: string[];
   powerUpsEnabled: boolean;
   hideVoteCounts: boolean;

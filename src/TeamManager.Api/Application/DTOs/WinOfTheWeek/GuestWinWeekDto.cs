@@ -18,6 +18,8 @@ public record GuestWinWeekDto
     public string? QuizQuestion { get; init; }
     public IReadOnlyList<string> QuizOptions { get; init; } = [];
     public IReadOnlyList<Guid> QuizAnsweredMemberIds { get; init; } = [];
+    public bool QuizRevealed { get; init; }
+    public int? QuizCorrectIndex { get; init; }
     public IReadOnlyList<Guid> TiedNominationIds { get; init; } = [];
     public bool PowerUpsEnabled { get; init; }
     public bool HideVoteCounts { get; init; }
