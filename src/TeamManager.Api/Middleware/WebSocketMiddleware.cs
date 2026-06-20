@@ -55,6 +55,9 @@ public class WebSocketMiddleware
 
     public static int GetTotalConnectionCount() => _connections.Count;
 
+    public static bool IsMemberConnected(Guid memberId) =>
+        _connections.Values.Any(c => c.MemberId == memberId);
+
     private static async Task ListenAsync(WebSocket ws, Guid connectionId)
     {
         var buffer = new byte[1024 * 4];

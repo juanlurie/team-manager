@@ -64,6 +64,7 @@ export const REQUEST_ACTIONS = [
   { value: 'GetTimesheetProjectCategories', label: 'Get Timesheet Project Categories', icon: 'category' },
   { value: 'AiChatWinStory', label: 'AI Chat — Win Story', icon: 'auto_awesome' },
   { value: 'GenerateJoke', label: 'Generate Joke', icon: 'sentiment_very_satisfied' },
+  { value: 'GenerateQuizQuestion', label: 'Generate Quiz Question', icon: 'quiz' },
 ] as const;
 
 @Injectable({ providedIn: 'root' })

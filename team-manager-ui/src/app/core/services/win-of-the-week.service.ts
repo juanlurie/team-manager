@@ -125,4 +125,22 @@ export class WinOfTheWeekService {
     if (seriesId) params.seriesId = seriesId;
     return this.http.post<void>(`${this.base}/hype-battle/end`, {}, { params });
   }
+
+  isQuizEligible(seriesId?: string) {
+    const params: any = {};
+    if (seriesId) params.seriesId = seriesId;
+    return this.http.get<{ eligible: boolean }>(`${this.base}/quiz/eligible`, { params });
+  }
+
+  startQuiz(seriesId?: string) {
+    const params: any = {};
+    if (seriesId) params.seriesId = seriesId;
+    return this.http.post<WinWeek>(`${this.base}/quiz/start`, {}, { params });
+  }
+
+  submitQuizAnswer(selectedIndex: number, seriesId?: string) {
+    const params: any = {};
+    if (seriesId) params.seriesId = seriesId;
+    return this.http.post<{ isCorrect: boolean }>(`${this.base}/quiz/answer`, { selectedIndex }, { params });
+  }
 }

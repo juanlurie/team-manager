@@ -14,6 +14,11 @@ public record WinWeekDto
     public DateTimeOffset? ClosedAt { get; init; }
     public DateTimeOffset? SuddenDeathEndsAt { get; init; }
     public DateTimeOffset? HypeBattleEndsAt { get; init; }
+    public DateTimeOffset? QuizEndsAt { get; init; }
+    public string? QuizQuestion { get; init; }
+    public List<string> QuizOptions { get; init; } = [];
+    public List<Guid> QuizAnsweredMemberIds { get; init; } = [];
+    public bool QuizEligible { get; init; }
     public Guid CurrentMemberId { get; init; }
     public int UserVotesRemaining { get; init; }
     public int UserNominationsRemaining { get; init; }

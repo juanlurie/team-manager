@@ -47,6 +47,11 @@ export interface WinWeek {
   closedAt: string | null;
   suddenDeathEndsAt: string | null;
   hypeBattleEndsAt: string | null;
+  quizEndsAt: string | null;
+  quizQuestion: string | null;
+  quizOptions: string[];
+  quizAnsweredMemberIds: string[];
+  quizEligible: boolean;
   currentMemberId: string;
   userVotesRemaining: number;
   userNominationsRemaining: number;
@@ -151,6 +156,10 @@ export interface GuestWinWeek {
   winnerStory: string | null;
   suddenDeathEndsAt: string | null;
   hypeBattleEndsAt: string | null;
+  quizEndsAt: string | null;
+  quizQuestion: string | null;
+  quizOptions: string[];
+  quizAnsweredMemberIds: string[];
   tiedNominationIds: string[];
   powerUpsEnabled: boolean;
   hideVoteCounts: boolean;

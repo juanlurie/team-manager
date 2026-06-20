@@ -56,6 +56,11 @@ function adaptToWinWeek(week: GuestWinWeek): WinWeek {
     closedAt: null,
     suddenDeathEndsAt: week.suddenDeathEndsAt,
     hypeBattleEndsAt: week.hypeBattleEndsAt,
+    quizEndsAt: week.quizEndsAt,
+    quizQuestion: week.quizQuestion,
+    quizOptions: week.quizOptions,
+    quizAnsweredMemberIds: week.quizAnsweredMemberIds,
+    quizEligible: false,
     currentMemberId: GUEST_OWNED_ID,
     userVotesRemaining: week.userVotesRemaining,
     userNominationsRemaining: week.userNominationsRemaining,
@@ -425,6 +430,8 @@ export class GuestWowComponent implements OnInit, OnDestroy {
         const nominationId = msg.data['nominationId'] as string;
         const emoji = msg.data['emoji'] as string;
         this.reactionEvents.update(list => [...list.slice(-49), { id, nominationId, emoji }]);
+      } else if (msg.type === 'wow_quiz_started' || msg.type === 'wow_quiz_answer_submitted') {
+        this.refreshWeek();
       } else if (msg.type === 'voting_closed') {
         const wk = this.week();
         const snap = this.suddenDeathSnapshot;
