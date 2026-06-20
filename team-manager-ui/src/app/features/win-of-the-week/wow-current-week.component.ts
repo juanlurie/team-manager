@@ -43,6 +43,10 @@ import { AppInfoBannerComponent } from '../../shared/components/app-info-banner/
     .ctrl-btn:hover { background: rgba(255,255,255,0.12); }
     .ctrl-btn.stop { background: rgba(255,87,34,0.15); border-color: rgba(255,87,34,0.4); color: #ff7043; }
     .ctrl-btn.danger { background: rgba(239,83,80,0.1); border-color: rgba(239,83,80,0.3); color: #ef5350; }
+    .quiz-option-display { padding: 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.1); font-size: 0.85rem; opacity: 0.6; }
+    .quiz-option-mine { border-color: rgba(100,181,246,0.5); opacity: 0.9; color: #64b5f6; }
+    .quiz-option-correct { border-color: rgba(102,187,106,0.6); background: rgba(102,187,106,0.12); opacity: 1; color: #81c784; }
+    .quiz-option-wrong { border-color: rgba(239,83,80,0.6); background: rgba(239,83,80,0.1); opacity: 1; color: #ef5350; }
     .ctrl-btn.primary { background: rgba(100,181,246,0.15); border-color: rgba(100,181,246,0.4); color: #64b5f6; font-weight: 600; }
     .label-row { display: flex; align-items: center; justify-content: space-between; width: 100%; }
     .ctrl-section { display: flex; flex-direction: column; gap: 6px; }
@@ -325,43 +329,53 @@ import { AppInfoBannerComponent } from '../../shared/components/app-info-banner/
             </div>
           }
 
-          <!-- Quiz Duel banner -->
-          @if (w?.quizEndsAt && w) {
-            <div style="background:rgba(171,71,188,0.1);border:1px solid rgba(171,71,188,0.4);border-radius:12px;padding:16px;margin-bottom:16px">
+          <!-- Quiz Duel banner: stays visible through the reveal even after the timer/EndsAt clears -->
+          @if (w?.quizQuestion && w) {
+            <div [style.background]="w.quizRevealed ? 'rgba(255,255,255,0.04)' : 'rgba(171,71,188,0.1)'"
+                 [style.border]="'1px solid ' + (w.quizRevealed ? 'rgba(255,255,255,0.15)' : 'rgba(171,71,188,0.4)')"
+                 style="border-radius:12px;padding:16px;margin-bottom:16px">
               <div style="display:flex;align-items:center;gap:14px;margin-bottom:12px">
                 <div style="flex:1">
                   <div style="font-weight:700;font-size:0.85rem;color:#ce93d8;text-transform:uppercase;letter-spacing:0.5px">🧠 Quiz Duel</div>
                   <div style="font-size:0.75rem;opacity:0.6;margin-top:2px">
-                    @if (isQuizParticipant()) {
+                    @if (w.quizRevealed) {
+                      Nobody got it this round — try Sudden Death or Hype Battle
+                    } @else if (isQuizParticipant()) {
                       First correct answer wins it all!
                     } @else {
                       {{ quizAnsweredCount() }} of {{ quizParticipantCount() }} nominees have answered
                     }
                   </div>
                 </div>
-                <div style="text-align:center;min-width:64px">
-                  <app-wow-countdown [endsAt]="w.quizEndsAt" />
-                </div>
+                @if (!w.quizRevealed) {
+                  <div style="text-align:center;min-width:64px">
+                    <app-wow-countdown [endsAt]="w.quizEndsAt" />
+                  </div>
+                }
               </div>
 
               <div style="font-weight:600;font-size:0.95rem;margin-bottom:10px">{{ w.quizQuestion }}</div>
 
-              @if (isQuizParticipant() && !hasAnsweredQuiz()) {
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-                  @for (opt of w.quizOptions; let i = $index; track i) {
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+                @for (opt of w.quizOptions; let i = $index; track i) {
+                  @if (!w.quizRevealed && isQuizParticipant() && !hasAnsweredQuiz()) {
                     <button class="ctrl-btn" style="padding:10px;height:auto;white-space:normal;text-align:left" (click)="submitQuizAnswerClick.emit(i)">
                       {{ opt }}
                     </button>
+                  } @else {
+                    <div class="quiz-option-display"
+                         [class.quiz-option-correct]="w.quizRevealed && w.quizCorrectIndex === i"
+                         [class.quiz-option-wrong]="w.quizRevealed && w.quizMyAnswerIndex === i && w.quizCorrectIndex !== i"
+                         [class.quiz-option-mine]="!w.quizRevealed && w.quizMyAnswerIndex === i">
+                      {{ opt }}
+                      @if (w.quizMyAnswerIndex === i) { <span style="opacity:0.6"> — your pick</span> }
+                    </div>
                   }
-                </div>
-              } @else if (isQuizParticipant() && hasAnsweredQuiz()) {
-                <div style="font-size:0.8rem;opacity:0.5">Answer submitted — waiting on the others…</div>
-              } @else {
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-                  @for (opt of w.quizOptions; track opt) {
-                    <div style="padding:10px;border-radius:6px;border:1px solid rgba(255,255,255,0.1);font-size:0.85rem;opacity:0.5">{{ opt }}</div>
-                  }
-                </div>
+                }
+              </div>
+
+              @if (!w.quizRevealed && isQuizParticipant() && hasAnsweredQuiz()) {
+                <div style="font-size:0.8rem;opacity:0.5;margin-top:8px">Answer locked in — waiting on the others…</div>
               }
             </div>
           }

@@ -267,6 +267,7 @@ export class WinOfTheWeekComponent implements OnInit, OnDestroy {
   private timerSub: Subscription | null = null;
   private timerExpiredWeekId: string | null = null;
   private hypeExpiredWeekId: string | null = null;
+  private quizExpiredKey: string | null = null;
   private suddenDeathSnapshot: { nominations: WinNomination[], tiedNominationIds: string[] } | null = null;
 
   constructor() {
@@ -368,6 +369,12 @@ export class WinOfTheWeekComponent implements OnInit, OnDestroy {
         this.hypeBattleEndsAt.set(null);
         if (week && this.hypeExpiredWeekId !== week.id) {
           this.hypeExpiredWeekId = week.id;
+          this.silentRefresh();
+        }
+      }
+      if (week?.quizEndsAt && !week.quizRevealed && this.quizExpiredKey !== week.quizEndsAt) {
+        if (new Date(week.quizEndsAt).getTime() - Date.now() <= 0) {
+          this.quizExpiredKey = week.quizEndsAt;
           this.silentRefresh();
         }
       }
@@ -709,8 +716,8 @@ export class WinOfTheWeekComponent implements OnInit, OnDestroy {
 
   submitQuizAnswer(selectedIndex: number) {
     this.winSvc.submitQuizAnswer(selectedIndex, this.currentSeriesId() ?? undefined).subscribe({
-      next: (r) => {
-        if (!r.isCorrect) this.snackBar.open('Not quite — try again next time!', 'Close', { duration: 3000 });
+      next: () => {
+        this.snackBar.open('Answer locked in', 'Close', { duration: 2000 });
         this.silentRefresh();
       },
       error: (err) => this.snackBar.open(err.error?.error ?? 'Failed to submit answer', 'Close', { duration: 4000 })

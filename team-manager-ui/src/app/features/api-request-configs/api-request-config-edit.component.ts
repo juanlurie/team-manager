@@ -1125,7 +1125,7 @@ export class ApiRequestConfigEditComponent implements OnInit {
       ...this.parameterEntries().map(e => e.key.trim()).filter(Boolean),
       ...this.cookieVarNames(),
       ...this.configVarKeys,
-      'start', 'end', 'teamIds', 'nominee', 'title', 'description'
+      ...this.SYSTEM_VARS
     ]);
     const regularHeaderValues = this.headerEntries().filter(e => !e.secret).map(e => e.value).join(' ');
     const template = (this.data.bodyTemplate ?? '') + regularHeaderValues;
@@ -1137,7 +1137,8 @@ export class ApiRequestConfigEditComponent implements OnInit {
     const today = new Date().toISOString().split('T')[0];
     const defaults: Record<string, string> = {
       date: today, hours: '1', minutes: '0', billable: 'true',
-      workedFrom: '', sentiment: '', description: 'Test', ticketNumber: '', category: '', project: '', id: ''
+      workedFrom: '', sentiment: '', description: 'Test', ticketNumber: '', category: '', project: '', id: '',
+      seed: 'a1b2c3d4', jokeType: 'dad joke', nominee: 'Jane Doe', title: 'Shipped the new feature'
     };
     return defaults[v] ?? '';
   }
@@ -1401,6 +1402,7 @@ export class ApiRequestConfigEditComponent implements OnInit {
       if (cookieVars[k]) { segs.push({ text: cookieVars[k], kind: 'resolved' }); continue; }
       if (params[k]) { segs.push({ text: params[k], kind: 'resolved' }); continue; }
       if (this.testVars[k]) { segs.push({ text: this.testVars[k], kind: 'resolved' }); continue; }
+      if (this.SYSTEM_VARS.has(k)) { segs.push({ text: this.testVarPlaceholder(k) || `sample-${k}`, kind: 'resolved' }); continue; }
       segs.push({ text: part, kind: 'missing' });
     }
     return segs;

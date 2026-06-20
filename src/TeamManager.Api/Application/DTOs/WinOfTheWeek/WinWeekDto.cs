@@ -19,6 +19,9 @@ public record WinWeekDto
     public List<string> QuizOptions { get; init; } = [];
     public List<Guid> QuizAnsweredMemberIds { get; init; } = [];
     public bool QuizEligible { get; init; }
+    public bool QuizRevealed { get; init; }
+    public int? QuizCorrectIndex { get; init; }
+    public int? QuizMyAnswerIndex { get; init; }
     public Guid CurrentMemberId { get; init; }
     public int UserVotesRemaining { get; init; }
     public int UserNominationsRemaining { get; init; }
