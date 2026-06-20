@@ -64,6 +64,8 @@ function adaptToWinWeek(week: GuestWinWeek): WinWeek {
     quizRevealed: week.quizRevealed,
     quizCorrectIndex: week.quizCorrectIndex,
     quizMyAnswerIndex: null,
+    quizWinnerMemberId: null,
+    quizWinnerName: week.quizWinnerName,
     currentMemberId: GUEST_OWNED_ID,
     userVotesRemaining: week.userVotesRemaining,
     userNominationsRemaining: week.userNominationsRemaining,
@@ -403,6 +405,7 @@ export class GuestWowComponent implements OnInit, OnDestroy {
   private hypeExpiredWeekId: string | null = null;
   private quizExpiryCheckInterval: ReturnType<typeof setInterval> | null = null;
   private quizExpiredKey: string | null = null;
+  private quizLoopPollInterval: ReturnType<typeof setInterval> | null = null;
   private timerExpiredWeekId: string | null = null;
   private suddenDeathSnapshot: { nominations: GuestNomination[]; tiedNominationIds: string[] } | null = null;
 
@@ -476,6 +479,7 @@ export class GuestWowComponent implements OnInit, OnDestroy {
     if (this.expiryCheckInterval) clearInterval(this.expiryCheckInterval);
     if (this.hypeExpiryCheckInterval) clearInterval(this.hypeExpiryCheckInterval);
     if (this.quizExpiryCheckInterval) clearInterval(this.quizExpiryCheckInterval);
+    if (this.quizLoopPollInterval) clearInterval(this.quizLoopPollInterval);
   }
 
   login() { this.auth.login('/fun/win-of-the-week'); }
@@ -488,6 +492,7 @@ export class GuestWowComponent implements OnInit, OnDestroy {
     if (this.expiryCheckInterval) clearInterval(this.expiryCheckInterval);
     if (this.hypeExpiryCheckInterval) clearInterval(this.hypeExpiryCheckInterval);
     if (this.quizExpiryCheckInterval) clearInterval(this.quizExpiryCheckInterval);
+    if (this.quizLoopPollInterval) clearInterval(this.quizLoopPollInterval);
   }
 
   saveName() {
@@ -623,6 +628,18 @@ export class GuestWowComponent implements OnInit, OnDestroy {
     this.syncPoll(week);
     this.syncHypeExpiry(week);
     this.syncQuizExpiry(week);
+    this.syncQuizLoop(week);
+  }
+
+  // Revealed with no winner -- the server auto-loops into a new question a few seconds after reveal,
+  // but only advances when something fetches it. Poll until it does (or a winner shows up).
+  private syncQuizLoop(week: GuestWinWeek) {
+    if (!week.quizRevealed || !week.quizQuestion || week.quizWinnerName) {
+      if (this.quizLoopPollInterval) { clearInterval(this.quizLoopPollInterval); this.quizLoopPollInterval = null; }
+      return;
+    }
+    if (this.quizLoopPollInterval) return;
+    this.quizLoopPollInterval = setInterval(() => this.refreshWeek(), 2000);
   }
 
   private syncHypeExpiry(week: GuestWinWeek) {

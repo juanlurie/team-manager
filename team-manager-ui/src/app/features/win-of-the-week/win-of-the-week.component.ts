@@ -160,6 +160,8 @@ export class WowSeriesSheetComponent {
             (endHypeBattleClick)="endHypeBattle()"
             (startQuizClick)="startQuiz()"
             (submitQuizAnswerClick)="submitQuizAnswer($event)"
+            (completeQuizWinnerClick)="completeQuizWinner()"
+            (stopQuizClick)="stopQuiz()"
             (openVotingClick)="openVoting()"
             (endVotingClick)="endVoting()"
             (startSuddenDeathClick)="startTieBreaker()"
@@ -268,6 +270,7 @@ export class WinOfTheWeekComponent implements OnInit, OnDestroy {
   private timerExpiredWeekId: string | null = null;
   private hypeExpiredWeekId: string | null = null;
   private quizExpiredKey: string | null = null;
+  private quizLoopPollTick = 0;
   private suddenDeathSnapshot: { nominations: WinNomination[], tiedNominationIds: string[] } | null = null;
 
   constructor() {
@@ -378,6 +381,14 @@ export class WinOfTheWeekComponent implements OnInit, OnDestroy {
           this.silentRefresh();
         }
       }
+      // Revealed with no winner -- the server auto-loops into a new question a few seconds after
+      // reveal, but only advances when something fetches it. Poll every couple seconds until it does.
+      if (week?.quizRevealed && week.quizQuestion && !week.quizWinnerName) {
+        this.quizLoopPollTick = (this.quizLoopPollTick + 1) % 2;
+        if (this.quizLoopPollTick === 0) this.silentRefresh();
+      } else {
+        this.quizLoopPollTick = 0;
+      }
     });
 
     this.wsSvc.connect();
@@ -401,6 +412,7 @@ export class WinOfTheWeekComponent implements OnInit, OnDestroy {
         case 'nomination_updated': case 'nomination_deleted': case 'voting_opened':
         case 'sudden_death_started': case 'nominations_reopened': case 'win_story_ready':
         case 'wow_quiz_started': case 'wow_quiz_answer_submitted':
+        case 'wow_quiz_revealed': case 'wow_quiz_stopped':
           this.silentRefresh(); break;
         case 'wow_timer_started': {
           const endsAt = msg.data['endsAt'] as string;
@@ -721,6 +733,20 @@ export class WinOfTheWeekComponent implements OnInit, OnDestroy {
         this.silentRefresh();
       },
       error: (err) => this.snackBar.open(err.error?.error ?? 'Failed to submit answer', 'Close', { duration: 4000 })
+    });
+  }
+
+  completeQuizWinner() {
+    this.winSvc.completeQuizWinner(this.currentSeriesId() ?? undefined).subscribe({
+      next: (week) => this.currentWeek.set(week),
+      error: (err) => this.snackBar.open(err.error?.error ?? 'Failed to complete Win of the Week', 'Close', { duration: 4000 })
+    });
+  }
+
+  stopQuiz() {
+    this.winSvc.stopQuiz(this.currentSeriesId() ?? undefined).subscribe({
+      next: (week) => this.currentWeek.set(week),
+      error: (err) => this.snackBar.open(err.error?.error ?? 'Failed to stop Quiz Duel', 'Close', { duration: 4000 })
     });
   }
 

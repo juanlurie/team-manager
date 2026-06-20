@@ -342,6 +342,9 @@ public class WinOfTheWeekController(IWinOfTheWeekService service, WinSeriesServi
             .OrderByDescending(w => w.WeekStart)
             .FirstOrDefaultAsync();
 
+        if (week?.QuizQuestion is not null)
+            return BadRequest(new { error = "Stop Quiz Duel before starting Hype Battle." });
+
         var endsAt = DateTimeOffset.UtcNow.AddSeconds(request.DurationSeconds);
         if (week is not null)
         {
@@ -436,6 +439,48 @@ public class WinOfTheWeekController(IWinOfTheWeekService service, WinSeriesServi
         {
             var isCorrect = await service.SubmitQuizAnswerAsync(memberId, week.Id, request.SelectedIndex);
             return Ok(new { isCorrect });
+        }
+        catch (KeyNotFoundException ex) { return NotFound(new { error = ex.Message }); }
+        catch (InvalidOperationException ex) { return BadRequest(new { error = ex.Message }); }
+    }
+
+    [HttpPost("quiz/complete")]
+    [RequireFeature("wow-host")]
+    public async Task<IActionResult> CompleteQuizWinner([FromQuery] Guid? seriesId = null)
+    {
+        var memberId = GetCurrentMemberId();
+        var sid = await ResolveSeriesIdAsync(seriesId);
+        var week = await db.WinWeeks
+            .Where(w => w.WinSeriesId == sid && w.Status != WinWeekStatus.Closed)
+            .OrderByDescending(w => w.WeekStart)
+            .FirstOrDefaultAsync();
+        if (week is null) return NotFound(new { error = "No active week found." });
+
+        try
+        {
+            var result = await service.CompleteQuizWinnerAsync(memberId, week.Id);
+            return Ok(result);
+        }
+        catch (KeyNotFoundException ex) { return NotFound(new { error = ex.Message }); }
+        catch (InvalidOperationException ex) { return BadRequest(new { error = ex.Message }); }
+    }
+
+    [HttpPost("quiz/stop")]
+    [RequireFeature("wow-host")]
+    public async Task<IActionResult> StopQuiz([FromQuery] Guid? seriesId = null)
+    {
+        var memberId = GetCurrentMemberId();
+        var sid = await ResolveSeriesIdAsync(seriesId);
+        var week = await db.WinWeeks
+            .Where(w => w.WinSeriesId == sid && w.Status != WinWeekStatus.Closed)
+            .OrderByDescending(w => w.WeekStart)
+            .FirstOrDefaultAsync();
+        if (week is null) return NotFound(new { error = "No active week found." });
+
+        try
+        {
+            var result = await service.StopQuizAsync(memberId, week.Id);
+            return Ok(result);
         }
         catch (KeyNotFoundException ex) { return NotFound(new { error = ex.Message }); }
         catch (InvalidOperationException ex) { return BadRequest(new { error = ex.Message }); }

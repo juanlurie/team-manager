@@ -19,6 +19,8 @@ public class WinWeek
     public string? QuizOptionsJson { get; set; }
     public int? QuizCorrectIndex { get; set; }
     public bool QuizRevealed { get; set; }
+    public DateTimeOffset? QuizRevealedAt { get; set; }
+    public Guid? QuizWinnerMemberId { get; set; }
     public Guid CreatedByMemberId { get; set; }
     public Guid WinSeriesId { get; set; }
     public string? WinnerStory { get; set; }

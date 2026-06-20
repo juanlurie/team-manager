@@ -117,6 +117,10 @@ public class GuestWinOfTheWeekService(AppDbContext db, IHttpContextAccessor http
             QuizAnsweredMemberIds = await db.WinQuizAnswers.Where(a => a.WinWeekId == week.Id).Select(a => a.MemberId).ToListAsync(),
             QuizRevealed = week.QuizRevealed,
             QuizCorrectIndex = week.QuizRevealed ? week.QuizCorrectIndex : null,
+            QuizWinnerName = week.QuizWinnerMemberId.HasValue
+                ? nominations.FirstOrDefault(n => n.NomineeMemberId == week.QuizWinnerMemberId.Value) is { } wn
+                    ? $"{wn.Nominee.FirstName} {wn.Nominee.LastName}" : null
+                : null,
             TiedNominationIds = !string.IsNullOrEmpty(week.TiedNominationIds)
                 ? System.Text.Json.JsonSerializer.Deserialize<List<Guid>>(week.TiedNominationIds) ?? []
                 : [],

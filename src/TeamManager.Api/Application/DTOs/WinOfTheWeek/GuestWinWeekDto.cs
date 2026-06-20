@@ -20,6 +20,7 @@ public record GuestWinWeekDto
     public IReadOnlyList<Guid> QuizAnsweredMemberIds { get; init; } = [];
     public bool QuizRevealed { get; init; }
     public int? QuizCorrectIndex { get; init; }
+    public string? QuizWinnerName { get; init; }
     public IReadOnlyList<Guid> TiedNominationIds { get; init; } = [];
     public bool PowerUpsEnabled { get; init; }
     public bool HideVoteCounts { get; init; }

@@ -130,6 +130,15 @@ public class QuizGameService(AppDbContext db, QuizQuestionGeneratorService quest
         return isCorrect;
     }
 
+    // Called by QuizGameProgressWorker so reveal/advance/completion happen even if no client is
+    // actively polling this session right now (e.g. everyone closed the tab mid-question).
+    public async Task ProgressSessionAsync(Guid sessionId)
+    {
+        var session = await db.QuizGameSessions.FindAsync(sessionId);
+        if (session is null) return;
+        await TryProgressAsync(session);
+    }
+
     public async Task<QuizGameSessionDto> GetSessionAsync(Guid sessionId, Guid memberId)
     {
         var session = await db.QuizGameSessions.FirstOrDefaultAsync(s => s.Id == sessionId)
