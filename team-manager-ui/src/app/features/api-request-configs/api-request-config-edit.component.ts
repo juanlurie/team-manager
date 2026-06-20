@@ -598,7 +598,7 @@ interface CodeSegment { text: string; kind: 'plain' | 'resolved' | 'missing'; }
             </div>
           }
 
-          @if (data.action === 'AiChatWinStory' || data.action === 'GenerateJoke') {
+          @if (data.action === 'AiChatWinStory' || data.action === 'GenerateJoke' || data.action === 'GenerateQuizQuestion') {
             <div class="map-block">
               <mat-form-field appearance="outline" class="full-width">
                 <mat-label>Text Response Path</mat-label>
@@ -978,6 +978,7 @@ export class ApiRequestConfigEditComponent implements OnInit {
       return [...base, 'id', 'date', 'project', 'category', 'categoryId', 'employeeId', 'workedFromLocationId', 'hours', 'minutes', 'billable', 'workedFrom', 'sentiment', 'description', 'ticketNumber'];
     }
     if (action === 'GenerateJoke') return [...base, 'jokeType', 'seed'];
+    if (action === 'GenerateQuizQuestion') return [...base, 'seed'];
     if (action === 'AiChatWinStory') return [...base, 'nominee', 'title', 'description'];
     if (action === 'FetchLeave') return [...base, 'start', 'end', 'teamIds'];
     if (action === 'FetchCalendarEvents') return [...base, 'start', 'end', 'teamIds'];
@@ -1096,7 +1097,7 @@ export class ApiRequestConfigEditComponent implements OnInit {
 
   hasMapping(): boolean {
     return this.data ? ['AddTimesheetEntry', 'GetTimesheetProjects', 'GetTimesheetProjectCategories', 'FetchLeave',
-            'AiChatWinStory', 'GenerateJoke', 'FetchCalendarEvents'].includes(this.data.action) : false;
+            'AiChatWinStory', 'GenerateJoke', 'GenerateQuizQuestion', 'FetchCalendarEvents'].includes(this.data.action) : false;
   }
 
   get hasTestResults(): boolean {
