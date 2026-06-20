@@ -138,6 +138,8 @@ export class WowSeriesSheetComponent {
             [activeTimerEndsAt]="activeTimerEndsAt()"
             [hypeBattleEndsAt]="hypeBattleEndsAt()"
             [quizEligible]="currentWeek()?.quizEligible ?? false"
+            [quizStarting]="startingQuiz()"
+            [quizLoadingNext]="loadingNextQuizQuestion()"
             [guestToken]="currentWeek()?.guestToken ?? null"
             [hasWinOfMonth]="hasWinOfMonth()"
             [reactionEvents]="reactionEvents()"
@@ -159,6 +161,7 @@ export class WowSeriesSheetComponent {
             (startHypeBattleClick)="startHypeBattle($event)"
             (endHypeBattleClick)="endHypeBattle()"
             (startQuizClick)="startQuiz()"
+            (quizRevealDrained)="onQuizRevealDrained()"
             (submitQuizAnswerClick)="submitQuizAnswer($event)"
             (completeQuizWinnerClick)="completeQuizWinner()"
             (stopQuizClick)="stopQuiz()"
@@ -271,6 +274,8 @@ export class WinOfTheWeekComponent implements OnInit, OnDestroy {
   private hypeExpiredWeekId: string | null = null;
   private quizExpiredKey: string | null = null;
   private quizLoopPollTick = 0;
+  startingQuiz = signal(false);
+  loadingNextQuizQuestion = signal(false);
   private suddenDeathSnapshot: { nominations: WinNomination[], tiedNominationIds: string[] } | null = null;
 
   constructor() {
@@ -493,10 +498,23 @@ export class WinOfTheWeekComponent implements OnInit, OnDestroy {
     if (!sid) { this.loading.set(false); return; }
     this.loading.set(true);
     this.winSvc.getCurrentWeek(sid).subscribe({
-      next: (week) => { this.currentWeek.set(week); if (week) { this.currentUserId = week.currentMemberId; this.connectedCount.set(week.connectedMemberCount); this.hypeBattleEndsAt.set(week.hypeBattleEndsAt); if (week.guestToken) this.wsSvc.send({ type: 'join_wow', sessionKey: week.guestToken }); } this.loading.set(false); },
+      next: (week) => { this.applyWeek(week); this.loading.set(false); },
       error: () => { this.loading.set(false); this.snackBar.open('Failed to load Win of the Week', 'Close', { duration: 3000 }); }
     });
     this.winSvc.getTokenBalance(sid).subscribe({ next: r => this.tokenBalance.set(r.balance), error: () => {} });
+  }
+
+  // Centralizes currentWeek updates so the "loading next question" spinner always clears the
+  // moment a fresh (non-revealed) quiz question actually arrives via polling.
+  private applyWeek(week: WinWeek | null) {
+    if (week && !week.quizRevealed) this.loadingNextQuizQuestion.set(false);
+    this.currentWeek.set(week);
+    if (week) {
+      this.currentUserId = week.currentMemberId;
+      this.connectedCount.set(week.connectedMemberCount);
+      this.hypeBattleEndsAt.set(week.hypeBattleEndsAt);
+      if (week.guestToken) this.wsSvc.send({ type: 'join_wow', sessionKey: week.guestToken });
+    }
   }
 
   private silentRefresh() {
@@ -504,7 +522,7 @@ export class WinOfTheWeekComponent implements OnInit, OnDestroy {
     if (!sid) return;
     clearCacheForPattern('/api/v1/win-of-the-week');
     this.winSvc.getCurrentWeek(sid).subscribe({
-      next: (week) => { this.currentWeek.set(week); if (week) { this.currentUserId = week.currentMemberId; this.connectedCount.set(week.connectedMemberCount); this.hypeBattleEndsAt.set(week.hypeBattleEndsAt); if (week.guestToken) this.wsSvc.send({ type: 'join_wow', sessionKey: week.guestToken }); } }
+      next: (week) => { this.applyWeek(week); }
     });
   }
 
@@ -729,10 +747,16 @@ export class WinOfTheWeekComponent implements OnInit, OnDestroy {
   }
 
   startQuiz() {
+    if (this.startingQuiz()) return;
+    this.startingQuiz.set(true);
     this.winSvc.startQuiz(this.currentSeriesId() ?? undefined).subscribe({
-      next: (week) => this.currentWeek.set(week),
-      error: (err) => this.snackBar.open(err.error?.error ?? 'Failed to start Quiz Duel', 'Close', { duration: 4000 })
+      next: (week) => { this.applyWeek(week); this.startingQuiz.set(false); },
+      error: (err) => { this.startingQuiz.set(false); this.snackBar.open(err.error?.error ?? 'Failed to start Quiz Duel', 'Close', { duration: 4000 }); }
     });
+  }
+
+  onQuizRevealDrained() {
+    this.loadingNextQuizQuestion.set(true);
   }
 
   submitQuizAnswer(selectedIndex: number) {
@@ -747,14 +771,15 @@ export class WinOfTheWeekComponent implements OnInit, OnDestroy {
 
   completeQuizWinner() {
     this.winSvc.completeQuizWinner(this.currentSeriesId() ?? undefined).subscribe({
-      next: (week) => this.currentWeek.set(week),
+      next: (week) => this.applyWeek(week),
       error: (err) => this.snackBar.open(err.error?.error ?? 'Failed to complete Win of the Week', 'Close', { duration: 4000 })
     });
   }
 
   stopQuiz() {
+    this.loadingNextQuizQuestion.set(false);
     this.winSvc.stopQuiz(this.currentSeriesId() ?? undefined).subscribe({
-      next: (week) => this.currentWeek.set(week),
+      next: (week) => this.applyWeek(week),
       error: (err) => this.snackBar.open(err.error?.error ?? 'Failed to stop Quiz Duel', 'Close', { duration: 4000 })
     });
   }

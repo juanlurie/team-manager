@@ -6,6 +6,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatDividerModule } from '@angular/material/divider';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { WinWeek, WinNomination, WowNominationDisplay } from '../../core/models/win-week.model';
 import { wowPhaseInfo } from '../../shared/utils/wow.utils';
 import { WowNominationCardComponent, ReactionBurst } from '../../shared/components/wow-nomination-card/wow-nomination-card.component';
@@ -33,7 +34,8 @@ import { RevealProgressBarComponent } from '../../shared/components/reveal-progr
     AppLoadingComponent,
     AppEmptyStateComponent,
     AppInfoBannerComponent,
-    RevealProgressBarComponent
+    RevealProgressBarComponent,
+    MatProgressSpinnerModule
   ],
   changeDetection: ChangeDetectionStrategy.Default,
   styles: [`
@@ -177,9 +179,10 @@ import { RevealProgressBarComponent } from '../../shared/components/reveal-progr
                       }
                     </div>
                     <button class="ctrl-btn" style="width:100%" [style.opacity]="quizEligible() ? 1 : 0.6"
+                            [disabled]="quizStarting()"
                             [matTooltip]="quizEligible() ? '' : 'All tied nominees must be logged in and connected right now'"
                             (click)="startQuizClick.emit()">
-                      🧠 Start Quiz Duel
+                      @if (quizStarting()) { Starting… } @else { 🧠 Start Quiz Duel }
                     </button>
                   }
                 }
@@ -390,7 +393,13 @@ import { RevealProgressBarComponent } from '../../shared/components/reveal-progr
               }
 
               @if (w.quizRevealed && !w.quizWinnerName) {
-                <app-reveal-progress-bar [endsAt]="w.quizRevealEndsAt" />
+                @if (quizLoadingNext()) {
+                  <div style="font-size:0.78rem;opacity:0.6;margin-top:8px;display:flex;align-items:center;gap:8px">
+                    <mat-spinner diameter="16" /> Loading next question…
+                  </div>
+                } @else {
+                  <app-reveal-progress-bar [endsAt]="w.quizRevealEndsAt" (drained)="quizRevealDrained.emit()" />
+                }
               }
 
               @if (w.quizWinnerName && isHost()) {
@@ -533,6 +542,8 @@ export class WowCurrentWeekComponent {
   activeTimerEndsAt   = input<string | null>(null);
   hypeBattleEndsAt    = input<string | null>(null);
   quizEligible        = input(false);
+  quizStarting        = input(false);
+  quizLoadingNext     = input(false);
   guestToken          = input<string | null>(null);
   hasWinOfMonth       = input(false);
   reactionEvents      = input<(ReactionBurst & { nominationId: string })[]>([]);
@@ -588,6 +599,7 @@ export class WowCurrentWeekComponent {
   submitQuizAnswerClick     = output<number>();
   completeQuizWinnerClick   = output();
   stopQuizClick             = output();
+  quizRevealDrained         = output();
   endVotingClick            = output();
   startSuddenDeathClick     = output();
   togglePowerUpsClick       = output();
