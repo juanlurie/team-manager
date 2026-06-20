@@ -16,6 +16,7 @@ const FUN_TABS: FunTab[] = [
   { label: 'Coffee Run', route: 'coffee-run', featureKey: 'coffee-run' },
   { label: 'Scrum Poker', route: 'scrum-poker', featureKey: 'scrum-poker' },
   { label: 'Jokes', route: 'jokes', featureKey: 'jokes' },
+  { label: 'Quiz Game', route: 'quiz-game', featureKey: 'quiz-game' },
 ];
 
 @Component({

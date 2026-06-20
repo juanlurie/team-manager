@@ -42,6 +42,10 @@ export const FUN_ROUTES: Routes = [
       {
         path: 'jokes',
         loadComponent: () => import('../jokes/jokes.component').then(m => m.JokesComponent)
+      },
+      {
+        path: 'quiz-game',
+        loadChildren: () => import('../quiz-game/quiz-game.routes').then(m => m.QUIZ_GAME_ROUTES)
       }
     ]
   }
