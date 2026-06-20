@@ -391,6 +391,10 @@ export class WinOfTheWeekComponent implements OnInit, OnDestroy {
       }
     });
 
+    // Mobile browsers throttle/pause timers when the screen dims or the tab backgrounds --
+    // resync immediately on resume instead of waiting for the next poll tick to catch up.
+    document.addEventListener('visibilitychange', this.onVisibilityChange);
+
     this.wsSvc.connect();
     // Re-join session when WS reconnects (handles reconnects mid-session)
     const connSub = this.wsSvc.connected$.subscribe(connected => {
@@ -477,7 +481,12 @@ export class WinOfTheWeekComponent implements OnInit, OnDestroy {
   ngOnDestroy() {
     this.wsSub?.unsubscribe();
     this.timerSub?.unsubscribe();
+    document.removeEventListener('visibilitychange', this.onVisibilityChange);
   }
+
+  private onVisibilityChange = () => {
+    if (document.visibilityState === 'visible') this.silentRefresh();
+  };
 
   private refresh() {
     const sid = this.currentSeriesId();

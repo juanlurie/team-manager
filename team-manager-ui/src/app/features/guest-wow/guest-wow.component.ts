@@ -471,10 +471,19 @@ export class GuestWowComponent implements OnInit, OnDestroy {
       this.guestName.set(savedName);
       this.loadWeek();
     }
+
+    // Mobile browsers throttle/pause timers when the screen dims or the tab backgrounds --
+    // resync immediately on resume instead of waiting for the next poll tick to catch up.
+    document.addEventListener('visibilitychange', this.onVisibilityChange);
   }
+
+  private onVisibilityChange = () => {
+    if (document.visibilityState === 'visible' && this.guestName()) this.refreshWeek();
+  };
 
   ngOnDestroy() {
     this.wsSub?.unsubscribe();
+    document.removeEventListener('visibilitychange', this.onVisibilityChange);
     if (this.pollInterval) clearInterval(this.pollInterval);
     if (this.expiryCheckInterval) clearInterval(this.expiryCheckInterval);
     if (this.hypeExpiryCheckInterval) clearInterval(this.hypeExpiryCheckInterval);

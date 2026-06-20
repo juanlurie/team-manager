@@ -125,8 +125,12 @@ export class CreateQuizGameDialogComponent {
           <div class="game-card">
             <div style="display:flex;justify-content:space-between;align-items:center">
               <div class="session-title" style="font-size:1.05rem">{{ s.title || 'Quiz Game' }}</div>
-              @if (s.status === 'InProgress' && !s.currentQuestionRevealed) {
-                <app-wow-countdown [endsAt]="s.currentQuestionEndsAt" />
+              @if (s.status === 'InProgress') {
+                @if (!s.currentQuestionRevealed) {
+                  <app-wow-countdown [endsAt]="s.currentQuestionEndsAt" />
+                } @else {
+                  <span style="font-size:0.75rem;opacity:0.6;font-weight:600">Revealed!</span>
+                }
               }
             </div>
 
@@ -255,12 +259,23 @@ export class QuizGameComponent implements OnInit, OnDestroy {
     this.poll = setInterval(() => {
       if (this.selectedSession()?.status === 'InProgress') this.refreshSelected();
     }, 1500);
+
+    // Mobile browsers throttle/pause timers when the screen dims or the tab backgrounds --
+    // resync immediately on resume instead of waiting for the next poll tick to catch up.
+    document.addEventListener('visibilitychange', this.onVisibilityChange);
   }
 
   ngOnDestroy() {
     this.destroy$.next(); this.destroy$.complete();
     if (this.poll) clearInterval(this.poll);
+    document.removeEventListener('visibilitychange', this.onVisibilityChange);
   }
+
+  private onVisibilityChange = () => {
+    if (document.visibilityState !== 'visible') return;
+    if (this.selectedSession()) this.refreshSelected();
+    else this.loadSessions();
+  };
 
   loadSessions() {
     this.loading.set(true);
