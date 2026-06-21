@@ -14,6 +14,11 @@ import { PollDetail, PollSummary } from '../../core/models/poll.model';
 import { WebSocketService } from '../../core/websocket/websocket.service';
 import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/confirm-dialog.component';
 
+function toLocalDateTimeInputValue(d: Date): string {
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 @Component({
   selector: 'app-create-poll-dialog',
   standalone: true,
@@ -66,7 +71,9 @@ export class CreatePollDialogComponent {
   options = ['', ''];
   hideResultsUntilClosed = false;
   scheduledCloseAt = '';
-  minDateTime = new Date(Date.now() + 60_000).toISOString().slice(0, 16);
+  // datetime-local's value/min are local-time strings with no timezone -- toISOString() returns
+  // UTC, which silently breaks the min bound (and picked dates) for anyone not in UTC+0.
+  minDateTime = toLocalDateTimeInputValue(new Date(Date.now() + 60_000));
 
   addOption() { if (this.options.length < 8) this.options.push(''); }
   removeOption(i: number) { if (this.options.length > 2) this.options.splice(i, 1); }
