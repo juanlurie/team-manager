@@ -6,6 +6,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatDividerModule } from '@angular/material/divider';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { WinWeek, WinNomination, WowNominationDisplay } from '../../core/models/win-week.model';
 import { wowPhaseInfo } from '../../shared/utils/wow.utils';
 import { WowNominationCardComponent, ReactionBurst } from '../../shared/components/wow-nomination-card/wow-nomination-card.component';
@@ -14,6 +15,7 @@ import { WowCountdownComponent } from '../../shared/components/wow-countdown/wow
 import { AppLoadingComponent } from '../../shared/components/app-loading/app-loading.component';
 import { AppEmptyStateComponent } from '../../shared/components/app-empty-state/app-empty-state.component';
 import { AppInfoBannerComponent } from '../../shared/components/app-info-banner/app-info-banner.component';
+import { RevealProgressBarComponent } from '../../shared/components/reveal-progress-bar/reveal-progress-bar.component';
 
 @Component({
   selector: 'app-wow-current-week',
@@ -31,7 +33,9 @@ import { AppInfoBannerComponent } from '../../shared/components/app-info-banner/
     WowCountdownComponent,
     AppLoadingComponent,
     AppEmptyStateComponent,
-    AppInfoBannerComponent
+    AppInfoBannerComponent,
+    RevealProgressBarComponent,
+    MatProgressSpinnerModule
   ],
   changeDetection: ChangeDetectionStrategy.Default,
   styles: [`
@@ -43,6 +47,10 @@ import { AppInfoBannerComponent } from '../../shared/components/app-info-banner/
     .ctrl-btn:hover { background: rgba(255,255,255,0.12); }
     .ctrl-btn.stop { background: rgba(255,87,34,0.15); border-color: rgba(255,87,34,0.4); color: #ff7043; }
     .ctrl-btn.danger { background: rgba(239,83,80,0.1); border-color: rgba(239,83,80,0.3); color: #ef5350; }
+    .quiz-option-display { padding: 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.1); font-size: 0.85rem; opacity: 0.6; }
+    .quiz-option-mine { border-color: rgba(100,181,246,0.5); opacity: 0.9; color: #64b5f6; }
+    .quiz-option-correct { border-color: rgba(102,187,106,0.6); background: rgba(102,187,106,0.12); opacity: 1; color: #81c784; }
+    .quiz-option-wrong { border-color: rgba(239,83,80,0.6); background: rgba(239,83,80,0.1); opacity: 1; color: #ef5350; }
     .ctrl-btn.primary { background: rgba(100,181,246,0.15); border-color: rgba(100,181,246,0.4); color: #64b5f6; font-weight: 600; }
     .label-row { display: flex; align-items: center; justify-content: space-between; width: 100%; }
     .ctrl-section { display: flex; flex-direction: column; gap: 6px; }
@@ -85,6 +93,12 @@ import { AppInfoBannerComponent } from '../../shared/components/app-info-banner/
             <mat-slide-toggle [checked]="powerUpsEnabled()" (change)="togglePowerUpsClick.emit()" color="accent" />
           </div>
 
+          <!-- Hide vote counts toggle -->
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+            <span style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;opacity:0.45">Hide Vote Counts</span>
+            <mat-slide-toggle [checked]="hideVoteCounts()" (change)="toggleHideVoteCountsClick.emit()" color="accent" />
+          </div>
+
           @if (w.status === 'Nominating') {
             <div class="ctrl-sep"></div>
 
@@ -125,25 +139,52 @@ import { AppInfoBannerComponent } from '../../shared/components/app-info-banner/
               <div class="ctrl-section">
                 <span class="ctrl-label" style="color:#ff7043;opacity:1">🔥 Tie Detected</span>
 
-                @if (w.status === 'Voting') {
-                  <div style="font-size:0.68rem;opacity:0.4;margin:2px 0 4px">Start Sudden Death — re-vote on the tied nominations:</div>
-                  <div class="preset-row">
-                    <button class="preset-btn sd" (click)="suddenDeathDurationChange.emit(60); startSuddenDeathClick.emit()">1:00</button>
-                    <button class="preset-btn sd" (click)="suddenDeathDurationChange.emit(90); startSuddenDeathClick.emit()">1:30</button>
-                    <button class="preset-btn sd" (click)="suddenDeathDurationChange.emit(120); startSuddenDeathClick.emit()">2:00</button>
-                  </div>
-                  <div style="font-size:0.68rem;opacity:0.4;margin:10px 0 4px">Or settle it instantly with a hype battle — most taps wins (only if votes are still tied):</div>
+                @if (w.quizQuestion) {
+                  <!-- Quiz Duel is the active tiebreaker -- only one mini-game shows at a time -->
+                  <span class="ctrl-label" style="margin-bottom:4px">🧠 Quiz Duel running</span>
+                  <div style="font-size:0.68rem;opacity:0.4;margin-bottom:8px">Loops automatically until someone wins</div>
+                  <button class="ctrl-btn stop" style="width:100%" (click)="stopQuizClick.emit()">Stop Quiz Duel</button>
                 } @else {
-                  <div style="font-size:0.68rem;opacity:0.4;margin:2px 0 4px">Settle it with a hype battle — most taps wins (only if votes are still tied):</div>
-                }
-                @if (!hypeBattleEndsAt()) {
-                  <div class="preset-row">
-                    <button class="preset-btn" (click)="startHypeBattleClick.emit(30)">30s</button>
-                    <button class="preset-btn" (click)="startHypeBattleClick.emit(60)">1:00</button>
-                    <button class="preset-btn" (click)="startHypeBattleClick.emit(90)">1:30</button>
-                  </div>
-                } @else {
-                  <button class="ctrl-btn stop" style="width:100%" (click)="endHypeBattleClick.emit()">Stop Hype Battle</button>
+                  @if (w.status === 'Voting') {
+                    <span class="ctrl-label" style="margin-bottom:4px">Sudden Death</span>
+                    <div style="font-size:0.68rem;opacity:0.4;margin-bottom:4px">Re-vote on the tied nominations</div>
+                    <div class="preset-row">
+                      <button class="preset-btn sd" (click)="suddenDeathDurationChange.emit(60); startSuddenDeathClick.emit()">1:00</button>
+                      <button class="preset-btn sd" (click)="suddenDeathDurationChange.emit(90); startSuddenDeathClick.emit()">1:30</button>
+                      <button class="preset-btn sd" (click)="suddenDeathDurationChange.emit(120); startSuddenDeathClick.emit()">2:00</button>
+                    </div>
+                    <span class="ctrl-label" style="margin:10px 0 4px">Hype Battle</span>
+                    <div style="font-size:0.68rem;opacity:0.4;margin-bottom:4px">Most taps wins instantly — only if votes are still tied</div>
+                  } @else {
+                    <span class="ctrl-label" style="margin-bottom:4px">Hype Battle</span>
+                    <div style="font-size:0.68rem;opacity:0.4;margin-bottom:4px">Most taps wins instantly — only if votes are still tied</div>
+                  }
+                  @if (!hypeBattleEndsAt()) {
+                    <div class="preset-row">
+                      <button class="preset-btn" (click)="startHypeBattleClick.emit(30)">30s</button>
+                      <button class="preset-btn" (click)="startHypeBattleClick.emit(60)">1:00</button>
+                      <button class="preset-btn" (click)="startHypeBattleClick.emit(90)">1:30</button>
+                    </div>
+                  } @else {
+                    <button class="ctrl-btn stop" style="width:100%" (click)="endHypeBattleClick.emit()">Stop Hype Battle</button>
+                  }
+
+                  @if (!hypeBattleEndsAt() && w.status !== 'SuddenDeath') {
+                    <span class="ctrl-label" style="margin:10px 0 4px">Quiz Duel</span>
+                    <div style="font-size:0.68rem;opacity:0.4;margin-bottom:4px">
+                      @if (quizEligible()) {
+                        Tied nominees race to answer first — needs everyone logged in now
+                      } @else {
+                        Needs every tied nominee logged in right now to start
+                      }
+                    </div>
+                    <button class="ctrl-btn" style="width:100%" [style.opacity]="quizEligible() ? 1 : 0.6"
+                            [disabled]="quizStarting()"
+                            [matTooltip]="quizEligible() ? '' : 'All tied nominees must be logged in and connected right now'"
+                            (click)="startQuizClick.emit()">
+                      @if (quizStarting()) { Starting… } @else { 🧠 Start Quiz Duel }
+                    </button>
+                  }
                 }
               </div>
             } @else if (w.status === 'Voting') {
@@ -300,6 +341,76 @@ import { AppInfoBannerComponent } from '../../shared/components/app-info-banner/
             </div>
           }
 
+          <!-- Quiz Duel banner: only shown while it's the active tiebreaker (no other tiebreaker running) -->
+          @if (w?.quizQuestion && w && !w.suddenDeathEndsAt && !w.hypeBattleEndsAt) {
+            <div [style.background]="w.quizWinnerName ? 'rgba(102,187,106,0.1)' : w.quizRevealed ? 'rgba(255,255,255,0.04)' : 'rgba(171,71,188,0.1)'"
+                 [style.border]="'1px solid ' + (w.quizWinnerName ? 'rgba(102,187,106,0.5)' : w.quizRevealed ? 'rgba(255,255,255,0.15)' : 'rgba(171,71,188,0.4)')"
+                 style="border-radius:12px;padding:16px;margin-bottom:16px">
+              <div style="display:flex;align-items:center;gap:14px;margin-bottom:12px">
+                <div style="flex:1">
+                  <div style="font-weight:700;font-size:0.85rem;color:#ce93d8;text-transform:uppercase;letter-spacing:0.5px">🧠 Quiz Duel</div>
+                  <div style="font-size:0.75rem;opacity:0.6;margin-top:2px">
+                    @if (w.quizWinnerName) {
+                      🎉 {{ w.quizWinnerName }} wins!
+                    } @else if (w.quizRevealed) {
+                      Nobody got it — next question coming up…
+                    } @else if (isQuizParticipant()) {
+                      First correct answer wins it all!
+                    } @else {
+                      {{ quizAnsweredCount() }} of {{ quizParticipantCount() }} nominees have answered
+                    }
+                  </div>
+                </div>
+                @if (!w.quizRevealed) {
+                  <div style="text-align:center;min-width:64px">
+                    <app-wow-countdown [endsAt]="w.quizEndsAt" />
+                  </div>
+                }
+              </div>
+
+              <div style="font-weight:600;font-size:0.95rem;margin-bottom:10px">{{ w.quizQuestion }}</div>
+
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+                @for (opt of w.quizOptions; let i = $index; track i) {
+                  @if (!w.quizRevealed && isQuizParticipant() && !hasAnsweredQuiz()) {
+                    <button class="ctrl-btn" style="padding:10px;height:auto;white-space:normal;text-align:left" (click)="submitQuizAnswerClick.emit(i)">
+                      {{ opt }}
+                    </button>
+                  } @else {
+                    <div class="quiz-option-display"
+                         [class.quiz-option-correct]="w.quizRevealed && w.quizCorrectIndex === i"
+                         [class.quiz-option-wrong]="w.quizRevealed && w.quizMyAnswerIndex === i && w.quizCorrectIndex !== i"
+                         [class.quiz-option-mine]="!w.quizRevealed && w.quizMyAnswerIndex === i">
+                      {{ opt }}
+                      @if (w.quizMyAnswerIndex === i) { <span style="opacity:0.6"> — your pick</span> }
+                    </div>
+                  }
+                }
+              </div>
+
+              @if (!w.quizRevealed && isQuizParticipant() && hasAnsweredQuiz()) {
+                <div style="font-size:0.8rem;opacity:0.5;margin-top:8px">Answer locked in — waiting on the others…</div>
+              }
+
+              @if (w.quizRevealed && !w.quizWinnerName) {
+                @if (quizLoadingNext()) {
+                  <div style="font-size:0.78rem;opacity:0.6;margin-top:8px;display:flex;align-items:center;gap:8px">
+                    <mat-spinner diameter="16" /> Loading next question…
+                  </div>
+                } @else {
+                  <app-reveal-progress-bar [endsAt]="w.quizRevealEndsAt" (drained)="quizRevealDrained.emit()" />
+                }
+              }
+
+              @if (w.quizWinnerName && isHost()) {
+                <button class="ctrl-btn" style="width:100%;margin-top:12px;background:rgba(102,187,106,0.15);border-color:rgba(102,187,106,0.4);color:#81c784"
+                        (click)="completeQuizWinnerClick.emit()">
+                  ✅ Complete Win of the Week
+                </button>
+              }
+            </div>
+          }
+
           <!-- Sudden death countdown banner -->
           @if (w?.status === 'SuddenDeath') {
             <div style="background:rgba(239,83,80,0.08);border:1px solid rgba(239,83,80,0.3);border-radius:12px;padding:12px 16px;margin-bottom:16px;display:flex;align-items:center;gap:14px">
@@ -385,6 +496,7 @@ import { AppInfoBannerComponent } from '../../shared/components/app-info-banner/
                   [hypeBattleActive]="!!hypeBattleEndsAt()"
                   [hypeBattleTotal]="hypeBattleTotal()"
                   [reactionBursts]="burstsFor(nom.id)"
+                  [hideVoteCounts]="hideVoteCounts()"
                   (voteClick)="voteClick.emit($event)"
                   (removeVoteClick)="removeVoteClick.emit($event)"
                   (editClick)="editClick.emit($event)"
@@ -425,9 +537,13 @@ export class WowCurrentWeekComponent {
   currentUserId    = input('');
   tokenBalance     = input(0);
   powerUpsEnabled  = input(true);
+  hideVoteCounts   = input(false);
   connectedCount   = input(0);
   activeTimerEndsAt   = input<string | null>(null);
   hypeBattleEndsAt    = input<string | null>(null);
+  quizEligible        = input(false);
+  quizStarting        = input(false);
+  quizLoadingNext     = input(false);
   guestToken          = input<string | null>(null);
   hasWinOfMonth       = input(false);
   reactionEvents      = input<(ReactionBurst & { nominationId: string })[]>([]);
@@ -441,6 +557,26 @@ export class WowCurrentWeekComponent {
     (this.isMobile() && !!this.guestToken()) ||
     this.hasWinOfMonth()
   );
+
+  readonly quizParticipantNomineeIds = computed(() => {
+    const w = this.week();
+    if (!w) return new Set<string>();
+    const tied = this.tiedNomIds();
+    return new Set(w.nominations.filter(n => tied.has(n.id)).map(n => n.nomineeMemberId));
+  });
+
+  readonly isQuizParticipant = computed(() => this.quizParticipantNomineeIds().has(this.currentUserId()));
+  readonly hasAnsweredQuiz = computed(() => {
+    const w = this.week();
+    return !!w && (w.quizAnsweredMemberIds ?? []).includes(this.currentUserId());
+  });
+  readonly quizParticipantCount = computed(() => this.quizParticipantNomineeIds().size);
+  readonly quizAnsweredCount = computed(() => {
+    const w = this.week();
+    if (!w) return 0;
+    const participants = this.quizParticipantNomineeIds();
+    return (w.quizAnsweredMemberIds ?? []).filter(id => participants.has(id)).length;
+  });
 
   nominateClick           = output();
   openWeekClick           = output();
@@ -459,9 +595,15 @@ export class WowCurrentWeekComponent {
   stopTimerClick            = output();
   startHypeBattleClick      = output<number>();
   endHypeBattleClick        = output();
+  startQuizClick            = output();
+  submitQuizAnswerClick     = output<number>();
+  completeQuizWinnerClick   = output();
+  stopQuizClick             = output();
+  quizRevealDrained         = output();
   endVotingClick            = output();
   startSuddenDeathClick     = output();
   togglePowerUpsClick       = output();
+  toggleHideVoteCountsClick = output();
   reopenNominationsClick    = output();
   suddenDeathDurationChange = output<number>();
   historyClick              = output();

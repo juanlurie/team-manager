@@ -18,4 +18,8 @@ export class WinSeriesService {
   togglePowerUps(seriesId: string) {
     return this.http.patch<WinSeries>(`${this.base}/${seriesId}/power-ups`, {});
   }
+
+  toggleHideVoteCounts(seriesId: string) {
+    return this.http.patch<WinSeries>(`${this.base}/${seriesId}/hide-vote-counts`, {});
+  }
 }

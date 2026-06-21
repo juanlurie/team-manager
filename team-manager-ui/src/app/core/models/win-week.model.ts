@@ -1,4 +1,4 @@
-export type WowPowerUp = 'Spotlight' | 'Wildcard';
+export type WowPowerUp = 'Spotlight';
 export type WowChaosCard = 'TinyText' | 'Autocorrect' | 'RandomCase' | 'Hangman';
 
 export interface WinNomination {
@@ -31,6 +31,7 @@ export interface WinSeries {
   name: string;
   createdAt: string;
   powerUpsEnabled: boolean;
+  hideVoteCounts: boolean;
 }
 
 export interface WinWeek {
@@ -46,6 +47,17 @@ export interface WinWeek {
   closedAt: string | null;
   suddenDeathEndsAt: string | null;
   hypeBattleEndsAt: string | null;
+  quizEndsAt: string | null;
+  quizQuestion: string | null;
+  quizOptions: string[];
+  quizAnsweredMemberIds: string[];
+  quizEligible: boolean;
+  quizRevealed: boolean;
+  quizRevealEndsAt: string | null;
+  quizCorrectIndex: number | null;
+  quizMyAnswerIndex: number | null;
+  quizWinnerMemberId: string | null;
+  quizWinnerName: string | null;
   currentMemberId: string;
   userVotesRemaining: number;
   userNominationsRemaining: number;
@@ -54,6 +66,7 @@ export interface WinWeek {
   connectedMemberCount: number;
   tiedNominationIds: string[];
   powerUpsEnabled: boolean;
+  hideVoteCounts: boolean;
   guestToken: string | null;
   winnerStory: string | null;
   nominations: WinNomination[];
@@ -149,8 +162,17 @@ export interface GuestWinWeek {
   winnerStory: string | null;
   suddenDeathEndsAt: string | null;
   hypeBattleEndsAt: string | null;
+  quizEndsAt: string | null;
+  quizQuestion: string | null;
+  quizOptions: string[];
+  quizAnsweredMemberIds: string[];
+  quizRevealed: boolean;
+  quizRevealEndsAt: string | null;
+  quizCorrectIndex: number | null;
+  quizWinnerName: string | null;
   tiedNominationIds: string[];
   powerUpsEnabled: boolean;
+  hideVoteCounts: boolean;
   guestTokenBalance: number;
   nominations: GuestNomination[];
 }

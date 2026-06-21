@@ -13,10 +13,11 @@ using TeamManager.Api.Middleware;
 
 namespace TeamManager.Api.Application.Services;
 
-public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFactory) : IWinOfTheWeekService
+public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFactory, QuizQuestionGeneratorService questionGenerator) : IWinOfTheWeekService
 {
     private const int MaxNominationsPerPerson = 3;
     private const int MaxVotesPerPerson = 3;
+    internal const int QuizRevealDisplaySeconds = 5;
 
     public async Task<WinWeekDto?> GetCurrentWeekAsync(Guid currentMemberId, Guid seriesId)
     {
@@ -36,6 +37,8 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
         {
             await ResolveHypeBattleAsync(week);
         }
+
+        await ClearExpiredQuizAsync(week);
 
         var nominations = await db.WinNominations
             .Include(n => n.TeamMember)
@@ -76,6 +79,15 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
             winner = nominations.FirstOrDefault(n => n.Id == week.WinnerNominationId.Value);
         }
 
+        var quizAnswers = await db.WinQuizAnswers.Where(a => a.WinWeekId == week.Id).ToListAsync();
+        var quizAnsweredMemberIds = quizAnswers.Select(a => a.MemberId).ToList();
+        var quizMyAnswer = quizAnswers.FirstOrDefault(a => a.MemberId == currentMemberId);
+        var quizEligible = week.Status != WinWeekStatus.Closed && string.IsNullOrEmpty(week.QuizQuestion)
+            && await IsQuizEligibleAsync(week.Id);
+        var quizWinnerNomination = week.QuizWinnerMemberId.HasValue
+            ? nominations.FirstOrDefault(n => n.NomineeMemberId == week.QuizWinnerMemberId.Value)
+            : null;
+
         return new WinWeekDto
         {
             Id = week.Id,
@@ -90,6 +102,18 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
             ClosedAt = week.ClosedAt,
             SuddenDeathEndsAt = week.SuddenDeathEndsAt,
             HypeBattleEndsAt = week.HypeBattleEndsAt,
+            QuizEndsAt = week.QuizEndsAt,
+            QuizQuestion = week.QuizQuestion,
+            QuizOptions = week.QuizOptionsJson != null ? JsonSerializer.Deserialize<List<string>>(week.QuizOptionsJson) ?? [] : [],
+            QuizAnsweredMemberIds = quizAnsweredMemberIds,
+            QuizEligible = quizEligible,
+            QuizRevealed = week.QuizRevealed,
+            QuizRevealEndsAt = week.QuizRevealed && !week.QuizWinnerMemberId.HasValue
+                ? week.QuizRevealedAt?.AddSeconds(QuizRevealDisplaySeconds) : null,
+            QuizCorrectIndex = week.QuizRevealed ? week.QuizCorrectIndex : null,
+            QuizMyAnswerIndex = quizMyAnswer?.SelectedIndex,
+            QuizWinnerMemberId = week.QuizWinnerMemberId,
+            QuizWinnerName = quizWinnerNomination != null ? $"{quizWinnerNomination.Nominee.FirstName} {quizWinnerNomination.Nominee.LastName}" : null,
             CurrentMemberId = currentMemberId,
             UserVotesRemaining = week.Status == WinWeekStatus.SuddenDeath ? Math.Max(0, 1 - userSuddenDeathVoteCount) : MaxVotesPerPerson - userVoteCount,
             UserNominationsRemaining = MaxNominationsPerPerson - userNominationCount,
@@ -100,6 +124,7 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
                 ? JsonSerializer.Deserialize<List<Guid>>(week.TiedNominationIds) ?? []
                 : [],
             PowerUpsEnabled = week.Series?.PowerUpsEnabled ?? true,
+            HideVoteCounts = week.Series?.HideVoteCounts ?? false,
             GuestToken = week.GuestToken,
             WinnerStory = week.WinnerStory,
             Nominations = nominations.Select(n => new WinNominationDto
@@ -462,6 +487,9 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
         if (week.Status != WinWeekStatus.Voting)
             throw new InvalidOperationException("Sudden death can only be started during voting phase.");
 
+        if (week.QuizQuestion is not null)
+            throw new InvalidOperationException("Stop Quiz Duel before starting Sudden Death.");
+
         if (request.TiedNominationIds.Count < 2)
             throw new InvalidOperationException("Sudden death requires at least 2 tied nominations.");
 
@@ -772,7 +800,7 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
 
     public async Task<WinNominationDto> ApplyPowerUpAsync(Guid memberId, Guid nominationId, string type)
     {
-        var validPowerUps = new HashSet<string> { "Spotlight", "Wildcard" };
+        var validPowerUps = new HashSet<string> { "Spotlight" };
         if (!validPowerUps.Contains(type))
             throw new InvalidOperationException($"Invalid power-up type: {type}");
 
@@ -792,7 +820,6 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
         if (nomination.PowerUp is not null)
             throw new InvalidOperationException("A power-up has already been applied to this nomination.");
 
-        // Wildcard is host-only — checked via feature access in the controller
         await SpendTokenAsync(memberId, nomination.WinWeekId, nominationId);
 
         nomination.PowerUp = type;
@@ -1022,11 +1049,24 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
                 : tiedIds[Random.Shared.Next(tiedIds.Count)];
         }
 
+        await CloseWeekWithWinnerAsync(week, winnerId);
+    }
+
+    private async Task CloseWeekWithWinnerAsync(WinWeek week, Guid winnerNominationId)
+    {
         week.Status = WinWeekStatus.Closed;
-        week.WinnerNominationId = winnerId;
+        week.WinnerNominationId = winnerNominationId;
         week.ClosedAt = DateTimeOffset.UtcNow;
         week.TiedNominationIds = null;
         week.SuddenDeathEndsAt = null;
+        week.HypeBattleEndsAt = null;
+        week.QuizEndsAt = null;
+        week.QuizQuestion = null;
+        week.QuizOptionsJson = null;
+        week.QuizCorrectIndex = null;
+        week.QuizRevealed = false;
+        week.QuizRevealedAt = null;
+        week.QuizWinnerMemberId = null;
         await db.SaveChangesAsync();
 
         var winnerNom = await db.WinNominations
@@ -1074,27 +1114,229 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
         else
             winnerId = tiedIds[Random.Shared.Next(tiedIds.Count)];
 
-        week.Status = WinWeekStatus.Closed;
-        week.WinnerNominationId = winnerId;
-        week.ClosedAt = DateTimeOffset.UtcNow;
-        week.TiedNominationIds = null;
-        week.SuddenDeathEndsAt = null;
+        await CloseWeekWithWinnerAsync(week, winnerId);
+    }
+
+    public async Task ClearExpiredQuizAsync(WinWeek week)
+    {
+        if (week.Status == WinWeekStatus.Closed || week.QuizQuestion is null) return;
+
+        if (week.QuizRevealed)
+        {
+            // A winner was found -- wait for the host to explicitly complete the week, don't auto-close.
+            if (week.QuizWinnerMemberId.HasValue) return;
+            // Nobody got it -- show the reveal for a few seconds, then loop into a fresh question automatically.
+            if (week.QuizRevealedAt is null || DateTimeOffset.UtcNow <= week.QuizRevealedAt.Value.AddSeconds(QuizRevealDisplaySeconds)) return;
+            await BeginNextQuizRoundAsync(week);
+            return;
+        }
+
+        if (!week.QuizEndsAt.HasValue || DateTimeOffset.UtcNow <= week.QuizEndsAt.Value) return;
+        await TryResolveQuizAsync(week, force: true);
+    }
+
+    // Resolves once every tied nominee has answered, or (force) once the timer has expired.
+    // Never resolves earlier -- the duel stays suspenseful until everyone's in or time's up.
+    private async Task TryResolveQuizAsync(WinWeek week, bool force)
+    {
+        if (week.QuizQuestion is null || week.Status == WinWeekStatus.Closed || week.QuizRevealed) return;
+
+        var tiedNomineeIds = await GetTiedNomineeMemberIdsAsync(week);
+        var answers = await db.WinQuizAnswers.Where(a => a.WinWeekId == week.Id).ToListAsync();
+        var answeredIds = answers.Select(a => a.MemberId).ToHashSet();
+        var allAnswered = tiedNomineeIds.Count > 0 && tiedNomineeIds.All(answeredIds.Contains);
+
+        if (!allAnswered && !force) return;
+
+        var earliestCorrect = answers.Where(a => a.IsCorrect).OrderBy(a => a.AnsweredAt).FirstOrDefault();
+        var winnerMemberId = earliestCorrect?.MemberId;
+        var revealedAt = DateTimeOffset.UtcNow;
+
+        // Concurrent polls can all reach this point at once -- atomically claim the reveal so only one
+        // caller broadcasts it (always reveal the answer; closing the week is now a separate host action).
+        var claimed = await db.WinWeeks
+            .Where(w => w.Id == week.Id && !w.QuizRevealed)
+            .ExecuteUpdateAsync(w => w
+                .SetProperty(x => x.QuizRevealed, true)
+                .SetProperty(x => x.QuizRevealedAt, revealedAt)
+                .SetProperty(x => x.QuizEndsAt, (DateTimeOffset?)null)
+                .SetProperty(x => x.QuizWinnerMemberId, winnerMemberId));
+        if (claimed == 0) return;
+
+        _ = WebSocketMiddleware.BroadcastAsync("wow_quiz_revealed", new { weekId = week.Id, winnerMemberId }, guestAllowed: true);
+    }
+
+    // Auto-loop: nobody won this round, so generate a fresh question and start again, until someone
+    // wins or the host stops the duel (StopQuizAsync).
+    private async Task BeginNextQuizRoundAsync(WinWeek week)
+    {
+        db.WinQuizAnswers.RemoveRange(db.WinQuizAnswers.Where(a => a.WinWeekId == week.Id));
         await db.SaveChangesAsync();
 
-        var winnerNom = await db.WinNominations
-            .Include(n => n.Nominee)
-            .FirstAsync(n => n.Id == week.WinnerNominationId!.Value);
+        var (question, options, correctIndex) = await questionGenerator.GenerateAsync("WowQuiz", "Quiz Duel — generate question");
+        var optionsJson = JsonSerializer.Serialize(options);
+        var endsAt = DateTimeOffset.UtcNow.AddSeconds(45);
+        var revealedAtToken = week.QuizRevealedAt;
 
-        await AwardWeeklyAchievementAsync(winnerNom.NomineeMemberId, week.WeekStart);
-        if (winnerNom.TeamMemberId.HasValue)
-            await GrantBonusTokenAsync(winnerNom.TeamMemberId.Value, week.Id);
+        var claimed = await db.WinWeeks
+            .Where(w => w.Id == week.Id && w.QuizRevealed && w.QuizRevealedAt == revealedAtToken)
+            .ExecuteUpdateAsync(w => w
+                .SetProperty(x => x.QuizQuestion, question)
+                .SetProperty(x => x.QuizOptionsJson, optionsJson)
+                .SetProperty(x => x.QuizCorrectIndex, correctIndex)
+                .SetProperty(x => x.QuizEndsAt, endsAt)
+                .SetProperty(x => x.QuizRevealed, false)
+                .SetProperty(x => x.QuizRevealedAt, (DateTimeOffset?)null)
+                .SetProperty(x => x.QuizWinnerMemberId, (Guid?)null));
+        if (claimed == 0) return;
 
-        EnqueueAndGenerateWinStory(week.Id, $"{winnerNom.Nominee.FirstName} {winnerNom.Nominee.LastName}", winnerNom.Title, winnerNom.Description);
-
-        _ = WebSocketMiddleware.BroadcastAsync("voting_closed", new
-        {
-            weekId = week.Id,
-            winnerId = week.WinnerNominationId
-        }, guestAllowed: true);
+        if (week.GuestToken is { } token)
+            _ = WebSocketMiddleware.BroadcastToSessionAsync("wow_quiz_started", token, new { question, options, endsAt });
+        else
+            _ = WebSocketMiddleware.BroadcastAsync("wow_quiz_started", new { question, options, endsAt }, guestAllowed: true);
     }
+
+    public async Task<WinWeekDto> CompleteQuizWinnerAsync(Guid memberId, Guid weekId)
+    {
+        var week = await db.WinWeeks.FindAsync(weekId) ?? throw new KeyNotFoundException("Week not found.");
+        if (!week.QuizRevealed || !week.QuizWinnerMemberId.HasValue)
+            throw new InvalidOperationException("There's no quiz winner to confirm right now.");
+
+        var winningNomination = await db.WinNominations
+            .FirstOrDefaultAsync(n => n.WinWeekId == weekId && n.NomineeMemberId == week.QuizWinnerMemberId.Value);
+        if (winningNomination is null)
+            throw new InvalidOperationException("The winning nomination could not be found.");
+
+        await CloseWeekWithWinnerAsync(week, winningNomination.Id);
+        return await GetCurrentWeekAsync(memberId, week.WinSeriesId)
+            ?? throw new InvalidOperationException("Week not found after closing.");
+    }
+
+    public async Task<WinWeekDto> StopQuizAsync(Guid memberId, Guid weekId)
+    {
+        var week = await db.WinWeeks.FindAsync(weekId) ?? throw new KeyNotFoundException("Week not found.");
+
+        week.QuizEndsAt = null;
+        week.QuizQuestion = null;
+        week.QuizOptionsJson = null;
+        week.QuizCorrectIndex = null;
+        week.QuizRevealed = false;
+        week.QuizRevealedAt = null;
+        week.QuizWinnerMemberId = null;
+        db.WinQuizAnswers.RemoveRange(db.WinQuizAnswers.Where(a => a.WinWeekId == weekId));
+        await db.SaveChangesAsync();
+
+        _ = WebSocketMiddleware.BroadcastAsync("wow_quiz_stopped", new { weekId }, guestAllowed: true);
+
+        return await GetCurrentWeekAsync(memberId, week.WinSeriesId)
+            ?? throw new InvalidOperationException("Week not found after stopping quiz.");
+    }
+
+    public async Task<bool> IsQuizEligibleAsync(Guid weekId)
+    {
+        var week = await db.WinWeeks.FindAsync(weekId);
+        if (week is null) return false;
+
+        var tiedNomineeIds = await GetTiedNomineeMemberIdsAsync(week);
+        if (tiedNomineeIds.Count < 2) return false;
+
+        return tiedNomineeIds.All(WebSocketMiddleware.IsMemberConnected);
+    }
+
+    private async Task<List<Guid>> GetTiedNomineeMemberIdsAsync(WinWeek week)
+    {
+        List<Guid> tiedIds;
+        if (!string.IsNullOrEmpty(week.TiedNominationIds))
+        {
+            tiedIds = JsonSerializer.Deserialize<List<Guid>>(week.TiedNominationIds) ?? [];
+        }
+        else
+        {
+            var voteCounts = await db.WinNominations
+                .Where(n => n.WinWeekId == week.Id)
+                .Select(n => new { n.Id, VoteCount = n.Votes.Count })
+                .ToListAsync();
+            var topCount = voteCounts.Count > 0 ? voteCounts.Max(v => v.VoteCount) : 0;
+            tiedIds = topCount > 0
+                ? voteCounts.Where(v => v.VoteCount == topCount).Select(v => v.Id).ToList()
+                : [];
+        }
+
+        if (tiedIds.Count < 2) return [];
+
+        return await db.WinNominations
+            .Where(n => tiedIds.Contains(n.Id))
+            .Select(n => n.NomineeMemberId)
+            .Distinct()
+            .ToListAsync();
+    }
+
+    public async Task<WinWeekDto> StartQuizAsync(Guid memberId, Guid weekId)
+    {
+        var week = await db.WinWeeks.Include(w => w.Series).FirstOrDefaultAsync(w => w.Id == weekId)
+            ?? throw new KeyNotFoundException("Week not found.");
+
+        if (week.SuddenDeathEndsAt.HasValue || week.HypeBattleEndsAt.HasValue)
+            throw new InvalidOperationException("Stop the other tiebreaker before starting Quiz Duel.");
+
+        if (!await IsQuizEligibleAsync(weekId))
+            throw new InvalidOperationException("Quiz Duel needs every tied nominee to be logged in right now.");
+
+        db.WinQuizAnswers.RemoveRange(db.WinQuizAnswers.Where(a => a.WinWeekId == weekId));
+
+        var (question, options, correctIndex) = await questionGenerator.GenerateAsync("WowQuiz", "Quiz Duel — generate question");
+
+        week.QuizQuestion = question;
+        week.QuizOptionsJson = JsonSerializer.Serialize(options);
+        week.QuizCorrectIndex = correctIndex;
+        week.QuizEndsAt = DateTimeOffset.UtcNow.AddSeconds(45);
+        week.QuizRevealed = false;
+        week.QuizRevealedAt = null;
+        week.QuizWinnerMemberId = null;
+        await db.SaveChangesAsync();
+
+        var endsAt = week.QuizEndsAt;
+        if (week.GuestToken is { } token)
+            _ = WebSocketMiddleware.BroadcastToSessionAsync("wow_quiz_started", token, new { question, options, endsAt });
+        else
+            _ = WebSocketMiddleware.BroadcastAsync("wow_quiz_started", new { question, options, endsAt }, guestAllowed: true);
+
+        return await GetCurrentWeekAsync(memberId, week.WinSeriesId)
+            ?? throw new InvalidOperationException("Week not found after starting quiz.");
+    }
+
+    public async Task<bool> SubmitQuizAnswerAsync(Guid memberId, Guid weekId, int selectedIndex)
+    {
+        var week = await db.WinWeeks.FindAsync(weekId)
+            ?? throw new KeyNotFoundException("Week not found.");
+
+        if (week.QuizEndsAt is null || DateTimeOffset.UtcNow > week.QuizEndsAt.Value)
+            throw new InvalidOperationException("There is no active quiz right now.");
+
+        var tiedNomineeIds = await GetTiedNomineeMemberIdsAsync(week);
+        if (!tiedNomineeIds.Contains(memberId))
+            throw new InvalidOperationException("Only the tied nominees can answer this quiz.");
+
+        var alreadyAnswered = await db.WinQuizAnswers.AnyAsync(a => a.WinWeekId == weekId && a.MemberId == memberId);
+        if (alreadyAnswered)
+            throw new InvalidOperationException("You've already submitted an answer.");
+
+        var isCorrect = selectedIndex == week.QuizCorrectIndex;
+        db.WinQuizAnswers.Add(new WinQuizAnswer
+        {
+            WinWeekId = weekId,
+            MemberId = memberId,
+            SelectedIndex = selectedIndex,
+            IsCorrect = isCorrect
+        });
+        await db.SaveChangesAsync();
+
+        _ = WebSocketMiddleware.BroadcastAsync("wow_quiz_answer_submitted", new { weekId, memberId }, guestAllowed: true);
+
+        // Doesn't resolve yet just because this answer is correct -- waits for everyone to answer
+        // (or the timer to expire) so nobody sees "wrong" the instant they submit.
+        await TryResolveQuizAsync(week, force: false);
+        return isCorrect;
+    }
+
 }

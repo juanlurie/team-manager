@@ -85,6 +85,17 @@ export class AuthService {
             }
           }),
           catchError((err) => {
+            // A plain 401 means the token itself was rejected (expired/invalid signature) --
+            // that's a session-expiry case, not "this Google account isn't a team member".
+            // Only the backend's explicit 403 not_registered means the latter; route each to
+            // the right place instead of treating every /me failure as "access not granted".
+            if (err?.status === 401) {
+              this.clearStoredTokens();
+              this._authStatus$.next('unauthenticated');
+              this._isDone$.next(true);
+              return of(null);
+            }
+
             // Try backend-provided claims first, then fall back to local ID token claims
             const gc = err?.error?.googleClaims;
             const tc = this.oauth.getIdentityClaims() as Record<string, string> | null;
@@ -115,13 +126,18 @@ export class AuthService {
   }
 
   logout() {
-    // Remove OAuth tokens from localStorage (angular-oauth2-oidc storage)
+    this.clearStoredTokens();
+    // Hard redirect to origin — app will detect no token and start login flow
+    window.location.href = window.location.origin;
+  }
+
+  // Removes OAuth tokens from storage (angular-oauth2-oidc storage) without the hard redirect --
+  // used when a stale/expired token gets rejected so a fresh login attempt isn't confused by it.
+  private clearStoredTokens() {
     ['access_token', 'id_token', 'access_token_stored_at', 'granted_scopes', 'nonce'].forEach(k => {
       localStorage.removeItem(k);
       sessionStorage.removeItem(k);
     });
-    // Hard redirect to origin — app will detect no token and start login flow
-    window.location.href = window.location.origin;
   }
 
   hasValidToken(): boolean {

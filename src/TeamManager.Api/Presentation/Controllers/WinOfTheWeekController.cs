@@ -236,17 +236,6 @@ public class WinOfTheWeekController(IWinOfTheWeekService service, WinSeriesServi
     {
         var memberId = GetCurrentMemberId();
 
-        if (request.Type == "Wildcard")
-        {
-            var memberId2 = GetCurrentMemberId();
-            var isHost = await db.Set<Domain.Entities.FeaturePermission>()
-                .AnyAsync(fp => fp.FeatureKey == "wow-host" && fp.IsEnabled);
-            var hasOverride = await db.Set<Domain.Entities.MemberFeatureOverride>()
-                .AnyAsync(o => o.TeamMemberId == memberId2 && o.FeatureKey == "wow-host" && o.IsEnabled);
-            if (!isHost && !hasOverride)
-                return Forbid();
-        }
-
         try
         {
             var result = await service.ApplyPowerUpAsync(memberId, nominationId, request.Type);
@@ -353,10 +342,17 @@ public class WinOfTheWeekController(IWinOfTheWeekService service, WinSeriesServi
             .OrderByDescending(w => w.WeekStart)
             .FirstOrDefaultAsync();
 
+        if (week?.QuizQuestion is not null)
+            return BadRequest(new { error = "Stop Quiz Duel before starting Hype Battle." });
+
         var endsAt = DateTimeOffset.UtcNow.AddSeconds(request.DurationSeconds);
         if (week is not null)
         {
             week.HypeBattleEndsAt = endsAt;
+            // Always start fresh -- clear any taps left over from a previous battle this week.
+            await db.WinNominations
+                .Where(n => n.WinWeekId == week.Id)
+                .ExecuteUpdateAsync(s => s.SetProperty(n => n.HypeMeterCount, 0));
             await db.SaveChangesAsync();
         }
 
@@ -391,6 +387,103 @@ public class WinOfTheWeekController(IWinOfTheWeekService service, WinSeriesServi
             _ = WebSocketMiddleware.BroadcastAsync("wow_hype_battle_ended", new { }, guestAllowed: true);
 
         return Ok();
+    }
+
+    [HttpGet("quiz/eligible")]
+    [RequireFeature("wow-host")]
+    public async Task<IActionResult> IsQuizEligible([FromQuery] Guid? seriesId = null)
+    {
+        var sid = await ResolveSeriesIdAsync(seriesId);
+        var week = await db.WinWeeks
+            .Where(w => w.WinSeriesId == sid && w.Status != WinWeekStatus.Closed)
+            .OrderByDescending(w => w.WeekStart)
+            .FirstOrDefaultAsync();
+
+        var eligible = week is not null && await service.IsQuizEligibleAsync(week.Id);
+        return Ok(new { eligible });
+    }
+
+    [HttpPost("quiz/start")]
+    [RequireFeature("wow-host")]
+    public async Task<IActionResult> StartQuiz([FromQuery] Guid? seriesId = null)
+    {
+        var memberId = GetCurrentMemberId();
+        var sid = await ResolveSeriesIdAsync(seriesId);
+        var week = await db.WinWeeks
+            .Where(w => w.WinSeriesId == sid && w.Status != WinWeekStatus.Closed)
+            .OrderByDescending(w => w.WeekStart)
+            .FirstOrDefaultAsync();
+        if (week is null) return NotFound(new { error = "No active week found." });
+
+        try
+        {
+            var result = await service.StartQuizAsync(memberId, week.Id);
+            return Ok(result);
+        }
+        catch (KeyNotFoundException ex) { return NotFound(new { error = ex.Message }); }
+        catch (InvalidOperationException ex) { return BadRequest(new { error = ex.Message }); }
+    }
+
+    [HttpPost("quiz/answer")]
+    public async Task<IActionResult> SubmitQuizAnswer([FromBody] SubmitQuizAnswerRequest request, [FromQuery] Guid? seriesId = null)
+    {
+        var memberId = GetCurrentMemberId();
+        var sid = await ResolveSeriesIdAsync(seriesId);
+        var week = await db.WinWeeks
+            .Where(w => w.WinSeriesId == sid && w.Status != WinWeekStatus.Closed)
+            .OrderByDescending(w => w.WeekStart)
+            .FirstOrDefaultAsync();
+        if (week is null) return NotFound(new { error = "No active week found." });
+
+        try
+        {
+            var isCorrect = await service.SubmitQuizAnswerAsync(memberId, week.Id, request.SelectedIndex);
+            return Ok(new { isCorrect });
+        }
+        catch (KeyNotFoundException ex) { return NotFound(new { error = ex.Message }); }
+        catch (InvalidOperationException ex) { return BadRequest(new { error = ex.Message }); }
+    }
+
+    [HttpPost("quiz/complete")]
+    [RequireFeature("wow-host")]
+    public async Task<IActionResult> CompleteQuizWinner([FromQuery] Guid? seriesId = null)
+    {
+        var memberId = GetCurrentMemberId();
+        var sid = await ResolveSeriesIdAsync(seriesId);
+        var week = await db.WinWeeks
+            .Where(w => w.WinSeriesId == sid && w.Status != WinWeekStatus.Closed)
+            .OrderByDescending(w => w.WeekStart)
+            .FirstOrDefaultAsync();
+        if (week is null) return NotFound(new { error = "No active week found." });
+
+        try
+        {
+            var result = await service.CompleteQuizWinnerAsync(memberId, week.Id);
+            return Ok(result);
+        }
+        catch (KeyNotFoundException ex) { return NotFound(new { error = ex.Message }); }
+        catch (InvalidOperationException ex) { return BadRequest(new { error = ex.Message }); }
+    }
+
+    [HttpPost("quiz/stop")]
+    [RequireFeature("wow-host")]
+    public async Task<IActionResult> StopQuiz([FromQuery] Guid? seriesId = null)
+    {
+        var memberId = GetCurrentMemberId();
+        var sid = await ResolveSeriesIdAsync(seriesId);
+        var week = await db.WinWeeks
+            .Where(w => w.WinSeriesId == sid && w.Status != WinWeekStatus.Closed)
+            .OrderByDescending(w => w.WeekStart)
+            .FirstOrDefaultAsync();
+        if (week is null) return NotFound(new { error = "No active week found." });
+
+        try
+        {
+            var result = await service.StopQuizAsync(memberId, week.Id);
+            return Ok(result);
+        }
+        catch (KeyNotFoundException ex) { return NotFound(new { error = ex.Message }); }
+        catch (InvalidOperationException ex) { return BadRequest(new { error = ex.Message }); }
     }
 
     [HttpGet("history")]

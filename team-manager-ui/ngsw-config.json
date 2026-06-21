@@ -29,6 +29,22 @@
   ],
   "dataGroups": [
     {
+      "name": "api-live",
+      "urls": [
+        "/api/v1/polls/**",
+        "/api/v1/quiz-game/**",
+        "/api/v1/scrum-poker/**",
+        "/api/win-of-the-week/**",
+        "/api/guest/wow/**"
+      ],
+      "cacheConfig": {
+        "strategy": "freshness",
+        "maxSize": 50,
+        "maxAge": "1s",
+        "timeout": "10s"
+      }
+    },
+    {
       "name": "api-freshness",
       "urls": ["/api/**"],
       "cacheConfig": {

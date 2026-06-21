@@ -19,6 +19,7 @@ const SOURCE_COLORS: Record<string, { bg: string; text: string }> = {
   sprint: { bg: 'rgba(100,181,246,0.15)', text: '#64b5f6' },
   bonus:  { bg: 'rgba(255,167,38,0.15)',  text: '#ffb74d' },
   wow:    { bg: 'rgba(255,215,0,0.15)',   text: '#FFD700' },
+  quiz:   { bg: 'rgba(77,182,172,0.15)',  text: '#4db6ac' },
 };
 
 @Component({
@@ -132,10 +133,10 @@ const SOURCE_COLORS: Record<string, { bg: string; text: string }> = {
 
         <!-- Legend -->
         <div style="display:flex;gap:12px;margin-top:20px;flex-wrap:wrap;opacity:0.5;font-size:0.72rem">
-          @for (src of ['badge','wow','sprint','bonus']; track src) {
+          @for (src of ['badge','wow','quiz','sprint','bonus']; track src) {
             <span style="display:flex;align-items:center;gap:5px">
               <span style="width:10px;height:10px;border-radius:50%;display:inline-block" [style.background]="sourceStyle(src).text"></span>
-              {{src === 'badge' ? 'Badges' : src === 'wow' ? 'Win of the Week' : src === 'sprint' ? 'Sprint participation (5 pts each)' : 'Bonus awards'}}
+              {{src === 'badge' ? 'Badges' : src === 'wow' ? 'Win of the Week' : src === 'quiz' ? 'Quiz Game' : src === 'sprint' ? 'Sprint participation (5 pts each)' : 'Bonus awards'}}
             </span>
           }
         </div>

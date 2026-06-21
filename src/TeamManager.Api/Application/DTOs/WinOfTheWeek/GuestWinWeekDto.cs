@@ -14,8 +14,17 @@ public record GuestWinWeekDto
     public string? WinnerStory { get; init; }
     public DateTimeOffset? SuddenDeathEndsAt { get; init; }
     public DateTimeOffset? HypeBattleEndsAt { get; init; }
+    public DateTimeOffset? QuizEndsAt { get; init; }
+    public string? QuizQuestion { get; init; }
+    public IReadOnlyList<string> QuizOptions { get; init; } = [];
+    public IReadOnlyList<Guid> QuizAnsweredMemberIds { get; init; } = [];
+    public bool QuizRevealed { get; init; }
+    public DateTimeOffset? QuizRevealEndsAt { get; init; }
+    public int? QuizCorrectIndex { get; init; }
+    public string? QuizWinnerName { get; init; }
     public IReadOnlyList<Guid> TiedNominationIds { get; init; } = [];
     public bool PowerUpsEnabled { get; init; }
+    public bool HideVoteCounts { get; init; }
     public int GuestTokenBalance { get; init; }
     public IReadOnlyList<GuestNominationDto> Nominations { get; init; } = [];
 }

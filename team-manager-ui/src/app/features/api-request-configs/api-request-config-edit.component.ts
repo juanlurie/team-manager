@@ -598,7 +598,7 @@ interface CodeSegment { text: string; kind: 'plain' | 'resolved' | 'missing'; }
             </div>
           }
 
-          @if (data.action === 'AiChatWinStory' || data.action === 'GenerateJoke') {
+          @if (data.action === 'AiChatWinStory' || data.action === 'GenerateJoke' || data.action === 'GenerateQuizQuestion') {
             <div class="map-block">
               <mat-form-field appearance="outline" class="full-width">
                 <mat-label>Text Response Path</mat-label>
@@ -978,6 +978,7 @@ export class ApiRequestConfigEditComponent implements OnInit {
       return [...base, 'id', 'date', 'project', 'category', 'categoryId', 'employeeId', 'workedFromLocationId', 'hours', 'minutes', 'billable', 'workedFrom', 'sentiment', 'description', 'ticketNumber'];
     }
     if (action === 'GenerateJoke') return [...base, 'jokeType', 'seed'];
+    if (action === 'GenerateQuizQuestion') return [...base, 'topic', 'angle', 'recentTopics'];
     if (action === 'AiChatWinStory') return [...base, 'nominee', 'title', 'description'];
     if (action === 'FetchLeave') return [...base, 'start', 'end', 'teamIds'];
     if (action === 'FetchCalendarEvents') return [...base, 'start', 'end', 'teamIds'];
@@ -998,7 +999,8 @@ export class ApiRequestConfigEditComponent implements OnInit {
     'start', 'end', 'teamIds', 'date', 'id', 'project', 'category',
     'hours', 'minutes', 'billable', 'workedFrom', 'sentiment',
     'description', 'ticketNumber', 'jokeType', 'seed', 'nominee', 'title',
-    'employeeId', 'categoryId', 'workedFromLocationId', 'timesheetEntryId'
+    'employeeId', 'categoryId', 'workedFromLocationId', 'timesheetEntryId',
+    'topic', 'angle', 'recentTopics'
   ]);
   codeFormat = signal<'curl' | 'http'>('curl');
   showTestVars = signal(false);
@@ -1096,7 +1098,7 @@ export class ApiRequestConfigEditComponent implements OnInit {
 
   hasMapping(): boolean {
     return this.data ? ['AddTimesheetEntry', 'GetTimesheetProjects', 'GetTimesheetProjectCategories', 'FetchLeave',
-            'AiChatWinStory', 'GenerateJoke', 'FetchCalendarEvents'].includes(this.data.action) : false;
+            'AiChatWinStory', 'GenerateJoke', 'GenerateQuizQuestion', 'FetchCalendarEvents'].includes(this.data.action) : false;
   }
 
   get hasTestResults(): boolean {
@@ -1124,7 +1126,7 @@ export class ApiRequestConfigEditComponent implements OnInit {
       ...this.parameterEntries().map(e => e.key.trim()).filter(Boolean),
       ...this.cookieVarNames(),
       ...this.configVarKeys,
-      'start', 'end', 'teamIds', 'nominee', 'title', 'description'
+      ...this.SYSTEM_VARS
     ]);
     const regularHeaderValues = this.headerEntries().filter(e => !e.secret).map(e => e.value).join(' ');
     const template = (this.data.bodyTemplate ?? '') + regularHeaderValues;
@@ -1136,7 +1138,9 @@ export class ApiRequestConfigEditComponent implements OnInit {
     const today = new Date().toISOString().split('T')[0];
     const defaults: Record<string, string> = {
       date: today, hours: '1', minutes: '0', billable: 'true',
-      workedFrom: '', sentiment: '', description: 'Test', ticketNumber: '', category: '', project: '', id: ''
+      workedFrom: '', sentiment: '', description: 'Test', ticketNumber: '', category: '', project: '', id: '',
+      seed: 'a1b2c3d4', jokeType: 'dad joke', nominee: 'Jane Doe', title: 'Shipped the new feature',
+      topic: 'space and astronomy', angle: 'an obscure fact about', recentTopics: 'history, sports records'
     };
     return defaults[v] ?? '';
   }
@@ -1230,7 +1234,10 @@ export class ApiRequestConfigEditComponent implements OnInit {
   private computeSegs(template: string): CodeSegment[] {
     const { params, cookieVars } = this.getResolveContext();
     const segs: CodeSegment[] = [];
-    for (const part of template.split(/(\{[^}]+\})/)) {
+    // Split only on clean {word} tokens -- a naive "{ any non-} chars }" split would let an
+    // unrelated literal '{' earlier in the template (e.g. a JSON body's opening brace) swallow
+    // the next real placeholder up through its closing '}', leaving it unstyled.
+    for (const part of template.split(/(\{\w+\})/)) {
       const m = part.match(/^\{(\w+)\}$/);
       if (!m) { if (part) segs.push({ text: part, kind: 'plain' }); continue; }
       const k = m[1];
@@ -1390,7 +1397,9 @@ export class ApiRequestConfigEditComponent implements OnInit {
 
   private resolveToSegments(template: string, params: Record<string,string>, cookieVars: Record<string,string>): CodeSegment[] {
     const segs: CodeSegment[] = [];
-    const parts = template.split(/(\{[^}]+\})/);
+    // Same fix as computeSegs() -- split only on clean {word} tokens so an unrelated literal '{'
+    // earlier in the template can't swallow the next real placeholder.
+    const parts = template.split(/(\{\w+\})/);
     for (const part of parts) {
       const m = part.match(/^\{(\w+)\}$/);
       if (!m) { if (part) segs.push({ text: part, kind: 'plain' }); continue; }
@@ -1400,6 +1409,7 @@ export class ApiRequestConfigEditComponent implements OnInit {
       if (cookieVars[k]) { segs.push({ text: cookieVars[k], kind: 'resolved' }); continue; }
       if (params[k]) { segs.push({ text: params[k], kind: 'resolved' }); continue; }
       if (this.testVars[k]) { segs.push({ text: this.testVars[k], kind: 'resolved' }); continue; }
+      if (this.SYSTEM_VARS.has(k)) { segs.push({ text: this.testVarPlaceholder(k) || `sample-${k}`, kind: 'resolved' }); continue; }
       segs.push({ text: part, kind: 'missing' });
     }
     return segs;

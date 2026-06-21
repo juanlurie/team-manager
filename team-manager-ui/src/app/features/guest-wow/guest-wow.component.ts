@@ -56,6 +56,17 @@ function adaptToWinWeek(week: GuestWinWeek): WinWeek {
     closedAt: null,
     suddenDeathEndsAt: week.suddenDeathEndsAt,
     hypeBattleEndsAt: week.hypeBattleEndsAt,
+    quizEndsAt: week.quizEndsAt,
+    quizQuestion: week.quizQuestion,
+    quizOptions: week.quizOptions,
+    quizAnsweredMemberIds: week.quizAnsweredMemberIds,
+    quizEligible: false,
+    quizRevealed: week.quizRevealed,
+    quizRevealEndsAt: week.quizRevealEndsAt,
+    quizCorrectIndex: week.quizCorrectIndex,
+    quizMyAnswerIndex: null,
+    quizWinnerMemberId: null,
+    quizWinnerName: week.quizWinnerName,
     currentMemberId: GUEST_OWNED_ID,
     userVotesRemaining: week.userVotesRemaining,
     userNominationsRemaining: week.userNominationsRemaining,
@@ -64,6 +75,7 @@ function adaptToWinWeek(week: GuestWinWeek): WinWeek {
     connectedMemberCount: 0,
     tiedNominationIds: week.tiedNominationIds,
     powerUpsEnabled: week.powerUpsEnabled,
+    hideVoteCounts: week.hideVoteCounts,
     guestToken: null,
     winnerStory: week.winnerStory,
     nominations,
@@ -133,6 +145,7 @@ function adaptToWinWeek(week: GuestWinWeek): WinWeek {
             [currentUserId]="GUEST_OWNED_ID"
             [tokenBalance]="week()?.guestTokenBalance ?? 0"
             [powerUpsEnabled]="week()?.powerUpsEnabled ?? false"
+            [hideVoteCounts]="week()?.hideVoteCounts ?? false"
             [activeTimerEndsAt]="activeTimerEndsAt()"
             [hypeBattleEndsAt]="hypeBattleEndsAt()"
             [reactionEvents]="reactionEvents()"
@@ -391,6 +404,9 @@ export class GuestWowComponent implements OnInit, OnDestroy {
   private expiryCheckInterval: ReturnType<typeof setInterval> | null = null;
   private hypeExpiryCheckInterval: ReturnType<typeof setInterval> | null = null;
   private hypeExpiredWeekId: string | null = null;
+  private quizExpiryCheckInterval: ReturnType<typeof setInterval> | null = null;
+  private quizExpiredKey: string | null = null;
+  private quizLoopPollInterval: ReturnType<typeof setInterval> | null = null;
   private timerExpiredWeekId: string | null = null;
   private suddenDeathSnapshot: { nominations: GuestNomination[]; tiedNominationIds: string[] } | null = null;
 
@@ -406,6 +422,8 @@ export class GuestWowComponent implements OnInit, OnDestroy {
         this.activeTimerEndsAt.set(null);
       } else if (msg.type === 'wow_hype_battle_started') {
         this.hypeBattleEndsAt.set(msg.data['endsAt'] as string);
+        // Battles always start fresh -- mirror the server-side reset locally.
+        this.week.update(w => w ? { ...w, nominations: w.nominations.map(n => ({ ...n, hypeMeterCount: 0 })) } : w);
       } else if (msg.type === 'wow_hype_battle_ended') {
         this.hypeBattleEndsAt.set(null);
       } else if (msg.type === 'hype_meter_tapped') {
@@ -421,6 +439,8 @@ export class GuestWowComponent implements OnInit, OnDestroy {
         const nominationId = msg.data['nominationId'] as string;
         const emoji = msg.data['emoji'] as string;
         this.reactionEvents.update(list => [...list.slice(-49), { id, nominationId, emoji }]);
+      } else if (msg.type === 'wow_quiz_started' || msg.type === 'wow_quiz_answer_submitted') {
+        this.refreshWeek();
       } else if (msg.type === 'voting_closed') {
         const wk = this.week();
         const snap = this.suddenDeathSnapshot;
@@ -452,13 +472,24 @@ export class GuestWowComponent implements OnInit, OnDestroy {
       this.guestName.set(savedName);
       this.loadWeek();
     }
+
+    // Mobile browsers throttle/pause timers when the screen dims or the tab backgrounds --
+    // resync immediately on resume instead of waiting for the next poll tick to catch up.
+    document.addEventListener('visibilitychange', this.onVisibilityChange);
   }
+
+  private onVisibilityChange = () => {
+    if (document.visibilityState === 'visible' && this.guestName()) this.refreshWeek();
+  };
 
   ngOnDestroy() {
     this.wsSub?.unsubscribe();
+    document.removeEventListener('visibilitychange', this.onVisibilityChange);
     if (this.pollInterval) clearInterval(this.pollInterval);
     if (this.expiryCheckInterval) clearInterval(this.expiryCheckInterval);
     if (this.hypeExpiryCheckInterval) clearInterval(this.hypeExpiryCheckInterval);
+    if (this.quizExpiryCheckInterval) clearInterval(this.quizExpiryCheckInterval);
+    if (this.quizLoopPollInterval) clearInterval(this.quizLoopPollInterval);
   }
 
   login() { this.auth.login('/fun/win-of-the-week'); }
@@ -470,6 +501,8 @@ export class GuestWowComponent implements OnInit, OnDestroy {
     if (this.pollInterval) clearInterval(this.pollInterval);
     if (this.expiryCheckInterval) clearInterval(this.expiryCheckInterval);
     if (this.hypeExpiryCheckInterval) clearInterval(this.hypeExpiryCheckInterval);
+    if (this.quizExpiryCheckInterval) clearInterval(this.quizExpiryCheckInterval);
+    if (this.quizLoopPollInterval) clearInterval(this.quizLoopPollInterval);
   }
 
   saveName() {
@@ -604,6 +637,19 @@ export class GuestWowComponent implements OnInit, OnDestroy {
     }
     this.syncPoll(week);
     this.syncHypeExpiry(week);
+    this.syncQuizExpiry(week);
+    this.syncQuizLoop(week);
+  }
+
+  // Revealed with no winner -- the server auto-loops into a new question a few seconds after reveal,
+  // but only advances when something fetches it. Poll until it does (or a winner shows up).
+  private syncQuizLoop(week: GuestWinWeek) {
+    if (!week.quizRevealed || !week.quizQuestion || week.quizWinnerName) {
+      if (this.quizLoopPollInterval) { clearInterval(this.quizLoopPollInterval); this.quizLoopPollInterval = null; }
+      return;
+    }
+    if (this.quizLoopPollInterval) return;
+    this.quizLoopPollInterval = setInterval(() => this.refreshWeek(), 2000);
   }
 
   private syncHypeExpiry(week: GuestWinWeek) {
@@ -618,6 +664,23 @@ export class GuestWowComponent implements OnInit, OnDestroy {
       if (Date.now() >= endsAt) {
         this.hypeExpiredWeekId = week.id;
         if (this.hypeExpiryCheckInterval) { clearInterval(this.hypeExpiryCheckInterval); this.hypeExpiryCheckInterval = null; }
+        setTimeout(() => this.refreshWeek(), 1500);
+      }
+    }, 1000);
+  }
+
+  private syncQuizExpiry(week: GuestWinWeek) {
+    if (!week.quizEndsAt || week.quizRevealed) {
+      if (this.quizExpiryCheckInterval) { clearInterval(this.quizExpiryCheckInterval); this.quizExpiryCheckInterval = null; }
+      return;
+    }
+    if (this.quizExpiryCheckInterval) clearInterval(this.quizExpiryCheckInterval);
+    const endsAt = new Date(week.quizEndsAt).getTime();
+    this.quizExpiryCheckInterval = setInterval(() => {
+      if (this.quizExpiredKey === week.quizEndsAt) return;
+      if (Date.now() >= endsAt) {
+        this.quizExpiredKey = week.quizEndsAt;
+        if (this.quizExpiryCheckInterval) { clearInterval(this.quizExpiryCheckInterval); this.quizExpiryCheckInterval = null; }
         setTimeout(() => this.refreshWeek(), 1500);
       }
     }, 1000);

@@ -58,6 +58,8 @@ public class GuestWinOfTheWeekService(AppDbContext db, IHttpContextAccessor http
             week = await db.WinWeeks.FirstAsync(w => w.GuestToken == token);
         }
 
+        await wowService.ClearExpiredQuizAsync(week);
+
         var nominations = await db.WinNominations
             .Include(n => n.TeamMember)
             .Include(n => n.Nominee)
@@ -107,10 +109,25 @@ public class GuestWinOfTheWeekService(AppDbContext db, IHttpContextAccessor http
             WinnerStory = week.WinnerStory,
             SuddenDeathEndsAt = week.SuddenDeathEndsAt,
             HypeBattleEndsAt = week.HypeBattleEndsAt,
+            QuizEndsAt = week.QuizEndsAt,
+            QuizQuestion = week.QuizQuestion,
+            QuizOptions = week.QuizOptionsJson != null
+                ? System.Text.Json.JsonSerializer.Deserialize<List<string>>(week.QuizOptionsJson) ?? []
+                : [],
+            QuizAnsweredMemberIds = await db.WinQuizAnswers.Where(a => a.WinWeekId == week.Id).Select(a => a.MemberId).ToListAsync(),
+            QuizRevealed = week.QuizRevealed,
+            QuizRevealEndsAt = week.QuizRevealed && !week.QuizWinnerMemberId.HasValue
+                ? week.QuizRevealedAt?.AddSeconds(WinOfTheWeekService.QuizRevealDisplaySeconds) : null,
+            QuizCorrectIndex = week.QuizRevealed ? week.QuizCorrectIndex : null,
+            QuizWinnerName = week.QuizWinnerMemberId.HasValue
+                ? nominations.FirstOrDefault(n => n.NomineeMemberId == week.QuizWinnerMemberId.Value) is { } wn
+                    ? $"{wn.Nominee.FirstName} {wn.Nominee.LastName}" : null
+                : null,
             TiedNominationIds = !string.IsNullOrEmpty(week.TiedNominationIds)
                 ? System.Text.Json.JsonSerializer.Deserialize<List<Guid>>(week.TiedNominationIds) ?? []
                 : [],
             PowerUpsEnabled = week.Series?.PowerUpsEnabled ?? true,
+            HideVoteCounts = week.Series?.HideVoteCounts ?? false,
             GuestTokenBalance = Math.Max(0, 1 - guestCardsSpent),
             Nominations = nominations.Select(n => new GuestNominationDto
             {
