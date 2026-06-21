@@ -8,6 +8,7 @@ public record PollSummaryDto
     public int OptionCount { get; init; }
     public int TotalVotes { get; init; }
     public bool IsClosed { get; init; }
+    public bool HideResultsUntilClosed { get; init; }
     public DateTimeOffset CreatedAt { get; init; }
 }
 
@@ -26,12 +27,14 @@ public record PollDetailDto
     public string CreatedByName { get; init; } = string.Empty;
     public bool IsClosed { get; init; }
     public bool IsCreator { get; init; }
+    public bool HideResultsUntilClosed { get; init; }
+    public bool ResultsVisible { get; init; }
     public int TotalVotes { get; init; }
     public Guid? MyOptionId { get; init; }
     public DateTimeOffset CreatedAt { get; init; }
     public List<PollOptionResultDto> Options { get; init; } = [];
 }
 
-public record CreatePollRequest(string Question, List<string> Options);
+public record CreatePollRequest(string Question, List<string> Options, bool HideResultsUntilClosed = false);
 
 public record CastPollVoteRequest(Guid OptionId);

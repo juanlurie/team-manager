@@ -27,13 +27,14 @@ public class PollService(AppDbContext db)
             Question = p.Question,
             CreatedByName = p.CreatedByMember != null ? $"{p.CreatedByMember.FirstName} {p.CreatedByMember.LastName}" : "Someone",
             OptionCount = p.Options.Count,
-            TotalVotes = p.Votes.Count,
+            TotalVotes = p.HideResultsUntilClosed ? 0 : p.Votes.Count,
             IsClosed = p.IsClosed,
+            HideResultsUntilClosed = p.HideResultsUntilClosed,
             CreatedAt = p.CreatedAt
         }).ToList();
     }
 
-    public async Task<PollDetailDto> CreateAsync(Guid memberId, string question, List<string> options)
+    public async Task<PollDetailDto> CreateAsync(Guid memberId, string question, List<string> options, bool hideResultsUntilClosed)
     {
         var trimmed = options.Select(o => o.Trim()).Where(o => o.Length > 0).Distinct().ToList();
         if (string.IsNullOrWhiteSpace(question))
@@ -47,6 +48,7 @@ public class PollService(AppDbContext db)
         {
             Question = question.Trim(),
             CreatedByMemberId = memberId,
+            HideResultsUntilClosed = hideResultsUntilClosed,
         };
         // PollId gets wired up automatically by EF via the navigation relationship on save.
         poll.Options = trimmed.Select((text, i) => new PollOption { Text = text, DisplayOrder = i }).ToList();
@@ -121,6 +123,10 @@ public class PollService(AppDbContext db)
         var totalVotes = votes.Count;
         var myVote = votes.FirstOrDefault(v => v.MemberId == memberId);
 
+        // While hidden, nobody (including the creator) sees real numbers -- not just hidden in
+        // the UI, the API itself withholds them so they can't be read off the network either.
+        var resultsVisible = poll.IsClosed || !poll.HideResultsUntilClosed;
+
         var options = poll.Options.OrderBy(o => o.DisplayOrder).Select(o =>
         {
             var count = votes.Count(v => v.PollOptionId == o.Id);
@@ -128,8 +134,8 @@ public class PollService(AppDbContext db)
             {
                 Id = o.Id,
                 Text = o.Text,
-                VoteCount = count,
-                Percentage = totalVotes > 0 ? Math.Round(count * 100.0 / totalVotes, 1) : 0
+                VoteCount = resultsVisible ? count : 0,
+                Percentage = resultsVisible && totalVotes > 0 ? Math.Round(count * 100.0 / totalVotes, 1) : 0
             };
         }).ToList();
 
@@ -140,7 +146,9 @@ public class PollService(AppDbContext db)
             CreatedByName = poll.CreatedByMember != null ? $"{poll.CreatedByMember.FirstName} {poll.CreatedByMember.LastName}" : "Someone",
             IsClosed = poll.IsClosed,
             IsCreator = poll.CreatedByMemberId == memberId,
-            TotalVotes = totalVotes,
+            HideResultsUntilClosed = poll.HideResultsUntilClosed,
+            ResultsVisible = resultsVisible,
+            TotalVotes = resultsVisible ? totalVotes : 0,
             MyOptionId = myVote?.PollOptionId,
             CreatedAt = poll.CreatedAt,
             Options = options

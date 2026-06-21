@@ -6,6 +6,7 @@ public class Poll
     public string Question { get; set; } = string.Empty;
     public Guid CreatedByMemberId { get; set; }
     public bool IsClosed { get; set; }
+    public bool HideResultsUntilClosed { get; set; }
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
     public DateTimeOffset? ClosedAt { get; set; }
 

@@ -3,6 +3,7 @@ import { Component, OnInit, OnDestroy, inject, signal, ChangeDetectionStrategy }
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
+import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatDialog, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
@@ -16,7 +17,7 @@ import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/c
 @Component({
   selector: 'app-create-poll-dialog',
   standalone: true,
-  imports: [FormsModule, MatButtonModule, MatIconModule, MatDialogModule],
+  imports: [FormsModule, MatButtonModule, MatIconModule, MatCheckboxModule, MatDialogModule],
   styles: [`
     .field-label { font-size:0.78rem;opacity:0.6;display:block;margin-bottom:4px }
     .field { background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.12);border-radius:6px;
@@ -45,6 +46,10 @@ import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/c
       @if (options.length < 8) {
         <button mat-stroked-button style="width:100%;margin-top:4px" (click)="addOption()">+ Add option</button>
       }
+
+      <mat-checkbox style="margin-top:14px;font-size:0.85rem" [(ngModel)]="hideResultsUntilClosed">
+        Hide results until I close the poll
+      </mat-checkbox>
     </mat-dialog-content>
     <mat-dialog-actions align="end" style="margin-top:8px">
       <button mat-button mat-dialog-close>Cancel</button>
@@ -56,6 +61,7 @@ export class CreatePollDialogComponent {
   dialogRef = inject(MatDialogRef<CreatePollDialogComponent>);
   question = '';
   options = ['', ''];
+  hideResultsUntilClosed = false;
 
   addOption() { if (this.options.length < 8) this.options.push(''); }
   removeOption(i: number) { if (this.options.length > 2) this.options.splice(i, 1); }
@@ -66,7 +72,11 @@ export class CreatePollDialogComponent {
 
   submit() {
     if (!this.canSubmit()) return;
-    this.dialogRef.close({ question: this.question.trim(), options: this.options.map(o => o.trim()).filter(Boolean) });
+    this.dialogRef.close({
+      question: this.question.trim(),
+      options: this.options.map(o => o.trim()).filter(Boolean),
+      hideResultsUntilClosed: this.hideResultsUntilClosed
+    });
   }
 }
 
@@ -100,6 +110,7 @@ export class CreatePollDialogComponent {
     .result-bar-track { height:8px;border-radius:4px;background:rgba(255,255,255,0.08);overflow:hidden }
     .result-bar-fill { height:100%;border-radius:4px;background:linear-gradient(90deg,#64b5f6,#81c784);transition:width 0.3s ease }
     .total-votes { font-size:0.72rem;opacity:0.45;margin-top:12px }
+    .hidden-results { font-size:0.82rem;opacity:0.6;text-align:center;padding:16px;background:rgba(255,255,255,0.03);border-radius:8px }
     .closed-chip { font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.4px;padding:3px 8px;border-radius:10px;background:rgba(239,83,80,0.15);color:#ef5350 }
   `],
   template: `
@@ -119,7 +130,10 @@ export class CreatePollDialogComponent {
             <div class="poll-card" (click)="selectPoll(p.id)">
               <div>
                 <div class="poll-question">{{ p.question }}</div>
-                <div class="poll-meta">By {{ p.createdByName }} · {{ p.optionCount }} options · {{ p.totalVotes }} vote{{ p.totalVotes === 1 ? '' : 's' }}</div>
+                <div class="poll-meta">
+                  By {{ p.createdByName }} · {{ p.optionCount }} options
+                  @if (p.hideResultsUntilClosed) { · 🔒 results hidden } @else { · {{ p.totalVotes }} vote{{ p.totalVotes === 1 ? '' : 's' }} }
+                </div>
               </div>
             </div>
           }
@@ -142,6 +156,11 @@ export class CreatePollDialogComponent {
               @for (opt of p.options; track opt.id) {
                 <button mat-stroked-button class="option-btn" (click)="vote(opt.id)">{{ opt.text }}</button>
               }
+            } @else if (!p.resultsVisible) {
+              <div class="hidden-results">
+                🔒 Your vote is locked in. Results are hidden until the poll closes.
+              </div>
+              <button mat-button style="margin-top:8px;font-size:0.75rem;opacity:0.6" (click)="changeVote()">Change my vote</button>
             } @else {
               @for (opt of p.options; track opt.id) {
                 <div class="result-row">
@@ -157,7 +176,11 @@ export class CreatePollDialogComponent {
               }
             }
 
-            <div class="total-votes">{{ p.totalVotes }} total vote{{ p.totalVotes === 1 ? '' : 's' }}</div>
+            @if (p.resultsVisible) {
+              <div class="total-votes">{{ p.totalVotes }} total vote{{ p.totalVotes === 1 ? '' : 's' }}</div>
+            } @else if (p.hideResultsUntilClosed && !p.isClosed) {
+              <div class="total-votes">Results will be revealed when the poll closes</div>
+            }
 
             @if (p.isCreator) {
               <div style="display:flex;gap:8px;margin-top:14px">
