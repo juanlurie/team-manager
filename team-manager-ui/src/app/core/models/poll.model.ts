@@ -5,6 +5,7 @@ export interface PollSummary {
   optionCount: number;
   totalVotes: number;
   isClosed: boolean;
+  hideResultsUntilClosed: boolean;
   createdAt: string;
 }
 
@@ -21,6 +22,8 @@ export interface PollDetail {
   createdByName: string;
   isClosed: boolean;
   isCreator: boolean;
+  hideResultsUntilClosed: boolean;
+  resultsVisible: boolean;
   totalVotes: number;
   myOptionId: string | null;
   createdAt: string;
@@ -30,4 +33,5 @@ export interface PollDetail {
 export interface CreatePollRequest {
   question: string;
   options: string[];
+  hideResultsUntilClosed?: boolean;
 }
