@@ -267,7 +267,7 @@ export class EditPollSettingsDialogComponent {
               }
             } @else if (!p.resultsVisible) {
               <div class="hidden-results">
-                🔒 Your vote is locked in. Results are hidden until the poll closes.
+                🔒 You voted for <strong>{{ myVoteText(p) }}</strong>. Results are hidden until the poll closes.
               </div>
               <button mat-button style="margin-top:8px;font-size:0.75rem;opacity:0.6" (click)="changeVote()">Change my vote</button>
             } @else {
@@ -404,6 +404,13 @@ export class PollComponent implements OnInit, OnDestroy {
       next: d => this.selectedPoll.set(d),
       error: (err) => this.snackBar.open(err.error?.error ?? 'Failed to vote', 'Close', { duration: 4000 })
     });
+  }
+
+  // Results being hidden only withholds aggregate counts -- a voter should still be able to
+  // see which option they themselves picked, even though option.voteCount/percentage are
+  // zeroed out server-side while hidden.
+  myVoteText(p: PollDetail): string {
+    return p.options.find(o => o.id === p.myOptionId)?.text ?? '';
   }
 
   changeVote() {
