@@ -31,12 +31,12 @@ public class PollsController(PollService service, AppDbContext db) : ControllerB
     }
 
     [HttpGet("{id:guid}")]
-    public async Task<IActionResult> GetDetail(Guid id)
+    public async Task<IActionResult> GetDetail(Guid id, [FromQuery] bool reveal = false)
     {
         var memberId = GetCurrentMemberId();
         try
         {
-            var result = await service.GetDetailAsync(id, memberId);
+            var result = await service.GetDetailAsync(id, memberId, reveal);
             return Ok(result);
         }
         catch (KeyNotFoundException ex) { return NotFound(new { error = ex.Message }); }

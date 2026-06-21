@@ -30,6 +30,7 @@ public record PollDetailDto
     public bool IsCreator { get; init; }
     public bool HideResultsUntilClosed { get; init; }
     public bool ResultsVisible { get; init; }
+    public bool IsPeekingAsCreator { get; init; }
     public DateTimeOffset? ScheduledCloseAt { get; init; }
     public int TotalVotes { get; init; }
     public Guid? MyOptionId { get; init; }

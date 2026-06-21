@@ -13,8 +13,8 @@ export class PollService {
     return this.http.get<PollSummary[]>(this.base);
   }
 
-  getDetail(pollId: string): Observable<PollDetail> {
-    return this.http.get<PollDetail>(`${this.base}/${pollId}`);
+  getDetail(pollId: string, reveal = false): Observable<PollDetail> {
+    return this.http.get<PollDetail>(`${this.base}/${pollId}`, { params: reveal ? { reveal: 'true' } : {} });
   }
 
   create(req: CreatePollRequest): Observable<PollDetail> {
