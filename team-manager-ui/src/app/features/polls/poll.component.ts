@@ -5,6 +5,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatCheckboxModule } from '@angular/material/checkbox';
+import { MatMenuModule } from '@angular/material/menu';
 import { MatDialog, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
@@ -100,7 +101,7 @@ export class CreatePollDialogComponent {
 @Component({
   selector: 'app-poll',
   standalone: true,
-  imports: [FormsModule, MatButtonModule, MatIconModule, MatDialogModule, MatSnackBarModule, MatProgressSpinnerModule, DatePipe],
+  imports: [FormsModule, MatButtonModule, MatIconModule, MatMenuModule, MatDialogModule, MatSnackBarModule, MatProgressSpinnerModule, DatePipe],
   changeDetection: ChangeDetectionStrategy.Default,
   styles: [`
     .wrap { max-width: 700px; margin: 0 auto; }
@@ -167,11 +168,28 @@ export class CreatePollDialogComponent {
           <div class="poll-detail-card">
             <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
               <div class="question-text">{{ p.question }}</div>
-              <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+              <div style="display:flex;align-items:center;gap:4px;flex-shrink:0">
                 @if (p.isClosed) { <span class="closed-chip">Closed</span> }
                 <button mat-icon-button (click)="sharePoll(p.id)" title="Copy share link" aria-label="Copy share link">
                   <mat-icon>share</mat-icon>
                 </button>
+                @if (p.isCreator) {
+                  <button mat-icon-button [matMenuTriggerFor]="pollMenu" title="More options" aria-label="More options">
+                    <mat-icon>more_vert</mat-icon>
+                  </button>
+                  <mat-menu #pollMenu="matMenu">
+                    @if (!p.isClosed) {
+                      <button mat-menu-item (click)="closePoll()">
+                        <mat-icon>lock</mat-icon>
+                        <span>Close Poll</span>
+                      </button>
+                    }
+                    <button mat-menu-item (click)="deletePoll()">
+                      <mat-icon color="warn">delete</mat-icon>
+                      <span>Delete</span>
+                    </button>
+                  </mat-menu>
+                }
               </div>
             </div>
             <div class="detail-meta">
@@ -210,14 +228,6 @@ export class CreatePollDialogComponent {
               <div class="total-votes">Results will be revealed when the poll closes</div>
             }
 
-            @if (p.isCreator) {
-              <div style="display:flex;gap:8px;margin-top:14px">
-                @if (!p.isClosed) {
-                  <button mat-stroked-button style="flex:1" (click)="closePoll()">Close Poll</button>
-                }
-                <button mat-stroked-button color="warn" style="flex:1" (click)="deletePoll()">Delete</button>
-              </div>
-            }
           </div>
         }
       }
