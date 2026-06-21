@@ -155,7 +155,7 @@ export class EditPollSettingsDialogComponent {
   styles: [`
     .wrap { max-width: 700px; margin: 0 auto; }
     .lobby-header { display:flex;justify-content:space-between;align-items:center;margin-bottom:16px }
-    .lobby-header h2 { margin:0;font-size:1.1rem }
+    .lobby-header h2 { margin:0;font-size:1.1rem;display:flex;align-items:center }
     .poll-card {
       display:flex;justify-content:space-between;align-items:center;gap:12px;
       background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:12px;
@@ -187,12 +187,14 @@ export class EditPollSettingsDialogComponent {
     .total-votes { font-size:0.72rem;opacity:0.45;margin-top:12px }
     .hidden-results { font-size:0.82rem;opacity:0.6;text-align:center;padding:16px;background:rgba(255,255,255,0.03);border-radius:8px }
     .closed-chip { font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.4px;padding:3px 8px;border-radius:10px;background:rgba(239,83,80,0.15);color:#ef5350 }
+    .inline-icon { font-size:14px;width:14px;height:14px;line-height:14px;vertical-align:-2px;color:#64b5f6 }
+    .heading-icon { font-size:20px;width:20px;height:20px;line-height:20px;vertical-align:-4px;color:#64b5f6;margin-right:4px }
   `],
   template: `
     <div class="wrap">
       @if (!selectedPoll()) {
         <div class="lobby-header">
-          <h2>🗳️ Polls</h2>
+          <h2><mat-icon class="heading-icon">poll</mat-icon>Polls</h2>
           <button mat-flat-button color="primary" (click)="openCreateDialog()">New Poll</button>
         </div>
 
@@ -207,8 +209,8 @@ export class EditPollSettingsDialogComponent {
                 <div class="poll-question">{{ p.question }}</div>
                 <div class="poll-meta">
                   By {{ p.createdByName }} · {{ p.optionCount }} options
-                  @if (p.hideResultsUntilClosed) { · 🔒 results hidden } @else { · {{ p.totalVotes }} vote{{ p.totalVotes === 1 ? '' : 's' }} }
-                  @if (p.scheduledCloseAt) { · ⏰ closes {{ p.scheduledCloseAt | date:'MMM d, h:mm a' }} }
+                  @if (p.hideResultsUntilClosed) { · <mat-icon class="inline-icon">lock</mat-icon> results hidden } @else { · {{ p.totalVotes }} vote{{ p.totalVotes === 1 ? '' : 's' }} }
+                  @if (p.scheduledCloseAt) { · <mat-icon class="inline-icon">schedule</mat-icon> closes {{ p.scheduledCloseAt | date:'MMM d, h:mm a' }} }
                 </div>
               </div>
             </div>
@@ -245,7 +247,7 @@ export class EditPollSettingsDialogComponent {
                       </button>
                     }
                     <button mat-menu-item (click)="deletePoll()">
-                      <mat-icon color="warn">delete</mat-icon>
+                      <mat-icon>delete</mat-icon>
                       <span>Delete</span>
                     </button>
                   </mat-menu>
@@ -254,11 +256,11 @@ export class EditPollSettingsDialogComponent {
             </div>
             <div class="detail-meta">
               By {{ p.createdByName }}
-              @if (p.scheduledCloseAt && !p.isClosed) { · ⏰ closes {{ p.scheduledCloseAt | date:'MMM d, h:mm a' }} }
+              @if (p.scheduledCloseAt && !p.isClosed) { · <mat-icon class="inline-icon">schedule</mat-icon> closes {{ p.scheduledCloseAt | date:'MMM d, h:mm a' }} }
             </div>
 
             @if (!p.isClosed && p.myOptionId === null) {
-              <div class="vote-prompt">👉 Tap an option below to cast your vote</div>
+              <div class="vote-prompt"><mat-icon class="inline-icon">touch_app</mat-icon> Tap an option below to cast your vote</div>
               @for (opt of p.options; track opt.id) {
                 <button mat-stroked-button class="option-btn" (click)="vote(opt.id)">
                   <mat-icon class="option-icon">radio_button_unchecked</mat-icon>
@@ -267,7 +269,7 @@ export class EditPollSettingsDialogComponent {
               }
             } @else if (!p.resultsVisible) {
               <div class="hidden-results">
-                🔒 You voted for <strong>{{ myVoteText(p) }}</strong>. Results are hidden until the poll closes.
+                <mat-icon class="inline-icon">lock</mat-icon> You voted for <strong>{{ myVoteText(p) }}</strong>. Results are hidden until the poll closes.
               </div>
               <button mat-button style="margin-top:8px;font-size:0.75rem;opacity:0.6" (click)="changeVote()">Change my vote</button>
             } @else {
