@@ -1694,6 +1694,227 @@ namespace TeamManager.Api.Migrations
                     b.ToTable("PointAwards");
                 });
 
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.Poll", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<DateTimeOffset?>("ClosedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("CreatedByMemberId")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("HideResultsUntilClosed")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsClosed")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Question")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<DateTimeOffset?>("ScheduledCloseAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedByMemberId")
+                        .HasDatabaseName("IX_Poll_CreatedByMemberId");
+
+                    b.HasIndex("IsClosed")
+                        .HasDatabaseName("IX_Poll_IsClosed");
+
+                    b.ToTable("Polls");
+                });
+
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.PollOption", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<int>("DisplayOrder")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("PollId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Text")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PollId");
+
+                    b.ToTable("PollOptions");
+                });
+
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.PollVote", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<Guid>("MemberId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("PollId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("PollOptionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("VotedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PollOptionId");
+
+                    b.HasIndex("PollId", "MemberId")
+                        .IsUnique()
+                        .HasDatabaseName("IX_PollVote_PollId_MemberId");
+
+                    b.ToTable("PollVotes");
+                });
+
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.QuizGameAnswer", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<DateTimeOffset>("AnsweredAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsCorrect")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid>("MemberId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("QuestionIndex")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("SelectedIndex")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("SessionId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SessionId", "QuestionIndex", "MemberId")
+                        .IsUnique()
+                        .HasDatabaseName("IX_QuizGameAnswer_SessionId_QuestionIndex_MemberId");
+
+                    b.ToTable("QuizGameAnswers");
+                });
+
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.QuizGameParticipant", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<DateTimeOffset>("JoinedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("MemberId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Score")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("SessionId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("MemberId");
+
+                    b.HasIndex("SessionId", "MemberId")
+                        .IsUnique()
+                        .HasDatabaseName("IX_QuizGameParticipant_SessionId_MemberId");
+
+                    b.ToTable("QuizGameParticipants");
+                });
+
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.QuizGameSession", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<DateTimeOffset?>("CompletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("CreatedByMemberId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int?>("CurrentCorrectIndex")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("CurrentOptionsJson")
+                        .HasColumnType("text");
+
+                    b.Property<string>("CurrentQuestion")
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset?>("CurrentQuestionEndsAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("CurrentQuestionIndex")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("CurrentQuestionRevealed")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTimeOffset?>("CurrentQuestionRevealedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("QuestionCount")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset?>("StartedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Title")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedByMemberId")
+                        .HasDatabaseName("IX_QuizGameSession_CreatedByMemberId");
+
+                    b.HasIndex("Status")
+                        .HasDatabaseName("IX_QuizGameSession_Status");
+
+                    b.ToTable("QuizGameSessions");
+                });
+
             modelBuilder.Entity("TeamManager.Api.Domain.Entities.RetroAction", b =>
                 {
                     b.Property<Guid>("Id")
@@ -2547,6 +2768,34 @@ namespace TeamManager.Api.Migrations
                     b.ToTable("WinNominations");
                 });
 
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.WinQuizAnswer", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("AnsweredAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsCorrect")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid>("MemberId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("SelectedIndex")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("WinWeekId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("WinWeekId");
+
+                    b.ToTable("WinQuizAnswers");
+                });
+
             modelBuilder.Entity("TeamManager.Api.Domain.Entities.WinSeries", b =>
                 {
                     b.Property<Guid>("Id")
@@ -2559,6 +2808,9 @@ namespace TeamManager.Api.Migrations
 
                     b.Property<Guid>("CreatedByMemberId")
                         .HasColumnType("uuid");
+
+                    b.Property<bool>("HideVoteCounts")
+                        .HasColumnType("boolean");
 
                     b.Property<string>("Name")
                         .IsRequired()
@@ -2632,6 +2884,27 @@ namespace TeamManager.Api.Migrations
 
                     b.Property<DateTimeOffset>("OpenedAt")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("QuizCorrectIndex")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset?>("QuizEndsAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("QuizOptionsJson")
+                        .HasColumnType("text");
+
+                    b.Property<string>("QuizQuestion")
+                        .HasColumnType("text");
+
+                    b.Property<bool>("QuizRevealed")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTimeOffset?>("QuizRevealedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("QuizWinnerMemberId")
+                        .HasColumnType("uuid");
 
                     b.Property<string>("Status")
                         .IsRequired()
@@ -3300,6 +3573,88 @@ namespace TeamManager.Api.Migrations
                     b.Navigation("TeamMember");
                 });
 
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.Poll", b =>
+                {
+                    b.HasOne("TeamManager.Api.Domain.Entities.TeamMember", "CreatedByMember")
+                        .WithMany()
+                        .HasForeignKey("CreatedByMemberId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("CreatedByMember");
+                });
+
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.PollOption", b =>
+                {
+                    b.HasOne("TeamManager.Api.Domain.Entities.Poll", "Poll")
+                        .WithMany("Options")
+                        .HasForeignKey("PollId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Poll");
+                });
+
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.PollVote", b =>
+                {
+                    b.HasOne("TeamManager.Api.Domain.Entities.Poll", "Poll")
+                        .WithMany("Votes")
+                        .HasForeignKey("PollId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("TeamManager.Api.Domain.Entities.PollOption", "Option")
+                        .WithMany()
+                        .HasForeignKey("PollOptionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Option");
+
+                    b.Navigation("Poll");
+                });
+
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.QuizGameAnswer", b =>
+                {
+                    b.HasOne("TeamManager.Api.Domain.Entities.QuizGameSession", "Session")
+                        .WithMany("Answers")
+                        .HasForeignKey("SessionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Session");
+                });
+
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.QuizGameParticipant", b =>
+                {
+                    b.HasOne("TeamManager.Api.Domain.Entities.TeamMember", "Member")
+                        .WithMany()
+                        .HasForeignKey("MemberId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("TeamManager.Api.Domain.Entities.QuizGameSession", "Session")
+                        .WithMany("Participants")
+                        .HasForeignKey("SessionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Member");
+
+                    b.Navigation("Session");
+                });
+
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.QuizGameSession", b =>
+                {
+                    b.HasOne("TeamManager.Api.Domain.Entities.TeamMember", "CreatedByMember")
+                        .WithMany()
+                        .HasForeignKey("CreatedByMemberId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("CreatedByMember");
+                });
+
             modelBuilder.Entity("TeamManager.Api.Domain.Entities.RetroAction", b =>
                 {
                     b.HasOne("TeamManager.Api.Domain.Entities.Sprint", null)
@@ -3567,6 +3922,17 @@ namespace TeamManager.Api.Migrations
                     b.Navigation("WinWeek");
                 });
 
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.WinQuizAnswer", b =>
+                {
+                    b.HasOne("TeamManager.Api.Domain.Entities.WinWeek", "WinWeek")
+                        .WithMany("QuizAnswers")
+                        .HasForeignKey("WinWeekId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("WinWeek");
+                });
+
             modelBuilder.Entity("TeamManager.Api.Domain.Entities.WinSeries", b =>
                 {
                     b.HasOne("TeamManager.Api.Domain.Entities.TeamMember", "CreatedBy")
@@ -3759,6 +4125,20 @@ namespace TeamManager.Api.Migrations
                     b.Navigation("Sprints");
                 });
 
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.Poll", b =>
+                {
+                    b.Navigation("Options");
+
+                    b.Navigation("Votes");
+                });
+
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.QuizGameSession", b =>
+                {
+                    b.Navigation("Answers");
+
+                    b.Navigation("Participants");
+                });
+
             modelBuilder.Entity("TeamManager.Api.Domain.Entities.RetroCard", b =>
                 {
                     b.Navigation("Votes");
@@ -3839,6 +4219,8 @@ namespace TeamManager.Api.Migrations
             modelBuilder.Entity("TeamManager.Api.Domain.Entities.WinWeek", b =>
                 {
                     b.Navigation("Nominations");
+
+                    b.Navigation("QuizAnswers");
                 });
 #pragma warning restore 612, 618
         }

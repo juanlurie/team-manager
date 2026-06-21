@@ -23,4 +23,10 @@ public interface IWinOfTheWeekService
     Task<WinNominationDto> ApplyPowerUpAsync(Guid memberId, Guid nominationId, string type);
     Task<WinNominationDto> ApplyChaosCardAsync(Guid memberId, Guid nominationId, string type);
     Task<int> IncrementHypeMeterAsync(Guid nominationId);
+    Task ClearExpiredQuizAsync(Domain.Entities.WinWeek week);
+    Task<bool> IsQuizEligibleAsync(Guid weekId);
+    Task<WinWeekDto> StartQuizAsync(Guid memberId, Guid weekId);
+    Task<bool> SubmitQuizAnswerAsync(Guid memberId, Guid weekId, int selectedIndex);
+    Task<WinWeekDto> CompleteQuizWinnerAsync(Guid memberId, Guid weekId);
+    Task<WinWeekDto> StopQuizAsync(Guid memberId, Guid weekId);
 }

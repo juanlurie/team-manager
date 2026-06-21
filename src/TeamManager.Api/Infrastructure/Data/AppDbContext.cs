@@ -52,6 +52,13 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<WinMonthNomination> WinMonthNominations => Set<WinMonthNomination>();
     public DbSet<WinMonthVote> WinMonthVotes => Set<WinMonthVote>();
     public DbSet<WowMemberToken> WowMemberTokens => Set<WowMemberToken>();
+    public DbSet<WinQuizAnswer> WinQuizAnswers => Set<WinQuizAnswer>();
+    public DbSet<QuizGameSession> QuizGameSessions => Set<QuizGameSession>();
+    public DbSet<QuizGameParticipant> QuizGameParticipants => Set<QuizGameParticipant>();
+    public DbSet<QuizGameAnswer> QuizGameAnswers => Set<QuizGameAnswer>();
+    public DbSet<Poll> Polls => Set<Poll>();
+    public DbSet<PollOption> PollOptions => Set<PollOption>();
+    public DbSet<PollVote> PollVotes => Set<PollVote>();
     public DbSet<MeetingSeries> MeetingSeries => Set<MeetingSeries>();
     public DbSet<MeetingSeriesSlot> MeetingSeriesSlots => Set<MeetingSeriesSlot>();
     public DbSet<MeetingSeriesItem> MeetingSeriesItems => Set<MeetingSeriesItem>();
@@ -139,6 +146,12 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         modelBuilder.ApplyConfiguration(new CoffeeRunMenuTemplateItemConfiguration());
         modelBuilder.ApplyConfiguration(new ScrumPokerSessionConfiguration());
         modelBuilder.ApplyConfiguration(new ScrumPokerVoteConfiguration());
+        modelBuilder.ApplyConfiguration(new QuizGameSessionConfiguration());
+        modelBuilder.ApplyConfiguration(new QuizGameParticipantConfiguration());
+        modelBuilder.ApplyConfiguration(new QuizGameAnswerConfiguration());
+        modelBuilder.ApplyConfiguration(new PollConfiguration());
+        modelBuilder.ApplyConfiguration(new PollOptionConfiguration());
+        modelBuilder.ApplyConfiguration(new PollVoteConfiguration());
         modelBuilder.ApplyConfiguration(new FeaturePermissionConfiguration());
         modelBuilder.ApplyConfiguration(new MemberFeatureOverrideConfiguration());
     }

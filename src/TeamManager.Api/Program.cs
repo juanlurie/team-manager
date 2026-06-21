@@ -66,6 +66,9 @@ builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<SquadService>();
 builder.Services.AddScoped<IMeetingSessionService, MeetingSessionService>();
 builder.Services.AddScoped<IMeetingSeriesService, MeetingSeriesService>();
+builder.Services.AddScoped<QuizQuestionGeneratorService>();
+builder.Services.AddScoped<QuizGameService>();
+builder.Services.AddScoped<PollService>();
 builder.Services.AddScoped<IWinOfTheWeekService, WinOfTheWeekService>();
 builder.Services.AddScoped<GuestWinOfTheWeekService>();
 builder.Services.AddScoped<WinSeriesService>();
@@ -75,6 +78,9 @@ builder.Services.AddScoped<ICoffeeRunService, CoffeeRunService>();
 builder.Services.AddScoped<IScrumPokerService, ScrumPokerService>();
 builder.Services.AddScoped<IFeaturePermissionService, FeaturePermissionService>();
 builder.Services.AddHostedService<RunDeadlineWorker>();
+builder.Services.AddHostedService<QuizGameProgressWorker>();
+builder.Services.AddHostedService<WowQuizDuelProgressWorker>();
+builder.Services.AddHostedService<PollProgressWorker>();
 
 builder.Services.AddScoped<ILeaveFetcher, ConfigurableLeaveFetcher>();
 
