@@ -1,5 +1,5 @@
 import { Component, OnInit, OnDestroy, inject, signal, ChangeDetectionStrategy } from '@angular/core';
-
+import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -50,6 +50,9 @@ import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/c
       <mat-checkbox style="margin-top:14px;font-size:0.85rem" [(ngModel)]="hideResultsUntilClosed">
         Hide results until I close the poll
       </mat-checkbox>
+
+      <label class="field-label" style="margin-top:14px">Auto-close at (optional)</label>
+      <input type="datetime-local" class="field" [(ngModel)]="scheduledCloseAt" [min]="minDateTime">
     </mat-dialog-content>
     <mat-dialog-actions align="end" style="margin-top:8px">
       <button mat-button mat-dialog-close>Cancel</button>
@@ -62,12 +65,17 @@ export class CreatePollDialogComponent {
   question = '';
   options = ['', ''];
   hideResultsUntilClosed = false;
+  scheduledCloseAt = '';
+  minDateTime = new Date(Date.now() + 60_000).toISOString().slice(0, 16);
 
   addOption() { if (this.options.length < 8) this.options.push(''); }
   removeOption(i: number) { if (this.options.length > 2) this.options.splice(i, 1); }
 
   canSubmit(): boolean {
-    return this.question.trim().length > 0 && this.options.filter(o => o.trim().length > 0).length >= 2;
+    if (this.question.trim().length === 0) return false;
+    if (this.options.filter(o => o.trim().length > 0).length < 2) return false;
+    if (this.scheduledCloseAt && new Date(this.scheduledCloseAt).getTime() <= Date.now()) return false;
+    return true;
   }
 
   submit() {
@@ -75,7 +83,8 @@ export class CreatePollDialogComponent {
     this.dialogRef.close({
       question: this.question.trim(),
       options: this.options.map(o => o.trim()).filter(Boolean),
-      hideResultsUntilClosed: this.hideResultsUntilClosed
+      hideResultsUntilClosed: this.hideResultsUntilClosed,
+      scheduledCloseAt: this.scheduledCloseAt ? new Date(this.scheduledCloseAt).toISOString() : null
     });
   }
 }
@@ -83,7 +92,7 @@ export class CreatePollDialogComponent {
 @Component({
   selector: 'app-poll',
   standalone: true,
-  imports: [FormsModule, MatButtonModule, MatIconModule, MatDialogModule, MatSnackBarModule, MatProgressSpinnerModule],
+  imports: [FormsModule, MatButtonModule, MatIconModule, MatDialogModule, MatSnackBarModule, MatProgressSpinnerModule, DatePipe],
   changeDetection: ChangeDetectionStrategy.Default,
   styles: [`
     .wrap { max-width: 700px; margin: 0 auto; }
@@ -133,6 +142,7 @@ export class CreatePollDialogComponent {
                 <div class="poll-meta">
                   By {{ p.createdByName }} · {{ p.optionCount }} options
                   @if (p.hideResultsUntilClosed) { · 🔒 results hidden } @else { · {{ p.totalVotes }} vote{{ p.totalVotes === 1 ? '' : 's' }} }
+                  @if (p.scheduledCloseAt) { · ⏰ closes {{ p.scheduledCloseAt | date:'MMM d, h:mm a' }} }
                 </div>
               </div>
             </div>
@@ -150,7 +160,10 @@ export class CreatePollDialogComponent {
               <div class="question-text">{{ p.question }}</div>
               @if (p.isClosed) { <span class="closed-chip">Closed</span> }
             </div>
-            <div class="detail-meta">By {{ p.createdByName }}</div>
+            <div class="detail-meta">
+              By {{ p.createdByName }}
+              @if (p.scheduledCloseAt && !p.isClosed) { · ⏰ closes {{ p.scheduledCloseAt | date:'MMM d, h:mm a' }} }
+            </div>
 
             @if (!p.isClosed && p.myOptionId === null) {
               @for (opt of p.options; track opt.id) {

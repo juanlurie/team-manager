@@ -9,6 +9,7 @@ public class Poll
     public bool HideResultsUntilClosed { get; set; }
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
     public DateTimeOffset? ClosedAt { get; set; }
+    public DateTimeOffset? ScheduledCloseAt { get; set; }
 
     public TeamMember? CreatedByMember { get; set; }
     public ICollection<PollOption> Options { get; set; } = [];

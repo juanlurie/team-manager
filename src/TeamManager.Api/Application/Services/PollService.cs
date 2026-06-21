@@ -13,6 +13,8 @@ public class PollService(AppDbContext db)
 
     public async Task<List<PollSummaryDto>> GetOpenPollsAsync()
     {
+        await AutoCloseDuePollsAsync();
+
         var polls = await db.Polls
             .Include(p => p.CreatedByMember)
             .Include(p => p.Options)
@@ -30,11 +32,12 @@ public class PollService(AppDbContext db)
             TotalVotes = p.HideResultsUntilClosed ? 0 : p.Votes.Count,
             IsClosed = p.IsClosed,
             HideResultsUntilClosed = p.HideResultsUntilClosed,
+            ScheduledCloseAt = p.ScheduledCloseAt,
             CreatedAt = p.CreatedAt
         }).ToList();
     }
 
-    public async Task<PollDetailDto> CreateAsync(Guid memberId, string question, List<string> options, bool hideResultsUntilClosed)
+    public async Task<PollDetailDto> CreateAsync(Guid memberId, string question, List<string> options, bool hideResultsUntilClosed, DateTimeOffset? scheduledCloseAt)
     {
         var trimmed = options.Select(o => o.Trim()).Where(o => o.Length > 0).Distinct().ToList();
         if (string.IsNullOrWhiteSpace(question))
@@ -43,12 +46,15 @@ public class PollService(AppDbContext db)
             throw new InvalidOperationException($"A poll needs at least {MinOptions} options.");
         if (trimmed.Count > MaxOptions)
             throw new InvalidOperationException($"A poll can have at most {MaxOptions} options.");
+        if (scheduledCloseAt.HasValue && scheduledCloseAt.Value <= DateTimeOffset.UtcNow)
+            throw new InvalidOperationException("The close date must be in the future.");
 
         var poll = new Poll
         {
             Question = question.Trim(),
             CreatedByMemberId = memberId,
             HideResultsUntilClosed = hideResultsUntilClosed,
+            ScheduledCloseAt = scheduledCloseAt,
         };
         // PollId gets wired up automatically by EF via the navigation relationship on save.
         poll.Options = trimmed.Select((text, i) => new PollOption { Text = text, DisplayOrder = i }).ToList();
@@ -111,8 +117,36 @@ public class PollService(AppDbContext db)
         _ = WebSocketMiddleware.BroadcastAsync("poll_deleted", new { pollId });
     }
 
+    // Mirrors the QuizGameProgressWorker pattern: closing happens lazily here on every fetch,
+    // and a background worker (PollProgressWorker) also drives it so a poll with a scheduled
+    // close date still closes on time even if nobody happens to load it right then.
+    public async Task<List<Guid>> AutoCloseDuePollsAsync()
+    {
+        var now = DateTimeOffset.UtcNow;
+        var due = await db.Polls
+            .Where(p => !p.IsClosed && p.ScheduledCloseAt != null && p.ScheduledCloseAt <= now)
+            .ToListAsync();
+
+        if (due.Count == 0) return [];
+
+        foreach (var poll in due)
+        {
+            poll.IsClosed = true;
+            poll.ClosedAt = now;
+        }
+        await db.SaveChangesAsync();
+
+        var ids = due.Select(p => p.Id).ToList();
+        foreach (var id in ids)
+            _ = WebSocketMiddleware.BroadcastAsync("poll_closed", new { pollId = id });
+
+        return ids;
+    }
+
     public async Task<PollDetailDto> GetDetailAsync(Guid pollId, Guid memberId)
     {
+        await AutoCloseDuePollsAsync();
+
         var poll = await db.Polls
             .Include(p => p.CreatedByMember)
             .Include(p => p.Options)
@@ -148,6 +182,7 @@ public class PollService(AppDbContext db)
             IsCreator = poll.CreatedByMemberId == memberId,
             HideResultsUntilClosed = poll.HideResultsUntilClosed,
             ResultsVisible = resultsVisible,
+            ScheduledCloseAt = poll.ScheduledCloseAt,
             TotalVotes = resultsVisible ? totalVotes : 0,
             MyOptionId = myVote?.PollOptionId,
             CreatedAt = poll.CreatedAt,
