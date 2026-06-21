@@ -6,7 +6,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatMenuModule } from '@angular/material/menu';
-import { MatDialog, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
+import { MAT_DIALOG_DATA, MatDialog, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { Subject } from 'rxjs';
@@ -99,6 +99,55 @@ export class CreatePollDialogComponent {
 }
 
 @Component({
+  selector: 'app-edit-poll-settings-dialog',
+  standalone: true,
+  imports: [FormsModule, MatButtonModule, MatCheckboxModule, MatDialogModule],
+  styles: [`
+    .field-label { font-size:0.78rem;opacity:0.6;display:block;margin-bottom:4px }
+    .field { background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.12);border-radius:6px;
+             color:inherit;font-size:0.85rem;padding:8px 10px;outline:none;width:100%;
+             box-sizing:border-box;transition:border-color 0.2s }
+    .field:focus { border-color:#64b5f6 }
+  `],
+  changeDetection: ChangeDetectionStrategy.Default,
+  template: `
+    <h2 mat-dialog-title style="font-size:1rem;margin:0 0 4px">Poll Settings</h2>
+    <mat-dialog-content style="padding-top:12px;min-width:340px">
+      <mat-checkbox style="font-size:0.85rem" [(ngModel)]="hideResultsUntilClosed">
+        Hide results until I close the poll
+      </mat-checkbox>
+
+      <label class="field-label" style="margin-top:14px">Auto-close at (optional)</label>
+      <input type="datetime-local" class="field" [(ngModel)]="scheduledCloseAt" [min]="minDateTime">
+    </mat-dialog-content>
+    <mat-dialog-actions align="end" style="margin-top:8px">
+      <button mat-button mat-dialog-close>Cancel</button>
+      <button mat-flat-button color="primary" [disabled]="!canSubmit()" (click)="submit()">Save</button>
+    </mat-dialog-actions>
+  `
+})
+export class EditPollSettingsDialogComponent {
+  dialogRef = inject(MatDialogRef<EditPollSettingsDialogComponent>);
+  data: { hideResultsUntilClosed: boolean; scheduledCloseAt: string | null } = inject(MAT_DIALOG_DATA);
+  hideResultsUntilClosed = this.data.hideResultsUntilClosed;
+  scheduledCloseAt = this.data.scheduledCloseAt ? toLocalDateTimeInputValue(new Date(this.data.scheduledCloseAt)) : '';
+  minDateTime = toLocalDateTimeInputValue(new Date(Date.now() + 60_000));
+
+  canSubmit(): boolean {
+    if (this.scheduledCloseAt && new Date(this.scheduledCloseAt).getTime() <= Date.now()) return false;
+    return true;
+  }
+
+  submit() {
+    if (!this.canSubmit()) return;
+    this.dialogRef.close({
+      hideResultsUntilClosed: this.hideResultsUntilClosed,
+      scheduledCloseAt: this.scheduledCloseAt ? new Date(this.scheduledCloseAt).toISOString() : null
+    });
+  }
+}
+
+@Component({
   selector: 'app-poll',
   standalone: true,
   imports: [FormsModule, MatButtonModule, MatIconModule, MatMenuModule, MatDialogModule, MatSnackBarModule, MatProgressSpinnerModule, DatePipe],
@@ -179,6 +228,10 @@ export class CreatePollDialogComponent {
                   </button>
                   <mat-menu #pollMenu="matMenu">
                     @if (!p.isClosed) {
+                      <button mat-menu-item (click)="openEditSettingsDialog(p)">
+                        <mat-icon>settings</mat-icon>
+                        <span>Edit Settings</span>
+                      </button>
                       <button mat-menu-item (click)="closePoll()">
                         <mat-icon>lock</mat-icon>
                         <span>Close Poll</span>
@@ -347,6 +400,19 @@ export class PollComponent implements OnInit, OnDestroy {
     const p = this.selectedPoll();
     if (!p) return;
     this.selectedPoll.set({ ...p, myOptionId: null });
+  }
+
+  openEditSettingsDialog(p: PollDetail) {
+    this.dialog.open(EditPollSettingsDialogComponent, {
+      width: '380px',
+      data: { hideResultsUntilClosed: p.hideResultsUntilClosed, scheduledCloseAt: p.scheduledCloseAt }
+    }).afterClosed().subscribe(result => {
+      if (!result) return;
+      this.service.updateSettings(p.id, result).subscribe({
+        next: d => { this.selectedPoll.set(d); this.snackBar.open('Poll settings updated', 'Close', { duration: 3000 }); },
+        error: (err) => this.snackBar.open(err.error?.error ?? 'Failed to update settings', 'Close', { duration: 4000 })
+      });
+    });
   }
 
   closePoll() {
