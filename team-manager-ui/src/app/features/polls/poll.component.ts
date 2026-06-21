@@ -170,7 +170,14 @@ export class EditPollSettingsDialogComponent {
     .poll-detail-card { background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:14px;padding:20px }
     .question-text { font-weight:700;font-size:1.1rem;margin-bottom:6px }
     .detail-meta { font-size:0.75rem;opacity:0.5;margin-bottom:16px }
-    .option-btn { width:100%;margin-bottom:8px;padding:12px;height:auto;white-space:normal;text-align:left;justify-content:flex-start }
+    .option-btn {
+      width:100%;margin-bottom:10px;padding:14px 16px;height:auto;white-space:normal;
+      text-align:left;justify-content:flex-start;align-items:center;display:flex;gap:10px;
+      border:1.5px solid rgba(100,181,246,0.35);background:rgba(100,181,246,0.07);
+      border-radius:10px;font-size:0.95rem;font-weight:500;transition:all 0.15s ease;
+    }
+    .option-btn:hover { background:rgba(100,181,246,0.16);border-color:#64b5f6;transform:translateY(-1px) }
+    .option-btn .option-icon { opacity:0.55;flex-shrink:0;color:#64b5f6 }
     .vote-prompt { font-size:0.78rem;opacity:0.65;margin-bottom:10px }
     .result-row { margin-bottom:10px }
     .result-label { display:flex;justify-content:space-between;font-size:0.85rem;margin-bottom:4px }
@@ -253,7 +260,10 @@ export class EditPollSettingsDialogComponent {
             @if (!p.isClosed && p.myOptionId === null) {
               <div class="vote-prompt">👉 Tap an option below to cast your vote</div>
               @for (opt of p.options; track opt.id) {
-                <button mat-stroked-button class="option-btn" (click)="vote(opt.id)">{{ opt.text }}</button>
+                <button mat-stroked-button class="option-btn" (click)="vote(opt.id)">
+                  <mat-icon class="option-icon">radio_button_unchecked</mat-icon>
+                  <span>{{ opt.text }}</span>
+                </button>
               }
             } @else if (!p.resultsVisible) {
               <div class="hidden-results">
