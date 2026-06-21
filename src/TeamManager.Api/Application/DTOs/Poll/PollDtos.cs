@@ -40,3 +40,5 @@ public record PollDetailDto
 public record CreatePollRequest(string Question, List<string> Options, bool HideResultsUntilClosed = false, DateTimeOffset? ScheduledCloseAt = null);
 
 public record CastPollVoteRequest(Guid OptionId);
+
+public record UpdatePollSettingsRequest(bool HideResultsUntilClosed, DateTimeOffset? ScheduledCloseAt);

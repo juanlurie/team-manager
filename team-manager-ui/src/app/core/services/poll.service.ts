@@ -29,6 +29,10 @@ export class PollService {
     return this.http.post<PollDetail>(`${this.base}/${pollId}/close`, {});
   }
 
+  updateSettings(pollId: string, settings: { hideResultsUntilClosed: boolean; scheduledCloseAt: string | null }): Observable<PollDetail> {
+    return this.http.put<PollDetail>(`${this.base}/${pollId}/settings`, settings);
+  }
+
   delete(pollId: string): Observable<void> {
     return this.http.delete<void>(`${this.base}/${pollId}`);
   }

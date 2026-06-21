@@ -55,6 +55,19 @@ public class PollsController(PollService service, AppDbContext db) : ControllerB
         catch (InvalidOperationException ex) { return BadRequest(new { error = ex.Message }); }
     }
 
+    [HttpPut("{id:guid}/settings")]
+    public async Task<IActionResult> UpdateSettings(Guid id, [FromBody] UpdatePollSettingsRequest request)
+    {
+        var memberId = GetCurrentMemberId();
+        try
+        {
+            var result = await service.UpdateSettingsAsync(memberId, id, request.HideResultsUntilClosed, request.ScheduledCloseAt);
+            return Ok(result);
+        }
+        catch (KeyNotFoundException ex) { return NotFound(new { error = ex.Message }); }
+        catch (InvalidOperationException ex) { return BadRequest(new { error = ex.Message }); }
+    }
+
     [HttpPost("{id:guid}/close")]
     public async Task<IActionResult> Close(Guid id)
     {

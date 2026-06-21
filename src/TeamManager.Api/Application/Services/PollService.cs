@@ -106,6 +106,23 @@ public class PollService(AppDbContext db)
         return await GetDetailAsync(pollId, memberId);
     }
 
+    public async Task<PollDetailDto> UpdateSettingsAsync(Guid memberId, Guid pollId, bool hideResultsUntilClosed, DateTimeOffset? scheduledCloseAt)
+    {
+        var poll = await db.Polls.FindAsync(pollId) ?? throw new KeyNotFoundException("Poll not found.");
+        if (poll.CreatedByMemberId != memberId) throw new InvalidOperationException("Only the poll creator can edit this poll.");
+        if (poll.IsClosed) throw new InvalidOperationException("This poll is already closed.");
+        if (scheduledCloseAt.HasValue && scheduledCloseAt.Value <= DateTimeOffset.UtcNow)
+            throw new InvalidOperationException("The close date must be in the future.");
+
+        poll.HideResultsUntilClosed = hideResultsUntilClosed;
+        poll.ScheduledCloseAt = scheduledCloseAt;
+        await db.SaveChangesAsync();
+
+        _ = WebSocketMiddleware.BroadcastAsync("poll_settings_updated", new { pollId });
+
+        return await GetDetailAsync(pollId, memberId);
+    }
+
     public async Task DeletePollAsync(Guid memberId, Guid pollId)
     {
         var poll = await db.Polls.FindAsync(pollId) ?? throw new KeyNotFoundException("Poll not found.");
