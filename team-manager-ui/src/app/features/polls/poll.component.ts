@@ -186,6 +186,7 @@ export class EditPollSettingsDialogComponent {
     .result-bar-fill { height:100%;border-radius:4px;background:linear-gradient(90deg,#64b5f6,#81c784);transition:width 0.3s ease }
     .total-votes { font-size:0.72rem;opacity:0.45;margin-top:12px }
     .hidden-results { font-size:0.82rem;opacity:0.6;text-align:center;padding:16px;background:rgba(255,255,255,0.03);border-radius:8px }
+    .peek-banner { font-size:0.75rem;opacity:0.7;margin-bottom:10px;padding:8px 10px;background:rgba(100,181,246,0.08);border-radius:6px }
     .closed-chip { font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.4px;padding:3px 8px;border-radius:10px;background:rgba(239,83,80,0.15);color:#ef5350 }
     .inline-icon { font-size:14px;width:14px;height:14px;line-height:14px;vertical-align:-2px;color:#64b5f6 }
     .heading-icon { font-size:20px;width:20px;height:20px;line-height:20px;vertical-align:-4px;color:#64b5f6;margin-right:4px }
@@ -271,8 +272,20 @@ export class EditPollSettingsDialogComponent {
               <div class="hidden-results">
                 <mat-icon class="inline-icon">lock</mat-icon> You voted for <strong>{{ myVoteText(p) }}</strong>. Results are hidden until the poll closes.
               </div>
-              <button mat-button style="margin-top:8px;font-size:0.75rem;opacity:0.6" (click)="changeVote()">Change my vote</button>
+              <div style="display:flex;gap:4px;margin-top:8px">
+                <button mat-button style="font-size:0.75rem;opacity:0.6" (click)="changeVote()">Change my vote</button>
+                @if (p.isCreator) {
+                  <button mat-button style="font-size:0.75rem;opacity:0.6" (click)="togglePeek(true)">
+                    <mat-icon class="inline-icon">visibility</mat-icon> Peek at results
+                  </button>
+                }
+              </div>
             } @else {
+              @if (p.isPeekingAsCreator) {
+                <div class="peek-banner">
+                  <mat-icon class="inline-icon">visibility</mat-icon> Only you can see this — results stay hidden from everyone else.
+                </div>
+              }
               @for (opt of p.options; track opt.id) {
                 <div class="result-row">
                   <div class="result-label" [class.mine]="opt.id === p.myOptionId">
@@ -282,9 +295,15 @@ export class EditPollSettingsDialogComponent {
                   <div class="result-bar-track"><div class="result-bar-fill" [style.width]="opt.percentage + '%'"></div></div>
                 </div>
               }
-              @if (!p.isClosed) {
-                <button mat-button style="margin-top:4px;font-size:0.75rem;opacity:0.6" (click)="changeVote()">Change my vote</button>
-              }
+              <div style="display:flex;gap:4px;margin-top:4px">
+                @if (p.isPeekingAsCreator) {
+                  <button mat-button style="font-size:0.75rem;opacity:0.6" (click)="togglePeek(false)">
+                    <mat-icon class="inline-icon">visibility_off</mat-icon> Stop peeking
+                  </button>
+                } @else if (!p.isClosed) {
+                  <button mat-button style="font-size:0.75rem;opacity:0.6" (click)="changeVote()">Change my vote</button>
+                }
+              </div>
             }
 
             @if (p.resultsVisible) {
@@ -311,6 +330,9 @@ export class PollComponent implements OnInit, OnDestroy {
   polls = signal<PollSummary[]>([]);
   selectedPoll = signal<PollDetail | null>(null);
   selectedPollLoading = signal(false);
+  // Creator-only "peek" toggle for a hidden-results poll -- local to whichever poll is open,
+  // not persisted server-side, so it resets whenever navigating to a different poll.
+  private peeking = signal(false);
 
   private destroy$ = new Subject<void>();
 
@@ -330,7 +352,7 @@ export class PollComponent implements OnInit, OnDestroy {
       }
 
       if (current && pollId === current.id) {
-        this.service.getDetail(current.id).subscribe({ next: d => this.selectedPoll.set(d) });
+        this.service.getDetail(current.id, this.peeking()).subscribe({ next: d => this.selectedPoll.set(d) });
       }
       if (!current) this.loadPolls();
     });
@@ -340,6 +362,7 @@ export class PollComponent implements OnInit, OnDestroy {
     this.route.paramMap.pipe(takeUntil(this.destroy$)).subscribe(params => {
       const id = params.get('id');
       if (id) {
+        this.peeking.set(false);
         this.loadPollDetail(id);
       } else {
         this.selectedPoll.set(null);
@@ -360,9 +383,19 @@ export class PollComponent implements OnInit, OnDestroy {
     });
   }
 
+  togglePeek(value: boolean) {
+    const p = this.selectedPoll();
+    if (!p) return;
+    this.peeking.set(value);
+    this.service.getDetail(p.id, value).subscribe({
+      next: d => this.selectedPoll.set(d),
+      error: (err) => this.snackBar.open(err.error?.error ?? 'Failed to load results', 'Close', { duration: 4000 })
+    });
+  }
+
   private loadPollDetail(pollId: string) {
     this.selectedPollLoading.set(true);
-    this.service.getDetail(pollId).subscribe({
+    this.service.getDetail(pollId, this.peeking()).subscribe({
       next: d => { this.selectedPoll.set(d); this.selectedPollLoading.set(false); },
       error: () => {
         this.selectedPollLoading.set(false);
