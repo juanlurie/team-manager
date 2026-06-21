@@ -62,7 +62,8 @@ export class CreateQuizGameDialogComponent {
   styles: [`
     .wrap { max-width: 760px; margin: 0 auto; }
     .lobby-header { display:flex;justify-content:space-between;align-items:center;margin-bottom:16px }
-    .lobby-header h2 { margin:0;font-size:1.1rem }
+    .lobby-header h2 { margin:0;font-size:1.1rem;display:flex;align-items:center }
+    .heading-icon { font-size:20px;width:20px;height:20px;line-height:20px;color:#64b5f6;margin-right:4px }
     .session-card {
       display:flex;justify-content:space-between;align-items:center;gap:12px;
       background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:12px;
@@ -97,7 +98,7 @@ export class CreateQuizGameDialogComponent {
     <div class="wrap">
       @if (!selectedSession()) {
         <div class="lobby-header">
-          <h2>🧠 Quiz Game</h2>
+          <h2><mat-icon class="heading-icon">help_outline</mat-icon>Quiz Game</h2>
           <button mat-flat-button color="primary" (click)="openCreateDialog()">New Game</button>
         </div>
 
@@ -199,7 +200,7 @@ export class CreateQuizGameDialogComponent {
 
             @if (s.status === 'Completed') {
               <div class="completed-banner">
-                <div style="font-size:1.5rem">🏆</div>
+                <mat-icon style="font-size:1.5rem;width:1.5rem;height:1.5rem;color:#64b5f6">emoji_events</mat-icon>
                 @if (winnerName()) {
                   <div class="winner-name">{{ winnerName() }} wins!</div>
                 } @else {
