@@ -1,6 +1,7 @@
 import { Component, OnInit, OnDestroy, inject, signal, ChangeDetectionStrategy } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { ActivatedRoute, Router } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatCheckboxModule } from '@angular/material/checkbox';
@@ -120,6 +121,7 @@ export class CreatePollDialogComponent {
     .question-text { font-weight:700;font-size:1.1rem;margin-bottom:6px }
     .detail-meta { font-size:0.75rem;opacity:0.5;margin-bottom:16px }
     .option-btn { width:100%;margin-bottom:8px;padding:12px;height:auto;white-space:normal;text-align:left;justify-content:flex-start }
+    .vote-prompt { font-size:0.78rem;opacity:0.65;margin-bottom:10px }
     .result-row { margin-bottom:10px }
     .result-label { display:flex;justify-content:space-between;font-size:0.85rem;margin-bottom:4px }
     .result-label.mine { color:#64b5f6;font-weight:600 }
@@ -163,9 +165,14 @@ export class CreatePollDialogComponent {
         } @else {
           @let p = selectedPoll()!;
           <div class="poll-detail-card">
-            <div style="display:flex;justify-content:space-between;align-items:flex-start">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
               <div class="question-text">{{ p.question }}</div>
-              @if (p.isClosed) { <span class="closed-chip">Closed</span> }
+              <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+                @if (p.isClosed) { <span class="closed-chip">Closed</span> }
+                <button mat-icon-button (click)="sharePoll(p.id)" title="Copy share link" aria-label="Copy share link">
+                  <mat-icon>share</mat-icon>
+                </button>
+              </div>
             </div>
             <div class="detail-meta">
               By {{ p.createdByName }}
@@ -173,6 +180,7 @@ export class CreatePollDialogComponent {
             </div>
 
             @if (!p.isClosed && p.myOptionId === null) {
+              <div class="vote-prompt">👉 Tap an option below to cast your vote</div>
               @for (opt of p.options; track opt.id) {
                 <button mat-stroked-button class="option-btn" (click)="vote(opt.id)">{{ opt.text }}</button>
               }
@@ -221,6 +229,8 @@ export class PollComponent implements OnInit, OnDestroy {
   private dialog = inject(MatDialog);
   private snackBar = inject(MatSnackBar);
   private ws = inject(WebSocketService);
+  private route = inject(ActivatedRoute);
+  private router = inject(Router);
 
   loading = signal(true);
   polls = signal<PollSummary[]>([]);
@@ -230,7 +240,6 @@ export class PollComponent implements OnInit, OnDestroy {
   private destroy$ = new Subject<void>();
 
   ngOnInit() {
-    this.loadPolls();
     this.ws.connect();
     this.ws.messages$.pipe(
       takeUntil(this.destroy$),
@@ -240,9 +249,8 @@ export class PollComponent implements OnInit, OnDestroy {
       const current = this.selectedPoll();
 
       if (msg!.type === 'poll_deleted' && current && pollId === current.id) {
-        this.selectedPoll.set(null);
         this.snackBar.open('This poll was deleted', 'Close', { duration: 4000 });
-        this.loadPolls();
+        this.backToLobby();
         return;
       }
 
@@ -250,6 +258,18 @@ export class PollComponent implements OnInit, OnDestroy {
         this.service.getDetail(current.id).subscribe({ next: d => this.selectedPoll.set(d) });
       }
       if (!current) this.loadPolls();
+    });
+
+    // The URL is the single source of truth for which poll is open, so a poll's detail
+    // page is a real shareable link, not just internal component state.
+    this.route.paramMap.pipe(takeUntil(this.destroy$)).subscribe(params => {
+      const id = params.get('id');
+      if (id) {
+        this.loadPollDetail(id);
+      } else {
+        this.selectedPoll.set(null);
+        this.loadPolls();
+      }
     });
   }
 
@@ -265,17 +285,32 @@ export class PollComponent implements OnInit, OnDestroy {
     });
   }
 
-  selectPoll(pollId: string) {
+  private loadPollDetail(pollId: string) {
     this.selectedPollLoading.set(true);
     this.service.getDetail(pollId).subscribe({
       next: d => { this.selectedPoll.set(d); this.selectedPollLoading.set(false); },
-      error: () => { this.selectedPollLoading.set(false); this.snackBar.open('Failed to open poll', 'Close', { duration: 4000 }); }
+      error: () => {
+        this.selectedPollLoading.set(false);
+        this.snackBar.open('Failed to open poll', 'Close', { duration: 4000 });
+        this.backToLobby();
+      }
     });
   }
 
+  selectPoll(pollId: string) {
+    this.router.navigate(['/fun/polls', pollId]);
+  }
+
+  sharePoll(pollId: string) {
+    const url = `${window.location.origin}/fun/polls/${pollId}`;
+    navigator.clipboard.writeText(url).then(
+      () => this.snackBar.open('Share link copied to clipboard', 'Close', { duration: 3000 }),
+      () => this.snackBar.open(url, 'Close', { duration: 10000 })
+    );
+  }
+
   backToLobby() {
-    this.selectedPoll.set(null);
-    this.loadPolls();
+    this.router.navigate(['/fun/polls']);
   }
 
   openCreateDialog() {
@@ -283,7 +318,7 @@ export class PollComponent implements OnInit, OnDestroy {
       .afterClosed().subscribe(result => {
         if (!result) return;
         this.service.create(result).subscribe({
-          next: d => { this.selectedPoll.set(d); this.snackBar.open('Poll created', 'Close', { duration: 3000 }); },
+          next: d => { this.router.navigate(['/fun/polls', d.id]); this.snackBar.open('Poll created', 'Close', { duration: 3000 }); },
           error: (err) => this.snackBar.open(err.error?.error ?? 'Failed to create poll', 'Close', { duration: 4000 })
         });
       });
