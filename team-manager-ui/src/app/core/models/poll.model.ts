@@ -6,6 +6,7 @@ export interface PollSummary {
   totalVotes: number;
   isClosed: boolean;
   hideResultsUntilClosed: boolean;
+  scheduledCloseAt: string | null;
   createdAt: string;
 }
 
@@ -24,6 +25,7 @@ export interface PollDetail {
   isCreator: boolean;
   hideResultsUntilClosed: boolean;
   resultsVisible: boolean;
+  scheduledCloseAt: string | null;
   totalVotes: number;
   myOptionId: string | null;
   createdAt: string;
@@ -34,4 +36,5 @@ export interface CreatePollRequest {
   question: string;
   options: string[];
   hideResultsUntilClosed?: boolean;
+  scheduledCloseAt?: string | null;
 }
