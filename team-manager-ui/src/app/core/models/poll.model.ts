@@ -25,6 +25,7 @@ export interface PollDetail {
   isCreator: boolean;
   hideResultsUntilClosed: boolean;
   resultsVisible: boolean;
+  isPeekingAsCreator: boolean;
   scheduledCloseAt: string | null;
   totalVotes: number;
   myOptionId: string | null;
