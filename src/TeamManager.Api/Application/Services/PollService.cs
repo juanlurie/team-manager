@@ -160,7 +160,7 @@ public class PollService(AppDbContext db)
         return ids;
     }
 
-    public async Task<PollDetailDto> GetDetailAsync(Guid pollId, Guid memberId)
+    public async Task<PollDetailDto> GetDetailAsync(Guid pollId, Guid memberId, bool revealForCreator = false)
     {
         await AutoCloseDuePollsAsync();
 
@@ -174,9 +174,12 @@ public class PollService(AppDbContext db)
         var totalVotes = votes.Count;
         var myVote = votes.FirstOrDefault(v => v.MemberId == memberId);
 
-        // While hidden, nobody (including the creator) sees real numbers -- not just hidden in
-        // the UI, the API itself withholds them so they can't be read off the network either.
-        var resultsVisible = poll.IsClosed || !poll.HideResultsUntilClosed;
+        // While hidden, results stay withheld from everyone by default -- including the creator
+        // -- but the creator can explicitly opt to peek at the live tally for themselves via
+        // revealForCreator. This is checked against the poll's actual CreatedByMemberId, not
+        // trusted from the caller, so passing the flag does nothing for anyone else.
+        var isCreator = poll.CreatedByMemberId == memberId;
+        var resultsVisible = poll.IsClosed || !poll.HideResultsUntilClosed || (isCreator && revealForCreator);
 
         var options = poll.Options.OrderBy(o => o.DisplayOrder).Select(o =>
         {
@@ -196,9 +199,10 @@ public class PollService(AppDbContext db)
             Question = poll.Question,
             CreatedByName = poll.CreatedByMember != null ? $"{poll.CreatedByMember.FirstName} {poll.CreatedByMember.LastName}" : "Someone",
             IsClosed = poll.IsClosed,
-            IsCreator = poll.CreatedByMemberId == memberId,
+            IsCreator = isCreator,
             HideResultsUntilClosed = poll.HideResultsUntilClosed,
             ResultsVisible = resultsVisible,
+            IsPeekingAsCreator = isCreator && revealForCreator && poll.HideResultsUntilClosed && !poll.IsClosed,
             ScheduledCloseAt = poll.ScheduledCloseAt,
             TotalVotes = resultsVisible ? totalVotes : 0,
             MyOptionId = myVote?.PollOptionId,
