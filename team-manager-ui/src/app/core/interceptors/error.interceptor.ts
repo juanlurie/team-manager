@@ -1,6 +1,7 @@
 import { HttpContextToken, HttpInterceptorFn } from '@angular/common/http';
 import { inject } from '@angular/core';
 import { MatSnackBar } from '@angular/material/snack-bar';
+import { OAuthService } from 'angular-oauth2-oidc';
 import { catchError, throwError } from 'rxjs';
 
 export const SKIP_ERROR_TOAST = new HttpContextToken<boolean>(() => false);
@@ -9,18 +10,14 @@ export const SKIP_ERROR_TOAST = new HttpContextToken<boolean>(() => false);
 // once) only triggers one redirect/snackbar instead of one per request.
 let handlingSessionExpiry = false;
 
-// Mirrors AuthService.clearStoredTokens() -- duplicated here instead of injecting AuthService,
-// since AuthService's own constructor makes an HTTP call that runs through this interceptor;
-// injecting it eagerly here created a circular dependency that broke the app on every load.
-function clearStoredAuthTokens() {
-  ['access_token', 'id_token', 'access_token_stored_at', 'granted_scopes', 'nonce'].forEach(k => {
-    localStorage.removeItem(k);
-    sessionStorage.removeItem(k);
-  });
-}
-
 export const errorInterceptor: HttpInterceptorFn = (req, next) => {
   const snackBar = inject(MatSnackBar);
+  // OAuthService (not AuthService) -- AuthService's own constructor makes an HTTP call that
+  // runs through this interceptor, so injecting it eagerly here would be circular. OAuthService
+  // does no I/O in its constructor, so it's safe, and logOut(true) clears every key the library
+  // stores (access_token, id_token, refresh_token, expires_at, nonce, PKCE_verifier, ...) without
+  // redirecting to Google's logout page.
+  const oauth = inject(OAuthService);
   return next(req).pipe(
     catchError(error => {
       const isOAuthEndpoint = req.url.includes('accounts.google.com') || req.url.includes('googleapis.com') || req.url.includes('openidconnect');
@@ -35,7 +32,7 @@ export const errorInterceptor: HttpInterceptorFn = (req, next) => {
         // 'authorized' state, which would otherwise just bounce the guard right back here.
         if (error?.status === 401 && !handlingSessionExpiry && !window.location.pathname.startsWith('/login')) {
           handlingSessionExpiry = true;
-          clearStoredAuthTokens();
+          oauth.logOut(true);
           snackBar.open('Your session has expired. Please sign in again.', 'Close', { duration: 6000 });
           window.location.href = `${window.location.origin}/login`;
           return throwError(() => error);
