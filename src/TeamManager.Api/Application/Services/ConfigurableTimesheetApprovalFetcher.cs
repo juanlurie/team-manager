@@ -142,13 +142,19 @@ public class ConfigurableTimesheetApprovalFetcher : ITimesheetApprovalFetcher
         var entries = new List<ImportedTimesheetEntry>();
         var employeeNames = new List<string>();
         var presentDays = new List<MemberDay>();
+        var employeeTeams = new Dictionary<string, string>();
         foreach (var group in topArray.EnumerateArray())
         {
+            var teamName = string.IsNullOrWhiteSpace(mapping.TeamNamePath) ? "" : GetProperty(group, mapping.TeamNamePath);
             foreach (var employee in EnumerateLevel(group, mapping.EmployeesPath))
             {
                 var memberName = GetProperty(employee, mapping.MemberNamePath);
                 if (!string.IsNullOrWhiteSpace(memberName))
+                {
                     employeeNames.Add(memberName);
+                    if (!string.IsNullOrWhiteSpace(teamName))
+                        employeeTeams[memberName] = teamName;
+                }
                 foreach (var day in EnumerateLevel(employee, mapping.DaysArrayPath))
                 {
                     // A day present in the response — even with no entries — is still
@@ -167,7 +173,7 @@ public class ConfigurableTimesheetApprovalFetcher : ITimesheetApprovalFetcher
                 }
             }
         }
-        return new TimesheetFetchResult(entries, employeeNames.Distinct().ToList(), presentDays);
+        return new TimesheetFetchResult(entries, employeeNames.Distinct().ToList(), presentDays, employeeTeams);
     }
 
     // Navigates to the array at `path` (relative to `element`) and yields its items.

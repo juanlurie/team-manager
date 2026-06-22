@@ -24,10 +24,13 @@ public record FetchTimesheetApprovalsRequest(
 // regardless of whether its entries array was empty. A day that's simply absent from the
 // response was already signed off elsewhere and isn't part of this dataset — only a day that's
 // present with zero entries represents a genuine gap (nothing captured).
+// EmployeeTeams maps a member's name to their team (only for members whose team name could be
+// read off the response) — lets the approval screen filter out whole teams client-side.
 public record TimesheetFetchResult(
     IReadOnlyList<ImportedTimesheetEntry> Entries,
     IReadOnlyList<string> EmployeeNames,
-    IReadOnlyList<MemberDay> PresentDays
+    IReadOnlyList<MemberDay> PresentDays,
+    IReadOnlyDictionary<string, string> EmployeeTeams
 );
 
 public record MemberDay(string MemberName, DateOnly Date);
@@ -79,5 +82,7 @@ public record WeeklyTimesheetSummaryDto(
 
 public record TimesheetApprovalFetchResultDto(
     IReadOnlyList<TimesheetApprovalMemberDto> Members,
-    IReadOnlyList<WeeklyTimesheetSummaryDto> WeeklySummary
+    IReadOnlyList<WeeklyTimesheetSummaryDto> WeeklySummary,
+    IReadOnlyList<string> Teams,
+    IReadOnlyDictionary<string, string> MemberTeams
 );

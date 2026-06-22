@@ -631,6 +631,11 @@ interface MappingPreview { kind: 'array' | 'single'; count?: number; rows: Mappi
                   <mat-hint>Relative to each employee</mat-hint>
                 </mat-form-field>
               </div>
+              <mat-form-field appearance="outline" class="full-width">
+                <mat-label>Team Name Path (optional)</mat-label>
+                <input matInput [(ngModel)]="data.mapping.teamNamePath" placeholder="TeamName">
+                <mat-hint>Relative to each top-level item. Lets the approval screen filter out whole teams</mat-hint>
+              </mat-form-field>
               <div class="two-col">
                 <mat-form-field appearance="outline">
                   <mat-label>Date Path</mat-label>

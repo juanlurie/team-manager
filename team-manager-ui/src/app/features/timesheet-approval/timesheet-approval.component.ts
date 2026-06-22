@@ -7,6 +7,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatCheckboxModule } from '@angular/material/checkbox';
 import { TimesheetApprovalService } from '../../core/services/timesheet-approval.service';
 import { CredentialsService } from '../../core/services/credentials.service';
 import { TimesheetApprovalMember, WeeklyTimesheetSummary } from '../../core/models/timesheet-approval.model';
@@ -38,7 +39,7 @@ interface PersonSummary {
   selector: 'app-timesheet-approval',
   standalone: true,
   imports: [CommonModule, FormsModule, MatIconModule, MatButtonModule, MatFormFieldModule,
-    MatInputModule, MatSnackBarModule, MatProgressSpinnerModule],
+    MatInputModule, MatSnackBarModule, MatProgressSpinnerModule, MatCheckboxModule],
   template: `
     <div class="page">
       <div class="page-header">
@@ -65,12 +66,23 @@ interface PersonSummary {
           </button>
         </div>
 
+        @if (teams().length > 1) {
+          <div class="team-filter-row">
+            <span class="team-filter-label">Teams:</span>
+            @for (t of teams(); track t) {
+              <mat-checkbox class="team-checkbox" [checked]="!excludedTeams().has(t)" (change)="toggleTeam(t)">
+                {{ t }}
+              </mat-checkbox>
+            }
+          </div>
+        }
+
         @if (loading()) {
           <div class="loading"><mat-spinner diameter="32"></mat-spinner></div>
         } @else if (error()) {
           <div class="error-banner"><mat-icon>error_outline</mat-icon>{{ error() }}</div>
         } @else if (fetched()) {
-          @if (weeklySummary().length > 0) {
+          @if (filteredWeeklySummary().length > 0) {
             <div class="missing-section">
               <div class="missing-title-row">
                 <div class="missing-title"><mat-icon>calendar_view_week</mat-icon> Weekly summary</div>
@@ -79,7 +91,7 @@ interface PersonSummary {
                   {{ showLoggedChips() ? 'Hide logged' : 'Show logged' }}
                 </button>
               </div>
-              @for (w of weeklySummary(); track w.weekStart) {
+              @for (w of filteredWeeklySummary(); track w.weekStart) {
                 <div class="week-row" (click)="toggleWeek(w.weekStart)">
                   <mat-icon class="week-status" [class.good]="weekIsGood(w)">
                     {{ weekIsGood(w) ? 'check_circle' : 'error' }}
@@ -115,7 +127,7 @@ interface PersonSummary {
           } @else {
           <div class="summary-row">
             <div class="summary-card">
-              <span class="summary-num">{{ members().length }}</span>
+              <span class="summary-num">{{ filteredMembers().length }}</span>
               <span class="summary-label">Need review</span>
             </div>
             <div class="summary-card">
@@ -123,7 +135,7 @@ interface PersonSummary {
               <span class="summary-label">Flagged issues</span>
             </div>
             <div style="flex:1"></div>
-            @if (members().length > 0) {
+            @if (filteredMembers().length > 0) {
               <button mat-raised-button color="primary" (click)="startReview()">
                 <mat-icon>play_arrow</mat-icon> Start Review
               </button>
@@ -154,7 +166,7 @@ interface PersonSummary {
       } @else {
         <!-- Sequential review -->
         @if (currentMember(); as m) {
-          <div class="review-progress">Reviewing {{ reviewing()! + 1 }} of {{ members().length }}</div>
+          <div class="review-progress">Reviewing {{ reviewing()! + 1 }} of {{ filteredMembers().length }}</div>
           <div class="review-card">
             <div class="review-header">
               <span class="review-name">{{ m.memberName }}</span>
@@ -202,6 +214,10 @@ interface PersonSummary {
 
     .filter-bar { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
     .date-field { width: 160px; }
+
+    .team-filter-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; padding: 6px 12px; border-radius: 8px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); }
+    .team-filter-label { font-size: 0.75rem; opacity: 0.5; font-weight: 600; }
+    .team-checkbox { font-size: 0.82rem; }
 
     .loading { display: flex; justify-content: center; padding: 48px; }
     .error-banner { display: flex; align-items: center; gap: 8px; padding: 12px 16px; border-radius: 8px; background: rgba(239,83,80,0.1); border: 1px solid rgba(239,83,80,0.3); color: #ef9a9a; font-size: 0.85rem; }
@@ -275,23 +291,38 @@ export class TimesheetApprovalComponent {
   error = signal('');
   members = signal<TimesheetApprovalMember[]>([]);
   weeklySummary = signal<WeeklyTimesheetSummary[]>([]);
+  teams = signal<string[]>([]);
+  memberTeams = signal<Record<string, string>>({});
+  excludedTeams = signal<Set<string>>(new Set());
   approving = signal(false);
   expandedWeek = signal<string | null>(null);
   showLoggedChips = signal(true);
 
+  // Members/weeks with anyone from an excluded team dropped out — filtering happens client-side
+  // against the already-fetched data rather than re-hitting the external system per toggle.
+  filteredMembers = computed(() =>
+    this.members().filter(m => !this.isTeamExcluded(m.memberName)));
+
+  filteredWeeklySummary = computed(() =>
+    this.weeklySummary().map(w => ({
+      ...w,
+      memberHours: w.memberHours.filter(mh => !this.isTeamExcluded(mh.memberName)),
+      missingMemberNames: w.missingMemberNames.filter(n => !this.isTeamExcluded(n))
+    })));
+
   reviewing = signal<number | null>(null);
   currentMember = computed(() => {
     const idx = this.reviewing();
-    return idx === null ? null : this.members()[idx] ?? null;
+    return idx === null ? null : this.filteredMembers()[idx] ?? null;
   });
 
-  totalViolations = computed(() => this.members().reduce((sum, m) => sum + m.violationCount, 0));
+  totalViolations = computed(() => this.filteredMembers().reduce((sum, m) => sum + m.violationCount, 0));
 
   // Single combined roster — everyone who showed up in the weekly summary or has violations to
   // review, sorted so anyone with an issue (flagged entries or a missing week) floats to the top.
   peopleSummary = computed<PersonSummary[]>(() => {
-    const weeks = this.weeklySummary();
-    const members = this.members();
+    const weeks = this.filteredWeeklySummary();
+    const members = this.filteredMembers();
     const names = new Set<string>();
     for (const w of weeks) for (const mh of w.memberHours) names.add(mh.memberName);
     for (const m of members) names.add(m.memberName);
@@ -310,6 +341,17 @@ export class TimesheetApprovalComponent {
       .sort((a, b) => a.memberName.localeCompare(b.memberName));
   });
 
+  private isTeamExcluded(memberName: string): boolean {
+    const team = this.memberTeams()[memberName];
+    return !!team && this.excludedTeams().has(team);
+  }
+
+  toggleTeam(team: string) {
+    const next = new Set(this.excludedTeams());
+    if (next.has(team)) next.delete(team); else next.add(team);
+    this.excludedTeams.set(next);
+  }
+
   fetch() {
     this.loading.set(true);
     this.error.set('');
@@ -322,6 +364,9 @@ export class TimesheetApprovalComponent {
       next: (result) => {
         this.members.set(result.members);
         this.weeklySummary.set(result.weeklySummary);
+        this.teams.set(result.teams);
+        this.memberTeams.set(result.memberTeams);
+        this.excludedTeams.set(new Set());
         this.loading.set(false);
         this.fetched.set(true);
       },
@@ -334,12 +379,12 @@ export class TimesheetApprovalComponent {
   }
 
   startReview(member?: TimesheetApprovalMember) {
-    const idx = member ? this.members().indexOf(member) : 0;
+    const idx = member ? this.filteredMembers().indexOf(member) : 0;
     this.reviewing.set(idx < 0 ? 0 : idx);
   }
 
   startReviewByName(memberName: string) {
-    const member = this.members().find(m => m.memberName === memberName);
+    const member = this.filteredMembers().find(m => m.memberName === memberName);
     if (member) this.startReview(member);
   }
 
@@ -380,13 +425,13 @@ export class TimesheetApprovalComponent {
     const idx = this.reviewing();
     if (idx === null) return;
     const next = idx + 1;
-    this.reviewing.set(next < this.members().length ? next : null);
+    this.reviewing.set(next < this.filteredMembers().length ? next : null);
   }
 
   private advanceAfterApprove() {
     const idx = this.reviewing();
     if (idx === null) return;
     // Member was removed from the array — same index now points at the next one
-    this.reviewing.set(idx < this.members().length ? idx : null);
+    this.reviewing.set(idx < this.filteredMembers().length ? idx : null);
   }
 }

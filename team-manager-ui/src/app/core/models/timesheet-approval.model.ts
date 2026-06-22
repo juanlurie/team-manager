@@ -40,4 +40,6 @@ export interface WeeklyTimesheetSummary {
 export interface TimesheetApprovalFetchResult {
   members: TimesheetApprovalMember[];
   weeklySummary: WeeklyTimesheetSummary[];
+  teams: string[];
+  memberTeams: Record<string, string>;
 }
