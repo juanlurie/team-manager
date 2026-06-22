@@ -66,6 +66,12 @@ public record MappingConfigDto(
     string EntriesPath = "",
     string MemberIdPath = "",
     string MemberNamePath = "employeeName",
+    // Relative to the day object (one level up from each entry). A day appearing in the
+    // response at all — even with an empty entries array — means it's still outstanding;
+    // a day missing from the response entirely means it's already been signed off elsewhere
+    // and isn't part of this dataset. Distinguishing those two needs the day's own date,
+    // separate from DatePath (which is read off each entry).
+    string DayDatePath = "",
     string DatePath = "date",
     string ProjectPath = "project",
     string CategoryPath = "category",

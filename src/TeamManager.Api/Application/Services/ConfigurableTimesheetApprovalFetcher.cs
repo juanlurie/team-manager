@@ -141,6 +141,7 @@ public class ConfigurableTimesheetApprovalFetcher : ITimesheetApprovalFetcher
 
         var entries = new List<ImportedTimesheetEntry>();
         var employeeNames = new List<string>();
+        var presentDays = new List<MemberDay>();
         foreach (var group in topArray.EnumerateArray())
         {
             foreach (var employee in EnumerateLevel(group, mapping.EmployeesPath))
@@ -150,6 +151,15 @@ public class ConfigurableTimesheetApprovalFetcher : ITimesheetApprovalFetcher
                     employeeNames.Add(memberName);
                 foreach (var day in EnumerateLevel(employee, mapping.DaysArrayPath))
                 {
+                    // A day present in the response — even with no entries — is still
+                    // outstanding; one absent entirely was already signed off elsewhere.
+                    if (!string.IsNullOrWhiteSpace(mapping.DayDatePath) && !string.IsNullOrWhiteSpace(memberName))
+                    {
+                        var dayDateStr = GetProperty(day, mapping.DayDatePath);
+                        if (!string.IsNullOrWhiteSpace(dayDateStr))
+                            presentDays.Add(new MemberDay(memberName, ParseDate(dayDateStr)));
+                    }
+
                     foreach (var entry in EnumerateLevel(day, mapping.EntriesPath))
                     {
                         entries.Add(ToEntry(entry, mapping, memberName));
@@ -157,7 +167,7 @@ public class ConfigurableTimesheetApprovalFetcher : ITimesheetApprovalFetcher
                 }
             }
         }
-        return new TimesheetFetchResult(entries, employeeNames.Distinct().ToList());
+        return new TimesheetFetchResult(entries, employeeNames.Distinct().ToList(), presentDays);
     }
 
     // Navigates to the array at `path` (relative to `element`) and yields its items.

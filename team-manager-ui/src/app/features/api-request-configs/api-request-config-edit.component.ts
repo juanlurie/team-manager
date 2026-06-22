@@ -643,6 +643,15 @@ interface MappingPreview { kind: 'array' | 'single'; count?: number; rows: Mappi
                   <mat-hint>Relative to each employee</mat-hint>
                 </mat-form-field>
               </div>
+              <mat-form-field appearance="outline" class="full-width">
+                <mat-label>Day Date Path (optional)</mat-label>
+                <input matInput [(ngModel)]="data.mapping.dayDatePath" placeholder="Date">
+                <mat-hint>
+                  Relative to each day. A day present here with no entries is still outstanding;
+                  a day missing entirely is treated as already signed off. Needed for the
+                  missing-timesheet weekly summary — leave empty to skip that distinction.
+                </mat-hint>
+              </mat-form-field>
               <div class="two-col">
                 <mat-form-field appearance="outline">
                   <mat-label>Project Path</mat-label>

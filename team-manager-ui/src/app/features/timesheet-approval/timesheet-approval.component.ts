@@ -70,7 +70,7 @@ function endOfMonth(d: Date): Date {
                   <div class="missing-week-range">{{ w.weekStart | date:'d MMM' }} – {{ w.weekEnd | date:'d MMM' }}</div>
                   <div class="missing-names">
                     @for (mh of w.memberHours; track mh.memberName) {
-                      <span class="missing-chip" [class.has-hours]="mh.hours > 0">
+                      <span class="missing-chip" [class.has-hours]="!w.missingMemberNames.includes(mh.memberName)">
                         {{ mh.memberName }} — {{ mh.hours }}h
                       </span>
                     }
