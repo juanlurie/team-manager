@@ -1116,22 +1116,10 @@ export class ApiRequestConfigEditComponent implements OnInit {
 
   get bodyVarChips(): string[] {
     if (!this.data) return [];
-    const action = this.data.action;
     const cookieNames = this.cookieVarNames();
     const paramNames = this.parameterEntries().map(e => e.key.trim()).filter(Boolean);
-    const base = [...cookieNames, ...paramNames];
-    if (action === 'AddTimesheetEntry' || action === 'EditTimesheetEntry' || action === 'DeleteTimesheetEntry') {
-      return [...base, 'id', 'date', 'project', 'category', 'categoryId', 'employeeId', 'workedFromLocationId', 'hours', 'minutes', 'billable', 'workedFrom', 'sentiment', 'description', 'ticketNumber'];
-    }
-    if (action === 'GenerateJoke') return [...base, 'jokeType', 'seed'];
-    if (action === 'GenerateQuizQuestion') return [...base, 'topic', 'angle', 'recentTopics'];
-    if (action === 'AiChatWinStory') return [...base, 'nominee', 'title', 'description'];
-    if (action === 'FetchLeave') return [...base, 'start', 'end', 'teamIds'];
-    if (action === 'FetchCalendarEvents') return [...base, 'start', 'end', 'teamIds'];
-    if (action === 'FetchTimesheetApprovals') return [...base, 'start', 'end'];
-    if (action === 'ApproveTimesheet') return [...base, 'memberName', 'start', 'end', 'employeeId', 'totalHours'];
-    if (action === 'AnalyzeTimesheetQuality') return [...base, 'timesheetData', 'memberName', 'start', 'end'];
-    return base;
+    const actionVars = Object.keys(REQUEST_ACTIONS.find(a => a.value === this.data!.action)?.vars ?? {});
+    return [...cookieNames, ...paramNames, ...actionVars];
   }
 
   showCurlImport = signal(false);
@@ -1285,17 +1273,14 @@ export class ApiRequestConfigEditComponent implements OnInit {
     return [...new Set(matches)].filter(v => !knownParams.has(v));
   }
 
+  // 'date' is the one placeholder that needs a live value rather than a fixed sample, so it's
+  // special-cased here instead of in the centralized REQUEST_ACTIONS.vars sample data.
   testVarPlaceholder(v: string): string {
-    const today = new Date().toISOString().split('T')[0];
-    const defaults: Record<string, string> = {
-      date: today, hours: '1', minutes: '0', billable: 'true',
-      workedFrom: '', sentiment: '', description: 'Test', ticketNumber: '', category: '', project: '', id: '',
-      seed: 'a1b2c3d4', jokeType: 'dad joke', nominee: 'Jane Doe', title: 'Shipped the new feature',
-      topic: 'space and astronomy', angle: 'an obscure fact about', recentTopics: 'history, sports records',
-      memberName: 'Jane Doe', totalHours: '40',
-      timesheetData: 'Jane Doe:\\n  2026-06-01 (Monday): 8h - ProjectA/Development - "Fixed login bug"\\n  2026-06-02 (Tuesday): 2h - ProjectA/Development'
-    };
-    return defaults[v] ?? '';
+    if (v === 'date') return new Date().toISOString().split('T')[0];
+    const actionVars: Record<string, string> = this.data
+      ? REQUEST_ACTIONS.find(a => a.value === this.data!.action)?.vars ?? {}
+      : {};
+    return actionVars[v] ?? '';
   }
 
   ngOnInit() {

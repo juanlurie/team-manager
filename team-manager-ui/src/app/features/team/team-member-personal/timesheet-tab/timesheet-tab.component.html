@@ -81,7 +81,7 @@
                 <span>AI Timesheet Quality Analysis</span>
                 <button class="ts-ai-close" (click)="qualityAnalysis.set(null)">&times;</button>
               </div>
-              <div class="ts-ai-panel-body">{{ qualityAnalysis() }}</div>
+              <div class="ts-ai-panel-body" [innerHTML]="qualityAnalysis() | markdown"></div>
             </div>
           }
           <div class="ts-quick-bar">

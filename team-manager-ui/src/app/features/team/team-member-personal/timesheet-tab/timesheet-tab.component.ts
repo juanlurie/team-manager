@@ -20,6 +20,7 @@ import { WebSocketService } from '../../../../core/websocket/websocket.service';
 import { TimesheetEntryCardComponent } from '../timesheet-entry-card/timesheet-entry-card.component';
 import { TimesheetQuickAddModalComponent, QuickAddData } from '../timesheet-quick-add-modal/timesheet-quick-add-modal.component';
 import { TimesheetImportDialogComponent, ImportDialogData, ImportResult } from '../timesheet-import-dialog/timesheet-import-dialog.component';
+import { MarkdownPipe } from '../../../../core/pipes/markdown.pipe';
 
 interface Recent { project: string; category: string; durationMins: number; combo: QuickActionConfig | undefined; }
 const MN = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -28,7 +29,7 @@ const DN = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 @Component({
   selector: 'app-timesheet-tab',
   standalone: true,
-  imports: [FormsModule, MatDialogModule, MatTooltipModule, TimesheetEntryCardComponent, TimesheetImportDialogComponent],
+  imports: [FormsModule, MatDialogModule, MatTooltipModule, TimesheetEntryCardComponent, TimesheetImportDialogComponent, MarkdownPipe],
   templateUrl: './timesheet-tab.component.html',
   changeDetection: ChangeDetectionStrategy.Default,
   styleUrls: ['./timesheet-tab.component.scss']
