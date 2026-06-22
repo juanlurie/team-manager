@@ -68,8 +68,22 @@
                 <svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M7 2v7M4 6l3 3 3-3M2 11h10"/></svg>
                 Export Excel
               </button>
+              <button class="ts-exp-btn" [disabled]="analyzing()" (click)="analyzeQuality()" title="AI quality analysis of recent timesheet entries">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a4 4 0 0 1 4 4v1a4 4 0 0 1-2 3.46V12a4 4 0 0 1 2 3.46V17a4 4 0 0 1-4 4 4 4 0 0 1-4-4v-1.54A4 4 0 0 1 6 12v-1.54A4 4 0 0 1 8 7V6a4 4 0 0 1 4-4z"/></svg>
+                {{ analyzing() ? 'Analyzing…' : 'AI Analysis' }}
+              </button>
             </div>
           </div>
+
+          @if (qualityAnalysis() !== null) {
+            <div class="ts-ai-panel">
+              <div class="ts-ai-panel-hdr">
+                <span>AI Timesheet Quality Analysis</span>
+                <button class="ts-ai-close" (click)="qualityAnalysis.set(null)">&times;</button>
+              </div>
+              <div class="ts-ai-panel-body">{{ qualityAnalysis() }}</div>
+            </div>
+          }
           <div class="ts-quick-bar">
             @for (c of activeQuickActions(); track c.label) {
               <button class="ts-chip" [style.border-color]="c.color" [style.color]="c.color"

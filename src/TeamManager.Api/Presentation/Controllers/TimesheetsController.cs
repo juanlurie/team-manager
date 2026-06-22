@@ -76,6 +76,10 @@ public class TimesheetsController(ITimesheetService service) : ControllerBase
         return Ok(new { enqueued = count });
     }
 
+    [HttpPost("analyze-quality")]
+    public async Task<IActionResult> AnalyzeQuality(Guid memberId, [FromBody] AnalyzeTimesheetQualityRequest req)
+        => Ok(await service.AnalyzeQualityAsync(memberId, req.LookbackDays));
+
     [HttpGet("export")]
     public async Task<IActionResult> Export(Guid memberId, [FromQuery] int year, [FromQuery] int month)
     {

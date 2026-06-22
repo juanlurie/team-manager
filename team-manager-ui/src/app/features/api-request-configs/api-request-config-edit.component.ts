@@ -705,7 +705,7 @@ interface MappingPreview { kind: 'array' | 'single'; count?: number; rows: Mappi
             </div>
           }
 
-          @if (data.action === 'AiChatWinStory' || data.action === 'GenerateJoke' || data.action === 'GenerateQuizQuestion') {
+          @if (data.action === 'AiChatWinStory' || data.action === 'GenerateJoke' || data.action === 'GenerateQuizQuestion' || data.action === 'AnalyzeTimesheetQuality') {
             <div class="map-block">
               <mat-form-field appearance="outline" class="full-width">
                 <mat-label>Text Response Path</mat-label>
@@ -1128,6 +1128,7 @@ export class ApiRequestConfigEditComponent implements OnInit {
     if (action === 'FetchCalendarEvents') return [...base, 'start', 'end', 'teamIds'];
     if (action === 'FetchTimesheetApprovals') return [...base, 'start', 'end'];
     if (action === 'ApproveTimesheet') return [...base, 'memberName', 'start', 'end', 'employeeId', 'totalHours'];
+    if (action === 'AnalyzeTimesheetQuality') return [...base, 'timesheetData', 'memberName', 'start', 'end'];
     return base;
   }
 
@@ -1245,7 +1246,8 @@ export class ApiRequestConfigEditComponent implements OnInit {
 
   hasMapping(): boolean {
     return this.data ? ['AddTimesheetEntry', 'GetTimesheetProjects', 'GetTimesheetProjectCategories', 'FetchLeave',
-            'AiChatWinStory', 'GenerateJoke', 'GenerateQuizQuestion', 'FetchCalendarEvents', 'FetchTimesheetApprovals'].includes(this.data.action) : false;
+            'AiChatWinStory', 'GenerateJoke', 'GenerateQuizQuestion', 'FetchCalendarEvents', 'FetchTimesheetApprovals',
+            'AnalyzeTimesheetQuality'].includes(this.data.action) : false;
   }
 
   get hasTestResults(): boolean {
@@ -1698,7 +1700,7 @@ export class ApiRequestConfigEditComponent implements OnInit {
       this.computeTimesheetApprovalPreview(root, m);
     } else if (action === 'AddTimesheetEntry') {
       this.computeSingleMappingPreview(root, [{ label: 'External ID', path: m.externalIdPath }]);
-    } else if (action === 'AiChatWinStory' || action === 'GenerateJoke' || action === 'GenerateQuizQuestion') {
+    } else if (action === 'AiChatWinStory' || action === 'GenerateJoke' || action === 'GenerateQuizQuestion' || action === 'AnalyzeTimesheetQuality') {
       this.computeSingleMappingPreview(root, [{ label: 'Text Response', path: m.textResponsePath }]);
     }
   }

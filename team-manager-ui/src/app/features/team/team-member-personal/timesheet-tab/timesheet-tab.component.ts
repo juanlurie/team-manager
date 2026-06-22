@@ -51,6 +51,8 @@ export class TimesheetTabComponent implements OnInit, OnDestroy {
   syncing = signal(false);
   mobileAddOpen = signal(false);
   importOpen = signal(false);
+  analyzing = signal(false);
+  qualityAnalysis = signal<string | null>(null);
 
   tsConfig = signal<TimesheetConfig>({ extraProjects: [], extraCategories: {}, quickActions: [] });
 
@@ -472,6 +474,24 @@ export class TimesheetTabComponent implements OnInit, OnDestroy {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a'); a.href = url; a.download = `timesheet-${this.viewYear()}-${String(this.viewMonth()).padStart(2,'0')}.xlsx`; a.click();
       URL.revokeObjectURL(url);
+    });
+  }
+
+  analyzeQuality() {
+    this.analyzing.set(true);
+    this.svc.analyzeQuality(this.memberId()).subscribe({
+      next: (result) => {
+        this.analyzing.set(false);
+        if (!result.configured) {
+          this.qualityAnalysis.set('Not configured — add an "Analyze Timesheet Quality" action in Integrations.');
+          return;
+        }
+        this.qualityAnalysis.set(result.analysis ?? 'No analysis returned.');
+      },
+      error: () => {
+        this.analyzing.set(false);
+        this.qualityAnalysis.set('Failed to run the analysis. Check the Sync Queue for details.');
+      }
     });
   }
 

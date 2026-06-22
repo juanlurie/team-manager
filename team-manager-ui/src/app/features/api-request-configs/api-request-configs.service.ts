@@ -83,6 +83,7 @@ export const REQUEST_ACTIONS = [
   { value: 'GenerateQuizQuestion', label: 'Generate Quiz Question', icon: 'quiz' },
   { value: 'FetchTimesheetApprovals', label: 'Fetch Timesheet Approvals', icon: 'fact_check' },
   { value: 'ApproveTimesheet', label: 'Approve Timesheet', icon: 'task_alt' },
+  { value: 'AnalyzeTimesheetQuality', label: 'Analyze Timesheet Quality', icon: 'psychology' },
 ] as const;
 
 @Injectable({ providedIn: 'root' })
