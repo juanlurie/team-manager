@@ -15,7 +15,13 @@ public class TimesheetApprovalService(AppDbContext db, ITimesheetApprovalFetcher
             .Where(m => m.IsActive)
             .Select(m => new { m.Id, FullName = (m.FirstName + " " + m.LastName).ToLower() })
             .ToListAsync();
-        var memberLookup = members.ToDictionary(m => m.FullName, m => m.Id);
+        // Group instead of ToDictionary — two active members can share a full name (e.g. test
+        // data), and matching is by name alone here, so an ambiguous name is left unresolved
+        // (null TeamMemberId) rather than throwing.
+        var memberLookup = members
+            .GroupBy(m => m.FullName)
+            .Where(g => g.Count() == 1)
+            .ToDictionary(g => g.Key, g => g.First().Id);
 
         var violationsByEntry = TimesheetApprovalRules.Evaluate(entries);
 
