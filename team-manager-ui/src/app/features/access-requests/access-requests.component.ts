@@ -8,6 +8,7 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/confirm-dialog.component';
 import { AccessRequestsService } from '../../core/services/access-requests.service';
+import { ApproveAccessRequestDialogComponent, ApproveAccessRequestDialogResult } from './approve-access-request-dialog.component';
 
 interface AccessRequest {
   id: string;
@@ -138,18 +139,13 @@ export class AccessRequestsComponent {
   }
 
   approve(req: AccessRequest) {
-    const ref = this.dialog.open(ConfirmDialogComponent, {
-      width: '360px',
-      data: {
-        title: 'Approve access?',
-        message: `Grant access to ${req.name} (${req.email})?`,
-        confirmLabel: 'Approve',
-        danger: false
-      }
+    const ref = this.dialog.open(ApproveAccessRequestDialogComponent, {
+      width: '420px',
+      data: { name: req.name, email: req.email }
     });
-    ref.afterClosed().subscribe(ok => {
-      if (!ok) return;
-      this.http.post(`/api/accessrequests/${req.id}/approve`, {}).subscribe({
+    ref.afterClosed().subscribe((result?: ApproveAccessRequestDialogResult) => {
+      if (!result) return;
+      this.accessReqs.approve(req.id, result.teamMemberId).subscribe({
         next: () => {
           this.snackBar.open(`${req.name} approved and granted access`, 'Close', { duration: 3000 });
           this.loadRequests();
