@@ -25,6 +25,16 @@ export interface MappingConfig {
   subjectPath?: string;
   isAllDayPath?: string;
   locationPath?: string;
+  memberNamePath?: string;
+  datePath?: string;
+  projectPath?: string;
+  categoryPath?: string;
+  hoursPath?: string;
+  minutesPath?: string;
+  billablePath?: string;
+  workedFromPath?: string;
+  descriptionPath?: string;
+  ticketNumberPath?: string;
   customFields?: Record<string, string>;
 }
 
@@ -65,6 +75,8 @@ export const REQUEST_ACTIONS = [
   { value: 'AiChatWinStory', label: 'AI Chat — Win Story', icon: 'auto_awesome' },
   { value: 'GenerateJoke', label: 'Generate Joke', icon: 'sentiment_very_satisfied' },
   { value: 'GenerateQuizQuestion', label: 'Generate Quiz Question', icon: 'quiz' },
+  { value: 'FetchTimesheetApprovals', label: 'Fetch Timesheet Approvals', icon: 'fact_check' },
+  { value: 'ApproveTimesheet', label: 'Approve Timesheet', icon: 'task_alt' },
 ] as const;
 
 @Injectable({ providedIn: 'root' })

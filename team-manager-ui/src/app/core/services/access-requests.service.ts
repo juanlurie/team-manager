@@ -29,8 +29,8 @@ export class AccessRequestsService {
     });
   }
 
-  approve(id: string) {
-    return this.http.post(`${this.base}/${id}/approve`, {});
+  approve(id: string, teamMemberId?: string | null) {
+    return this.http.post(`${this.base}/${id}/approve`, teamMemberId ? { teamMemberId } : {});
   }
 
   deny(id: string) {

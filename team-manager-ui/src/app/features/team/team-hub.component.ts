@@ -13,6 +13,7 @@ interface TeamTab {
 const TEAM_TABS: TeamTab[] = [
   { label: 'Members',  route: 'members',       featureKey: 'team' },
   { label: 'Timesheet', route: 'timesheet',    featureKey: 'team' },
+  { label: 'Timesheet Approval', route: 'timesheet-approval', featureKey: 'team' },
   { label: 'Leave',    route: 'leave',         featureKey: 'leave' },
   { label: 'Expenses',        route: 'expense-claim',  featureKey: 'expense-claim' },
   { label: 'Access Requests', route: 'access-requests', featureKey: 'access-requests' },
