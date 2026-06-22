@@ -31,4 +31,14 @@ export class TimesheetService {
       responseType: 'blob'
     });
   }
+
+  analyzeQuality(memberId: string, lookbackDays = 90): Observable<TimesheetQualityAnalysis> {
+    return this.http.post<TimesheetQualityAnalysis>(`${this.base(memberId)}/analyze-quality`, { lookbackDays });
+  }
+}
+
+export interface TimesheetQualityAnalysis {
+  configured: boolean;
+  analysis: string | null;
+  status: string;
 }

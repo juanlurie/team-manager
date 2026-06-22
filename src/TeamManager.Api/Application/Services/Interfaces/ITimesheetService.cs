@@ -10,4 +10,5 @@ public interface ITimesheetService
     Task<bool> DeleteAsync(Guid memberId, Guid entryId);
     Task<byte[]> ExportMonthAsync(Guid memberId, int year, int month);
     Task<int> EnqueueSyncAsync(Guid memberId, Guid[] entryIds);
+    Task<TimesheetQualityAnalysisDto> AnalyzeQualityAsync(Guid memberId, int lookbackDays);
 }
