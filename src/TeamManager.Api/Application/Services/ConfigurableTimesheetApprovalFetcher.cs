@@ -62,29 +62,62 @@ public class ConfigurableTimesheetApprovalFetcher : ITimesheetApprovalFetcher
 
         var root = JsonDocument.Parse(json).RootElement;
 
-        JsonElement arrayElement;
+        JsonElement topArray;
         if (!string.IsNullOrWhiteSpace(mapping.ArrayPath))
         {
-            arrayElement = NavigatePath(root, ParsePath(mapping.ArrayPath));
-            if (arrayElement.ValueKind != JsonValueKind.Array)
+            topArray = NavigatePath(root, ParsePath(mapping.ArrayPath));
+            if (topArray.ValueKind != JsonValueKind.Array)
                 throw new InvalidOperationException($"Array path '{mapping.ArrayPath}' does not resolve to an array.");
         }
         else if (root.ValueKind == JsonValueKind.Array)
         {
-            arrayElement = root;
+            topArray = root;
         }
         else
         {
             throw new InvalidOperationException("Response is not a JSON array and no array path is configured.");
         }
 
-        var records = JsonSerializer.Deserialize<List<JsonElement>>(arrayElement.GetRawText()) ?? [];
-        return records.Select(r => ToEntry(r, mapping)).ToList();
+        var entries = new List<ImportedTimesheetEntry>();
+        foreach (var group in topArray.EnumerateArray())
+        {
+            foreach (var employee in EnumerateLevel(group, mapping.EmployeesPath))
+            {
+                var memberName = GetProperty(employee, mapping.MemberNamePath);
+                foreach (var day in EnumerateLevel(employee, mapping.DaysArrayPath))
+                {
+                    foreach (var entry in EnumerateLevel(day, mapping.EntriesPath))
+                    {
+                        entries.Add(ToEntry(entry, mapping, memberName));
+                    }
+                }
+            }
+        }
+        return entries;
     }
 
-    private static ImportedTimesheetEntry ToEntry(JsonElement r, MappingConfigDto mapping)
+    // Navigates to the array at `path` (relative to `element`) and yields its items.
+    // If `path` is empty, treats `element` itself as the single item at this level —
+    // this is what makes each nesting level optional, so a flat array of entries with
+    // no team/employee/day grouping still works (see class remarks above).
+    private static IEnumerable<JsonElement> EnumerateLevel(JsonElement element, string path)
     {
-        var memberName = GetProperty(r, mapping.MemberNamePath);
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            yield return element;
+            yield break;
+        }
+
+        var resolved = NavigatePath(element, ParsePath(path));
+        if (resolved.ValueKind != JsonValueKind.Array)
+            yield break;
+
+        foreach (var item in resolved.EnumerateArray())
+            yield return item;
+    }
+
+    private static ImportedTimesheetEntry ToEntry(JsonElement r, MappingConfigDto mapping, string memberName)
+    {
         var dateStr = GetProperty(r, mapping.DatePath);
         var project = GetProperty(r, mapping.ProjectPath);
         var category = GetProperty(r, mapping.CategoryPath);
@@ -98,7 +131,7 @@ public class ConfigurableTimesheetApprovalFetcher : ITimesheetApprovalFetcher
 
         return new ImportedTimesheetEntry(
             memberName,
-            DateOnly.TryParse(dateStr, out var date) ? date : DateOnly.MinValue,
+            ParseDate(dateStr),
             project,
             category,
             int.TryParse(hoursStr, out var hours) ? hours : 0,
@@ -109,6 +142,15 @@ public class ConfigurableTimesheetApprovalFetcher : ITimesheetApprovalFetcher
             string.IsNullOrEmpty(ticketNumber) ? null : ticketNumber,
             string.IsNullOrEmpty(externalId) ? null : externalId
         );
+    }
+
+    // Handles plain dates ("2026-06-01"), as well as the "yyyy/MM/dd HH:mm:ss"
+    // format some external timesheet systems use for entry-level dates.
+    private static DateOnly ParseDate(string dateStr)
+    {
+        if (DateOnly.TryParse(dateStr, out var date)) return date;
+        if (DateTime.TryParse(dateStr, out var dateTime)) return DateOnly.FromDateTime(dateTime);
+        return DateOnly.MinValue;
     }
 
     private static string ResolveTemplate(string template, FetchTimesheetApprovalsRequest request)

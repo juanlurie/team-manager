@@ -56,7 +56,15 @@ public record MappingConfigDto(
     string SubjectPath = "subject",
     string IsAllDayPath = "isAllDay",
     string LocationPath = "location",
-    // For FetchTimesheetApprovals: per-entry mapping fields (ArrayPath/ExternalIdPath above are reused)
+    // For FetchTimesheetApprovals: per-entry mapping fields (ArrayPath/ExternalIdPath above are reused).
+    // ArrayPath is the top-level array (e.g. teams). EmployeesPath/DaysArrayPath/EntriesPath are each
+    // optional and relative to the previous level, letting the response be nested arbitrarily deep
+    // (Teams -> Employees -> Days -> TimesheetEntries) or left flat (a single array of entries) by
+    // leaving the lower-level paths empty.
+    string EmployeesPath = "",
+    string DaysArrayPath = "",
+    string EntriesPath = "",
+    string MemberIdPath = "",
     string MemberNamePath = "employeeName",
     string DatePath = "date",
     string ProjectPath = "project",
