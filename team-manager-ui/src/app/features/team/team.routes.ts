@@ -31,6 +31,11 @@ export const TEAM_ROUTES: Routes = [
         loadComponent: () => import('../access-requests/access-requests.component').then(m => m.AccessRequestsComponent),
         data: { featureKey: 'access-requests' }
       },
+      {
+        path: 'timesheet-approval',
+        loadComponent: () => import('../timesheet-approval/timesheet-approval.component').then(m => m.TimesheetApprovalComponent),
+        data: { featureKey: 'team' }
+      },
     ]
   },
   {
