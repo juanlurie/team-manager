@@ -763,6 +763,9 @@ interface CodeSegment { text: string; kind: 'plain' | 'resolved' | 'missing'; }
                           <mat-icon style="font-size:15px;width:15px;height:15px">arrow_forward</mat-icon> Use this response to test mapping
                         </button>
                       }
+                      <button mat-icon-button (click)="copyTestResponse()" class="close-test-btn" matTooltip="Copy">
+                        <mat-icon style="font-size:16px;width:16px;height:16px">content_copy</mat-icon>
+                      </button>
                       <button mat-icon-button (click)="testResult.set(null)" class="close-test-btn"><mat-icon>close</mat-icon></button>
                     </div>
                   </div>
@@ -1554,6 +1557,13 @@ export class ApiRequestConfigEditComponent implements OnInit {
 
   copyCode() {
     navigator.clipboard.writeText(this.currentCode);
+    this.snackBar.open('Copied', 'Close', { duration: 2000 });
+  }
+
+  copyTestResponse() {
+    const result = this.testResult();
+    if (!result) return;
+    navigator.clipboard.writeText(this.formatTestBody(result.body));
     this.snackBar.open('Copied', 'Close', { duration: 2000 });
   }
 
