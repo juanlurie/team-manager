@@ -4,5 +4,6 @@ namespace TeamManager.Api.Application.Services.Interfaces;
 
 public interface ITimesheetApprovalService
 {
-    Task<IReadOnlyList<TimesheetApprovalMemberDto>> FetchOutstandingAsync(FetchTimesheetApprovalsRequest request);
+    Task<TimesheetApprovalFetchResultDto> FetchOutstandingAsync(FetchTimesheetApprovalsRequest request);
+    Task<TimesheetQualityAnalysisDto> AnalyzeQualityAsync(AnalyzeApprovalQualityRequest request);
 }

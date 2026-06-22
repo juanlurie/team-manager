@@ -22,6 +22,8 @@ import { ConfigVariablesService } from '../settings/config-variables/config-vari
 import { MobileService } from '../../core/services/mobile.service';
 
 interface CodeSegment { text: string; kind: 'plain' | 'resolved' | 'missing'; }
+interface MappingPreviewRow { label: string; path: string; value: string; }
+interface MappingPreview { kind: 'array' | 'single'; count?: number; rows: MappingPreviewRow[]; error?: string; }
 
 @Component({
   selector: 'app-api-request-config-edit',
@@ -162,10 +164,10 @@ interface CodeSegment { text: string; kind: 'plain' | 'resolved' | 'missing'; }
             @if (showBody('request')) {
             <div class="section-body">
             <div class="tpl-field full-width">
-              <div class="tpl-editor">
-                <div class="tpl-backdrop" aria-hidden="true">@for (seg of urlSegs(); track $index) {<span [class.body-resolved]="seg.kind === 'resolved'" [class.code-missing]="seg.kind === 'missing'">{{ seg.text }}</span>}&nbsp;</div>
-                <input class="tpl-input" [(ngModel)]="data.url" (ngModelChange)="updateUrlSegs()" (scroll)="syncInputScroll($event)" placeholder="https://example.com/api">
-              </div>
+              <input class="tpl-input-plain" [(ngModel)]="data.url" (ngModelChange)="updateUrlSegs()" placeholder="https://example.com/api">
+              @if (hasPlaceholders(urlSegs())) {
+                <pre class="tpl-preview">@for (seg of urlSegs(); track $index) {<span [class.body-resolved]="seg.kind === 'resolved'" [class.code-missing]="seg.kind === 'missing'">{{ seg.text }}</span>}</pre>
+              }
             </div>
 
             <div class="body-footer-row" style="margin-bottom:12px">
@@ -233,9 +235,11 @@ interface CodeSegment { text: string; kind: 'plain' | 'resolved' | 'missing'; }
                     </button>
                   </mat-form-field>
                 } @else {
-                  <div class="tpl-editor half-width">
-                    <div class="tpl-backdrop" aria-hidden="true">@for (seg of getSegs(entry.value); track $index) {<span [class.body-resolved]="seg.kind === 'resolved'" [class.code-missing]="seg.kind === 'missing'">{{ seg.text }}</span>}&nbsp;</div>
-                    <input class="tpl-input" [(ngModel)]="entry.value" (scroll)="syncInputScroll($event)" placeholder="{cookie}">
+                  <div class="tpl-field half-width">
+                    <input class="tpl-input-plain" [(ngModel)]="entry.value" placeholder="{cookie}">
+                    @if (hasPlaceholders(getSegs(entry.value))) {
+                      <pre class="tpl-preview">@for (seg of getSegs(entry.value); track $index) {<span [class.body-resolved]="seg.kind === 'resolved'" [class.code-missing]="seg.kind === 'missing'">{{ seg.text }}</span>}</pre>
+                    }
                   </div>
                 }
                 <button mat-icon-button [color]="entry.secret ? 'accent' : ''" (click)="toggleHeaderSecret(entry)"
@@ -295,10 +299,10 @@ interface CodeSegment { text: string; kind: 'plain' | 'resolved' | 'missing'; }
             @if (showBody('body')) {
             <div class="section-body">
             <div class="body-field">
-              <div class="body-editor">
-                <div class="body-backdrop" aria-hidden="true">@for (seg of bodySegs(); track $index) {<span [class.body-resolved]="seg.kind === 'resolved'" [class.code-missing]="seg.kind === 'missing'">{{ seg.text }}</span>}&nbsp;</div>
-                <textarea class="body-textarea" [(ngModel)]="data.bodyTemplate" (ngModelChange)="updateBodySegs()" (scroll)="syncBodyScroll($event)" rows="4" placeholder="teamId=&#123;teamIds&#125;&amp;start=&#123;start&#125;"></textarea>
-              </div>
+              <textarea class="body-textarea-plain" [(ngModel)]="data.bodyTemplate" (ngModelChange)="updateBodySegs()" rows="4" placeholder="teamId=&#123;teamIds&#125;&amp;start=&#123;start&#125;"></textarea>
+              @if (hasPlaceholders(bodySegs())) {
+                <pre class="body-preview">@for (seg of bodySegs(); track $index) {<span [class.body-resolved]="seg.kind === 'resolved'" [class.code-missing]="seg.kind === 'missing'">{{ seg.text }}</span>}</pre>
+              }
               <div class="body-footer-row">
                 <div class="body-chips">
                   @for (v of bodyVarChips; track v) {
@@ -602,19 +606,59 @@ interface CodeSegment { text: string; kind: 'plain' | 'resolved' | 'missing'; }
             <div class="map-block">
               <mat-form-field appearance="outline" class="full-width">
                 <mat-label>Array Path (optional)</mat-label>
-                <input matInput [(ngModel)]="data.mapping.arrayPath" placeholder="e.g. data.entries">
-                <mat-hint>Leave empty if response is a top-level array</mat-hint>
+                <input matInput [(ngModel)]="data.mapping.arrayPath" placeholder="e.g. TeamsToSignOff">
+                <mat-hint>Top-level array. Leave empty if response is itself a top-level array</mat-hint>
               </mat-form-field>
               <div class="two-col">
                 <mat-form-field appearance="outline">
-                  <mat-label>Member Name Path</mat-label>
-                  <input matInput [(ngModel)]="data.mapping.memberNamePath" placeholder="employeeName">
+                  <mat-label>Employees Path (optional)</mat-label>
+                  <input matInput [(ngModel)]="data.mapping.employeesPath" placeholder="Employees">
+                  <mat-hint>Relative to each top-level item. Leave empty if it's already an employee</mat-hint>
                 </mat-form-field>
                 <mat-form-field appearance="outline">
-                  <mat-label>Date Path</mat-label>
-                  <input matInput [(ngModel)]="data.mapping.datePath" placeholder="date">
+                  <mat-label>Days Path (optional)</mat-label>
+                  <input matInput [(ngModel)]="data.mapping.daysArrayPath" placeholder="Days">
+                  <mat-hint>Relative to each employee. Leave empty if entries are directly underneath</mat-hint>
                 </mat-form-field>
               </div>
+              <div class="two-col">
+                <mat-form-field appearance="outline">
+                  <mat-label>Entries Path (optional)</mat-label>
+                  <input matInput [(ngModel)]="data.mapping.entriesPath" placeholder="TimesheetEntries">
+                  <mat-hint>Relative to each day. Leave empty if the day itself is the entry</mat-hint>
+                </mat-form-field>
+                <mat-form-field appearance="outline">
+                  <mat-label>Member Name Path</mat-label>
+                  <input matInput [(ngModel)]="data.mapping.memberNamePath" placeholder="Name">
+                  <mat-hint>Relative to each employee</mat-hint>
+                </mat-form-field>
+              </div>
+              <mat-form-field appearance="outline" class="full-width">
+                <mat-label>Team Name Path (optional)</mat-label>
+                <input matInput [(ngModel)]="data.mapping.teamNamePath" placeholder="TeamName">
+                <mat-hint>Relative to each top-level item. Lets the approval screen filter out whole teams</mat-hint>
+              </mat-form-field>
+              <div class="two-col">
+                <mat-form-field appearance="outline">
+                  <mat-label>Date Path</mat-label>
+                  <input matInput [(ngModel)]="data.mapping.datePath" placeholder="Date">
+                  <mat-hint>Relative to each entry</mat-hint>
+                </mat-form-field>
+                <mat-form-field appearance="outline">
+                  <mat-label>Member ID Path (optional)</mat-label>
+                  <input matInput [(ngModel)]="data.mapping.memberIdPath" placeholder="EmployeeId">
+                  <mat-hint>Relative to each employee</mat-hint>
+                </mat-form-field>
+              </div>
+              <mat-form-field appearance="outline" class="full-width">
+                <mat-label>Day Date Path (optional)</mat-label>
+                <input matInput [(ngModel)]="data.mapping.dayDatePath" placeholder="Date">
+                <mat-hint>
+                  Relative to each day. A day present here with no entries is still outstanding;
+                  a day missing entirely is treated as already signed off. Needed for the
+                  missing-timesheet weekly summary — leave empty to skip that distinction.
+                </mat-hint>
+              </mat-form-field>
               <div class="two-col">
                 <mat-form-field appearance="outline">
                   <mat-label>Project Path</mat-label>
@@ -663,7 +707,7 @@ interface CodeSegment { text: string; kind: 'plain' | 'resolved' | 'missing'; }
             </div>
           }
 
-          @if (data.action === 'AiChatWinStory' || data.action === 'GenerateJoke' || data.action === 'GenerateQuizQuestion') {
+          @if (data.action === 'AiChatWinStory' || data.action === 'GenerateJoke' || data.action === 'GenerateQuizQuestion' || data.action === 'AnalyzeTimesheetQuality') {
             <div class="map-block">
               <mat-form-field appearance="outline" class="full-width">
                 <mat-label>Text Response Path</mat-label>
@@ -763,10 +807,47 @@ interface CodeSegment { text: string; kind: 'plain' | 'resolved' | 'missing'; }
                           <mat-icon style="font-size:15px;width:15px;height:15px">arrow_forward</mat-icon> Use this response to test mapping
                         </button>
                       }
+                      <button mat-icon-button (click)="copyTestResponse()" class="close-test-btn" matTooltip="Copy">
+                        <mat-icon style="font-size:16px;width:16px;height:16px">content_copy</mat-icon>
+                      </button>
                       <button mat-icon-button (click)="testResult.set(null)" class="close-test-btn"><mat-icon>close</mat-icon></button>
                     </div>
                   </div>
                   <pre class="test-response-body">{{ formatTestBody(testResult()!.body) }}</pre>
+
+                  @if (testResult()!.success) {
+                    @if (hasProjectMapping()) {
+                      <div class="map-field-breakdown">
+                        <div class="map-field-breakdown-title">
+                          Response Mapping — {{ projectMappingResults() === null ? 'checking…' : projectMappingResults()!.length + ' project(s) found' }}
+                        </div>
+                        @if (firstProjectBreakdown(); as rows) {
+                          @for (row of rows; track row.label) {
+                            <div class="test-result-row">
+                              <span class="test-label">{{ row.label }} <code class="path-code">{{ row.path }}</code></span>
+                              <span class="test-value">→ {{ row.value }}</span>
+                            </div>
+                          }
+                        }
+                      </div>
+                    } @else if (mappingPreview(); as preview) {
+                      <div class="map-field-breakdown">
+                        @if (preview.error) {
+                          <div class="map-field-breakdown-title" style="color:#ef5350">{{ preview.error }}</div>
+                        } @else {
+                          <div class="map-field-breakdown-title">
+                            Response Mapping{{ preview.kind === 'array' ? ' — ' + preview.count + ' item(s) found' : '' }}
+                          </div>
+                          @for (row of preview.rows; track row.label) {
+                            <div class="test-result-row">
+                              <span class="test-label">{{ row.label }} <code class="path-code">{{ row.path }}</code></span>
+                              <span class="test-value">→ {{ row.value }}</span>
+                            </div>
+                          }
+                        }
+                      </div>
+                    }
+                  }
                 </div>
               }
             </div>
@@ -977,21 +1058,21 @@ interface CodeSegment { text: string; kind: 'plain' | 'resolved' | 'missing'; }
     .footer-save-btn:hover:not(:disabled) { background: rgba(100,181,246,0.25); border-color: #64b5f6; }
     .footer-save-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
-    /* Inline template overlay (URL, header values) */
-    .tpl-field { display: flex; flex-direction: column; margin-bottom: 4px; }
-    .tpl-editor { position: relative; border: 1px solid rgba(255,255,255,0.15); border-radius: 4px; background: rgba(255,255,255,0.04); transition: border-color 0.15s; flex: 1; min-width: 80px; }
-    .tpl-editor:focus-within { border-color: rgba(100,181,246,0.5); }
-    .tpl-backdrop { position: absolute; top: 0; left: 0; right: 0; bottom: 0; padding: 12px 14px; font-size: 0.9rem; font-family: inherit; line-height: 1.375; white-space: pre; overflow: hidden; pointer-events: none; box-sizing: border-box; color: rgba(255,255,255,0.8); }
-    .tpl-input { position: relative; display: block; width: 100%; padding: 12px 14px; font-size: 0.9rem; font-family: inherit; line-height: 1.375; background: transparent; color: transparent; caret-color: rgba(255,255,255,0.9); border: none; outline: none; box-sizing: border-box; }
-    .tpl-input::placeholder { color: rgba(255,255,255,0.3); }
+    /* Inline template fields (URL, header values) — plain editable input plus a separate
+       read-only preview underneath showing which {placeholders} resolve. No overlay, so there's
+       nothing to desync during text selection. */
+    .tpl-field { display: flex; flex-direction: column; gap: 4px; margin-bottom: 4px; flex: 1; min-width: 80px; }
+    .tpl-input-plain { display: block; width: 100%; padding: 12px 14px; font-size: 0.9rem; font-family: inherit; line-height: 1.375; background: rgba(255,255,255,0.04); color: rgba(255,255,255,0.85); border: 1px solid rgba(255,255,255,0.15); border-radius: 4px; outline: none; box-sizing: border-box; transition: border-color 0.15s; }
+    .tpl-input-plain:focus { border-color: rgba(100,181,246,0.5); }
+    .tpl-input-plain::placeholder { color: rgba(255,255,255,0.3); }
+    .tpl-preview { margin: 0; padding: 6px 10px; font-size: 0.78rem; font-family: inherit; line-height: 1.375; white-space: pre-wrap; word-break: break-all; background: rgba(0,0,0,0.2); border-radius: 4px; color: rgba(255,255,255,0.6); }
 
-    /* Body template overlay */
-    .body-field { display: flex; flex-direction: column; gap: 4px; margin-bottom: 8px; }
-    .body-editor { position: relative; border: 1px solid rgba(255,255,255,0.12); border-radius: 4px; background: rgba(255,255,255,0.04); transition: border-color 0.15s; }
-    .body-editor:focus-within { border-color: rgba(100,181,246,0.5); }
-    .body-backdrop { position: absolute; top: 0; left: 0; right: 0; bottom: 0; padding: 10px 12px; font-size: 0.8rem; font-family: monospace; line-height: 1.5625; white-space: pre-wrap; word-break: break-all; overflow: hidden; pointer-events: none; box-sizing: border-box; color: rgba(255,255,255,0.8); }
-    .body-textarea { position: relative; display: block; width: 100%; min-height: 80px; padding: 10px 12px; font-size: 0.8rem; font-family: monospace; line-height: 1.5625; background: transparent; color: transparent; caret-color: rgba(255,255,255,0.9); border: none; outline: none; resize: vertical; box-sizing: border-box; }
-    .body-textarea::placeholder { color: rgba(255,255,255,0.3); }
+    /* Body template field — same plain-input + separate preview approach */
+    .body-field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
+    .body-textarea-plain { display: block; width: 100%; min-height: 80px; padding: 10px 12px; font-size: 0.8rem; font-family: monospace; line-height: 1.5625; background: rgba(255,255,255,0.04); color: rgba(255,255,255,0.85); border: 1px solid rgba(255,255,255,0.12); border-radius: 4px; outline: none; resize: vertical; box-sizing: border-box; transition: border-color 0.15s; }
+    .body-textarea-plain:focus { border-color: rgba(100,181,246,0.5); }
+    .body-textarea-plain::placeholder { color: rgba(255,255,255,0.3); }
+    .body-preview { margin: 0; padding: 8px 12px; font-size: 0.72rem; font-family: monospace; line-height: 1.5625; white-space: pre-wrap; word-break: break-all; background: rgba(0,0,0,0.2); border-radius: 4px; color: rgba(255,255,255,0.6); max-height: 160px; overflow-y: auto; }
     .body-footer-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
     .body-chips { display: flex; flex-wrap: wrap; gap: 4px; flex: 1; }
     .body-legend { display: flex; gap: 10px; align-items: center; flex-shrink: 0; padding-top: 2px; }
@@ -1035,21 +1116,10 @@ export class ApiRequestConfigEditComponent implements OnInit {
 
   get bodyVarChips(): string[] {
     if (!this.data) return [];
-    const action = this.data.action;
     const cookieNames = this.cookieVarNames();
     const paramNames = this.parameterEntries().map(e => e.key.trim()).filter(Boolean);
-    const base = [...cookieNames, ...paramNames];
-    if (action === 'AddTimesheetEntry' || action === 'EditTimesheetEntry' || action === 'DeleteTimesheetEntry') {
-      return [...base, 'id', 'date', 'project', 'category', 'categoryId', 'employeeId', 'workedFromLocationId', 'hours', 'minutes', 'billable', 'workedFrom', 'sentiment', 'description', 'ticketNumber'];
-    }
-    if (action === 'GenerateJoke') return [...base, 'jokeType', 'seed'];
-    if (action === 'GenerateQuizQuestion') return [...base, 'topic', 'angle', 'recentTopics'];
-    if (action === 'AiChatWinStory') return [...base, 'nominee', 'title', 'description'];
-    if (action === 'FetchLeave') return [...base, 'start', 'end', 'teamIds'];
-    if (action === 'FetchCalendarEvents') return [...base, 'start', 'end', 'teamIds'];
-    if (action === 'FetchTimesheetApprovals') return [...base, 'start', 'end'];
-    if (action === 'ApproveTimesheet') return [...base, 'memberName', 'start', 'end', 'employeeId', 'totalHours'];
-    return base;
+    const actionVars = Object.keys(REQUEST_ACTIONS.find(a => a.value === this.data!.action)?.vars ?? {});
+    return [...cookieNames, ...paramNames, ...actionVars];
   }
 
   showCurlImport = signal(false);
@@ -1057,6 +1127,7 @@ export class ApiRequestConfigEditComponent implements OnInit {
   curlParseError = signal('');
   testing = signal(false);
   testResult = signal<TestRequestResult | null>(null);
+  mappingPreview = signal<MappingPreview | null>(null);
   curlSegs = signal<CodeSegment[]>([]);
   httpSegs = signal<CodeSegment[]>([]);
   bodySegs = signal<CodeSegment[]>([]);
@@ -1165,7 +1236,8 @@ export class ApiRequestConfigEditComponent implements OnInit {
 
   hasMapping(): boolean {
     return this.data ? ['AddTimesheetEntry', 'GetTimesheetProjects', 'GetTimesheetProjectCategories', 'FetchLeave',
-            'AiChatWinStory', 'GenerateJoke', 'GenerateQuizQuestion', 'FetchCalendarEvents', 'FetchTimesheetApprovals'].includes(this.data.action) : false;
+            'AiChatWinStory', 'GenerateJoke', 'GenerateQuizQuestion', 'FetchCalendarEvents', 'FetchTimesheetApprovals',
+            'AnalyzeTimesheetQuality'].includes(this.data.action) : false;
   }
 
   get hasTestResults(): boolean {
@@ -1201,16 +1273,14 @@ export class ApiRequestConfigEditComponent implements OnInit {
     return [...new Set(matches)].filter(v => !knownParams.has(v));
   }
 
+  // 'date' is the one placeholder that needs a live value rather than a fixed sample, so it's
+  // special-cased here instead of in the centralized REQUEST_ACTIONS.vars sample data.
   testVarPlaceholder(v: string): string {
-    const today = new Date().toISOString().split('T')[0];
-    const defaults: Record<string, string> = {
-      date: today, hours: '1', minutes: '0', billable: 'true',
-      workedFrom: '', sentiment: '', description: 'Test', ticketNumber: '', category: '', project: '', id: '',
-      seed: 'a1b2c3d4', jokeType: 'dad joke', nominee: 'Jane Doe', title: 'Shipped the new feature',
-      topic: 'space and astronomy', angle: 'an obscure fact about', recentTopics: 'history, sports records',
-      memberName: 'Jane Doe', totalHours: '40'
-    };
-    return defaults[v] ?? '';
+    if (v === 'date') return new Date().toISOString().split('T')[0];
+    const actionVars: Record<string, string> = this.data
+      ? REQUEST_ACTIONS.find(a => a.value === this.data!.action)?.vars ?? {}
+      : {};
+    return actionVars[v] ?? '';
   }
 
   ngOnInit() {
@@ -1332,16 +1402,8 @@ export class ApiRequestConfigEditComponent implements OnInit {
     return this.computeSegs(value);
   }
 
-  syncBodyScroll(event: Event) {
-    const ta = event.target as HTMLTextAreaElement;
-    const backdrop = ta.previousElementSibling as HTMLElement;
-    if (backdrop) backdrop.scrollTop = ta.scrollTop;
-  }
-
-  syncInputScroll(event: Event) {
-    const input = event.target as HTMLInputElement;
-    const backdrop = input.previousElementSibling as HTMLElement;
-    if (backdrop) backdrop.scrollLeft = input.scrollLeft;
+  hasPlaceholders(segs: CodeSegment[]): boolean {
+    return segs.some(s => s.kind !== 'plain');
   }
 
   discoverPaths() {
@@ -1557,6 +1619,13 @@ export class ApiRequestConfigEditComponent implements OnInit {
     this.snackBar.open('Copied', 'Close', { duration: 2000 });
   }
 
+  copyTestResponse() {
+    const result = this.testResult();
+    if (!result) return;
+    navigator.clipboard.writeText(this.formatTestBody(result.body));
+    this.snackBar.open('Copied', 'Close', { duration: 2000 });
+  }
+
   runTest() {
     if (!this.data) return;
     this.testing.set(true);
@@ -1574,9 +1643,166 @@ export class ApiRequestConfigEditComponent implements OnInit {
     const variables: Record<string, string> = { ...this.getCookieVariables(), ...this.testVars };
 
     this.svc.testRequest(config, variables).subscribe({
-      next: (result) => { this.testResult.set(result); this.testing.set(false); },
+      next: (result) => {
+        this.testResult.set(result);
+        this.testing.set(false);
+        this.mappingPreview.set(null);
+        if (result.success) this.computeMappingPreview(result.body);
+        if (result.success && this.hasProjectMapping()) {
+          this.projectSampleResponse.set(result.body);
+          this.testProjectMapping();
+        }
+      },
       error: () => { this.testing.set(false); this.snackBar.open('Test request failed', 'Close', { duration: 3000 }); }
     });
+  }
+
+  private computeMappingPreview(rawBody: string) {
+    if (!this.data || this.hasProjectMapping()) return;
+    let root: unknown;
+    try { root = JSON.parse(rawBody); } catch { return; }
+    const m = this.data.mapping;
+    const action = this.data.action;
+
+    if (action === 'FetchLeave') {
+      this.computeArrayMappingPreview(root, m.arrayPath, [
+        { label: 'Name', path: m.namePath }, { label: 'Start', path: m.startPath },
+        { label: 'End', path: m.endPath }, { label: 'Type', path: m.typePath },
+        { label: 'Days', path: m.daysPath }, { label: 'Status', path: m.statusPath },
+      ]);
+    } else if (action === 'FetchCalendarEvents') {
+      this.computeArrayMappingPreview(root, m.arrayPath, [
+        { label: 'Subject', path: m.subjectPath ?? '' }, { label: 'Is All Day', path: m.isAllDayPath ?? '' },
+        { label: 'Start', path: m.startPath }, { label: 'End', path: m.endPath },
+        { label: 'Location', path: m.locationPath ?? '' },
+      ]);
+    } else if (action === 'FetchTimesheetApprovals') {
+      this.computeTimesheetApprovalPreview(root, m);
+    } else if (action === 'AddTimesheetEntry') {
+      this.computeSingleMappingPreview(root, [{ label: 'External ID', path: m.externalIdPath }]);
+    } else if (action === 'AiChatWinStory' || action === 'GenerateJoke' || action === 'GenerateQuizQuestion' || action === 'AnalyzeTimesheetQuality') {
+      this.computeSingleMappingPreview(root, [{ label: 'Text Response', path: m.textResponsePath }]);
+    }
+  }
+
+  private computeArrayMappingPreview(root: unknown, arrayPath: string, fieldDefs: { label: string; path: string }[]) {
+    const arr = arrayPath ? this.getAtPath(root, arrayPath) : root;
+    if (!Array.isArray(arr)) {
+      this.mappingPreview.set({
+        kind: 'array', rows: [],
+        error: arrayPath ? `Array path "${arrayPath}" did not resolve to an array` : 'Response root is not an array'
+      });
+      return;
+    }
+    const first = arr[0];
+    const rows = fieldDefs.map(f => ({
+      label: f.label,
+      path: f.path || '(not set)',
+      value: first === undefined ? '(no items)' : this.previewValue(this.getAtPath(first, f.path))
+    }));
+    this.mappingPreview.set({ kind: 'array', count: arr.length, rows });
+  }
+
+  // Mirrors the backend's nested flatten (ArrayPath -> EmployeesPath -> DaysArrayPath -> EntriesPath),
+  // where each lower level is optional. Walks the same way ConfigurableTimesheetApprovalFetcher does
+  // so the preview reflects exactly what import will produce, including the member name pulled from
+  // the employee level rather than the entry itself.
+  private computeTimesheetApprovalPreview(root: unknown, m: MappingConfig) {
+    const topArr = m.arrayPath ? this.getAtPath(root, m.arrayPath) : root;
+    if (!Array.isArray(topArr)) {
+      this.mappingPreview.set({
+        kind: 'array', rows: [],
+        error: m.arrayPath ? `Array path "${m.arrayPath}" did not resolve to an array` : 'Response root is not an array'
+      });
+      return;
+    }
+
+    const enumerateLevel = (element: unknown, path: string | undefined): unknown[] => {
+      if (!path) return [element];
+      const resolved = this.getAtPath(element, path);
+      return Array.isArray(resolved) ? resolved : [];
+    };
+
+    let firstEntry: unknown;
+    let firstMemberName: unknown;
+    let count = 0;
+    for (const group of topArr) {
+      for (const employee of enumerateLevel(group, m.employeesPath)) {
+        const memberName = this.getAtPath(employee, m.memberNamePath ?? '');
+        for (const day of enumerateLevel(employee, m.daysArrayPath)) {
+          for (const entry of enumerateLevel(day, m.entriesPath)) {
+            count++;
+            if (firstEntry === undefined) { firstEntry = entry; firstMemberName = memberName; }
+          }
+        }
+      }
+    }
+
+    const fieldDefs = [
+      { label: 'Member Name', value: firstMemberName },
+      { label: 'Date', path: m.datePath ?? '' },
+      { label: 'Project', path: m.projectPath ?? '' }, { label: 'Category', path: m.categoryPath ?? '' },
+      { label: 'Hours', path: m.hoursPath ?? '' }, { label: 'Minutes', path: m.minutesPath ?? '' },
+      { label: 'Billable', path: m.billablePath ?? '' }, { label: 'Worked From', path: m.workedFromPath ?? '' },
+      { label: 'Description', path: m.descriptionPath ?? '' }, { label: 'Ticket Number', path: m.ticketNumberPath ?? '' },
+      { label: 'External ID', path: m.externalIdPath },
+    ];
+    const rows = fieldDefs.map(f => ({
+      label: f.label,
+      path: 'path' in f ? (f.path || '(not set)') : (m.memberNamePath || '(not set)'),
+      value: firstEntry === undefined
+        ? '(no items)'
+        : 'value' in f ? this.previewValue(f.value) : this.previewValue(this.getAtPath(firstEntry, f.path!))
+    }));
+    this.mappingPreview.set({ kind: 'array', count, rows });
+  }
+
+  private computeSingleMappingPreview(root: unknown, fieldDefs: { label: string; path: string }[]) {
+    const rows = fieldDefs.map(f => ({
+      label: f.label,
+      path: f.path || '(not set)',
+      value: this.previewValue(this.getAtPath(root, f.path))
+    }));
+    this.mappingPreview.set({ kind: 'single', rows });
+  }
+
+  private previewValue(v: unknown): string {
+    if (v === undefined || v === null || v === '') return '(empty)';
+    return typeof v === 'string' ? v : JSON.stringify(v);
+  }
+
+  private getAtPath(root: unknown, path: string): unknown {
+    if (!path) return undefined;
+    let current: any = root;
+    for (const segment of this.parseMappingPath(path)) {
+      if (current === null || current === undefined) return undefined;
+      current = current[segment];
+    }
+    return current;
+  }
+
+  // Mirrors the backend's path parser (dot-separated segments, [index] for array access)
+  private parseMappingPath(path: string): string[] {
+    const segments: string[] = [];
+    let current = '';
+    let i = 0;
+    while (i < path.length) {
+      if (path[i] === '.') {
+        if (current) { segments.push(current); current = ''; }
+        i++;
+      } else if (path[i] === '[') {
+        if (current) { segments.push(current); current = ''; }
+        i++;
+        const end = path.indexOf(']', i);
+        if (end > i) { segments.push(path.substring(i, end)); i = end + 1; }
+        else break;
+      } else {
+        current += path[i];
+        i++;
+      }
+    }
+    if (current) segments.push(current);
+    return segments;
   }
 
   private getCookieVariables(): Record<string, string> {

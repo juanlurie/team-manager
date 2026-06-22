@@ -138,6 +138,11 @@ interface SyncEvent {
                           <span class="format-tag" [class.ok]="(evt.responseStatus ?? 0) < 300">
                             {{ evt.responseStatus }}
                           </span>
+                          <span style="flex:1"></span>
+                          <button mat-icon-button (click)="downloadResponse(evt); $event.stopPropagation()"
+                                  matTooltip="Download full response" style="width:24px;height:24px;line-height:24px">
+                            <mat-icon style="font-size:15px;width:15px;height:15px">download</mat-icon>
+                          </button>
                         </div>
                         <pre class="detail-pre response-pre">{{ tryPrettyJson(evt.responseBody) }}</pre>
                       </div>
@@ -443,5 +448,18 @@ export class SyncQueueComponent implements OnInit {
 
   tryPrettyJson(s: string) {
     try { return JSON.stringify(JSON.parse(s), null, 2); } catch { return s; }
+  }
+
+  // The inline <pre> is scroll-capped for readability, but the stored response is never
+  // truncated — this lets you pull the full payload for events too large to read comfortably.
+  downloadResponse(evt: SyncEvent) {
+    if (!evt.responseBody) return;
+    const blob = new Blob([this.tryPrettyJson(evt.responseBody)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${evt.action}-${evt.id}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
   }
 }
