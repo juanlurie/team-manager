@@ -15,6 +15,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { TimesheetApprovalService } from '../../core/services/timesheet-approval.service';
 import { CredentialsService } from '../../core/services/credentials.service';
 import { MemberQualityInput, TimesheetApprovalEntry, TimesheetApprovalMember, WeeklyTimesheetSummary } from '../../core/models/timesheet-approval.model';
+import { MarkdownPipe } from '../../core/pipes/markdown.pipe';
 
 // Builds the date string from local Y/M/D parts — toISOString() converts to UTC first, which
 // rolls the date back a day for any timezone ahead of UTC (e.g. local midnight on the 1st
@@ -62,7 +63,7 @@ interface DayGroup {
   selector: 'app-timesheet-approval',
   standalone: true,
   imports: [CommonModule, FormsModule, MatIconModule, MatButtonModule, MatFormFieldModule,
-    MatInputModule, MatAutocompleteModule, MatSnackBarModule, MatProgressSpinnerModule, MatCheckboxModule, MatTooltipModule],
+    MatInputModule, MatAutocompleteModule, MatSnackBarModule, MatProgressSpinnerModule, MatCheckboxModule, MatTooltipModule, MarkdownPipe],
   template: `
     <div class="page">
       <div class="page-header">
@@ -182,7 +183,7 @@ interface DayGroup {
                 <span>AI Timesheet Quality Analysis ({{ displayedPeople().length }} people)</span>
                 <button class="ts-ai-close" (click)="qualityAnalysis.set(null)">&times;</button>
               </div>
-              <div class="quality-analysis-body">{{ qualityAnalysis() }}</div>
+              <div class="quality-analysis-body" [innerHTML]="qualityAnalysis() | markdown"></div>
             </div>
           }
 
@@ -363,7 +364,13 @@ interface DayGroup {
     .issues-breakdown-hdr { display: flex; align-items: center; justify-content: space-between; font-size: 0.8rem; font-weight: 700; color: #ce93d8; }
     .ts-ai-close { background: none; border: none; color: rgba(255,255,255,0.4); font-size: 18px; line-height: 1; cursor: pointer; padding: 0 4px; }
     .ts-ai-close:hover { color: rgba(255,255,255,0.8); }
-    .quality-analysis-body { font-size: 0.78rem; line-height: 1.5; opacity: 0.8; white-space: pre-wrap; max-height: 320px; overflow-y: auto; }
+    .quality-analysis-body { font-size: 0.78rem; line-height: 1.5; opacity: 0.8; max-height: 320px; overflow-y: auto; }
+    .quality-analysis-body :first-child { margin-top: 0; }
+    .quality-analysis-body :last-child { margin-bottom: 0; }
+    .quality-analysis-body ul, .quality-analysis-body ol { margin: 6px 0; padding-left: 20px; }
+    .quality-analysis-body li { margin-bottom: 3px; }
+    .quality-analysis-body p { margin: 0 0 8px; }
+    .quality-analysis-body strong { color: rgba(255,255,255,0.95); }
 
     .needs-review-toggle { display: block; font-size: 0.78rem; opacity: 0.7; margin-bottom: 10px; }
     .member-list { display: flex; flex-direction: column; gap: 6px; }
