@@ -3,6 +3,7 @@ using System.Text.Json;
 using TeamManager.Api.Application.DTOs;
 using TeamManager.Api.Application.DTOs.Timesheet;
 using TeamManager.Api.Application.Services.Interfaces;
+using TeamManager.Api.Domain.Entities;
 using TeamManager.Api.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 
@@ -10,6 +11,10 @@ namespace TeamManager.Api.Application.Services;
 
 public class ConfigurableTimesheetApprovalFetcher : ITimesheetApprovalFetcher
 {
+    // Defensive cap on what gets persisted to the sync event — these payloads can be huge
+    // (every team/employee/day/entry in the period) and the queue only needs enough to debug.
+    private const int MaxStoredResponseLength = 200_000;
+
     private readonly AppDbContext _db;
 
     public ConfigurableTimesheetApprovalFetcher(AppDbContext db) => _db = db;
@@ -24,41 +29,91 @@ public class ConfigurableTimesheetApprovalFetcher : ITimesheetApprovalFetcher
 
         var headers = JsonSerializer.Deserialize<Dictionary<string, string>>(config.HeadersJson) ?? new();
         var mapping = JsonSerializer.Deserialize<MappingConfigDto>(config.MappingJson) ?? new MappingConfigDto();
-        var configVars = await ConfigVariableResolver.LoadAsync(_db);
+        var publicConfigVars = await ConfigVariableResolver.LoadPublicAsync(_db);
+        var allConfigVars = await ConfigVariableResolver.LoadAsync(_db);
+
+        // Falls back to the integration's stored cookie (captured via the browser extension) when
+        // the caller didn't supply one — same convention as ApiSyncController's send flow.
+        var cookie = !string.IsNullOrWhiteSpace(request.Cookie) ? request.Cookie : (config.StoredCookie ?? "");
+
+        // Storage values are non-secret and deliberately leave {cookie} unresolved, so the session
+        // token is never written to the ApiSyncEvent row that this fetch logs (see below).
+        string ResolveForStorage(string t) =>
+            ResolveTemplate(ConfigVariableResolver.Apply(t, publicConfigVars), request.Start, request.End, "{cookie}");
+        string ResolveForExecution(string t) =>
+            ResolveTemplate(ConfigVariableResolver.Apply(t, allConfigVars), request.Start, request.End, cookie);
+
+        // Every outbound integration call must be visible in the Sync Queue — log it before
+        // executing, then update its status/response once the call completes.
+        var evt = new ApiSyncEvent
+        {
+            Action = config.Action,
+            ConfigName = config.Name,
+            Label = $"Fetch Timesheet Approvals — {request.Start} to {request.End}",
+            SourceType = "TimesheetApprovalFetch",
+            HttpMethod = config.Method.ToUpper(),
+            ResolvedUrl = ResolveForStorage(config.Url),
+            ResolvedHeadersJson = JsonSerializer.Serialize(headers.ToDictionary(kvp => kvp.Key, kvp => ResolveForStorage(kvp.Value))),
+            ResolvedBody = ResolveForStorage(config.BodyTemplate),
+            BodyFormat = config.IsFormUrlEncoded ? "urlencoded" : "json",
+            Status = "pending"
+        };
+        _db.ApiSyncEvents.Add(evt);
+        await _db.SaveChangesAsync();
 
         var client = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
         client.DefaultRequestHeaders.Accept.ParseAdd("application/json, text/javascript, */*; q=0.01");
 
         foreach (var (key, value) in headers)
-        {
-            var resolved = ResolveTemplate(ConfigVariableResolver.Apply(value, configVars), request);
-            client.DefaultRequestHeaders.Add(key, resolved);
-        }
+            client.DefaultRequestHeaders.Add(key, ResolveForExecution(value));
 
         var secretHeaders = JsonSerializer.Deserialize<Dictionary<string, string>>(
             string.IsNullOrWhiteSpace(config.SecretHeadersJson) ? "{}" : config.SecretHeadersJson) ?? new();
         foreach (var (k, v) in secretHeaders)
             client.DefaultRequestHeaders.TryAddWithoutValidation(k, v);
 
-        var url = ResolveTemplate(ConfigVariableResolver.Apply(config.Url, configVars), request);
-        HttpResponseMessage response;
+        var url = ResolveForExecution(config.Url);
+        string json;
 
-        if (config.Method.Equals("POST", StringComparison.OrdinalIgnoreCase))
+        try
         {
-            var body = ResolveTemplate(ConfigVariableResolver.Apply(config.BodyTemplate, configVars), request);
-            var content = new StringContent(body);
-            content.Headers.ContentType = new MediaTypeHeaderValue(
-                config.IsFormUrlEncoded ? "application/x-www-form-urlencoded" : "application/json");
-            response = await client.PostAsync(url, content);
-        }
-        else
-        {
-            response = await client.GetAsync(url);
-        }
+            HttpResponseMessage response;
+            if (config.Method.Equals("POST", StringComparison.OrdinalIgnoreCase))
+            {
+                var body = ResolveForExecution(config.BodyTemplate);
+                var content = new StringContent(body);
+                content.Headers.ContentType = new MediaTypeHeaderValue(
+                    config.IsFormUrlEncoded ? "application/x-www-form-urlencoded" : "application/json");
+                response = await client.PostAsync(url, content);
+            }
+            else
+            {
+                response = await client.GetAsync(url);
+            }
 
-        var json = await response.Content.ReadAsStringAsync();
-        if (!response.IsSuccessStatusCode)
-            throw new InvalidOperationException($"External API returned {(int)response.StatusCode}.");
+            json = await response.Content.ReadAsStringAsync();
+            evt.ResponseStatus = (int)response.StatusCode;
+            evt.ResponseBody = Truncate(json);
+            evt.SentAt = DateTimeOffset.UtcNow;
+
+            if (!response.IsSuccessStatusCode)
+            {
+                evt.Status = "failed";
+                await _db.SaveChangesAsync();
+                throw new InvalidOperationException($"External API returned {(int)response.StatusCode}.");
+            }
+
+            evt.Status = "sent";
+            await _db.SaveChangesAsync();
+        }
+        catch (Exception ex) when (ex is not InvalidOperationException)
+        {
+            evt.Status = "failed";
+            evt.ResponseBody = ex.Message;
+            evt.SentAt = DateTimeOffset.UtcNow;
+            await _db.SaveChangesAsync();
+            throw new InvalidOperationException($"Failed to reach the timesheet system: {ex.Message}");
+        }
 
         var root = JsonDocument.Parse(json).RootElement;
 
@@ -153,13 +208,16 @@ public class ConfigurableTimesheetApprovalFetcher : ITimesheetApprovalFetcher
         return DateOnly.MinValue;
     }
 
-    private static string ResolveTemplate(string template, FetchTimesheetApprovalsRequest request)
+    private static string ResolveTemplate(string template, string start, string end, string cookie)
     {
         return template
-            .Replace("{cookie}", request.Cookie ?? "")
-            .Replace("{start}", request.Start)
-            .Replace("{end}", request.End);
+            .Replace("{cookie}", cookie)
+            .Replace("{start}", start)
+            .Replace("{end}", end);
     }
+
+    private static string? Truncate(string s) =>
+        s.Length > MaxStoredResponseLength ? s[..MaxStoredResponseLength] + "…(truncated)" : s;
 
     private static string GetProperty(JsonElement element, string path)
     {

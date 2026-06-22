@@ -3,7 +3,10 @@ using System.ComponentModel.DataAnnotations;
 namespace TeamManager.Api.Application.DTOs.Timesheet;
 
 public record FetchTimesheetApprovalsRequest(
-    [Required][MaxLength(2000)] string Cookie,
+    // Optional — falls back to the integration's stored cookie (captured via the browser
+    // extension) when blank, same as other sync-queue-backed actions. Not length-limited:
+    // real session cookies routinely exceed a couple thousand characters.
+    string? Cookie,
     [Required][MaxLength(10)] string Start,
     [Required][MaxLength(10)] string End
 );
