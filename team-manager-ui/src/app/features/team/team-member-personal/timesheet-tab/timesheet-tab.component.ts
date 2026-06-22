@@ -20,6 +20,7 @@ import { WebSocketService } from '../../../../core/websocket/websocket.service';
 import { TimesheetEntryCardComponent } from '../timesheet-entry-card/timesheet-entry-card.component';
 import { TimesheetQuickAddModalComponent, QuickAddData } from '../timesheet-quick-add-modal/timesheet-quick-add-modal.component';
 import { TimesheetImportDialogComponent, ImportDialogData, ImportResult } from '../timesheet-import-dialog/timesheet-import-dialog.component';
+import { MarkdownPipe } from '../../../../core/pipes/markdown.pipe';
 
 interface Recent { project: string; category: string; durationMins: number; combo: QuickActionConfig | undefined; }
 const MN = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -28,7 +29,7 @@ const DN = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 @Component({
   selector: 'app-timesheet-tab',
   standalone: true,
-  imports: [FormsModule, MatDialogModule, MatTooltipModule, TimesheetEntryCardComponent, TimesheetImportDialogComponent],
+  imports: [FormsModule, MatDialogModule, MatTooltipModule, TimesheetEntryCardComponent, TimesheetImportDialogComponent, MarkdownPipe],
   templateUrl: './timesheet-tab.component.html',
   changeDetection: ChangeDetectionStrategy.Default,
   styleUrls: ['./timesheet-tab.component.scss']
@@ -51,6 +52,8 @@ export class TimesheetTabComponent implements OnInit, OnDestroy {
   syncing = signal(false);
   mobileAddOpen = signal(false);
   importOpen = signal(false);
+  analyzing = signal(false);
+  qualityAnalysis = signal<string | null>(null);
 
   tsConfig = signal<TimesheetConfig>({ extraProjects: [], extraCategories: {}, quickActions: [] });
 
@@ -472,6 +475,24 @@ export class TimesheetTabComponent implements OnInit, OnDestroy {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a'); a.href = url; a.download = `timesheet-${this.viewYear()}-${String(this.viewMonth()).padStart(2,'0')}.xlsx`; a.click();
       URL.revokeObjectURL(url);
+    });
+  }
+
+  analyzeQuality() {
+    this.analyzing.set(true);
+    this.svc.analyzeQuality(this.memberId()).subscribe({
+      next: (result) => {
+        this.analyzing.set(false);
+        if (!result.configured) {
+          this.qualityAnalysis.set('Not configured — add an "Analyze Timesheet Quality" action in Integrations.');
+          return;
+        }
+        this.qualityAnalysis.set(result.analysis ?? 'No analysis returned.');
+      },
+      error: () => {
+        this.analyzing.set(false);
+        this.qualityAnalysis.set('Failed to run the analysis. Check the Sync Queue for details.');
+      }
     });
   }
 

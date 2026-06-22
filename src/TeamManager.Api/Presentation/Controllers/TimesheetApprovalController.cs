@@ -16,4 +16,8 @@ public class TimesheetApprovalController(ITimesheetApprovalService service) : Co
         try { return Ok(await service.FetchOutstandingAsync(request)); }
         catch (InvalidOperationException ex) { return BadRequest(new { detail = ex.Message }); }
     }
+
+    [HttpPost("analyze-quality")]
+    public async Task<IActionResult> AnalyzeQuality([FromBody] AnalyzeApprovalQualityRequest request)
+        => Ok(await service.AnalyzeQualityAsync(request));
 }

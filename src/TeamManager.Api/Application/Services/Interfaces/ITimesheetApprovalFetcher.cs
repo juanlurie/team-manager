@@ -4,5 +4,5 @@ namespace TeamManager.Api.Application.Services.Interfaces;
 
 public interface ITimesheetApprovalFetcher
 {
-    Task<IReadOnlyList<ImportedTimesheetEntry>> FetchAsync(FetchTimesheetApprovalsRequest request);
+    Task<TimesheetFetchResult> FetchAsync(FetchTimesheetApprovalsRequest request);
 }

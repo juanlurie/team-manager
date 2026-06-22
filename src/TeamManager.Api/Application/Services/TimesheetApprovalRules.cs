@@ -17,13 +17,16 @@ public static class TimesheetApprovalRules
                 violations[entry].Add("Weekend work");
         }
 
-        foreach (var dayGroup in entries.GroupBy(e => e.Date))
+        // Group by member + date — entries span every employee being reviewed, and daily-hours
+        // limits are per person, not a sum across the whole team on that date.
+        foreach (var dayGroup in entries.GroupBy(e => (e.MemberName, e.Date)))
         {
             var totalHours = dayGroup.Sum(e => e.Hours + e.Minutes / 60m);
+            var date = dayGroup.Key.Date;
             if (totalHours < MinDailyHours)
-                foreach (var entry in dayGroup) violations[entry].Add($"Low hours logged ({totalHours:0.##}h on {dayGroup.Key:yyyy-MM-dd})");
+                foreach (var entry in dayGroup) violations[entry].Add($"Low hours logged ({totalHours:0.##}h on {date:yyyy-MM-dd})");
             else if (totalHours > MaxDailyHours)
-                foreach (var entry in dayGroup) violations[entry].Add($"High hours logged ({totalHours:0.##}h on {dayGroup.Key:yyyy-MM-dd})");
+                foreach (var entry in dayGroup) violations[entry].Add($"High hours logged ({totalHours:0.##}h on {date:yyyy-MM-dd})");
         }
 
         return violations;

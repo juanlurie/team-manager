@@ -29,6 +29,18 @@
     .ts-hdr-btns { display:flex; align-items:center; gap:6px; }
     .ts-exp-btn { display:flex; align-items:center; gap:5px; padding:6px 11px; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.09); border-radius:6px; color:rgba(255,255,255,0.45); font-size:12px; font-weight:500; cursor:pointer; font-family:inherit; transition:all 0.12s; }
     .ts-exp-btn:hover { color:rgba(255,255,255,0.85); border-color:rgba(255,255,255,0.18); }
+    .ts-exp-btn:disabled { opacity:0.5; cursor:not-allowed; }
+    .ts-ai-panel { margin:0 14px 10px; border-radius:8px; background:rgba(171,71,188,0.06); border:1px solid rgba(171,71,188,0.25); overflow:hidden; }
+    .ts-ai-panel-hdr { display:flex; align-items:center; justify-content:space-between; padding:8px 12px; font-size:12px; font-weight:700; color:#ce93d8; }
+    .ts-ai-close { background:none; border:none; color:rgba(255,255,255,0.4); font-size:18px; line-height:1; cursor:pointer; padding:0 4px; }
+    .ts-ai-close:hover { color:rgba(255,255,255,0.8); }
+    .ts-ai-panel-body { padding:0 12px 12px; font-size:12.5px; line-height:1.5; color:rgba(255,255,255,0.75); max-height:260px; overflow-y:auto; }
+    .ts-ai-panel-body :first-child { margin-top:0; }
+    .ts-ai-panel-body :last-child { margin-bottom:0; }
+    .ts-ai-panel-body ul, .ts-ai-panel-body ol { margin:6px 0; padding-left:20px; }
+    .ts-ai-panel-body li { margin-bottom:3px; }
+    .ts-ai-panel-body p { margin:0 0 8px; }
+    .ts-ai-panel-body strong { color:rgba(255,255,255,0.9); }
     .ts-sync-btn { display:flex; align-items:center; gap:5px; padding:6px 11px; background:rgba(255,167,38,0.08); border:1px solid rgba(255,167,38,0.35); border-radius:6px; color:#ffa726; font-size:12px; font-weight:600; cursor:pointer; font-family:inherit; transition:all 0.12s; white-space:nowrap; }
     .ts-sync-btn:hover:not(:disabled) { background:rgba(255,167,38,0.16); border-color:#ffa726; }
     .ts-sync-btn:disabled { opacity:0.5; cursor:not-allowed; }

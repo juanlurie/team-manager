@@ -37,6 +37,12 @@ export class AuthService {
   private static readonly RETURN_URL_KEY = 'auth_return_url';
 
   constructor(private oauth: OAuthService, private http: HttpClient, private router: Router) {
+    // If the refresh token itself is rejected (revoked, expired after long inactivity), don't
+    // wait for some unrelated API call to surface a 401 — log out cleanly right away.
+    this.oauth.events.subscribe(e => {
+      if (e.type === 'token_refresh_error') this.logout();
+    });
+
     this.http.get<{ authRequired: boolean }>('/api/auth-mode').subscribe({
       next: ({ authRequired }) => {
         if (!authRequired) {
@@ -78,6 +84,7 @@ export class AuthService {
             this._me$.next(me);
             this._authStatus$.next('authorized');
             this._isDone$.next(true);
+            this.oauth.setupAutomaticSilentRefresh();
             const returnUrl = localStorage.getItem(AuthService.RETURN_URL_KEY);
             if (returnUrl) {
               localStorage.removeItem(AuthService.RETURN_URL_KEY);
@@ -133,11 +140,11 @@ export class AuthService {
 
   // Removes OAuth tokens from storage (angular-oauth2-oidc storage) without the hard redirect --
   // used when a stale/expired token gets rejected so a fresh login attempt isn't confused by it.
+  // Delegates to the library's own logOut(true) (no redirect to Google) so every key it stores
+  // (access_token, id_token, refresh_token, expires_at, nonce, PKCE_verifier, ...) gets cleared,
+  // not just the subset we'd otherwise have to keep in sync by hand.
   private clearStoredTokens() {
-    ['access_token', 'id_token', 'access_token_stored_at', 'granted_scopes', 'nonce'].forEach(k => {
-      localStorage.removeItem(k);
-      sessionStorage.removeItem(k);
-    });
+    this.oauth.logOut(true);
   }
 
   hasValidToken(): boolean {

@@ -56,8 +56,25 @@ public record MappingConfigDto(
     string SubjectPath = "subject",
     string IsAllDayPath = "isAllDay",
     string LocationPath = "location",
-    // For FetchTimesheetApprovals: per-entry mapping fields (ArrayPath/ExternalIdPath above are reused)
+    // For FetchTimesheetApprovals: per-entry mapping fields (ArrayPath/ExternalIdPath above are reused).
+    // ArrayPath is the top-level array (e.g. teams). EmployeesPath/DaysArrayPath/EntriesPath are each
+    // optional and relative to the previous level, letting the response be nested arbitrarily deep
+    // (Teams -> Employees -> Days -> TimesheetEntries) or left flat (a single array of entries) by
+    // leaving the lower-level paths empty.
+    string EmployeesPath = "",
+    string DaysArrayPath = "",
+    string EntriesPath = "",
+    string MemberIdPath = "",
     string MemberNamePath = "employeeName",
+    // Relative to the top-level item under ArrayPath (the team, not the employee) — lets the
+    // approval screen offer a per-team include/exclude filter.
+    string TeamNamePath = "",
+    // Relative to the day object (one level up from each entry). A day appearing in the
+    // response at all — even with an empty entries array — means it's still outstanding;
+    // a day missing from the response entirely means it's already been signed off elsewhere
+    // and isn't part of this dataset. Distinguishing those two needs the day's own date,
+    // separate from DatePath (which is read off each entry).
+    string DayDatePath = "",
     string DatePath = "date",
     string ProjectPath = "project",
     string CategoryPath = "category",
