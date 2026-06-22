@@ -22,6 +22,8 @@ import { ConfigVariablesService } from '../settings/config-variables/config-vari
 import { MobileService } from '../../core/services/mobile.service';
 
 interface CodeSegment { text: string; kind: 'plain' | 'resolved' | 'missing'; }
+interface MappingPreviewRow { label: string; path: string; value: string; }
+interface MappingPreview { kind: 'array' | 'single'; count?: number; rows: MappingPreviewRow[]; error?: string; }
 
 @Component({
   selector: 'app-api-request-config-edit',
@@ -770,6 +772,40 @@ interface CodeSegment { text: string; kind: 'plain' | 'resolved' | 'missing'; }
                     </div>
                   </div>
                   <pre class="test-response-body">{{ formatTestBody(testResult()!.body) }}</pre>
+
+                  @if (testResult()!.success) {
+                    @if (hasProjectMapping()) {
+                      <div class="map-field-breakdown">
+                        <div class="map-field-breakdown-title">
+                          Response Mapping — {{ projectMappingResults() === null ? 'checking…' : projectMappingResults()!.length + ' project(s) found' }}
+                        </div>
+                        @if (firstProjectBreakdown(); as rows) {
+                          @for (row of rows; track row.label) {
+                            <div class="test-result-row">
+                              <span class="test-label">{{ row.label }} <code class="path-code">{{ row.path }}</code></span>
+                              <span class="test-value">→ {{ row.value }}</span>
+                            </div>
+                          }
+                        }
+                      </div>
+                    } @else if (mappingPreview(); as preview) {
+                      <div class="map-field-breakdown">
+                        @if (preview.error) {
+                          <div class="map-field-breakdown-title" style="color:#ef5350">{{ preview.error }}</div>
+                        } @else {
+                          <div class="map-field-breakdown-title">
+                            Response Mapping{{ preview.kind === 'array' ? ' — ' + preview.count + ' item(s) found' : '' }}
+                          </div>
+                          @for (row of preview.rows; track row.label) {
+                            <div class="test-result-row">
+                              <span class="test-label">{{ row.label }} <code class="path-code">{{ row.path }}</code></span>
+                              <span class="test-value">→ {{ row.value }}</span>
+                            </div>
+                          }
+                        }
+                      </div>
+                    }
+                  }
                 </div>
               }
             </div>
@@ -1060,6 +1096,7 @@ export class ApiRequestConfigEditComponent implements OnInit {
   curlParseError = signal('');
   testing = signal(false);
   testResult = signal<TestRequestResult | null>(null);
+  mappingPreview = signal<MappingPreview | null>(null);
   curlSegs = signal<CodeSegment[]>([]);
   httpSegs = signal<CodeSegment[]>([]);
   bodySegs = signal<CodeSegment[]>([]);
@@ -1584,9 +1621,119 @@ export class ApiRequestConfigEditComponent implements OnInit {
     const variables: Record<string, string> = { ...this.getCookieVariables(), ...this.testVars };
 
     this.svc.testRequest(config, variables).subscribe({
-      next: (result) => { this.testResult.set(result); this.testing.set(false); },
+      next: (result) => {
+        this.testResult.set(result);
+        this.testing.set(false);
+        this.mappingPreview.set(null);
+        if (result.success) this.computeMappingPreview(result.body);
+        if (result.success && this.hasProjectMapping()) {
+          this.projectSampleResponse.set(result.body);
+          this.testProjectMapping();
+        }
+      },
       error: () => { this.testing.set(false); this.snackBar.open('Test request failed', 'Close', { duration: 3000 }); }
     });
+  }
+
+  private computeMappingPreview(rawBody: string) {
+    if (!this.data || this.hasProjectMapping()) return;
+    let root: unknown;
+    try { root = JSON.parse(rawBody); } catch { return; }
+    const m = this.data.mapping;
+    const action = this.data.action;
+
+    if (action === 'FetchLeave') {
+      this.computeArrayMappingPreview(root, m.arrayPath, [
+        { label: 'Name', path: m.namePath }, { label: 'Start', path: m.startPath },
+        { label: 'End', path: m.endPath }, { label: 'Type', path: m.typePath },
+        { label: 'Days', path: m.daysPath }, { label: 'Status', path: m.statusPath },
+      ]);
+    } else if (action === 'FetchCalendarEvents') {
+      this.computeArrayMappingPreview(root, m.arrayPath, [
+        { label: 'Subject', path: m.subjectPath ?? '' }, { label: 'Is All Day', path: m.isAllDayPath ?? '' },
+        { label: 'Start', path: m.startPath }, { label: 'End', path: m.endPath },
+        { label: 'Location', path: m.locationPath ?? '' },
+      ]);
+    } else if (action === 'FetchTimesheetApprovals') {
+      this.computeArrayMappingPreview(root, m.arrayPath, [
+        { label: 'Member Name', path: m.memberNamePath ?? '' }, { label: 'Date', path: m.datePath ?? '' },
+        { label: 'Project', path: m.projectPath ?? '' }, { label: 'Category', path: m.categoryPath ?? '' },
+        { label: 'Hours', path: m.hoursPath ?? '' }, { label: 'Minutes', path: m.minutesPath ?? '' },
+        { label: 'Billable', path: m.billablePath ?? '' }, { label: 'Worked From', path: m.workedFromPath ?? '' },
+        { label: 'Description', path: m.descriptionPath ?? '' }, { label: 'Ticket Number', path: m.ticketNumberPath ?? '' },
+        { label: 'External ID', path: m.externalIdPath },
+      ]);
+    } else if (action === 'AddTimesheetEntry') {
+      this.computeSingleMappingPreview(root, [{ label: 'External ID', path: m.externalIdPath }]);
+    } else if (action === 'AiChatWinStory' || action === 'GenerateJoke' || action === 'GenerateQuizQuestion') {
+      this.computeSingleMappingPreview(root, [{ label: 'Text Response', path: m.textResponsePath }]);
+    }
+  }
+
+  private computeArrayMappingPreview(root: unknown, arrayPath: string, fieldDefs: { label: string; path: string }[]) {
+    const arr = arrayPath ? this.getAtPath(root, arrayPath) : root;
+    if (!Array.isArray(arr)) {
+      this.mappingPreview.set({
+        kind: 'array', rows: [],
+        error: arrayPath ? `Array path "${arrayPath}" did not resolve to an array` : 'Response root is not an array'
+      });
+      return;
+    }
+    const first = arr[0];
+    const rows = fieldDefs.map(f => ({
+      label: f.label,
+      path: f.path || '(not set)',
+      value: first === undefined ? '(no items)' : this.previewValue(this.getAtPath(first, f.path))
+    }));
+    this.mappingPreview.set({ kind: 'array', count: arr.length, rows });
+  }
+
+  private computeSingleMappingPreview(root: unknown, fieldDefs: { label: string; path: string }[]) {
+    const rows = fieldDefs.map(f => ({
+      label: f.label,
+      path: f.path || '(not set)',
+      value: this.previewValue(this.getAtPath(root, f.path))
+    }));
+    this.mappingPreview.set({ kind: 'single', rows });
+  }
+
+  private previewValue(v: unknown): string {
+    if (v === undefined || v === null || v === '') return '(empty)';
+    return typeof v === 'string' ? v : JSON.stringify(v);
+  }
+
+  private getAtPath(root: unknown, path: string): unknown {
+    if (!path) return undefined;
+    let current: any = root;
+    for (const segment of this.parseMappingPath(path)) {
+      if (current === null || current === undefined) return undefined;
+      current = current[segment];
+    }
+    return current;
+  }
+
+  // Mirrors the backend's path parser (dot-separated segments, [index] for array access)
+  private parseMappingPath(path: string): string[] {
+    const segments: string[] = [];
+    let current = '';
+    let i = 0;
+    while (i < path.length) {
+      if (path[i] === '.') {
+        if (current) { segments.push(current); current = ''; }
+        i++;
+      } else if (path[i] === '[') {
+        if (current) { segments.push(current); current = ''; }
+        i++;
+        const end = path.indexOf(']', i);
+        if (end > i) { segments.push(path.substring(i, end)); i = end + 1; }
+        else break;
+      } else {
+        current += path[i];
+        i++;
+      }
+    }
+    if (current) segments.push(current);
+    return segments;
   }
 
   private getCookieVariables(): Record<string, string> {
