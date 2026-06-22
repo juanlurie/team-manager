@@ -66,6 +66,9 @@ public record MappingConfigDto(
     string EntriesPath = "",
     string MemberIdPath = "",
     string MemberNamePath = "employeeName",
+    // Relative to the top-level item under ArrayPath (the team, not the employee) — lets the
+    // approval screen offer a per-team include/exclude filter.
+    string TeamNamePath = "",
     // Relative to the day object (one level up from each entry). A day appearing in the
     // response at all — even with an empty entries array — means it's still outstanding;
     // a day missing from the response entirely means it's already been signed off elsewhere

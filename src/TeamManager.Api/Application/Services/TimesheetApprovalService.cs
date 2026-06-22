@@ -38,10 +38,13 @@ public class TimesheetApprovalService(ITimesheetApprovalFetcher fetcher) : ITime
         }
 
         var weeklySummary = BuildWeeklySummary(entries, fetched.EmployeeNames, fetched.PresentDays, request);
+        var teams = fetched.EmployeeTeams.Values.Distinct().OrderBy(t => t).ToList();
 
         return new TimesheetApprovalFetchResultDto(
             result.OrderBy(m => m.MemberName).ToList(),
-            weeklySummary
+            weeklySummary,
+            teams,
+            fetched.EmployeeTeams
         );
     }
 
