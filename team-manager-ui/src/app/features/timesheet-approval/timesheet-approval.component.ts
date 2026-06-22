@@ -384,11 +384,13 @@ export class TimesheetApprovalComponent {
     return g.entries.reduce((sum, e) => sum + e.hours + e.minutes / 60, 0);
   }
 
+  // Mirrors DEFAULT_LOC_ICONS in timesheet-entry-card.component.ts so the same location reads
+  // the same icon everywhere in the app.
   workedFromIcon(workedFrom: string): string {
     const wf = (workedFrom || '').toLowerCase();
     if (wf.includes('home')) return 'home';
-    if (wf.includes('office') || wf.includes('client')) return 'business';
-    return 'place';
+    if (wf.includes('client')) return 'store';
+    return 'location_on';
   }
 
   // Single combined roster — everyone who showed up in the weekly summary or has violations to
