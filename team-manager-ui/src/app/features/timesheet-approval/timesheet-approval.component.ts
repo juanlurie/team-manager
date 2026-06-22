@@ -8,9 +8,10 @@ import { MatInputModule } from '@angular/material/input';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatCheckboxModule } from '@angular/material/checkbox';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { TimesheetApprovalService } from '../../core/services/timesheet-approval.service';
 import { CredentialsService } from '../../core/services/credentials.service';
-import { TimesheetApprovalMember, WeeklyTimesheetSummary } from '../../core/models/timesheet-approval.model';
+import { TimesheetApprovalEntry, TimesheetApprovalMember, WeeklyTimesheetSummary } from '../../core/models/timesheet-approval.model';
 
 // Builds the date string from local Y/M/D parts — toISOString() converts to UTC first, which
 // rolls the date back a day for any timezone ahead of UTC (e.g. local midnight on the 1st
@@ -48,11 +49,17 @@ interface PersonSummary {
   canReview: boolean;
 }
 
+interface DayGroup {
+  date: string;
+  entries: TimesheetApprovalEntry[];
+  violations: string[];
+}
+
 @Component({
   selector: 'app-timesheet-approval',
   standalone: true,
   imports: [CommonModule, FormsModule, MatIconModule, MatButtonModule, MatFormFieldModule,
-    MatInputModule, MatSnackBarModule, MatProgressSpinnerModule, MatCheckboxModule],
+    MatInputModule, MatSnackBarModule, MatProgressSpinnerModule, MatCheckboxModule, MatTooltipModule],
   template: `
     <div class="page">
       <div class="page-header">
@@ -194,16 +201,28 @@ interface PersonSummary {
             </div>
 
             <div class="entry-table">
-              @for (e of m.entries; track e.date + e.project + e.category) {
-                <div class="entry-row" [class.flagged]="e.violations.length > 0">
-                  <div class="entry-main">
-                    <span class="entry-date">{{ e.date | date:'EEE d MMM' }}</span>
-                    <span class="entry-project">{{ e.project }} — {{ e.category }}</span>
-                    <span class="entry-hours">{{ e.hours }}h{{ e.minutes > 0 ? ' ' + e.minutes + 'm' : '' }}</span>
+              @for (g of dayGroups(); track g.date) {
+                <div class="day-group" [class.flagged]="g.violations.length > 0">
+                  <div class="day-header">
+                    <span class="entry-date">{{ g.date | date:'EEE d MMM' }}</span>
+                    <span class="day-total">{{ dayTotalHours(g) }}h</span>
                   </div>
-                  @if (e.violations.length > 0) {
+                  @for (e of g.entries; track e.project + e.category) {
+                    <div class="entry-row">
+                      <span class="entry-project">{{ e.project }} — {{ e.category }}</span>
+                      <span class="entry-hours">{{ e.hours }}h{{ e.minutes > 0 ? ' ' + e.minutes + 'm' : '' }}</span>
+                      <mat-icon class="billable-icon" [class.billable]="e.billable"
+                                [matTooltip]="e.billable ? 'Billable' : 'Non-billable'">
+                        {{ e.billable ? 'attach_money' : 'money_off' }}
+                      </mat-icon>
+                      <mat-icon class="location-icon" [matTooltip]="e.workedFrom || 'Unknown location'">
+                        {{ workedFromIcon(e.workedFrom) }}
+                      </mat-icon>
+                    </div>
+                  }
+                  @if (g.violations.length > 0) {
                     <div class="entry-violations">
-                      @for (v of e.violations; track v) {
+                      @for (v of g.violations; track v) {
                         <span class="violation-chip"><mat-icon>warning</mat-icon>{{ v }}</span>
                       }
                     </div>
@@ -286,13 +305,17 @@ interface PersonSummary {
     .review-header { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
     .review-name { font-size: 1.05rem; font-weight: 700; }
 
-    .entry-table { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; max-height: 360px; overflow-y: auto; }
-    .entry-row { padding: 8px 10px; border-radius: 8px; background: rgba(255,255,255,0.03); }
-    .entry-row.flagged { background: rgba(255,152,0,0.06); border: 1px solid rgba(255,152,0,0.2); }
-    .entry-main { display: flex; align-items: center; gap: 10px; font-size: 0.82rem; }
-    .entry-date { opacity: 0.6; min-width: 90px; }
-    .entry-project { flex: 1; }
+    .entry-table { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; max-height: 420px; overflow-y: auto; }
+    .day-group { padding: 8px 10px; border-radius: 8px; background: rgba(255,255,255,0.03); }
+    .day-group.flagged { background: rgba(255,152,0,0.06); border: 1px solid rgba(255,152,0,0.2); }
+    .day-header { display: flex; align-items: center; justify-content: space-between; font-size: 0.82rem; font-weight: 600; margin-bottom: 4px; }
+    .entry-date { opacity: 0.7; }
+    .day-total { opacity: 0.7; }
+    .entry-row { display: flex; align-items: center; gap: 10px; font-size: 0.8rem; padding: 3px 0; }
+    .entry-project { flex: 1; opacity: 0.85; }
     .entry-hours { font-weight: 600; }
+    .billable-icon, .location-icon { font-size: 16px; width: 16px; height: 16px; opacity: 0.4; }
+    .billable-icon.billable { opacity: 1; color: #4caf50; }
     .entry-violations { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
     .violation-chip { display: inline-flex; align-items: center; gap: 3px; font-size: 0.68rem; padding: 2px 8px; border-radius: 10px; background: rgba(255,152,0,0.15); color: #ffb74d; }
     .violation-chip mat-icon { font-size: 12px; width: 12px; height: 12px; }
@@ -340,6 +363,33 @@ export class TimesheetApprovalComponent {
   });
 
   totalViolations = computed(() => this.filteredMembers().reduce((sum, m) => sum + m.violationCount, 0));
+
+  // The backend repeats the same daily violation message on every entry that day (it doesn't
+  // know which entry to "attach" a whole-day issue to) — group by date and dedupe so the review
+  // card shows each day's entries together with its issues listed once underneath.
+  dayGroups = computed<DayGroup[]>(() => {
+    const m = this.currentMember();
+    if (!m) return [];
+    const byDate = new Map<string, DayGroup>();
+    for (const e of m.entries) {
+      let g = byDate.get(e.date);
+      if (!g) { g = { date: e.date, entries: [], violations: [] }; byDate.set(e.date, g); }
+      g.entries.push(e);
+      for (const v of e.violations) if (!g.violations.includes(v)) g.violations.push(v);
+    }
+    return Array.from(byDate.values()).sort((a, b) => a.date.localeCompare(b.date));
+  });
+
+  dayTotalHours(g: DayGroup): number {
+    return g.entries.reduce((sum, e) => sum + e.hours + e.minutes / 60, 0);
+  }
+
+  workedFromIcon(workedFrom: string): string {
+    const wf = (workedFrom || '').toLowerCase();
+    if (wf.includes('home')) return 'home';
+    if (wf.includes('office') || wf.includes('client')) return 'business';
+    return 'place';
+  }
 
   // Single combined roster — everyone who showed up in the weekly summary or has violations to
   // review, sorted so anyone with an issue (flagged entries or a missing week) floats to the top.
