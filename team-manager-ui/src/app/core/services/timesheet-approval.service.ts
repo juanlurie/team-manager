@@ -1,14 +1,14 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, switchMap, of } from 'rxjs';
-import { FetchTimesheetApprovalsRequest, TimesheetApprovalMember } from '../models/timesheet-approval.model';
+import { FetchTimesheetApprovalsRequest, TimesheetApprovalFetchResult, TimesheetApprovalMember } from '../models/timesheet-approval.model';
 
 @Injectable({ providedIn: 'root' })
 export class TimesheetApprovalService {
   private http = inject(HttpClient);
 
-  fetchOutstanding(req: FetchTimesheetApprovalsRequest): Observable<TimesheetApprovalMember[]> {
-    return this.http.post<TimesheetApprovalMember[]>('/api/v1/timesheets/approval/fetch', req);
+  fetchOutstanding(req: FetchTimesheetApprovalsRequest): Observable<TimesheetApprovalFetchResult> {
+    return this.http.post<TimesheetApprovalFetchResult>('/api/v1/timesheets/approval/fetch', req);
   }
 
   approve(member: TimesheetApprovalMember, period: { start: string; end: string }, cookie: string, credentials?: Record<string, string>): Observable<any> {

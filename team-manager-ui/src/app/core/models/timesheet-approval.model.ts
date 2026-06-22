@@ -25,3 +25,14 @@ export interface FetchTimesheetApprovalsRequest {
   end: string;
   credentials?: Record<string, string>;
 }
+
+export interface MissingTimesheetWeek {
+  weekStart: string;
+  weekEnd: string;
+  missingMemberNames: string[];
+}
+
+export interface TimesheetApprovalFetchResult {
+  members: TimesheetApprovalMember[];
+  missingByWeek: MissingTimesheetWeek[];
+}
