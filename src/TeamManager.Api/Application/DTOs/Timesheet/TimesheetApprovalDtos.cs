@@ -58,13 +58,18 @@ public record TimesheetApprovalMemberDto(
     int ViolationCount
 );
 
-public record MissingTimesheetWeekDto(
+public record MemberWeekHoursDto(string MemberName, decimal Hours);
+
+public record WeeklyTimesheetSummaryDto(
     DateOnly WeekStart,
     DateOnly WeekEnd,
+    // Every employee in the external roster, with their total hours for the week (0 if missing),
+    // sorted lowest hours first so gaps surface at the top.
+    IReadOnlyList<MemberWeekHoursDto> MemberHours,
     IReadOnlyList<string> MissingMemberNames
 );
 
 public record TimesheetApprovalFetchResultDto(
     IReadOnlyList<TimesheetApprovalMemberDto> Members,
-    IReadOnlyList<MissingTimesheetWeekDto> MissingByWeek
+    IReadOnlyList<WeeklyTimesheetSummaryDto> WeeklySummary
 );

@@ -9,7 +9,7 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { TimesheetApprovalService } from '../../core/services/timesheet-approval.service';
 import { CredentialsService } from '../../core/services/credentials.service';
-import { MissingTimesheetWeek, TimesheetApprovalMember } from '../../core/models/timesheet-approval.model';
+import { TimesheetApprovalMember, WeeklyTimesheetSummary } from '../../core/models/timesheet-approval.model';
 
 // Builds the date string from local Y/M/D parts — toISOString() converts to UTC first, which
 // rolls the date back a day for any timezone ahead of UTC (e.g. local midnight on the 1st
@@ -62,15 +62,17 @@ function endOfMonth(d: Date): Date {
         } @else if (error()) {
           <div class="error-banner"><mat-icon>error_outline</mat-icon>{{ error() }}</div>
         } @else if (fetched()) {
-          @if (missingByWeek().length > 0) {
+          @if (weeklySummary().length > 0) {
             <div class="missing-section">
-              <div class="missing-title"><mat-icon>event_busy</mat-icon> Missing timesheets by week</div>
-              @for (w of missingByWeek(); track w.weekStart) {
+              <div class="missing-title"><mat-icon>event_busy</mat-icon> Weekly hours summary</div>
+              @for (w of weeklySummary(); track w.weekStart) {
                 <div class="missing-week">
                   <div class="missing-week-range">{{ w.weekStart | date:'d MMM' }} – {{ w.weekEnd | date:'d MMM' }}</div>
                   <div class="missing-names">
-                    @for (name of w.missingMemberNames; track name) {
-                      <span class="missing-chip">{{ name }}</span>
+                    @for (mh of w.memberHours; track mh.memberName) {
+                      <span class="missing-chip" [class.has-hours]="mh.hours > 0">
+                        {{ mh.memberName }} — {{ mh.hours }}h
+                      </span>
                     }
                   </div>
                 </div>
@@ -78,7 +80,7 @@ function endOfMonth(d: Date): Date {
             </div>
           }
 
-          @if (members().length === 0 && missingByWeek().length === 0) {
+          @if (members().length === 0 && weeklySummary().length === 0) {
             <div class="empty-state">
               <mat-icon class="empty-icon">task_alt</mat-icon>
               <div class="empty-title">All caught up</div>
@@ -180,6 +182,7 @@ function endOfMonth(d: Date): Date {
     .missing-week-range { font-size: 0.75rem; font-weight: 600; opacity: 0.55; min-width: 110px; }
     .missing-names { display: flex; flex-wrap: wrap; gap: 6px; }
     .missing-chip { font-size: 0.72rem; padding: 2px 9px; border-radius: 10px; background: rgba(239,83,80,0.12); color: #ef9a9a; border: 1px solid rgba(239,83,80,0.25); }
+    .missing-chip.has-hours { background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.6); border-color: rgba(255,255,255,0.1); }
 
     .summary-row { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
     .summary-card { padding: 10px 18px; border-radius: 10px; background: rgba(100,181,246,0.08); border: 1px solid rgba(100,181,246,0.2); text-align: center; }
@@ -223,7 +226,7 @@ export class TimesheetApprovalComponent {
   fetched = signal(false);
   error = signal('');
   members = signal<TimesheetApprovalMember[]>([]);
-  missingByWeek = signal<MissingTimesheetWeek[]>([]);
+  weeklySummary = signal<WeeklyTimesheetSummary[]>([]);
   approving = signal(false);
 
   reviewing = signal<number | null>(null);
@@ -245,7 +248,7 @@ export class TimesheetApprovalComponent {
     this.svc.fetchOutstanding({ cookie, start: this.start, end: this.end, credentials }).subscribe({
       next: (result) => {
         this.members.set(result.members);
-        this.missingByWeek.set(result.missingByWeek);
+        this.weeklySummary.set(result.weeklySummary);
         this.loading.set(false);
         this.fetched.set(true);
       },
