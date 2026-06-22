@@ -166,7 +166,7 @@ interface MappingPreview { kind: 'array' | 'single'; count?: number; rows: Mappi
             <div class="tpl-field full-width">
               <div class="tpl-editor">
                 <div class="tpl-backdrop" aria-hidden="true">@for (seg of urlSegs(); track $index) {<span [class.body-resolved]="seg.kind === 'resolved'" [class.code-missing]="seg.kind === 'missing'">{{ seg.text }}</span>}&nbsp;</div>
-                <input class="tpl-input" [(ngModel)]="data.url" (ngModelChange)="updateUrlSegs()" (scroll)="syncInputScroll($event)" placeholder="https://example.com/api">
+                <input class="tpl-input" [(ngModel)]="data.url" (ngModelChange)="updateUrlSegs()" (scroll)="syncInputScroll($event)" (select)="syncInputScroll($event)" (mouseup)="syncInputScroll($event)" (mousemove)="syncInputScroll($event)" (keyup)="syncInputScroll($event)" placeholder="https://example.com/api">
               </div>
             </div>
 
@@ -237,7 +237,7 @@ interface MappingPreview { kind: 'array' | 'single'; count?: number; rows: Mappi
                 } @else {
                   <div class="tpl-editor half-width">
                     <div class="tpl-backdrop" aria-hidden="true">@for (seg of getSegs(entry.value); track $index) {<span [class.body-resolved]="seg.kind === 'resolved'" [class.code-missing]="seg.kind === 'missing'">{{ seg.text }}</span>}&nbsp;</div>
-                    <input class="tpl-input" [(ngModel)]="entry.value" (scroll)="syncInputScroll($event)" placeholder="{cookie}">
+                    <input class="tpl-input" [(ngModel)]="entry.value" (scroll)="syncInputScroll($event)" (select)="syncInputScroll($event)" (mouseup)="syncInputScroll($event)" (mousemove)="syncInputScroll($event)" (keyup)="syncInputScroll($event)" placeholder="{cookie}">
                   </div>
                 }
                 <button mat-icon-button [color]="entry.secret ? 'accent' : ''" (click)="toggleHeaderSecret(entry)"
@@ -299,7 +299,7 @@ interface MappingPreview { kind: 'array' | 'single'; count?: number; rows: Mappi
             <div class="body-field">
               <div class="body-editor">
                 <div class="body-backdrop" aria-hidden="true">@for (seg of bodySegs(); track $index) {<span [class.body-resolved]="seg.kind === 'resolved'" [class.code-missing]="seg.kind === 'missing'">{{ seg.text }}</span>}&nbsp;</div>
-                <textarea class="body-textarea" [(ngModel)]="data.bodyTemplate" (ngModelChange)="updateBodySegs()" (scroll)="syncBodyScroll($event)" rows="4" placeholder="teamId=&#123;teamIds&#125;&amp;start=&#123;start&#125;"></textarea>
+                <textarea class="body-textarea" [(ngModel)]="data.bodyTemplate" (ngModelChange)="updateBodySegs()" (scroll)="syncBodyScroll($event)" (select)="syncBodyScroll($event)" (mouseup)="syncBodyScroll($event)" (mousemove)="syncBodyScroll($event)" (keyup)="syncBodyScroll($event)" rows="4" placeholder="teamId=&#123;teamIds&#125;&amp;start=&#123;start&#125;"></textarea>
               </div>
               <div class="body-footer-row">
                 <div class="body-chips">
