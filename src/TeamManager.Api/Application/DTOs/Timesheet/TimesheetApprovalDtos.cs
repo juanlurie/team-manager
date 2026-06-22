@@ -19,10 +19,18 @@ public record FetchTimesheetApprovalsRequest(
 // full roster encountered while walking Teams/Employees, independent of whether each employee
 // logged any entries, so "missing timesheet" checks can be done from the source data itself
 // rather than cross-referencing our own TeamMembers table.
+//
+// PresentDays is every (member, date) pair where a day object appeared in the response at all,
+// regardless of whether its entries array was empty. A day that's simply absent from the
+// response was already signed off elsewhere and isn't part of this dataset — only a day that's
+// present with zero entries represents a genuine gap (nothing captured).
 public record TimesheetFetchResult(
     IReadOnlyList<ImportedTimesheetEntry> Entries,
-    IReadOnlyList<string> EmployeeNames
+    IReadOnlyList<string> EmployeeNames,
+    IReadOnlyList<MemberDay> PresentDays
 );
+
+public record MemberDay(string MemberName, DateOnly Date);
 
 public record ImportedTimesheetEntry(
     string MemberName,

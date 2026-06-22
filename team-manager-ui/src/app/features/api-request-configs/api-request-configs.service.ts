@@ -30,6 +30,7 @@ export interface MappingConfig {
   entriesPath?: string;
   memberIdPath?: string;
   memberNamePath?: string;
+  dayDatePath?: string;
   datePath?: string;
   projectPath?: string;
   categoryPath?: string;
