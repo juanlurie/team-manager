@@ -1292,7 +1292,8 @@ export class ApiRequestConfigEditComponent implements OnInit {
       workedFrom: '', sentiment: '', description: 'Test', ticketNumber: '', category: '', project: '', id: '',
       seed: 'a1b2c3d4', jokeType: 'dad joke', nominee: 'Jane Doe', title: 'Shipped the new feature',
       topic: 'space and astronomy', angle: 'an obscure fact about', recentTopics: 'history, sports records',
-      memberName: 'Jane Doe', totalHours: '40'
+      memberName: 'Jane Doe', totalHours: '40',
+      timesheetData: 'Jane Doe:\\n  2026-06-01 (Monday): 8h - ProjectA/Development - "Fixed login bug"\\n  2026-06-02 (Tuesday): 2h - ProjectA/Development'
     };
     return defaults[v] ?? '';
   }
