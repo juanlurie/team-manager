@@ -11,8 +11,7 @@ export class TimesheetApprovalService {
     return this.http.post<TimesheetApprovalFetchResult>('/api/v1/timesheets/approval/fetch', req);
   }
 
-  approve(member: TimesheetApprovalMember, period: { start: string; end: string }, cookie: string, credentials?: Record<string, string>): Observable<any> {
-    const totalHours = member.entries.reduce((sum, e) => sum + e.hours + e.minutes / 60, 0);
+  approve(member: TimesheetApprovalMember, period: { start: string; end: string }, totalHours: number, cookie: string, credentials?: Record<string, string>): Observable<any> {
     return this.http.post<any>('/api/v1/sync-queue/enqueue', {
       action: 'ApproveTimesheet',
       label: `${member.memberName} | ${period.start} – ${period.end}`,

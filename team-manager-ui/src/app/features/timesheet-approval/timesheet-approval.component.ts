@@ -1,10 +1,13 @@
-import { Component, inject, signal, computed, ChangeDetectionStrategy } from '@angular/core';
+import { Component, inject, signal, computed, effect, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { from } from 'rxjs';
+import { concatMap } from 'rxjs/operators';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
+import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatCheckboxModule } from '@angular/material/checkbox';
@@ -59,7 +62,7 @@ interface DayGroup {
   selector: 'app-timesheet-approval',
   standalone: true,
   imports: [CommonModule, FormsModule, MatIconModule, MatButtonModule, MatFormFieldModule,
-    MatInputModule, MatSnackBarModule, MatProgressSpinnerModule, MatCheckboxModule, MatTooltipModule],
+    MatInputModule, MatSelectModule, MatSnackBarModule, MatProgressSpinnerModule, MatCheckboxModule, MatTooltipModule],
   template: `
     <div class="page">
       <div class="page-header">
@@ -193,7 +196,27 @@ interface DayGroup {
       } @else {
         <!-- Sequential review -->
         @if (currentMember(); as m) {
-          <div class="review-progress">Reviewing {{ reviewing()! + 1 }} of {{ filteredMembers().length }}</div>
+          <div class="review-nav">
+            <button mat-icon-button (click)="backToList()" matTooltip="Back to list">
+              <mat-icon>arrow_back</mat-icon>
+            </button>
+            <button mat-icon-button (click)="goToPrevious()" [disabled]="reviewing() === 0" matTooltip="Previous person">
+              <mat-icon>navigate_before</mat-icon>
+            </button>
+            <span class="review-progress">{{ reviewing()! + 1 }} of {{ filteredMembers().length }}</span>
+            <button mat-icon-button (click)="skip()" matTooltip="Next person">
+              <mat-icon>navigate_next</mat-icon>
+            </button>
+            <span style="flex:1"></span>
+            <mat-form-field appearance="outline" class="jump-field">
+              <mat-label>Jump to</mat-label>
+              <mat-select [value]="reviewing()" (selectionChange)="jumpTo($event.value)">
+                @for (p of filteredMembers(); track p.memberName; let i = $index) {
+                  <mat-option [value]="i">{{ p.memberName }}</mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
+          </div>
           <div class="review-card">
             <div class="review-header">
               <span class="review-name">{{ m.memberName }}</span>
@@ -204,7 +227,9 @@ interface DayGroup {
               @for (g of dayGroups(); track g.date) {
                 <div class="day-group" [class.flagged]="g.violations.length > 0">
                   <div class="day-header">
-                    <span class="entry-date">{{ g.date | date:'EEE d MMM' }}</span>
+                    <mat-checkbox [checked]="selectedDays().has(g.date)" (change)="toggleDay(g.date)">
+                      <span class="entry-date">{{ g.date | date:'EEE d MMM' }}</span>
+                    </mat-checkbox>
                     <span class="day-total">{{ dayTotalHours(g) }}h</span>
                   </div>
                   @for (e of g.entries; track e.project + e.category) {
@@ -233,9 +258,9 @@ interface DayGroup {
 
             <div class="review-actions">
               <button mat-button (click)="skip()">Skip</button>
-              <button mat-raised-button color="primary" (click)="approve(m)" [disabled]="approving()">
+              <button mat-raised-button color="primary" (click)="approve(m)" [disabled]="approving() || selectedDays().size === 0">
                 <mat-icon>{{ approving() ? 'hourglass_empty' : 'check' }}</mat-icon>
-                {{ approving() ? 'Approving…' : 'Approve' }}
+                {{ approving() ? 'Approving…' : 'Approve ' + selectedDays().size + ' day' + (selectedDays().size !== 1 ? 's' : '') }}
               </button>
             </div>
           </div>
@@ -300,7 +325,9 @@ interface DayGroup {
     .violation-badge { font-size: 0.7rem; font-weight: 600; padding: 2px 9px; border-radius: 10px; background: rgba(255,152,0,0.15); color: #ffb74d; border: 1px solid rgba(255,152,0,0.3); }
     .missing-badge { font-size: 0.7rem; font-weight: 600; padding: 2px 9px; border-radius: 10px; background: rgba(239,83,80,0.15); color: #ef9a9a; border: 1px solid rgba(239,83,80,0.3); }
 
-    .review-progress { font-size: 0.75rem; opacity: 0.5; margin-bottom: 8px; }
+    .review-nav { display: flex; align-items: center; gap: 4px; margin-bottom: 10px; }
+    .review-progress { font-size: 0.75rem; opacity: 0.6; font-weight: 600; padding: 0 6px; }
+    .jump-field { width: 220px; }
     .review-card { border-radius: 12px; border: 1px solid rgba(100,181,246,0.25); background: rgba(255,255,255,0.02); padding: 18px; }
     .review-header { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
     .review-name { font-size: 1.05rem; font-weight: 700; }
@@ -364,6 +391,8 @@ export class TimesheetApprovalComponent {
 
   totalViolations = computed(() => this.filteredMembers().reduce((sum, m) => sum + m.violationCount, 0));
 
+  selectedDays = signal<Set<string>>(new Set());
+
   // The backend repeats the same daily violation message on every entry that day (it doesn't
   // know which entry to "attach" a whole-day issue to) — group by date and dedupe so the review
   // card shows each day's entries together with its issues listed once underneath.
@@ -379,6 +408,15 @@ export class TimesheetApprovalComponent {
     }
     return Array.from(byDate.values()).sort((a, b) => a.date.localeCompare(b.date));
   });
+
+  constructor() {
+    // Default to every day selected whenever the person being reviewed changes (jump/skip/
+    // previous all flow through here since they all change dayGroups()' source).
+    effect(() => {
+      const dates = this.dayGroups().map(g => g.date);
+      this.selectedDays.set(new Set(dates));
+    });
+  }
 
   dayTotalHours(g: DayGroup): number {
     return g.entries.reduce((sum, e) => sum + e.hours + e.minutes / 60, 0);
@@ -471,27 +509,63 @@ export class TimesheetApprovalComponent {
     this.expandedWeek.set(this.expandedWeek() === weekStart ? null : weekStart);
   }
 
+  toggleDay(date: string) {
+    const next = new Set(this.selectedDays());
+    if (next.has(date)) next.delete(date); else next.add(date);
+    this.selectedDays.set(next);
+  }
+
+  backToList() {
+    this.reviewing.set(null);
+  }
+
+  goToPrevious() {
+    const idx = this.reviewing();
+    if (idx === null || idx === 0) return;
+    this.reviewing.set(idx - 1);
+  }
+
+  jumpTo(index: number) {
+    this.reviewing.set(index);
+  }
+
   skip() {
     this.advance();
   }
 
+  // Approves only the selected days — each gets its own ApproveTimesheet call (start = end =
+  // that date), since the external action's only date granularity is a start/end range and we
+  // can't tell it "these specific dates out of the period". Calls run one at a time so a failure
+  // partway through is easy to attribute to a specific day.
   approve(member: TimesheetApprovalMember) {
+    const groups = this.dayGroups();
+    const selected = this.selectedDays();
+    const selectedGroups = groups.filter(g => selected.has(g.date));
+    if (selectedGroups.length === 0) return;
+
     this.approving.set(true);
     const credentials: Record<string, string> = {};
     for (const entry of this.credentials.getAll())
       credentials[entry.keyName] = this.credentials.getValueFor(entry);
     const cookie = this.credentials.getValue();
 
-    this.svc.approve(member, { start: this.start, end: this.end }, cookie, credentials).subscribe({
-      next: () => {
-        this.approving.set(false);
-        this.members.set(this.members().filter(m => m !== member));
-        this.snackBar.open(`${member.memberName} approved`, 'Close', { duration: 2500 });
-        this.advanceAfterApprove();
-      },
+    from(selectedGroups).pipe(
+      concatMap(g => this.svc.approve(member, { start: g.date, end: g.date }, this.dayTotalHours(g), cookie, credentials))
+    ).subscribe({
       error: () => {
         this.approving.set(false);
         this.snackBar.open('Failed to approve — check the cookie/credentials', 'Close', { duration: 4000 });
+      },
+      complete: () => {
+        this.approving.set(false);
+        if (selectedGroups.length === groups.length) {
+          this.members.set(this.members().filter(m => m !== member));
+          this.snackBar.open(`${member.memberName} approved`, 'Close', { duration: 2500 });
+        } else {
+          this.snackBar.open(
+            `Approved ${selectedGroups.length} of ${groups.length} day(s) for ${member.memberName}`, 'Close', { duration: 3500 });
+        }
+        this.advanceAfterApprove();
       }
     });
   }
@@ -506,7 +580,9 @@ export class TimesheetApprovalComponent {
   private advanceAfterApprove() {
     const idx = this.reviewing();
     if (idx === null) return;
-    // Member was removed from the array — same index now points at the next one
+    // On a full approval the member was removed from the array, so the same index now points
+    // at the next one. On a partial approval the member stays put, so this re-displays them
+    // with a fresh (fully selected) day list rather than auto-advancing.
     this.reviewing.set(idx < this.filteredMembers().length ? idx : null);
   }
 }
