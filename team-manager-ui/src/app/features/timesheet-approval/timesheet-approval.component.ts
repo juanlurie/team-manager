@@ -9,10 +9,18 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { TimesheetApprovalService } from '../../core/services/timesheet-approval.service';
 import { CredentialsService } from '../../core/services/credentials.service';
-import { TimesheetApprovalMember } from '../../core/models/timesheet-approval.model';
+import { MissingTimesheetWeek, TimesheetApprovalMember } from '../../core/models/timesheet-approval.model';
 
 function isoDate(d: Date): string {
   return d.toISOString().slice(0, 10);
+}
+
+function startOfMonth(d: Date): Date {
+  return new Date(d.getFullYear(), d.getMonth(), 1);
+}
+
+function endOfMonth(d: Date): Date {
+  return new Date(d.getFullYear(), d.getMonth() + 1, 0);
 }
 
 @Component({
@@ -50,13 +58,30 @@ function isoDate(d: Date): string {
           <div class="loading"><mat-spinner diameter="32"></mat-spinner></div>
         } @else if (error()) {
           <div class="error-banner"><mat-icon>error_outline</mat-icon>{{ error() }}</div>
-        } @else if (fetched() && members().length === 0) {
-          <div class="empty-state">
-            <mat-icon class="empty-icon">task_alt</mat-icon>
-            <div class="empty-title">All caught up</div>
-            <div class="empty-sub">No outstanding timesheets need attention for this period</div>
-          </div>
-        } @else if (members().length > 0) {
+        } @else if (fetched()) {
+          @if (missingByWeek().length > 0) {
+            <div class="missing-section">
+              <div class="missing-title"><mat-icon>event_busy</mat-icon> Missing timesheets by week</div>
+              @for (w of missingByWeek(); track w.weekStart) {
+                <div class="missing-week">
+                  <div class="missing-week-range">{{ w.weekStart | date:'d MMM' }} – {{ w.weekEnd | date:'d MMM' }}</div>
+                  <div class="missing-names">
+                    @for (name of w.missingMemberNames; track name) {
+                      <span class="missing-chip">{{ name }}</span>
+                    }
+                  </div>
+                </div>
+              }
+            </div>
+          }
+
+          @if (members().length === 0 && missingByWeek().length === 0) {
+            <div class="empty-state">
+              <mat-icon class="empty-icon">task_alt</mat-icon>
+              <div class="empty-title">All caught up</div>
+              <div class="empty-sub">No outstanding timesheets need attention for this period</div>
+            </div>
+          } @else if (members().length > 0) {
           <div class="summary-row">
             <div class="summary-card">
               <span class="summary-num">{{ members().length }}</span>
@@ -83,6 +108,7 @@ function isoDate(d: Date): string {
               </div>
             }
           </div>
+          }
         }
       } @else {
         <!-- Sequential review -->
@@ -144,6 +170,14 @@ function isoDate(d: Date): string {
     .empty-title { font-weight: 600; font-size: 1rem; }
     .empty-sub { font-size: 0.8rem; margin-top: 4px; }
 
+    .missing-section { border-radius: 10px; border: 1px solid rgba(239,83,80,0.2); background: rgba(239,83,80,0.04); padding: 12px 14px; margin-bottom: 16px; }
+    .missing-title { display: flex; align-items: center; gap: 6px; font-size: 0.8rem; font-weight: 700; color: #ef9a9a; margin-bottom: 8px; }
+    .missing-title mat-icon { font-size: 16px; width: 16px; height: 16px; }
+    .missing-week { display: flex; align-items: baseline; gap: 10px; padding: 5px 0; flex-wrap: wrap; }
+    .missing-week-range { font-size: 0.75rem; font-weight: 600; opacity: 0.55; min-width: 110px; }
+    .missing-names { display: flex; flex-wrap: wrap; gap: 6px; }
+    .missing-chip { font-size: 0.72rem; padding: 2px 9px; border-radius: 10px; background: rgba(239,83,80,0.12); color: #ef9a9a; border: 1px solid rgba(239,83,80,0.25); }
+
     .summary-row { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
     .summary-card { padding: 10px 18px; border-radius: 10px; background: rgba(100,181,246,0.08); border: 1px solid rgba(100,181,246,0.2); text-align: center; }
     .summary-num { display: block; font-size: 1.3rem; font-weight: 700; color: #64b5f6; }
@@ -179,13 +213,14 @@ export class TimesheetApprovalComponent {
   private credentials = inject(CredentialsService);
   private snackBar = inject(MatSnackBar);
 
-  start = isoDate(new Date(Date.now() - 13 * 86400000));
-  end = isoDate(new Date());
+  start = isoDate(startOfMonth(new Date()));
+  end = isoDate(endOfMonth(new Date()));
 
   loading = signal(false);
   fetched = signal(false);
   error = signal('');
   members = signal<TimesheetApprovalMember[]>([]);
+  missingByWeek = signal<MissingTimesheetWeek[]>([]);
   approving = signal(false);
 
   reviewing = signal<number | null>(null);
@@ -205,8 +240,9 @@ export class TimesheetApprovalComponent {
     for (const entry of this.credentials.getAll())
       credentials[entry.keyName] = this.credentials.getValueFor(entry);
     this.svc.fetchOutstanding({ cookie, start: this.start, end: this.end, credentials }).subscribe({
-      next: (members) => {
-        this.members.set(members);
+      next: (result) => {
+        this.members.set(result.members);
+        this.missingByWeek.set(result.missingByWeek);
         this.loading.set(false);
         this.fetched.set(true);
       },

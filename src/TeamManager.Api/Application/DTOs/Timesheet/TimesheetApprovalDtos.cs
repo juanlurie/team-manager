@@ -49,3 +49,14 @@ public record TimesheetApprovalMemberDto(
     IReadOnlyList<TimesheetApprovalEntryDto> Entries,
     int ViolationCount
 );
+
+public record MissingTimesheetWeekDto(
+    DateOnly WeekStart,
+    DateOnly WeekEnd,
+    IReadOnlyList<string> MissingMemberNames
+);
+
+public record TimesheetApprovalFetchResultDto(
+    IReadOnlyList<TimesheetApprovalMemberDto> Members,
+    IReadOnlyList<MissingTimesheetWeekDto> MissingByWeek
+);
