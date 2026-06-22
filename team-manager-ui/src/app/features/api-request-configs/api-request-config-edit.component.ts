@@ -164,10 +164,10 @@ interface MappingPreview { kind: 'array' | 'single'; count?: number; rows: Mappi
             @if (showBody('request')) {
             <div class="section-body">
             <div class="tpl-field full-width">
-              <div class="tpl-editor">
-                <div class="tpl-backdrop" aria-hidden="true">@for (seg of urlSegs(); track $index) {<span [class.body-resolved]="seg.kind === 'resolved'" [class.code-missing]="seg.kind === 'missing'">{{ seg.text }}</span>}&nbsp;</div>
-                <input class="tpl-input" [(ngModel)]="data.url" (ngModelChange)="updateUrlSegs()" (scroll)="syncInputScroll($event)" (select)="syncInputScroll($event)" (mouseup)="syncInputScroll($event)" (mousemove)="syncInputScroll($event)" (keyup)="syncInputScroll($event)" placeholder="https://example.com/api">
-              </div>
+              <input class="tpl-input-plain" [(ngModel)]="data.url" (ngModelChange)="updateUrlSegs()" placeholder="https://example.com/api">
+              @if (hasPlaceholders(urlSegs())) {
+                <pre class="tpl-preview">@for (seg of urlSegs(); track $index) {<span [class.body-resolved]="seg.kind === 'resolved'" [class.code-missing]="seg.kind === 'missing'">{{ seg.text }}</span>}</pre>
+              }
             </div>
 
             <div class="body-footer-row" style="margin-bottom:12px">
@@ -235,9 +235,11 @@ interface MappingPreview { kind: 'array' | 'single'; count?: number; rows: Mappi
                     </button>
                   </mat-form-field>
                 } @else {
-                  <div class="tpl-editor half-width">
-                    <div class="tpl-backdrop" aria-hidden="true">@for (seg of getSegs(entry.value); track $index) {<span [class.body-resolved]="seg.kind === 'resolved'" [class.code-missing]="seg.kind === 'missing'">{{ seg.text }}</span>}&nbsp;</div>
-                    <input class="tpl-input" [(ngModel)]="entry.value" (scroll)="syncInputScroll($event)" (select)="syncInputScroll($event)" (mouseup)="syncInputScroll($event)" (mousemove)="syncInputScroll($event)" (keyup)="syncInputScroll($event)" placeholder="{cookie}">
+                  <div class="tpl-field half-width">
+                    <input class="tpl-input-plain" [(ngModel)]="entry.value" placeholder="{cookie}">
+                    @if (hasPlaceholders(getSegs(entry.value))) {
+                      <pre class="tpl-preview">@for (seg of getSegs(entry.value); track $index) {<span [class.body-resolved]="seg.kind === 'resolved'" [class.code-missing]="seg.kind === 'missing'">{{ seg.text }}</span>}</pre>
+                    }
                   </div>
                 }
                 <button mat-icon-button [color]="entry.secret ? 'accent' : ''" (click)="toggleHeaderSecret(entry)"
@@ -297,10 +299,10 @@ interface MappingPreview { kind: 'array' | 'single'; count?: number; rows: Mappi
             @if (showBody('body')) {
             <div class="section-body">
             <div class="body-field">
-              <div class="body-editor">
-                <div class="body-backdrop" aria-hidden="true">@for (seg of bodySegs(); track $index) {<span [class.body-resolved]="seg.kind === 'resolved'" [class.code-missing]="seg.kind === 'missing'">{{ seg.text }}</span>}&nbsp;</div>
-                <textarea class="body-textarea" [(ngModel)]="data.bodyTemplate" (ngModelChange)="updateBodySegs()" (scroll)="syncBodyScroll($event)" (select)="syncBodyScroll($event)" (mouseup)="syncBodyScroll($event)" (mousemove)="syncBodyScroll($event)" (keyup)="syncBodyScroll($event)" rows="4" placeholder="teamId=&#123;teamIds&#125;&amp;start=&#123;start&#125;"></textarea>
-              </div>
+              <textarea class="body-textarea-plain" [(ngModel)]="data.bodyTemplate" (ngModelChange)="updateBodySegs()" rows="4" placeholder="teamId=&#123;teamIds&#125;&amp;start=&#123;start&#125;"></textarea>
+              @if (hasPlaceholders(bodySegs())) {
+                <pre class="body-preview">@for (seg of bodySegs(); track $index) {<span [class.body-resolved]="seg.kind === 'resolved'" [class.code-missing]="seg.kind === 'missing'">{{ seg.text }}</span>}</pre>
+              }
               <div class="body-footer-row">
                 <div class="body-chips">
                   @for (v of bodyVarChips; track v) {
@@ -1056,21 +1058,21 @@ interface MappingPreview { kind: 'array' | 'single'; count?: number; rows: Mappi
     .footer-save-btn:hover:not(:disabled) { background: rgba(100,181,246,0.25); border-color: #64b5f6; }
     .footer-save-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
-    /* Inline template overlay (URL, header values) */
-    .tpl-field { display: flex; flex-direction: column; margin-bottom: 4px; }
-    .tpl-editor { position: relative; border: 1px solid rgba(255,255,255,0.15); border-radius: 4px; background: rgba(255,255,255,0.04); transition: border-color 0.15s; flex: 1; min-width: 80px; }
-    .tpl-editor:focus-within { border-color: rgba(100,181,246,0.5); }
-    .tpl-backdrop { position: absolute; top: 0; left: 0; right: 0; bottom: 0; padding: 12px 14px; font-size: 0.9rem; font-family: inherit; line-height: 1.375; white-space: pre; overflow: hidden; pointer-events: none; box-sizing: border-box; color: rgba(255,255,255,0.8); }
-    .tpl-input { position: relative; display: block; width: 100%; padding: 12px 14px; font-size: 0.9rem; font-family: inherit; line-height: 1.375; background: transparent; color: transparent; caret-color: rgba(255,255,255,0.9); border: none; outline: none; box-sizing: border-box; }
-    .tpl-input::placeholder { color: rgba(255,255,255,0.3); }
+    /* Inline template fields (URL, header values) — plain editable input plus a separate
+       read-only preview underneath showing which {placeholders} resolve. No overlay, so there's
+       nothing to desync during text selection. */
+    .tpl-field { display: flex; flex-direction: column; gap: 4px; margin-bottom: 4px; flex: 1; min-width: 80px; }
+    .tpl-input-plain { display: block; width: 100%; padding: 12px 14px; font-size: 0.9rem; font-family: inherit; line-height: 1.375; background: rgba(255,255,255,0.04); color: rgba(255,255,255,0.85); border: 1px solid rgba(255,255,255,0.15); border-radius: 4px; outline: none; box-sizing: border-box; transition: border-color 0.15s; }
+    .tpl-input-plain:focus { border-color: rgba(100,181,246,0.5); }
+    .tpl-input-plain::placeholder { color: rgba(255,255,255,0.3); }
+    .tpl-preview { margin: 0; padding: 6px 10px; font-size: 0.78rem; font-family: inherit; line-height: 1.375; white-space: pre-wrap; word-break: break-all; background: rgba(0,0,0,0.2); border-radius: 4px; color: rgba(255,255,255,0.6); }
 
-    /* Body template overlay */
-    .body-field { display: flex; flex-direction: column; gap: 4px; margin-bottom: 8px; }
-    .body-editor { position: relative; border: 1px solid rgba(255,255,255,0.12); border-radius: 4px; background: rgba(255,255,255,0.04); transition: border-color 0.15s; }
-    .body-editor:focus-within { border-color: rgba(100,181,246,0.5); }
-    .body-backdrop { position: absolute; top: 0; left: 0; right: 0; bottom: 0; padding: 10px 12px; font-size: 0.8rem; font-family: monospace; line-height: 1.5625; white-space: pre-wrap; word-break: break-all; overflow: hidden; pointer-events: none; box-sizing: border-box; color: rgba(255,255,255,0.8); }
-    .body-textarea { position: relative; display: block; width: 100%; min-height: 80px; padding: 10px 12px; font-size: 0.8rem; font-family: monospace; line-height: 1.5625; background: transparent; color: transparent; caret-color: rgba(255,255,255,0.9); border: none; outline: none; resize: vertical; box-sizing: border-box; }
-    .body-textarea::placeholder { color: rgba(255,255,255,0.3); }
+    /* Body template field — same plain-input + separate preview approach */
+    .body-field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
+    .body-textarea-plain { display: block; width: 100%; min-height: 80px; padding: 10px 12px; font-size: 0.8rem; font-family: monospace; line-height: 1.5625; background: rgba(255,255,255,0.04); color: rgba(255,255,255,0.85); border: 1px solid rgba(255,255,255,0.12); border-radius: 4px; outline: none; resize: vertical; box-sizing: border-box; transition: border-color 0.15s; }
+    .body-textarea-plain:focus { border-color: rgba(100,181,246,0.5); }
+    .body-textarea-plain::placeholder { color: rgba(255,255,255,0.3); }
+    .body-preview { margin: 0; padding: 8px 12px; font-size: 0.72rem; font-family: monospace; line-height: 1.5625; white-space: pre-wrap; word-break: break-all; background: rgba(0,0,0,0.2); border-radius: 4px; color: rgba(255,255,255,0.6); max-height: 160px; overflow-y: auto; }
     .body-footer-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
     .body-chips { display: flex; flex-wrap: wrap; gap: 4px; flex: 1; }
     .body-legend { display: flex; gap: 10px; align-items: center; flex-shrink: 0; padding-top: 2px; }
@@ -1414,16 +1416,8 @@ export class ApiRequestConfigEditComponent implements OnInit {
     return this.computeSegs(value);
   }
 
-  syncBodyScroll(event: Event) {
-    const ta = event.target as HTMLTextAreaElement;
-    const backdrop = ta.previousElementSibling as HTMLElement;
-    if (backdrop) backdrop.scrollTop = ta.scrollTop;
-  }
-
-  syncInputScroll(event: Event) {
-    const input = event.target as HTMLInputElement;
-    const backdrop = input.previousElementSibling as HTMLElement;
-    if (backdrop) backdrop.scrollLeft = input.scrollLeft;
+  hasPlaceholders(segs: CodeSegment[]): boolean {
+    return segs.some(s => s.kind !== 'plain');
   }
 
   discoverPaths() {
