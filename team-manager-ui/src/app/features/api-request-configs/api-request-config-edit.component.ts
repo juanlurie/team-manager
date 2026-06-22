@@ -604,17 +604,43 @@ interface MappingPreview { kind: 'array' | 'single'; count?: number; rows: Mappi
             <div class="map-block">
               <mat-form-field appearance="outline" class="full-width">
                 <mat-label>Array Path (optional)</mat-label>
-                <input matInput [(ngModel)]="data.mapping.arrayPath" placeholder="e.g. data.entries">
-                <mat-hint>Leave empty if response is a top-level array</mat-hint>
+                <input matInput [(ngModel)]="data.mapping.arrayPath" placeholder="e.g. TeamsToSignOff">
+                <mat-hint>Top-level array. Leave empty if response is itself a top-level array</mat-hint>
               </mat-form-field>
               <div class="two-col">
                 <mat-form-field appearance="outline">
-                  <mat-label>Member Name Path</mat-label>
-                  <input matInput [(ngModel)]="data.mapping.memberNamePath" placeholder="employeeName">
+                  <mat-label>Employees Path (optional)</mat-label>
+                  <input matInput [(ngModel)]="data.mapping.employeesPath" placeholder="Employees">
+                  <mat-hint>Relative to each top-level item. Leave empty if it's already an employee</mat-hint>
                 </mat-form-field>
                 <mat-form-field appearance="outline">
+                  <mat-label>Days Path (optional)</mat-label>
+                  <input matInput [(ngModel)]="data.mapping.daysArrayPath" placeholder="Days">
+                  <mat-hint>Relative to each employee. Leave empty if entries are directly underneath</mat-hint>
+                </mat-form-field>
+              </div>
+              <div class="two-col">
+                <mat-form-field appearance="outline">
+                  <mat-label>Entries Path (optional)</mat-label>
+                  <input matInput [(ngModel)]="data.mapping.entriesPath" placeholder="TimesheetEntries">
+                  <mat-hint>Relative to each day. Leave empty if the day itself is the entry</mat-hint>
+                </mat-form-field>
+                <mat-form-field appearance="outline">
+                  <mat-label>Member Name Path</mat-label>
+                  <input matInput [(ngModel)]="data.mapping.memberNamePath" placeholder="Name">
+                  <mat-hint>Relative to each employee</mat-hint>
+                </mat-form-field>
+              </div>
+              <div class="two-col">
+                <mat-form-field appearance="outline">
                   <mat-label>Date Path</mat-label>
-                  <input matInput [(ngModel)]="data.mapping.datePath" placeholder="date">
+                  <input matInput [(ngModel)]="data.mapping.datePath" placeholder="Date">
+                  <mat-hint>Relative to each entry</mat-hint>
+                </mat-form-field>
+                <mat-form-field appearance="outline">
+                  <mat-label>Member ID Path (optional)</mat-label>
+                  <input matInput [(ngModel)]="data.mapping.memberIdPath" placeholder="EmployeeId">
+                  <mat-hint>Relative to each employee</mat-hint>
                 </mat-form-field>
               </div>
               <div class="two-col">
@@ -1655,14 +1681,7 @@ export class ApiRequestConfigEditComponent implements OnInit {
         { label: 'Location', path: m.locationPath ?? '' },
       ]);
     } else if (action === 'FetchTimesheetApprovals') {
-      this.computeArrayMappingPreview(root, m.arrayPath, [
-        { label: 'Member Name', path: m.memberNamePath ?? '' }, { label: 'Date', path: m.datePath ?? '' },
-        { label: 'Project', path: m.projectPath ?? '' }, { label: 'Category', path: m.categoryPath ?? '' },
-        { label: 'Hours', path: m.hoursPath ?? '' }, { label: 'Minutes', path: m.minutesPath ?? '' },
-        { label: 'Billable', path: m.billablePath ?? '' }, { label: 'Worked From', path: m.workedFromPath ?? '' },
-        { label: 'Description', path: m.descriptionPath ?? '' }, { label: 'Ticket Number', path: m.ticketNumberPath ?? '' },
-        { label: 'External ID', path: m.externalIdPath },
-      ]);
+      this.computeTimesheetApprovalPreview(root, m);
     } else if (action === 'AddTimesheetEntry') {
       this.computeSingleMappingPreview(root, [{ label: 'External ID', path: m.externalIdPath }]);
     } else if (action === 'AiChatWinStory' || action === 'GenerateJoke' || action === 'GenerateQuizQuestion') {
@@ -1686,6 +1705,60 @@ export class ApiRequestConfigEditComponent implements OnInit {
       value: first === undefined ? '(no items)' : this.previewValue(this.getAtPath(first, f.path))
     }));
     this.mappingPreview.set({ kind: 'array', count: arr.length, rows });
+  }
+
+  // Mirrors the backend's nested flatten (ArrayPath -> EmployeesPath -> DaysArrayPath -> EntriesPath),
+  // where each lower level is optional. Walks the same way ConfigurableTimesheetApprovalFetcher does
+  // so the preview reflects exactly what import will produce, including the member name pulled from
+  // the employee level rather than the entry itself.
+  private computeTimesheetApprovalPreview(root: unknown, m: MappingConfig) {
+    const topArr = m.arrayPath ? this.getAtPath(root, m.arrayPath) : root;
+    if (!Array.isArray(topArr)) {
+      this.mappingPreview.set({
+        kind: 'array', rows: [],
+        error: m.arrayPath ? `Array path "${m.arrayPath}" did not resolve to an array` : 'Response root is not an array'
+      });
+      return;
+    }
+
+    const enumerateLevel = (element: unknown, path: string | undefined): unknown[] => {
+      if (!path) return [element];
+      const resolved = this.getAtPath(element, path);
+      return Array.isArray(resolved) ? resolved : [];
+    };
+
+    let firstEntry: unknown;
+    let firstMemberName: unknown;
+    let count = 0;
+    for (const group of topArr) {
+      for (const employee of enumerateLevel(group, m.employeesPath)) {
+        const memberName = this.getAtPath(employee, m.memberNamePath ?? '');
+        for (const day of enumerateLevel(employee, m.daysArrayPath)) {
+          for (const entry of enumerateLevel(day, m.entriesPath)) {
+            count++;
+            if (firstEntry === undefined) { firstEntry = entry; firstMemberName = memberName; }
+          }
+        }
+      }
+    }
+
+    const fieldDefs = [
+      { label: 'Member Name', value: firstMemberName },
+      { label: 'Date', path: m.datePath ?? '' },
+      { label: 'Project', path: m.projectPath ?? '' }, { label: 'Category', path: m.categoryPath ?? '' },
+      { label: 'Hours', path: m.hoursPath ?? '' }, { label: 'Minutes', path: m.minutesPath ?? '' },
+      { label: 'Billable', path: m.billablePath ?? '' }, { label: 'Worked From', path: m.workedFromPath ?? '' },
+      { label: 'Description', path: m.descriptionPath ?? '' }, { label: 'Ticket Number', path: m.ticketNumberPath ?? '' },
+      { label: 'External ID', path: m.externalIdPath },
+    ];
+    const rows = fieldDefs.map(f => ({
+      label: f.label,
+      path: 'path' in f ? (f.path || '(not set)') : (m.memberNamePath || '(not set)'),
+      value: firstEntry === undefined
+        ? '(no items)'
+        : 'value' in f ? this.previewValue(f.value) : this.previewValue(this.getAtPath(firstEntry, f.path!))
+    }));
+    this.mappingPreview.set({ kind: 'array', count, rows });
   }
 
   private computeSingleMappingPreview(root: unknown, fieldDefs: { label: string; path: string }[]) {

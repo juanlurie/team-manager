@@ -25,6 +25,10 @@ export interface MappingConfig {
   subjectPath?: string;
   isAllDayPath?: string;
   locationPath?: string;
+  employeesPath?: string;
+  daysArrayPath?: string;
+  entriesPath?: string;
+  memberIdPath?: string;
   memberNamePath?: string;
   datePath?: string;
   projectPath?: string;
