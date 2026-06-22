@@ -172,8 +172,12 @@ interface DayGroup {
             }
           </div>
 
+          <mat-checkbox class="needs-review-toggle" [checked]="onlyNeedsReview()" (change)="onlyNeedsReview.set(!onlyNeedsReview())">
+            Only show people needing review
+          </mat-checkbox>
+
           <div class="member-list">
-            @for (p of peopleSummary(); track p.memberName) {
+            @for (p of displayedPeople(); track p.memberName) {
               <div class="member-row" [class.has-issue]="p.violationCount > 0 || p.missingWeeks > 0">
                 <div class="member-info">
                   <span class="member-name">{{ p.memberName }}</span>
@@ -316,6 +320,7 @@ interface DayGroup {
     .summary-num { display: block; font-size: 1.3rem; font-weight: 700; color: #64b5f6; }
     .summary-label { font-size: 0.7rem; opacity: 0.6; }
 
+    .needs-review-toggle { display: block; font-size: 0.78rem; opacity: 0.7; margin-bottom: 10px; }
     .member-list { display: flex; flex-direction: column; gap: 6px; }
     .member-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.02); }
     .member-row.has-issue { border-color: rgba(255,152,0,0.25); }
@@ -453,6 +458,11 @@ export class TimesheetApprovalComponent {
       })
       .sort((a, b) => a.memberName.localeCompare(b.memberName));
   });
+
+  onlyNeedsReview = signal(false);
+
+  displayedPeople = computed(() =>
+    this.onlyNeedsReview() ? this.peopleSummary().filter(p => p.canReview) : this.peopleSummary());
 
   private isTeamExcluded(memberName: string): boolean {
     const team = this.memberTeams()[memberName];
