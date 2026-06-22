@@ -1,27 +1,18 @@
-using Microsoft.EntityFrameworkCore;
 using TeamManager.Api.Application.DTOs.Timesheet;
 using TeamManager.Api.Application.Services.Interfaces;
-using TeamManager.Api.Infrastructure.Data;
 
 namespace TeamManager.Api.Application.Services;
 
-public class TimesheetApprovalService(AppDbContext db, ITimesheetApprovalFetcher fetcher) : ITimesheetApprovalService
+// Builds the approval screen entirely from what the external timesheet system reports — no
+// cross-referencing against our own TeamMembers table. The two rosters can legitimately differ
+// (someone removed from this app may still need sign-off there, or vice versa), so matching
+// against our internal list produced wrong/missing results.
+public class TimesheetApprovalService(ITimesheetApprovalFetcher fetcher) : ITimesheetApprovalService
 {
     public async Task<TimesheetApprovalFetchResultDto> FetchOutstandingAsync(FetchTimesheetApprovalsRequest request)
     {
-        var entries = await fetcher.FetchAsync(request);
-
-        var members = await db.TeamMembers
-            .Where(m => m.IsActive)
-            .Select(m => new { m.Id, m.FirstName, m.LastName, FullName = (m.FirstName + " " + m.LastName).ToLower() })
-            .ToListAsync();
-        // Group instead of ToDictionary — two active members can share a full name (e.g. test
-        // data), and matching is by name alone here, so an ambiguous name is left unresolved
-        // (null TeamMemberId) rather than throwing.
-        var memberLookup = members
-            .GroupBy(m => m.FullName)
-            .Where(g => g.Count() == 1)
-            .ToDictionary(g => g.Key, g => g.First().Id);
+        var fetched = await fetcher.FetchAsync(request);
+        var entries = fetched.Entries;
 
         var violationsByEntry = TimesheetApprovalRules.Evaluate(entries);
 
@@ -39,17 +30,14 @@ public class TimesheetApprovalService(AppDbContext db, ITimesheetApprovalFetcher
             var violationCount = entryDtos.Sum(e => e.Violations.Count);
             if (violationCount == 0) continue;
 
-            memberLookup.TryGetValue(memberGroup.Key.ToLower(), out var teamMemberId);
-
             result.Add(new TimesheetApprovalMemberDto(
-                teamMemberId == default ? null : teamMemberId,
                 memberGroup.Key,
                 entryDtos,
                 violationCount
             ));
         }
 
-        var missingByWeek = BuildMissingByWeek(entries, members.Select(m => $"{m.FirstName} {m.LastName}").ToList(), request);
+        var missingByWeek = BuildMissingByWeek(entries, fetched.EmployeeNames, request);
 
         return new TimesheetApprovalFetchResultDto(
             result.OrderBy(m => m.MemberName).ToList(),
@@ -57,12 +45,13 @@ public class TimesheetApprovalService(AppDbContext db, ITimesheetApprovalFetcher
         );
     }
 
-    // For each Monday-Sunday week overlapping the requested range, flags active members who
-    // logged zero hours anywhere in that week. Weeks (or the trailing part of one) that haven't
-    // happened yet are skipped — nothing to expect there. Doesn't account for leave/public
-    // holidays, so someone fully on leave for a week will still show up as missing.
+    // For each Monday-Sunday week overlapping the requested range, flags employees (per the
+    // external system's own roster) who logged zero hours anywhere in that week. Weeks (or the
+    // trailing part of one) that haven't happened yet are skipped — nothing to expect there.
+    // Doesn't account for leave/public holidays, so someone fully on leave for a week will still
+    // show up as missing.
     private static IReadOnlyList<MissingTimesheetWeekDto> BuildMissingByWeek(
-        IReadOnlyList<ImportedTimesheetEntry> entries, IReadOnlyList<string> activeMemberNames, FetchTimesheetApprovalsRequest request)
+        IReadOnlyList<ImportedTimesheetEntry> entries, IReadOnlyList<string> employeeNames, FetchTimesheetApprovalsRequest request)
     {
         if (!DateOnly.TryParse(request.Start, out var rangeStart) || !DateOnly.TryParse(request.End, out var rangeEnd))
             return [];
@@ -93,7 +82,7 @@ public class TimesheetApprovalService(AppDbContext db, ITimesheetApprovalFetcher
                 .ToList();
             if (weekdays.Count == 0) continue;
 
-            var missing = activeMemberNames
+            var missing = employeeNames
                 .Where(name =>
                 {
                     var logged = loggedByNameLower.GetValueOrDefault(name.ToLower());

@@ -13,7 +13,6 @@ export interface TimesheetApprovalEntry {
 }
 
 export interface TimesheetApprovalMember {
-  teamMemberId: string | null;
   memberName: string;
   entries: TimesheetApprovalEntry[];
   violationCount: number;
