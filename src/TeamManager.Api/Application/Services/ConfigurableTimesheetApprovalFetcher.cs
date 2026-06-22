@@ -32,12 +32,20 @@ public class ConfigurableTimesheetApprovalFetcher : ITimesheetApprovalFetcher
         // the caller didn't supply one — same convention as ApiSyncController's send flow.
         var cookie = !string.IsNullOrWhiteSpace(request.Cookie) ? request.Cookie : (config.StoredCookie ?? "");
 
-        // Storage values are non-secret and deliberately leave {cookie} unresolved, so the session
-        // token is never written to the ApiSyncEvent row that this fetch logs (see below).
+        var credentials = request.Credentials ?? new();
+
+        // Storage values are non-secret and deliberately leave {cookie} and any named credential
+        // placeholders (e.g. {entelectCookie}) unresolved, so session tokens are never written to
+        // the ApiSyncEvent row that this fetch logs (see below).
         string ResolveForStorage(string t) =>
             ResolveTemplate(ConfigVariableResolver.Apply(t, publicConfigVars), request.Start, request.End, "{cookie}");
-        string ResolveForExecution(string t) =>
-            ResolveTemplate(ConfigVariableResolver.Apply(t, allConfigVars), request.Start, request.End, cookie);
+        string ResolveForExecution(string t)
+        {
+            var result = ResolveTemplate(ConfigVariableResolver.Apply(t, allConfigVars), request.Start, request.End, cookie);
+            foreach (var (key, value) in credentials)
+                result = result.Replace($"{{{key}}}", value);
+            return result;
+        }
 
         // Every outbound integration call must be visible in the Sync Queue — log it before
         // executing, then update its status/response once the call completes.
