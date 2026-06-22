@@ -56,6 +56,17 @@ public record MappingConfigDto(
     string SubjectPath = "subject",
     string IsAllDayPath = "isAllDay",
     string LocationPath = "location",
+    // For FetchTimesheetApprovals: per-entry mapping fields (ArrayPath/ExternalIdPath above are reused)
+    string MemberNamePath = "employeeName",
+    string DatePath = "date",
+    string ProjectPath = "project",
+    string CategoryPath = "category",
+    string HoursPath = "hours",
+    string MinutesPath = "minutes",
+    string BillablePath = "billable",
+    string WorkedFromPath = "workedFrom",
+    string DescriptionPath = "description",
+    string TicketNumberPath = "ticketNumber",
     // Extra project/category fields beyond the defaults above — label -> path
     // (relative to the project or category object). Extracted per project/category
     // and exposed as {label} template variables on AddTimesheetEntry, same as categoryId.
