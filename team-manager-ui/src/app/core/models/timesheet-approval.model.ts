@@ -23,4 +23,5 @@ export interface FetchTimesheetApprovalsRequest {
   cookie: string;
   start: string;
   end: string;
+  credentials?: Record<string, string>;
 }

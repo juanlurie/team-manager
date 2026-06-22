@@ -201,7 +201,10 @@ export class TimesheetApprovalComponent {
     this.error.set('');
     this.fetched.set(false);
     const cookie = this.credentials.getValue();
-    this.svc.fetchOutstanding({ cookie, start: this.start, end: this.end }).subscribe({
+    const credentials: Record<string, string> = {};
+    for (const entry of this.credentials.getAll())
+      credentials[entry.keyName] = this.credentials.getValueFor(entry);
+    this.svc.fetchOutstanding({ cookie, start: this.start, end: this.end, credentials }).subscribe({
       next: (members) => {
         this.members.set(members);
         this.loading.set(false);
