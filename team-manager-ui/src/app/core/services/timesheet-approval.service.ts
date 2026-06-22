@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, switchMap, of } from 'rxjs';
-import { FetchTimesheetApprovalsRequest, TimesheetApprovalFetchResult, TimesheetApprovalMember } from '../models/timesheet-approval.model';
+import { FetchTimesheetApprovalsRequest, MemberQualityInput, TimesheetApprovalFetchResult, TimesheetApprovalMember, TimesheetQualityAnalysis } from '../models/timesheet-approval.model';
 
 @Injectable({ providedIn: 'root' })
 export class TimesheetApprovalService {
@@ -9,6 +9,10 @@ export class TimesheetApprovalService {
 
   fetchOutstanding(req: FetchTimesheetApprovalsRequest): Observable<TimesheetApprovalFetchResult> {
     return this.http.post<TimesheetApprovalFetchResult>('/api/v1/timesheets/approval/fetch', req);
+  }
+
+  analyzeQuality(members: MemberQualityInput[]): Observable<TimesheetQualityAnalysis> {
+    return this.http.post<TimesheetQualityAnalysis>('/api/v1/timesheets/approval/analyze-quality', { members });
   }
 
   approve(member: TimesheetApprovalMember, period: { start: string; end: string }, totalHours: number, cookie: string, credentials?: Record<string, string>): Observable<any> {

@@ -14,7 +14,7 @@ import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { TimesheetApprovalService } from '../../core/services/timesheet-approval.service';
 import { CredentialsService } from '../../core/services/credentials.service';
-import { TimesheetApprovalEntry, TimesheetApprovalMember, WeeklyTimesheetSummary } from '../../core/models/timesheet-approval.model';
+import { MemberQualityInput, TimesheetApprovalEntry, TimesheetApprovalMember, WeeklyTimesheetSummary } from '../../core/models/timesheet-approval.model';
 
 // Builds the date string from local Y/M/D parts — toISOString() converts to UTC first, which
 // rolls the date back a day for any timezone ahead of UTC (e.g. local midnight on the 1st
@@ -165,12 +165,26 @@ interface DayGroup {
               <span class="summary-label">Flagged issues</span>
             </div>
             <div style="flex:1"></div>
+            <button mat-stroked-button [disabled]="analyzingQuality()" (click)="analyzeVisibleQuality()">
+              <mat-icon>{{ analyzingQuality() ? 'hourglass_empty' : 'psychology' }}</mat-icon>
+              {{ analyzingQuality() ? 'Analyzing…' : 'AI Analysis' }}
+            </button>
             @if (filteredMembers().length > 0) {
               <button mat-raised-button color="primary" (click)="startReview()">
                 <mat-icon>play_arrow</mat-icon> Start Review
               </button>
             }
           </div>
+
+          @if (qualityAnalysis() !== null) {
+            <div class="issues-breakdown">
+              <div class="issues-breakdown-hdr">
+                <span>AI Timesheet Quality Analysis ({{ displayedPeople().length }} people)</span>
+                <button class="ts-ai-close" (click)="qualityAnalysis.set(null)">&times;</button>
+              </div>
+              <div class="quality-analysis-body">{{ qualityAnalysis() }}</div>
+            </div>
+          }
 
           @if (showIssuesBreakdown() && issuesByPerson().length > 0) {
             <div class="issues-breakdown">
@@ -341,6 +355,10 @@ interface DayGroup {
 
     .issues-breakdown { display: flex; flex-direction: column; gap: 10px; padding: 12px 14px; border-radius: 10px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.08); margin-bottom: 16px; }
     .issues-person-name { font-weight: 600; font-size: 0.85rem; margin-bottom: 4px; }
+    .issues-breakdown-hdr { display: flex; align-items: center; justify-content: space-between; font-size: 0.8rem; font-weight: 700; color: #ce93d8; }
+    .ts-ai-close { background: none; border: none; color: rgba(255,255,255,0.4); font-size: 18px; line-height: 1; cursor: pointer; padding: 0 4px; }
+    .ts-ai-close:hover { color: rgba(255,255,255,0.8); }
+    .quality-analysis-body { font-size: 0.78rem; line-height: 1.5; opacity: 0.8; white-space: pre-wrap; max-height: 320px; overflow-y: auto; }
 
     .needs-review-toggle { display: block; font-size: 0.78rem; opacity: 0.7; margin-bottom: 10px; }
     .member-list { display: flex; flex-direction: column; gap: 6px; }
@@ -504,6 +522,43 @@ export class TimesheetApprovalComponent {
 
   displayedPeople = computed(() =>
     this.onlyNeedsReview() ? this.peopleSummary().filter(p => p.canReview) : this.peopleSummary());
+
+  analyzingQuality = signal(false);
+  qualityAnalysis = signal<string | null>(null);
+
+  // Sends exactly what's currently visible (after team exclusion + the needs-review toggle) —
+  // full entries for people with flagged ones, just a total-hours note for everyone else, since
+  // the backend only returns itemized entries for members who have at least one violation.
+  analyzeVisibleQuality() {
+    const members = this.filteredMembers();
+    const payload: MemberQualityInput[] = this.displayedPeople().map(p => {
+      const member = members.find(m => m.memberName === p.memberName);
+      return {
+        memberName: p.memberName,
+        totalHours: p.totalHours,
+        entries: member?.entries.map(e => ({
+          date: e.date, project: e.project, category: e.category,
+          hours: e.hours, minutes: e.minutes, billable: e.billable, description: e.description
+        })) ?? []
+      };
+    });
+
+    this.analyzingQuality.set(true);
+    this.svc.analyzeQuality(payload).subscribe({
+      next: (result) => {
+        this.analyzingQuality.set(false);
+        if (!result.configured) {
+          this.qualityAnalysis.set('Not configured — add an "Analyze Timesheet Quality" action in Integrations.');
+          return;
+        }
+        this.qualityAnalysis.set(result.analysis ?? 'No analysis returned.');
+      },
+      error: () => {
+        this.analyzingQuality.set(false);
+        this.qualityAnalysis.set('Failed to run the analysis. Check the Sync Queue for details.');
+      }
+    });
+  }
 
   private isTeamExcluded(memberName: string): boolean {
     const team = this.memberTeams()[memberName];
