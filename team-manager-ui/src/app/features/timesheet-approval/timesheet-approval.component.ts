@@ -72,7 +72,13 @@ interface PersonSummary {
         } @else if (fetched()) {
           @if (weeklySummary().length > 0) {
             <div class="missing-section">
-              <div class="missing-title"><mat-icon>calendar_view_week</mat-icon> Weekly summary</div>
+              <div class="missing-title-row">
+                <div class="missing-title"><mat-icon>calendar_view_week</mat-icon> Weekly summary</div>
+                <button class="show-all-toggle" (click)="showLoggedChips.set(!showLoggedChips())">
+                  <mat-icon>{{ showLoggedChips() ? 'visibility_off' : 'visibility' }}</mat-icon>
+                  {{ showLoggedChips() ? 'Hide logged' : 'Show logged' }}
+                </button>
+              </div>
               @for (w of weeklySummary(); track w.weekStart) {
                 <div class="week-row" (click)="toggleWeek(w.weekStart)">
                   <mat-icon class="week-status" [class.good]="weekIsGood(w)">
@@ -88,9 +94,11 @@ interface PersonSummary {
                 @if (expandedWeek() === w.weekStart) {
                   <div class="missing-names">
                     @for (mh of w.memberHours; track mh.memberName) {
-                      <span class="missing-chip" [class.has-hours]="!w.missingMemberNames.includes(mh.memberName)">
-                        {{ mh.memberName }} — {{ mh.hours }}h
-                      </span>
+                      @if (showLoggedChips() || w.missingMemberNames.includes(mh.memberName)) {
+                        <span class="missing-chip" [class.has-hours]="!w.missingMemberNames.includes(mh.memberName)">
+                          {{ mh.memberName }} — {{ mh.hours }}h
+                        </span>
+                      }
                     }
                   </div>
                 }
@@ -204,8 +212,12 @@ interface PersonSummary {
     .empty-sub { font-size: 0.8rem; margin-top: 4px; }
 
     .missing-section { border-radius: 10px; border: 1px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.02); padding: 8px 14px; margin-bottom: 16px; }
-    .missing-title { display: flex; align-items: center; gap: 6px; font-size: 0.8rem; font-weight: 700; opacity: 0.6; margin: 4px 0 4px; }
+    .missing-title-row { display: flex; align-items: center; justify-content: space-between; margin: 4px 0 4px; }
+    .missing-title { display: flex; align-items: center; gap: 6px; font-size: 0.8rem; font-weight: 700; opacity: 0.6; }
     .missing-title mat-icon { font-size: 16px; width: 16px; height: 16px; }
+    .show-all-toggle { display: flex; align-items: center; gap: 4px; background: none; border: none; color: rgba(255,255,255,0.4); font-size: 0.72rem; cursor: pointer; font-family: inherit; padding: 2px 4px; }
+    .show-all-toggle:hover { color: rgba(255,255,255,0.7); }
+    .show-all-toggle mat-icon { font-size: 14px; width: 14px; height: 14px; }
     .week-row { display: flex; align-items: center; gap: 10px; padding: 7px 2px; cursor: pointer; border-top: 1px solid rgba(255,255,255,0.05); }
     .week-row:first-of-type { border-top: none; }
     .week-status { font-size: 17px; width: 17px; height: 17px; color: #ef9a9a; }
@@ -265,6 +277,7 @@ export class TimesheetApprovalComponent {
   weeklySummary = signal<WeeklyTimesheetSummary[]>([]);
   approving = signal(false);
   expandedWeek = signal<string | null>(null);
+  showLoggedChips = signal(true);
 
   reviewing = signal<number | null>(null);
   currentMember = computed(() => {
@@ -294,12 +307,7 @@ export class TimesheetApprovalComponent {
           canReview: !!member
         };
       })
-      .sort((a, b) => {
-        const aHasIssue = a.violationCount > 0 || a.missingWeeks > 0;
-        const bHasIssue = b.violationCount > 0 || b.missingWeeks > 0;
-        if (aHasIssue !== bHasIssue) return aHasIssue ? -1 : 1;
-        return a.memberName.localeCompare(b.memberName);
-      });
+      .sort((a, b) => a.memberName.localeCompare(b.memberName));
   });
 
   fetch() {
