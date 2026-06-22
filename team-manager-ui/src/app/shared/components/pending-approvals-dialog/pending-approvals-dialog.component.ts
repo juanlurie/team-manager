@@ -4,7 +4,9 @@ import { MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { MatDialog } from '@angular/material/dialog';
 import { AccessRequestsService, AccessRequest } from '../../../core/services/access-requests.service';
+import { ApproveAccessRequestDialogComponent, ApproveAccessRequestDialogResult } from '../../../features/access-requests/approve-access-request-dialog.component';
 
 @Component({
   selector: 'app-pending-approvals-dialog',
@@ -67,6 +69,7 @@ export class PendingApprovalsDialogComponent implements OnInit {
   dialogRef = inject(MatDialogRef<PendingApprovalsDialogComponent>);
   private svc = inject(AccessRequestsService);
   private snackBar = inject(MatSnackBar);
+  private dialog = inject(MatDialog);
 
   requests = signal<AccessRequest[]>([]);
   loading = signal(true);
@@ -92,17 +95,24 @@ export class PendingApprovalsDialogComponent implements OnInit {
   }
 
   approve(req: AccessRequest) {
-    this.busyId.set(req.id);
-    this.svc.approve(req.id).subscribe({
-      next: () => {
-        this.snackBar.open(`${req.name} approved and granted access`, 'Close', { duration: 3000 });
-        this.busyId.set(null);
-        this.load();
-      },
-      error: () => {
-        this.busyId.set(null);
-        this.snackBar.open('Failed to approve', 'Close', { duration: 3000 });
-      }
+    const ref = this.dialog.open(ApproveAccessRequestDialogComponent, {
+      width: '420px',
+      data: { name: req.name, email: req.email }
+    });
+    ref.afterClosed().subscribe((result?: ApproveAccessRequestDialogResult) => {
+      if (!result) return;
+      this.busyId.set(req.id);
+      this.svc.approve(req.id, result.teamMemberId).subscribe({
+        next: () => {
+          this.snackBar.open(`${req.name} approved and granted access`, 'Close', { duration: 3000 });
+          this.busyId.set(null);
+          this.load();
+        },
+        error: () => {
+          this.busyId.set(null);
+          this.snackBar.open('Failed to approve', 'Close', { duration: 3000 });
+        }
+      });
     });
   }
 

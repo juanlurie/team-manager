@@ -598,6 +598,71 @@ interface CodeSegment { text: string; kind: 'plain' | 'resolved' | 'missing'; }
             </div>
           }
 
+          @if (data.action === 'FetchTimesheetApprovals') {
+            <div class="map-block">
+              <mat-form-field appearance="outline" class="full-width">
+                <mat-label>Array Path (optional)</mat-label>
+                <input matInput [(ngModel)]="data.mapping.arrayPath" placeholder="e.g. data.entries">
+                <mat-hint>Leave empty if response is a top-level array</mat-hint>
+              </mat-form-field>
+              <div class="two-col">
+                <mat-form-field appearance="outline">
+                  <mat-label>Member Name Path</mat-label>
+                  <input matInput [(ngModel)]="data.mapping.memberNamePath" placeholder="employeeName">
+                </mat-form-field>
+                <mat-form-field appearance="outline">
+                  <mat-label>Date Path</mat-label>
+                  <input matInput [(ngModel)]="data.mapping.datePath" placeholder="date">
+                </mat-form-field>
+              </div>
+              <div class="two-col">
+                <mat-form-field appearance="outline">
+                  <mat-label>Project Path</mat-label>
+                  <input matInput [(ngModel)]="data.mapping.projectPath" placeholder="project">
+                </mat-form-field>
+                <mat-form-field appearance="outline">
+                  <mat-label>Category Path</mat-label>
+                  <input matInput [(ngModel)]="data.mapping.categoryPath" placeholder="category">
+                </mat-form-field>
+              </div>
+              <div class="two-col">
+                <mat-form-field appearance="outline">
+                  <mat-label>Hours Path</mat-label>
+                  <input matInput [(ngModel)]="data.mapping.hoursPath" placeholder="hours">
+                </mat-form-field>
+                <mat-form-field appearance="outline">
+                  <mat-label>Minutes Path</mat-label>
+                  <input matInput [(ngModel)]="data.mapping.minutesPath" placeholder="minutes">
+                </mat-form-field>
+              </div>
+              <div class="two-col">
+                <mat-form-field appearance="outline">
+                  <mat-label>Billable Path</mat-label>
+                  <input matInput [(ngModel)]="data.mapping.billablePath" placeholder="billable">
+                </mat-form-field>
+                <mat-form-field appearance="outline">
+                  <mat-label>Worked From Path</mat-label>
+                  <input matInput [(ngModel)]="data.mapping.workedFromPath" placeholder="workedFrom">
+                </mat-form-field>
+              </div>
+              <div class="two-col">
+                <mat-form-field appearance="outline">
+                  <mat-label>Description Path</mat-label>
+                  <input matInput [(ngModel)]="data.mapping.descriptionPath" placeholder="description">
+                </mat-form-field>
+                <mat-form-field appearance="outline">
+                  <mat-label>Ticket Number Path</mat-label>
+                  <input matInput [(ngModel)]="data.mapping.ticketNumberPath" placeholder="ticketNumber">
+                </mat-form-field>
+              </div>
+              <mat-form-field appearance="outline" class="full-width">
+                <mat-label>External ID Path (optional)</mat-label>
+                <input matInput [(ngModel)]="data.mapping.externalIdPath" placeholder="entryId">
+                <mat-hint>Path to this entry's ID in the external system, if available</mat-hint>
+              </mat-form-field>
+            </div>
+          }
+
           @if (data.action === 'AiChatWinStory' || data.action === 'GenerateJoke' || data.action === 'GenerateQuizQuestion') {
             <div class="map-block">
               <mat-form-field appearance="outline" class="full-width">
@@ -982,6 +1047,8 @@ export class ApiRequestConfigEditComponent implements OnInit {
     if (action === 'AiChatWinStory') return [...base, 'nominee', 'title', 'description'];
     if (action === 'FetchLeave') return [...base, 'start', 'end', 'teamIds'];
     if (action === 'FetchCalendarEvents') return [...base, 'start', 'end', 'teamIds'];
+    if (action === 'FetchTimesheetApprovals') return [...base, 'start', 'end'];
+    if (action === 'ApproveTimesheet') return [...base, 'memberName', 'start', 'end', 'employeeId', 'totalHours'];
     return base;
   }
 
@@ -1000,7 +1067,7 @@ export class ApiRequestConfigEditComponent implements OnInit {
     'hours', 'minutes', 'billable', 'workedFrom', 'sentiment',
     'description', 'ticketNumber', 'jokeType', 'seed', 'nominee', 'title',
     'employeeId', 'categoryId', 'workedFromLocationId', 'timesheetEntryId',
-    'topic', 'angle', 'recentTopics'
+    'topic', 'angle', 'recentTopics', 'memberName', 'totalHours'
   ]);
   codeFormat = signal<'curl' | 'http'>('curl');
   showTestVars = signal(false);
@@ -1098,7 +1165,7 @@ export class ApiRequestConfigEditComponent implements OnInit {
 
   hasMapping(): boolean {
     return this.data ? ['AddTimesheetEntry', 'GetTimesheetProjects', 'GetTimesheetProjectCategories', 'FetchLeave',
-            'AiChatWinStory', 'GenerateJoke', 'GenerateQuizQuestion', 'FetchCalendarEvents'].includes(this.data.action) : false;
+            'AiChatWinStory', 'GenerateJoke', 'GenerateQuizQuestion', 'FetchCalendarEvents', 'FetchTimesheetApprovals'].includes(this.data.action) : false;
   }
 
   get hasTestResults(): boolean {
@@ -1140,7 +1207,8 @@ export class ApiRequestConfigEditComponent implements OnInit {
       date: today, hours: '1', minutes: '0', billable: 'true',
       workedFrom: '', sentiment: '', description: 'Test', ticketNumber: '', category: '', project: '', id: '',
       seed: 'a1b2c3d4', jokeType: 'dad joke', nominee: 'Jane Doe', title: 'Shipped the new feature',
-      topic: 'space and astronomy', angle: 'an obscure fact about', recentTopics: 'history, sports records'
+      topic: 'space and astronomy', angle: 'an obscure fact about', recentTopics: 'history, sports records',
+      memberName: 'Jane Doe', totalHours: '40'
     };
     return defaults[v] ?? '';
   }

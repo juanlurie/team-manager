@@ -91,18 +91,31 @@ public class AccessRequestsController(AppDbContext db) : ControllerBase
         var reviewerId = User.FindFirst("TMID")?.Value;
         if (string.IsNullOrEmpty(reviewerId)) return Forbid();
 
-        var existing = await db.TeamMembers
-            .FirstOrDefaultAsync(m => m.Email.ToLower() == request.Email.ToLower());
+        TeamMember? existing = null;
+        if (dto?.TeamMemberId is { } linkedMemberId)
+        {
+            existing = await db.TeamMembers.FindAsync(linkedMemberId);
+            if (existing is null) return BadRequest(new { error = "Selected team member not found." });
+        }
+        else
+        {
+            existing = await db.TeamMembers
+                .FirstOrDefaultAsync(m => m.Email.ToLower() == request.Email.ToLower());
+        }
 
         if (existing != null)
         {
-            if (!existing.IsActive)
+            if (dto?.TeamMemberId is not null && !string.Equals(existing.Email, request.Email, StringComparison.OrdinalIgnoreCase))
             {
-                existing.IsActive = true;
-                if (!string.IsNullOrEmpty(request.GoogleSub))
-                    existing.ExternalSubjectId = request.GoogleSub;
-                await db.SaveChangesAsync();
+                var emailTaken = await db.TeamMembers
+                    .AnyAsync(m => m.Id != existing.Id && m.Email.ToLower() == request.Email.ToLower());
+                if (emailTaken)
+                    return BadRequest(new { error = $"Another team member already uses {request.Email}." });
+                existing.Email = request.Email.Trim();
             }
+            existing.IsActive = true;
+            if (!string.IsNullOrEmpty(request.GoogleSub))
+                existing.ExternalSubjectId = request.GoogleSub;
             request.Status = "Approved";
             request.ReviewedByMemberId = Guid.Parse(reviewerId);
             request.ReviewedAt = DateTimeOffset.UtcNow;
@@ -160,5 +173,5 @@ public class AccessRequestsController(AppDbContext db) : ControllerBase
     }
 
     public record SubmitRequestDto(string Email, string Name, string? GoogleSub, string? Reason);
-    public record ApproveDto(string? Notes);
+    public record ApproveDto(string? Notes, Guid? TeamMemberId = null);
 }

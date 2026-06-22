@@ -83,6 +83,8 @@ builder.Services.AddHostedService<WowQuizDuelProgressWorker>();
 builder.Services.AddHostedService<PollProgressWorker>();
 
 builder.Services.AddScoped<ILeaveFetcher, ConfigurableLeaveFetcher>();
+builder.Services.AddScoped<ITimesheetApprovalFetcher, ConfigurableTimesheetApprovalFetcher>();
+builder.Services.AddScoped<ITimesheetApprovalService, TimesheetApprovalService>();
 
 builder.Services.AddHealthChecks()
     .AddDbContextCheck<AppDbContext>();
