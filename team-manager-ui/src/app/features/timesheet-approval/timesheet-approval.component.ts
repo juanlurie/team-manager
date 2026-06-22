@@ -11,8 +11,11 @@ import { TimesheetApprovalService } from '../../core/services/timesheet-approval
 import { CredentialsService } from '../../core/services/credentials.service';
 import { MissingTimesheetWeek, TimesheetApprovalMember } from '../../core/models/timesheet-approval.model';
 
+// Builds the date string from local Y/M/D parts — toISOString() converts to UTC first, which
+// rolls the date back a day for any timezone ahead of UTC (e.g. local midnight on the 1st
+// becomes 22:00 the previous day in UTC), making "today"/"start of month" silently wrong.
 function isoDate(d: Date): string {
-  return d.toISOString().slice(0, 10);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
 function startOfMonth(d: Date): Date {

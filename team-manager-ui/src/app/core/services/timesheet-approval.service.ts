@@ -17,7 +17,7 @@ export class TimesheetApprovalService {
       action: 'ApproveTimesheet',
       label: `${member.memberName} | ${period.start} – ${period.end}`,
       sourceType: 'TimesheetApproval',
-      sourceId: member.teamMemberId ?? member.memberName,
+      sourceId: member.memberName,
       variables: {
         memberName: member.memberName,
         start: period.start,

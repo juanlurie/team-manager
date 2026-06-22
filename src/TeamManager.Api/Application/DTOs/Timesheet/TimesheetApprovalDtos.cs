@@ -15,6 +15,15 @@ public record FetchTimesheetApprovalsRequest(
     Dictionary<string, string>? Credentials = null
 );
 
+// Everything the fetcher pulled from the external system for the period — EmployeeNames is the
+// full roster encountered while walking Teams/Employees, independent of whether each employee
+// logged any entries, so "missing timesheet" checks can be done from the source data itself
+// rather than cross-referencing our own TeamMembers table.
+public record TimesheetFetchResult(
+    IReadOnlyList<ImportedTimesheetEntry> Entries,
+    IReadOnlyList<string> EmployeeNames
+);
+
 public record ImportedTimesheetEntry(
     string MemberName,
     DateOnly Date,
@@ -44,7 +53,6 @@ public record TimesheetApprovalEntryDto(
 );
 
 public record TimesheetApprovalMemberDto(
-    Guid? TeamMemberId,
     string MemberName,
     IReadOnlyList<TimesheetApprovalEntryDto> Entries,
     int ViolationCount

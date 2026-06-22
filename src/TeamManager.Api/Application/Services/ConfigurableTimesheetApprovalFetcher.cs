@@ -15,7 +15,7 @@ public class ConfigurableTimesheetApprovalFetcher : ITimesheetApprovalFetcher
 
     public ConfigurableTimesheetApprovalFetcher(AppDbContext db) => _db = db;
 
-    public async Task<IReadOnlyList<ImportedTimesheetEntry>> FetchAsync(FetchTimesheetApprovalsRequest request)
+    public async Task<TimesheetFetchResult> FetchAsync(FetchTimesheetApprovalsRequest request)
     {
         var config = await _db.ApiRequestConfigs.FirstOrDefaultAsync(c => c.Action == "FetchTimesheetApprovals");
         if (config is null)
@@ -140,11 +140,14 @@ public class ConfigurableTimesheetApprovalFetcher : ITimesheetApprovalFetcher
         }
 
         var entries = new List<ImportedTimesheetEntry>();
+        var employeeNames = new List<string>();
         foreach (var group in topArray.EnumerateArray())
         {
             foreach (var employee in EnumerateLevel(group, mapping.EmployeesPath))
             {
                 var memberName = GetProperty(employee, mapping.MemberNamePath);
+                if (!string.IsNullOrWhiteSpace(memberName))
+                    employeeNames.Add(memberName);
                 foreach (var day in EnumerateLevel(employee, mapping.DaysArrayPath))
                 {
                     foreach (var entry in EnumerateLevel(day, mapping.EntriesPath))
@@ -154,7 +157,7 @@ public class ConfigurableTimesheetApprovalFetcher : ITimesheetApprovalFetcher
                 }
             }
         }
-        return entries;
+        return new TimesheetFetchResult(entries, employeeNames.Distinct().ToList());
     }
 
     // Navigates to the array at `path` (relative to `element`) and yields its items.
