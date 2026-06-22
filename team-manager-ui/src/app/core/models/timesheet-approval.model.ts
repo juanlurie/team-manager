@@ -43,3 +43,25 @@ export interface TimesheetApprovalFetchResult {
   teams: string[];
   memberTeams: Record<string, string>;
 }
+
+export interface QualityEntryInput {
+  date: string;
+  project: string;
+  category: string;
+  hours: number;
+  minutes: number;
+  billable: boolean;
+  description: string | null;
+}
+
+export interface MemberQualityInput {
+  memberName: string;
+  totalHours: number;
+  entries: QualityEntryInput[];
+}
+
+export interface TimesheetQualityAnalysis {
+  configured: boolean;
+  analysis: string | null;
+  status: string;
+}

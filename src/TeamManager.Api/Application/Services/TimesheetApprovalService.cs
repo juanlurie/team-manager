@@ -1,5 +1,11 @@
+using System.Text;
+using System.Text.Json;
+using Microsoft.EntityFrameworkCore;
+using TeamManager.Api.Application.DTOs;
 using TeamManager.Api.Application.DTOs.Timesheet;
 using TeamManager.Api.Application.Services.Interfaces;
+using TeamManager.Api.Domain.Entities;
+using TeamManager.Api.Infrastructure.Data;
 
 namespace TeamManager.Api.Application.Services;
 
@@ -7,7 +13,7 @@ namespace TeamManager.Api.Application.Services;
 // cross-referencing against our own TeamMembers table. The two rosters can legitimately differ
 // (someone removed from this app may still need sign-off there, or vice versa), so matching
 // against our internal list produced wrong/missing results.
-public class TimesheetApprovalService(ITimesheetApprovalFetcher fetcher) : ITimesheetApprovalService
+public class TimesheetApprovalService(ITimesheetApprovalFetcher fetcher, AppDbContext db, IHttpClientFactory httpClientFactory) : ITimesheetApprovalService
 {
     public async Task<TimesheetApprovalFetchResultDto> FetchOutstandingAsync(FetchTimesheetApprovalsRequest request)
     {
@@ -46,6 +52,141 @@ public class TimesheetApprovalService(ITimesheetApprovalFetcher fetcher) : ITime
             teams,
             fetched.EmployeeTeams
         );
+    }
+
+    // Analyzes exactly the people the caller has visible (after whatever team/needs-review
+    // filtering is applied client-side) — reuses the same "AnalyzeTimesheetQuality" config as the
+    // per-member timesheet tab button, since the AI call shape (URL/headers/body-template/Text
+    // Response Path) is identical; only the prompt content differs.
+    public async Task<TimesheetQualityAnalysisDto> AnalyzeQualityAsync(AnalyzeApprovalQualityRequest request)
+    {
+        var config = await db.ApiRequestConfigs.FirstOrDefaultAsync(c => c.Action == "AnalyzeTimesheetQuality" && c.Enabled);
+        if (config is null) return new TimesheetQualityAnalysisDto(false, null, "not-configured");
+        if (request.Members.Count == 0)
+            return new TimesheetQualityAnalysisDto(true, "No one visible to analyze.", "skipped");
+
+        var sb = new StringBuilder();
+        foreach (var member in request.Members.OrderBy(m => m.MemberName))
+        {
+            if (member.Entries.Count == 0)
+            {
+                sb.AppendLine($"{member.MemberName}: {member.TotalHours:0.##}h logged this period, no flagged entries.");
+                continue;
+            }
+            sb.AppendLine($"{member.MemberName}:");
+            foreach (var e in member.Entries.OrderBy(e => e.Date))
+            {
+                var mins = e.Minutes > 0 ? $" {e.Minutes}m" : "";
+                var desc = string.IsNullOrWhiteSpace(e.Description) ? "" : $" — \"{e.Description}\"";
+                sb.AppendLine($"  {e.Date:yyyy-MM-dd} ({e.Date.DayOfWeek}): {e.Hours}h{mins} — {e.Project}/{e.Category}{(e.Billable ? "" : " (non-billable)")}{desc}");
+            }
+        }
+
+        var prompt =
+            "You are reviewing timesheet entries for a group of team members for quality concerns. Look for: " +
+            "days or weeks with unusually low or high logged hours, inconsistent or suspicious patterns " +
+            "(e.g. always exactly the same hours, repeated identical entries, large gaps with no entries on " +
+            "workdays), vague or missing descriptions, or anything else suggesting inaccurate or low-effort " +
+            "time tracking. Organize your findings by person — be concise, a short bullet list per person with " +
+            "concerns, or \"No quality concerns found\" for that person if everything looks reasonable.\n\n" +
+            $"Timesheet data for {request.Members.Count} people:\n{sb}";
+
+        var escapedPrompt = prompt
+            .Replace("\\", "\\\\")
+            .Replace("\"", "\\\"")
+            .Replace("\n", "\\n")
+            .Replace("\r", "");
+
+        var parameters = string.IsNullOrWhiteSpace(config.ParametersJson)
+            ? new Dictionary<string, string>()
+            : JsonSerializer.Deserialize<Dictionary<string, string>>(config.ParametersJson) ?? new();
+        parameters["timesheetData"] = escapedPrompt;
+
+        var headers = string.IsNullOrWhiteSpace(config.HeadersJson)
+            ? new Dictionary<string, string>()
+            : JsonSerializer.Deserialize<Dictionary<string, string>>(config.HeadersJson) ?? new();
+        var mappingOpts = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+        var mapping = string.IsNullOrWhiteSpace(config.MappingJson)
+            ? new MappingConfigDto()
+            : JsonSerializer.Deserialize<MappingConfigDto>(config.MappingJson, mappingOpts) ?? new();
+
+        var publicConfigVars = await ConfigVariableResolver.LoadPublicAsync(db);
+        var allConfigVars = await ConfigVariableResolver.LoadAsync(db);
+
+        string ResolveForStorage(string template)
+        {
+            var result = ConfigVariableResolver.Apply(template, publicConfigVars);
+            foreach (var (k, v) in parameters) result = result.Replace($"{{{k}}}", v);
+            return result;
+        }
+
+        string ResolveForExecution(string template)
+        {
+            var result = ConfigVariableResolver.Apply(template, allConfigVars);
+            foreach (var (k, v) in parameters) result = result.Replace($"{{{k}}}", v);
+            return result;
+        }
+
+        // Every outbound integration call must be visible in the Sync Queue — log it before
+        // executing, then update its status/response once the call completes.
+        var evt = new ApiSyncEvent
+        {
+            Action = config.Action,
+            ConfigName = config.Name,
+            Label = $"Timesheet Quality — {request.Members.Count} people (approval screen)",
+            SourceType = "TimesheetApprovalQualityAnalysis",
+            HttpMethod = config.Method.ToUpper(),
+            ResolvedUrl = ResolveForStorage(config.Url),
+            ResolvedHeadersJson = JsonSerializer.Serialize(headers.ToDictionary(kvp => kvp.Key, kvp => ResolveForStorage(kvp.Value))),
+            ResolvedBody = ResolveForStorage(config.BodyTemplate ?? ""),
+            BodyFormat = config.BodyFormat ?? "json",
+            Status = "pending"
+        };
+        db.ApiSyncEvents.Add(evt);
+        await db.SaveChangesAsync();
+
+        var executionHeaders = headers.ToDictionary(kvp => kvp.Key, kvp => ResolveForExecution(kvp.Value));
+        var executionUrl = ResolveForExecution(config.Url);
+        var executionBody = ResolveForExecution(config.BodyTemplate ?? "");
+
+        string? analysis = null;
+        try
+        {
+            using var client = httpClientFactory.CreateClient();
+            client.Timeout = TimeSpan.FromSeconds(30);
+            foreach (var (k, v) in executionHeaders)
+                client.DefaultRequestHeaders.TryAddWithoutValidation(k, v);
+
+            var mediaType = (config.BodyFormat ?? "json") == "urlencoded"
+                ? "application/x-www-form-urlencoded"
+                : "application/json";
+            var response = await client.PostAsync(executionUrl, new StringContent(executionBody, Encoding.UTF8, mediaType));
+            var responseBody = await response.Content.ReadAsStringAsync();
+
+            evt.ResponseStatus = (int)response.StatusCode;
+            evt.ResponseBody = responseBody;
+            evt.SentAt = DateTimeOffset.UtcNow;
+
+            if (response.IsSuccessStatusCode)
+            {
+                evt.Status = "sent";
+                analysis = WinOfTheWeekService.ExtractTextAtPath(responseBody, mapping.TextResponsePath)?.Trim();
+            }
+            else
+            {
+                evt.Status = "failed";
+            }
+        }
+        catch (Exception ex)
+        {
+            evt.Status = "failed";
+            evt.ResponseBody = ex.Message;
+            evt.SentAt = DateTimeOffset.UtcNow;
+        }
+
+        await db.SaveChangesAsync();
+
+        return new TimesheetQualityAnalysisDto(true, analysis, evt.Status);
     }
 
     // For each Monday-Sunday week overlapping the requested range, totals each employee's hours
