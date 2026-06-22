@@ -11,10 +11,6 @@ namespace TeamManager.Api.Application.Services;
 
 public class ConfigurableTimesheetApprovalFetcher : ITimesheetApprovalFetcher
 {
-    // Defensive cap on what gets persisted to the sync event — these payloads can be huge
-    // (every team/employee/day/entry in the period) and the queue only needs enough to debug.
-    private const int MaxStoredResponseLength = 200_000;
-
     private readonly AppDbContext _db;
 
     public ConfigurableTimesheetApprovalFetcher(AppDbContext db) => _db = db;
@@ -93,7 +89,9 @@ public class ConfigurableTimesheetApprovalFetcher : ITimesheetApprovalFetcher
 
             json = await response.Content.ReadAsStringAsync();
             evt.ResponseStatus = (int)response.StatusCode;
-            evt.ResponseBody = Truncate(json);
+            // Stored in full (not truncated) — the Sync Queue UI offers a download for events
+            // too large to read comfortably inline rather than discarding data here.
+            evt.ResponseBody = json;
             evt.SentAt = DateTimeOffset.UtcNow;
 
             if (!response.IsSuccessStatusCode)
@@ -215,9 +213,6 @@ public class ConfigurableTimesheetApprovalFetcher : ITimesheetApprovalFetcher
             .Replace("{start}", start)
             .Replace("{end}", end);
     }
-
-    private static string? Truncate(string s) =>
-        s.Length > MaxStoredResponseLength ? s[..MaxStoredResponseLength] + "…(truncated)" : s;
 
     private static string GetProperty(JsonElement element, string path)
     {
