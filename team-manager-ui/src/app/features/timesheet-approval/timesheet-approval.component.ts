@@ -268,16 +268,21 @@ interface DayGroup {
                     <span class="day-total">{{ dayTotalHours(g) }}h</span>
                   </div>
                   @for (e of g.entries; track e.project + e.category) {
-                    <div class="entry-row">
-                      <span class="entry-project">{{ e.project }} — {{ e.category }}</span>
-                      <span class="entry-hours">{{ e.hours }}h{{ e.minutes > 0 ? ' ' + e.minutes + 'm' : '' }}</span>
-                      <mat-icon class="billable-icon" [class.billable]="e.billable"
-                                [matTooltip]="e.billable ? 'Billable' : 'Non-billable'">
-                        {{ e.billable ? 'attach_money' : 'money_off' }}
-                      </mat-icon>
-                      <mat-icon class="location-icon" [matTooltip]="e.workedFrom || 'Unknown location'">
-                        {{ workedFromIcon(e.workedFrom) }}
-                      </mat-icon>
+                    <div class="entry-block">
+                      <div class="entry-row">
+                        <span class="entry-project">{{ e.project }} — {{ e.category }}</span>
+                        <span class="entry-hours">{{ e.hours }}h{{ e.minutes > 0 ? ' ' + e.minutes + 'm' : '' }}</span>
+                        <mat-icon class="billable-icon" [class.billable]="e.billable"
+                                  [matTooltip]="e.billable ? 'Billable' : 'Non-billable'">
+                          {{ e.billable ? 'attach_money' : 'money_off' }}
+                        </mat-icon>
+                        <mat-icon class="location-icon" [matTooltip]="e.workedFrom || 'Unknown location'">
+                          {{ workedFromIcon(e.workedFrom) }}
+                        </mat-icon>
+                      </div>
+                      @if (e.description) {
+                        <div class="entry-description">{{ e.description }}</div>
+                      }
                     </div>
                   }
                   @if (g.violations.length > 0) {
@@ -383,11 +388,13 @@ interface DayGroup {
     .day-header { display: flex; align-items: center; justify-content: space-between; font-size: 0.82rem; font-weight: 600; margin-bottom: 4px; }
     .entry-date { opacity: 0.7; }
     .day-total { opacity: 0.7; }
-    .entry-row { display: flex; align-items: center; gap: 10px; font-size: 0.8rem; padding: 3px 0; }
+    .entry-block { padding: 3px 0; }
+    .entry-row { display: flex; align-items: center; gap: 10px; font-size: 0.8rem; }
     .entry-project { flex: 1; opacity: 0.85; }
     .entry-hours { font-weight: 600; }
     .billable-icon, .location-icon { font-size: 16px; width: 16px; height: 16px; opacity: 0.4; }
     .billable-icon.billable { opacity: 1; color: #4caf50; }
+    .entry-description { font-size: 0.72rem; opacity: 0.5; margin-top: 2px; padding-left: 2px; font-style: italic; }
     .entry-violations { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
     .violation-chip { display: inline-flex; align-items: center; gap: 3px; font-size: 0.68rem; padding: 2px 8px; border-radius: 10px; background: rgba(255,152,0,0.15); color: #ffb74d; }
     .violation-chip mat-icon { font-size: 12px; width: 12px; height: 12px; }

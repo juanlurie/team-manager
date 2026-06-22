@@ -256,8 +256,19 @@ public class ConfigurableTimesheetApprovalFetcher : ITimesheetApprovalFetcher
         {
             if (current.ValueKind == JsonValueKind.Object)
             {
-                if (current.TryGetProperty(segment, out var next)) current = next;
-                else return default;
+                if (current.TryGetProperty(segment, out var next))
+                {
+                    current = next;
+                    continue;
+                }
+
+                // External APIs are inconsistent about casing (e.g. "Description" vs the
+                // mapping's default "description") — fall back to a case-insensitive match
+                // rather than silently resolving to an empty value.
+                var match = current.EnumerateObject()
+                    .FirstOrDefault(p => string.Equals(p.Name, segment, StringComparison.OrdinalIgnoreCase));
+                if (match.Value.ValueKind == JsonValueKind.Undefined) return default;
+                current = match.Value;
             }
             else if (current.ValueKind == JsonValueKind.Array)
             {
