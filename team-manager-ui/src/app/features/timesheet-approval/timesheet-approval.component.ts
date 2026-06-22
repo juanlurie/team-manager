@@ -26,6 +26,14 @@ function endOfMonth(d: Date): Date {
   return new Date(d.getFullYear(), d.getMonth() + 1, 0);
 }
 
+interface PersonSummary {
+  memberName: string;
+  totalHours: number;
+  missingWeeks: number;
+  violationCount: number;
+  canReview: boolean;
+}
+
 @Component({
   selector: 'app-timesheet-approval',
   standalone: true,
@@ -64,10 +72,20 @@ function endOfMonth(d: Date): Date {
         } @else if (fetched()) {
           @if (weeklySummary().length > 0) {
             <div class="missing-section">
-              <div class="missing-title"><mat-icon>event_busy</mat-icon> Weekly hours summary</div>
+              <div class="missing-title"><mat-icon>calendar_view_week</mat-icon> Weekly summary</div>
               @for (w of weeklySummary(); track w.weekStart) {
-                <div class="missing-week">
-                  <div class="missing-week-range">{{ w.weekStart | date:'d MMM' }} – {{ w.weekEnd | date:'d MMM' }}</div>
+                <div class="week-row" (click)="toggleWeek(w.weekStart)">
+                  <mat-icon class="week-status" [class.good]="weekIsGood(w)">
+                    {{ weekIsGood(w) ? 'check_circle' : 'error' }}
+                  </mat-icon>
+                  <span class="missing-week-range">{{ w.weekStart | date:'d MMM' }} – {{ w.weekEnd | date:'d MMM' }}</span>
+                  <span class="week-status-label">
+                    {{ weekIsGood(w) ? 'Everyone logged' : (w.missingMemberNames.length + ' missing') }}
+                  </span>
+                  <span style="flex:1"></span>
+                  <mat-icon class="expand-icon">{{ expandedWeek() === w.weekStart ? 'expand_less' : 'expand_more' }}</mat-icon>
+                </div>
+                @if (expandedWeek() === w.weekStart) {
                   <div class="missing-names">
                     @for (mh of w.memberHours; track mh.memberName) {
                       <span class="missing-chip" [class.has-hours]="!w.missingMemberNames.includes(mh.memberName)">
@@ -75,41 +93,51 @@ function endOfMonth(d: Date): Date {
                       </span>
                     }
                   </div>
-                </div>
+                }
               }
             </div>
           }
 
-          @if (members().length === 0 && weeklySummary().length === 0) {
+          @if (peopleSummary().length === 0) {
             <div class="empty-state">
               <mat-icon class="empty-icon">task_alt</mat-icon>
               <div class="empty-title">All caught up</div>
               <div class="empty-sub">No outstanding timesheets need attention for this period</div>
             </div>
-          } @else if (members().length > 0) {
+          } @else {
           <div class="summary-row">
             <div class="summary-card">
               <span class="summary-num">{{ members().length }}</span>
-              <span class="summary-label">People</span>
+              <span class="summary-label">Need review</span>
             </div>
             <div class="summary-card">
               <span class="summary-num">{{ totalViolations() }}</span>
               <span class="summary-label">Flagged issues</span>
             </div>
             <div style="flex:1"></div>
-            <button mat-raised-button color="primary" (click)="startReview()">
-              <mat-icon>play_arrow</mat-icon> Start Review
-            </button>
+            @if (members().length > 0) {
+              <button mat-raised-button color="primary" (click)="startReview()">
+                <mat-icon>play_arrow</mat-icon> Start Review
+              </button>
+            }
           </div>
 
           <div class="member-list">
-            @for (m of members(); track m.memberName) {
-              <div class="member-row">
+            @for (p of peopleSummary(); track p.memberName) {
+              <div class="member-row" [class.has-issue]="p.violationCount > 0 || p.missingWeeks > 0">
                 <div class="member-info">
-                  <span class="member-name">{{ m.memberName }}</span>
-                  <span class="violation-badge">{{ m.violationCount }} issue{{ m.violationCount !== 1 ? 's' : '' }}</span>
+                  <span class="member-name">{{ p.memberName }}</span>
+                  <span class="member-hours">{{ p.totalHours }}h logged</span>
+                  @if (p.violationCount > 0) {
+                    <span class="violation-badge">{{ p.violationCount }} issue{{ p.violationCount !== 1 ? 's' : '' }}</span>
+                  }
+                  @if (p.missingWeeks > 0) {
+                    <span class="missing-badge">{{ p.missingWeeks }} week{{ p.missingWeeks !== 1 ? 's' : '' }} missing</span>
+                  }
                 </div>
-                <button mat-button color="primary" (click)="startReview(m)">Review</button>
+                @if (p.canReview) {
+                  <button mat-button color="primary" (click)="startReviewByName(p.memberName)">Review</button>
+                }
               </div>
             }
           </div>
@@ -175,12 +203,17 @@ function endOfMonth(d: Date): Date {
     .empty-title { font-weight: 600; font-size: 1rem; }
     .empty-sub { font-size: 0.8rem; margin-top: 4px; }
 
-    .missing-section { border-radius: 10px; border: 1px solid rgba(239,83,80,0.2); background: rgba(239,83,80,0.04); padding: 12px 14px; margin-bottom: 16px; }
-    .missing-title { display: flex; align-items: center; gap: 6px; font-size: 0.8rem; font-weight: 700; color: #ef9a9a; margin-bottom: 8px; }
+    .missing-section { border-radius: 10px; border: 1px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.02); padding: 8px 14px; margin-bottom: 16px; }
+    .missing-title { display: flex; align-items: center; gap: 6px; font-size: 0.8rem; font-weight: 700; opacity: 0.6; margin: 4px 0 4px; }
     .missing-title mat-icon { font-size: 16px; width: 16px; height: 16px; }
-    .missing-week { display: flex; align-items: baseline; gap: 10px; padding: 5px 0; flex-wrap: wrap; }
-    .missing-week-range { font-size: 0.75rem; font-weight: 600; opacity: 0.55; min-width: 110px; }
-    .missing-names { display: flex; flex-wrap: wrap; gap: 6px; }
+    .week-row { display: flex; align-items: center; gap: 10px; padding: 7px 2px; cursor: pointer; border-top: 1px solid rgba(255,255,255,0.05); }
+    .week-row:first-of-type { border-top: none; }
+    .week-status { font-size: 17px; width: 17px; height: 17px; color: #ef9a9a; }
+    .week-status.good { color: #4caf50; }
+    .missing-week-range { font-size: 0.78rem; font-weight: 600; opacity: 0.75; min-width: 110px; }
+    .week-status-label { font-size: 0.75rem; opacity: 0.55; }
+    .expand-icon { font-size: 18px; width: 18px; height: 18px; opacity: 0.4; }
+    .missing-names { display: flex; flex-wrap: wrap; gap: 6px; padding: 4px 2px 10px; }
     .missing-chip { font-size: 0.72rem; padding: 2px 9px; border-radius: 10px; background: rgba(239,83,80,0.12); color: #ef9a9a; border: 1px solid rgba(239,83,80,0.25); }
     .missing-chip.has-hours { background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.6); border-color: rgba(255,255,255,0.1); }
 
@@ -191,9 +224,12 @@ function endOfMonth(d: Date): Date {
 
     .member-list { display: flex; flex-direction: column; gap: 6px; }
     .member-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.02); }
-    .member-info { display: flex; align-items: center; gap: 10px; }
+    .member-row.has-issue { border-color: rgba(255,152,0,0.25); }
+    .member-info { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
     .member-name { font-weight: 600; font-size: 0.9rem; }
+    .member-hours { font-size: 0.75rem; opacity: 0.5; }
     .violation-badge { font-size: 0.7rem; font-weight: 600; padding: 2px 9px; border-radius: 10px; background: rgba(255,152,0,0.15); color: #ffb74d; border: 1px solid rgba(255,152,0,0.3); }
+    .missing-badge { font-size: 0.7rem; font-weight: 600; padding: 2px 9px; border-radius: 10px; background: rgba(239,83,80,0.15); color: #ef9a9a; border: 1px solid rgba(239,83,80,0.3); }
 
     .review-progress { font-size: 0.75rem; opacity: 0.5; margin-bottom: 8px; }
     .review-card { border-radius: 12px; border: 1px solid rgba(100,181,246,0.25); background: rgba(255,255,255,0.02); padding: 18px; }
@@ -228,6 +264,7 @@ export class TimesheetApprovalComponent {
   members = signal<TimesheetApprovalMember[]>([]);
   weeklySummary = signal<WeeklyTimesheetSummary[]>([]);
   approving = signal(false);
+  expandedWeek = signal<string | null>(null);
 
   reviewing = signal<number | null>(null);
   currentMember = computed(() => {
@@ -236,6 +273,34 @@ export class TimesheetApprovalComponent {
   });
 
   totalViolations = computed(() => this.members().reduce((sum, m) => sum + m.violationCount, 0));
+
+  // Single combined roster — everyone who showed up in the weekly summary or has violations to
+  // review, sorted so anyone with an issue (flagged entries or a missing week) floats to the top.
+  peopleSummary = computed<PersonSummary[]>(() => {
+    const weeks = this.weeklySummary();
+    const members = this.members();
+    const names = new Set<string>();
+    for (const w of weeks) for (const mh of w.memberHours) names.add(mh.memberName);
+    for (const m of members) names.add(m.memberName);
+
+    return Array.from(names)
+      .map(name => {
+        const member = members.find(m => m.memberName === name);
+        return {
+          memberName: name,
+          totalHours: weeks.reduce((sum, w) => sum + (w.memberHours.find(mh => mh.memberName === name)?.hours ?? 0), 0),
+          missingWeeks: weeks.filter(w => w.missingMemberNames.includes(name)).length,
+          violationCount: member?.violationCount ?? 0,
+          canReview: !!member
+        };
+      })
+      .sort((a, b) => {
+        const aHasIssue = a.violationCount > 0 || a.missingWeeks > 0;
+        const bHasIssue = b.violationCount > 0 || b.missingWeeks > 0;
+        if (aHasIssue !== bHasIssue) return aHasIssue ? -1 : 1;
+        return a.memberName.localeCompare(b.memberName);
+      });
+  });
 
   fetch() {
     this.loading.set(true);
@@ -263,6 +328,19 @@ export class TimesheetApprovalComponent {
   startReview(member?: TimesheetApprovalMember) {
     const idx = member ? this.members().indexOf(member) : 0;
     this.reviewing.set(idx < 0 ? 0 : idx);
+  }
+
+  startReviewByName(memberName: string) {
+    const member = this.members().find(m => m.memberName === memberName);
+    if (member) this.startReview(member);
+  }
+
+  weekIsGood(w: WeeklyTimesheetSummary): boolean {
+    return w.missingMemberNames.length === 0;
+  }
+
+  toggleWeek(weekStart: string) {
+    this.expandedWeek.set(this.expandedWeek() === weekStart ? null : weekStart);
   }
 
   skip() {
