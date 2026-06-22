@@ -37,31 +37,29 @@ public class TimesheetApprovalService(ITimesheetApprovalFetcher fetcher) : ITime
             ));
         }
 
-        var missingByWeek = BuildMissingByWeek(entries, fetched.EmployeeNames, request);
+        var weeklySummary = BuildWeeklySummary(entries, fetched.EmployeeNames, request);
 
         return new TimesheetApprovalFetchResultDto(
             result.OrderBy(m => m.MemberName).ToList(),
-            missingByWeek
+            weeklySummary
         );
     }
 
-    // For each Monday-Sunday week overlapping the requested range, flags employees (per the
-    // external system's own roster) who logged zero hours anywhere in that week. Weeks (or the
+    // For each Monday-Sunday week overlapping the requested range, totals each employee's hours
+    // (per the external system's own roster) for that week — 0 means missing. Weeks (or the
     // trailing part of one) that haven't happened yet are skipped — nothing to expect there.
     // Doesn't account for leave/public holidays, so someone fully on leave for a week will still
-    // show up as missing.
-    private static IReadOnlyList<MissingTimesheetWeekDto> BuildMissingByWeek(
+    // show 0h.
+    private static IReadOnlyList<WeeklyTimesheetSummaryDto> BuildWeeklySummary(
         IReadOnlyList<ImportedTimesheetEntry> entries, IReadOnlyList<string> employeeNames, FetchTimesheetApprovalsRequest request)
     {
         if (!DateOnly.TryParse(request.Start, out var rangeStart) || !DateOnly.TryParse(request.End, out var rangeEnd))
             return [];
 
         var today = DateOnly.FromDateTime(DateTimeOffset.UtcNow.Date);
-        var loggedByNameLower = entries
-            .GroupBy(e => e.MemberName.ToLower())
-            .ToDictionary(g => g.Key, g => g.Select(e => e.Date).ToHashSet());
+        var entriesByNameLower = entries.GroupBy(e => e.MemberName.ToLower()).ToDictionary(g => g.Key, g => g.ToList());
 
-        var weeks = new List<MissingTimesheetWeekDto>();
+        var weeks = new List<WeeklyTimesheetSummaryDto>();
         var daysSinceMonday = rangeStart.DayOfWeek == DayOfWeek.Sunday ? 6 : (int)rangeStart.DayOfWeek - 1;
         var cursor = rangeStart.AddDays(-daysSinceMonday);
 
@@ -76,23 +74,26 @@ public class TimesheetApprovalService(ITimesheetApprovalFetcher fetcher) : ITime
             if (clippedEnd > today) clippedEnd = today;
             if (clippedStart > clippedEnd) continue; // entirely in the future
 
-            var weekdays = Enumerable.Range(0, clippedEnd.DayNumber - clippedStart.DayNumber + 1)
+            var hasWeekday = Enumerable.Range(0, clippedEnd.DayNumber - clippedStart.DayNumber + 1)
                 .Select(clippedStart.AddDays)
-                .Where(d => d.DayOfWeek is not DayOfWeek.Saturday and not DayOfWeek.Sunday)
-                .ToList();
-            if (weekdays.Count == 0) continue;
+                .Any(d => d.DayOfWeek is not DayOfWeek.Saturday and not DayOfWeek.Sunday);
+            if (!hasWeekday) continue;
 
-            var missing = employeeNames
-                .Where(name =>
+            var memberHours = employeeNames
+                .Select(name =>
                 {
-                    var logged = loggedByNameLower.GetValueOrDefault(name.ToLower());
-                    return logged is null || !weekdays.Any(logged.Contains);
+                    var hours = entriesByNameLower.GetValueOrDefault(name.ToLower())?
+                        .Where(e => e.Date >= clippedStart && e.Date <= clippedEnd)
+                        .Sum(e => e.Hours + e.Minutes / 60m) ?? 0m;
+                    return new MemberWeekHoursDto(name, hours);
                 })
-                .OrderBy(name => name)
+                .OrderBy(m => m.Hours)
+                .ThenBy(m => m.MemberName)
                 .ToList();
 
-            if (missing.Count > 0)
-                weeks.Add(new MissingTimesheetWeekDto(weekStart, weekEnd, missing));
+            var missing = memberHours.Where(m => m.Hours == 0).Select(m => m.MemberName).ToList();
+
+            weeks.Add(new WeeklyTimesheetSummaryDto(weekStart, weekEnd, memberHours, missing));
         }
 
         return weeks;
