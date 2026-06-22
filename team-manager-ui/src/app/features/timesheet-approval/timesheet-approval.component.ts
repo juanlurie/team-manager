@@ -7,7 +7,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
-import { MatSelectModule } from '@angular/material/select';
+import { MatAutocompleteModule } from '@angular/material/autocomplete';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatCheckboxModule } from '@angular/material/checkbox';
@@ -62,7 +62,7 @@ interface DayGroup {
   selector: 'app-timesheet-approval',
   standalone: true,
   imports: [CommonModule, FormsModule, MatIconModule, MatButtonModule, MatFormFieldModule,
-    MatInputModule, MatSelectModule, MatSnackBarModule, MatProgressSpinnerModule, MatCheckboxModule, MatTooltipModule],
+    MatInputModule, MatAutocompleteModule, MatSnackBarModule, MatProgressSpinnerModule, MatCheckboxModule, MatTooltipModule],
   template: `
     <div class="page">
       <div class="page-header">
@@ -160,7 +160,7 @@ interface DayGroup {
               <span class="summary-num">{{ filteredMembers().length }}</span>
               <span class="summary-label">Need review</span>
             </div>
-            <div class="summary-card">
+            <div class="summary-card clickable" (click)="showIssuesBreakdown.set(!showIssuesBreakdown())">
               <span class="summary-num">{{ totalViolations() }}</span>
               <span class="summary-label">Flagged issues</span>
             </div>
@@ -171,6 +171,21 @@ interface DayGroup {
               </button>
             }
           </div>
+
+          @if (showIssuesBreakdown() && issuesByPerson().length > 0) {
+            <div class="issues-breakdown">
+              @for (p of issuesByPerson(); track p.memberName) {
+                <div class="issues-person">
+                  <div class="issues-person-name">{{ p.memberName }}</div>
+                  <div class="entry-violations">
+                    @for (v of p.violations; track v) {
+                      <span class="violation-chip"><mat-icon>warning</mat-icon>{{ v }}</span>
+                    }
+                  </div>
+                </div>
+              }
+            </div>
+          }
 
           <mat-checkbox class="needs-review-toggle" [checked]="onlyNeedsReview()" (change)="onlyNeedsReview.set(!onlyNeedsReview())">
             Only show people needing review
@@ -214,11 +229,13 @@ interface DayGroup {
             <span style="flex:1"></span>
             <mat-form-field appearance="outline" class="jump-field">
               <mat-label>Jump to</mat-label>
-              <mat-select [value]="reviewing()" (selectionChange)="jumpTo($event.value)">
-                @for (p of filteredMembers(); track p.memberName; let i = $index) {
-                  <mat-option [value]="i">{{ p.memberName }}</mat-option>
+              <input matInput [ngModel]="jumpQuery()" (ngModelChange)="jumpQuery.set($event)"
+                     [matAutocomplete]="jumpAuto" placeholder="Search by name">
+              <mat-autocomplete #jumpAuto="matAutocomplete" (optionSelected)="jumpToName($event.option.value)">
+                @for (p of filteredJumpOptions(); track p.memberName) {
+                  <mat-option [value]="p.memberName">{{ p.memberName }}</mat-option>
                 }
-              </mat-select>
+              </mat-autocomplete>
             </mat-form-field>
           </div>
           <div class="review-card">
@@ -317,8 +334,13 @@ interface DayGroup {
 
     .summary-row { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
     .summary-card { padding: 10px 18px; border-radius: 10px; background: rgba(100,181,246,0.08); border: 1px solid rgba(100,181,246,0.2); text-align: center; }
+    .summary-card.clickable { cursor: pointer; }
+    .summary-card.clickable:hover { background: rgba(100,181,246,0.14); }
     .summary-num { display: block; font-size: 1.3rem; font-weight: 700; color: #64b5f6; }
     .summary-label { font-size: 0.7rem; opacity: 0.6; }
+
+    .issues-breakdown { display: flex; flex-direction: column; gap: 10px; padding: 12px 14px; border-radius: 10px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.08); margin-bottom: 16px; }
+    .issues-person-name { font-weight: 600; font-size: 0.85rem; margin-bottom: 4px; }
 
     .needs-review-toggle { display: block; font-size: 0.78rem; opacity: 0.7; margin-bottom: 10px; }
     .member-list { display: flex; flex-direction: column; gap: 6px; }
@@ -395,6 +417,25 @@ export class TimesheetApprovalComponent {
   });
 
   totalViolations = computed(() => this.filteredMembers().reduce((sum, m) => sum + m.violationCount, 0));
+
+  // Same daily-violation-message repetition as dayGroups() — dedupe per person so the "Flagged
+  // issues" tile expands into one chip per distinct issue rather than one per affected entry.
+  showIssuesBreakdown = signal(false);
+  issuesByPerson = computed(() =>
+    this.filteredMembers()
+      .map(m => ({
+        memberName: m.memberName,
+        violations: [...new Set(m.entries.flatMap(e => e.violations))]
+      }))
+      .filter(p => p.violations.length > 0));
+
+  jumpQuery = signal('');
+  filteredJumpOptions = computed(() => {
+    const q = this.jumpQuery().trim().toLowerCase();
+    const members = this.filteredMembers();
+    if (!q) return members.slice(0, 20);
+    return members.filter(m => m.memberName.toLowerCase().includes(q)).slice(0, 20);
+  });
 
   selectedDays = signal<Set<string>>(new Set());
 
@@ -535,8 +576,10 @@ export class TimesheetApprovalComponent {
     this.reviewing.set(idx - 1);
   }
 
-  jumpTo(index: number) {
-    this.reviewing.set(index);
+  jumpToName(memberName: string) {
+    const idx = this.filteredMembers().findIndex(m => m.memberName === memberName);
+    if (idx >= 0) this.reviewing.set(idx);
+    this.jumpQuery.set('');
   }
 
   skip() {
