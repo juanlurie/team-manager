@@ -27,6 +27,19 @@ function endOfMonth(d: Date): Date {
   return new Date(d.getFullYear(), d.getMonth() + 1, 0);
 }
 
+const EXCLUDED_TEAMS_KEY = 'timesheetApproval.excludedTeams';
+
+// Persisted across fetches/sessions — once you've excluded a team you don't want to keep
+// re-unchecking it every time you come back to this screen.
+function loadSavedExcludedTeams(): Set<string> {
+  try {
+    const raw = localStorage.getItem(EXCLUDED_TEAMS_KEY);
+    return raw ? new Set(JSON.parse(raw)) : new Set();
+  } catch {
+    return new Set();
+  }
+}
+
 interface PersonSummary {
   memberName: string;
   totalHours: number;
@@ -67,12 +80,19 @@ interface PersonSummary {
         </div>
 
         @if (teams().length > 1) {
-          <div class="team-filter-row">
-            <span class="team-filter-label">Teams:</span>
-            @for (t of teams(); track t) {
-              <mat-checkbox class="team-checkbox" [checked]="!excludedTeams().has(t)" (change)="toggleTeam(t)">
-                {{ t }}
-              </mat-checkbox>
+          <div class="team-filter-section">
+            <div class="team-filter-header" (click)="teamsExpanded.set(!teamsExpanded())">
+              <span class="team-filter-label">Teams ({{ teams().length - excludedTeams().size }} of {{ teams().length }} shown)</span>
+              <mat-icon class="expand-icon">{{ teamsExpanded() ? 'expand_less' : 'expand_more' }}</mat-icon>
+            </div>
+            @if (teamsExpanded()) {
+              <div class="team-filter-row">
+                @for (t of teams(); track t) {
+                  <mat-checkbox class="team-checkbox" [checked]="!excludedTeams().has(t)" (change)="toggleTeam(t)">
+                    {{ t }}
+                  </mat-checkbox>
+                }
+              </div>
             }
           </div>
         }
@@ -215,8 +235,10 @@ interface PersonSummary {
     .filter-bar { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
     .date-field { width: 160px; }
 
-    .team-filter-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; padding: 6px 12px; border-radius: 8px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); }
-    .team-filter-label { font-size: 0.75rem; opacity: 0.5; font-weight: 600; }
+    .team-filter-section { border-radius: 8px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); margin-bottom: 16px; }
+    .team-filter-header { display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; cursor: pointer; }
+    .team-filter-label { font-size: 0.75rem; opacity: 0.6; font-weight: 600; }
+    .team-filter-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 4px 12px 10px; }
     .team-checkbox { font-size: 0.82rem; }
 
     .loading { display: flex; justify-content: center; padding: 48px; }
@@ -293,10 +315,11 @@ export class TimesheetApprovalComponent {
   weeklySummary = signal<WeeklyTimesheetSummary[]>([]);
   teams = signal<string[]>([]);
   memberTeams = signal<Record<string, string>>({});
-  excludedTeams = signal<Set<string>>(new Set());
+  excludedTeams = signal<Set<string>>(loadSavedExcludedTeams());
+  teamsExpanded = signal(false);
   approving = signal(false);
   expandedWeek = signal<string | null>(null);
-  showLoggedChips = signal(true);
+  showLoggedChips = signal(false);
 
   // Members/weeks with anyone from an excluded team dropped out — filtering happens client-side
   // against the already-fetched data rather than re-hitting the external system per toggle.
@@ -350,6 +373,7 @@ export class TimesheetApprovalComponent {
     const next = new Set(this.excludedTeams());
     if (next.has(team)) next.delete(team); else next.add(team);
     this.excludedTeams.set(next);
+    localStorage.setItem(EXCLUDED_TEAMS_KEY, JSON.stringify([...next]));
   }
 
   fetch() {
@@ -366,7 +390,6 @@ export class TimesheetApprovalComponent {
         this.weeklySummary.set(result.weeklySummary);
         this.teams.set(result.teams);
         this.memberTeams.set(result.memberTeams);
-        this.excludedTeams.set(new Set());
         this.loading.set(false);
         this.fetched.set(true);
       },
