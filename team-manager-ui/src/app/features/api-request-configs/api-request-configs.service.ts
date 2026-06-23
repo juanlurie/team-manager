@@ -100,6 +100,9 @@ export const REQUEST_ACTIONS = [
     topic: 'space and astronomy', angle: 'an obscure fact about', recentTopics: 'history, sports records',
     difficulty: '8'
   } },
+  { value: 'GenerateWordleWord', label: 'Generate Wordle Word', icon: 'abc', vars: {
+    wordLength: '5', recentWords: 'GRASS, JUICE, SOLID'
+  } },
   { value: 'FetchTimesheetApprovals', label: 'Fetch Timesheet Approvals', icon: 'fact_check', vars: { start: '', end: '' } },
   { value: 'ApproveTimesheet', label: 'Approve Timesheet', icon: 'task_alt', vars: {
     memberName: 'Jane Doe', start: '', end: '', employeeId: '', totalHours: '40'
