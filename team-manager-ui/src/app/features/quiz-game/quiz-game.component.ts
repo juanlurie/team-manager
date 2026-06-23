@@ -120,6 +120,11 @@ export class CreateQuizGameDialogComponent {
     .option-btn { padding:14px;height:auto;white-space:normal;text-align:left;font-size:0.9rem }
     .option-btn.option-selected { border-color:#64b5f6;background:rgba(100,181,246,0.12);color:#64b5f6 }
     .option-btn:disabled { opacity:0.7 }
+    .option-btn.flash-correct { animation:millionaire-flash-correct 0.4s ease-in-out 3; border-color:#4caf50 !important; color:#4caf50 !important; background:rgba(76,175,80,0.18) !important; opacity:1 !important }
+    .option-btn.flash-wrong { animation:millionaire-flash-wrong 0.4s ease-in-out 3; border-color:#f44336 !important; color:#f44336 !important; background:rgba(244,67,54,0.18) !important; opacity:1 !important }
+    .option-btn.reveal-correct-static { border-color:#4caf50 !important; color:#4caf50 !important; background:rgba(76,175,80,0.18) !important; opacity:1 !important }
+    @keyframes millionaire-flash-correct { 0%,100% { background:rgba(76,175,80,0.18) } 50% { background:rgba(76,175,80,0.5) } }
+    @keyframes millionaire-flash-wrong { 0%,100% { background:rgba(244,67,54,0.18) } 50% { background:rgba(244,67,54,0.5) } }
     .quiz-option-display { padding:14px;border-radius:8px;border:1px solid rgba(255,255,255,0.1);font-size:0.9rem;opacity:0.6 }
     .quiz-option-mine { border-color:rgba(100,181,246,0.5);opacity:0.95;color:#64b5f6 }
     .quiz-option-correct { border-color:rgba(102,187,106,0.6);background:rgba(102,187,106,0.12);opacity:1;color:#81c784 }
@@ -213,14 +218,18 @@ export class CreateQuizGameDialogComponent {
 
                 <div class="options-grid">
                   @for (opt of s.myMillionaireRun.options; let i = $index; track i) {
-                    <button mat-stroked-button class="option-btn" [class.option-selected]="selectedAnswerIndex() === i"
+                    <button mat-stroked-button class="option-btn"
+                            [class.option-selected]="selectedAnswerIndex() === i && !answerReveal()"
+                            [class.flash-correct]="answerReveal()?.selectedIndex === i && answerReveal()?.isCorrect"
+                            [class.flash-wrong]="answerReveal()?.selectedIndex === i && answerReveal()?.isCorrect === false"
+                            [class.reveal-correct-static]="answerReveal()?.isCorrect === false && answerReveal()?.correctIndex === i"
                             [disabled]="submittingAnswer()" (click)="submitMillionaireAnswer(i)">
                       {{ opt }}
                     </button>
                   }
                 </div>
 
-                @if (submittingAnswer()) {
+                @if (submittingAnswer() && !answerReveal()) {
                   <div style="font-size:0.78rem;opacity:0.6;text-align:center;margin-top:10px;display:flex;align-items:center;justify-content:center;gap:8px">
                     <mat-spinner diameter="16" /> Checking your answer…
                   </div>
@@ -367,6 +376,7 @@ export class QuizGameComponent implements OnInit, OnDestroy {
   loadingNextQuestion = signal(false);
   submittingAnswer = signal(false);
   selectedAnswerIndex = signal<number | null>(null);
+  answerReveal = signal<{ selectedIndex: number; correctIndex: number | null; isCorrect: boolean } | null>(null);
 
   topScore = computed(() => {
     const s = this.selectedSession();
@@ -477,7 +487,13 @@ export class QuizGameComponent implements OnInit, OnDestroy {
 
   refreshSelected() {
     const s = this.selectedSession();
-    if (!s) return;
+    // Skip while a Millionaire answer is submitting or its reveal is being held on screen. The
+    // backend broadcasts its WS message mid-request, while still processing the answer -- that
+    // can reach this client before our own POST's response does, so this has to be guarded by
+    // `submittingAnswer` (set synchronously the instant the user clicks), not just `answerReveal`
+    // (only set once our own response arrives) -- otherwise the WS-triggered refresh wins the
+    // race and snaps to the post-answer state before the flash ever shows.
+    if (!s || this.submittingAnswer()) return;
     this.service.getSession(s.id).subscribe({ next: d => this.applySession(d) });
   }
 
@@ -519,9 +535,18 @@ export class QuizGameComponent implements OnInit, OnDestroy {
     this.selectedAnswerIndex.set(selectedIndex);
     this.service.submitMillionaireAnswer(s.id, selectedIndex).subscribe({
       next: d => {
-        this.applySession(d);
-        this.submittingAnswer.set(false);
-        this.selectedAnswerIndex.set(null);
+        // Hold the just-answered question on screen and flash the result -- selected option
+        // green/red, correct option revealed in green if wrong -- before swapping to the next
+        // round/eliminated/won state, same beat as the show's reveal.
+        const isCorrect = d.myMillionaireRun?.status !== 'Eliminated';
+        const correctIndex = isCorrect ? selectedIndex : (d.myMillionaireRun?.revealedCorrectIndex ?? null);
+        this.answerReveal.set({ selectedIndex, correctIndex, isCorrect });
+        setTimeout(() => {
+          this.applySession(d);
+          this.submittingAnswer.set(false);
+          this.selectedAnswerIndex.set(null);
+          this.answerReveal.set(null);
+        }, 1500);
       },
       error: (err) => {
         this.submittingAnswer.set(false);
