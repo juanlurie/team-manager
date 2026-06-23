@@ -152,6 +152,9 @@ export class CreateQuizGameDialogComponent {
     .progress-label { text-align:center;font-size:0.72rem;opacity:0.5;text-transform:uppercase;letter-spacing:0.5px }
     .completed-banner { text-align:center;padding:24px 0 }
     .completed-banner .winner-name { font-size:1.3rem;font-weight:800;color:#ffd54f;margin:8px 0 }
+    @media (max-width: 480px) {
+      .options-grid { grid-template-columns: 1fr }
+    }
   `],
   template: `
     <div class="wrap" [class.wide]="millionaireLayoutActive()">
