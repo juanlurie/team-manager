@@ -12,7 +12,7 @@ namespace TeamManager.Api.Application.Services;
 // session. Guesses are private between players -- the session view only ever exposes other
 // participants' guess COUNT and status, never their actual guessed words, so nobody can pick up
 // hints about the answer from someone else's attempts.
-public class WordleService(AppDbContext db)
+public class WordleService(AppDbContext db, WordleWordGeneratorService wordGenerator)
 {
     public async Task<List<WordleSessionSummaryDto>> GetOpenSessionsAsync()
     {
@@ -40,7 +40,7 @@ public class WordleService(AppDbContext db)
         {
             CreatedByMemberId = memberId,
             Title = title,
-            Word = WordleWordBank.RandomWord(),
+            Word = await wordGenerator.GenerateWordAsync(),
         };
         db.WordleSessions.Add(session);
         await db.SaveChangesAsync();

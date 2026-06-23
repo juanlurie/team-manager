@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, inject, signal, computed, ChangeDetectionStrategy } from '@angular/core';
+import { Component, OnInit, OnDestroy, AfterViewChecked, ElementRef, ViewChild, inject, signal, ChangeDetectionStrategy } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -45,6 +45,11 @@ export class CreateWordleDialogComponent {
   }
 }
 
+interface PendingReveal {
+  word: string;
+  letters: string[];
+}
+
 @Component({
   selector: 'app-wordle',
   standalone: true,
@@ -74,23 +79,29 @@ export class CreateWordleDialogComponent {
     .back-link:hover { opacity:1 }
     .game-card { background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:14px;padding:20px }
     .progress-label { text-align:center;font-size:0.72rem;opacity:0.5;text-transform:uppercase;letter-spacing:0.5px;margin-top:14px }
-    .wordle-grid { display:flex;flex-direction:column;gap:6px;align-items:center;margin:16px 0 }
-    .wordle-row { display:flex;gap:6px }
+    .wordle-grid { display:flex;flex-direction:column;gap:6px;align-items:center;margin:16px 0;cursor:text }
+    .wordle-row { display:flex;gap:6px;position:relative }
     .wordle-tile {
       width:46px;height:46px;display:flex;align-items:center;justify-content:center;
       font-weight:700;font-size:1.2rem;text-transform:uppercase;border-radius:6px;
       border:2px solid rgba(255,255,255,0.15);background:rgba(255,255,255,0.03);
+      backface-visibility:hidden;
     }
+    .wordle-tile.filled { border-color:rgba(255,255,255,0.4) }
     .wordle-tile.correct { background:#388e3c;border-color:#388e3c;color:#fff }
     .wordle-tile.present { background:#b8960c;border-color:#b8960c;color:#fff }
     .wordle-tile.absent { background:rgba(255,255,255,0.08);border-color:rgba(255,255,255,0.08);color:rgba(255,255,255,0.35) }
-    .guess-form { display:flex;gap:8px;justify-content:center;margin:10px 0 }
-    .guess-input {
-      width:200px;text-align:center;text-transform:uppercase;letter-spacing:0.3em;font-weight:700;font-size:1.1rem;
-      background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.15);border-radius:8px;color:inherit;
-      padding:10px 8px;outline:none;
+    .wordle-tile.flip { animation:wordle-flip 0.5s ease both }
+    @keyframes wordle-flip {
+      0% { transform:rotateX(0deg) }
+      50% { transform:rotateX(90deg) }
+      100% { transform:rotateX(0deg) }
     }
-    .guess-input:focus { border-color:#64b5f6 }
+    .guess-input {
+      position:absolute;inset:0;width:100%;height:100%;opacity:0;border:none;padding:0;margin:0;
+      font-size:16px;cursor:text;
+    }
+    .guess-hint { text-align:center;font-size:0.75rem;opacity:0.45;margin-top:4px }
     .status-banner { text-align:center;padding:16px 0;font-size:0.95rem }
     .status-banner.won { color:#81c784 }
     .status-banner.lost { color:#ef5350 }
@@ -164,6 +175,27 @@ export class CreateWordleDialogComponent {
                       }
                     </div>
                   }
+
+                  @if (pendingReveal()) {
+                    <div class="wordle-row">
+                      @for (letter of pendingReveal()!.letters; let i = $index; track i) {
+                        <div class="wordle-tile flip" [class]="letter" [style.animation-delay]="(i * 220) + 'ms'">
+                          {{ pendingReveal()!.word.charAt(i) }}
+                        </div>
+                      }
+                    </div>
+                  } @else if (s.myStatus === 'Playing') {
+                    <div class="wordle-row" (click)="focusInput()">
+                      @for (i of tileIndexes(s); track i) {
+                        <div class="wordle-tile" [class.filled]="i < guessInput.length">{{ guessInput.charAt(i) }}</div>
+                      }
+                      <input #guessInputEl class="guess-input" [(ngModel)]="guessInput" name="guess"
+                             [maxlength]="s.wordLength" [disabled]="submittingGuess()"
+                             (ngModelChange)="onGuessInputChange($event, s.wordLength)"
+                             (keyup.enter)="submitGuess()" autocomplete="off" autocapitalize="off" spellcheck="false">
+                    </div>
+                  }
+
                   @if (s.myStatus === 'Playing') {
                     @for (row of emptyRows(s); track row) {
                       <div class="wordle-row">
@@ -176,12 +208,7 @@ export class CreateWordleDialogComponent {
                 </div>
 
                 @if (s.myStatus === 'Playing') {
-                  <form class="guess-form" (submit)="submitGuess(); $event.preventDefault()">
-                    <input class="guess-input" [(ngModel)]="guessInput" name="guess" [maxlength]="s.wordLength"
-                           placeholder="Guess" [disabled]="submittingGuess()" autocomplete="off">
-                    <button mat-flat-button color="primary" type="submit" [disabled]="submittingGuess()">Guess</button>
-                  </form>
-                  <div class="progress-label" style="margin-top:0">{{ s.myGuesses.length }} of {{ s.maxGuesses }} guesses used</div>
+                  <div class="guess-hint">Type your guess, then press Enter — {{ s.myGuesses.length }} of {{ s.maxGuesses }} guesses used</div>
                 } @else {
                   <div class="status-banner" [class.won]="s.myStatus === 'Won'" [class.lost]="s.myStatus === 'Lost'">
                     @if (s.myStatus === 'Won') {
@@ -217,7 +244,7 @@ export class CreateWordleDialogComponent {
     </div>
   `
 })
-export class WordleComponent implements OnInit, OnDestroy {
+export class WordleComponent implements OnInit, OnDestroy, AfterViewChecked {
   private service = inject(WordleService);
   private dialog = inject(MatDialog);
   private snackBar = inject(MatSnackBar);
@@ -225,14 +252,22 @@ export class WordleComponent implements OnInit, OnDestroy {
   private featureAccess = inject(FeatureAccessService);
   readonly canHost = this.featureAccess.hasAccess$('wordle-host');
 
+  @ViewChild('guessInputEl') guessInputEl?: ElementRef<HTMLInputElement>;
+  private wantsFocus = false;
+
   sessions = signal<WordleSessionSummary[]>([]);
   loading = signal(false);
   selectedSession = signal<WordleSession | null>(null);
   selectedSessionLoading = signal(false);
   starting = signal(false);
   submittingGuess = signal(false);
+  pendingReveal = signal<PendingReveal | null>(null);
   guessInput = '';
+  private pendingSession: WordleSession | null = null;
 
+  // Exactly one extra row beyond myGuesses is always on screen while Playing -- the live-typing
+  // row, or (during the flip-reveal window) the just-submitted guess being animated -- so the
+  // filler count is the same either way.
   emptyRows(s: WordleSession): number[] {
     const remaining = s.maxGuesses - s.myGuesses.length - 1;
     return remaining > 0 ? Array.from({ length: remaining }, (_, i) => i) : [];
@@ -248,6 +283,25 @@ export class WordleComponent implements OnInit, OnDestroy {
       case 'Lost': return 'out of guesses';
       default: return 'playing';
     }
+  }
+
+  onGuessInputChange(value: string, wordLength: number) {
+    this.guessInput = value.replace(/[^a-zA-Z]/g, '').toUpperCase().slice(0, wordLength);
+  }
+
+  focusInput() {
+    this.guessInputEl?.nativeElement.focus();
+  }
+
+  ngAfterViewChecked() {
+    if (this.wantsFocus && this.guessInputEl) {
+      this.wantsFocus = false;
+      this.guessInputEl.nativeElement.focus();
+    }
+  }
+
+  private requestFocus() {
+    this.wantsFocus = true;
   }
 
   private destroy$ = new Subject<void>();
@@ -281,6 +335,7 @@ export class WordleComponent implements OnInit, OnDestroy {
 
   private applySession(d: WordleSession) {
     this.selectedSession.set(d);
+    if (d.myStatus === 'Playing') this.requestFocus();
   }
 
   loadSessions() {
@@ -318,7 +373,12 @@ export class WordleComponent implements OnInit, OnDestroy {
 
   refreshSelected() {
     const s = this.selectedSession();
-    if (!s) return;
+    // Skip while a guess is submitting or its flip-reveal is being held on screen -- the WS
+    // broadcast fires mid-request, before our own POST response arrives, so this has to be
+    // guarded by `submittingGuess` (set synchronously the instant the player hits Enter), not
+    // just `pendingReveal` (only set once our own response arrives) -- otherwise the WS-triggered
+    // refresh wins the race and snaps the grid forward before the flip ever plays.
+    if (!s || this.submittingGuess()) return;
     this.service.getSession(s.id).subscribe({ next: d => this.applySession(d) });
   }
 
@@ -344,7 +404,7 @@ export class WordleComponent implements OnInit, OnDestroy {
 
   submitGuess() {
     const s = this.selectedSession();
-    if (!s || this.submittingGuess()) return;
+    if (!s || this.submittingGuess() || this.pendingReveal()) return;
     const word = this.guessInput.trim();
     if (word.length !== s.wordLength) {
       this.snackBar.open(`Guess must be exactly ${s.wordLength} letters`, 'Close', { duration: 3000 });
@@ -353,9 +413,20 @@ export class WordleComponent implements OnInit, OnDestroy {
     this.submittingGuess.set(true);
     this.service.submitGuess(s.id, word).subscribe({
       next: d => {
-        this.applySession(d);
-        this.submittingGuess.set(false);
-        this.guessInput = '';
+        // Hold the just-submitted guess on screen and flip-reveal it tile by tile before
+        // advancing the grid (clearing the input, showing the next empty row, or the
+        // won/lost banner) -- same beat as the real game instead of snapping forward instantly.
+        const lastGuess = d.myGuesses[d.myGuesses.length - 1];
+        this.pendingReveal.set({ word: lastGuess.word, letters: lastGuess.letters });
+        this.pendingSession = d;
+        const flipTotalMs = s.wordLength * 220 + 600;
+        setTimeout(() => {
+          this.applySession(this.pendingSession!);
+          this.pendingSession = null;
+          this.pendingReveal.set(null);
+          this.submittingGuess.set(false);
+          this.guessInput = '';
+        }, flipTotalMs);
       },
       error: (err) => {
         this.submittingGuess.set(false);
