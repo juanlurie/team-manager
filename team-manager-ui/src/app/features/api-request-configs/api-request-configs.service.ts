@@ -98,7 +98,7 @@ export const REQUEST_ACTIONS = [
   { value: 'GenerateJoke', label: 'Generate Joke', icon: 'sentiment_very_satisfied', vars: { jokeType: 'dad joke', seed: 'a1b2c3d4' } },
   { value: 'GenerateQuizQuestion', label: 'Generate Quiz Question', icon: 'quiz', vars: {
     topic: 'space and astronomy', angle: 'an obscure fact about', recentTopics: 'history, sports records',
-    difficulty: 'medium', difficultyLevel: '2'
+    difficulty: '8'
   } },
   { value: 'FetchTimesheetApprovals', label: 'Fetch Timesheet Approvals', icon: 'fact_check', vars: { start: '', end: '' } },
   { value: 'ApproveTimesheet', label: 'Approve Timesheet', icon: 'task_alt', vars: {

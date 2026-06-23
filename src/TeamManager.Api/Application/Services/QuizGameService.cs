@@ -623,7 +623,7 @@ public class QuizGameService(AppDbContext db, QuizQuestionGeneratorService quest
         if (existing is not null) return existing;
 
         var (question, options, correctIndex) = await questionGenerator.GenerateAsync(
-            "QuizGameMillionaire", $"Quiz Millionaire — question {roundIndex + 1}", MillionaireLadder.DifficultyTier(roundIndex));
+            "QuizGameMillionaire", $"Quiz Millionaire — question {roundIndex + 1}", MillionaireLadder.DifficultyLevel(roundIndex));
 
         var round = new QuizMillionaireRound
         {
