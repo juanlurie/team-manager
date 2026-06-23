@@ -35,6 +35,12 @@ export class AuthService {
   private devMode = false;
 
   private static readonly RETURN_URL_KEY = 'auth_return_url';
+  // Deliberately NOT one of angular-oauth2-oidc's own storage keys -- oauth.logOut() wipes
+  // those (including the refresh_token) on every logout, so checking getRefreshToken() alone
+  // would look identical to a brand-new user on every subsequent login. This flag survives
+  // logout, so "has this browser ever picked up an offline refresh_token" persists across
+  // logout/login cycles instead of resetting each time.
+  private static readonly OFFLINE_CONSENT_GRANTED_KEY = 'auth_offline_consent_granted';
 
   constructor(private oauth: OAuthService, private http: HttpClient, private router: Router) {
     // If the refresh token itself is rejected (revoked, expired after long inactivity), don't
@@ -78,6 +84,9 @@ export class AuthService {
           this._authStatus$.next('unauthenticated');
           this._isDone$.next(true);
           return;
+        }
+        if (this.oauth.getRefreshToken()) {
+          localStorage.setItem(AuthService.OFFLINE_CONSENT_GRANTED_KEY, '1');
         }
         this.http.get<MeResponse>('/api/auth/me', { context: new HttpContext().set(SKIP_ERROR_TOAST, true) }).pipe(
           map(me => {
@@ -128,7 +137,12 @@ export class AuthService {
   login(returnUrl?: string) {
     if (!this.devMode) {
       if (returnUrl) localStorage.setItem(AuthService.RETURN_URL_KEY, returnUrl);
-      this.oauth.initCodeFlow();
+      // Only force Google's consent screen when this browser has never picked up a
+      // refresh_token before -- checked via a flag that survives logout (logout wipes the
+      // actual refresh_token along with the rest of the OAuth state, so checking that
+      // directly would look like "never consented" on every single login).
+      const needsConsent = !localStorage.getItem(AuthService.OFFLINE_CONSENT_GRANTED_KEY);
+      this.oauth.initCodeFlow(undefined, needsConsent ? { prompt: 'consent' } : {});
     }
   }
 

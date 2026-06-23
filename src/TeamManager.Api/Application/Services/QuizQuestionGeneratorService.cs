@@ -27,6 +27,8 @@ public class QuizQuestionGeneratorService(AppDbContext db)
         "weather and natural phenomena",
     ];
 
+    // Pure phrasing variety -- independent of difficulty, which is its own numeric signal (see
+    // {difficulty} below) rather than being baked into a separate set of "harder-sounding" angles.
     private static readonly string[] AngleModifiers =
     [
         "an obscure fact about", "a classic trivia question about", "a tricky question about",
@@ -60,14 +62,63 @@ public class QuizQuestionGeneratorService(AppDbContext db)
         ("What is the tallest mountain in the world?", ["K2", "Kilimanjaro", "Everest", "Denali"], 2),
     ];
 
-    private static (string Question, string[] Options, int CorrectIndex) RandomFallback()
+    // Used instead of FallbackQuestions when a numeric difficultyLevel is supplied and no AI
+    // config is enabled -- so Millionaire mode's difficulty still escalates even with the AI
+    // integration off, rather than drawing from one flat, undifferentiated pool. Easy/medium/hard
+    // here is purely an internal grouping for this static bank -- not a concept exposed anywhere
+    // else; the {difficulty} placeholder callers see is always the single 1-15 number.
+    private static readonly (string Question, string[] Options, int CorrectIndex)[] EasyFallbackQuestions =
+    [
+        ("What is the capital of France?", ["Paris", "Berlin", "Madrid", "Rome"], 0),
+        ("What planet is known as the Red Planet?", ["Venus", "Mars", "Jupiter", "Saturn"], 1),
+        ("What is the largest ocean on Earth?", ["Atlantic", "Indian", "Arctic", "Pacific"], 3),
+        ("How many sides does a hexagon have?", ["5", "6", "7", "8"], 1),
+        ("Who painted the Mona Lisa?", ["Vincent van Gogh", "Leonardo da Vinci", "Pablo Picasso", "Claude Monet"], 1),
+        ("What is the tallest mountain in the world?", ["K2", "Kilimanjaro", "Everest", "Denali"], 2),
+        ("How many continents are there on Earth?", ["5", "6", "7", "8"], 2),
+        ("Which country is home to the kangaroo?", ["South Africa", "Australia", "Brazil", "India"], 1),
+    ];
+
+    private static readonly (string Question, string[] Options, int CorrectIndex)[] MediumFallbackQuestions =
+    [
+        ("Who wrote 'Romeo and Juliet'?", ["Charles Dickens", "Mark Twain", "William Shakespeare", "Jane Austen"], 2),
+        ("What gas do plants mainly absorb from the atmosphere?", ["Oxygen", "Nitrogen", "Carbon Dioxide", "Hydrogen"], 2),
+        ("What is the smallest prime number?", ["0", "1", "2", "3"], 2),
+        ("How many minutes are in a full day?", ["1200", "1440", "1000", "1800"], 1),
+        ("What is the chemical symbol for gold?", ["Go", "Gd", "Au", "Ag"], 2),
+        ("Which language has the most native speakers worldwide?", ["English", "Spanish", "Hindi", "Mandarin Chinese"], 3),
+        ("How many strings does a standard guitar have?", ["4", "5", "6", "7"], 2),
+        ("In which year did the Berlin Wall fall?", ["1987", "1989", "1991", "1993"], 1),
+    ];
+
+    private static readonly (string Question, string[] Options, int CorrectIndex)[] HardFallbackQuestions =
+    [
+        ("Who composed 'The Four Seasons'?", ["Johann Sebastian Bach", "Antonio Vivaldi", "Wolfgang Amadeus Mozart", "Ludwig van Beethoven"], 1),
+        ("What is the smallest country in the world by area?", ["Monaco", "San Marino", "Vatican City", "Liechtenstein"], 2),
+        ("What is the SI unit of electrical resistance?", ["Volt", "Watt", "Ohm", "Ampere"], 2),
+        ("Who wrote 'One Hundred Years of Solitude'?", ["Jorge Luis Borges", "Pablo Neruda", "Gabriel García Márquez", "Mario Vargas Llosa"], 2),
+        ("What is the capital of Kazakhstan?", ["Almaty", "Astana", "Bishkek", "Tashkent"], 1),
+        ("What is the hardest known naturally occurring substance?", ["Quartz", "Titanium", "Diamond", "Graphene"], 2),
+        ("Which gas makes up the majority of Earth's atmosphere by volume?", ["Oxygen", "Carbon Dioxide", "Nitrogen", "Argon"], 2),
+        ("Who was the first emperor of Rome?", ["Julius Caesar", "Nero", "Augustus", "Caligula"], 2),
+    ];
+
+    private static (string Question, string[] Options, int CorrectIndex) RandomFallback(int? difficultyLevel = null)
     {
-        var q = FallbackQuestions[Random.Shared.Next(FallbackQuestions.Length)];
+        var pool = difficultyLevel switch
+        {
+            null => FallbackQuestions,
+            <= 5 => EasyFallbackQuestions,
+            <= 10 => MediumFallbackQuestions,
+            _ => HardFallbackQuestions
+        };
+        var q = pool[Random.Shared.Next(pool.Length)];
         return (q.Question, q.Options, q.CorrectIndex);
     }
 
     // Picks a topic that isn't in the recent-use buffer (falls back to any topic if the whole
-    // pool is somehow excluded) plus a random angle, and records the topic as just-used.
+    // pool is somehow excluded) plus an angle for phrasing variety -- unrelated to difficulty,
+    // which is communicated to the AI separately as a plain number (see {difficulty}).
     private static (string Topic, string Angle, string RecentTopicsCsv) SelectTopicAndAngle()
     {
         lock (StateLock)
@@ -100,15 +151,19 @@ public class QuizQuestionGeneratorService(AppDbContext db)
         }
     }
 
-    public async Task<(string Question, string[] Options, int CorrectIndex)> GenerateAsync(string sourceType, string label)
+    // `difficultyLevel` is a single 1-15 scale matching Quiz Game Millionaire's round number
+    // directly (round 1 = 1, round 15 = 15) -- callers that don't care about difficulty (Classic
+    // mode, Quiz Duel) just omit it and get a sensible mid-point default.
+    public async Task<(string Question, string[] Options, int CorrectIndex)> GenerateAsync(
+        string sourceType, string label, int? difficultyLevel = null)
     {
         var config = await db.ApiRequestConfigs.FirstOrDefaultAsync(c => c.Action == "GenerateQuizQuestion" && c.Enabled);
-        if (config is null) return RandomFallback();
+        if (config is null) return RandomFallback(difficultyLevel);
 
         for (var attempt = 1; attempt <= MaxGenerationAttempts; attempt++)
         {
             var (topic, angle, recentTopicsCsv) = SelectTopicAndAngle();
-            var result = await TryGenerateOnceAsync(config, sourceType, $"{label} (attempt {attempt})", topic, angle, recentTopicsCsv);
+            var result = await TryGenerateOnceAsync(config, sourceType, $"{label} (attempt {attempt})", topic, angle, recentTopicsCsv, difficultyLevel);
             if (result is null) continue; // call/parse failed -- try a different topic
 
             if (TryRecordIfNew(result.Question))
@@ -116,11 +171,11 @@ public class QuizQuestionGeneratorService(AppDbContext db)
             // Duplicate of a recently-seen question -- retry with a fresh topic/angle.
         }
 
-        return RandomFallback();
+        return RandomFallback(difficultyLevel);
     }
 
     private async Task<QuizGenResult?> TryGenerateOnceAsync(
-        ApiRequestConfig config, string sourceType, string label, string topic, string angle, string recentTopicsCsv)
+        ApiRequestConfig config, string sourceType, string label, string topic, string angle, string recentTopicsCsv, int? difficultyLevel = null)
     {
         var parameters = string.IsNullOrWhiteSpace(config.ParametersJson)
             ? new Dictionary<string, string>()
@@ -140,6 +195,10 @@ public class QuizQuestionGeneratorService(AppDbContext db)
         parameters["topic"] = topic;
         parameters["angle"] = angle;
         parameters["recentTopics"] = recentTopicsCsv;
+        // A single 1-15 scale -- defaults to 8 (the midpoint) for callers that don't care about
+        // difficulty, so the placeholder always resolves to something instead of being left as a
+        // literal {difficulty} in the prompt.
+        parameters["difficulty"] = (difficultyLevel ?? 8).ToString();
 
         // Storage: non-secret values only -- stored URL/body/headers are safe to return to clients.
         var publicConfigVars = await ConfigVariableResolver.LoadPublicAsync(db);
