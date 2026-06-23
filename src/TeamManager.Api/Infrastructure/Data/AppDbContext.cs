@@ -72,6 +72,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<ApiKey> ApiKeys => Set<ApiKey>();
     public DbSet<LeaveFetchConfig> LeaveFetchConfigs => Set<LeaveFetchConfig>();
     public DbSet<ApiRequestConfig> ApiRequestConfigs => Set<ApiRequestConfig>();
+    public DbSet<AiPrompt> AiPrompts => Set<AiPrompt>();
     public DbSet<OutlookToken> OutlookTokens => Set<OutlookToken>();
     public DbSet<GoogleCalendarToken> GoogleCalendarTokens => Set<GoogleCalendarToken>();
     public DbSet<WorkItemEvent> WorkItemEvents => Set<WorkItemEvent>();
@@ -157,6 +158,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         modelBuilder.ApplyConfiguration(new WordleSessionConfiguration());
         modelBuilder.ApplyConfiguration(new WordleParticipantConfiguration());
         modelBuilder.ApplyConfiguration(new WordleGuessConfiguration());
+        modelBuilder.ApplyConfiguration(new AiPromptConfiguration());
         modelBuilder.ApplyConfiguration(new PollConfiguration());
         modelBuilder.ApplyConfiguration(new PollOptionConfiguration());
         modelBuilder.ApplyConfiguration(new PollVoteConfiguration());

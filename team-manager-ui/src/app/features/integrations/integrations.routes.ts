@@ -22,6 +22,10 @@ export const INTEGRATIONS_ROUTES: Routes = [
         loadComponent: () => import('../api-request-configs/api-request-configs.component').then(m => m.ApiRequestConfigsComponent)
       },
       {
+        path: 'ai-prompts',
+        loadChildren: () => import('../ai-prompts/ai-prompts.routes').then(m => m.AI_PROMPTS_ROUTES)
+      },
+      {
         path: 'config-variables',
         loadComponent: () => import('../settings/config-variables/config-variables.component').then(m => m.ConfigVariablesComponent)
       },

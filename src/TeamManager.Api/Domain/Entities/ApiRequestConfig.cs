@@ -20,6 +20,10 @@ public class ApiRequestConfig
     public string ParametersJson { get; set; } = "{}";
     public string? StoredCookie { get; set; }
     public string SecretHeadersJson { get; set; } = "{}";
+    // Marks this as eligible to be picked as an AiPrompt's connection -- keeps the Prompts
+    // screen's connection picker from listing every integration (timesheet/calendar/leave
+    // fetchers included).
+    public bool IsAiConnection { get; set; } = false;
     public int RetryCount { get; set; } = 0;
     public string? SuccessCriteriaJson { get; set; }
     public bool AutoSync { get; set; } = false;

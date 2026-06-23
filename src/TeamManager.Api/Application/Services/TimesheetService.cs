@@ -11,7 +11,7 @@ using TeamManager.Api.Infrastructure.Data;
 
 namespace TeamManager.Api.Application.Services;
 
-public class TimesheetService(AppDbContext db, ITimesheetEventPublisher eventPublisher, IHttpClientFactory httpClientFactory) : ITimesheetService
+public class TimesheetService(AppDbContext db, ITimesheetEventPublisher eventPublisher, AiPromptExecutorService executor) : ITimesheetService
 {
     private static readonly int[] ValidMinutes = [0, 15, 30, 45];
 
@@ -128,8 +128,8 @@ public class TimesheetService(AppDbContext db, ITimesheetEventPublisher eventPub
 
     public async Task<TimesheetQualityAnalysisDto> AnalyzeQualityAsync(Guid memberId, int lookbackDays)
     {
-        var config = await db.ApiRequestConfigs.FirstOrDefaultAsync(c => c.Action == "AnalyzeTimesheetQuality" && c.Enabled);
-        if (config is null) return new TimesheetQualityAnalysisDto(false, null, "not-configured");
+        var hasPrompt = await db.AiPrompts.AnyAsync(p => p.Key == "AnalyzeTimesheetQuality" && p.Enabled);
+        if (!hasPrompt) return new TimesheetQualityAnalysisDto(false, null, "not-configured");
 
         var member = await db.TeamMembers.FindAsync(memberId);
         if (member is null) return new TimesheetQualityAnalysisDto(false, null, "not-configured");
@@ -163,109 +163,21 @@ public class TimesheetService(AppDbContext db, ITimesheetEventPublisher eventPub
             $"if everything looks reasonable.\n\nTimesheet entries for {memberName} from {start} to {end}:\n" +
             string.Join("\n", lines);
 
-        // Escape for JSON body templates — newlines and quotes would break the JSON string
-        var escapedPrompt = prompt
-            .Replace("\\", "\\\\")
-            .Replace("\"", "\\\"")
-            .Replace("\n", "\\n")
-            .Replace("\r", "");
-
-        var parameters = string.IsNullOrWhiteSpace(config.ParametersJson)
-            ? new Dictionary<string, string>()
-            : JsonSerializer.Deserialize<Dictionary<string, string>>(config.ParametersJson) ?? new();
-        parameters["timesheetData"] = escapedPrompt;
-        parameters["memberName"] = memberName;
-        parameters["start"] = start;
-        parameters["end"] = end;
-
-        var headers = string.IsNullOrWhiteSpace(config.HeadersJson)
-            ? new Dictionary<string, string>()
-            : JsonSerializer.Deserialize<Dictionary<string, string>>(config.HeadersJson) ?? new();
-        var mappingOpts = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-        var mapping = string.IsNullOrWhiteSpace(config.MappingJson)
-            ? new MappingConfigDto()
-            : JsonSerializer.Deserialize<MappingConfigDto>(config.MappingJson, mappingOpts) ?? new();
-
-        var publicConfigVars = await ConfigVariableResolver.LoadPublicAsync(db);
-        var allConfigVars = await ConfigVariableResolver.LoadAsync(db);
-
-        // Storage: non-secret values only — stored URL/body/headers are safe to return to clients
-        string ResolveForStorage(string template)
+        // No manual JSON-escaping needed -- AiPromptExecutorService JSON-encodes the fully
+        // resolved prompt text itself, so newlines/quotes in `prompt` are handled automatically.
+        var promptParams = new Dictionary<string, string>
         {
-            var result = ConfigVariableResolver.Apply(template, publicConfigVars);
-            foreach (var (k, v) in parameters) result = result.Replace($"{{{k}}}", v);
-            return result;
-        }
-
-        // Execution: all values including secrets — used only for the HTTP call, never stored
-        string ResolveForExecution(string template)
-        {
-            var result = ConfigVariableResolver.Apply(template, allConfigVars);
-            foreach (var (k, v) in parameters) result = result.Replace($"{{{k}}}", v);
-            return result;
-        }
-
-        // Every outbound integration call must be visible in the Sync Queue — log it before
-        // executing, then update its status/response once the call completes.
-        var evt = new ApiSyncEvent
-        {
-            Action = config.Action,
-            ConfigName = config.Name,
-            Label = $"Timesheet Quality — {memberName} ({start} – {end})",
-            SourceType = "TimesheetQualityAnalysis",
-            SourceId = memberId.ToString(),
-            HttpMethod = config.Method.ToUpper(),
-            ResolvedUrl = ResolveForStorage(config.Url),
-            ResolvedHeadersJson = JsonSerializer.Serialize(headers.ToDictionary(kvp => kvp.Key, kvp => ResolveForStorage(kvp.Value))),
-            ResolvedBody = ResolveForStorage(config.BodyTemplate ?? ""),
-            BodyFormat = config.BodyFormat ?? "json",
-            Status = "pending"
+            ["timesheetData"] = prompt,
+            ["memberName"] = memberName,
+            ["start"] = start,
+            ["end"] = end
         };
-        db.ApiSyncEvents.Add(evt);
-        await db.SaveChangesAsync();
 
-        var executionHeaders = headers.ToDictionary(kvp => kvp.Key, kvp => ResolveForExecution(kvp.Value));
-        var executionUrl = ResolveForExecution(config.Url);
-        var executionBody = ResolveForExecution(config.BodyTemplate ?? "");
+        var analysis = (await executor.ExecuteAsync(
+            "AnalyzeTimesheetQuality", promptParams, "TimesheetQualityAnalysis",
+            $"Timesheet Quality — {memberName} ({start} – {end})", memberId.ToString()))?.Trim();
 
-        string? analysis = null;
-        try
-        {
-            using var client = httpClientFactory.CreateClient();
-            client.Timeout = TimeSpan.FromSeconds(30);
-            foreach (var (k, v) in executionHeaders)
-                client.DefaultRequestHeaders.TryAddWithoutValidation(k, v);
-
-            var mediaType = (config.BodyFormat ?? "json") == "urlencoded"
-                ? "application/x-www-form-urlencoded"
-                : "application/json";
-            var response = await client.PostAsync(executionUrl, new StringContent(executionBody, System.Text.Encoding.UTF8, mediaType));
-            var responseBody = await response.Content.ReadAsStringAsync();
-
-            evt.ResponseStatus = (int)response.StatusCode;
-            evt.ResponseBody = responseBody;
-            evt.SentAt = DateTimeOffset.UtcNow;
-
-            if (response.IsSuccessStatusCode)
-            {
-                evt.Status = "sent";
-                analysis = WinOfTheWeekService.ExtractTextAtPath(responseBody, mapping.TextResponsePath)?.Trim();
-            }
-            else
-            {
-                evt.Status = "failed";
-            }
-        }
-        catch (Exception ex)
-        {
-            evt.Status = "failed";
-            evt.ResponseBody = ex.Message;
-            evt.SentAt = DateTimeOffset.UtcNow;
-        }
-
-        await db.SaveChangesAsync();
-
-        return new TimesheetQualityAnalysisDto(true, analysis, evt.Status);
+        return new TimesheetQualityAnalysisDto(true, analysis, analysis is not null ? "sent" : "failed");
     }
 
     public async Task<byte[]> ExportMonthAsync(Guid memberId, int year, int month)

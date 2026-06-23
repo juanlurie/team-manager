@@ -13,7 +13,7 @@ namespace TeamManager.Api.Application.Services;
 // cross-referencing against our own TeamMembers table. The two rosters can legitimately differ
 // (someone removed from this app may still need sign-off there, or vice versa), so matching
 // against our internal list produced wrong/missing results.
-public class TimesheetApprovalService(ITimesheetApprovalFetcher fetcher, AppDbContext db, IHttpClientFactory httpClientFactory) : ITimesheetApprovalService
+public class TimesheetApprovalService(ITimesheetApprovalFetcher fetcher, AppDbContext db, AiPromptExecutorService executor) : ITimesheetApprovalService
 {
     public async Task<TimesheetApprovalFetchResultDto> FetchOutstandingAsync(FetchTimesheetApprovalsRequest request)
     {
@@ -60,8 +60,8 @@ public class TimesheetApprovalService(ITimesheetApprovalFetcher fetcher, AppDbCo
     // Response Path) is identical; only the prompt content differs.
     public async Task<TimesheetQualityAnalysisDto> AnalyzeQualityAsync(AnalyzeApprovalQualityRequest request)
     {
-        var config = await db.ApiRequestConfigs.FirstOrDefaultAsync(c => c.Action == "AnalyzeTimesheetQuality" && c.Enabled);
-        if (config is null) return new TimesheetQualityAnalysisDto(false, null, "not-configured");
+        var hasPrompt = await db.AiPrompts.AnyAsync(p => p.Key == "AnalyzeTimesheetQuality" && p.Enabled);
+        if (!hasPrompt) return new TimesheetQualityAnalysisDto(false, null, "not-configured");
         if (request.Members.Count == 0)
             return new TimesheetQualityAnalysisDto(true, "No one visible to analyze.", "skipped");
 
@@ -91,102 +91,15 @@ public class TimesheetApprovalService(ITimesheetApprovalFetcher fetcher, AppDbCo
             "concerns, or \"No quality concerns found\" for that person if everything looks reasonable.\n\n" +
             $"Timesheet data for {request.Members.Count} people:\n{sb}";
 
-        var escapedPrompt = prompt
-            .Replace("\\", "\\\\")
-            .Replace("\"", "\\\"")
-            .Replace("\n", "\\n")
-            .Replace("\r", "");
+        // No manual JSON-escaping needed -- AiPromptExecutorService JSON-encodes the fully
+        // resolved prompt text itself, so newlines/quotes in `prompt` are handled automatically.
+        var promptParams = new Dictionary<string, string> { ["timesheetData"] = prompt };
 
-        var parameters = string.IsNullOrWhiteSpace(config.ParametersJson)
-            ? new Dictionary<string, string>()
-            : JsonSerializer.Deserialize<Dictionary<string, string>>(config.ParametersJson) ?? new();
-        parameters["timesheetData"] = escapedPrompt;
+        var analysis = (await executor.ExecuteAsync(
+            "AnalyzeTimesheetQuality", promptParams, "TimesheetApprovalQualityAnalysis",
+            $"Timesheet Quality — {request.Members.Count} people (approval screen)"))?.Trim();
 
-        var headers = string.IsNullOrWhiteSpace(config.HeadersJson)
-            ? new Dictionary<string, string>()
-            : JsonSerializer.Deserialize<Dictionary<string, string>>(config.HeadersJson) ?? new();
-        var mappingOpts = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-        var mapping = string.IsNullOrWhiteSpace(config.MappingJson)
-            ? new MappingConfigDto()
-            : JsonSerializer.Deserialize<MappingConfigDto>(config.MappingJson, mappingOpts) ?? new();
-
-        var publicConfigVars = await ConfigVariableResolver.LoadPublicAsync(db);
-        var allConfigVars = await ConfigVariableResolver.LoadAsync(db);
-
-        string ResolveForStorage(string template)
-        {
-            var result = ConfigVariableResolver.Apply(template, publicConfigVars);
-            foreach (var (k, v) in parameters) result = result.Replace($"{{{k}}}", v);
-            return result;
-        }
-
-        string ResolveForExecution(string template)
-        {
-            var result = ConfigVariableResolver.Apply(template, allConfigVars);
-            foreach (var (k, v) in parameters) result = result.Replace($"{{{k}}}", v);
-            return result;
-        }
-
-        // Every outbound integration call must be visible in the Sync Queue — log it before
-        // executing, then update its status/response once the call completes.
-        var evt = new ApiSyncEvent
-        {
-            Action = config.Action,
-            ConfigName = config.Name,
-            Label = $"Timesheet Quality — {request.Members.Count} people (approval screen)",
-            SourceType = "TimesheetApprovalQualityAnalysis",
-            HttpMethod = config.Method.ToUpper(),
-            ResolvedUrl = ResolveForStorage(config.Url),
-            ResolvedHeadersJson = JsonSerializer.Serialize(headers.ToDictionary(kvp => kvp.Key, kvp => ResolveForStorage(kvp.Value))),
-            ResolvedBody = ResolveForStorage(config.BodyTemplate ?? ""),
-            BodyFormat = config.BodyFormat ?? "json",
-            Status = "pending"
-        };
-        db.ApiSyncEvents.Add(evt);
-        await db.SaveChangesAsync();
-
-        var executionHeaders = headers.ToDictionary(kvp => kvp.Key, kvp => ResolveForExecution(kvp.Value));
-        var executionUrl = ResolveForExecution(config.Url);
-        var executionBody = ResolveForExecution(config.BodyTemplate ?? "");
-
-        string? analysis = null;
-        try
-        {
-            using var client = httpClientFactory.CreateClient();
-            client.Timeout = TimeSpan.FromSeconds(30);
-            foreach (var (k, v) in executionHeaders)
-                client.DefaultRequestHeaders.TryAddWithoutValidation(k, v);
-
-            var mediaType = (config.BodyFormat ?? "json") == "urlencoded"
-                ? "application/x-www-form-urlencoded"
-                : "application/json";
-            var response = await client.PostAsync(executionUrl, new StringContent(executionBody, Encoding.UTF8, mediaType));
-            var responseBody = await response.Content.ReadAsStringAsync();
-
-            evt.ResponseStatus = (int)response.StatusCode;
-            evt.ResponseBody = responseBody;
-            evt.SentAt = DateTimeOffset.UtcNow;
-
-            if (response.IsSuccessStatusCode)
-            {
-                evt.Status = "sent";
-                analysis = WinOfTheWeekService.ExtractTextAtPath(responseBody, mapping.TextResponsePath)?.Trim();
-            }
-            else
-            {
-                evt.Status = "failed";
-            }
-        }
-        catch (Exception ex)
-        {
-            evt.Status = "failed";
-            evt.ResponseBody = ex.Message;
-            evt.SentAt = DateTimeOffset.UtcNow;
-        }
-
-        await db.SaveChangesAsync();
-
-        return new TimesheetQualityAnalysisDto(true, analysis, evt.Status);
+        return new TimesheetQualityAnalysisDto(true, analysis, analysis is not null ? "sent" : "failed");
     }
 
     // For each Monday-Sunday week overlapping the requested range, totals each employee's hours
