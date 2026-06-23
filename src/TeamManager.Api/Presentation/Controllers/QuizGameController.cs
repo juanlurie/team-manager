@@ -19,6 +19,7 @@ public class QuizGameController(QuizGameService service, AppDbContext db) : Cont
     }
 
     [HttpPost("sessions")]
+    [RequireFeature("quiz-game-host")]
     public async Task<IActionResult> CreateSession([FromBody] CreateQuizGameSessionRequest request)
     {
         var memberId = GetCurrentMemberId();
@@ -52,6 +53,7 @@ public class QuizGameController(QuizGameService service, AppDbContext db) : Cont
     }
 
     [HttpPost("sessions/{id:guid}/start")]
+    [RequireFeature("quiz-game-host")]
     public async Task<IActionResult> StartSession(Guid id)
     {
         var memberId = GetCurrentMemberId();
@@ -70,8 +72,8 @@ public class QuizGameController(QuizGameService service, AppDbContext db) : Cont
         var memberId = GetCurrentMemberId();
         try
         {
-            var isCorrect = await service.SubmitAnswerAsync(memberId, id, request.SelectedIndex);
-            return Ok(new { isCorrect });
+            var (isCorrect, correctIndex) = await service.SubmitAnswerAsync(memberId, id, request.SelectedIndex);
+            return Ok(new { isCorrect, correctIndex });
         }
         catch (KeyNotFoundException ex) { return NotFound(new { error = ex.Message }); }
         catch (InvalidOperationException ex) { return BadRequest(new { error = ex.Message }); }
