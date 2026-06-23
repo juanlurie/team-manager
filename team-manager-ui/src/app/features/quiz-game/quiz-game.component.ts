@@ -14,6 +14,7 @@ import { QuizGameMode, QuizGameSession, QuizGameSessionSummary } from '../../cor
 import { WebSocketService } from '../../core/websocket/websocket.service';
 import { WowCountdownComponent } from '../../shared/components/wow-countdown/wow-countdown.component';
 import { RevealProgressBarComponent } from '../../shared/components/reveal-progress-bar/reveal-progress-bar.component';
+import { FeatureAccessService } from '../../core/services/feature-access.service';
 
 @Component({
   selector: 'app-create-quiz-game-dialog',
@@ -151,13 +152,18 @@ export class CreateQuizGameDialogComponent {
     .progress-label { text-align:center;font-size:0.72rem;opacity:0.5;text-transform:uppercase;letter-spacing:0.5px }
     .completed-banner { text-align:center;padding:24px 0 }
     .completed-banner .winner-name { font-size:1.3rem;font-weight:800;color:#ffd54f;margin:8px 0 }
+    @media (max-width: 480px) {
+      .options-grid { grid-template-columns: 1fr }
+    }
   `],
   template: `
     <div class="wrap" [class.wide]="millionaireLayoutActive()">
       @if (!selectedSession()) {
         <div class="lobby-header">
           <h2><mat-icon class="heading-icon">help_outline</mat-icon>Quiz Game</h2>
-          <button mat-flat-button color="primary" (click)="openCreateDialog()">New Game</button>
+          @if (canHost()) {
+            <button mat-flat-button color="primary" (click)="openCreateDialog()">New Game</button>
+          }
         </div>
 
         @if (loading()) {
@@ -335,21 +341,26 @@ export class CreateQuizGameDialogComponent {
 
               <div class="options-grid">
                 @for (opt of s.currentOptions; let i = $index; track i) {
-                  @if (s.isParticipant && s.myAnswerIndex === null && !s.currentQuestionRevealed) {
-                    <button mat-stroked-button class="option-btn" (click)="submitAnswer(i)">{{ opt }}</button>
+                  @if (s.isParticipant && s.myAnswerIndex === null && !s.currentQuestionRevealed && !classicAnswerResult()) {
+                    <button mat-stroked-button class="option-btn" [disabled]="submittingClassicAnswer()" (click)="submitAnswer(i)">{{ opt }}</button>
                   } @else {
                     <div class="quiz-option-display"
-                         [class.quiz-option-correct]="s.currentQuestionRevealed && s.currentCorrectIndex === i"
-                         [class.quiz-option-wrong]="s.currentQuestionRevealed && s.myAnswerIndex === i && s.currentCorrectIndex !== i"
-                         [class.quiz-option-mine]="!s.currentQuestionRevealed && s.myAnswerIndex === i">
+                         [class.quiz-option-correct]="(s.currentQuestionRevealed && s.currentCorrectIndex === i) || classicAnswerResult()?.correctIndex === i"
+                         [class.quiz-option-wrong]="(s.currentQuestionRevealed && s.myAnswerIndex === i && s.currentCorrectIndex !== i) || (classicAnswerResult()?.selectedIndex === i && classicAnswerResult()?.isCorrect === false)"
+                         [class.quiz-option-mine]="!s.currentQuestionRevealed && !classicAnswerResult() && s.myAnswerIndex === i">
                       {{ opt }}
-                      @if (s.myAnswerIndex === i) { <span style="opacity:0.6"> — your pick</span> }
+                      @if ((classicAnswerResult()?.selectedIndex ?? s.myAnswerIndex) === i) { <span style="opacity:0.6"> — your pick</span> }
                     </div>
                   }
                 }
               </div>
 
-              @if (s.isParticipant && s.myAnswerIndex !== null && !s.currentQuestionRevealed) {
+              @if (s.isParticipant && classicAnswerResult() && !s.currentQuestionRevealed) {
+                <div style="font-size:0.85rem;font-weight:700;margin-top:10px;text-align:center"
+                     [style.color]="classicAnswerResult()!.isCorrect ? '#81c784' : '#ef5350'">
+                  {{ classicAnswerResult()!.isCorrect ? 'Correct!' : 'Incorrect' }} — waiting on the others…
+                </div>
+              } @else if (s.isParticipant && s.myAnswerIndex !== null && !s.currentQuestionRevealed) {
                 <div style="font-size:0.78rem;opacity:0.5;margin-top:10px;text-align:center">Answer locked in — waiting on the others…</div>
               }
 
@@ -404,6 +415,8 @@ export class QuizGameComponent implements OnInit, OnDestroy {
   private dialog = inject(MatDialog);
   private snackBar = inject(MatSnackBar);
   private ws = inject(WebSocketService);
+  private featureAccess = inject(FeatureAccessService);
+  readonly canHost = this.featureAccess.hasAccess$('quiz-game-host');
 
   loading = signal(true);
   sessions = signal<QuizGameSessionSummary[]>([]);
@@ -416,6 +429,13 @@ export class QuizGameComponent implements OnInit, OnDestroy {
   answerReveal = signal<{ selectedIndex: number; correctIndex: number | null; isCorrect: boolean } | null>(null);
   canContinue = signal(false);
   private pendingMillionaireResult: QuizGameSession | null = null;
+
+  // Classic mode: lets the answering player see correct/wrong immediately, instead of waiting
+  // in the dark until the whole room's reveal fires. Cleared in applySession once the question
+  // actually advances (see lastClassicQuestionIndex).
+  submittingClassicAnswer = signal(false);
+  classicAnswerResult = signal<{ selectedIndex: number; isCorrect: boolean; correctIndex: number } | null>(null);
+  private lastClassicQuestionIndex = -1;
 
   millionaireLayoutActive = computed(() => {
     const s = this.selectedSession();
@@ -511,6 +531,10 @@ export class QuizGameComponent implements OnInit, OnDestroy {
   // the moment a fresh (non-revealed) question actually arrives.
   private applySession(d: QuizGameSession) {
     if (!d.currentQuestionRevealed) this.loadingNextQuestion.set(false);
+    if (d.gameMode === 'Classic' && d.currentQuestionIndex !== this.lastClassicQuestionIndex) {
+      this.classicAnswerResult.set(null);
+      this.lastClassicQuestionIndex = d.currentQuestionIndex;
+    }
     this.selectedSession.set(d);
   }
 
@@ -639,10 +663,18 @@ export class QuizGameComponent implements OnInit, OnDestroy {
 
   submitAnswer(selectedIndex: number) {
     const s = this.selectedSession();
-    if (!s) return;
+    if (!s || this.submittingClassicAnswer()) return;
+    this.submittingClassicAnswer.set(true);
     this.service.submitAnswer(s.id, selectedIndex).subscribe({
-      next: () => { this.snackBar.open('Answer locked in', 'Close', { duration: 1500 }); this.refreshSelected(); },
-      error: (err) => this.snackBar.open(err.error?.error ?? 'Failed to submit answer', 'Close', { duration: 4000 })
+      next: res => {
+        this.classicAnswerResult.set({ selectedIndex, isCorrect: res.isCorrect, correctIndex: res.correctIndex });
+        this.submittingClassicAnswer.set(false);
+        this.refreshSelected();
+      },
+      error: (err) => {
+        this.submittingClassicAnswer.set(false);
+        this.snackBar.open(err.error?.error ?? 'Failed to submit answer', 'Close', { duration: 4000 });
+      }
     });
   }
 }
