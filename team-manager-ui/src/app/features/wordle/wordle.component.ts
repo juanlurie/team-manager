@@ -179,7 +179,11 @@ interface PendingReveal {
                   @if (pendingReveal()) {
                     <div class="wordle-row">
                       @for (letter of pendingReveal()!.letters; let i = $index; track i) {
-                        <div class="wordle-tile flip" [class]="letter" [style.animation-delay]="(i * 220) + 'ms'">
+                        <div class="wordle-tile flip"
+                             [class.correct]="revealedTiles()[i] && letter === 'correct'"
+                             [class.present]="revealedTiles()[i] && letter === 'present'"
+                             [class.absent]="revealedTiles()[i] && letter === 'absent'"
+                             [style.animation-delay]="(i * 220) + 'ms'">
                           {{ pendingReveal()!.word.charAt(i) }}
                         </div>
                       }
@@ -262,6 +266,10 @@ export class WordleComponent implements OnInit, OnDestroy, AfterViewChecked {
   starting = signal(false);
   submittingGuess = signal(false);
   pendingReveal = signal<PendingReveal | null>(null);
+  // Which tiles in the pending-reveal row have reached the flip's midpoint (rotateX 90deg, edge-on
+  // and effectively invisible) -- the color class only applies once true, so the reveal happens
+  // mid-flip instead of being visible from frame one.
+  revealedTiles = signal<boolean[]>([]);
   guessInput = '';
   private pendingSession: WordleSession | null = null;
 
@@ -418,7 +426,18 @@ export class WordleComponent implements OnInit, OnDestroy, AfterViewChecked {
         // won/lost banner) -- same beat as the real game instead of snapping forward instantly.
         const lastGuess = d.myGuesses[d.myGuesses.length - 1];
         this.pendingReveal.set({ word: lastGuess.word, letters: lastGuess.letters });
+        this.revealedTiles.set(new Array(s.wordLength).fill(false));
         this.pendingSession = d;
+
+        // Each tile's color flips on at its animation's midpoint (rotateX 90deg -- edge-on,
+        // effectively invisible), not at frame one -- 250ms is half of the 0.5s flip animation,
+        // offset by that tile's own stagger delay (i * 220ms).
+        for (let i = 0; i < s.wordLength; i++) {
+          setTimeout(() => {
+            this.revealedTiles.update(arr => arr.map((v, idx) => idx === i ? true : v));
+          }, i * 220 + 250);
+        }
+
         const flipTotalMs = s.wordLength * 220 + 600;
         setTimeout(() => {
           this.applySession(this.pendingSession!);
