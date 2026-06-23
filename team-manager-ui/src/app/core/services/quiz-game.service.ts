@@ -32,4 +32,16 @@ export class QuizGameService {
   submitAnswer(sessionId: string, selectedIndex: number): Observable<{ isCorrect: boolean }> {
     return this.http.post<{ isCorrect: boolean }>(`${this.base}/sessions/${sessionId}/answer`, { selectedIndex });
   }
+
+  startMillionaireRun(sessionId: string): Observable<QuizGameSession> {
+    return this.http.post<QuizGameSession>(`${this.base}/sessions/${sessionId}/millionaire/start`, {});
+  }
+
+  submitMillionaireAnswer(sessionId: string, selectedIndex: number): Observable<QuizGameSession> {
+    return this.http.post<QuizGameSession>(`${this.base}/sessions/${sessionId}/millionaire/answer`, { selectedIndex });
+  }
+
+  walkAway(sessionId: string): Observable<QuizGameSession> {
+    return this.http.post<QuizGameSession>(`${this.base}/sessions/${sessionId}/millionaire/walk-away`, {});
+  }
 }

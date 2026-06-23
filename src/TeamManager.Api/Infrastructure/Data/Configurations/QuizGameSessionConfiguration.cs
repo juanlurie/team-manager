@@ -29,5 +29,10 @@ public class QuizGameSessionConfiguration : IEntityTypeConfiguration<QuizGameSes
             .WithOne(a => a.Session)
             .HasForeignKey(a => a.SessionId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        builder.HasMany(s => s.MillionaireRounds)
+            .WithOne(r => r.Session)
+            .HasForeignKey(r => r.SessionId)
+            .OnDelete(DeleteBehavior.Cascade);
     }
 }

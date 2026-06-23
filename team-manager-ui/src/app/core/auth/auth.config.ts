@@ -16,9 +16,10 @@ export const authConfig: AuthConfig = {
   userinfoEndpoint:      'https://openidconnect.googleapis.com/v1/userinfo',
   loginUrl:              'https://accounts.google.com/o/oauth2/v2/auth',
   logoutUrl:             'https://accounts.google.com/Logout',
-  // access_type=offline gets us a refresh_token; prompt=consent forces Google to actually
-  // issue one even if the user already granted consent previously without it. Needed so
-  // AuthService can call setupAutomaticSilentRefresh() and keep sessions alive without
-  // the ~1hr access-token expiry logging people out mid-use.
-  customQueryParams: { access_type: 'offline', prompt: 'consent' },
+  // access_type=offline gets us a refresh_token, needed so AuthService can call
+  // setupAutomaticSilentRefresh() and keep sessions alive past the ~1hr access-token expiry.
+  // Do NOT set prompt=consent here -- that forces Google's consent screen on every single
+  // login, not just the first. AuthService.login() adds it dynamically only when there's no
+  // refresh_token stored yet (new users, or this account's one-time upgrade).
+  customQueryParams: { access_type: 'offline' },
 };
