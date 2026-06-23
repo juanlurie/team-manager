@@ -28,7 +28,7 @@ public static class MillionaireLadder
         return amount;
     }
 
-    // 1-15 -> a difficulty tier for question generation: easy/medium/hard.
-    public static string DifficultyTier(int roundIndex) =>
-        roundIndex < 5 ? "easy" : roundIndex < 10 ? "medium" : "hard";
+    // Round number on the 1-15 scale QuizQuestionGeneratorService expects -- the round index
+    // *is* the difficulty level here, no separate tier mapping needed.
+    public static int DifficultyLevel(int roundIndex) => roundIndex + 1;
 }
