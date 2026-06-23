@@ -109,6 +109,8 @@ interface PendingReveal {
     .scoreboard { margin-top:20px;border-top:1px solid rgba(255,255,255,0.08);padding-top:14px }
     .scoreboard-row { display:flex;justify-content:space-between;align-items:center;padding:6px 0;font-size:0.85rem }
     .scoreboard-row.me { color:#64b5f6;font-weight:600 }
+    .scoreboard-row.solved { color:#81c784 }
+    .scoreboard-row.failed { color:#ef5350 }
     .completed-banner { text-align:center;padding:24px 0 }
   `],
   template: `
@@ -234,7 +236,8 @@ interface PendingReveal {
                   <div class="progress-label" style="margin-bottom:6px;text-align:left">Final standings</div>
                 }
                 @for (p of s.participants; track p.memberId) {
-                  <div class="scoreboard-row" [class.me]="p.memberId === s.currentMemberId">
+                  <div class="scoreboard-row" [class.me]="p.memberId === s.currentMemberId"
+                       [class.solved]="p.status === 'Won'" [class.failed]="p.status === 'Lost'">
                     <span>{{ p.memberName }} <span style="opacity:0.5;font-size:0.7rem">({{ statusLabel(p.status) }})</span></span>
                     <span>{{ p.guessCount }}/{{ s.maxGuesses }}</span>
                   </div>
