@@ -19,6 +19,7 @@ public class PollsController(PollService service, AppDbContext db) : ControllerB
     }
 
     [HttpPost]
+    [RequireFeature("polls-host")]
     public async Task<IActionResult> Create([FromBody] CreatePollRequest request)
     {
         var memberId = GetCurrentMemberId();
@@ -56,6 +57,7 @@ public class PollsController(PollService service, AppDbContext db) : ControllerB
     }
 
     [HttpPut("{id:guid}/settings")]
+    [RequireFeature("polls-host")]
     public async Task<IActionResult> UpdateSettings(Guid id, [FromBody] UpdatePollSettingsRequest request)
     {
         var memberId = GetCurrentMemberId();
@@ -69,6 +71,7 @@ public class PollsController(PollService service, AppDbContext db) : ControllerB
     }
 
     [HttpPost("{id:guid}/close")]
+    [RequireFeature("polls-host")]
     public async Task<IActionResult> Close(Guid id)
     {
         var memberId = GetCurrentMemberId();
@@ -82,6 +85,7 @@ public class PollsController(PollService service, AppDbContext db) : ControllerB
     }
 
     [HttpDelete("{id:guid}")]
+    [RequireFeature("polls-host")]
     public async Task<IActionResult> Delete(Guid id)
     {
         var memberId = GetCurrentMemberId();

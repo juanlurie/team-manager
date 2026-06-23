@@ -14,6 +14,7 @@ import { QuizGameMode, QuizGameSession, QuizGameSessionSummary } from '../../cor
 import { WebSocketService } from '../../core/websocket/websocket.service';
 import { WowCountdownComponent } from '../../shared/components/wow-countdown/wow-countdown.component';
 import { RevealProgressBarComponent } from '../../shared/components/reveal-progress-bar/reveal-progress-bar.component';
+import { FeatureAccessService } from '../../core/services/feature-access.service';
 
 @Component({
   selector: 'app-create-quiz-game-dialog',
@@ -157,7 +158,9 @@ export class CreateQuizGameDialogComponent {
       @if (!selectedSession()) {
         <div class="lobby-header">
           <h2><mat-icon class="heading-icon">help_outline</mat-icon>Quiz Game</h2>
-          <button mat-flat-button color="primary" (click)="openCreateDialog()">New Game</button>
+          @if (canHost()) {
+            <button mat-flat-button color="primary" (click)="openCreateDialog()">New Game</button>
+          }
         </div>
 
         @if (loading()) {
@@ -409,6 +412,8 @@ export class QuizGameComponent implements OnInit, OnDestroy {
   private dialog = inject(MatDialog);
   private snackBar = inject(MatSnackBar);
   private ws = inject(WebSocketService);
+  private featureAccess = inject(FeatureAccessService);
+  readonly canHost = this.featureAccess.hasAccess$('quiz-game-host');
 
   loading = signal(true);
   sessions = signal<QuizGameSessionSummary[]>([]);

@@ -187,8 +187,10 @@ static async Task SeedFeaturePermissionsAsync(AppDbContext db)
         ("wheel", "Fun Hub", "Spin Wheel"),
         ("leaderboard", "Fun Hub", "Leaderboard"),
         ("win-of-week", "Fun Hub", "Win of the Week"),
+        ("polls", "Fun Hub", "Polls"),
+        ("quiz-game", "Fun Hub", "Quiz Game"),
         ("team", "Team", "Team Management"),
-        // wow-host is seeded separately with role-specific defaults
+        // wow-host/polls-host/quiz-game-host are seeded separately with role-specific defaults
 
         ("leave", "Team", "Leave"),
         ("export", "Admin", "Export"),
@@ -218,21 +220,32 @@ static async Task SeedFeaturePermissionsAsync(AppDbContext db)
         }
     }
 
-    // wow-host: on for TeamLead/TechLead, off for Member
-    var wowHostDefaults = new[] { ("Member", false), ("TeamLead", true), ("TechLead", true) };
-    foreach (var (role, enabled) in wowHostDefaults)
+    // Host-style features: on for TeamLead/TechLead, off for Member -- explicitly seeded per role
+    // (rather than relying on DefaultOffFeatures' fallback) since some permission lookups default
+    // unseeded features to enabled regardless of that list.
+    var hostFeatures = new[]
     {
-        var exists = await db.FeaturePermissions.AnyAsync(p => p.FeatureKey == "wow-host" && p.Role == role);
-        if (!exists)
+        ("wow-host", "Win of the Week — Host"),
+        ("polls-host", "Polls — Host"),
+        ("quiz-game-host", "Quiz Game — Host"),
+    };
+    var hostRoleDefaults = new[] { ("Member", false), ("TeamLead", true), ("TechLead", true) };
+    foreach (var (key, label) in hostFeatures)
+    {
+        foreach (var (role, enabled) in hostRoleDefaults)
         {
-            db.FeaturePermissions.Add(new TeamManager.Api.Domain.Entities.FeaturePermission
+            var exists = await db.FeaturePermissions.AnyAsync(p => p.FeatureKey == key && p.Role == role);
+            if (!exists)
             {
-                FeatureKey = "wow-host",
-                Category = "Fun Hub",
-                Label = "Win of the Week — Host",
-                Role = role,
-                IsEnabled = enabled,
-            });
+                db.FeaturePermissions.Add(new TeamManager.Api.Domain.Entities.FeaturePermission
+                {
+                    FeatureKey = key,
+                    Category = "Fun Hub",
+                    Label = label,
+                    Role = role,
+                    IsEnabled = enabled,
+                });
+            }
         }
     }
 

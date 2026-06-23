@@ -19,6 +19,7 @@ public class QuizGameController(QuizGameService service, AppDbContext db) : Cont
     }
 
     [HttpPost("sessions")]
+    [RequireFeature("quiz-game-host")]
     public async Task<IActionResult> CreateSession([FromBody] CreateQuizGameSessionRequest request)
     {
         var memberId = GetCurrentMemberId();
@@ -52,6 +53,7 @@ public class QuizGameController(QuizGameService service, AppDbContext db) : Cont
     }
 
     [HttpPost("sessions/{id:guid}/start")]
+    [RequireFeature("quiz-game-host")]
     public async Task<IActionResult> StartSession(Guid id)
     {
         var memberId = GetCurrentMemberId();

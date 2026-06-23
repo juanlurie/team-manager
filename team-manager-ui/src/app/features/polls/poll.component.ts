@@ -15,6 +15,7 @@ import { PollService } from '../../core/services/poll.service';
 import { PollDetail, PollSummary } from '../../core/models/poll.model';
 import { WebSocketService } from '../../core/websocket/websocket.service';
 import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/confirm-dialog.component';
+import { FeatureAccessService } from '../../core/services/feature-access.service';
 
 function toLocalDateTimeInputValue(d: Date): string {
   const pad = (n: number) => String(n).padStart(2, '0');
@@ -196,7 +197,9 @@ export class EditPollSettingsDialogComponent {
       @if (!selectedPoll()) {
         <div class="lobby-header">
           <h2><mat-icon class="heading-icon">poll</mat-icon>Polls</h2>
-          <button mat-flat-button color="primary" (click)="openCreateDialog()">New Poll</button>
+          @if (canHost()) {
+            <button mat-flat-button color="primary" (click)="openCreateDialog()">New Poll</button>
+          }
         </div>
 
         @if (loading()) {
@@ -325,6 +328,8 @@ export class PollComponent implements OnInit, OnDestroy {
   private ws = inject(WebSocketService);
   private route = inject(ActivatedRoute);
   private router = inject(Router);
+  private featureAccess = inject(FeatureAccessService);
+  readonly canHost = this.featureAccess.hasAccess$('polls-host');
 
   loading = signal(true);
   polls = signal<PollSummary[]>([]);
