@@ -5,11 +5,11 @@
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.dev/license
  */
-import { TcbDirectiveMetadata, TcbExpr, TcbPipeMetadata, TypeCheckingConfig } from '@angular/compiler';
 import ts from 'typescript';
-import { AbsoluteFsPath } from '../../file_system';
-import { ReferenceEmitter } from '../../imports';
+import { Reference, ReferenceEmitter } from '../../imports';
+import { ClassDeclaration, ReflectionHost } from '../../reflection';
 import { ImportManager } from '../../translator';
+import { TypeCheckableDirectiveMeta, TypeCheckingConfig } from '../api';
 import { ReferenceEmitEnvironment } from './reference_emit_environment';
 /**
  * A context which hosts one or more Type Check Blocks (TCBs).
@@ -26,18 +26,24 @@ export declare class Environment extends ReferenceEmitEnvironment {
     readonly config: TypeCheckingConfig;
     private nextIds;
     private typeCtors;
-    protected typeCtorStatements: TcbExpr[];
+    protected typeCtorStatements: ts.Statement[];
     private pipeInsts;
-    protected pipeInstStatements: TcbExpr[];
-    copiedSourceOriginPath?: AbsoluteFsPath;
-    constructor(config: TypeCheckingConfig, importManager: ImportManager, refEmitter: ReferenceEmitter, contextFile: ts.SourceFile, copiedSourceOriginPath?: AbsoluteFsPath);
+    protected pipeInstStatements: ts.Statement[];
+    constructor(config: TypeCheckingConfig, importManager: ImportManager, refEmitter: ReferenceEmitter, reflector: ReflectionHost, contextFile: ts.SourceFile);
     /**
      * Get an expression referring to a type constructor for the given directive.
      *
      * Depending on the shape of the directive itself, this could be either a reference to a declared
      * type constructor, or to an inline type constructor.
      */
-    typeCtorFor(dir: TcbDirectiveMetadata): TcbExpr;
-    pipeInst(pipe: TcbPipeMetadata): TcbExpr;
-    getPreludeStatements(): TcbExpr[];
+    typeCtorFor(dir: TypeCheckableDirectiveMeta): ts.Expression;
+    pipeInst(ref: Reference<ClassDeclaration<ts.ClassDeclaration>>): ts.Expression;
+    /**
+     * Generate a `ts.Expression` that references the given node.
+     *
+     * This may involve importing the node into the file if it's not declared there already.
+     */
+    reference(ref: Reference<ClassDeclaration<ts.ClassDeclaration>>): ts.Expression;
+    private emitTypeParameters;
+    getPreludeStatements(): ts.Statement[];
 }
