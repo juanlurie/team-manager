@@ -194,7 +194,7 @@ export class CreateQuizGameDialogComponent {
               }
             }
 
-            @if (s.status === 'InProgress' && s.gameMode === 'Millionaire') {
+            @if ((s.status === 'InProgress' || s.status === 'Completed') && s.gameMode === 'Millionaire') {
               @if (!s.isParticipant) {
                 <button mat-stroked-button style="width:100%;margin-bottom:10px" (click)="joinSelected()">Join Game</button>
               } @else if (!s.myMillionaireRun || s.myMillionaireRun.status === 'NotStarted') {
@@ -252,6 +252,9 @@ export class CreateQuizGameDialogComponent {
               }
 
               <div class="scoreboard">
+                @if (s.status === 'Completed') {
+                  <div class="progress-label" style="margin-bottom:6px;text-align:left">Final standings</div>
+                }
                 @for (p of s.participants; track p.memberId) {
                   <div class="winnings-row" [class.me]="p.memberId === s.currentMemberId">
                     <span>{{ p.memberName }} <span style="opacity:0.5;font-size:0.7rem">({{ millionaireStatusLabel(p.millionaireStatus) }})</span></span>
@@ -259,6 +262,10 @@ export class CreateQuizGameDialogComponent {
                   </div>
                 }
               </div>
+
+              @if (s.status === 'Completed') {
+                <button mat-flat-button color="primary" style="width:100%;margin-top:14px" (click)="backToLobby()">Back to lobby</button>
+              }
             }
 
             @if (s.status === 'InProgress' && s.gameMode === 'Classic') {
@@ -307,26 +314,6 @@ export class CreateQuizGameDialogComponent {
                     <span class="score">{{ p.score }} pts</span>
                   </div>
                 }
-              </div>
-            }
-
-            @if (s.status === 'Completed' && s.gameMode === 'Millionaire') {
-              <div class="completed-banner">
-                <mat-icon style="font-size:1.5rem;width:1.5rem;height:1.5rem;color:#64b5f6">emoji_events</mat-icon>
-                @if (millionaireWinnerName()) {
-                  <div class="winner-name">{{ millionaireWinnerName() }} won \${{ topWinnings() | number }}!</div>
-                } @else {
-                  <div class="winner-name">Game over</div>
-                }
-                <div class="scoreboard" style="text-align:left;max-width:320px;margin:16px auto 0">
-                  @for (p of s.participants; track p.memberId) {
-                    <div class="winnings-row" [class.me]="p.memberId === s.currentMemberId">
-                      <span>{{ p.memberName }} <span style="opacity:0.5;font-size:0.7rem">({{ millionaireStatusLabel(p.millionaireStatus) }})</span></span>
-                      <span class="score">\${{ p.millionaireWinnings | number }}</span>
-                    </div>
-                  }
-                </div>
-                <button mat-flat-button color="primary" style="margin-top:18px" (click)="backToLobby()">Back to lobby</button>
               </div>
             }
 
@@ -380,21 +367,6 @@ export class QuizGameComponent implements OnInit, OnDestroy {
     const top = this.topScore();
     if (top === 0) return null;
     const winners = s.participants.filter(p => p.score === top);
-    return winners.length === 1 ? winners[0].memberName : null;
-  });
-
-  topWinnings = computed(() => {
-    const s = this.selectedSession();
-    if (!s || s.participants.length === 0) return 0;
-    return Math.max(...s.participants.map(p => p.millionaireWinnings));
-  });
-
-  millionaireWinnerName = computed(() => {
-    const s = this.selectedSession();
-    if (!s || s.status !== 'Completed') return null;
-    const top = this.topWinnings();
-    if (top === 0) return null;
-    const winners = s.participants.filter(p => p.millionaireWinnings === top);
     return winners.length === 1 ? winners[0].memberName : null;
   });
 
