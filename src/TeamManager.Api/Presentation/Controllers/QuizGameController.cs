@@ -22,7 +22,7 @@ public class QuizGameController(QuizGameService service, AppDbContext db) : Cont
     public async Task<IActionResult> CreateSession([FromBody] CreateQuizGameSessionRequest request)
     {
         var memberId = GetCurrentMemberId();
-        var result = await service.CreateSessionAsync(memberId, request.Title, request.QuestionCount);
+        var result = await service.CreateSessionAsync(memberId, request.Title, request.QuestionCount, request.GameMode);
         return Ok(result);
     }
 
@@ -72,6 +72,45 @@ public class QuizGameController(QuizGameService service, AppDbContext db) : Cont
         {
             var isCorrect = await service.SubmitAnswerAsync(memberId, id, request.SelectedIndex);
             return Ok(new { isCorrect });
+        }
+        catch (KeyNotFoundException ex) { return NotFound(new { error = ex.Message }); }
+        catch (InvalidOperationException ex) { return BadRequest(new { error = ex.Message }); }
+    }
+
+    [HttpPost("sessions/{id:guid}/millionaire/start")]
+    public async Task<IActionResult> StartMillionaireRun(Guid id)
+    {
+        var memberId = GetCurrentMemberId();
+        try
+        {
+            var result = await service.StartMillionaireRunAsync(memberId, id);
+            return Ok(result);
+        }
+        catch (KeyNotFoundException ex) { return NotFound(new { error = ex.Message }); }
+        catch (InvalidOperationException ex) { return BadRequest(new { error = ex.Message }); }
+    }
+
+    [HttpPost("sessions/{id:guid}/millionaire/answer")]
+    public async Task<IActionResult> SubmitMillionaireAnswer(Guid id, [FromBody] SubmitQuizGameAnswerRequest request)
+    {
+        var memberId = GetCurrentMemberId();
+        try
+        {
+            var result = await service.SubmitMillionaireAnswerAsync(memberId, id, request.SelectedIndex);
+            return Ok(result);
+        }
+        catch (KeyNotFoundException ex) { return NotFound(new { error = ex.Message }); }
+        catch (InvalidOperationException ex) { return BadRequest(new { error = ex.Message }); }
+    }
+
+    [HttpPost("sessions/{id:guid}/millionaire/walk-away")]
+    public async Task<IActionResult> WalkAway(Guid id)
+    {
+        var memberId = GetCurrentMemberId();
+        try
+        {
+            var result = await service.WalkAwayAsync(memberId, id);
+            return Ok(result);
         }
         catch (KeyNotFoundException ex) { return NotFound(new { error = ex.Message }); }
         catch (InvalidOperationException ex) { return BadRequest(new { error = ex.Message }); }

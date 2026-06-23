@@ -7,11 +7,21 @@ public enum QuizGameSessionStatus
     Completed
 }
 
+// Classic: everyone answers the same question simultaneously each round (existing behavior).
+// Millionaire: each participant climbs the prize ladder at their own pace -- see
+// QuizMillionaireRound and the Millionaire* fields on QuizGameParticipant.
+public enum QuizGameMode
+{
+    Classic,
+    Millionaire
+}
+
 public class QuizGameSession
 {
     public Guid Id { get; set; }
     public Guid CreatedByMemberId { get; set; }
     public string? Title { get; set; }
+    public QuizGameMode GameMode { get; set; } = QuizGameMode.Classic;
     public int QuestionCount { get; set; } = 10;
     public int CurrentQuestionIndex { get; set; } = -1;
     public QuizGameSessionStatus Status { get; set; } = QuizGameSessionStatus.Waiting;
@@ -28,4 +38,5 @@ public class QuizGameSession
     public TeamMember? CreatedByMember { get; set; }
     public ICollection<QuizGameParticipant> Participants { get; set; } = [];
     public ICollection<QuizGameAnswer> Answers { get; set; } = [];
+    public ICollection<QuizMillionaireRound> MillionaireRounds { get; set; } = [];
 }

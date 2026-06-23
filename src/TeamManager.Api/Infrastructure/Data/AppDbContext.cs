@@ -56,6 +56,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<QuizGameSession> QuizGameSessions => Set<QuizGameSession>();
     public DbSet<QuizGameParticipant> QuizGameParticipants => Set<QuizGameParticipant>();
     public DbSet<QuizGameAnswer> QuizGameAnswers => Set<QuizGameAnswer>();
+    public DbSet<QuizMillionaireRound> QuizMillionaireRounds => Set<QuizMillionaireRound>();
     public DbSet<Poll> Polls => Set<Poll>();
     public DbSet<PollOption> PollOptions => Set<PollOption>();
     public DbSet<PollVote> PollVotes => Set<PollVote>();
@@ -149,6 +150,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         modelBuilder.ApplyConfiguration(new QuizGameSessionConfiguration());
         modelBuilder.ApplyConfiguration(new QuizGameParticipantConfiguration());
         modelBuilder.ApplyConfiguration(new QuizGameAnswerConfiguration());
+        modelBuilder.ApplyConfiguration(new QuizMillionaireRoundConfiguration());
         modelBuilder.ApplyConfiguration(new PollConfiguration());
         modelBuilder.ApplyConfiguration(new PollOptionConfiguration());
         modelBuilder.ApplyConfiguration(new PollVoteConfiguration());
