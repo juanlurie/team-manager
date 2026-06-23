@@ -128,7 +128,11 @@ export class AuthService {
   login(returnUrl?: string) {
     if (!this.devMode) {
       if (returnUrl) localStorage.setItem(AuthService.RETURN_URL_KEY, returnUrl);
-      this.oauth.initCodeFlow();
+      // Only force Google's consent screen when we don't already have a refresh_token --
+      // new users (or this account's one-time pickup of the silent-refresh fix) need it once
+      // to get one issued; everyone who already has one shouldn't see it again on every login.
+      const needsConsent = !this.oauth.getRefreshToken();
+      this.oauth.initCodeFlow(undefined, needsConsent ? { prompt: 'consent' } : {});
     }
   }
 
