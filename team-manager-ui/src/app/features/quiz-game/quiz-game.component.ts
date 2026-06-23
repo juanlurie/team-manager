@@ -118,6 +118,8 @@ export class CreateQuizGameDialogComponent {
     .question-text { font-weight:700;font-size:1.05rem;margin:14px 0 16px;text-align:center }
     .options-grid { display:grid;grid-template-columns:1fr 1fr;gap:10px }
     .option-btn { padding:14px;height:auto;white-space:normal;text-align:left;font-size:0.9rem }
+    .option-btn.option-selected { border-color:#64b5f6;background:rgba(100,181,246,0.12);color:#64b5f6 }
+    .option-btn:disabled { opacity:0.7 }
     .quiz-option-display { padding:14px;border-radius:8px;border:1px solid rgba(255,255,255,0.1);font-size:0.9rem;opacity:0.6 }
     .quiz-option-mine { border-color:rgba(100,181,246,0.5);opacity:0.95;color:#64b5f6 }
     .quiz-option-correct { border-color:rgba(102,187,106,0.6);background:rgba(102,187,106,0.12);opacity:1;color:#81c784 }
@@ -172,7 +174,7 @@ export class CreateQuizGameDialogComponent {
               @if (s.gameMode === 'Classic' && s.status === 'InProgress' && !s.currentQuestionRevealed) {
                 <app-wow-countdown [endsAt]="s.currentQuestionEndsAt" />
               }
-              @if (s.gameMode === 'Millionaire' && s.myMillionaireRun?.status === 'Playing') {
+              @if (s.gameMode === 'Millionaire' && s.myMillionaireRun?.status === 'Playing' && s.myMillionaireRun?.endsAt) {
                 <app-wow-countdown [endsAt]="s.myMillionaireRun!.endsAt" />
               }
             </div>
@@ -211,11 +213,20 @@ export class CreateQuizGameDialogComponent {
 
                 <div class="options-grid">
                   @for (opt of s.myMillionaireRun.options; let i = $index; track i) {
-                    <button mat-stroked-button class="option-btn" (click)="submitMillionaireAnswer(i)">{{ opt }}</button>
+                    <button mat-stroked-button class="option-btn" [class.option-selected]="selectedAnswerIndex() === i"
+                            [disabled]="submittingAnswer()" (click)="submitMillionaireAnswer(i)">
+                      {{ opt }}
+                    </button>
                   }
                 </div>
 
-                <button mat-stroked-button class="walk-away-btn" (click)="walkAway()">
+                @if (submittingAnswer()) {
+                  <div style="font-size:0.78rem;opacity:0.6;text-align:center;margin-top:10px;display:flex;align-items:center;justify-content:center;gap:8px">
+                    <mat-spinner diameter="16" /> Checking your answer…
+                  </div>
+                }
+
+                <button mat-stroked-button class="walk-away-btn" [disabled]="submittingAnswer()" (click)="walkAway()">
                   Walk Away with \${{ s.myMillionaireRun.safeHavenWinnings | number }}
                 </button>
 
@@ -354,6 +365,8 @@ export class QuizGameComponent implements OnInit, OnDestroy {
   selectedSessionLoading = signal(false);
   starting = signal(false);
   loadingNextQuestion = signal(false);
+  submittingAnswer = signal(false);
+  selectedAnswerIndex = signal<number | null>(null);
 
   topScore = computed(() => {
     const s = this.selectedSession();
@@ -501,19 +514,37 @@ export class QuizGameComponent implements OnInit, OnDestroy {
 
   submitMillionaireAnswer(selectedIndex: number) {
     const s = this.selectedSession();
-    if (!s) return;
+    if (!s || this.submittingAnswer()) return;
+    this.submittingAnswer.set(true);
+    this.selectedAnswerIndex.set(selectedIndex);
     this.service.submitMillionaireAnswer(s.id, selectedIndex).subscribe({
-      next: d => this.applySession(d),
-      error: (err) => this.snackBar.open(err.error?.error ?? 'Failed to submit answer', 'Close', { duration: 4000 })
+      next: d => {
+        this.applySession(d);
+        this.submittingAnswer.set(false);
+        this.selectedAnswerIndex.set(null);
+      },
+      error: (err) => {
+        this.submittingAnswer.set(false);
+        this.selectedAnswerIndex.set(null);
+        this.snackBar.open(err.error?.error ?? 'Failed to submit answer', 'Close', { duration: 4000 });
+      }
     });
   }
 
   walkAway() {
     const s = this.selectedSession();
-    if (!s) return;
+    if (!s || this.submittingAnswer()) return;
+    this.submittingAnswer.set(true);
     this.service.walkAway(s.id).subscribe({
-      next: d => { this.applySession(d); this.snackBar.open('Winnings banked', 'Close', { duration: 2500 }); },
-      error: (err) => this.snackBar.open(err.error?.error ?? 'Failed to walk away', 'Close', { duration: 4000 })
+      next: d => {
+        this.applySession(d);
+        this.submittingAnswer.set(false);
+        this.snackBar.open('Winnings banked', 'Close', { duration: 2500 });
+      },
+      error: (err) => {
+        this.submittingAnswer.set(false);
+        this.snackBar.open(err.error?.error ?? 'Failed to walk away', 'Close', { duration: 4000 });
+      }
     });
   }
 
