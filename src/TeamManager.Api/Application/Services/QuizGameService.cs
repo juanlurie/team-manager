@@ -130,7 +130,9 @@ public class QuizGameService(AppDbContext db, QuizQuestionGeneratorService quest
         await GetOrCreateMillionaireRoundAsync(sessionId, 0);
         participant.MillionaireStatus = QuizMillionaireStatus.Playing;
         participant.MillionaireRoundIndex = 0;
-        participant.MillionaireRoundEndsAt = DateTimeOffset.UtcNow.AddSeconds(MillionaireQuestionDurationSeconds);
+        participant.MillionaireRoundEndsAt = await IsSoloMillionaireSessionAsync(sessionId)
+            ? null
+            : DateTimeOffset.UtcNow.AddSeconds(MillionaireQuestionDurationSeconds);
         await db.SaveChangesAsync();
 
         _ = WebSocketMiddleware.BroadcastAsync("quiz_game_millionaire_progress", new { sessionId, memberId });
@@ -189,7 +191,9 @@ public class QuizGameService(AppDbContext db, QuizQuestionGeneratorService quest
                 var nextIndex = roundIndex + 1;
                 await GetOrCreateMillionaireRoundAsync(sessionId, nextIndex);
                 participant.MillionaireRoundIndex = nextIndex;
-                participant.MillionaireRoundEndsAt = DateTimeOffset.UtcNow.AddSeconds(MillionaireQuestionDurationSeconds);
+                participant.MillionaireRoundEndsAt = await IsSoloMillionaireSessionAsync(sessionId)
+                    ? null
+                    : DateTimeOffset.UtcNow.AddSeconds(MillionaireQuestionDurationSeconds);
             }
         }
         else
@@ -617,6 +621,13 @@ public class QuizGameService(AppDbContext db, QuizQuestionGeneratorService quest
     // Generates (and caches) the question for a given round, shared by every participant who
     // reaches it -- guards against two participants racing to create the same round at once via
     // the unique (SessionId, RoundIndex) index.
+    // Solo Millionaire sessions skip the per-question timer entirely -- there's no one else's pace
+    // to keep up with, so the pressure (and the risk of being timed out by tab-switching) is just
+    // friction. Re-checked every round rather than fixed at session start, in case someone else
+    // joins partway through.
+    private async Task<bool> IsSoloMillionaireSessionAsync(Guid sessionId) =>
+        await db.QuizGameParticipants.CountAsync(p => p.SessionId == sessionId) <= 1;
+
     private async Task<QuizMillionaireRound> GetOrCreateMillionaireRoundAsync(Guid sessionId, int roundIndex)
     {
         var existing = await db.QuizMillionaireRounds.FirstOrDefaultAsync(r => r.SessionId == sessionId && r.RoundIndex == roundIndex);
