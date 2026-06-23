@@ -105,7 +105,13 @@ export class CreateQuizGameDialogComponent {
     .session-title { font-weight:600;font-size:0.92rem }
     .mode-tag { font-size:0.65rem;font-weight:700;background:rgba(255,213,79,0.15);color:#ffd54f;padding:2px 7px;border-radius:8px;margin-left:6px;vertical-align:middle }
     .ladder { display:flex;flex-direction:column-reverse;gap:2px;margin:0;max-height:480px;overflow-y:auto }
-    .ladder-rung { display:flex;justify-content:space-between;padding:4px 8px;border-radius:5px;font-size:0.68rem;background:rgba(255,255,255,0.03) }
+    .ladder-rung { display:flex;align-items:center;justify-content:space-between;padding:4px 8px;border-radius:5px;font-size:0.68rem;background:rgba(255,255,255,0.03);gap:4px }
+    .rung-players { display:flex;gap:2px;flex:1;justify-content:center;flex-wrap:wrap }
+    .player-chip { display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;border-radius:50%;
+                   background:rgba(100,181,246,0.25);color:#64b5f6;font-size:0.6rem;font-weight:700;cursor:default;flex-shrink:0 }
+    .player-chip.eliminated { background:rgba(239,83,80,0.25);color:#ef5350 }
+    .player-chip.walked-away { background:rgba(255,213,79,0.25);color:#ffd54f }
+    .player-chip.won { background:rgba(129,199,132,0.25);color:#81c784 }
     .ladder-rung.current { background:rgba(100,181,246,0.15);border:1px solid #64b5f6;font-weight:700 }
     .ladder-rung.safe-haven { border-left:3px solid #ffd54f }
     .ladder-rung.cleared { opacity:0.45 }
@@ -264,6 +270,17 @@ export class CreateQuizGameDialogComponent {
                              [class.safe-haven]="s.millionaireSafeHavenRounds.includes(i)"
                              [class.cleared]="i < s.myMillionaireRun.roundIndex">
                           <span>{{ i + 1 }}</span>
+                          <span class="rung-players">
+                            @for (p of participantsAtRound(s, i, true); track p.memberId) {
+                              <span class="player-chip"
+                                    [class.eliminated]="p.millionaireStatus === 'Eliminated'"
+                                    [class.walked-away]="p.millionaireStatus === 'WalkedAway'"
+                                    [class.won]="p.millionaireStatus === 'Won'"
+                                    [title]="p.memberName + ' (' + millionaireStatusLabel(p.millionaireStatus) + ')'">
+                                {{ p.memberName.charAt(0) }}
+                              </span>
+                            }
+                          </span>
                           <span>\${{ prize | number }}</span>
                         </div>
                       }
@@ -428,6 +445,18 @@ export class QuizGameComponent implements OnInit, OnDestroy {
       case 'Won': return 'won';
       default: return 'not started';
     }
+  }
+
+  // Which participants are sitting at a given rung -- Won shows at the top rung since a winner's
+  // round index points one past the last rung (there's nothing above 15 to show them on).
+  participantsAtRound(s: QuizGameSession, roundIndex: number, excludeSelf: boolean) {
+    const topRung = s.millionairePrizeLadder.length - 1;
+    return s.participants.filter(p => {
+      if (excludeSelf && p.memberId === s.currentMemberId) return false;
+      if (p.millionaireStatus === 'NotStarted') return false;
+      const effectiveIndex = p.millionaireStatus === 'Won' ? topRung : p.millionaireRoundIndex;
+      return effectiveIndex === roundIndex;
+    });
   }
 
   private destroy$ = new Subject<void>();
