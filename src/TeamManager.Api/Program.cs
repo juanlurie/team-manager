@@ -69,6 +69,7 @@ builder.Services.AddScoped<IMeetingSeriesService, MeetingSeriesService>();
 builder.Services.AddScoped<QuizQuestionGeneratorService>();
 builder.Services.AddScoped<QuizGameService>();
 builder.Services.AddScoped<PollService>();
+builder.Services.AddScoped<WordleService>();
 builder.Services.AddScoped<IWinOfTheWeekService, WinOfTheWeekService>();
 builder.Services.AddScoped<GuestWinOfTheWeekService>();
 builder.Services.AddScoped<WinSeriesService>();
@@ -189,8 +190,9 @@ static async Task SeedFeaturePermissionsAsync(AppDbContext db)
         ("win-of-week", "Fun Hub", "Win of the Week"),
         ("polls", "Fun Hub", "Polls"),
         ("quiz-game", "Fun Hub", "Quiz Game"),
+        ("wordle", "Fun Hub", "Wordle"),
         ("team", "Team", "Team Management"),
-        // wow-host/polls-host/quiz-game-host are seeded separately with role-specific defaults
+        // wow-host/polls-host/quiz-game-host/wordle-host are seeded separately with role-specific defaults
 
         ("leave", "Team", "Leave"),
         ("export", "Admin", "Export"),
@@ -228,6 +230,7 @@ static async Task SeedFeaturePermissionsAsync(AppDbContext db)
         ("wow-host", "Win of the Week — Host"),
         ("polls-host", "Polls — Host"),
         ("quiz-game-host", "Quiz Game — Host"),
+        ("wordle-host", "Wordle — Host"),
     };
     var hostRoleDefaults = new[] { ("Member", false), ("TeamLead", true), ("TechLead", true) };
     foreach (var (key, label) in hostFeatures)

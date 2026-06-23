@@ -18,6 +18,7 @@ const FUN_TABS: FunTab[] = [
   { label: 'Jokes', route: 'jokes', featureKey: 'jokes' },
   { label: 'Quiz Game', route: 'quiz-game', featureKey: 'quiz-game' },
   { label: 'Polls', route: 'polls', featureKey: 'polls' },
+  { label: 'Wordle', route: 'wordle', featureKey: 'wordle' },
 ];
 
 @Component({

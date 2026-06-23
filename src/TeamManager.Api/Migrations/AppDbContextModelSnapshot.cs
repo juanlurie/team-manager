@@ -3002,6 +3002,121 @@ namespace TeamManager.Api.Migrations
                     b.ToTable("WinWeeks");
                 });
 
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.WordleGuess", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("GuessIndex")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("MemberId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ResultJson")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("SessionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Word")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SessionId", "MemberId", "GuessIndex")
+                        .IsUnique()
+                        .HasDatabaseName("IX_WordleGuess_SessionId_MemberId_GuessIndex");
+
+                    b.ToTable("WordleGuesses");
+                });
+
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.WordleParticipant", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<DateTimeOffset?>("FinishedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("GuessCount")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset>("JoinedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("MemberId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("SessionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("MemberId");
+
+                    b.HasIndex("SessionId", "MemberId")
+                        .IsUnique()
+                        .HasDatabaseName("IX_WordleParticipant_SessionId_MemberId");
+
+                    b.ToTable("WordleParticipants");
+                });
+
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.WordleSession", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<DateTimeOffset?>("CompletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("CreatedByMemberId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("StartedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Title")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("Word")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedByMemberId")
+                        .HasDatabaseName("IX_WordleSession_CreatedByMemberId");
+
+                    b.HasIndex("Status")
+                        .HasDatabaseName("IX_WordleSession_Status");
+
+                    b.ToTable("WordleSessions");
+                });
+
             modelBuilder.Entity("TeamManager.Api.Domain.Entities.WorkItem", b =>
                 {
                     b.Property<Guid>("Id")
@@ -4053,6 +4168,47 @@ namespace TeamManager.Api.Migrations
                     b.Navigation("Winner");
                 });
 
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.WordleGuess", b =>
+                {
+                    b.HasOne("TeamManager.Api.Domain.Entities.WordleSession", "Session")
+                        .WithMany("Guesses")
+                        .HasForeignKey("SessionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Session");
+                });
+
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.WordleParticipant", b =>
+                {
+                    b.HasOne("TeamManager.Api.Domain.Entities.TeamMember", "Member")
+                        .WithMany()
+                        .HasForeignKey("MemberId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("TeamManager.Api.Domain.Entities.WordleSession", "Session")
+                        .WithMany("Participants")
+                        .HasForeignKey("SessionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Member");
+
+                    b.Navigation("Session");
+                });
+
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.WordleSession", b =>
+                {
+                    b.HasOne("TeamManager.Api.Domain.Entities.TeamMember", "CreatedByMember")
+                        .WithMany()
+                        .HasForeignKey("CreatedByMemberId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("CreatedByMember");
+                });
+
             modelBuilder.Entity("TeamManager.Api.Domain.Entities.WorkItem", b =>
                 {
                     b.HasOne("TeamManager.Api.Domain.Entities.Feature", "Feature")
@@ -4288,6 +4444,13 @@ namespace TeamManager.Api.Migrations
                     b.Navigation("Nominations");
 
                     b.Navigation("QuizAnswers");
+                });
+
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.WordleSession", b =>
+                {
+                    b.Navigation("Guesses");
+
+                    b.Navigation("Participants");
                 });
 #pragma warning restore 612, 618
         }

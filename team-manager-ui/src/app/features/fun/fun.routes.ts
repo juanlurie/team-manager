@@ -50,6 +50,10 @@ export const FUN_ROUTES: Routes = [
       {
         path: 'polls',
         loadChildren: () => import('../polls/poll.routes').then(m => m.POLL_ROUTES)
+      },
+      {
+        path: 'wordle',
+        loadChildren: () => import('../wordle/wordle.routes').then(m => m.WORDLE_ROUTES)
       }
     ]
   }
