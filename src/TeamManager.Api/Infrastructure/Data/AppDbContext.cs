@@ -57,6 +57,9 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<QuizGameParticipant> QuizGameParticipants => Set<QuizGameParticipant>();
     public DbSet<QuizGameAnswer> QuizGameAnswers => Set<QuizGameAnswer>();
     public DbSet<QuizMillionaireRound> QuizMillionaireRounds => Set<QuizMillionaireRound>();
+    public DbSet<WordleSession> WordleSessions => Set<WordleSession>();
+    public DbSet<WordleParticipant> WordleParticipants => Set<WordleParticipant>();
+    public DbSet<WordleGuess> WordleGuesses => Set<WordleGuess>();
     public DbSet<Poll> Polls => Set<Poll>();
     public DbSet<PollOption> PollOptions => Set<PollOption>();
     public DbSet<PollVote> PollVotes => Set<PollVote>();
@@ -151,6 +154,9 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         modelBuilder.ApplyConfiguration(new QuizGameParticipantConfiguration());
         modelBuilder.ApplyConfiguration(new QuizGameAnswerConfiguration());
         modelBuilder.ApplyConfiguration(new QuizMillionaireRoundConfiguration());
+        modelBuilder.ApplyConfiguration(new WordleSessionConfiguration());
+        modelBuilder.ApplyConfiguration(new WordleParticipantConfiguration());
+        modelBuilder.ApplyConfiguration(new WordleGuessConfiguration());
         modelBuilder.ApplyConfiguration(new PollConfiguration());
         modelBuilder.ApplyConfiguration(new PollOptionConfiguration());
         modelBuilder.ApplyConfiguration(new PollVoteConfiguration());

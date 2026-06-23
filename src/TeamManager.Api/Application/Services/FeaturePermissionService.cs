@@ -140,7 +140,7 @@ public class FeaturePermissionService : IFeaturePermissionService
         }
     }
 
-    private static readonly HashSet<string> DefaultOffFeatures = ["wow-host", "polls-host", "quiz-game-host", "settings", "api-keys", "access-requests", "showcase", "export"];
+    private static readonly HashSet<string> DefaultOffFeatures = ["wow-host", "polls-host", "quiz-game-host", "wordle-host", "settings", "api-keys", "access-requests", "showcase", "export"];
 
     public async Task<bool> IsFeatureEnabledForMemberAsync(Guid memberId, string featureKey)
     {
@@ -192,6 +192,8 @@ public class FeaturePermissionService : IFeaturePermissionService
             new("polls-host", "Fun Hub", "Polls — Host"),
             new("quiz-game", "Fun Hub", "Quiz Game"),
             new("quiz-game-host", "Fun Hub", "Quiz Game — Host"),
+            new("wordle", "Fun Hub", "Wordle"),
+            new("wordle-host", "Fun Hub", "Wordle — Host"),
             new("team", "Team", "Team Management"),
             new("leave", "Team", "Leave"),
             new("expense-claim", "Team", "Expense Claim"),
