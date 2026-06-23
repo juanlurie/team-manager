@@ -83,7 +83,16 @@ export class CreateQuizGameDialogComponent {
   ],
   changeDetection: ChangeDetectionStrategy.Default,
   styles: [`
-    .wrap { max-width: 760px; margin: 0 auto; }
+    .wrap { max-width: 760px; margin: 0 auto; transition: max-width 0.2s }
+    .wrap.wide { max-width: 960px }
+    .millionaire-layout { display:flex; gap:24px; align-items:flex-start }
+    .millionaire-main { flex:1; min-width:0 }
+    .millionaire-sidebar { width:170px; flex-shrink:0 }
+    .millionaire-sidebar .progress-label { text-align:left; margin:0 0 6px }
+    @media (max-width: 640px) {
+      .millionaire-layout { flex-direction: column }
+      .millionaire-sidebar { width:100% }
+    }
     .lobby-header { display:flex;justify-content:space-between;align-items:center;margin-bottom:16px }
     .lobby-header h2 { margin:0;font-size:1.1rem;display:flex;align-items:center }
     .heading-icon { font-size:20px;width:20px;height:20px;line-height:20px;color:#64b5f6;margin-right:4px }
@@ -95,8 +104,8 @@ export class CreateQuizGameDialogComponent {
     .session-card:hover { background:rgba(255,255,255,0.07) }
     .session-title { font-weight:600;font-size:0.92rem }
     .mode-tag { font-size:0.65rem;font-weight:700;background:rgba(255,213,79,0.15);color:#ffd54f;padding:2px 7px;border-radius:8px;margin-left:6px;vertical-align:middle }
-    .ladder { display:flex;flex-direction:column-reverse;gap:3px;margin:14px 0 }
-    .ladder-rung { display:flex;justify-content:space-between;padding:6px 10px;border-radius:6px;font-size:0.78rem;background:rgba(255,255,255,0.03) }
+    .ladder { display:flex;flex-direction:column-reverse;gap:2px;margin:0;max-height:480px;overflow-y:auto }
+    .ladder-rung { display:flex;justify-content:space-between;padding:4px 8px;border-radius:5px;font-size:0.68rem;background:rgba(255,255,255,0.03) }
     .ladder-rung.current { background:rgba(100,181,246,0.15);border:1px solid #64b5f6;font-weight:700 }
     .ladder-rung.safe-haven { border-left:3px solid #ffd54f }
     .ladder-rung.cleared { opacity:0.45 }
@@ -138,7 +147,7 @@ export class CreateQuizGameDialogComponent {
     .completed-banner .winner-name { font-size:1.3rem;font-weight:800;color:#ffd54f;margin:8px 0 }
   `],
   template: `
-    <div class="wrap">
+    <div class="wrap" [class.wide]="millionaireLayoutActive()">
       @if (!selectedSession()) {
         <div class="lobby-header">
           <h2><mat-icon class="heading-icon">help_outline</mat-icon>Quiz Game</h2>
@@ -211,44 +220,55 @@ export class CreateQuizGameDialogComponent {
                   @else { Start My Run }
                 </button>
               } @else if (s.myMillionaireRun.status === 'Playing') {
-                <div class="progress-label" style="margin-top:14px">
-                  Question {{ s.myMillionaireRun.roundIndex + 1 }} of {{ s.millionairePrizeLadder.length }} — for \${{ (s.millionairePrizeLadder[s.myMillionaireRun.roundIndex] ?? 0) | number }}
-                </div>
-                <div class="question-text">{{ s.myMillionaireRun.question }}</div>
-
-                <div class="options-grid">
-                  @for (opt of s.myMillionaireRun.options; let i = $index; track i) {
-                    <button mat-stroked-button class="option-btn"
-                            [class.option-selected]="selectedAnswerIndex() === i && !answerReveal()"
-                            [class.flash-correct]="answerReveal()?.selectedIndex === i && answerReveal()?.isCorrect"
-                            [class.flash-wrong]="answerReveal()?.selectedIndex === i && answerReveal()?.isCorrect === false"
-                            [class.reveal-correct-static]="answerReveal()?.isCorrect === false && answerReveal()?.correctIndex === i"
-                            [disabled]="submittingAnswer()" (click)="submitMillionaireAnswer(i)">
-                      {{ opt }}
-                    </button>
-                  }
-                </div>
-
-                @if (submittingAnswer() && !answerReveal()) {
-                  <div style="font-size:0.78rem;opacity:0.6;text-align:center;margin-top:10px;display:flex;align-items:center;justify-content:center;gap:8px">
-                    <mat-spinner diameter="16" /> Checking your answer…
-                  </div>
-                }
-
-                <button mat-stroked-button class="walk-away-btn" [disabled]="submittingAnswer()" (click)="walkAway()">
-                  Walk Away with \${{ s.myMillionaireRun.safeHavenWinnings | number }}
-                </button>
-
-                <div class="ladder">
-                  @for (prize of s.millionairePrizeLadder; let i = $index; track i) {
-                    <div class="ladder-rung"
-                         [class.current]="i === s.myMillionaireRun.roundIndex"
-                         [class.safe-haven]="s.millionaireSafeHavenRounds.includes(i)"
-                         [class.cleared]="i < s.myMillionaireRun.roundIndex">
-                      <span>{{ i + 1 }}</span>
-                      <span>\${{ prize | number }}</span>
+                <div class="millionaire-layout" style="margin-top:14px">
+                  <div class="millionaire-main">
+                    <div class="progress-label">
+                      Question {{ s.myMillionaireRun.roundIndex + 1 }} of {{ s.millionairePrizeLadder.length }} — for \${{ (s.millionairePrizeLadder[s.myMillionaireRun.roundIndex] ?? 0) | number }}
                     </div>
-                  }
+                    <div class="question-text">{{ s.myMillionaireRun.question }}</div>
+
+                    <div class="options-grid">
+                      @for (opt of s.myMillionaireRun.options; let i = $index; track i) {
+                        <button mat-stroked-button class="option-btn"
+                                [class.option-selected]="selectedAnswerIndex() === i && !answerReveal()"
+                                [class.flash-correct]="answerReveal()?.selectedIndex === i && answerReveal()?.isCorrect"
+                                [class.flash-wrong]="answerReveal()?.selectedIndex === i && answerReveal()?.isCorrect === false"
+                                [class.reveal-correct-static]="answerReveal()?.isCorrect === false && answerReveal()?.correctIndex === i"
+                                [disabled]="submittingAnswer()" (click)="submitMillionaireAnswer(i)">
+                          {{ opt }}
+                        </button>
+                      }
+                    </div>
+
+                    @if (submittingAnswer() && !answerReveal()) {
+                      <div style="font-size:0.78rem;opacity:0.6;text-align:center;margin-top:10px;display:flex;align-items:center;justify-content:center;gap:8px">
+                        <mat-spinner diameter="16" /> Checking your answer…
+                      </div>
+                    }
+
+                    @if (answerReveal() && canContinue()) {
+                      <button mat-flat-button color="primary" style="width:100%;margin-top:10px" (click)="continueAfterReveal()">Continue</button>
+                    }
+
+                    <button mat-stroked-button class="walk-away-btn" [disabled]="submittingAnswer()" (click)="walkAway()">
+                      Walk Away with \${{ s.myMillionaireRun.safeHavenWinnings | number }}
+                    </button>
+                  </div>
+
+                  <div class="millionaire-sidebar">
+                    <div class="progress-label">Prize ladder</div>
+                    <div class="ladder">
+                      @for (prize of s.millionairePrizeLadder; let i = $index; track i) {
+                        <div class="ladder-rung"
+                             [class.current]="i === s.myMillionaireRun.roundIndex"
+                             [class.safe-haven]="s.millionaireSafeHavenRounds.includes(i)"
+                             [class.cleared]="i < s.myMillionaireRun.roundIndex">
+                          <span>{{ i + 1 }}</span>
+                          <span>\${{ prize | number }}</span>
+                        </div>
+                      }
+                    </div>
+                  </div>
                 </div>
               } @else {
                 <div class="millionaire-status-banner"
@@ -377,6 +397,13 @@ export class QuizGameComponent implements OnInit, OnDestroy {
   submittingAnswer = signal(false);
   selectedAnswerIndex = signal<number | null>(null);
   answerReveal = signal<{ selectedIndex: number; correctIndex: number | null; isCorrect: boolean } | null>(null);
+  canContinue = signal(false);
+  private pendingMillionaireResult: QuizGameSession | null = null;
+
+  millionaireLayoutActive = computed(() => {
+    const s = this.selectedSession();
+    return !!s && s.gameMode === 'Millionaire' && s.status === 'InProgress' && s.myMillionaireRun?.status === 'Playing';
+  });
 
   topScore = computed(() => {
     const s = this.selectedSession();
@@ -536,17 +563,14 @@ export class QuizGameComponent implements OnInit, OnDestroy {
     this.service.submitMillionaireAnswer(s.id, selectedIndex).subscribe({
       next: d => {
         // Hold the just-answered question on screen and flash the result -- selected option
-        // green/red, correct option revealed in green if wrong -- before swapping to the next
-        // round/eliminated/won state, same beat as the show's reveal.
+        // green/red, correct option revealed in green if wrong -- and wait for the player to hit
+        // Continue rather than auto-advancing, so the reveal doesn't whip past before they've
+        // actually seen it.
         const isCorrect = d.myMillionaireRun?.status !== 'Eliminated';
         const correctIndex = isCorrect ? selectedIndex : (d.myMillionaireRun?.revealedCorrectIndex ?? null);
         this.answerReveal.set({ selectedIndex, correctIndex, isCorrect });
-        setTimeout(() => {
-          this.applySession(d);
-          this.submittingAnswer.set(false);
-          this.selectedAnswerIndex.set(null);
-          this.answerReveal.set(null);
-        }, 1500);
+        this.pendingMillionaireResult = d;
+        setTimeout(() => this.canContinue.set(true), 1200);
       },
       error: (err) => {
         this.submittingAnswer.set(false);
@@ -554,6 +578,17 @@ export class QuizGameComponent implements OnInit, OnDestroy {
         this.snackBar.open(err.error?.error ?? 'Failed to submit answer', 'Close', { duration: 4000 });
       }
     });
+  }
+
+  continueAfterReveal() {
+    const d = this.pendingMillionaireResult;
+    if (!d) return;
+    this.applySession(d);
+    this.submittingAnswer.set(false);
+    this.selectedAnswerIndex.set(null);
+    this.answerReveal.set(null);
+    this.canContinue.set(false);
+    this.pendingMillionaireResult = null;
   }
 
   walkAway() {
