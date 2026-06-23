@@ -34,6 +34,15 @@ public class QuizQuestionGeneratorService(AppDbContext db)
         "a who-or-what question about", "a surprising fact about",
     ];
 
+    // Used instead of AngleModifiers when a difficulty tier is supplied (Quiz Game's Millionaire
+    // mode) -- escalates from generally-known facts up to genuinely obscure/expert-level ones.
+    private static readonly Dictionary<string, string[]> DifficultyAngleModifiers = new()
+    {
+        ["easy"] = ["a classic, widely-known fact about", "an easy, well-known question about", "a fun, simple fact about"],
+        ["medium"] = ["a moderately tricky question about", "a lesser-known detail about", "a numbers-based question about"],
+        ["hard"] = ["an obscure, expert-level fact about", "an extremely tricky question about", "a deep-cut detail about"],
+    };
+
     // Process-lifetime state shared across all callers (WoW Quiz Duel + standalone Quiz Game) --
     // deliberately global rather than per-session, since the goal is just to avoid the AI repeating
     // itself in quick succession, not to track history per game.
@@ -67,8 +76,10 @@ public class QuizQuestionGeneratorService(AppDbContext db)
     }
 
     // Picks a topic that isn't in the recent-use buffer (falls back to any topic if the whole
-    // pool is somehow excluded) plus a random angle, and records the topic as just-used.
-    private static (string Topic, string Angle, string RecentTopicsCsv) SelectTopicAndAngle()
+    // pool is somehow excluded) plus an angle, and records the topic as just-used. When
+    // `difficultyTier` is given (easy/medium/hard), the angle is drawn from that tier's bucket
+    // instead of the full random pool, so question difficulty actually escalates.
+    private static (string Topic, string Angle, string RecentTopicsCsv) SelectTopicAndAngle(string? difficultyTier = null)
     {
         lock (StateLock)
         {
@@ -76,7 +87,10 @@ public class QuizQuestionGeneratorService(AppDbContext db)
             var available = TopicPool.Except(recentSnapshot).ToArray();
             var pool = available.Length > 0 ? available : TopicPool;
             var topic = pool[Random.Shared.Next(pool.Length)];
-            var angle = AngleModifiers[Random.Shared.Next(AngleModifiers.Length)];
+            var angleBucket = difficultyTier is not null && DifficultyAngleModifiers.TryGetValue(difficultyTier, out var bucket)
+                ? bucket
+                : AngleModifiers;
+            var angle = angleBucket[Random.Shared.Next(angleBucket.Length)];
 
             RecentTopics.Enqueue(topic);
             while (RecentTopics.Count > RecentTopicsBufferSize) RecentTopics.Dequeue();
@@ -100,14 +114,15 @@ public class QuizQuestionGeneratorService(AppDbContext db)
         }
     }
 
-    public async Task<(string Question, string[] Options, int CorrectIndex)> GenerateAsync(string sourceType, string label)
+    public async Task<(string Question, string[] Options, int CorrectIndex)> GenerateAsync(
+        string sourceType, string label, string? difficultyTier = null)
     {
         var config = await db.ApiRequestConfigs.FirstOrDefaultAsync(c => c.Action == "GenerateQuizQuestion" && c.Enabled);
         if (config is null) return RandomFallback();
 
         for (var attempt = 1; attempt <= MaxGenerationAttempts; attempt++)
         {
-            var (topic, angle, recentTopicsCsv) = SelectTopicAndAngle();
+            var (topic, angle, recentTopicsCsv) = SelectTopicAndAngle(difficultyTier);
             var result = await TryGenerateOnceAsync(config, sourceType, $"{label} (attempt {attempt})", topic, angle, recentTopicsCsv);
             if (result is null) continue; // call/parse failed -- try a different topic
 
