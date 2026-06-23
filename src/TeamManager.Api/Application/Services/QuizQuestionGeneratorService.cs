@@ -69,9 +69,52 @@ public class QuizQuestionGeneratorService(AppDbContext db)
         ("What is the tallest mountain in the world?", ["K2", "Kilimanjaro", "Everest", "Denali"], 2),
     ];
 
-    private static (string Question, string[] Options, int CorrectIndex) RandomFallback()
+    // Used instead of FallbackQuestions when a difficulty tier is supplied and no AI config is
+    // enabled -- so Millionaire mode's difficulty still escalates even with the AI integration
+    // off, rather than drawing from one flat, undifferentiated pool.
+    private static readonly Dictionary<string, (string Question, string[] Options, int CorrectIndex)[]> FallbackQuestionsByTier = new()
     {
-        var q = FallbackQuestions[Random.Shared.Next(FallbackQuestions.Length)];
+        ["easy"] =
+        [
+            ("What is the capital of France?", ["Paris", "Berlin", "Madrid", "Rome"], 0),
+            ("What planet is known as the Red Planet?", ["Venus", "Mars", "Jupiter", "Saturn"], 1),
+            ("What is the largest ocean on Earth?", ["Atlantic", "Indian", "Arctic", "Pacific"], 3),
+            ("How many sides does a hexagon have?", ["5", "6", "7", "8"], 1),
+            ("Who painted the Mona Lisa?", ["Vincent van Gogh", "Leonardo da Vinci", "Pablo Picasso", "Claude Monet"], 1),
+            ("What is the tallest mountain in the world?", ["K2", "Kilimanjaro", "Everest", "Denali"], 2),
+            ("How many continents are there on Earth?", ["5", "6", "7", "8"], 2),
+            ("Which country is home to the kangaroo?", ["South Africa", "Australia", "Brazil", "India"], 1),
+        ],
+        ["medium"] =
+        [
+            ("Who wrote 'Romeo and Juliet'?", ["Charles Dickens", "Mark Twain", "William Shakespeare", "Jane Austen"], 2),
+            ("What gas do plants mainly absorb from the atmosphere?", ["Oxygen", "Nitrogen", "Carbon Dioxide", "Hydrogen"], 2),
+            ("What is the smallest prime number?", ["0", "1", "2", "3"], 2),
+            ("How many minutes are in a full day?", ["1200", "1440", "1000", "1800"], 1),
+            ("What is the chemical symbol for gold?", ["Go", "Gd", "Au", "Ag"], 2),
+            ("Which language has the most native speakers worldwide?", ["English", "Spanish", "Hindi", "Mandarin Chinese"], 3),
+            ("How many strings does a standard guitar have?", ["4", "5", "6", "7"], 2),
+            ("In which year did the Berlin Wall fall?", ["1987", "1989", "1991", "1993"], 1),
+        ],
+        ["hard"] =
+        [
+            ("Who composed 'The Four Seasons'?", ["Johann Sebastian Bach", "Antonio Vivaldi", "Wolfgang Amadeus Mozart", "Ludwig van Beethoven"], 1),
+            ("What is the smallest country in the world by area?", ["Monaco", "San Marino", "Vatican City", "Liechtenstein"], 2),
+            ("What is the SI unit of electrical resistance?", ["Volt", "Watt", "Ohm", "Ampere"], 2),
+            ("Who wrote 'One Hundred Years of Solitude'?", ["Jorge Luis Borges", "Pablo Neruda", "Gabriel García Márquez", "Mario Vargas Llosa"], 2),
+            ("What is the capital of Kazakhstan?", ["Almaty", "Astana", "Bishkek", "Tashkent"], 1),
+            ("What is the hardest known naturally occurring substance?", ["Quartz", "Titanium", "Diamond", "Graphene"], 2),
+            ("Which gas makes up the majority of Earth's atmosphere by volume?", ["Oxygen", "Carbon Dioxide", "Nitrogen", "Argon"], 2),
+            ("Who was the first emperor of Rome?", ["Julius Caesar", "Nero", "Augustus", "Caligula"], 2),
+        ],
+    };
+
+    private static (string Question, string[] Options, int CorrectIndex) RandomFallback(string? difficultyTier = null)
+    {
+        var pool = difficultyTier is not null && FallbackQuestionsByTier.TryGetValue(difficultyTier, out var tierPool)
+            ? tierPool
+            : FallbackQuestions;
+        var q = pool[Random.Shared.Next(pool.Length)];
         return (q.Question, q.Options, q.CorrectIndex);
     }
 
@@ -118,12 +161,12 @@ public class QuizQuestionGeneratorService(AppDbContext db)
         string sourceType, string label, string? difficultyTier = null)
     {
         var config = await db.ApiRequestConfigs.FirstOrDefaultAsync(c => c.Action == "GenerateQuizQuestion" && c.Enabled);
-        if (config is null) return RandomFallback();
+        if (config is null) return RandomFallback(difficultyTier);
 
         for (var attempt = 1; attempt <= MaxGenerationAttempts; attempt++)
         {
             var (topic, angle, recentTopicsCsv) = SelectTopicAndAngle(difficultyTier);
-            var result = await TryGenerateOnceAsync(config, sourceType, $"{label} (attempt {attempt})", topic, angle, recentTopicsCsv);
+            var result = await TryGenerateOnceAsync(config, sourceType, $"{label} (attempt {attempt})", topic, angle, recentTopicsCsv, difficultyTier);
             if (result is null) continue; // call/parse failed -- try a different topic
 
             if (TryRecordIfNew(result.Question))
@@ -131,11 +174,19 @@ public class QuizQuestionGeneratorService(AppDbContext db)
             // Duplicate of a recently-seen question -- retry with a fresh topic/angle.
         }
 
-        return RandomFallback();
+        return RandomFallback(difficultyTier);
     }
 
+    private static string DifficultyLevelNumber(string? difficultyTier) => difficultyTier switch
+    {
+        "easy" => "1",
+        "medium" => "2",
+        "hard" => "3",
+        _ => "2"
+    };
+
     private async Task<QuizGenResult?> TryGenerateOnceAsync(
-        ApiRequestConfig config, string sourceType, string label, string topic, string angle, string recentTopicsCsv)
+        ApiRequestConfig config, string sourceType, string label, string topic, string angle, string recentTopicsCsv, string? difficultyTier = null)
     {
         var parameters = string.IsNullOrWhiteSpace(config.ParametersJson)
             ? new Dictionary<string, string>()
@@ -155,6 +206,11 @@ public class QuizQuestionGeneratorService(AppDbContext db)
         parameters["topic"] = topic;
         parameters["angle"] = angle;
         parameters["recentTopics"] = recentTopicsCsv;
+        // Only meaningful for callers that pass a difficultyTier (Millionaire mode) -- defaults to
+        // "medium"/2 for callers that don't (Classic mode, Quiz Duel), so the placeholders always
+        // resolve to something rather than being left as a literal {difficulty} in the prompt.
+        parameters["difficulty"] = difficultyTier ?? "medium";
+        parameters["difficultyLevel"] = DifficultyLevelNumber(difficultyTier);
 
         // Storage: non-secret values only -- stored URL/body/headers are safe to return to clients.
         var publicConfigVars = await ConfigVariableResolver.LoadPublicAsync(db);

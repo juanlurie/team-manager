@@ -533,7 +533,15 @@ public class QuizGameService(AppDbContext db, QuizQuestionGeneratorService quest
                     .SetProperty(y => y.MillionaireWinnings, MillionaireLadder.SafeHavenAmount(p.MillionaireRoundIndex))
                     .SetProperty(y => y.MillionaireRoundEndsAt, (DateTimeOffset?)null));
             if (claimed > 0)
+            {
+                // ExecuteUpdateAsync bypasses the change tracker -- keep this tracked instance in
+                // sync so TryCompleteMillionaireSessionIfDoneAsync's re-query below (same request,
+                // same identity map) doesn't see the pre-elimination "Playing" status.
+                p.MillionaireStatus = QuizMillionaireStatus.Eliminated;
+                p.MillionaireWinnings = MillionaireLadder.SafeHavenAmount(p.MillionaireRoundIndex);
+                p.MillionaireRoundEndsAt = null;
                 _ = WebSocketMiddleware.BroadcastAsync("quiz_game_millionaire_progress", new { sessionId = session.Id, memberId = p.MemberId });
+            }
         }
 
         await TryCompleteMillionaireSessionIfDoneAsync(session);
@@ -551,12 +559,19 @@ public class QuizGameService(AppDbContext db, QuizQuestionGeneratorService quest
             QuizMillionaireStatus.Eliminated or QuizMillionaireStatus.WalkedAway or QuizMillionaireStatus.Won);
         if (!allDone) return;
 
+        var completedAt = DateTimeOffset.UtcNow;
         var claimedCompletion = await db.QuizGameSessions
             .Where(s => s.Id == session.Id && s.Status == QuizGameSessionStatus.InProgress)
             .ExecuteUpdateAsync(s => s
                 .SetProperty(x => x.Status, QuizGameSessionStatus.Completed)
-                .SetProperty(x => x.CompletedAt, DateTimeOffset.UtcNow));
+                .SetProperty(x => x.CompletedAt, completedAt));
         if (claimedCompletion == 0) return;
+
+        // ExecuteUpdateAsync bypasses the change tracker -- without this, the in-memory `session`
+        // (and anything built from it later in this same request, e.g. SubmitMillionaireAnswerAsync's
+        // own response) would still report the stale "InProgress" status it had before this call.
+        session.Status = QuizGameSessionStatus.Completed;
+        session.CompletedAt = completedAt;
 
         await AwardMillionaireLeaderboardPointsAsync(session, participants);
         _ = WebSocketMiddleware.BroadcastAsync("quiz_game_completed", new { sessionId = session.Id });
