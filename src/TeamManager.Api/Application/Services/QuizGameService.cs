@@ -237,7 +237,7 @@ public class QuizGameService(AppDbContext db, QuizQuestionGeneratorService quest
         return await GetSessionAsync(sessionId, memberId);
     }
 
-    public async Task<bool> SubmitAnswerAsync(Guid memberId, Guid sessionId, int selectedIndex)
+    public async Task<(bool IsCorrect, int CorrectIndex)> SubmitAnswerAsync(Guid memberId, Guid sessionId, int selectedIndex)
     {
         var session = await db.QuizGameSessions.FindAsync(sessionId)
             ?? throw new KeyNotFoundException("Session not found.");
@@ -271,7 +271,10 @@ public class QuizGameService(AppDbContext db, QuizQuestionGeneratorService quest
         _ = WebSocketMiddleware.BroadcastAsync("quiz_game_answer_submitted", new { sessionId, memberId });
 
         await TryProgressAsync(session);
-        return isCorrect;
+        // Safe to hand back to this specific caller immediately, even though the room-wide
+        // reveal (CurrentQuestionRevealed) hasn't fired yet -- nobody else can see this
+        // response, so it doesn't leak the answer to anyone who hasn't submitted yet.
+        return (isCorrect, session.CurrentCorrectIndex ?? -1);
     }
 
     // Called by QuizGameProgressWorker so reveal/advance/completion happen even if no client is
