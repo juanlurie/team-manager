@@ -69,6 +69,7 @@ builder.Services.AddScoped<IMeetingSeriesService, MeetingSeriesService>();
 builder.Services.AddScoped<QuizQuestionGeneratorService>();
 builder.Services.AddScoped<QuizGameService>();
 builder.Services.AddScoped<PollService>();
+builder.Services.AddScoped<WordleWordGeneratorService>();
 builder.Services.AddScoped<WordleService>();
 builder.Services.AddScoped<IWinOfTheWeekService, WinOfTheWeekService>();
 builder.Services.AddScoped<GuestWinOfTheWeekService>();
