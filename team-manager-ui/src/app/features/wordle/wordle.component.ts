@@ -117,7 +117,10 @@ interface PendingReveal {
         <div class="lobby-header">
           <h2><mat-icon class="heading-icon">abc</mat-icon>Wordle</h2>
           @if (canHost()) {
-            <button mat-flat-button color="primary" (click)="openCreateDialog()">New Game</button>
+            <button mat-flat-button color="primary" [disabled]="creatingSession()" (click)="openCreateDialog()">
+              @if (creatingSession()) { <mat-spinner diameter="18" style="display:inline-block;vertical-align:middle" /> Creating… }
+              @else { New Game }
+            </button>
           }
         </div>
 
@@ -264,6 +267,7 @@ export class WordleComponent implements OnInit, OnDestroy, AfterViewChecked {
   selectedSession = signal<WordleSession | null>(null);
   selectedSessionLoading = signal(false);
   starting = signal(false);
+  creatingSession = signal(false);
   submittingGuess = signal(false);
   pendingReveal = signal<PendingReveal | null>(null);
   // Which tiles in the pending-reveal row have reached the flip's midpoint (rotateX 90deg, edge-on
@@ -393,9 +397,20 @@ export class WordleComponent implements OnInit, OnDestroy, AfterViewChecked {
   openCreateDialog() {
     this.dialog.open(CreateWordleDialogComponent).afterClosed().subscribe(result => {
       if (!result) return;
+      // The secret word is generated (possibly via an AI call) right here at create time, unlike
+      // Quiz Game where generation is deferred to start -- so this needs its own loading state
+      // rather than relying on the dialog having already closed instantly.
+      this.creatingSession.set(true);
       this.service.createSession({ title: result.title }).subscribe({
-        next: d => { this.applySession(d); this.snackBar.open('Game created — start it when ready', 'Close', { duration: 3000 }); },
-        error: (err) => this.snackBar.open(err.error?.error ?? 'Failed to create game', 'Close', { duration: 4000 })
+        next: d => {
+          this.creatingSession.set(false);
+          this.applySession(d);
+          this.snackBar.open('Game created — start it when ready', 'Close', { duration: 3000 });
+        },
+        error: (err) => {
+          this.creatingSession.set(false);
+          this.snackBar.open(err.error?.error ?? 'Failed to create game', 'Close', { duration: 4000 });
+        }
       });
     });
   }
