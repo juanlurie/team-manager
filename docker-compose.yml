@@ -17,7 +17,7 @@ services:
     restart: unless-stopped
 
   migrate:
-    image: team-manager-api:prod
+    image: team-manager-api:local
     command: ["--migrate"]
     environment:
       ASPNETCORE_ENVIRONMENT: Production
@@ -30,7 +30,7 @@ services:
     restart: "no"
 
   api:
-    image: team-manager-api:prod
+    image: team-manager-api:local
     build:
       context: ./src/TeamManager.Api
       dockerfile: Dockerfile
@@ -55,7 +55,7 @@ services:
     restart: unless-stopped
 
   ui:
-    image: team-manager-ui:prod
+    image: team-manager-ui:local
     build:
       context: ./team-manager-ui
       dockerfile: Dockerfile
