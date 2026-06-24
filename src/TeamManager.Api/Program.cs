@@ -66,6 +66,7 @@ builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<SquadService>();
 builder.Services.AddScoped<IMeetingSessionService, MeetingSessionService>();
 builder.Services.AddScoped<IMeetingSeriesService, MeetingSeriesService>();
+builder.Services.AddScoped<AiPromptExecutorService>();
 builder.Services.AddScoped<QuizQuestionGeneratorService>();
 builder.Services.AddScoped<QuizGameService>();
 builder.Services.AddScoped<PollService>();

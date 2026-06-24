@@ -63,6 +63,14 @@ interface MappingPreview { kind: 'array' | 'single'; count?: number; rows: Mappi
               <mat-icon class="toggle-pill-icon">bolt</mat-icon>
               <span class="toggle-pill-label">Auto Sync</span>
             </label>
+            @if (data.action === 'AiConnection') {
+              <label class="toggle-pill" [class.on]="data.isAiConnection" matTooltip="Selectable as an AI Prompt's connection">
+                <input type="checkbox" [checked]="data.isAiConnection" (change)="data.isAiConnection = $any($event.target).checked">
+                <span class="toggle-pill-dot"></span>
+                <mat-icon class="toggle-pill-icon">auto_awesome</mat-icon>
+                <span class="toggle-pill-label">AI Connection</span>
+              </label>
+            }
           </div>
         }
       </div>
@@ -707,7 +715,7 @@ interface MappingPreview { kind: 'array' | 'single'; count?: number; rows: Mappi
             </div>
           }
 
-          @if (data.action === 'AiChatWinStory' || data.action === 'GenerateJoke' || data.action === 'GenerateQuizQuestion' || data.action === 'GenerateWordleWord' || data.action === 'AnalyzeTimesheetQuality') {
+          @if (data.action === 'AiConnection') {
             <div class="map-block">
               <mat-form-field appearance="outline" class="full-width">
                 <mat-label>Text Response Path</mat-label>
@@ -1236,8 +1244,7 @@ export class ApiRequestConfigEditComponent implements OnInit {
 
   hasMapping(): boolean {
     return this.data ? ['AddTimesheetEntry', 'GetTimesheetProjects', 'GetTimesheetProjectCategories', 'FetchLeave',
-            'AiChatWinStory', 'GenerateJoke', 'GenerateQuizQuestion', 'GenerateWordleWord', 'FetchCalendarEvents', 'FetchTimesheetApprovals',
-            'AnalyzeTimesheetQuality'].includes(this.data.action) : false;
+            'AiConnection', 'FetchCalendarEvents', 'FetchTimesheetApprovals'].includes(this.data.action) : false;
   }
 
   get hasTestResults(): boolean {
@@ -1680,7 +1687,7 @@ export class ApiRequestConfigEditComponent implements OnInit {
       this.computeTimesheetApprovalPreview(root, m);
     } else if (action === 'AddTimesheetEntry') {
       this.computeSingleMappingPreview(root, [{ label: 'External ID', path: m.externalIdPath }]);
-    } else if (action === 'AiChatWinStory' || action === 'GenerateJoke' || action === 'GenerateQuizQuestion' || action === 'GenerateWordleWord' || action === 'AnalyzeTimesheetQuality') {
+    } else if (action === 'AiConnection') {
       this.computeSingleMappingPreview(root, [{ label: 'Text Response', path: m.textResponsePath }]);
     }
   }

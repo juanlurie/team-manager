@@ -68,6 +68,9 @@ export interface ApiRequestConfig {
   retryCount?: number;
   successCriteria?: SuccessCriteria | null;
   autoSync?: boolean;
+  // Marks this as eligible to be picked as an AI Prompt's connection (see features/ai-prompts) --
+  // keeps that screen's connection picker from listing every non-AI integration too.
+  isAiConnection?: boolean;
 }
 
 // `vars` is the single source of truth for an action's runtime-only template placeholders —
@@ -92,24 +95,18 @@ export const REQUEST_ACTIONS = [
   } },
   { value: 'GetTimesheetProjects', label: 'Get Timesheet Projects', icon: 'folder_open', vars: {} },
   { value: 'GetTimesheetProjectCategories', label: 'Get Timesheet Project Categories', icon: 'category', vars: {} },
-  { value: 'AiChatWinStory', label: 'AI Chat — Win Story', icon: 'auto_awesome', vars: {
-    nominee: 'Jane Doe', title: 'Shipped the new feature', description: 'Test'
-  } },
-  { value: 'GenerateJoke', label: 'Generate Joke', icon: 'sentiment_very_satisfied', vars: { jokeType: 'dad joke', seed: 'a1b2c3d4' } },
-  { value: 'GenerateQuizQuestion', label: 'Generate Quiz Question', icon: 'quiz', vars: {
-    topic: 'space and astronomy', angle: 'an obscure fact about', recentTopics: 'history, sports records',
-    difficulty: '8'
-  } },
-  { value: 'GenerateWordleWord', label: 'Generate Wordle Word', icon: 'abc', vars: {
-    wordLength: '5', recentWords: 'GRASS, JUICE, SOLID'
-  } },
   { value: 'FetchTimesheetApprovals', label: 'Fetch Timesheet Approvals', icon: 'fact_check', vars: { start: '', end: '' } },
   { value: 'ApproveTimesheet', label: 'Approve Timesheet', icon: 'task_alt', vars: {
     memberName: 'Jane Doe', start: '', end: '', employeeId: '', totalHours: '40'
   } },
-  { value: 'AnalyzeTimesheetQuality', label: 'Analyze Timesheet Quality', icon: 'psychology', vars: {
-    memberName: 'Jane Doe', start: '', end: '',
-    timesheetData: 'Jane Doe:\\n  2026-06-01 (Monday): 8h - ProjectA/Development - "Fixed login bug"\\n  2026-06-02 (Tuesday): 2h - ProjectA/Development'
+  // The one shared AI connection (URL/auth/model/response-shape) -- actual prompt text for each
+  // use case (quiz questions, Wordle words, jokes, win stories, timesheet analysis) is managed
+  // separately under AI Prompts, which link to a connection created with this action and
+  // isAiConnection=true. {systemPrompt}/{userMessage} are filled in by AiPromptExecutorService at
+  // call time from whichever prompt is being run -- the BodyTemplate just needs to reference them
+  // as bare placeholders (already JSON-encoded, so no surrounding quotes needed in the template).
+  { value: 'AiConnection', label: 'AI Connection', icon: 'auto_awesome', vars: {
+    systemPrompt: '"You are a helpful assistant."', userMessage: '"Say hello."'
   } },
 ] as const;
 

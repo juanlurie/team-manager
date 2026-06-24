@@ -12,6 +12,7 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
       <div class="hub-tabs-wrap">
         <nav class="hub-tabs" role="tablist" #tabsEl (scroll)="updateFades()">
           <a class="hub-tab" routerLink="api-configs" routerLinkActive="active" role="tab">Integrations</a>
+          <a class="hub-tab" routerLink="ai-prompts" routerLinkActive="active" role="tab">AI Prompts</a>
           <a class="hub-tab" routerLink="config-variables" routerLinkActive="active" role="tab">Config Variables</a>
           <a class="hub-tab" routerLink="credentials" routerLinkActive="active" role="tab">Credentials</a>
           <a class="hub-tab" routerLink="sync-queue" routerLinkActive="active" role="tab">Sync Queue</a>

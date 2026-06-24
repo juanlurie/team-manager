@@ -8,9 +8,9 @@ using TeamManager.Api.Infrastructure.Data;
 namespace TeamManager.Api.Application.Services;
 
 // Shared by the Win of the Week Quiz Duel tiebreaker and the standalone Quiz Game --
-// generates one 4-option trivia question, via AI if a "GenerateQuizQuestion" ApiRequestConfig
-// is configured and enabled, falling back to a built-in question bank otherwise.
-public class QuizQuestionGeneratorService(AppDbContext db)
+// generates one 4-option trivia question, via AI if a "GenerateQuizQuestion" AiPrompt is
+// configured and enabled, falling back to a built-in question bank otherwise.
+public class QuizQuestionGeneratorService(AppDbContext db, AiPromptExecutorService executor)
 {
     private const int MaxGenerationAttempts = 3;
     private const int RecentTopicsBufferSize = 10;
@@ -157,13 +157,13 @@ public class QuizQuestionGeneratorService(AppDbContext db)
     public async Task<(string Question, string[] Options, int CorrectIndex)> GenerateAsync(
         string sourceType, string label, int? difficultyLevel = null)
     {
-        var config = await db.ApiRequestConfigs.FirstOrDefaultAsync(c => c.Action == "GenerateQuizQuestion" && c.Enabled);
-        if (config is null) return RandomFallback(difficultyLevel);
+        var hasPrompt = await db.AiPrompts.AnyAsync(p => p.Key == "GenerateQuizQuestion" && p.Enabled);
+        if (!hasPrompt) return RandomFallback(difficultyLevel);
 
         for (var attempt = 1; attempt <= MaxGenerationAttempts; attempt++)
         {
             var (topic, angle, recentTopicsCsv) = SelectTopicAndAngle();
-            var result = await TryGenerateOnceAsync(config, sourceType, $"{label} (attempt {attempt})", topic, angle, recentTopicsCsv, difficultyLevel);
+            var result = await TryGenerateOnceAsync(sourceType, $"{label} (attempt {attempt})", topic, angle, recentTopicsCsv, difficultyLevel);
             if (result is null) continue; // call/parse failed -- try a different topic
 
             if (TryRecordIfNew(result.Question))
@@ -175,116 +175,43 @@ public class QuizQuestionGeneratorService(AppDbContext db)
     }
 
     private async Task<QuizGenResult?> TryGenerateOnceAsync(
-        ApiRequestConfig config, string sourceType, string label, string topic, string angle, string recentTopicsCsv, int? difficultyLevel = null)
+        string sourceType, string label, string topic, string angle, string recentTopicsCsv, int? difficultyLevel = null)
     {
-        var parameters = string.IsNullOrWhiteSpace(config.ParametersJson)
-            ? new Dictionary<string, string>()
-            : JsonSerializer.Deserialize<Dictionary<string, string>>(config.ParametersJson) ?? new();
-        var headers = string.IsNullOrWhiteSpace(config.HeadersJson)
-            ? new Dictionary<string, string>()
-            : JsonSerializer.Deserialize<Dictionary<string, string>>(config.HeadersJson) ?? new();
-        var mappingOpts = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-        var mapping = string.IsNullOrWhiteSpace(config.MappingJson)
-            ? new MappingConfigDto()
-            : JsonSerializer.Deserialize<MappingConfigDto>(config.MappingJson, mappingOpts) ?? new();
-        var textPath = mapping.TextResponsePath;
-
         // No "seed" -- it forced deterministic, repeated outputs. Topic/angle/recentTopics drive
-        // variety instead; the admin's stored prompt body needs {topic}/{angle}/{recentTopics}
+        // variety instead; the prompt's stored text needs {topic}/{angle}/{recentTopics}
         // placeholders to actually use them.
-        parameters["topic"] = topic;
-        parameters["angle"] = angle;
-        parameters["recentTopics"] = recentTopicsCsv;
-        // A single 1-15 scale -- defaults to 8 (the midpoint) for callers that don't care about
-        // difficulty, so the placeholder always resolves to something instead of being left as a
-        // literal {difficulty} in the prompt.
-        parameters["difficulty"] = (difficultyLevel ?? 8).ToString();
-
-        // Storage: non-secret values only -- stored URL/body/headers are safe to return to clients.
-        var publicConfigVars = await ConfigVariableResolver.LoadPublicAsync(db);
-        var allConfigVars = await ConfigVariableResolver.LoadAsync(db);
-
-        string ResolveForStorage(string template)
+        var promptParams = new Dictionary<string, string>
         {
-            var result = ConfigVariableResolver.Apply(template ?? "", publicConfigVars);
-            foreach (var (k, v) in parameters)
-                result = result.Replace($"{{{k}}}", v);
-            return result;
-        }
-
-        string ResolveForExecution(string template)
-        {
-            var result = ConfigVariableResolver.Apply(template ?? "", allConfigVars);
-            foreach (var (k, v) in parameters)
-                result = result.Replace($"{{{k}}}", v);
-            return result;
-        }
-
-        var evt = new ApiSyncEvent
-        {
-            Action = config.Action,
-            ConfigName = config.Name,
-            Label = label,
-            SourceType = sourceType,
-            HttpMethod = config.Method.ToUpper(),
-            ResolvedUrl = ResolveForStorage(config.Url),
-            ResolvedHeadersJson = JsonSerializer.Serialize(headers.ToDictionary(kvp => kvp.Key, kvp => ResolveForStorage(kvp.Value))),
-            ResolvedBody = ResolveForStorage(config.BodyTemplate ?? ""),
-            BodyFormat = config.BodyFormat ?? "json",
-            Status = "pending"
+            ["topic"] = topic,
+            ["angle"] = angle,
+            ["recentTopics"] = recentTopicsCsv,
+            // A single 1-15 scale -- defaults to 8 (the midpoint) for callers that don't care
+            // about difficulty, so the placeholder always resolves to something instead of being
+            // left as a literal {difficulty} in the prompt.
+            ["difficulty"] = (difficultyLevel ?? 8).ToString()
         };
-        db.ApiSyncEvents.Add(evt);
-        await db.SaveChangesAsync();
 
+        var extracted = await executor.ExecuteAsync("GenerateQuizQuestion", promptParams, sourceType, label);
+        if (extracted is null) return null;
+
+        var mappingOpts = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+        QuizGenResult? parsed;
         try
         {
-            var executionHeaders = headers.ToDictionary(kvp => kvp.Key, kvp => ResolveForExecution(kvp.Value));
-            var executionUrl = ResolveForExecution(config.Url);
-            var executionBody = ResolveForExecution(config.BodyTemplate ?? "");
-
-            using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(12) };
-            foreach (var (k, v) in executionHeaders)
-                client.DefaultRequestHeaders.TryAddWithoutValidation(k, v);
-
-            var mediaType = (config.BodyFormat ?? "json") == "urlencoded" ? "application/x-www-form-urlencoded" : "application/json";
-            var response = config.Method.ToUpper() == "GET"
-                ? await client.GetAsync(executionUrl)
-                : await client.PostAsync(executionUrl, new StringContent(executionBody, Encoding.UTF8, mediaType));
-
-            var responseBody = await response.Content.ReadAsStringAsync();
-            evt.ResponseStatus = (int)response.StatusCode;
-            evt.ResponseBody = responseBody;
-            evt.SentAt = DateTimeOffset.UtcNow;
-
-            if (!response.IsSuccessStatusCode)
-            {
-                evt.Status = "failed";
-                await db.SaveChangesAsync();
-                return null;
-            }
-
-            var extracted = WinOfTheWeekService.ExtractTextAtPath(responseBody, textPath ?? "");
-            var parsed = string.IsNullOrWhiteSpace(extracted) ? null : JsonSerializer.Deserialize<QuizGenResult>(extracted, mappingOpts);
-            if (parsed is null || string.IsNullOrWhiteSpace(parsed.Question) || parsed.Options is null || parsed.Options.Length != 4
-                || parsed.CorrectIndex < 0 || parsed.CorrectIndex > 3)
-            {
-                evt.Status = "failed";
-                await db.SaveChangesAsync();
-                return null;
-            }
-
-            evt.Status = "sent";
-            await db.SaveChangesAsync();
-            return parsed;
+            parsed = JsonSerializer.Deserialize<QuizGenResult>(extracted, mappingOpts);
         }
-        catch (Exception ex)
+        catch (JsonException)
         {
-            evt.Status = "failed";
-            evt.ResponseBody = ex.Message;
-            evt.SentAt = DateTimeOffset.UtcNow;
-            await db.SaveChangesAsync();
             return null;
         }
+
+        if (parsed is null || string.IsNullOrWhiteSpace(parsed.Question) || parsed.Options is null || parsed.Options.Length != 4
+            || parsed.CorrectIndex < 0 || parsed.CorrectIndex > 3)
+        {
+            return null;
+        }
+
+        return parsed;
     }
 
     private record QuizGenResult(string Question, string[] Options, int CorrectIndex);
