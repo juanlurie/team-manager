@@ -27,7 +27,7 @@ spec:
     spec:
       containers:
         - name: mcp-gateway
-          image: ghcr.io/juanlurie/team-manager-mcp:32f9f98a21ed50fdee0dfb55d0e99d6065d1880a
+          image: ghcr.io/juanlurie/team-manager-mcp:f961cacb5ac9371b64c606cf5797ccd2d0af8214
           ports:
             - containerPort: 8765
           env:
