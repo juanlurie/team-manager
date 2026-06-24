@@ -667,121 +667,27 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
         {
             await using var scope = scopeFactory.CreateAsyncScope();
             var bgDb = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var bgExecutor = scope.ServiceProvider.GetRequiredService<AiPromptExecutorService>();
             try
             {
-                var config = await bgDb.ApiRequestConfigs
-                    .FirstOrDefaultAsync(c => c.Action == "AiChatWinStory" && c.Enabled);
-                if (config is null) return;
-
-                var parameters = string.IsNullOrWhiteSpace(config.ParametersJson)
-                    ? new Dictionary<string, string>()
-                    : JsonSerializer.Deserialize<Dictionary<string, string>>(config.ParametersJson) ?? new();
-                var headers = string.IsNullOrWhiteSpace(config.HeadersJson)
-                    ? new Dictionary<string, string>()
-                    : JsonSerializer.Deserialize<Dictionary<string, string>>(config.HeadersJson) ?? new();
-                var mappingOpts = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-                var mapping = string.IsNullOrWhiteSpace(config.MappingJson)
-                    ? new MappingConfigDto()
-                    : JsonSerializer.Deserialize<MappingConfigDto>(config.MappingJson, mappingOpts) ?? new();
-                var textPath = mapping.TextResponsePath;
-
-                var vars = new Dictionary<string, string>
+                var promptParams = new Dictionary<string, string>
                 {
                     ["nominee"] = winnerName,
                     ["title"] = title,
                     ["description"] = description ?? ""
                 };
 
-                // Storage: non-secret values only — stored URL/body/headers are safe to return to clients
-                var publicConfigVars = await ConfigVariableResolver.LoadPublicAsync(bgDb);
-                var allConfigVars = await ConfigVariableResolver.LoadAsync(bgDb);
-
-                string ResolveForStorage(string template)
+                var story = await bgExecutor.ExecuteAsync("AiChatWinStory", promptParams, "WinWeek", $"Win Story — {winnerName}", weekId.ToString());
+                if (!string.IsNullOrWhiteSpace(story))
                 {
-                    var result = ConfigVariableResolver.Apply(template, publicConfigVars);
-                    foreach (var (k, v) in parameters)
-                        result = result.Replace($"{{{k}}}", v);
-                    foreach (var (k, v) in vars)
-                        result = result.Replace($"{{{k}}}", v);
-                    return result;
-                }
-
-                // Execution: all values including secrets — used only for the HTTP call, never stored
-                string ResolveForExecution(string template)
-                {
-                    var result = ConfigVariableResolver.Apply(template, allConfigVars);
-                    foreach (var (k, v) in parameters)
-                        result = result.Replace($"{{{k}}}", v);
-                    foreach (var (k, v) in vars)
-                        result = result.Replace($"{{{k}}}", v);
-                    return result;
-                }
-
-                var evt = new ApiSyncEvent
-                {
-                    Action = "AiChatWinStory",
-                    ConfigName = config.Name,
-                    Label = $"Win Story — {winnerName}",
-                    SourceType = "WinWeek",
-                    SourceId = weekId.ToString(),
-                    HttpMethod = "POST",
-                    ResolvedUrl = ResolveForStorage(config.Url),
-                    ResolvedHeadersJson = JsonSerializer.Serialize(headers.ToDictionary(kvp => kvp.Key, kvp => ResolveForStorage(kvp.Value))),
-                    ResolvedBody = ResolveForStorage(config.BodyTemplate ?? ""),
-                    BodyFormat = config.BodyFormat ?? "json"
-                };
-                bgDb.ApiSyncEvents.Add(evt);
-                await bgDb.SaveChangesAsync();
-
-                // Execute immediately using fully resolved values (secrets applied here, not stored)
-                var executionHeaders = headers.ToDictionary(kvp => kvp.Key, kvp => ResolveForExecution(kvp.Value));
-                var executionUrl = ResolveForExecution(config.Url);
-                var executionBody = ResolveForExecution(config.BodyTemplate ?? "");
-
-                try
-                {
-                    using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
-                    foreach (var (k, v) in executionHeaders)
-                        client.DefaultRequestHeaders.TryAddWithoutValidation(k, v);
-
-                    var mediaType = (config.BodyFormat ?? "json") == "urlencoded"
-                        ? "application/x-www-form-urlencoded"
-                        : "application/json";
-                    var response = await client.PostAsync(executionUrl, new StringContent(executionBody, Encoding.UTF8, mediaType));
-                    var responseBody = await response.Content.ReadAsStringAsync();
-
-                    evt.ResponseStatus = (int)response.StatusCode;
-                    evt.ResponseBody = responseBody;
-                    evt.SentAt = DateTimeOffset.UtcNow;
-
-                    if (response.IsSuccessStatusCode)
+                    var winWeek = await bgDb.WinWeeks.FindAsync(weekId);
+                    if (winWeek is not null)
                     {
-                        evt.Status = "sent";
-                        var story = ExtractTextAtPath(responseBody, textPath);
-                        if (!string.IsNullOrWhiteSpace(story))
-                        {
-                            var winWeek = await bgDb.WinWeeks.FindAsync(weekId);
-                            if (winWeek is not null)
-                            {
-                                winWeek.WinnerStory = story.Trim();
-                                await bgDb.SaveChangesAsync();
-                                _ = WebSocketMiddleware.BroadcastAsync("win_story_ready", new { weekId }, guestAllowed: true);
-                            }
-                        }
-                    }
-                    else
-                    {
-                        evt.Status = "failed";
+                        winWeek.WinnerStory = story.Trim();
+                        await bgDb.SaveChangesAsync();
+                        _ = WebSocketMiddleware.BroadcastAsync("win_story_ready", new { weekId }, guestAllowed: true);
                     }
                 }
-                catch (Exception ex)
-                {
-                    evt.Status = "failed";
-                    evt.ResponseBody = ex.Message;
-                    evt.SentAt = DateTimeOffset.UtcNow;
-                }
-
-                await bgDb.SaveChangesAsync();
             }
             catch { /* best-effort */ }
         });
