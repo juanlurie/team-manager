@@ -119,6 +119,7 @@ public class GuestWinOfTheWeekService(AppDbContext db, IHttpContextAccessor http
             QuizRevealEndsAt = week.QuizRevealed && !week.QuizWinnerMemberId.HasValue
                 ? week.QuizRevealedAt?.AddSeconds(WinOfTheWeekService.QuizRevealDisplaySeconds) : null,
             QuizCorrectIndex = week.QuizRevealed ? week.QuizCorrectIndex : null,
+            QuizIsAiGenerated = week.QuizIsAiGenerated,
             QuizWinnerName = week.QuizWinnerMemberId.HasValue
                 ? nominations.FirstOrDefault(n => n.NomineeMemberId == week.QuizWinnerMemberId.Value) is { } wn
                     ? $"{wn.Nominee.FirstName} {wn.Nominee.LastName}" : null

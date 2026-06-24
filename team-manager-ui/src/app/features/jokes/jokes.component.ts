@@ -7,6 +7,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { Subscription } from 'rxjs';
 import { API_BASE } from '../../core/services/api.config';
 import { WebSocketService } from '../../core/websocket/websocket.service';
+import { AiBadgeComponent } from '../../shared/components/ai-badge/ai-badge.component';
 
 interface JokeType {
   id: string;
@@ -50,7 +51,7 @@ const JOKE_TYPES: JokeType[] = [
 @Component({
   selector: 'app-jokes',
   standalone: true,
-  imports: [MatIconModule, MatButtonModule, MatProgressSpinnerModule],
+  imports: [MatIconModule, MatButtonModule, MatProgressSpinnerModule, AiBadgeComponent],
   styles: [`
     .jokes-wrap { max-width: 640px; margin: 0 auto; padding: 8px 0; }
     .section-title { font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 1.5px; color: rgba(255,255,255,0.35); margin-bottom: 12px; }
@@ -118,7 +119,7 @@ const JOKE_TYPES: JokeType[] = [
             </mat-icon>
             <span class="joke-category">{{ selectedType()!.label }}</span>
           </div>
-          <p class="joke-text">{{ joke() }}</p>
+          <p class="joke-text">{{ joke() }}<app-ai-badge /></p>
           <div class="joke-actions">
             <button mat-stroked-button (click)="generate(selectedType()!)">
               <mat-icon>refresh</mat-icon> Another one

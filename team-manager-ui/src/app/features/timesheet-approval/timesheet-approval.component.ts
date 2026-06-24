@@ -16,6 +16,7 @@ import { TimesheetApprovalService } from '../../core/services/timesheet-approval
 import { CredentialsService } from '../../core/services/credentials.service';
 import { MemberQualityInput, TimesheetApprovalEntry, TimesheetApprovalMember, WeeklyTimesheetSummary } from '../../core/models/timesheet-approval.model';
 import { MarkdownPipe } from '../../core/pipes/markdown.pipe';
+import { AiBadgeComponent } from '../../shared/components/ai-badge/ai-badge.component';
 
 // Builds the date string from local Y/M/D parts — toISOString() converts to UTC first, which
 // rolls the date back a day for any timezone ahead of UTC (e.g. local midnight on the 1st
@@ -63,7 +64,7 @@ interface DayGroup {
   selector: 'app-timesheet-approval',
   standalone: true,
   imports: [CommonModule, FormsModule, MatIconModule, MatButtonModule, MatFormFieldModule,
-    MatInputModule, MatAutocompleteModule, MatSnackBarModule, MatProgressSpinnerModule, MatCheckboxModule, MatTooltipModule, MarkdownPipe],
+    MatInputModule, MatAutocompleteModule, MatSnackBarModule, MatProgressSpinnerModule, MatCheckboxModule, MatTooltipModule, MarkdownPipe, AiBadgeComponent],
   template: `
     <div class="page">
       <div class="page-header">
@@ -180,7 +181,7 @@ interface DayGroup {
           @if (qualityAnalysis() !== null) {
             <div class="issues-breakdown">
               <div class="issues-breakdown-hdr">
-                <span>AI Timesheet Quality Analysis ({{ displayedPeople().length }} people)</span>
+                <span>AI Timesheet Quality Analysis ({{ displayedPeople().length }} people)@if (qualityAnalysisIsAi()) {<app-ai-badge />}</span>
                 <button class="ts-ai-close" (click)="qualityAnalysis.set(null)">&times;</button>
               </div>
               <div class="quality-analysis-body" [innerHTML]="qualityAnalysis() | markdown"></div>
@@ -539,6 +540,7 @@ export class TimesheetApprovalComponent {
 
   analyzingQuality = signal(false);
   qualityAnalysis = signal<string | null>(null);
+  qualityAnalysisIsAi = signal(false);
 
   // Sends exactly what's currently visible (after team exclusion + the needs-review toggle) —
   // full entries for people with flagged ones, just a total-hours note for everyone else, since
@@ -561,6 +563,7 @@ export class TimesheetApprovalComponent {
     this.svc.analyzeQuality(payload).subscribe({
       next: (result) => {
         this.analyzingQuality.set(false);
+        this.qualityAnalysisIsAi.set(result.status === 'sent');
         if (!result.configured) {
           this.qualityAnalysis.set('Not configured — add an "Analyze Timesheet Quality" action in Integrations.');
           return;
@@ -569,6 +572,7 @@ export class TimesheetApprovalComponent {
       },
       error: () => {
         this.analyzingQuality.set(false);
+        this.qualityAnalysisIsAi.set(false);
         this.qualityAnalysis.set('Failed to run the analysis. Check the Sync Queue for details.');
       }
     });

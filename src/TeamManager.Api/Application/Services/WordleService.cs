@@ -36,11 +36,13 @@ public class WordleService(AppDbContext db, WordleWordGeneratorService wordGener
 
     public async Task<WordleSessionDto> CreateSessionAsync(Guid memberId, string? title)
     {
+        var (word, isAiGenerated) = await wordGenerator.GenerateWordAsync();
         var session = new WordleSession
         {
             CreatedByMemberId = memberId,
             Title = title,
-            Word = await wordGenerator.GenerateWordAsync(),
+            Word = word,
+            IsAiGenerated = isAiGenerated,
         };
         db.WordleSessions.Add(session);
         await db.SaveChangesAsync();
@@ -169,7 +171,8 @@ public class WordleService(AppDbContext db, WordleWordGeneratorService wordGener
             }).ToList(),
             MyStatus = me?.Status.ToString() ?? "Playing",
             MyGuesses = myGuesses,
-            RevealedWord = me is { Status: not WordleParticipantStatus.Playing } ? session.Word : null
+            RevealedWord = me is { Status: not WordleParticipantStatus.Playing } ? session.Word : null,
+            RevealedWordIsAiGenerated = me is { Status: not WordleParticipantStatus.Playing } ? session.IsAiGenerated : null
         };
     }
 

@@ -78,7 +78,7 @@
           @if (qualityAnalysis() !== null) {
             <div class="ts-ai-panel">
               <div class="ts-ai-panel-hdr">
-                <span>AI Timesheet Quality Analysis</span>
+                <span>AI Timesheet Quality Analysis@if (qualityAnalysisIsAi()) {<app-ai-badge />}</span>
                 <button class="ts-ai-close" (click)="qualityAnalysis.set(null)">&times;</button>
               </div>
               <div class="ts-ai-panel-body" [innerHTML]="qualityAnalysis() | markdown"></div>

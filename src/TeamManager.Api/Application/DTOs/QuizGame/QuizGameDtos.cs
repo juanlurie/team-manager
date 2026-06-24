@@ -30,6 +30,7 @@ public record QuizMillionaireRunDto
     public int RoundIndex { get; init; } = -1;
     public string Status { get; init; } = "NotStarted";
     public string? Question { get; init; }
+    public bool IsAiGenerated { get; init; }
     public List<string> Options { get; init; } = [];
     public DateTimeOffset? EndsAt { get; init; }
     public long Winnings { get; init; }
@@ -48,6 +49,7 @@ public record QuizGameSessionDto
     public int QuestionCount { get; init; }
     public int CurrentQuestionIndex { get; init; }
     public string? CurrentQuestion { get; init; }
+    public bool CurrentQuestionIsAiGenerated { get; init; }
     public List<string> CurrentOptions { get; init; } = [];
     public DateTimeOffset? CurrentQuestionEndsAt { get; init; }
     public bool CurrentQuestionRevealed { get; init; }

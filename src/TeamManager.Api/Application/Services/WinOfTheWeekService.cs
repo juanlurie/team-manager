@@ -111,6 +111,7 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
             QuizRevealEndsAt = week.QuizRevealed && !week.QuizWinnerMemberId.HasValue
                 ? week.QuizRevealedAt?.AddSeconds(QuizRevealDisplaySeconds) : null,
             QuizCorrectIndex = week.QuizRevealed ? week.QuizCorrectIndex : null,
+            QuizIsAiGenerated = week.QuizIsAiGenerated,
             QuizMyAnswerIndex = quizMyAnswer?.SelectedIndex,
             QuizWinnerMemberId = week.QuizWinnerMemberId,
             QuizWinnerName = quizWinnerNomination != null ? $"{quizWinnerNomination.Nominee.FirstName} {quizWinnerNomination.Nominee.LastName}" : null,
@@ -1108,7 +1109,7 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
         db.WinQuizAnswers.RemoveRange(db.WinQuizAnswers.Where(a => a.WinWeekId == week.Id));
         await db.SaveChangesAsync();
 
-        var (question, options, correctIndex) = await questionGenerator.GenerateAsync("WowQuiz", "Quiz Duel — generate question", week.QuizDifficultyLevel);
+        var (question, options, correctIndex, isAiGenerated) = await questionGenerator.GenerateAsync("WowQuiz", "Quiz Duel — generate question", week.QuizDifficultyLevel);
         var optionsJson = JsonSerializer.Serialize(options);
         var endsAt = DateTimeOffset.UtcNow.AddSeconds(45);
         var revealedAtToken = week.QuizRevealedAt;
@@ -1119,6 +1120,7 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
                 .SetProperty(x => x.QuizQuestion, question)
                 .SetProperty(x => x.QuizOptionsJson, optionsJson)
                 .SetProperty(x => x.QuizCorrectIndex, correctIndex)
+                .SetProperty(x => x.QuizIsAiGenerated, isAiGenerated)
                 .SetProperty(x => x.QuizEndsAt, endsAt)
                 .SetProperty(x => x.QuizRevealed, false)
                 .SetProperty(x => x.QuizRevealedAt, (DateTimeOffset?)null)
@@ -1224,11 +1226,12 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
         // auto-loop keeps using the host's chosen difficulty across rounds.
         week.QuizDifficultyLevel = difficultyLevel.HasValue ? Math.Clamp(difficultyLevel.Value, 1, 15) : null;
 
-        var (question, options, correctIndex) = await questionGenerator.GenerateAsync("WowQuiz", "Quiz Duel — generate question", week.QuizDifficultyLevel);
+        var (question, options, correctIndex, isAiGenerated) = await questionGenerator.GenerateAsync("WowQuiz", "Quiz Duel — generate question", week.QuizDifficultyLevel);
 
         week.QuizQuestion = question;
         week.QuizOptionsJson = JsonSerializer.Serialize(options);
         week.QuizCorrectIndex = correctIndex;
+        week.QuizIsAiGenerated = isAiGenerated;
         week.QuizEndsAt = DateTimeOffset.UtcNow.AddSeconds(45);
         week.QuizRevealed = false;
         week.QuizRevealedAt = null;

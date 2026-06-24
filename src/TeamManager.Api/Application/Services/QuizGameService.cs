@@ -98,11 +98,12 @@ public class QuizGameService(AppDbContext db, QuizQuestionGeneratorService quest
             return await GetSessionAsync(sessionId, memberId);
         }
 
-        var (question, options, correctIndex) = await questionGenerator.GenerateAsync("QuizGame", "Quiz Game — question 1", session.DifficultyLevel);
+        var (question, options, correctIndex, isAiGenerated) = await questionGenerator.GenerateAsync("QuizGame", "Quiz Game — question 1", session.DifficultyLevel);
         session.CurrentQuestionIndex = 0;
         session.CurrentQuestion = question;
         session.CurrentOptionsJson = JsonSerializer.Serialize(options);
         session.CurrentCorrectIndex = correctIndex;
+        session.CurrentQuestionIsAiGenerated = isAiGenerated;
         session.CurrentQuestionEndsAt = DateTimeOffset.UtcNow.AddSeconds(QuestionDurationSeconds);
         session.Status = QuizGameSessionStatus.InProgress;
         session.StartedAt = DateTimeOffset.UtcNow;
@@ -322,6 +323,7 @@ public class QuizGameService(AppDbContext db, QuizQuestionGeneratorService quest
                 string? question = null;
                 var options = new List<string>();
                 int? revealedCorrectIndex = null;
+                var isAiGenerated = false;
                 if (me.MillionaireRoundIndex >= 0 && me.MillionaireRoundIndex < MillionaireLadder.RoundCount)
                 {
                     var round = await db.QuizMillionaireRounds
@@ -330,6 +332,7 @@ public class QuizGameService(AppDbContext db, QuizQuestionGeneratorService quest
                     {
                         question = round.Question;
                         options = JsonSerializer.Deserialize<List<string>>(round.OptionsJson) ?? [];
+                        isAiGenerated = round.IsAiGenerated;
                         if (me.MillionaireStatus == QuizMillionaireStatus.Eliminated)
                             revealedCorrectIndex = round.CorrectIndex;
                     }
@@ -340,6 +343,7 @@ public class QuizGameService(AppDbContext db, QuizQuestionGeneratorService quest
                     RoundIndex = me.MillionaireRoundIndex,
                     Status = me.MillionaireStatus.ToString(),
                     Question = question,
+                    IsAiGenerated = isAiGenerated,
                     Options = options,
                     EndsAt = me.MillionaireRoundEndsAt,
                     Winnings = me.MillionaireWinnings,
@@ -358,6 +362,7 @@ public class QuizGameService(AppDbContext db, QuizQuestionGeneratorService quest
             QuestionCount = session.QuestionCount,
             CurrentQuestionIndex = session.CurrentQuestionIndex,
             CurrentQuestion = session.CurrentQuestion,
+            CurrentQuestionIsAiGenerated = session.CurrentQuestionIsAiGenerated,
             CurrentOptions = session.CurrentOptionsJson != null
                 ? JsonSerializer.Deserialize<List<string>>(session.CurrentOptionsJson) ?? []
                 : [],
@@ -445,7 +450,7 @@ public class QuizGameService(AppDbContext db, QuizQuestionGeneratorService quest
         if (session.CurrentQuestionIndex + 1 < session.QuestionCount)
         {
             var nextIndex = session.CurrentQuestionIndex + 1;
-            var (question, options, correctIndex) = await questionGenerator.GenerateAsync(
+            var (question, options, correctIndex, isAiGenerated) = await questionGenerator.GenerateAsync(
                 "QuizGame", $"Quiz Game — question {nextIndex + 1}", session.DifficultyLevel);
             var optionsJson = JsonSerializer.Serialize(options);
             var nextEndsAt = DateTimeOffset.UtcNow.AddSeconds(QuestionDurationSeconds);
@@ -459,6 +464,7 @@ public class QuizGameService(AppDbContext db, QuizQuestionGeneratorService quest
                     .SetProperty(x => x.CurrentQuestion, question)
                     .SetProperty(x => x.CurrentOptionsJson, optionsJson)
                     .SetProperty(x => x.CurrentCorrectIndex, correctIndex)
+                    .SetProperty(x => x.CurrentQuestionIsAiGenerated, isAiGenerated)
                     .SetProperty(x => x.CurrentQuestionEndsAt, nextEndsAt)
                     .SetProperty(x => x.CurrentQuestionRevealed, false)
                     .SetProperty(x => x.CurrentQuestionRevealedAt, (DateTimeOffset?)null));
@@ -638,7 +644,7 @@ public class QuizGameService(AppDbContext db, QuizQuestionGeneratorService quest
         var existing = await db.QuizMillionaireRounds.FirstOrDefaultAsync(r => r.SessionId == sessionId && r.RoundIndex == roundIndex);
         if (existing is not null) return existing;
 
-        var (question, options, correctIndex) = await questionGenerator.GenerateAsync(
+        var (question, options, correctIndex, isAiGenerated) = await questionGenerator.GenerateAsync(
             "QuizGameMillionaire", $"Quiz Millionaire — question {roundIndex + 1}", MillionaireLadder.DifficultyLevel(roundIndex));
 
         var round = new QuizMillionaireRound
@@ -647,7 +653,8 @@ public class QuizGameService(AppDbContext db, QuizQuestionGeneratorService quest
             RoundIndex = roundIndex,
             Question = question,
             OptionsJson = JsonSerializer.Serialize(options),
-            CorrectIndex = correctIndex
+            CorrectIndex = correctIndex,
+            IsAiGenerated = isAiGenerated
         };
         db.QuizMillionaireRounds.Add(round);
         try

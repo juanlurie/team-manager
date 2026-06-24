@@ -21,6 +21,7 @@ public record GuestWinWeekDto
     public bool QuizRevealed { get; init; }
     public DateTimeOffset? QuizRevealEndsAt { get; init; }
     public int? QuizCorrectIndex { get; init; }
+    public bool QuizIsAiGenerated { get; init; }
     public string? QuizWinnerName { get; init; }
     public IReadOnlyList<Guid> QuizEliminatedMemberIds { get; init; } = [];
     public IReadOnlyList<Guid> TiedNominationIds { get; init; } = [];

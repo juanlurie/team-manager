@@ -34,6 +34,7 @@ export interface WordleSession {
   myStatus: WordleStatus;
   myGuesses: WordleGuessResult[];
   revealedWord: string | null;
+  revealedWordIsAiGenerated: boolean | null;
 }
 
 export interface CreateWordleSessionRequest {

@@ -1,11 +1,12 @@
 import { Component, input, output, ChangeDetectionStrategy } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
+import { AiBadgeComponent } from '../ai-badge/ai-badge.component';
 
 @Component({
   selector: 'app-wow-winner-banner',
   standalone: true,
-  imports: [MatButtonModule, MatIconModule],
+  imports: [MatButtonModule, MatIconModule, AiBadgeComponent],
   changeDetection: ChangeDetectionStrategy.Default,
   template: `
     <div style="background:linear-gradient(135deg,rgba(255,215,0,0.12),rgba(255,165,0,0.08));border:1px solid rgba(255,215,0,0.35);border-radius:14px;padding:20px 24px;margin-bottom:20px;text-align:center">
@@ -21,7 +22,7 @@ import { MatIconModule } from '@angular/material/icon';
       }
       @if (winnerStory()) {
         <div style="margin-top:16px;background:rgba(0,0,0,0.25);border:1px solid rgba(255,215,0,0.2);border-radius:10px;padding:14px 16px;text-align:left">
-          <div style="font-size:0.7rem;text-transform:uppercase;letter-spacing:1px;color:#FFD700;opacity:0.7;margin-bottom:8px">✨ Hero Story</div>
+          <div style="font-size:0.7rem;text-transform:uppercase;letter-spacing:1px;color:#FFD700;opacity:0.7;margin-bottom:8px">✨ Hero Story<app-ai-badge /></div>
           <div style="font-size:0.88rem;line-height:1.6;opacity:0.85;white-space:pre-wrap">{{winnerStory()}}</div>
           <button mat-stroked-button (click)="copyStory.emit(winnerStory()!)"
                   style="margin-top:10px;font-size:0.75rem;height:28px;line-height:28px;min-width:0;padding:0 12px;color:rgba(255,215,0,0.8);border-color:rgba(255,215,0,0.3)">

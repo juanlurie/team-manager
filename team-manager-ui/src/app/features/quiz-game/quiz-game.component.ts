@@ -15,6 +15,7 @@ import { WebSocketService } from '../../core/websocket/websocket.service';
 import { WowCountdownComponent } from '../../shared/components/wow-countdown/wow-countdown.component';
 import { RevealProgressBarComponent } from '../../shared/components/reveal-progress-bar/reveal-progress-bar.component';
 import { FeatureAccessService } from '../../core/services/feature-access.service';
+import { AiBadgeComponent } from '../../shared/components/ai-badge/ai-badge.component';
 
 @Component({
   selector: 'app-create-quiz-game-dialog',
@@ -91,7 +92,8 @@ export class CreateQuizGameDialogComponent {
   standalone: true,
   imports: [
     DecimalPipe, FormsModule, MatButtonModule, MatIconModule, MatDialogModule,
-    MatSnackBarModule, MatProgressSpinnerModule, WowCountdownComponent, RevealProgressBarComponent
+    MatSnackBarModule, MatProgressSpinnerModule, WowCountdownComponent, RevealProgressBarComponent,
+    AiBadgeComponent
   ],
   changeDetection: ChangeDetectionStrategy.Default,
   styles: [`
@@ -248,7 +250,7 @@ export class CreateQuizGameDialogComponent {
                     <div class="progress-label">
                       Question {{ s.myMillionaireRun.roundIndex + 1 }} of {{ s.millionairePrizeLadder.length }} — for \${{ (s.millionairePrizeLadder[s.myMillionaireRun.roundIndex] ?? 0) | number }}
                     </div>
-                    <div class="question-text">{{ s.myMillionaireRun.question }}</div>
+                    <div class="question-text">{{ s.myMillionaireRun.question }}@if (s.myMillionaireRun.isAiGenerated) {<app-ai-badge />}</div>
 
                     <div class="options-grid">
                       @for (opt of s.myMillionaireRun.options; let i = $index; track i) {
@@ -344,7 +346,7 @@ export class CreateQuizGameDialogComponent {
 
             @if (s.status === 'InProgress' && s.gameMode === 'Classic') {
               <div class="progress-label" style="margin-top:14px">Question {{ s.currentQuestionIndex + 1 }} of {{ s.questionCount }}</div>
-              <div class="question-text">{{ s.currentQuestion }}</div>
+              <div class="question-text">{{ s.currentQuestion }}@if (s.currentQuestionIsAiGenerated) {<app-ai-badge />}</div>
 
               @if (!s.isParticipant) {
                 <button mat-stroked-button style="width:100%;margin-bottom:10px" (click)="joinSelected()">Join Game</button>

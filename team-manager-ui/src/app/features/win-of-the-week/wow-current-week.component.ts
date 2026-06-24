@@ -16,6 +16,7 @@ import { AppLoadingComponent } from '../../shared/components/app-loading/app-loa
 import { AppEmptyStateComponent } from '../../shared/components/app-empty-state/app-empty-state.component';
 import { AppInfoBannerComponent } from '../../shared/components/app-info-banner/app-info-banner.component';
 import { RevealProgressBarComponent } from '../../shared/components/reveal-progress-bar/reveal-progress-bar.component';
+import { AiBadgeComponent } from '../../shared/components/ai-badge/ai-badge.component';
 
 @Component({
   selector: 'app-wow-current-week',
@@ -35,7 +36,8 @@ import { RevealProgressBarComponent } from '../../shared/components/reveal-progr
     AppEmptyStateComponent,
     AppInfoBannerComponent,
     RevealProgressBarComponent,
-    MatProgressSpinnerModule
+    MatProgressSpinnerModule,
+    AiBadgeComponent
   ],
   changeDetection: ChangeDetectionStrategy.Default,
   styles: [`
@@ -387,7 +389,7 @@ import { RevealProgressBarComponent } from '../../shared/components/reveal-progr
                 </div>
               }
 
-              <div style="font-weight:600;font-size:0.95rem;margin-bottom:10px">{{ w.quizQuestion }}</div>
+              <div style="font-weight:600;font-size:0.95rem;margin-bottom:10px">{{ w.quizQuestion }}@if (w.quizIsAiGenerated) {<app-ai-badge />}</div>
 
               <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
                 @for (opt of w.quizOptions; let i = $index; track i) {

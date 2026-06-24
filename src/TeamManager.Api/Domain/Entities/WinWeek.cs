@@ -18,6 +18,7 @@ public class WinWeek
     public string? QuizQuestion { get; set; }
     public string? QuizOptionsJson { get; set; }
     public int? QuizCorrectIndex { get; set; }
+    public bool QuizIsAiGenerated { get; set; }
     public bool QuizRevealed { get; set; }
     public DateTimeOffset? QuizRevealedAt { get; set; }
     public Guid? QuizWinnerMemberId { get; set; }
