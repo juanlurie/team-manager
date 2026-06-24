@@ -160,7 +160,7 @@ export class WowSeriesSheetComponent {
             (stopTimerClick)="stopTimer()"
             (startHypeBattleClick)="startHypeBattle($event)"
             (endHypeBattleClick)="endHypeBattle()"
-            (startQuizClick)="startQuiz()"
+            (startQuizClick)="startQuiz($event)"
             (quizRevealDrained)="onQuizRevealDrained()"
             (submitQuizAnswerClick)="submitQuizAnswer($event)"
             (completeQuizWinnerClick)="completeQuizWinner()"
@@ -349,8 +349,9 @@ export class WinOfTheWeekComponent implements OnInit, OnDestroy {
   nominateForm: CreateNominationRequest = { nomineeMemberId: '', title: '', description: '' };
 
   ngOnInit() {
-    this.memberSvc.getAll({ isActive: true }).subscribe(members => {
-      this.allMembers.set(members.sort((a, b) => a.firstName.localeCompare(b.firstName)));
+    this.memberSvc.getAll({ isActive: true }).subscribe({
+      next: members => this.allMembers.set(members.sort((a, b) => a.firstName.localeCompare(b.firstName))),
+      error: () => this.snackBar.open('Failed to load team members', 'Close', { duration: 3000 })
     });
 
     this.seriesSvc.getAll().subscribe(list => {
@@ -746,10 +747,10 @@ export class WinOfTheWeekComponent implements OnInit, OnDestroy {
     });
   }
 
-  startQuiz() {
+  startQuiz(difficultyLevel?: number) {
     if (this.startingQuiz()) return;
     this.startingQuiz.set(true);
-    this.winSvc.startQuiz(this.currentSeriesId() ?? undefined).subscribe({
+    this.winSvc.startQuiz(this.currentSeriesId() ?? undefined, difficultyLevel).subscribe({
       next: (week) => { this.applyWeek(week); this.startingQuiz.set(false); },
       error: (err) => { this.startingQuiz.set(false); this.snackBar.open(err.error?.error ?? 'Failed to start Quiz Duel', 'Close', { duration: 4000 }); }
     });

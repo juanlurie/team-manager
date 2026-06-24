@@ -60,4 +60,6 @@ export interface CreateQuizGameSessionRequest {
   title?: string;
   questionCount?: number;
   gameMode?: QuizGameMode;
+  // Classic mode only, 1-15 scale -- ignored for Millionaire (escalates per-round instead).
+  difficultyLevel?: number;
 }

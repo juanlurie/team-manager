@@ -114,6 +114,7 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
             QuizMyAnswerIndex = quizMyAnswer?.SelectedIndex,
             QuizWinnerMemberId = week.QuizWinnerMemberId,
             QuizWinnerName = quizWinnerNomination != null ? $"{quizWinnerNomination.Nominee.FirstName} {quizWinnerNomination.Nominee.LastName}" : null,
+            QuizEliminatedMemberIds = ParseGuidListOrEmpty(week.QuizEliminatedMemberIds),
             CurrentMemberId = currentMemberId,
             UserVotesRemaining = week.Status == WinWeekStatus.SuddenDeath ? Math.Max(0, 1 - userSuddenDeathVoteCount) : MaxVotesPerPerson - userVoteCount,
             UserNominationsRemaining = MaxNominationsPerPerson - userNominationCount,
@@ -973,6 +974,7 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
         week.QuizRevealed = false;
         week.QuizRevealedAt = null;
         week.QuizWinnerMemberId = null;
+        week.QuizEliminatedMemberIds = null;
         await db.SaveChangesAsync();
 
         var winnerNom = await db.WinNominations
@@ -1041,21 +1043,47 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
         await TryResolveQuizAsync(week, force: true);
     }
 
-    // Resolves once every tied nominee has answered, or (force) once the timer has expired.
-    // Never resolves earlier -- the duel stays suspenseful until everyone's in or time's up.
+    private static List<Guid> ParseGuidListOrEmpty(string? json) =>
+        string.IsNullOrEmpty(json) ? [] : JsonSerializer.Deserialize<List<Guid>>(json) ?? [];
+
+    // Resolves once every still-active nominee has answered, or (force) once the timer has
+    // expired. Elimination model: anyone active who answers wrong (or doesn't answer in time)
+    // is eliminated for the rest of the duel. If exactly one nominee survives the round, they win
+    // outright. If 2+ survive, nobody's eliminated this round was wasted -- wait, no: if 2+
+    // survive, everyone else active this round who didn't survive gets eliminated and the duel
+    // continues with just the survivors. If 0 survive (everyone active got it wrong), nobody is
+    // eliminated -- the round is wasted and retried with the same active set, so the duel can
+    // never deadlock with zero people left.
     private async Task TryResolveQuizAsync(WinWeek week, bool force)
     {
         if (week.QuizQuestion is null || week.Status == WinWeekStatus.Closed || week.QuizRevealed) return;
 
         var tiedNomineeIds = await GetTiedNomineeMemberIdsAsync(week);
+        var eliminatedIds = ParseGuidListOrEmpty(week.QuizEliminatedMemberIds);
+        var activeIds = tiedNomineeIds.Except(eliminatedIds).ToList();
+
         var answers = await db.WinQuizAnswers.Where(a => a.WinWeekId == week.Id).ToListAsync();
         var answeredIds = answers.Select(a => a.MemberId).ToHashSet();
-        var allAnswered = tiedNomineeIds.Count > 0 && tiedNomineeIds.All(answeredIds.Contains);
+        var allAnswered = activeIds.Count > 0 && activeIds.All(answeredIds.Contains);
 
         if (!allAnswered && !force) return;
 
-        var earliestCorrect = answers.Where(a => a.IsCorrect).OrderBy(a => a.AnsweredAt).FirstOrDefault();
-        var winnerMemberId = earliestCorrect?.MemberId;
+        var correctThisRound = answers.Where(a => a.IsCorrect).Select(a => a.MemberId).ToHashSet();
+        var survivors = activeIds.Where(correctThisRound.Contains).ToList();
+
+        Guid? winnerMemberId = null;
+        var newEliminatedJson = week.QuizEliminatedMemberIds;
+        if (survivors.Count == 1)
+        {
+            winnerMemberId = survivors[0];
+        }
+        else if (survivors.Count > 1)
+        {
+            var allEliminated = eliminatedIds.Concat(activeIds.Except(survivors)).Distinct().ToList();
+            newEliminatedJson = JsonSerializer.Serialize(allEliminated);
+        }
+        // survivors.Count == 0: nobody eliminated -- retry the same active set next round.
+
         var revealedAt = DateTimeOffset.UtcNow;
 
         // Concurrent polls can all reach this point at once -- atomically claim the reveal so only one
@@ -1066,7 +1094,8 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
                 .SetProperty(x => x.QuizRevealed, true)
                 .SetProperty(x => x.QuizRevealedAt, revealedAt)
                 .SetProperty(x => x.QuizEndsAt, (DateTimeOffset?)null)
-                .SetProperty(x => x.QuizWinnerMemberId, winnerMemberId));
+                .SetProperty(x => x.QuizWinnerMemberId, winnerMemberId)
+                .SetProperty(x => x.QuizEliminatedMemberIds, newEliminatedJson));
         if (claimed == 0) return;
 
         _ = WebSocketMiddleware.BroadcastAsync("wow_quiz_revealed", new { weekId = week.Id, winnerMemberId }, guestAllowed: true);
@@ -1079,7 +1108,7 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
         db.WinQuizAnswers.RemoveRange(db.WinQuizAnswers.Where(a => a.WinWeekId == week.Id));
         await db.SaveChangesAsync();
 
-        var (question, options, correctIndex) = await questionGenerator.GenerateAsync("WowQuiz", "Quiz Duel — generate question");
+        var (question, options, correctIndex) = await questionGenerator.GenerateAsync("WowQuiz", "Quiz Duel — generate question", week.QuizDifficultyLevel);
         var optionsJson = JsonSerializer.Serialize(options);
         var endsAt = DateTimeOffset.UtcNow.AddSeconds(45);
         var revealedAtToken = week.QuizRevealedAt;
@@ -1129,6 +1158,7 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
         week.QuizRevealed = false;
         week.QuizRevealedAt = null;
         week.QuizWinnerMemberId = null;
+        week.QuizEliminatedMemberIds = null;
         db.WinQuizAnswers.RemoveRange(db.WinQuizAnswers.Where(a => a.WinWeekId == weekId));
         await db.SaveChangesAsync();
 
@@ -1177,7 +1207,7 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
             .ToListAsync();
     }
 
-    public async Task<WinWeekDto> StartQuizAsync(Guid memberId, Guid weekId)
+    public async Task<WinWeekDto> StartQuizAsync(Guid memberId, Guid weekId, int? difficultyLevel = null)
     {
         var week = await db.WinWeeks.Include(w => w.Series).FirstOrDefaultAsync(w => w.Id == weekId)
             ?? throw new KeyNotFoundException("Week not found.");
@@ -1190,7 +1220,11 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
 
         db.WinQuizAnswers.RemoveRange(db.WinQuizAnswers.Where(a => a.WinWeekId == weekId));
 
-        var (question, options, correctIndex) = await questionGenerator.GenerateAsync("WowQuiz", "Quiz Duel — generate question");
+        // Persisted on the week (not just passed per-call) so BeginNextQuizRoundAsync's
+        // auto-loop keeps using the host's chosen difficulty across rounds.
+        week.QuizDifficultyLevel = difficultyLevel.HasValue ? Math.Clamp(difficultyLevel.Value, 1, 15) : null;
+
+        var (question, options, correctIndex) = await questionGenerator.GenerateAsync("WowQuiz", "Quiz Duel — generate question", week.QuizDifficultyLevel);
 
         week.QuizQuestion = question;
         week.QuizOptionsJson = JsonSerializer.Serialize(options);
@@ -1199,6 +1233,7 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
         week.QuizRevealed = false;
         week.QuizRevealedAt = null;
         week.QuizWinnerMemberId = null;
+        week.QuizEliminatedMemberIds = null;
         await db.SaveChangesAsync();
 
         var endsAt = week.QuizEndsAt;
@@ -1222,6 +1257,9 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
         var tiedNomineeIds = await GetTiedNomineeMemberIdsAsync(week);
         if (!tiedNomineeIds.Contains(memberId))
             throw new InvalidOperationException("Only the tied nominees can answer this quiz.");
+        var eliminatedIds = ParseGuidListOrEmpty(week.QuizEliminatedMemberIds);
+        if (eliminatedIds.Contains(memberId))
+            throw new InvalidOperationException("You've been eliminated from this duel.");
 
         var alreadyAnswered = await db.WinQuizAnswers.AnyAsync(a => a.WinWeekId == weekId && a.MemberId == memberId);
         if (alreadyAnswered)

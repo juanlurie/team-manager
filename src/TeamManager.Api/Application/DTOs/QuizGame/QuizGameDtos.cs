@@ -66,6 +66,6 @@ public record QuizGameSessionDto
     public QuizMillionaireRunDto? MyMillionaireRun { get; init; }
 }
 
-public record CreateQuizGameSessionRequest(string? Title, int QuestionCount = 10, string GameMode = "Classic");
+public record CreateQuizGameSessionRequest(string? Title, int QuestionCount = 10, string GameMode = "Classic", int? DifficultyLevel = null);
 
 public record SubmitQuizGameAnswerRequest(int SelectedIndex);

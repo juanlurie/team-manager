@@ -123,6 +123,9 @@ public class GuestWinOfTheWeekService(AppDbContext db, IHttpContextAccessor http
                 ? nominations.FirstOrDefault(n => n.NomineeMemberId == week.QuizWinnerMemberId.Value) is { } wn
                     ? $"{wn.Nominee.FirstName} {wn.Nominee.LastName}" : null
                 : null,
+            QuizEliminatedMemberIds = !string.IsNullOrEmpty(week.QuizEliminatedMemberIds)
+                ? System.Text.Json.JsonSerializer.Deserialize<List<Guid>>(week.QuizEliminatedMemberIds) ?? []
+                : [],
             TiedNominationIds = !string.IsNullOrEmpty(week.TiedNominationIds)
                 ? System.Text.Json.JsonSerializer.Deserialize<List<Guid>>(week.TiedNominationIds) ?? []
                 : [],
