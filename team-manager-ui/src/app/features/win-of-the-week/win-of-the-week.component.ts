@@ -349,8 +349,9 @@ export class WinOfTheWeekComponent implements OnInit, OnDestroy {
   nominateForm: CreateNominationRequest = { nomineeMemberId: '', title: '', description: '' };
 
   ngOnInit() {
-    this.memberSvc.getAll({ isActive: true }).subscribe(members => {
-      this.allMembers.set(members.sort((a, b) => a.firstName.localeCompare(b.firstName)));
+    this.memberSvc.getAll({ isActive: true }).subscribe({
+      next: members => this.allMembers.set(members.sort((a, b) => a.firstName.localeCompare(b.firstName))),
+      error: () => this.snackBar.open('Failed to load team members', 'Close', { duration: 3000 })
     });
 
     this.seriesSvc.getAll().subscribe(list => {
