@@ -160,7 +160,7 @@ export class WowSeriesSheetComponent {
             (stopTimerClick)="stopTimer()"
             (startHypeBattleClick)="startHypeBattle($event)"
             (endHypeBattleClick)="endHypeBattle()"
-            (startQuizClick)="startQuiz()"
+            (startQuizClick)="startQuiz($event)"
             (quizRevealDrained)="onQuizRevealDrained()"
             (submitQuizAnswerClick)="submitQuizAnswer($event)"
             (completeQuizWinnerClick)="completeQuizWinner()"
@@ -747,10 +747,10 @@ export class WinOfTheWeekComponent implements OnInit, OnDestroy {
     });
   }
 
-  startQuiz() {
+  startQuiz(difficultyLevel?: number) {
     if (this.startingQuiz()) return;
     this.startingQuiz.set(true);
-    this.winSvc.startQuiz(this.currentSeriesId() ?? undefined).subscribe({
+    this.winSvc.startQuiz(this.currentSeriesId() ?? undefined, difficultyLevel).subscribe({
       next: (week) => { this.applyWeek(week); this.startingQuiz.set(false); },
       error: (err) => { this.startingQuiz.set(false); this.snackBar.open(err.error?.error ?? 'Failed to start Quiz Duel', 'Close', { duration: 4000 }); }
     });

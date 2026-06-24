@@ -36,7 +36,7 @@ public class QuizGameService(AppDbContext db, QuizQuestionGeneratorService quest
         }).ToList();
     }
 
-    public async Task<QuizGameSessionDto> CreateSessionAsync(Guid memberId, string? title, int questionCount, string gameMode = "Classic")
+    public async Task<QuizGameSessionDto> CreateSessionAsync(Guid memberId, string? title, int questionCount, string gameMode = "Classic", int? difficultyLevel = null)
     {
         var mode = Enum.TryParse<QuizGameMode>(gameMode, true, out var parsedMode) ? parsedMode : QuizGameMode.Classic;
         var session = new QuizGameSession
@@ -45,7 +45,9 @@ public class QuizGameService(AppDbContext db, QuizQuestionGeneratorService quest
             Title = string.IsNullOrWhiteSpace(title) ? null : title.Trim(),
             GameMode = mode,
             // Millionaire's question count is the fixed prize ladder length, not a user choice.
-            QuestionCount = mode == QuizGameMode.Millionaire ? MillionaireLadder.RoundCount : Math.Clamp(questionCount, 3, 25)
+            QuestionCount = mode == QuizGameMode.Millionaire ? MillionaireLadder.RoundCount : Math.Clamp(questionCount, 3, 25),
+            // Millionaire ignores this and escalates per-round via MillionaireLadder instead.
+            DifficultyLevel = mode == QuizGameMode.Classic && difficultyLevel.HasValue ? Math.Clamp(difficultyLevel.Value, 1, 15) : null
         };
         db.QuizGameSessions.Add(session);
         await db.SaveChangesAsync();
@@ -96,7 +98,7 @@ public class QuizGameService(AppDbContext db, QuizQuestionGeneratorService quest
             return await GetSessionAsync(sessionId, memberId);
         }
 
-        var (question, options, correctIndex) = await questionGenerator.GenerateAsync("QuizGame", "Quiz Game — question 1");
+        var (question, options, correctIndex) = await questionGenerator.GenerateAsync("QuizGame", "Quiz Game — question 1", session.DifficultyLevel);
         session.CurrentQuestionIndex = 0;
         session.CurrentQuestion = question;
         session.CurrentOptionsJson = JsonSerializer.Serialize(options);
@@ -444,7 +446,7 @@ public class QuizGameService(AppDbContext db, QuizQuestionGeneratorService quest
         {
             var nextIndex = session.CurrentQuestionIndex + 1;
             var (question, options, correctIndex) = await questionGenerator.GenerateAsync(
-                "QuizGame", $"Quiz Game — question {nextIndex + 1}");
+                "QuizGame", $"Quiz Game — question {nextIndex + 1}", session.DifficultyLevel);
             var optionsJson = JsonSerializer.Serialize(options);
             var nextEndsAt = DateTimeOffset.UtcNow.AddSeconds(QuestionDurationSeconds);
 

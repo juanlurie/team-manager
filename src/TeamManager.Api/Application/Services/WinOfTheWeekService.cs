@@ -1079,7 +1079,7 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
         db.WinQuizAnswers.RemoveRange(db.WinQuizAnswers.Where(a => a.WinWeekId == week.Id));
         await db.SaveChangesAsync();
 
-        var (question, options, correctIndex) = await questionGenerator.GenerateAsync("WowQuiz", "Quiz Duel — generate question");
+        var (question, options, correctIndex) = await questionGenerator.GenerateAsync("WowQuiz", "Quiz Duel — generate question", week.QuizDifficultyLevel);
         var optionsJson = JsonSerializer.Serialize(options);
         var endsAt = DateTimeOffset.UtcNow.AddSeconds(45);
         var revealedAtToken = week.QuizRevealedAt;
@@ -1177,7 +1177,7 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
             .ToListAsync();
     }
 
-    public async Task<WinWeekDto> StartQuizAsync(Guid memberId, Guid weekId)
+    public async Task<WinWeekDto> StartQuizAsync(Guid memberId, Guid weekId, int? difficultyLevel = null)
     {
         var week = await db.WinWeeks.Include(w => w.Series).FirstOrDefaultAsync(w => w.Id == weekId)
             ?? throw new KeyNotFoundException("Week not found.");
@@ -1190,7 +1190,11 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
 
         db.WinQuizAnswers.RemoveRange(db.WinQuizAnswers.Where(a => a.WinWeekId == weekId));
 
-        var (question, options, correctIndex) = await questionGenerator.GenerateAsync("WowQuiz", "Quiz Duel — generate question");
+        // Persisted on the week (not just passed per-call) so BeginNextQuizRoundAsync's
+        // auto-loop keeps using the host's chosen difficulty across rounds.
+        week.QuizDifficultyLevel = difficultyLevel.HasValue ? Math.Clamp(difficultyLevel.Value, 1, 15) : null;
+
+        var (question, options, correctIndex) = await questionGenerator.GenerateAsync("WowQuiz", "Quiz Duel — generate question", week.QuizDifficultyLevel);
 
         week.QuizQuestion = question;
         week.QuizOptionsJson = JsonSerializer.Serialize(options);

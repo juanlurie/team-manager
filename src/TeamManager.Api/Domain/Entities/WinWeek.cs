@@ -21,6 +21,10 @@ public class WinWeek
     public bool QuizRevealed { get; set; }
     public DateTimeOffset? QuizRevealedAt { get; set; }
     public Guid? QuizWinnerMemberId { get; set; }
+    // Host's chosen difficulty for the Quiz Duel, 1-15 scale matching
+    // QuizQuestionGeneratorService's difficultyLevel param. Persisted here (not just passed
+    // per-call) so BeginNextQuizRoundAsync's auto-loop keeps using it across rounds.
+    public int? QuizDifficultyLevel { get; set; }
     public Guid CreatedByMemberId { get; set; }
     public Guid WinSeriesId { get; set; }
     public string? WinnerStory { get; set; }

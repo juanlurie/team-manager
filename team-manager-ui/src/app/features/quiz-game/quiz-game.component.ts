@@ -56,6 +56,13 @@ import { FeatureAccessService } from '../../core/services/feature-access.service
       @if (gameMode === 'Classic') {
         <label class="field-label">Number of questions</label>
         <input class="field" type="number" min="3" max="25" [(ngModel)]="questionCount">
+
+        <label class="field-label">Difficulty</label>
+        <div class="mode-row">
+          <button type="button" class="mode-btn" [class.active]="difficultyLevel === 3" (click)="difficultyLevel = 3">Easy</button>
+          <button type="button" class="mode-btn" [class.active]="difficultyLevel === 8" (click)="difficultyLevel = 8">Medium</button>
+          <button type="button" class="mode-btn" [class.active]="difficultyLevel === 13" (click)="difficultyLevel = 13">Hard</button>
+        </div>
       }
     </mat-dialog-content>
     <mat-dialog-actions align="end" style="margin-top:8px">
@@ -69,9 +76,13 @@ export class CreateQuizGameDialogComponent {
   title = '';
   questionCount = 10;
   gameMode: QuizGameMode = 'Classic';
+  difficultyLevel = 8;
 
   submit() {
-    this.dialogRef.close({ title: this.title || undefined, questionCount: this.questionCount, gameMode: this.gameMode });
+    this.dialogRef.close({
+      title: this.title || undefined, questionCount: this.questionCount, gameMode: this.gameMode,
+      difficultyLevel: this.gameMode === 'Classic' ? this.difficultyLevel : undefined
+    });
   }
 }
 
@@ -581,7 +592,7 @@ export class QuizGameComponent implements OnInit, OnDestroy {
     this.dialog.open(CreateQuizGameDialogComponent, { width: '380px' })
       .afterClosed().subscribe(result => {
         if (!result) return;
-        this.service.createSession({ title: result.title, questionCount: result.questionCount, gameMode: result.gameMode }).subscribe({
+        this.service.createSession({ title: result.title, questionCount: result.questionCount, gameMode: result.gameMode, difficultyLevel: result.difficultyLevel }).subscribe({
           next: d => { this.applySession(d); this.snackBar.open('Game created — start it when ready', 'Close', { duration: 3000 }); },
           error: () => this.snackBar.open('Failed to create game', 'Close', { duration: 4000 })
         });

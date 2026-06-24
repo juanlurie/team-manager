@@ -405,7 +405,7 @@ public class WinOfTheWeekController(IWinOfTheWeekService service, WinSeriesServi
 
     [HttpPost("quiz/start")]
     [RequireFeature("wow-host")]
-    public async Task<IActionResult> StartQuiz([FromQuery] Guid? seriesId = null)
+    public async Task<IActionResult> StartQuiz([FromQuery] Guid? seriesId = null, [FromQuery] int? difficultyLevel = null)
     {
         var memberId = GetCurrentMemberId();
         var sid = await ResolveSeriesIdAsync(seriesId);
@@ -417,7 +417,7 @@ public class WinOfTheWeekController(IWinOfTheWeekService service, WinSeriesServi
 
         try
         {
-            var result = await service.StartQuizAsync(memberId, week.Id);
+            var result = await service.StartQuizAsync(memberId, week.Id, difficultyLevel);
             return Ok(result);
         }
         catch (KeyNotFoundException ex) { return NotFound(new { error = ex.Message }); }

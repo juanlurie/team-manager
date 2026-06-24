@@ -23,6 +23,10 @@ public class QuizGameSession
     public string? Title { get; set; }
     public QuizGameMode GameMode { get; set; } = QuizGameMode.Classic;
     public int QuestionCount { get; set; } = 10;
+    // Classic mode only -- 1-15 scale matching QuizQuestionGeneratorService's difficultyLevel
+    // param (null = unset, defaults to the generator's own midpoint). Millionaire mode ignores
+    // this and escalates per-round via MillionaireLadder instead.
+    public int? DifficultyLevel { get; set; }
     public int CurrentQuestionIndex { get; set; } = -1;
     public QuizGameSessionStatus Status { get; set; } = QuizGameSessionStatus.Waiting;
     public string? CurrentQuestion { get; set; }

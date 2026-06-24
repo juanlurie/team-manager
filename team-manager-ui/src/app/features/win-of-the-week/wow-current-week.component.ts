@@ -59,6 +59,7 @@ import { RevealProgressBarComponent } from '../../shared/components/reveal-progr
     .preset-btn { flex: 1; font-size: 0.75rem; height: 30px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.15); background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.8); cursor: pointer; font-weight: 600; transition: background 0.15s; font-family: inherit; }
     .preset-btn:hover { background: rgba(255,255,255,0.14); }
     .preset-btn.sd { background: rgba(255,87,34,0.15); border-color: rgba(255,87,34,0.4); color: #ff7043; }
+    .preset-btn.active { background: rgba(100,181,246,0.18); border-color: #64b5f6; color: #64b5f6; }
     .mob-tabs { display: flex; align-items: stretch; border-bottom: 1px solid rgba(255,255,255,0.08); margin-bottom: 16px; position: sticky; top: 0; z-index: 10; background: #0f1923; }
     .mob-tab { flex: 1; padding: 10px 0; font-size: 0.8rem; font-weight: 600; text-align: center; cursor: pointer; color: rgba(255,255,255,0.45); border: none; background: none; font-family: inherit; transition: color 0.15s; border-bottom: 2px solid transparent; margin-bottom: -1px; }
     .mob-tab.active { color: #64b5f6; border-bottom-color: #64b5f6; }
@@ -178,10 +179,15 @@ import { RevealProgressBarComponent } from '../../shared/components/reveal-progr
                         Needs every tied nominee logged in right now to start
                       }
                     </div>
+                    <div class="preset-row" style="margin-bottom:6px">
+                      <button class="preset-btn" [class.active]="quizDifficulty() === 3" (click)="quizDifficulty.set(3)">Easy</button>
+                      <button class="preset-btn" [class.active]="quizDifficulty() === 8" (click)="quizDifficulty.set(8)">Medium</button>
+                      <button class="preset-btn" [class.active]="quizDifficulty() === 13" (click)="quizDifficulty.set(13)">Hard</button>
+                    </div>
                     <button class="ctrl-btn" style="width:100%" [style.opacity]="quizEligible() ? 1 : 0.6"
                             [disabled]="quizStarting()"
                             [matTooltip]="quizEligible() ? '' : 'All tied nominees must be logged in and connected right now'"
-                            (click)="startQuizClick.emit()">
+                            (click)="startQuizClick.emit(quizDifficulty())">
                       @if (quizStarting()) { Starting… } @else { 🧠 Start Quiz Duel }
                     </button>
                   }
@@ -528,6 +534,10 @@ import { RevealProgressBarComponent } from '../../shared/components/reveal-progr
   `
 })
 export class WowCurrentWeekComponent {
+  // Host's Quiz Duel difficulty pick (1-15 scale) -- transient UI state, not persisted here;
+  // sent along with startQuizClick and persisted on the WinWeek server-side.
+  quizDifficulty = signal(8);
+
   week             = input<WinWeek | null>(null);
   loading          = input(false);
   isHost           = input(false);
@@ -595,7 +605,7 @@ export class WowCurrentWeekComponent {
   stopTimerClick            = output();
   startHypeBattleClick      = output<number>();
   endHypeBattleClick        = output();
-  startQuizClick            = output();
+  startQuizClick            = output<number>();
   submitQuizAnswerClick     = output<number>();
   completeQuizWinnerClick   = output();
   stopQuizClick             = output();

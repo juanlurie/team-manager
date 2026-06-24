@@ -23,7 +23,7 @@ public class QuizGameController(QuizGameService service, AppDbContext db) : Cont
     public async Task<IActionResult> CreateSession([FromBody] CreateQuizGameSessionRequest request)
     {
         var memberId = GetCurrentMemberId();
-        var result = await service.CreateSessionAsync(memberId, request.Title, request.QuestionCount, request.GameMode);
+        var result = await service.CreateSessionAsync(memberId, request.Title, request.QuestionCount, request.GameMode, request.DifficultyLevel);
         return Ok(result);
     }
 

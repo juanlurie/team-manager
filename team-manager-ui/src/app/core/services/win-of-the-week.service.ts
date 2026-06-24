@@ -132,9 +132,10 @@ export class WinOfTheWeekService {
     return this.http.get<{ eligible: boolean }>(`${this.base}/quiz/eligible`, { params });
   }
 
-  startQuiz(seriesId?: string) {
+  startQuiz(seriesId?: string, difficultyLevel?: number) {
     const params: any = {};
     if (seriesId) params.seriesId = seriesId;
+    if (difficultyLevel) params.difficultyLevel = difficultyLevel;
     return this.http.post<WinWeek>(`${this.base}/quiz/start`, {}, { params });
   }
 
