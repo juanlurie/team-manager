@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, AfterViewChecked, ElementRef, ViewChild, inject, signal, ChangeDetectionStrategy } from '@angular/core';
+import { Component, OnInit, OnDestroy, AfterViewChecked, ElementRef, ViewChild, inject, signal, computed, ChangeDetectionStrategy } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -102,6 +102,24 @@ interface PendingReveal {
       font-size:16px;cursor:text;
     }
     .guess-hint { text-align:center;font-size:0.75rem;opacity:0.45;margin-top:4px }
+    .keyboard { display:flex;flex-direction:column;gap:6px;align-items:center;margin-top:16px }
+    .keyboard-row { display:flex;gap:5px }
+    .key {
+      min-width:30px;height:42px;padding:0 6px;border-radius:5px;border:none;
+      background:rgba(255,255,255,0.12);color:#fff;font-weight:700;font-size:0.78rem;
+      cursor:pointer;text-transform:uppercase;display:flex;align-items:center;justify-content:center;
+      font-family:inherit;flex-shrink:0;
+    }
+    .key:hover:not(:disabled) { background:rgba(255,255,255,0.22) }
+    .key:disabled { opacity:0.5;cursor:default }
+    .key.wide { min-width:48px;font-size:0.65rem;padding:0 4px }
+    .key.correct { background:#388e3c;color:#fff }
+    .key.present { background:#b8960c;color:#fff }
+    .key.absent { background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.35) }
+    @media (max-width: 420px) {
+      .key { min-width:24px;height:38px;font-size:0.7rem }
+      .key.wide { min-width:38px;font-size:0.58rem }
+    }
     .status-banner { text-align:center;padding:16px 0;font-size:0.95rem }
     .status-banner.won { color:#81c784 }
     .status-banner.lost { color:#ef5350 }
@@ -218,6 +236,20 @@ interface PendingReveal {
 
                 @if (s.myStatus === 'Playing') {
                   <div class="guess-hint">Type your guess, then press Enter — {{ s.myGuesses.length }} of {{ s.maxGuesses }} guesses used</div>
+
+                  <div class="keyboard">
+                    @for (row of keyboardRows; track $index) {
+                      <div class="keyboard-row">
+                        @for (key of row; track key) {
+                          <button type="button" class="key" [class.wide]="key === 'ENTER' || key === 'BACKSPACE'"
+                                  [class]="letterStatuses()[key]" [disabled]="submittingGuess()"
+                                  (click)="onKeyPress(key)">
+                            {{ key === 'BACKSPACE' ? '⌫' : (key === 'ENTER' ? 'Enter' : key) }}
+                          </button>
+                        }
+                      </div>
+                    }
+                  </div>
                 } @else {
                   <div class="status-banner" [class.won]="s.myStatus === 'Won'" [class.lost]="s.myStatus === 'Lost'">
                     @if (s.myStatus === 'Won') {
@@ -265,6 +297,32 @@ export class WordleComponent implements OnInit, OnDestroy, AfterViewChecked {
   @ViewChild('guessInputEl') guessInputEl?: ElementRef<HTMLInputElement>;
   private wantsFocus = false;
 
+  readonly keyboardRows = [
+    ['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P'],
+    ['A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L'],
+    ['ENTER', 'Z', 'X', 'C', 'V', 'B', 'N', 'M', 'BACKSPACE'],
+  ];
+
+  // Best status seen for each letter across all of my guesses so far (correct beats present
+  // beats absent, e.g. a letter that was "present" in one guess and "correct" in a later one
+  // should show as correct) -- drives the on-screen keyboard's coloring.
+  letterStatuses = computed<Record<string, 'correct' | 'present' | 'absent'>>(() => {
+    const s = this.selectedSession();
+    const map: Record<string, 'correct' | 'present' | 'absent'> = {};
+    if (!s) return map;
+    const rank: Record<string, number> = { absent: 1, present: 2, correct: 3 };
+    for (const g of s.myGuesses) {
+      for (let i = 0; i < g.word.length; i++) {
+        const letter = g.word.charAt(i);
+        const status = g.letters[i] as 'correct' | 'present' | 'absent';
+        if (!map[letter] || rank[status] > rank[map[letter]]) {
+          map[letter] = status;
+        }
+      }
+    }
+    return map;
+  });
+
   sessions = signal<WordleSessionSummary[]>([]);
   loading = signal(false);
   selectedSession = signal<WordleSession | null>(null);
@@ -306,6 +364,21 @@ export class WordleComponent implements OnInit, OnDestroy, AfterViewChecked {
 
   focusInput() {
     this.guessInputEl?.nativeElement.focus();
+  }
+
+  // Letters greyed out (absent) stay fully clickable -- a player might want to retype one if
+  // they made a typo, so the keyboard never hard-disables a key just because it's been ruled out.
+  onKeyPress(key: string) {
+    const s = this.selectedSession();
+    if (!s || this.submittingGuess() || this.pendingReveal()) return;
+    if (key === 'ENTER') {
+      this.submitGuess();
+    } else if (key === 'BACKSPACE') {
+      this.guessInput = this.guessInput.slice(0, -1);
+    } else if (this.guessInput.length < s.wordLength) {
+      this.guessInput += key;
+    }
+    this.focusInput();
   }
 
   ngAfterViewChecked() {
