@@ -103,10 +103,10 @@ export const REQUEST_ACTIONS = [
   // use case (quiz questions, Wordle words, jokes, win stories, timesheet analysis) is managed
   // separately under AI Prompts, which link to a connection created with this action and
   // isAiConnection=true. {systemPrompt}/{userMessage} are filled in by AiPromptExecutorService at
-  // call time from whichever prompt is being run -- the BodyTemplate just needs to reference them
-  // as bare placeholders (already JSON-encoded, so no surrounding quotes needed in the template).
+  // call time from whichever prompt is being run -- write them in the BodyTemplate exactly like
+  // any other text placeholder, with your own quotes around them, e.g. "system": "{systemPrompt}".
   { value: 'AiConnection', label: 'AI Connection', icon: 'auto_awesome', vars: {
-    systemPrompt: '"You are a helpful assistant."', userMessage: '"Say hello."'
+    systemPrompt: 'You are a helpful assistant.', userMessage: 'Say hello.'
   } },
 ] as const;
 

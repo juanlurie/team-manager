@@ -16,13 +16,11 @@ public class AiPromptExecutorService(AppDbContext db)
 {
     // promptParams are the prompt's OWN placeholders (e.g. {topic}/{angle} for quiz questions,
     // {wordLength}/{recentWords} for Wordle) -- substituted into SystemPrompt/UserMessageTemplate
-    // first, as plain text. The fully-resolved system/user strings are then JSON-encoded (they can
-    // contain quotes/newlines once admins are typing real prompt text into a textarea) and
-    // substituted into the connection's BodyTemplate, which is expected to reference them as
-    // {systemPrompt}/{userMessage} WITHOUT surrounding quotes in the template, e.g.:
-    //   "system": {systemPrompt},
-    //   "messages": [{ "role": "user", "content": {userMessage} }]
-    // since the substituted value already includes its own quotes.
+    // first, as plain text. The fully-resolved system/user strings are then JSON-escaped (quotes,
+    // newlines, etc. made safe) WITHOUT adding surrounding quotes, matching every other action's
+    // convention in this app -- the connection's BodyTemplate provides its own quotes, e.g.:
+    //   "system": "{systemPrompt}",
+    //   "messages": [{ "role": "user", "content": "{userMessage}" }]
     public async Task<string?> ExecuteAsync(
         string promptKey, Dictionary<string, string> promptParams, string sourceType, string label, string? sourceId = null)
     {
@@ -52,10 +50,10 @@ public class AiPromptExecutorService(AppDbContext db)
             : JsonSerializer.Deserialize<MappingConfigDto>(config.MappingJson, mappingOpts) ?? new();
         var textPath = mapping.TextResponsePath;
 
-        // JSON-encode (includes the surrounding quotes) so the connection's BodyTemplate can
-        // reference these as bare placeholders without needing its own quotes around them.
-        parameters["systemPrompt"] = JsonSerializer.Serialize(systemPrompt);
-        parameters["userMessage"] = JsonSerializer.Serialize(userMessage);
+        // JsonSerializer.Serialize always wraps the result in quotes ("...escaped..."); strip
+        // them since the BodyTemplate supplies its own quotes around the placeholder.
+        parameters["systemPrompt"] = JsonEscapeInner(systemPrompt);
+        parameters["userMessage"] = JsonEscapeInner(userMessage);
 
         var publicConfigVars = await ConfigVariableResolver.LoadPublicAsync(db);
         var allConfigVars = await ConfigVariableResolver.LoadAsync(db);
@@ -140,5 +138,14 @@ public class AiPromptExecutorService(AppDbContext db)
             await db.SaveChangesAsync();
             return null;
         }
+    }
+
+    // JsonSerializer.Serialize(string) always produces a quoted, fully-escaped JSON string
+    // literal ("..."); this strips the surrounding quotes it adds, leaving just the escaped
+    // inner content for templates that already supply their own quotes around the placeholder.
+    private static string JsonEscapeInner(string value)
+    {
+        var serialized = JsonSerializer.Serialize(value);
+        return serialized[1..^1];
     }
 }
