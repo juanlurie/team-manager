@@ -154,11 +154,11 @@ public class QuizQuestionGeneratorService(AppDbContext db, AiPromptExecutorServi
     // `difficultyLevel` is a single 1-15 scale matching Quiz Game Millionaire's round number
     // directly (round 1 = 1, round 15 = 15) -- callers that don't care about difficulty (Classic
     // mode, Quiz Duel) just omit it and get a sensible mid-point default.
-    public async Task<(string Question, string[] Options, int CorrectIndex)> GenerateAsync(
+    public async Task<(string Question, string[] Options, int CorrectIndex, bool IsAiGenerated)> GenerateAsync(
         string sourceType, string label, int? difficultyLevel = null)
     {
         var hasPrompt = await db.AiPrompts.AnyAsync(p => p.Key == "GenerateQuizQuestion" && p.Enabled);
-        if (!hasPrompt) return RandomFallback(difficultyLevel);
+        if (!hasPrompt) return AsFallback(RandomFallback(difficultyLevel));
 
         for (var attempt = 1; attempt <= MaxGenerationAttempts; attempt++)
         {
@@ -167,12 +167,16 @@ public class QuizQuestionGeneratorService(AppDbContext db, AiPromptExecutorServi
             if (result is null) continue; // call/parse failed -- try a different topic
 
             if (TryRecordIfNew(result.Question))
-                return (result.Question, result.Options, result.CorrectIndex);
+                return (result.Question, result.Options, result.CorrectIndex, true);
             // Duplicate of a recently-seen question -- retry with a fresh topic/angle.
         }
 
-        return RandomFallback(difficultyLevel);
+        return AsFallback(RandomFallback(difficultyLevel));
     }
+
+    private static (string Question, string[] Options, int CorrectIndex, bool IsAiGenerated) AsFallback(
+        (string Question, string[] Options, int CorrectIndex) fallback) =>
+        (fallback.Question, fallback.Options, fallback.CorrectIndex, false);
 
     private async Task<QuizGenResult?> TryGenerateOnceAsync(
         string sourceType, string label, string topic, string angle, string recentTopicsCsv, int? difficultyLevel = null)

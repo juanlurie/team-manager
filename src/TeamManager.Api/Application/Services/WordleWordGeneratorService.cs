@@ -31,10 +31,10 @@ public class WordleWordGeneratorService(AppDbContext db, AiPromptExecutorService
         }
     }
 
-    public async Task<string> GenerateWordAsync()
+    public async Task<(string Word, bool IsAiGenerated)> GenerateWordAsync()
     {
         var hasPrompt = await db.AiPrompts.AnyAsync(p => p.Key == "GenerateWordleWord" && p.Enabled);
-        if (!hasPrompt) return WordleWordBank.RandomWord();
+        if (!hasPrompt) return (WordleWordBank.RandomWord(), false);
 
         for (var attempt = 1; attempt <= MaxGenerationAttempts; attempt++)
         {
@@ -47,10 +47,10 @@ public class WordleWordGeneratorService(AppDbContext db, AiPromptExecutorService
                 continue; // AI didn't follow the length/alphabet constraint -- retry
 
             RecordAndGetRecentCsv(word);
-            return word;
+            return (word, true);
         }
 
-        return WordleWordBank.RandomWord();
+        return (WordleWordBank.RandomWord(), false);
     }
 
     private async Task<string?> TryGenerateOnceAsync(string label, string recentWordsCsv)

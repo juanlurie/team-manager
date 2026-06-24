@@ -22,6 +22,7 @@ public record WinWeekDto
     public bool QuizRevealed { get; init; }
     public DateTimeOffset? QuizRevealEndsAt { get; init; }
     public int? QuizCorrectIndex { get; init; }
+    public bool QuizIsAiGenerated { get; init; }
     public int? QuizMyAnswerIndex { get; init; }
     public Guid? QuizWinnerMemberId { get; init; }
     public string? QuizWinnerName { get; init; }

@@ -15,6 +15,7 @@ public class WordleSession
     public Guid CreatedByMemberId { get; set; }
     public string? Title { get; set; }
     public string Word { get; set; } = "";
+    public bool IsAiGenerated { get; set; }
     public WordleSessionStatus Status { get; set; } = WordleSessionStatus.Waiting;
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
     public DateTimeOffset? StartedAt { get; set; }

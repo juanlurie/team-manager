@@ -11,6 +11,7 @@ import { WordleService } from '../../core/services/wordle.service';
 import { WordleSession, WordleSessionSummary } from '../../core/models/wordle.model';
 import { WebSocketService } from '../../core/websocket/websocket.service';
 import { FeatureAccessService } from '../../core/services/feature-access.service';
+import { AiBadgeComponent } from '../../shared/components/ai-badge/ai-badge.component';
 
 @Component({
   selector: 'app-create-wordle-dialog',
@@ -55,7 +56,7 @@ interface PendingReveal {
   standalone: true,
   imports: [
     FormsModule, MatButtonModule, MatIconModule, MatDialogModule,
-    MatSnackBarModule, MatProgressSpinnerModule
+    MatSnackBarModule, MatProgressSpinnerModule, AiBadgeComponent
   ],
   changeDetection: ChangeDetectionStrategy.Default,
   styles: [`
@@ -225,7 +226,7 @@ interface PendingReveal {
                       <div class="winner-name">Solved it in {{ s.myGuesses.length }} guess{{ s.myGuesses.length === 1 ? '' : 'es' }}!</div>
                     } @else {
                       <div class="winner-name">Out of guesses</div>
-                      <div style="font-size:0.85rem;opacity:0.7">The word was {{ s.revealedWord }}</div>
+                      <div style="font-size:0.85rem;opacity:0.7">The word was {{ s.revealedWord }}@if (s.revealedWordIsAiGenerated) {<app-ai-badge />}</div>
                     }
                   </div>
                 }

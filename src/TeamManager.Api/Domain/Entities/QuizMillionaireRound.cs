@@ -11,6 +11,7 @@ public class QuizMillionaireRound
     public string Question { get; set; } = "";
     public string OptionsJson { get; set; } = "[]";
     public int CorrectIndex { get; set; }
+    public bool IsAiGenerated { get; set; }
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
 
     public QuizGameSession? Session { get; set; }

@@ -43,6 +43,8 @@ public record WordleSessionDto
     public List<WordleGuessResultDto> MyGuesses { get; init; } = [];
     // Populated only once MyStatus is Won/Lost, to reveal the answer.
     public string? RevealedWord { get; init; }
+    // Only meaningful alongside RevealedWord -- null while the word isn't revealed yet.
+    public bool? RevealedWordIsAiGenerated { get; init; }
 }
 
 public record CreateWordleSessionRequest(string? Title);

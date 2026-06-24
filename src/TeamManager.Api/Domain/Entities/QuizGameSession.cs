@@ -32,6 +32,7 @@ public class QuizGameSession
     public string? CurrentQuestion { get; set; }
     public string? CurrentOptionsJson { get; set; }
     public int? CurrentCorrectIndex { get; set; }
+    public bool CurrentQuestionIsAiGenerated { get; set; }
     public DateTimeOffset? CurrentQuestionEndsAt { get; set; }
     public bool CurrentQuestionRevealed { get; set; }
     public DateTimeOffset? CurrentQuestionRevealedAt { get; set; }

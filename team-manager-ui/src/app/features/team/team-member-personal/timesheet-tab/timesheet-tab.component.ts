@@ -21,6 +21,7 @@ import { TimesheetEntryCardComponent } from '../timesheet-entry-card/timesheet-e
 import { TimesheetQuickAddModalComponent, QuickAddData } from '../timesheet-quick-add-modal/timesheet-quick-add-modal.component';
 import { TimesheetImportDialogComponent, ImportDialogData, ImportResult } from '../timesheet-import-dialog/timesheet-import-dialog.component';
 import { MarkdownPipe } from '../../../../core/pipes/markdown.pipe';
+import { AiBadgeComponent } from '../../../../shared/components/ai-badge/ai-badge.component';
 
 interface Recent { project: string; category: string; durationMins: number; combo: QuickActionConfig | undefined; }
 const MN = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -29,7 +30,7 @@ const DN = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 @Component({
   selector: 'app-timesheet-tab',
   standalone: true,
-  imports: [FormsModule, MatDialogModule, MatTooltipModule, TimesheetEntryCardComponent, TimesheetImportDialogComponent, MarkdownPipe],
+  imports: [FormsModule, MatDialogModule, MatTooltipModule, TimesheetEntryCardComponent, TimesheetImportDialogComponent, MarkdownPipe, AiBadgeComponent],
   templateUrl: './timesheet-tab.component.html',
   changeDetection: ChangeDetectionStrategy.Default,
   styleUrls: ['./timesheet-tab.component.scss']
@@ -54,6 +55,7 @@ export class TimesheetTabComponent implements OnInit, OnDestroy {
   importOpen = signal(false);
   analyzing = signal(false);
   qualityAnalysis = signal<string | null>(null);
+  qualityAnalysisIsAi = signal(false);
 
   tsConfig = signal<TimesheetConfig>({ extraProjects: [], extraCategories: {}, quickActions: [] });
 
@@ -483,6 +485,7 @@ export class TimesheetTabComponent implements OnInit, OnDestroy {
     this.svc.analyzeQuality(this.memberId()).subscribe({
       next: (result) => {
         this.analyzing.set(false);
+        this.qualityAnalysisIsAi.set(result.status === 'sent');
         if (!result.configured) {
           this.qualityAnalysis.set('Not configured — add an "Analyze Timesheet Quality" action in Integrations.');
           return;
@@ -491,6 +494,7 @@ export class TimesheetTabComponent implements OnInit, OnDestroy {
       },
       error: () => {
         this.analyzing.set(false);
+        this.qualityAnalysisIsAi.set(false);
         this.qualityAnalysis.set('Failed to run the analysis. Check the Sync Queue for details.');
       }
     });

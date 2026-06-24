@@ -25,6 +25,7 @@ export interface QuizMillionaireRun {
   roundIndex: number;
   status: QuizMillionaireStatus;
   question: string | null;
+  isAiGenerated: boolean;
   options: string[];
   endsAt: string | null;
   winnings: number;
@@ -40,6 +41,7 @@ export interface QuizGameSession {
   questionCount: number;
   currentQuestionIndex: number;
   currentQuestion: string | null;
+  currentQuestionIsAiGenerated: boolean;
   currentOptions: string[];
   currentQuestionEndsAt: string | null;
   currentQuestionRevealed: boolean;
