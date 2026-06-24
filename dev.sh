@@ -1,23 +1,24 @@
 #!/bin/bash
-# Build and start the dev environment (port 8081)
+# Build and start the local environment (port 80). Real prod runs on a separate k3s cluster
+# (see k8s/) and isn't managed by this script.
 set -e
 cd "$(dirname "$0")"
 
 case "${1:-up}" in
   up)
-    echo "▶ Starting dev environment..."
-    docker compose -p tm-dev -f docker-compose.dev.yml up -d --build
-    echo "✓ Dev running → http://localhost:8081"
+    echo "▶ Starting local environment..."
+    docker compose -f docker-compose.yml up -d --build
+    echo "✓ Running → http://localhost:80"
     ;;
   down)
-    docker compose -p tm-dev -f docker-compose.dev.yml down
+    docker compose -f docker-compose.yml down
     ;;
   build)
     shift
-    docker compose -p tm-dev -f docker-compose.dev.yml build "$@"
+    docker compose -f docker-compose.yml build "$@"
     ;;
   logs)
-    docker compose -p tm-dev -f docker-compose.dev.yml logs -f "${2:-}"
+    docker compose -f docker-compose.yml logs -f "${2:-}"
     ;;
   *)
     echo "Usage: $0 [up|down|build|logs]"
