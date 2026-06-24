@@ -359,9 +359,9 @@ import { RevealProgressBarComponent } from '../../shared/components/reveal-progr
                     @if (w.quizWinnerName) {
                       🎉 {{ w.quizWinnerName }} wins!
                     } @else if (w.quizRevealed) {
-                      Nobody got it — next question coming up…
+                      No outright winner yet — next question coming up…
                     } @else if (isQuizParticipant()) {
-                      First correct answer wins it all!
+                      Wrong answer eliminates you — last one standing wins!
                     } @else {
                       {{ quizAnsweredCount() }} of {{ quizParticipantCount() }} nominees have answered
                     }
@@ -373,6 +373,19 @@ import { RevealProgressBarComponent } from '../../shared/components/reveal-progr
                   </div>
                 }
               </div>
+
+              @if (quizRoster().length > 1) {
+                <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">
+                  @for (r of quizRoster(); track r.memberId) {
+                    <span style="font-size:0.72rem;padding:3px 9px;border-radius:12px;display:inline-flex;align-items:center;gap:4px"
+                          [style.background]="r.isWinner ? 'rgba(102,187,106,0.18)' : r.eliminated ? 'rgba(255,255,255,0.04)' : 'rgba(171,71,188,0.12)'"
+                          [style.color]="r.isWinner ? '#81c784' : r.eliminated ? 'rgba(255,255,255,0.35)' : '#ce93d8'"
+                          [style.textDecoration]="r.eliminated ? 'line-through' : 'none'">
+                      {{ r.isWinner ? '🏆' : r.eliminated ? '❌' : '🟣' }} {{ r.name }}
+                    </span>
+                  }
+                </div>
+              }
 
               <div style="font-weight:600;font-size:0.95rem;margin-bottom:10px">{{ w.quizQuestion }}</div>
 
@@ -586,6 +599,29 @@ export class WowCurrentWeekComponent {
     if (!w) return 0;
     const participants = this.quizParticipantNomineeIds();
     return (w.quizAnsweredMemberIds ?? []).filter(id => participants.has(id)).length;
+  });
+
+  // One row per tied nominee -- shown as the duel proceeds so it's clear who's still in the
+  // running vs already eliminated, since a wrong answer now knocks someone out rather than the
+  // duel just being a race to answer first.
+  readonly quizRoster = computed(() => {
+    const w = this.week();
+    if (!w) return [];
+    const eliminated = new Set(w.quizEliminatedMemberIds ?? []);
+    const seen = new Set<string>();
+    const roster: { memberId: string; name: string; eliminated: boolean; isWinner: boolean }[] = [];
+    for (const id of this.quizParticipantNomineeIds()) {
+      if (seen.has(id)) continue;
+      seen.add(id);
+      const nom = w.nominations.find(n => n.nomineeMemberId === id);
+      roster.push({
+        memberId: id,
+        name: nom?.nomineeName ?? 'Unknown',
+        eliminated: eliminated.has(id),
+        isWinner: w.quizWinnerMemberId === id
+      });
+    }
+    return roster;
   });
 
   nominateClick           = output();

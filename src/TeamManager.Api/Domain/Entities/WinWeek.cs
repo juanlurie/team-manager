@@ -25,6 +25,10 @@ public class WinWeek
     // QuizQuestionGeneratorService's difficultyLevel param. Persisted here (not just passed
     // per-call) so BeginNextQuizRoundAsync's auto-loop keeps using it across rounds.
     public int? QuizDifficultyLevel { get; set; }
+    // JSON array of nominee member IDs eliminated so far in the current Quiz Duel (wrong answer
+    // or didn't answer in time) -- accumulates across BeginNextQuizRoundAsync's auto-loop, reset
+    // only when the duel (re)starts or stops. See TryResolveQuizAsync for elimination logic.
+    public string? QuizEliminatedMemberIds { get; set; }
     public Guid CreatedByMemberId { get; set; }
     public Guid WinSeriesId { get; set; }
     public string? WinnerStory { get; set; }
