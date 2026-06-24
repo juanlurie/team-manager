@@ -52,7 +52,10 @@ const CHAOS_CARD_META: Record<WowChaosCard, { label: string }> = {
   imports: [MatIconModule, MatButtonModule, MatTooltipModule, MatMenuModule],
   changeDetection: ChangeDetectionStrategy.Default,
   styles: [`
-    .card { transition: border 0.3s, background 0.3s, transform 0.3s; position: relative; }
+    /* z-index:0 forces .card to establish its own stacking context, so .hype-fill's
+       z-index:-1 stays scoped to this card instead of escaping to the shared list-level
+       context and landing behind every card's own background. */
+    .card { transition: border 0.3s, background 0.3s, transform 0.3s; position: relative; z-index: 0; }
     .card.tiny { transform: scale(0.62); transform-origin: top left; }
     .card.spotlight { border-color: rgba(255,215,0,0.5) !important; }
     .apply-menu-btn { font-size: 0.72rem; height: 26px; line-height: 26px; padding: 0 8px; opacity: 0.7; white-space: nowrap; flex-shrink: 0; }
