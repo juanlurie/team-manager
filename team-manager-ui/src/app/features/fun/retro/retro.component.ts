@@ -274,6 +274,9 @@ const REACTION_EMOJIS = ['👍', '❤️', '😄'];
     /* ── desktop canvas ─────────────────────────────────── */
     .canvases-row {
       display:flex;gap:8px;align-items:flex-start;
+      /* break out of the 900px hub container */
+      margin-left:calc(50% - 50vw + 8px);
+      margin-right:calc(50% - 50vw + 8px);
     }
     .canvas-col-wrap {
       flex:1;min-width:0;display:flex;flex-direction:column;gap:6px;
@@ -998,7 +1001,10 @@ export class FunRetroComponent implements OnInit, OnDestroy {
           if (msg.data['sessionId'] === s.id) this.silentRefresh();
           break;
         case 'fun_retro_card_moved':
-          // position-based drag removed; no-op
+          if (msg.data['sessionId'] === s.id && this.dragState?.id !== msg.data['cardId']) {
+            const { cardId, x, y } = msg.data as { cardId: string; x: number; y: number };
+            this.localPositions.update(p => ({ ...p, [cardId]: { x, y } }));
+          }
           break;
         case 'fun_retro_card_color_changed':
           if (msg.data['sessionId'] === s.id) {
