@@ -234,7 +234,7 @@ const PLAYER_COLORS_DIM = ['rgba(100,181,246,0.18)', 'rgba(255,167,38,0.18)', 'r
                     [attr.cy]="row * cellSize + dotR"
                     [attr.r]="dotR"
                     fill="rgba(255,255,255,0.85)"
-                    class="dot"
+                    class="board-dot"
                   />
                 }
               }
@@ -327,7 +327,7 @@ const PLAYER_COLORS_DIM = ['rgba(100,181,246,0.18)', 'rgba(255,167,38,0.18)', 'r
 
     .line-clickable:hover, .line-hover { stroke: rgba(255,255,255,0.45) !important; }
     .line-drawn { cursor: default; }
-    .dot { pointer-events: none; }
+    .board-dot { pointer-events: none; }
     .box-fill { transition: fill 0.15s; }
     .box-initial { font-size: 11px; font-weight: 700; pointer-events: none; font-family: inherit; }
   `]
