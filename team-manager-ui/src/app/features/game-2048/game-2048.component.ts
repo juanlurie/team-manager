@@ -359,9 +359,14 @@ export class Game2048Component implements OnInit, OnDestroy, AfterViewInit {
   }
 
   ngOnDestroy() {
-    this.nav.hideNav.set(false);
+    this.enterGame(false);
     this.destroy$.next();
     this.destroy$.complete();
+  }
+
+  private enterGame(active: boolean) {
+    this.nav.hideNav.set(active);
+    document.body.style.overflow = active ? 'hidden' : '';
   }
 
   @HostListener('keydown', ['$event'])
@@ -425,13 +430,13 @@ export class Game2048Component implements OnInit, OnDestroy, AfterViewInit {
   openSession(id: string) {
     this.loading.set(true);
     this.svc.getSession(id).subscribe({
-      next: s => { this.session.set(s); this.loading.set(false); this.nav.hideNav.set(true); },
+      next: s => { this.session.set(s); this.loading.set(false); this.enterGame(true); },
       error: () => { this.loading.set(false); this.snackBar.open('Failed to load game', 'OK', { duration: 3000 }); },
     });
   }
 
   backToLobby() {
-    this.nav.hideNav.set(false);
+    this.enterGame(false);
     this.session.set(null);
     this.loadSessions();
   }
@@ -444,7 +449,7 @@ export class Game2048Component implements OnInit, OnDestroy, AfterViewInit {
         this.showCreate = false;
         this.newTitle = '';
         this.session.set(s);
-        this.nav.hideNav.set(true);
+        this.enterGame(true);
       },
       error: () => { this.creating.set(false); this.snackBar.open('Failed to create game', 'OK', { duration: 3000 }); },
     });
@@ -455,7 +460,7 @@ export class Game2048Component implements OnInit, OnDestroy, AfterViewInit {
     if (!s) return;
     this.joining.set(true);
     this.svc.joinSession(s.id).subscribe({
-      next: updated => { this.session.set(updated); this.joining.set(false); this.nav.hideNav.set(true); },
+      next: updated => { this.session.set(updated); this.joining.set(false); this.enterGame(true); },
       error: (err) => { this.joining.set(false); this.snackBar.open(err?.error?.error ?? 'Failed to join game', 'OK', { duration: 3000 }); },
     });
   }
