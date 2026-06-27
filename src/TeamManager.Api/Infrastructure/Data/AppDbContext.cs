@@ -98,6 +98,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<FunRetroReaction> FunRetroReactions => Set<FunRetroReaction>();
     public DbSet<DotsAndBoxesSession> DotsAndBoxesSessions => Set<DotsAndBoxesSession>();
     public DbSet<DotsAndBoxesParticipant> DotsAndBoxesParticipants => Set<DotsAndBoxesParticipant>();
+    public DbSet<Game2048Session> Game2048Sessions => Set<Game2048Session>();
+    public DbSet<Game2048Participant> Game2048Participants => Set<Game2048Participant>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -180,5 +182,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         modelBuilder.ApplyConfiguration(new FunRetroReactionConfiguration());
         modelBuilder.ApplyConfiguration(new DotsAndBoxesSessionConfiguration());
         modelBuilder.ApplyConfiguration(new DotsAndBoxesParticipantConfiguration());
+        modelBuilder.ApplyConfiguration(new Game2048SessionConfiguration());
+        modelBuilder.ApplyConfiguration(new Game2048ParticipantConfiguration());
     }
 }

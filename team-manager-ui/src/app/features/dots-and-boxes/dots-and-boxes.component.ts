@@ -195,11 +195,24 @@ const PLAYER_COLORS_DIM = ['rgba(100,181,246,0.18)', 'rgba(255,167,38,0.18)', 'r
                     [class.line-drawn]="isDrawn"
                     stroke-width="4"
                     stroke-linecap="round"
-                    (click)="drawLine('H', row, col)"
-                    (mouseenter)="hoverLine = {t:'H',r:row,c:col}"
-                    (mouseleave)="hoverLine = null"
                     [class.line-hover]="isHovering('H', row, col) && !isDrawn && s.isMyTurn && s.status === 'inprogress'"
                   />
+                  <!-- Invisible wide hit area -->
+                  @if (!isDrawn && s.isMyTurn && s.status === 'inprogress') {
+                    <line
+                      [attr.x1]="col * cellSize + dotR + lineGap"
+                      [attr.y1]="row * cellSize + dotR"
+                      [attr.x2]="(col + 1) * cellSize + dotR - lineGap"
+                      [attr.y2]="row * cellSize + dotR"
+                      stroke="transparent"
+                      stroke-width="20"
+                      stroke-linecap="round"
+                      class="line-hit"
+                      (click)="drawLine('H', row, col)"
+                      (mouseenter)="hoverLine = {t:'H',r:row,c:col}"
+                      (mouseleave)="hoverLine = null"
+                    />
+                  }
                 }
               }
 
@@ -218,11 +231,24 @@ const PLAYER_COLORS_DIM = ['rgba(100,181,246,0.18)', 'rgba(255,167,38,0.18)', 'r
                     [class.line-drawn]="isDrawnV"
                     stroke-width="4"
                     stroke-linecap="round"
-                    (click)="drawLine('V', row, col)"
-                    (mouseenter)="hoverLine = {t:'V',r:row,c:col}"
-                    (mouseleave)="hoverLine = null"
                     [class.line-hover]="isHovering('V', row, col) && !isDrawnV && s.isMyTurn && s.status === 'inprogress'"
                   />
+                  <!-- Invisible wide hit area -->
+                  @if (!isDrawnV && s.isMyTurn && s.status === 'inprogress') {
+                    <line
+                      [attr.x1]="col * cellSize + dotR"
+                      [attr.y1]="row * cellSize + dotR + lineGap"
+                      [attr.x2]="col * cellSize + dotR"
+                      [attr.y2]="(row + 1) * cellSize + dotR - lineGap"
+                      stroke="transparent"
+                      stroke-width="20"
+                      stroke-linecap="round"
+                      class="line-hit"
+                      (click)="drawLine('V', row, col)"
+                      (mouseenter)="hoverLine = {t:'V',r:row,c:col}"
+                      (mouseleave)="hoverLine = null"
+                    />
+                  }
                 }
               }
 
@@ -326,6 +352,7 @@ const PLAYER_COLORS_DIM = ['rgba(100,181,246,0.18)', 'rgba(255,167,38,0.18)', 'r
     .game-board.my-turn .line-clickable { cursor: pointer; }
 
     .line-clickable:hover, .line-hover { stroke: rgba(255,255,255,0.45) !important; }
+    .line-hit { cursor: pointer; }
     .line-drawn { cursor: default; }
     .board-dot { pointer-events: none; }
     .box-fill { transition: fill 0.15s; }

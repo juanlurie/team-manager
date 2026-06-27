@@ -20,6 +20,10 @@ export const GAMES_ROUTES: Routes = [
         loadChildren: () => import('../dots-and-boxes/dots-and-boxes.routes').then(m => m.DOTS_AND_BOXES_ROUTES)
       },
       {
+        path: '2048',
+        loadChildren: () => import('../game-2048/game-2048.routes').then(m => m.GAME_2048_ROUTES)
+      },
+      {
         path: 'leaderboard',
         loadComponent: () => import('../leaderboard/leaderboard.component').then(m => m.LeaderboardComponent)
       }
