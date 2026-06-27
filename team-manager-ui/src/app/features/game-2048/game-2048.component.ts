@@ -165,7 +165,12 @@ const PLAYER_COLORS = ['#64b5f6', '#ffa726', '#81c784', '#f48fb1', '#ce93d8', '#
                 </div>
                 <div class="board">
                   @for (cell of p.board; track $index) {
-                    <div class="cell" [style.background]="tileColor(cell)" [style.color]="tileText(cell)" [class.big]="cell >= 1000">
+                    <div class="cell"
+                         [style.background]="tileColor(cell)"
+                         [style.color]="tileText(cell)"
+                         [class.big]="cell >= 1000"
+                         [class.tile-appear]="p.isMe && cellAnim().appear.includes($index)"
+                         [class.tile-merge]="p.isMe && cellAnim().merge.includes($index)">
                       {{ cell || '' }}
                     </div>
                   }
@@ -287,6 +292,11 @@ const PLAYER_COLORS = ['#64b5f6', '#ffa726', '#81c784', '#f48fb1', '#ce93d8', '#
       min-width: 0;
     }
     .cell.big { font-size: 0.85rem; }
+
+    @keyframes tile-appear { 0%{transform:scale(0);opacity:0} 70%{transform:scale(1.12)} 100%{transform:scale(1);opacity:1} }
+    @keyframes tile-merge-pop { 0%{transform:scale(1)} 40%{transform:scale(1.2)} 100%{transform:scale(1)} }
+    .cell.tile-appear { animation: tile-appear 0.18s ease-out both; }
+    .cell.tile-merge  { animation: tile-merge-pop 0.22s cubic-bezier(0.34,1.56,0.64,1) both; }
   `]
 })
 export class Game2048Component implements OnInit, OnDestroy, AfterViewInit {
@@ -311,6 +321,10 @@ export class Game2048Component implements OnInit, OnDestroy, AfterViewInit {
   // Touch tracking for swipe
   private touchStartX = 0;
   private touchStartY = 0;
+
+  // Cell animation state: indices of cells to animate on my board
+  cellAnim = signal<{ appear: number[]; merge: number[] }>({ appear: [], merge: [] });
+  private animTimer: any;
 
   canHost = computed(() => this.featureAccess.hasAccess('2048-host'));
 
@@ -413,10 +427,28 @@ export class Game2048Component implements OnInit, OnDestroy, AfterViewInit {
   private move(direction: 'left' | 'right' | 'up' | 'down') {
     const s = this.session();
     if (!s) return;
+    const prevBoard = this.myParticipant()?.board ?? [];
     this.svc.makeMove(s.id, direction).subscribe({
-      next: updated => this.session.set(updated),
+      next: updated => {
+        this.session.set(updated);
+        const newBoard = updated.participants.find(p => p.isMe)?.board ?? [];
+        this.triggerCellAnim(prevBoard, newBoard);
+      },
       error: () => {},
     });
+  }
+
+  private triggerCellAnim(prev: number[], curr: number[]) {
+    const appear: number[] = [];
+    const merge: number[] = [];
+    for (let i = 0; i < 16; i++) {
+      if (prev[i] === 0 && curr[i] !== 0) appear.push(i);
+      else if (prev[i] > 0 && curr[i] === prev[i] * 2) merge.push(i);
+    }
+    if (appear.length === 0 && merge.length === 0) return;
+    clearTimeout(this.animTimer);
+    this.cellAnim.set({ appear, merge });
+    this.animTimer = setTimeout(() => this.cellAnim.set({ appear: [], merge: [] }), 320);
   }
 
   loadSessions() {

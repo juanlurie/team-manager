@@ -1,6 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { LeaderboardEntry } from '../models/leaderboard.model';
+import { HiScoreGame, LeaderboardEntry } from '../models/leaderboard.model';
 
 export interface PointHistoryEntry {
   id: string;
@@ -32,5 +32,9 @@ export class LeaderboardService {
 
   revokeAward(id: string) {
     return this.http.delete(`${this.base}/award/${id}`);
+  }
+
+  getHiScores() {
+    return this.http.get<HiScoreGame[]>(`${this.base}/hi-scores`);
   }
 }
