@@ -1,5 +1,5 @@
 import {
-  Component, OnInit, OnDestroy, HostListener, ElementRef, ViewChild,
+  Component, OnInit, OnDestroy, HostListener,
   inject, signal, computed, ChangeDetectionStrategy
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
@@ -112,9 +112,13 @@ const REACTION_EMOJIS = ['👍', '❤️', '😄'];
       display:grid;
       grid-template-columns:repeat(3,1fr);
       gap:12px;
+      align-items:start;
     }
     @media(max-width:700px) {
       .board { grid-template-columns:1fr; }
+    }
+    @media(min-width:701px) {
+      .session-wrap { max-width:100%; }
     }
     .col {
       background:rgba(255,255,255,0.03);border-radius:10px;
@@ -559,203 +563,94 @@ const REACTION_EMOJIS = ['👍', '❤️', '😄'];
           </div>
         }
 
-        <!-- Board (mobile only) -->
-        @if (!isDesktop()) {
-          @if (s.phase === 'add' || s.phase === 'vote' || s.phase === 'discuss') {
-            <div class="board">
-              @for (col of cols; track col.key) {
-                <div class="col">
-                  <div class="col-header">
-                    <span class="col-label" [style.color]="col.color">{{ col.label }}</span>
-                    <span class="col-count">{{ cardsForCol(col.key).length }}</span>
-                  </div>
-
-                  @if (s.phase === 'add') {
-                    <div class="add-input-row">
-                      <input class="card-input"
-                             [placeholder]="'Add to ' + col.label"
-                             [(ngModel)]="newCardText()[col.key]"
-                             (keyup.enter)="submitCard(col.key)"
-                             [disabled]="submittingCard() === col.key" />
-                      <button mat-icon-button
-                              [style.color]="col.color"
-                              (click)="submitCard(col.key)"
-                              [disabled]="!newCardText()[col.key]?.trim() || submittingCard() === col.key"
-                              title="Add card">
-                        @if (submittingCard() === col.key) {
-                          <mat-spinner diameter="16" />
-                        } @else {
-                          <mat-icon>send</mat-icon>
-                        }
-                      </button>
-                    </div>
-                  }
-
-                  @for (card of cardsForCol(col.key); track card.id) {
-                    <div class="retro-card"
-                         [class.hidden-card]="card.text === null"
-                         [class.own-card]="card.isOwn">
-                      @if (card.isOwn && s.phase === 'add') {
-                        <button class="delete-card-btn" (click)="deleteCard(card)" title="Delete">
-                          <mat-icon>close</mat-icon>
-                        </button>
-                      }
-                      @if (card.text !== null) {
-                        <div class="card-text" [style.padding-right]="card.isOwn && s.phase === 'add' ? '20px' : '0'">{{ card.text }}</div>
-                        @if (card.authorName && (s.phase === 'vote' || s.phase === 'discuss')) {
-                          <div class="card-author">— {{ card.authorName }}</div>
-                        }
-                      } @else {
-                        <div class="card-hidden-text">🔒 Hidden</div>
-                      }
-                      @if (s.phase === 'vote' && card.text !== null) {
-                        <div class="card-footer">
-                          <span class="vote-count-chip"><mat-icon>thumb_up</mat-icon>{{ card.voteCount }}</span>
-                          <button class="card-vote-btn" [class.voted]="card.myVoteCount > 0"
-                                  [disabled]="voteBudget() === 0 && card.myVoteCount === 0"
-                                  (click)="toggleVote(card)">
-                            <mat-icon>{{ card.myVoteCount > 0 ? 'thumb_up' : 'thumb_up_off_alt' }}</mat-icon>
-                            {{ card.myVoteCount > 0 ? 'Voted' : 'Vote' }}
-                          </button>
-                        </div>
-                      }
-                      @if (s.phase === 'discuss' && card.text !== null) {
-                        <div class="card-footer">
-                          <span class="vote-count-chip"><mat-icon>thumb_up</mat-icon>{{ card.voteCount }}</span>
-                        </div>
-                        <div class="card-reactions">
-                          @for (emoji of reactionEmojis; track emoji) {
-                            <button class="reaction-btn" [class.reacted]="getReaction(card, emoji)?.mine"
-                                    (click)="toggleReaction(card, emoji)">
-                              {{ emoji }}
-                              @if (getReactionCount(card, emoji) > 0) { <span>{{ getReactionCount(card, emoji) }}</span> }
-                            </button>
-                          }
-                        </div>
-                      }
-                    </div>
-                  }
-
-                  @if (s.phase === 'add') {
-                    @let hiddenCount = hiddenCardCountForCol(col.key);
-                    @if (hiddenCount > 0) {
-                      <div style="font-size:0.72rem;color:rgba(255,255,255,0.3);text-align:center;padding:4px 0;">
-                        +{{ hiddenCount }} hidden card{{ hiddenCount !== 1 ? 's' : '' }} from others
-                      </div>
-                    }
-                  }
+        <!-- Board (all screen sizes, 3 separate columns) -->
+        @if (s.phase === 'add' || s.phase === 'vote' || s.phase === 'discuss' || s.phase === 'done') {
+          <div class="board">
+            @for (col of cols; track col.key) {
+              <div class="col">
+                <div class="col-header">
+                  <span class="col-label" [style.color]="col.color">{{ col.label }}</span>
+                  <span class="col-count">{{ cardsForCol(col.key).length }}</span>
                 </div>
-              }
-            </div>
-          }
-        }
 
-        <!-- Canvas (desktop, add/vote/discuss/done) -->
-        @if (isDesktop() && (s.phase === 'add' || s.phase === 'vote' || s.phase === 'discuss' || s.phase === 'done')) {
-          <div class="canvas-outer" #canvasOuter>
-            <div class="canvas-inner" #canvasInner>
-
-              <!-- Column bands -->
-              @for (col of cols; track col.key; let i = $index) {
-                <div class="canvas-col-band" [style.left.px]="i * 560">
-                  <span class="canvas-col-label" [style.color]="col.color">{{ col.label }}</span>
-                </div>
-              }
-
-              <!-- Add-phase inputs per column -->
-              @if (s.phase === 'add') {
-                @for (col of cols; track col.key; let i = $index) {
-                  <div class="canvas-col-add" [style.left.px]="i * 560 + 10">
-                    <input class="canvas-col-input"
-                           [placeholder]="'Add to ' + col.label"
+                @if (s.phase === 'add') {
+                  <div class="add-input-row">
+                    <input class="card-input"
+                           [placeholder]="'Add a card…'"
                            [(ngModel)]="newCardText()[col.key]"
                            (keyup.enter)="submitCard(col.key)"
                            [disabled]="submittingCard() === col.key" />
-                    <button class="canvas-col-add-btn"
+                    <button mat-icon-button
+                            [style.color]="col.color"
+                            (click)="submitCard(col.key)"
                             [disabled]="!newCardText()[col.key]?.trim() || submittingCard() === col.key"
-                            (click)="submitCard(col.key)">
-                      @if (submittingCard() === col.key) { … } @else { Add }
+                            title="Add card">
+                      @if (submittingCard() === col.key) {
+                        <mat-spinner diameter="16" />
+                      } @else {
+                        <mat-icon>send</mat-icon>
+                      }
                     </button>
                   </div>
                 }
-              }
 
-              <!-- Sticky cards -->
-              @for (item of canvasCards(); track item.card.id) {
-                @if (item.card.text !== null) {
-                  <div class="sticky"
-                       [class.dragging]="draggingId() === item.card.id"
-                       [class.no-drag]="s.phase === 'done'"
-                       [style.left.px]="item.x"
-                       [style.top.px]="item.y"
-                       [style.background]="resolveCardColor(item.card)"
-                       (mousedown)="startDrag($event, item.card, item.x, item.y)">
-                    <!-- Delete button (add phase, own cards) -->
-                    @if (s.phase === 'add' && item.card.isOwn) {
-                      <button class="sticky-del-btn"
-                              (mousedown)="$event.stopPropagation()"
-                              (click)="deleteCard(item.card)" title="Delete">×</button>
-                    }
-                    <!-- Colour picker button (vote/discuss phases) -->
-                    @if (s.phase === 'vote' || s.phase === 'discuss') {
-                      <button class="sticky-color-btn"
-                              [style.background]="resolveCardColor(item.card)"
-                              (mousedown)="$event.stopPropagation()"
-                              (click)="toggleColorPicker($event, item.card.id)">
+                @for (card of cardsForCol(col.key); track card.id) {
+                  <div class="retro-card"
+                       [class.hidden-card]="card.text === null"
+                       [class.own-card]="card.isOwn">
+                    @if (card.isOwn && s.phase === 'add') {
+                      <button class="delete-card-btn" (click)="deleteCard(card)" title="Delete">
+                        <mat-icon>close</mat-icon>
                       </button>
-                      @if (colorPickerOpenFor() === item.card.id) {
-                        <div class="color-picker-popover" (mousedown)="$event.stopPropagation()">
-                          @for (swatch of stickyPalette; track swatch) {
-                            <div class="color-swatch"
-                                 [style.background]="swatch"
-                                 [class.active]="resolveCardColor(item.card) === swatch"
-                                 (click)="changeCardColor(item.card, swatch)">
-                            </div>
-                          }
-                        </div>
+                    }
+                    @if (card.text !== null) {
+                      <div class="card-text" [style.padding-right]="card.isOwn && s.phase === 'add' ? '20px' : '0'">{{ card.text }}</div>
+                      @if (card.authorName && (s.phase === 'vote' || s.phase === 'discuss' || s.phase === 'done')) {
+                        <div class="card-author">— {{ card.authorName }}</div>
                       }
+                    } @else {
+                      <div class="card-hidden-text">🔒 Hidden</div>
                     }
-                    <div class="sticky-text">{{ item.card.text }}</div>
-                    @if (item.card.authorName && s.phase !== 'vote') {
-                      <div class="sticky-author">— {{ item.card.authorName }}</div>
-                    }
-                    <div class="sticky-footer">
-                      @if (s.phase === 'vote') {
-                        <span class="sticky-vote-chip">
-                          <mat-icon>thumb_up</mat-icon>{{ item.card.voteCount }}
-                        </span>
-                        <button class="sticky-vote-btn"
-                                [class.voted]="item.card.myVoteCount > 0"
-                                [disabled]="voteBudget() === 0 && item.card.myVoteCount === 0"
-                                (mousedown)="$event.stopPropagation()"
-                                (click)="toggleVote(item.card)">
-                          <mat-icon>{{ item.card.myVoteCount > 0 ? 'thumb_up' : 'thumb_up_off_alt' }}</mat-icon>
-                          {{ item.card.myVoteCount > 0 ? 'Voted' : 'Vote' }}
+                    @if (s.phase === 'vote' && card.text !== null) {
+                      <div class="card-footer">
+                        <span class="vote-count-chip"><mat-icon>thumb_up</mat-icon>{{ card.voteCount }}</span>
+                        <button class="card-vote-btn" [class.voted]="card.myVoteCount > 0"
+                                [disabled]="voteBudget() === 0 && card.myVoteCount === 0"
+                                (click)="toggleVote(card)">
+                          <mat-icon>{{ card.myVoteCount > 0 ? 'thumb_up' : 'thumb_up_off_alt' }}</mat-icon>
+                          {{ card.myVoteCount > 0 ? 'Voted' : 'Vote' }}
                         </button>
-                      }
-                      @if (s.phase === 'discuss' || s.phase === 'done') {
-                        <span class="sticky-vote-chip">
-                          <mat-icon>thumb_up</mat-icon>{{ item.card.voteCount }}
-                        </span>
-                      }
-                    </div>
-                    @if (s.phase === 'discuss') {
-                      <div class="sticky-reactions">
+                      </div>
+                    }
+                    @if ((s.phase === 'discuss' || s.phase === 'done') && card.text !== null) {
+                      <div class="card-footer">
+                        <span class="vote-count-chip"><mat-icon>thumb_up</mat-icon>{{ card.voteCount }}</span>
+                      </div>
+                    }
+                    @if (s.phase === 'discuss' && card.text !== null) {
+                      <div class="card-reactions">
                         @for (emoji of reactionEmojis; track emoji) {
-                          <button class="sticky-reaction-btn"
-                                  [class.reacted]="getReaction(item.card, emoji)?.mine"
-                                  (mousedown)="$event.stopPropagation()"
-                                  (click)="toggleReaction(item.card, emoji)">
+                          <button class="reaction-btn" [class.reacted]="getReaction(card, emoji)?.mine"
+                                  (click)="toggleReaction(card, emoji)">
                             {{ emoji }}
-                            @if (getReactionCount(item.card, emoji) > 0) { <span>{{ getReactionCount(item.card, emoji) }}</span> }
+                            @if (getReactionCount(card, emoji) > 0) { <span>{{ getReactionCount(card, emoji) }}</span> }
                           </button>
                         }
                       </div>
                     }
                   </div>
                 }
-              }
-            </div>
+
+                @if (s.phase === 'add') {
+                  @let hiddenCount = hiddenCardCountForCol(col.key);
+                  @if (hiddenCount > 0) {
+                    <div style="font-size:0.72rem;color:rgba(255,255,255,0.3);text-align:center;padding:4px 0;">
+                      +{{ hiddenCount }} hidden card{{ hiddenCount !== 1 ? 's' : '' }} from others
+                    </div>
+                  }
+                }
+              </div>
+            }
           </div>
         }
         <!-- Done banner -->
@@ -876,79 +771,9 @@ export class FunRetroComponent implements OnInit, OnDestroy {
   revealing = signal(false);
   analysing = signal(false);
 
-  // Canvas state
-  isDesktop = signal(typeof window !== 'undefined' ? window.innerWidth >= 800 : false);
-  localPositions = signal<Record<string, { x: number; y: number }>>({});
-  draggingId = signal<string | null>(null);
-  private dragState: { id: string; startMouseX: number; startMouseY: number; startX: number; startY: number } | null = null;
-
-  @ViewChild('canvasInner') canvasInner?: ElementRef<HTMLElement>;
-
-  // Auto-layout: evenly distribute by column when no saved position
-  canvasCards = computed(() => {
-    const s = this.session();
-    if (!s) return [];
-    const colOrder: Record<string, number> = { well: 0, better: 1, action: 2 };
-    const colCounts: Record<string, number> = { well: 0, better: 0, action: 0 };
-    const localPos = this.localPositions();
-
-    return s.cards
-      .filter(c => c.text !== null)
-      .map(card => {
-        const local = localPos[card.id];
-        if (local) return { card, x: local.x, y: local.y };
-        if (card.positionX != null && card.positionY != null)
-          return { card, x: card.positionX, y: card.positionY };
-
-        const col = colOrder[card.column] ?? 0;
-        const idx = colCounts[card.column] ?? 0;
-        colCounts[card.column] = idx + 1;
-        const row = Math.floor(idx / 2);
-        const offset = (idx % 2) * 220;
-        const yStart = s.phase === 'add' ? 110 : 60;
-        return { card, x: col * 560 + 20 + offset, y: yStart + row * 190 };
-      });
-  });
-
-  @HostListener('window:resize')
-  onResize(): void {
-    this.isDesktop.set(window.innerWidth >= 800);
-  }
-
-  @HostListener('document:mousemove', ['$event'])
-  onMouseMove(e: MouseEvent): void {
-    if (!this.dragState) return;
-    const dx = e.clientX - this.dragState.startMouseX;
-    const dy = e.clientY - this.dragState.startMouseY;
-    const x = Math.max(0, this.dragState.startX + dx);
-    const y = Math.max(0, this.dragState.startY + dy);
-    this.localPositions.update(p => ({ ...p, [this.dragState!.id]: { x, y } }));
-  }
-
   @HostListener('document:click')
   onDocClick(): void {
     if (this.colorPickerOpenFor()) this.colorPickerOpenFor.set(null);
-  }
-
-  @HostListener('document:mouseup')
-  onMouseUp(): void {
-    if (!this.dragState) return;
-    const { id } = this.dragState;
-    const s = this.session();
-    const pos = this.localPositions()[id];
-    if (s && pos) {
-      this.svc.updateCardPosition(s.id, id, pos.x, pos.y).subscribe();
-    }
-    this.dragState = null;
-    this.draggingId.set(null);
-  }
-
-  startDrag(e: MouseEvent, card: FunRetroCard, x: number, y: number): void {
-    const s = this.session();
-    if (e.button !== 0 || s?.phase === 'done') return;
-    e.preventDefault();
-    this.dragState = { id: card.id, startMouseX: e.clientX, startMouseY: e.clientY, startX: x, startY: y };
-    this.draggingId.set(card.id);
   }
 
   readonly stickyPalette = [
