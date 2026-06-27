@@ -852,10 +852,7 @@ export class FunRetroComponent implements OnInit, OnDestroy {
           if (msg.data['sessionId'] === s.id) this.silentRefresh();
           break;
         case 'fun_retro_card_moved':
-          if (msg.data['sessionId'] === s.id && this.dragState?.id !== msg.data['cardId']) {
-            const { cardId, x, y } = msg.data as { cardId: string; x: number; y: number };
-            this.localPositions.update(p => ({ ...p, [cardId]: { x, y } }));
-          }
+          // position-based drag removed; no-op
           break;
         case 'fun_retro_card_color_changed':
           if (msg.data['sessionId'] === s.id) {
