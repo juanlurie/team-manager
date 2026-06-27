@@ -66,6 +66,8 @@ public class DotsAndBoxesService(AppDbContext db)
         db.DotsAndBoxesSessions.Add(session);
         db.DotsAndBoxesParticipants.Add(humanParticipant);
 
+        await db.SaveChangesAsync();
+
         if (req.WithAi)
         {
             var aiParticipant = new DotsAndBoxesParticipant
@@ -78,12 +80,11 @@ public class DotsAndBoxesService(AppDbContext db)
             };
             db.DotsAndBoxesParticipants.Add(aiParticipant);
 
-            // Auto-start: no lobby needed for vs-AI games
+            // Auto-start: resolve CurrentParticipantId after participants are persisted
             session.Status = "inprogress";
             session.CurrentParticipantId = humanParticipant.Id;
+            await db.SaveChangesAsync();
         }
-
-        await db.SaveChangesAsync();
 
         return ToDto(session, memberId);
     }
