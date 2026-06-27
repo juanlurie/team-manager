@@ -50,7 +50,7 @@ const PLAYER_COLORS = ['#64b5f6', '#ffa726', '#81c784', '#f48fb1', '#ce93d8', '#
   imports: [FormsModule, MatIconModule, MatSnackBarModule],
   changeDetection: ChangeDetectionStrategy.Default,
   template: `
-    <div class="page" #pageEl>
+    <div class="page" #pageEl [class.no-scroll]="activePlaying()">
 
       @if (!session()) {
         <!-- ── LOBBY ── -->
@@ -180,6 +180,7 @@ const PLAYER_COLORS = ['#64b5f6', '#ffa726', '#81c784', '#f48fb1', '#ce93d8', '#
   `,
   styles: [`
     .page { max-width: 900px; margin: 0 auto; padding: 12px 12px 80px; outline: none; }
+    .page.no-scroll { touch-action: none; }
 
     /* Lobby */
     .lobby-header { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
@@ -317,6 +318,12 @@ export class Game2048Component implements OnInit, OnDestroy, AfterViewInit {
     const s = this.session();
     if (!s) return [];
     return [...s.participants].sort((a, b) => b.score - a.score);
+  });
+
+  activePlaying = computed(() => {
+    const s = this.session();
+    const me = this.myParticipant();
+    return s?.status === 'inprogress' && !!me && !me.isGameOver;
   });
 
   gameWinner = computed(() => {
