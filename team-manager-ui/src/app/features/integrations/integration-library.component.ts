@@ -447,7 +447,7 @@ const CATEGORIES = [
                             <div class="existing-cfg-row">
                               <mat-icon class="cfg-icon">link</mat-icon>
                               <span class="cfg-name">{{ cfg.name }}</span>
-                              <button class="cfg-delete-btn" (click)="deleteConfig(cfg.id)" [disabled]="saving()" title="Delete">
+                              <button class="cfg-delete-btn" (click)="cfg.id && deleteConfig(cfg.id)" [disabled]="saving()" title="Delete">
                                 <mat-icon>delete_outline</mat-icon>
                               </button>
                             </div>
