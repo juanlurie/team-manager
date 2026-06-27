@@ -442,7 +442,18 @@ const CATEGORIES = [
                   @if (activeProvider() === p.id) {
                     <div class="config-form">
                       @if (status.isConfigured) {
-                        <p class="reconfigure-note">Enter new credentials to update all {{ status.count }} existing config{{ status.count !== 1 ? 's' : '' }}.</p>
+                        <div class="existing-configs">
+                          @for (cfg of status.configs; track cfg.id) {
+                            <div class="existing-cfg-row">
+                              <mat-icon class="cfg-icon">link</mat-icon>
+                              <span class="cfg-name">{{ cfg.name }}</span>
+                              <button class="cfg-delete-btn" (click)="deleteConfig(cfg.id)" [disabled]="saving()" title="Delete">
+                                <mat-icon>delete_outline</mat-icon>
+                              </button>
+                            </div>
+                          }
+                        </div>
+                        <p class="reconfigure-note">Add new credentials below, or delete individual connections above.</p>
                       }
                       @for (field of p.fields; track field.key) {
                         <div class="field-group">
@@ -536,6 +547,14 @@ const CATEGORIES = [
     .configure-btn:hover { background: rgba(100,181,246,0.2); border-color: #64b5f6; }
 
     .config-form { display: flex; flex-direction: column; gap: 10px; padding-top: 4px; border-top: 1px solid rgba(255,255,255,0.06); }
+    .existing-configs { display: flex; flex-direction: column; gap: 4px; }
+    .existing-cfg-row { display: flex; align-items: center; gap: 8px; padding: 5px 8px; background: rgba(255,255,255,0.03); border-radius: 6px; }
+    .cfg-icon { font-size: 14px; width: 14px; height: 14px; color: rgba(255,255,255,0.3); flex-shrink: 0; }
+    .cfg-name { flex: 1; font-size: 0.78rem; color: rgba(255,255,255,0.6); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .cfg-delete-btn { background: transparent; border: none; cursor: pointer; color: rgba(255,100,100,0.5); display: flex; align-items: center; padding: 2px; border-radius: 4px; transition: color 0.12s; }
+    .cfg-delete-btn:hover { color: rgba(255,100,100,0.85); }
+    .cfg-delete-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+    .cfg-delete-btn mat-icon { font-size: 16px; width: 16px; height: 16px; }
     .reconfigure-note { margin: 0; font-size: 0.76rem; color: rgba(255,255,255,0.35); }
     .field-group { display: flex; flex-direction: column; gap: 4px; }
     .field-label { font-size: 0.76rem; font-weight: 600; color: rgba(255,255,255,0.55); }
@@ -640,6 +659,14 @@ export class IntegrationLibraryComponent implements OnInit {
         }
       },
       error: () => { this.testing.set(false); this.snackBar.open('Test request failed', 'Close', { duration: 4000 }); },
+    });
+  }
+
+  deleteConfig(id: string) {
+    this.saving.set(true);
+    this.svc.delete(id).subscribe({
+      next: () => { this.saving.set(false); this.loadConfigs(); },
+      error: () => { this.saving.set(false); this.snackBar.open('Failed to delete', 'Close', { duration: 3000 }); },
     });
   }
 

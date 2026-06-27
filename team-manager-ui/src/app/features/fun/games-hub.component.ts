@@ -13,6 +13,7 @@ interface GamesTab {
 const GAMES_TABS: GamesTab[] = [
   { label: 'Wordle', route: 'wordle', featureKey: 'wordle' },
   { label: 'Quiz Game', route: 'quiz-game', featureKey: 'quiz-game' },
+  { label: 'Dots & Boxes', route: 'dots-and-boxes', featureKey: 'dots-and-boxes' },
   { label: 'Leaderboard', route: 'leaderboard', featureKey: 'leaderboard' },
 ];
 

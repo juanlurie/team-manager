@@ -16,6 +16,10 @@ export const GAMES_ROUTES: Routes = [
         loadChildren: () => import('../quiz-game/quiz-game.routes').then(m => m.QUIZ_GAME_ROUTES)
       },
       {
+        path: 'dots-and-boxes',
+        loadChildren: () => import('../dots-and-boxes/dots-and-boxes.routes').then(m => m.DOTS_AND_BOXES_ROUTES)
+      },
+      {
         path: 'leaderboard',
         loadComponent: () => import('../leaderboard/leaderboard.component').then(m => m.LeaderboardComponent)
       }
