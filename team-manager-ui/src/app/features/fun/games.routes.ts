@@ -24,6 +24,10 @@ export const GAMES_ROUTES: Routes = [
         loadChildren: () => import('../game-2048/game-2048.routes').then(m => m.GAME_2048_ROUTES)
       },
       {
+        path: 'threes',
+        loadChildren: () => import('../game-threes/game-threes.routes').then(m => m.GAME_THREES_ROUTES)
+      },
+      {
         path: 'leaderboard',
         loadComponent: () => import('../leaderboard/leaderboard.component').then(m => m.LeaderboardComponent)
       }

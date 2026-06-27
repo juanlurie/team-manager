@@ -76,6 +76,7 @@ builder.Services.AddScoped<WordleRoyaleService>();
 builder.Services.AddScoped<FunRetroService>();
 builder.Services.AddScoped<DotsAndBoxesService>();
 builder.Services.AddScoped<Game2048Service>();
+builder.Services.AddScoped<GameThreesService>();
 builder.Services.AddScoped<IWinOfTheWeekService, WinOfTheWeekService>();
 builder.Services.AddScoped<GuestWinOfTheWeekService>();
 builder.Services.AddScoped<WinSeriesService>();
@@ -200,6 +201,7 @@ static async Task SeedFeaturePermissionsAsync(AppDbContext db)
         ("retro", "Fun Hub", "Retro"),
         ("dots-and-boxes", "Fun Hub", "Dots & Boxes"),
         ("2048", "Fun Hub", "2048"),
+        ("threes", "Fun Hub", "Threes"),
         ("team", "Team", "Team Management"),
         // wow-host/polls-host/quiz-game-host/wordle-host are seeded separately with role-specific defaults
 
@@ -243,6 +245,7 @@ static async Task SeedFeaturePermissionsAsync(AppDbContext db)
         ("retro-host", "Retro — Host"),
         ("dots-and-boxes-host", "Dots & Boxes — Host"),
         ("2048-host", "2048 — Host"),
+        ("threes-host", "Threes — Host"),
     };
     var hostRoleDefaults = new[] { ("Member", false), ("TeamLead", true), ("TechLead", true) };
     foreach (var (key, label) in hostFeatures)

@@ -187,6 +187,22 @@ public class LeaderboardService(AppDbContext db) : ILeaderboardService
                 .ToList()
         ));
 
+        // ── Threes ────────────────────────────────────────────────────────────
+        var pThrees = await db.GameThreesParticipants
+            .Include(p => p.Member)
+            .Include(p => p.Session)
+            .Where(p => p.Session!.Status == "completed" && p.Member != null && p.Score > 0)
+            .ToListAsync();
+
+        games.Add(new HiScoreGameDto("threes", "Threes!", "pts", true,
+            pThrees
+                .GroupBy(p => p.MemberId)
+                .Select(g => { var b = g.MaxBy(p => p.Score)!; return (b.MemberId, Name: $"{b.Member!.FirstName} {b.Member!.LastName}".Trim(), Score: (long)b.Score, At: (DateTimeOffset?)null); })
+                .OrderByDescending(x => x.Score).Take(10)
+                .Select((x, i) => new HiScoreEntryDto(i + 1, x.MemberId, x.Name, x.Score, x.At))
+                .ToList()
+        ));
+
         // ── Wordle (fewest guesses to win) ────────────────────────────────────
         var pWordle = await db.WordleParticipants
             .Include(p => p.Member)

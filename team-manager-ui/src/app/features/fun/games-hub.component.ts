@@ -15,6 +15,7 @@ const GAMES_TABS: GamesTab[] = [
   { label: 'Quiz Game', route: 'quiz-game', featureKey: 'quiz-game' },
   { label: 'Dots & Boxes', route: 'dots-and-boxes', featureKey: 'dots-and-boxes' },
   { label: '2048', route: '2048', featureKey: '2048' },
+  { label: 'Threes', route: 'threes', featureKey: 'threes' },
   { label: 'Leaderboard', route: 'leaderboard', featureKey: 'leaderboard' },
 ];
 
