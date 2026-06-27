@@ -170,12 +170,14 @@ const PLAYER_COLORS_DIM = ['rgba(100,181,246,0.18)', 'rgba(255,167,38,0.18)', 'r
                   [attr.height]="cellSize"
                   [attr.fill]="boxFill(entry.ownerId)"
                   class="box-fill"
+                  [class.box-new]="isNewBox(entry.key)"
                 />
                 <text
                   [attr.x]="entry.col * cellSize + dotR + cellSize / 2"
                   [attr.y]="entry.row * cellSize + dotR + cellSize / 2 + 5"
                   text-anchor="middle"
                   class="box-initial"
+                  [class.box-initial-new]="isNewBox(entry.key)"
                   [attr.fill]="playerColor(entry.playerOrder)"
                 >{{ entry.initial }}</text>
               }
@@ -193,6 +195,7 @@ const PLAYER_COLORS_DIM = ['rgba(100,181,246,0.18)', 'rgba(255,167,38,0.18)', 'r
                     [attr.stroke]="isDrawn ? playerColor(lineOwner) : 'rgba(255,255,255,0.08)'"
                     [class.line-clickable]="!isDrawn && s.isMyTurn && s.status === 'inprogress'"
                     [class.line-drawn]="isDrawn"
+                    [class.line-new]="isNewLine('H', row, col)"
                     stroke-width="4"
                     stroke-linecap="round"
                     [class.line-hover]="isHovering('H', row, col) && !isDrawn && s.isMyTurn && s.status === 'inprogress'"
@@ -229,6 +232,7 @@ const PLAYER_COLORS_DIM = ['rgba(100,181,246,0.18)', 'rgba(255,167,38,0.18)', 'r
                     [attr.stroke]="isDrawnV ? playerColor(lineOwnerV) : 'rgba(255,255,255,0.08)'"
                     [class.line-clickable]="!isDrawnV && s.isMyTurn && s.status === 'inprogress'"
                     [class.line-drawn]="isDrawnV"
+                    [class.line-new]="isNewLine('V', row, col)"
                     stroke-width="4"
                     stroke-linecap="round"
                     [class.line-hover]="isHovering('V', row, col) && !isDrawnV && s.isMyTurn && s.status === 'inprogress'"
@@ -357,6 +361,31 @@ const PLAYER_COLORS_DIM = ['rgba(100,181,246,0.18)', 'rgba(255,167,38,0.18)', 'r
     .board-dot { pointer-events: none; }
     .box-fill { transition: fill 0.15s; }
     .box-initial { font-size: 11px; font-weight: 700; pointer-events: none; font-family: inherit; }
+
+    @keyframes line-draw {
+      from { stroke-dashoffset: 64; opacity: 0.4; }
+      to   { stroke-dashoffset: 0;  opacity: 1; }
+    }
+    .line-new {
+      stroke-dasharray: 64;
+      animation: line-draw 0.22s ease-out forwards;
+    }
+
+    @keyframes box-pop {
+      0%   { transform: scale(0.1); opacity: 0; }
+      65%  { transform: scale(1.08); opacity: 1; }
+      100% { transform: scale(1);    opacity: 1; }
+    }
+    .box-new {
+      transform-box: fill-box;
+      transform-origin: center center;
+      animation: box-pop 0.32s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+    }
+    .box-initial-new {
+      transform-box: fill-box;
+      transform-origin: center center;
+      animation: box-pop 0.32s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+    }
   `]
 })
 export class DotsAndBoxesComponent implements OnInit, OnDestroy {
@@ -379,6 +408,9 @@ export class DotsAndBoxesComponent implements OnInit, OnDestroy {
   withAi = false;
   gridSizes = [3, 4, 5, 6];
   hoverLine: { t: 'H' | 'V'; r: number; c: number } | null = null;
+
+  private recentLines = new Set<string>();
+  private recentBoxes = new Set<string>();
 
   readonly cellSize = 80;
   readonly dotR = 5;
@@ -427,7 +459,7 @@ export class DotsAndBoxesComponent implements OnInit, OnDestroy {
       if (msg.type === 'dots_boxes_update') {
         const currentSession = this.session();
         if (currentSession) {
-          this.svc.getSession(currentSession.id).subscribe(s => this.session.set(s));
+          this.svc.getSession(currentSession.id).subscribe(s => this.applySession(s));
         } else {
           this.loadSessions();
         }
@@ -461,6 +493,33 @@ export class DotsAndBoxesComponent implements OnInit, OnDestroy {
     this.loadSessions();
   }
 
+  applySession(newSession: DotsAndBoxesSession) {
+    const old = this.session();
+    if (old) {
+      const oldLineKeys = new Set(old.lines.map(l => `${l.t},${l.r},${l.c}`));
+      for (const l of newSession.lines) {
+        const key = `${l.t},${l.r},${l.c}`;
+        if (!oldLineKeys.has(key)) this.recentLines.add(key);
+      }
+      const oldBoxKeys = new Set(Object.keys(old.boxes));
+      for (const key of Object.keys(newSession.boxes)) {
+        if (!oldBoxKeys.has(key)) this.recentBoxes.add(key);
+      }
+      if (this.recentLines.size || this.recentBoxes.size) {
+        setTimeout(() => { this.recentLines.clear(); this.recentBoxes.clear(); }, 450);
+      }
+    }
+    this.session.set(newSession);
+  }
+
+  isNewLine(t: 'H' | 'V', r: number, c: number): boolean {
+    return this.recentLines.has(`${t},${r},${c}`);
+  }
+
+  isNewBox(key: string): boolean {
+    return this.recentBoxes.has(key);
+  }
+
   createGame() {
     this.creating.set(true);
     this.svc.createSession({ title: this.newTitle.trim() || undefined, gridSize: this.newGridSize, withAi: this.withAi }).subscribe({
@@ -480,7 +539,7 @@ export class DotsAndBoxesComponent implements OnInit, OnDestroy {
     if (!s) return;
     this.joining.set(true);
     this.svc.joinSession(s.id).subscribe({
-      next: updated => { this.session.set(updated); this.joining.set(false); },
+      next: updated => { this.applySession(updated); this.joining.set(false); },
       error: () => { this.joining.set(false); this.snackBar.open('Failed to join game', 'OK', { duration: 3000 }); }
     });
   }
@@ -490,7 +549,7 @@ export class DotsAndBoxesComponent implements OnInit, OnDestroy {
     if (!s) return;
     this.starting.set(true);
     this.svc.startSession(s.id).subscribe({
-      next: updated => { this.session.set(updated); this.starting.set(false); },
+      next: updated => { this.applySession(updated); this.starting.set(false); },
       error: (err) => {
         this.starting.set(false);
         const msg = err?.error?.error ?? 'Failed to start game';
@@ -505,7 +564,7 @@ export class DotsAndBoxesComponent implements OnInit, OnDestroy {
     if (this.isLineDrawn(t, r, c)) return;
 
     this.svc.makeMove(s.id, t, r, c).subscribe({
-      next: updated => this.session.set(updated),
+      next: updated => this.applySession(updated),
       error: () => this.snackBar.open('Move failed', 'OK', { duration: 2000 })
     });
   }

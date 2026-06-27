@@ -96,7 +96,7 @@ const PLAYER_COLORS = ['#64b5f6', '#ffa726', '#81c784', '#f48fb1', '#ce93d8', '#
                   <div class="sc-title">{{ s.title || 'Untitled Game' }}</div>
                   <div class="sc-meta">by {{ s.createdByName }} · {{ s.playerCount }} player{{ s.playerCount !== 1 ? 's' : '' }}</div>
                 </div>
-                <span class="sc-status" [class]="s.status">{{ s.status === 'waiting' ? 'Waiting' : 'In progress' }}</span>
+                <span class="sc-status inprogress">In progress · {{ s.playerCount }} playing</span>
               </div>
             }
           </div>
@@ -110,14 +110,9 @@ const PLAYER_COLORS = ['#64b5f6', '#ffa726', '#81c784', '#f48fb1', '#ce93d8', '#
           <div class="game-header">
             <button class="back-btn" (click)="backToLobby()"><mat-icon>arrow_back</mat-icon></button>
             <span class="game-title">{{ s.title || '2048' }}</span>
-            @if (s.status === 'waiting' && !alreadyJoined()) {
+            @if (!alreadyJoined() && s.status === 'inprogress') {
               <button class="action-btn primary" (click)="joinGame()" [disabled]="joining()">
-                {{ joining() ? 'Joining…' : 'Join' }}
-              </button>
-            }
-            @if (s.status === 'waiting' && s.isCreator && s.participants.length >= 2) {
-              <button class="action-btn primary" style="margin-left:8px" (click)="startGame()" [disabled]="starting()">
-                {{ starting() ? 'Starting…' : 'Start' }}
+                {{ joining() ? 'Joining…' : 'Join Game' }}
               </button>
             }
           </div>
@@ -136,11 +131,7 @@ const PLAYER_COLORS = ['#64b5f6', '#ffa726', '#81c784', '#f48fb1', '#ce93d8', '#
           </div>
 
           <!-- Status -->
-          @if (s.status === 'waiting') {
-            <div class="status-bar">
-              <span>Waiting for players ({{ s.participants.length }}/6)…</span>
-            </div>
-          } @else if (s.status === 'completed') {
+          @if (s.status === 'completed') {
             @let winner = gameWinner();
             <div class="status-bar completed">
               @if (winner) {
@@ -308,7 +299,6 @@ export class Game2048Component implements OnInit, OnDestroy, AfterViewInit {
   loading = signal(false);
   creating = signal(false);
   joining = signal(false);
-  starting = signal(false);
 
   showCreate = false;
   newTitle = '';
@@ -452,20 +442,7 @@ export class Game2048Component implements OnInit, OnDestroy, AfterViewInit {
     this.joining.set(true);
     this.svc.joinSession(s.id).subscribe({
       next: updated => { this.session.set(updated); this.joining.set(false); },
-      error: () => { this.joining.set(false); this.snackBar.open('Failed to join game', 'OK', { duration: 3000 }); },
-    });
-  }
-
-  startGame() {
-    const s = this.session();
-    if (!s) return;
-    this.starting.set(true);
-    this.svc.startSession(s.id).subscribe({
-      next: updated => { this.session.set(updated); this.starting.set(false); },
-      error: (err) => {
-        this.starting.set(false);
-        this.snackBar.open(err?.error?.error ?? 'Failed to start game', 'OK', { duration: 3000 });
-      },
+      error: (err) => { this.joining.set(false); this.snackBar.open(err?.error?.error ?? 'Failed to join game', 'OK', { duration: 3000 }); },
     });
   }
 

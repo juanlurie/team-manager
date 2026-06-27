@@ -16,7 +16,7 @@ public class Game2048Service(AppDbContext db)
         return await db.Game2048Sessions
             .Include(s => s.CreatedBy)
             .Include(s => s.Participants)
-            .Where(s => s.Status != "completed")
+            .Where(s => s.Status == "inprogress")
             .OrderByDescending(s => s.CreatedAt)
             .Select(s => new Game2048SessionSummaryDto
             {
@@ -51,6 +51,7 @@ public class Game2048Service(AppDbContext db)
         {
             Title = req.Title,
             CreatedByMemberId = memberId,
+            Status = "inprogress",
         };
 
         var participant = new Game2048Participant
@@ -76,7 +77,7 @@ public class Game2048Service(AppDbContext db)
             .FirstOrDefaultAsync(s => s.Id == sessionId);
 
         if (session is null) return (null, null);
-        if (session.Status != "waiting") return (null, "Game has already started.");
+        if (session.Status == "completed") return (null, "Game is already over.");
         if (session.Participants.Any(p => p.MemberId == memberId)) return (null, "Already joined.");
         if (session.Participants.Count >= 6) return (null, "Session is full (max 6 players).");
 
