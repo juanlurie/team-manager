@@ -2,6 +2,7 @@ import { Component, inject, computed, ChangeDetectionStrategy } from '@angular/c
 
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { FeatureAccessService } from '../../core/services/feature-access.service';
+import { NavService } from '../../core/nav/nav.service';
 
 interface FunTab {
   label: string;
@@ -11,27 +12,28 @@ interface FunTab {
 
 const FUN_TABS: FunTab[] = [
   { label: 'Win of the Week', route: 'win-of-the-week', featureKey: 'win-of-week' },
-  { label: 'Leaderboard', route: 'leaderboard', featureKey: 'leaderboard' },
-  { label: 'Spin Wheel', route: 'wheel', featureKey: 'wheel' },
   { label: 'Coffee Run', route: 'coffee-run', featureKey: 'coffee-run' },
+  { label: 'Spin Wheel', route: 'wheel', featureKey: 'wheel' },
   { label: 'Scrum Poker', route: 'scrum-poker', featureKey: 'scrum-poker' },
-  { label: 'Jokes', route: 'jokes', featureKey: 'jokes' },
-  { label: 'Quiz Game', route: 'quiz-game', featureKey: 'quiz-game' },
   { label: 'Polls', route: 'polls', featureKey: 'polls' },
-  { label: 'Wordle', route: 'wordle', featureKey: 'wordle' },
+  { label: 'Retro', route: 'retro', featureKey: 'retro' },
+  { label: 'Dots & Boxes', route: 'dots-and-boxes', featureKey: 'dots-and-boxes' },
+  { label: 'Jokes', route: 'jokes', featureKey: 'jokes' },
 ];
 
 @Component({
-  selector: 'app-fun-hub',
+  selector: 'app-pulse-hub',
   standalone: true,
   imports: [RouterLink, RouterLinkActive, RouterOutlet],
   template: `
-    <div class="hub">
-      <nav class="hub-tabs" role="tablist">
-        @for (tab of visibleTabs(); track tab.route) {
-          <a class="hub-tab" [routerLink]="tab.route" routerLinkActive="active" role="tab">{{ tab.label }}</a>
-        }
-      </nav>
+    <div class="hub" [class.immersive]="nav.hideNav()">
+      @if (!nav.hideNav()) {
+        <nav class="hub-tabs" role="tablist">
+          @for (tab of visibleTabs(); track tab.route) {
+            <a class="hub-tab" [routerLink]="tab.route" routerLinkActive="active" role="tab">{{ tab.label }}</a>
+          }
+        </nav>
+      }
       <div class="hub-content">
         <router-outlet />
       </div>
@@ -40,6 +42,8 @@ const FUN_TABS: FunTab[] = [
   changeDetection: ChangeDetectionStrategy.Default,
   styles: [`
     .hub { max-width:900px;margin:0 auto;padding:8px; }
+    .hub.immersive { padding:0;max-width:100% }
+    .hub.immersive .hub-content { min-height:0 }
     .hub-tabs {
       display:flex;gap:0;margin-bottom:16px;
       border-bottom:1px solid rgba(255,255,255,0.08);
@@ -60,7 +64,8 @@ const FUN_TABS: FunTab[] = [
     .hub-content { min-height:200px; }
   `]
 })
-export class FunHubComponent {
+export class PulseHubComponent {
   private featureAccess = inject(FeatureAccessService);
+  nav = inject(NavService);
   visibleTabs = computed(() => FUN_TABS.filter(t => this.featureAccess.hasAccess(t.featureKey)));
 }

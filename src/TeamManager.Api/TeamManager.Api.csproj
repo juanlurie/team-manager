@@ -23,6 +23,7 @@
 
   <ItemGroup>
     <None Include="Templates\TimesheetUpload.xlsx" CopyToOutputDirectory="Always" />
+    <EmbeddedResource Include="Application\Services\wordle-words.txt" />
   </ItemGroup>
 
 </Project>

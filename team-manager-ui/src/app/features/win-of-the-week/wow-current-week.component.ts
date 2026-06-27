@@ -704,7 +704,7 @@ export class WowCurrentWeekComponent {
     } else if (this.hypeBattleEndsAt() && tiedIds.size > 0) {
       noms = noms.filter(n => tiedIds.has(n.id));
     }
-    if (w.status === 'Voting' || w.status === 'SuddenDeath' || w.status === 'Closed')
+    if (w.status === 'SuddenDeath' || w.status === 'Closed')
       noms = noms.sort((a, b) => b.voteCount - a.voteCount || new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     else
       noms = noms.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());

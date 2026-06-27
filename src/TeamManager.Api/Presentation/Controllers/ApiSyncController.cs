@@ -347,17 +347,33 @@ public class ApiSyncController(AppDbContext db, IHttpClientFactory httpClientFac
 
                 HttpResponseMessage response;
                 if (evt.HttpMethod == "GET")
-                    response = await client.GetAsync(url);
-                else if (evt.BodyFormat == "raw")
                 {
-                    var content = new StringContent(body);
-                    content.Headers.ContentType = null;
-                    response = await client.PostAsync(url, content);
+                    response = await client.GetAsync(url);
                 }
                 else
                 {
-                    var mediaType = evt.BodyFormat == "urlencoded" ? "application/x-www-form-urlencoded" : "application/json";
-                    response = await client.PostAsync(url, new StringContent(body, System.Text.Encoding.UTF8, mediaType));
+                    var method = evt.HttpMethod switch
+                    {
+                        "PUT" => HttpMethod.Put,
+                        "PATCH" => HttpMethod.Patch,
+                        "DELETE" => HttpMethod.Delete,
+                        _ => HttpMethod.Post
+                    };
+                    HttpContent? content = null;
+                    if (!string.IsNullOrWhiteSpace(body))
+                    {
+                        if (evt.BodyFormat == "raw")
+                        {
+                            content = new StringContent(body);
+                            content.Headers.ContentType = null;
+                        }
+                        else
+                        {
+                            var mediaType = evt.BodyFormat == "urlencoded" ? "application/x-www-form-urlencoded" : "application/json";
+                            content = new StringContent(body, System.Text.Encoding.UTF8, mediaType);
+                        }
+                    }
+                    response = await client.SendAsync(new HttpRequestMessage(method, url) { Content = content });
                 }
 
                 var responseBody = await response.Content.ReadAsStringAsync();

@@ -60,6 +60,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<WordleSession> WordleSessions => Set<WordleSession>();
     public DbSet<WordleParticipant> WordleParticipants => Set<WordleParticipant>();
     public DbSet<WordleGuess> WordleGuesses => Set<WordleGuess>();
+    public DbSet<WordleRoyaleRating> WordleRoyaleRatings => Set<WordleRoyaleRating>();
+    public DbSet<WordleRoyaleMatch> WordleRoyaleMatches => Set<WordleRoyaleMatch>();
     public DbSet<Poll> Polls => Set<Poll>();
     public DbSet<PollOption> PollOptions => Set<PollOption>();
     public DbSet<PollVote> PollVotes => Set<PollVote>();
@@ -90,6 +92,12 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<TimesheetSystemConfig> TimesheetSystemConfigs => Set<TimesheetSystemConfig>();
     public DbSet<JokeHistory> JokeHistory => Set<JokeHistory>();
     public DbSet<ConfigVariable> ConfigVariables => Set<ConfigVariable>();
+    public DbSet<FunRetroSession> FunRetroSessions => Set<FunRetroSession>();
+    public DbSet<FunRetroCard> FunRetroCards => Set<FunRetroCard>();
+    public DbSet<FunRetroVote> FunRetroVotes => Set<FunRetroVote>();
+    public DbSet<FunRetroReaction> FunRetroReactions => Set<FunRetroReaction>();
+    public DbSet<DotsAndBoxesSession> DotsAndBoxesSessions => Set<DotsAndBoxesSession>();
+    public DbSet<DotsAndBoxesParticipant> DotsAndBoxesParticipants => Set<DotsAndBoxesParticipant>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -158,11 +166,19 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         modelBuilder.ApplyConfiguration(new WordleSessionConfiguration());
         modelBuilder.ApplyConfiguration(new WordleParticipantConfiguration());
         modelBuilder.ApplyConfiguration(new WordleGuessConfiguration());
+        modelBuilder.ApplyConfiguration(new WordleRoyaleRatingConfiguration());
+        modelBuilder.ApplyConfiguration(new WordleRoyaleMatchConfiguration());
         modelBuilder.ApplyConfiguration(new AiPromptConfiguration());
         modelBuilder.ApplyConfiguration(new PollConfiguration());
         modelBuilder.ApplyConfiguration(new PollOptionConfiguration());
         modelBuilder.ApplyConfiguration(new PollVoteConfiguration());
         modelBuilder.ApplyConfiguration(new FeaturePermissionConfiguration());
         modelBuilder.ApplyConfiguration(new MemberFeatureOverrideConfiguration());
+        modelBuilder.ApplyConfiguration(new FunRetroSessionConfiguration());
+        modelBuilder.ApplyConfiguration(new FunRetroCardConfiguration());
+        modelBuilder.ApplyConfiguration(new FunRetroVoteConfiguration());
+        modelBuilder.ApplyConfiguration(new FunRetroReactionConfiguration());
+        modelBuilder.ApplyConfiguration(new DotsAndBoxesSessionConfiguration());
+        modelBuilder.ApplyConfiguration(new DotsAndBoxesParticipantConfiguration());
     }
 }

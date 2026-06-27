@@ -91,7 +91,7 @@ const EMPTY_FORM: EditForm = { key: '', label: '', systemPrompt: '', userMessage
                 }
               </mat-select>
               @if (connections().length === 0) {
-                <mat-hint>No AI Connection found — create one under API Configs first.</mat-hint>
+                <mat-hint>No AI connection found — configure Claude, OpenAI, or Ollama in the Library tab first.</mat-hint>
               }
             </mat-form-field>
           </div>

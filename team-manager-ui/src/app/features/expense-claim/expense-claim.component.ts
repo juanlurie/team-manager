@@ -162,7 +162,7 @@ export class ExpenseClaimComponent implements OnInit {
 
     const logoBytes = Uint8Array.from(atob(LOGO_BASE64), c => c.charCodeAt(0));
     const logoId = workbook.addImage({
-      buffer: Buffer.from(logoBytes) as any,
+      buffer: logoBytes as any,
       extension: 'jpeg',
     });
     worksheet.addImage(logoId, {

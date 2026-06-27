@@ -1,4 +1,4 @@
-import { Component, inject, signal, OnInit, ChangeDetectionStrategy } from '@angular/core';
+import { Component, inject, signal, computed, OnInit, ChangeDetectionStrategy } from '@angular/core';
 
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
@@ -51,15 +51,21 @@ import {
       @if (loading()) {
         <div class="loading"><span class="loading-dot"></span><span class="loading-dot"></span><span class="loading-dot"></span></div>
       } @else {
-        @if (configs().length === 0) {
+        @if (hiddenLibraryCount() > 0) {
+          <div class="library-notice">
+            <mat-icon class="library-notice-icon">extension</mat-icon>
+            <span>{{ hiddenLibraryCount() }} config{{ hiddenLibraryCount() !== 1 ? 's' : '' }} managed via the <strong>Library</strong> tab are not shown here.</span>
+          </div>
+        }
+        @if (customConfigs().length === 0) {
           <div class="empty-state">
             <mat-icon>api</mat-icon>
-            <p>No API actions configured yet.</p>
+            <p>No custom API actions configured yet.</p>
             <button class="primary-btn" (click)="openDialog()"><mat-icon>add</mat-icon> Create your first action</button>
           </div>
         } @else {
           <div class="configs-list">
-            @for (config of configs(); track config.id) {
+            @for (config of customConfigs(); track config.id) {
               <div class="config-card" [class.disabled]="!config.enabled" (click)="openDialog(config)" role="button" style="cursor:pointer">
                 <div class="card-accent" [style.background]="getAccentColor(config.action)"></div>
                 <div class="card-icon-col">
@@ -124,6 +130,9 @@ import {
     .primary-btn mat-icon { font-size: 16px; width: 16px; height: 16px; }
     .primary-btn:hover { background: rgba(100,181,246,0.25); border-color: #64b5f6; }
 
+    .library-notice { display: flex; align-items: center; gap: 8px; padding: 8px 12px; margin-bottom: 12px; background: rgba(100,181,246,0.05); border: 1px solid rgba(100,181,246,0.12); border-radius: 8px; font-size: 0.78rem; color: rgba(255,255,255,0.4); }
+    .library-notice-icon { font-size: 15px; width: 15px; height: 15px; color: rgba(100,181,246,0.5); flex-shrink: 0; }
+    .library-notice strong { color: rgba(255,255,255,0.6); }
     .loading { display: flex; justify-content: center; gap: 6px; padding: 64px; }
     .loading-dot { width: 8px; height: 8px; background: rgba(100,181,246,0.5); border-radius: 50%; animation: pulse 1.2s ease-in-out infinite; }
     .loading-dot:nth-child(2) { animation-delay: 0.2s; }
@@ -174,6 +183,16 @@ export class ApiRequestConfigsComponent implements OnInit {
 
   loading = signal(true);
   configs = signal<ApiRequestConfig[]>([]);
+
+  private isLibraryManaged(c: ApiRequestConfig): boolean {
+    const names = ['Claude (Anthropic)', 'OpenAI', 'Google Gemini', 'Groq', 'Ollama',
+                   'Slack Webhook', 'Microsoft Teams Webhook', 'Discord Webhook', 'n8n Webhook'];
+    const prefixes = ['Toggl Track — ', 'Harvest — '];
+    return names.includes(c.name) || prefixes.some(p => c.name.startsWith(p));
+  }
+
+  customConfigs = computed(() => this.configs().filter(c => !this.isLibraryManaged(c)));
+  hiddenLibraryCount = computed(() => this.configs().filter(c => this.isLibraryManaged(c)).length);
 
   ngOnInit() {
     this.load();

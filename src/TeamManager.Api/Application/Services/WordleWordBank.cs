@@ -1,13 +1,29 @@
+using System.Reflection;
+
 namespace TeamManager.Api.Application.Services;
 
-// A curated bank of common 5-letter English words used as Wordle answers. Guesses themselves
-// aren't validated against this (or any) dictionary -- any 5-letter alphabetic string is accepted
-// as an attempt, matching this app's general preference for simple/lenient input over building
-// out a full word-validity dictionary.
 public static class WordleWordBank
 {
     public const int WordLength = 5;
     public const int MaxGuesses = 6;
+
+    private static readonly Lazy<HashSet<string>> ValidWords = new(() =>
+    {
+        var asm = Assembly.GetExecutingAssembly();
+        var name = asm.GetManifestResourceNames().First(n => n.EndsWith("wordle-words.txt"));
+        using var stream = asm.GetManifestResourceStream(name)!;
+        using var reader = new System.IO.StreamReader(stream);
+        var set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        string? line;
+        while ((line = reader.ReadLine()) != null)
+        {
+            var word = line.Trim();
+            if (word.Length == WordLength) set.Add(word);
+        }
+        return set;
+    });
+
+    public static bool IsValidGuess(string word) => ValidWords.Value.Contains(word);
 
     private static readonly string[] Words =
     [

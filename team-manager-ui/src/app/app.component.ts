@@ -49,13 +49,13 @@ const routeFade = trigger('routeFade', [
       </div>
     }
 
-    <div class="shell" [class.mobile]="mobile.isMobile()">
+    <div class="shell" [class.mobile]="mobile.isMobile()" [class.hide-nav]="nav.hideNav()">
 
-      @if (mobile.isMobile() && !nav.isLoginPage() && isAuthorized()) {
+      @if (mobile.isMobile() && !nav.isLoginPage() && isAuthorized() && !nav.hideNav()) {
         <app-bottom-nav />
       }
 
-      @if (!mobile.isMobile() && !nav.isLoginPage() && isAuthorized()) {
+      @if (!mobile.isMobile() && !nav.isLoginPage() && isAuthorized() && !nav.hideNav()) {
         <app-sidebar />
       }
 
@@ -80,6 +80,8 @@ const routeFade = trigger('routeFade', [
     .shell.mobile .content { padding-bottom: 60px; }
     .page-wrap { padding: 24px; max-width: 1200px; margin: 0 auto; }
     .shell.mobile .page-wrap { padding: 0 4px 72px; }
+    .shell.hide-nav .content { padding-bottom: 0 !important; }
+    .shell.hide-nav .page-wrap { padding: 0 !important; }
 
     .nav-progress {
       position: fixed;
