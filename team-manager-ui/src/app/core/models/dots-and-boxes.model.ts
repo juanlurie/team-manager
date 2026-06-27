@@ -6,12 +6,13 @@ export interface DotsAndBoxesLine {
 
 export interface DotsAndBoxesParticipant {
   id: string;
-  memberId: string;
+  memberId: string | null;
   displayName: string;
   order: number;
   score: number;
   isMe: boolean;
   isCurrentTurn: boolean;
+  isAi: boolean;
 }
 
 export interface DotsAndBoxesSession {
@@ -28,6 +29,7 @@ export interface DotsAndBoxesSession {
   myParticipantId: string | null;
   createdAt: string;
   participants: DotsAndBoxesParticipant[];
+  hasAi: boolean;
 }
 
 export interface DotsAndBoxesSessionSummary {

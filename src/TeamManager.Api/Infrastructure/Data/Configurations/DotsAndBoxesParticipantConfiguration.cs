@@ -11,7 +11,8 @@ public class DotsAndBoxesParticipantConfiguration : IEntityTypeConfiguration<Dot
         builder.HasKey(p => p.Id);
         builder.Property(p => p.Id).HasDefaultValueSql("gen_random_uuid()");
 
+        builder.Property(p => p.MemberId).IsRequired(false);
         builder.HasOne(p => p.Member).WithMany()
-            .HasForeignKey(p => p.MemberId).OnDelete(DeleteBehavior.Restrict);
+            .HasForeignKey(p => p.MemberId).OnDelete(DeleteBehavior.Restrict).IsRequired(false);
     }
 }

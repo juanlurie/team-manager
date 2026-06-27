@@ -14,12 +14,13 @@ public record DotsAndBoxesSessionSummaryDto
 public record DotsAndBoxesParticipantDto
 {
     public Guid Id { get; init; }
-    public Guid MemberId { get; init; }
+    public Guid? MemberId { get; init; }
     public string DisplayName { get; init; } = "";
     public int Order { get; init; }
     public int Score { get; init; }
     public bool IsMe { get; init; }
     public bool IsCurrentTurn { get; init; }
+    public bool IsAi { get; init; }
 }
 
 public record DotsAndBoxesLineDto
@@ -44,12 +45,14 @@ public record DotsAndBoxesSessionDto
     public Guid? MyParticipantId { get; init; }
     public DateTimeOffset CreatedAt { get; init; }
     public List<DotsAndBoxesParticipantDto> Participants { get; init; } = [];
+    public bool HasAi { get; init; }
 }
 
 public record CreateDotsAndBoxesSessionRequest
 {
     public string? Title { get; init; }
     public int GridSize { get; init; } = 4;
+    public bool WithAi { get; init; }
 }
 
 public record MakeDotsAndBoxesMoveRequest

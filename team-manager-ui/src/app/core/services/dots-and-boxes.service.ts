@@ -16,7 +16,7 @@ export class DotsAndBoxesService {
     return this.http.get<DotsAndBoxesSession>(`${this.base}/${id}`);
   }
 
-  createSession(req: { title?: string; gridSize: number }): Observable<DotsAndBoxesSession> {
+  createSession(req: { title?: string; gridSize: number; withAi?: boolean }): Observable<DotsAndBoxesSession> {
     return this.http.post<DotsAndBoxesSession>(this.base, req);
   }
 

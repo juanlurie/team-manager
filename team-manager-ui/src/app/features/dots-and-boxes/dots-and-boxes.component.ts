@@ -48,6 +48,15 @@ const PLAYER_COLORS_DIM = ['rgba(100,181,246,0.18)', 'rgba(255,167,38,0.18)', 'r
                 </button>
               }
             </div>
+            <div class="form-row">
+              <label class="ai-toggle" (click)="withAi = !withAi">
+                <span class="ai-check" [class.checked]="withAi">
+                  @if (withAi) { <mat-icon>check</mat-icon> }
+                </span>
+                <mat-icon class="ai-icon">smart_toy</mat-icon>
+                <span class="ai-label">Play vs AI</span>
+              </label>
+            </div>
             <div class="form-actions">
               <button class="cancel-btn" (click)="showCreate = false">Cancel</button>
               <button class="save-btn" (click)="createGame()" [disabled]="creating()">
@@ -93,7 +102,11 @@ const PLAYER_COLORS_DIM = ['rgba(100,181,246,0.18)', 'rgba(255,167,38,0.18)', 'r
           <div class="scoreboard">
             @for (p of s.participants; track p.id) {
               <div class="player-chip" [class.active-turn]="p.isCurrentTurn" [style.border-color]="playerColor(p.order)">
-                <span class="player-dot" [style.background]="playerColor(p.order)"></span>
+                @if (p.isAi) {
+                  <mat-icon class="player-ai-icon">smart_toy</mat-icon>
+                } @else {
+                  <span class="player-dot" [style.background]="playerColor(p.order)"></span>
+                }
                 <span class="player-name">{{ p.displayName }}{{ p.isMe ? ' (you)' : '' }}</span>
                 <span class="player-score">{{ p.score }}</span>
               </div>
@@ -252,6 +265,12 @@ const PLAYER_COLORS_DIM = ['rgba(100,181,246,0.18)', 'rgba(255,167,38,0.18)', 'r
     .size-label { font-size: 0.78rem; color: rgba(255,255,255,0.45); white-space: nowrap; }
     .size-btn { padding: 4px 12px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; color: rgba(255,255,255,0.55); font-size: 0.8rem; font-family: inherit; cursor: pointer; transition: all 0.12s; }
     .size-btn.active { background: rgba(100,181,246,0.15); border-color: rgba(100,181,246,0.4); color: #64b5f6; }
+    .ai-toggle { display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; }
+    .ai-check { width: 16px; height: 16px; border: 1px solid rgba(255,255,255,0.2); border-radius: 3px; display: flex; align-items: center; justify-content: center; transition: all 0.12s; flex-shrink: 0; }
+    .ai-check.checked { background: rgba(100,181,246,0.2); border-color: #64b5f6; }
+    .ai-check mat-icon { font-size: 12px; width: 12px; height: 12px; color: #64b5f6; }
+    .ai-icon { font-size: 16px; width: 16px; height: 16px; color: rgba(255,255,255,0.5); }
+    .ai-label { font-size: 0.82rem; color: rgba(255,255,255,0.6); }
     .form-actions { display: flex; gap: 8px; justify-content: flex-end; }
     .cancel-btn { padding: 6px 14px; background: transparent; border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; color: rgba(255,255,255,0.45); font-size: 0.82rem; font-family: inherit; cursor: pointer; }
     .save-btn { padding: 6px 18px; background: rgba(100,181,246,0.15); border: 1px solid rgba(100,181,246,0.4); border-radius: 6px; color: #64b5f6; font-size: 0.82rem; font-weight: 600; font-family: inherit; cursor: pointer; }
@@ -291,6 +310,7 @@ const PLAYER_COLORS_DIM = ['rgba(100,181,246,0.18)', 'rgba(255,167,38,0.18)', 'r
     .player-chip { display: flex; align-items: center; gap: 7px; padding: 6px 12px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 20px; transition: all 0.2s; }
     .player-chip.active-turn { background: rgba(255,255,255,0.06); box-shadow: 0 0 0 1px currentColor; }
     .player-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .player-ai-icon { font-size: 14px; width: 14px; height: 14px; color: rgba(255,255,255,0.6); flex-shrink: 0; }
     .player-name { font-size: 0.8rem; color: rgba(255,255,255,0.7); }
     .player-score { font-size: 0.9rem; font-weight: 700; color: rgba(255,255,255,0.9); margin-left: 4px; }
 
@@ -329,6 +349,7 @@ export class DotsAndBoxesComponent implements OnInit, OnDestroy {
   showCreate = false;
   newTitle = '';
   newGridSize = 4;
+  withAi = false;
   gridSizes = [3, 4, 5, 6];
   hoverLine: { t: 'H' | 'V'; r: number; c: number } | null = null;
 
@@ -415,11 +436,12 @@ export class DotsAndBoxesComponent implements OnInit, OnDestroy {
 
   createGame() {
     this.creating.set(true);
-    this.svc.createSession({ title: this.newTitle.trim() || undefined, gridSize: this.newGridSize }).subscribe({
+    this.svc.createSession({ title: this.newTitle.trim() || undefined, gridSize: this.newGridSize, withAi: this.withAi }).subscribe({
       next: s => {
         this.creating.set(false);
         this.showCreate = false;
         this.newTitle = '';
+        this.withAi = false;
         this.session.set(s);
       },
       error: () => { this.creating.set(false); this.snackBar.open('Failed to create game', 'OK', { duration: 3000 }); }
