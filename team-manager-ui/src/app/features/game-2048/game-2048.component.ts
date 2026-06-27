@@ -10,6 +10,7 @@ import { takeUntil } from 'rxjs/operators';
 import { Game2048Service } from '../../core/services/game-2048.service';
 import { WebSocketService } from '../../core/websocket/websocket.service';
 import { FeatureAccessService } from '../../core/services/feature-access.service';
+import { NavService } from '../../core/nav/nav.service';
 import { Game2048Session, Game2048SessionSummary, Game2048Participant } from '../../core/models/game-2048.model';
 
 const TILE_COLORS: Record<number, string> = {
@@ -50,7 +51,7 @@ const PLAYER_COLORS = ['#64b5f6', '#ffa726', '#81c784', '#f48fb1', '#ce93d8', '#
   imports: [FormsModule, MatIconModule, MatSnackBarModule],
   changeDetection: ChangeDetectionStrategy.Default,
   template: `
-    <div class="page" #pageEl [class.no-scroll]="activePlaying()">
+    <div class="page" #pageEl [class.no-scroll]="activePlaying()" [class.immersive]="nav.hideNav()">
 
       @if (!session()) {
         <!-- ── LOBBY ── -->
@@ -181,6 +182,8 @@ const PLAYER_COLORS = ['#64b5f6', '#ffa726', '#81c784', '#f48fb1', '#ce93d8', '#
   styles: [`
     .page { max-width: 900px; margin: 0 auto; padding: 12px 12px 80px; outline: none; }
     .page.no-scroll { touch-action: none; }
+    .page.immersive { max-width: 100%; padding: 0; }
+    .page.immersive .game-wrap { padding: 8px; gap: 8px; }
 
     /* Lobby */
     .lobby-header { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
@@ -293,6 +296,7 @@ export class Game2048Component implements OnInit, OnDestroy, AfterViewInit {
   private ws = inject(WebSocketService);
   private snackBar = inject(MatSnackBar);
   private featureAccess = inject(FeatureAccessService);
+  nav = inject(NavService);
   private destroy$ = new Subject<void>();
 
   sessions = signal<Game2048SessionSummary[]>([]);
@@ -355,6 +359,7 @@ export class Game2048Component implements OnInit, OnDestroy, AfterViewInit {
   }
 
   ngOnDestroy() {
+    this.nav.hideNav.set(false);
     this.destroy$.next();
     this.destroy$.complete();
   }
@@ -420,12 +425,13 @@ export class Game2048Component implements OnInit, OnDestroy, AfterViewInit {
   openSession(id: string) {
     this.loading.set(true);
     this.svc.getSession(id).subscribe({
-      next: s => { this.session.set(s); this.loading.set(false); },
+      next: s => { this.session.set(s); this.loading.set(false); this.nav.hideNav.set(true); },
       error: () => { this.loading.set(false); this.snackBar.open('Failed to load game', 'OK', { duration: 3000 }); },
     });
   }
 
   backToLobby() {
+    this.nav.hideNav.set(false);
     this.session.set(null);
     this.loadSessions();
   }
@@ -438,6 +444,7 @@ export class Game2048Component implements OnInit, OnDestroy, AfterViewInit {
         this.showCreate = false;
         this.newTitle = '';
         this.session.set(s);
+        this.nav.hideNav.set(true);
       },
       error: () => { this.creating.set(false); this.snackBar.open('Failed to create game', 'OK', { duration: 3000 }); },
     });
@@ -448,7 +455,7 @@ export class Game2048Component implements OnInit, OnDestroy, AfterViewInit {
     if (!s) return;
     this.joining.set(true);
     this.svc.joinSession(s.id).subscribe({
-      next: updated => { this.session.set(updated); this.joining.set(false); },
+      next: updated => { this.session.set(updated); this.joining.set(false); this.nav.hideNav.set(true); },
       error: (err) => { this.joining.set(false); this.snackBar.open(err?.error?.error ?? 'Failed to join game', 'OK', { duration: 3000 }); },
     });
   }
