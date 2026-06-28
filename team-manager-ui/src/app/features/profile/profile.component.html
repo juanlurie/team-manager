@@ -1,0 +1,17 @@
+<div class="profile-page">
+  <h1 class="page-title">Profile</h1>
+
+  <!-- ── User Info Card ── -->
+  <mat-card class="info-card">
+    <mat-card-content>
+      <div class="user-info">
+        <div class="avatar">{{ userName.charAt(0) }}</div>
+        <div class="details">
+          <h2 class="display-name">{{ userName }}</h2>
+          <p class="email">{{ userEmail }}</p>
+          <span class="role-badge">{{ userRole }}</span>
+        </div>
+      </div>
+    </mat-card-content>
+  </mat-card>
+</div>

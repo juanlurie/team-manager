@@ -1,0 +1,284 @@
+    <div style="margin-bottom:24px">
+      <div style="display:flex;align-items:center;gap:4px;margin-bottom:12px">
+        <h2 style="margin:0;font-size:1.3rem;font-weight:500;flex:1;min-width:0">Leave Overview</h2>
+        <app-icon-btn icon="add_circle" size="md" tooltip="Add leave" color="primary" (btnClick)="openAdd()" />
+        <button mat-icon-button [matMenuTriggerFor]="settingsMenu" matTooltip="Settings">
+          <mat-icon>more_vert</mat-icon>
+        </button>
+        <mat-menu #settingsMenu="matMenu">
+          <button mat-menu-item routerLink="/team/leave/config">
+            <mat-icon>settings</mat-icon>
+            <span>Fetch configuration</span>
+          </button>
+          <button mat-menu-item (click)="openImport()">
+            <mat-icon>upload</mat-icon>
+            <span>Import leave</span>
+          </button>
+          <button mat-menu-item (click)="exportLeaveImage()">
+            <mat-icon>image</mat-icon>
+            <span>Export as Image</span>
+          </button>
+        </mat-menu>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;flex:1;min-width:0">
+        <div style="flex:1;min-width:0">
+          <app-filter-bar
+            [groups]="filterGroups()"
+            searchPlaceholder="Search leave…"
+            [searchVal]="search()"
+            [selectedValues]="filterValues()"
+            (searchChange)="search.set($event)"
+            (apply)="onFilterApply($event)" />
+        </div>
+        <!-- View toggle -->
+        <div style="display:inline-flex;border:1px solid rgba(255,255,255,0.15);border-radius:8px;overflow:hidden;height:40px;flex-shrink:0">
+          <button mat-icon-button
+                  style="border-radius:0;width:40px;height:40px"
+                  [style.background]="view() === 'list' ? 'rgba(255,255,255,0.1)' : 'transparent'"
+                  matTooltip="List view"
+                  (click)="view.set('list')">
+            <mat-icon style="font-size:20px;width:20px;height:20px;line-height:20px"
+                      [style.color]="view() === 'list' ? '#64b5f6' : 'rgba(255,255,255,0.5)'">view_list</mat-icon>
+          </button>
+          <div style="width:1px;background:rgba(255,255,255,0.12);flex-shrink:0"></div>
+          <button mat-icon-button
+                  style="border-radius:0;width:40px;height:40px"
+                  [style.background]="view() === 'calendar' ? 'rgba(255,255,255,0.1)' : 'transparent'"
+                  matTooltip="Calendar view"
+                  (click)="view.set('calendar')">
+            <mat-icon style="font-size:20px;width:20px;height:20px;line-height:20px"
+                      [style.color]="view() === 'calendar' ? '#64b5f6' : 'rgba(255,255,255,0.5)'">calendar_month</mat-icon>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    @if (loading()) {
+      <div style="display:flex;justify-content:center;padding:64px">
+        <mat-spinner diameter="48"></mat-spinner>
+      </div>
+    } @else {
+      <!-- Summary cards -->
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,150px),1fr));gap:12px;margin-bottom:24px">
+        <mat-card appearance="outlined">
+          <mat-card-content style="padding:20px">
+            <div style="display:flex;align-items:center;gap:12px">
+              <mat-icon style="font-size:2rem;width:2rem;height:2rem;opacity:0.7">people</mat-icon>
+              <div>
+                <div style="font-size:1.75rem;font-weight:600;line-height:1">{{ totalDays() }}</div>
+                <div style="font-size:0.8rem;opacity:0.6;margin-top:2px">Total Leave Days</div>
+              </div>
+            </div>
+          </mat-card-content>
+        </mat-card>
+        <mat-card appearance="outlined">
+          <mat-card-content style="padding:20px">
+            <div style="display:flex;align-items:center;gap:12px">
+              <mat-icon style="font-size:2rem;width:2rem;height:2rem;color:#4caf50">beach_access</mat-icon>
+              <div>
+                <div style="font-size:1.75rem;font-weight:600;line-height:1">{{ annualDays() }}</div>
+                <div style="font-size:0.8rem;opacity:0.6;margin-top:2px">Annual</div>
+              </div>
+            </div>
+          </mat-card-content>
+        </mat-card>
+        <mat-card appearance="outlined">
+          <mat-card-content style="padding:20px">
+            <div style="display:flex;align-items:center;gap:12px">
+              <mat-icon style="font-size:2rem;width:2rem;height:2rem;color:#f44336">sick</mat-icon>
+              <div>
+                <div style="font-size:1.75rem;font-weight:600;line-height:1">{{ sickDays() }}</div>
+                <div style="font-size:0.8rem;opacity:0.6;margin-top:2px">Sick</div>
+              </div>
+            </div>
+          </mat-card-content>
+        </mat-card>
+        <mat-card appearance="outlined">
+          <mat-card-content style="padding:20px">
+            <div style="display:flex;align-items:center;gap:12px">
+              <mat-icon style="font-size:2rem;width:2rem;height:2rem;color:#ff9800">event_note</mat-icon>
+              <div>
+                <div style="font-size:1.75rem;font-weight:600;line-height:1">{{ otherDays() }}</div>
+                <div style="font-size:0.8rem;opacity:0.6;margin-top:2px">Other</div>
+              </div>
+            </div>
+          </mat-card-content>
+        </mat-card>
+      </div>
+
+      @if (view() === 'calendar') {
+        <!-- Calendar view -->
+        <div style="border-radius:10px;border:1px solid rgba(255,255,255,0.08);overflow:hidden"
+             (click)="clickedLeave.set(null)">
+          <div style="background:rgba(255,255,255,0.03)">
+
+            <!-- Month nav -->
+            <div style="display:flex;align-items:center;gap:8px;padding:10px 14px;
+                        border-bottom:1px solid rgba(255,255,255,0.07)">
+              <app-icon-btn icon="chevron_left" size="md" tooltip="Previous month" (btnClick)="prevMonth()" />
+              <span style="font-size:1rem;font-weight:600;flex:1;text-align:center">
+                {{ calendarMonth() | date:'MMMM yyyy' }}
+              </span>
+              <app-icon-btn icon="chevron_right" size="md" tooltip="Next month" (btnClick)="nextMonth()" />
+              <button mat-button style="font-size:0.8rem;height:32px;line-height:32px;padding:0 12px"
+                      (click)="goToday()">Today</button>
+            </div>
+
+                <!-- Tap info strip (mobile click state) -->
+            @if (clickedLeave()) {
+              <div style="display:flex;align-items:center;gap:10px;padding:12px 14px;
+                          background:rgba(255,255,255,0.08);border-bottom:2px solid rgba(255,255,255,0.1)"
+                   [style.borderLeft]="'4px solid ' + leaveColor(clickedLeave()!.type).text"
+                   (click)="$event.stopPropagation()">
+                <div style="min-width:0;flex:1">
+                  <div style="font-size:0.9rem;font-weight:700;line-height:1.3">{{ clickedLeave()!.memberName }}</div>
+                  <div style="font-size:0.78rem;opacity:0.65;margin-top:2px">
+                    {{ clickedLeave()!.type }} · {{ formatDateRange(clickedLeave()!) }}
+                  </div>
+                </div>
+                <app-icon-btn icon="close" size="sm" tooltip="Dismiss" (btnClick)="clickedLeave.set(null); $event.stopPropagation()" />
+              </div>
+            }
+
+            <!-- Day name headers -->
+            <div style="display:grid;grid-template-columns:repeat(5,1fr);
+                        border-bottom:2px solid rgba(255,255,255,0.08)">
+              @for (d of dayNames; track d) {
+                <div style="padding:8px 4px 6px;font-size:0.65rem;font-weight:700;
+                            text-transform:uppercase;letter-spacing:0.04em;opacity:0.4;text-align:center;
+                            border-right:1px solid rgba(255,255,255,0.04)">{{ d }}</div>
+              }
+            </div>
+
+            <!-- Week rows -->
+            @for (week of calendarWeeks(); track week.cells[0].dateStr) {
+              <!-- Date numbers row -->
+              <div style="display:grid;grid-template-columns:repeat(5,1fr);
+                          border-bottom:1px solid rgba(255,255,255,0.05)">
+                @for (day of week.cells; track day.dateStr) {
+                  <div style="padding:4px 4px;border-right:1px solid rgba(255,255,255,0.04);display:flex;justify-content:center"
+                       [style.background]="day.isToday ? 'rgba(100,181,246,0.08)' : 'transparent'"
+                       [style.opacity]="day.isCurrentMonth ? '1' : '0.3'">
+                    <span style="font-size:0.75rem;font-weight:600;display:inline-flex;align-items:center;
+                                  justify-content:center;width:22px;height:22px;border-radius:50%"
+                          [style.background]="day.isToday ? '#64b5f6' : 'transparent'"
+                          [style.color]="day.isToday ? '#000' : 'rgba(255,255,255,0.6)'">
+                      {{ day.date | date:'d' }}
+                    </span>
+                  </div>
+                }
+              </div>
+
+              <!-- Lane rows: one row per concurrent leave -->
+              @if (week.numLanes === 0) {
+                <div style="display:grid;grid-template-columns:repeat(5,1fr);
+                            border-bottom:1px solid rgba(255,255,255,0.06)">
+                  @for (day of week.cells; track day.dateStr) {
+                    <div style="height:14px;border-right:1px solid rgba(255,255,255,0.04)"
+                         [style.background]="day.isToday ? 'rgba(100,181,246,0.04)' : 'transparent'">
+                    </div>
+                  }
+                </div>
+              } @else {
+                @for (laneIdx of week.laneIndices; track laneIdx; let last = $last) {
+                  <div style="display:grid;grid-template-columns:repeat(5,1fr)"
+                       [style.borderBottom]="last ? '1px solid rgba(255,255,255,0.06)' : 'none'">
+                    @for (day of week.cells; track day.dateStr) {
+                      <div style="height:28px;border-right:1px solid rgba(255,255,255,0.04)"
+                           [style.background]="day.isToday ? 'rgba(100,181,246,0.04)' : 'transparent'">
+                        @if (day.slots[laneIdx]; as slot) {
+                          <div [style.background]="leaveColor(slot.record.type).bg"
+                               [style.color]="leaveColor(slot.record.type).text"
+                               [style.borderRadius]="chipRadius(slot.isStart, slot.isEnd)"
+                               [style.marginLeft]="slot.isStart ? '3px' : '-1px'"
+                               [style.marginRight]="slot.isEnd ? '3px' : '-1px'"
+                               [style.opacity]="chipDimmed(slot.record) ? '0.2' : '1'"
+                               [style.boxShadow]="chipActive(slot.record) ? 'inset 0 0 0 2px ' + leaveColor(slot.record.type).text : 'none'"
+                               (mouseenter)="hoveredLeaveId.set(slot.record.id)"
+                               (mouseleave)="hoveredLeaveId.set(null)"
+                               (click)="toggleClick(slot.record); $event.stopPropagation()"
+                               style="height:22px;margin-top:3px;display:flex;align-items:center;
+                                      padding:0 6px;font-size:0.65rem;font-weight:600;white-space:nowrap;
+                                      cursor:pointer;transition:opacity 0.1s,box-shadow 0.1s;overflow:hidden">
+                            @if (slot.isStart) {
+                              {{ firstName(slot.record.memberName) }}
+                            }
+                          </div>
+                        }
+                      </div>
+                    }
+                  </div>
+                }
+              }
+            }
+          </div>
+        </div>
+
+      } @else {
+        <!-- List view -->
+        @if (groups().length === 0) {
+          <mat-card appearance="outlined">
+            <mat-card-content style="padding:48px;text-align:center;opacity:0.5">
+              <mat-icon style="font-size:3rem;width:3rem;height:3rem;display:block;margin:0 auto 16px">event_busy</mat-icon>
+              <div>No leave records found</div>
+            </mat-card-content>
+          </mat-card>
+        } @else {
+          <mat-accordion multi>
+            @for (g of groups(); track g.teamMemberId) {
+              <mat-expansion-panel [expanded]="true" style="margin-bottom:8px">
+                <mat-expansion-panel-header collapsedHeight="auto" expandedHeight="auto" style="padding:12px 16px">
+                  <mat-panel-title style="flex-shrink:0;margin-right:8px">
+                    <div style="display:flex;align-items:center;gap:10px">
+                      <div style="width:34px;height:34px;border-radius:50%;background:var(--mat-sys-primary);
+                                  display:flex;align-items:center;justify-content:center;
+                                  font-size:0.75rem;font-weight:600;flex-shrink:0">
+                        {{ initials(g.memberName) }}
+                      </div>
+                      <span style="font-weight:500;font-size:0.9rem">{{ g.memberName }}</span>
+                    </div>
+                  </mat-panel-title>
+                  <mat-panel-description style="gap:6px;align-items:center;flex-wrap:wrap;
+                                                justify-content:flex-end;min-width:0">
+                    @if (g.annualDays > 0) {
+                      <span class="leave-badge leave-annual">{{ g.annualDays }}d annual</span>
+                    }
+                    @if (g.sickDays > 0) {
+                      <span class="leave-badge leave-sick">{{ g.sickDays }}d sick</span>
+                    }
+                    @if (g.otherDays > 0) {
+                      <span class="leave-badge leave-other">{{ g.otherDays }}d other</span>
+                    }
+                    <span style="opacity:0.5;font-size:0.8rem;white-space:nowrap">{{ g.totalDays }}d total</span>
+                  </mat-panel-description>
+                </mat-expansion-panel-header>
+
+                <div style="display:flex;flex-direction:column;gap:6px;padding:8px 0">
+                  @for (r of g.records; track r.id) {
+                    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+                                padding:10px 12px;border-radius:8px;background:rgba(255,255,255,0.03)">
+                      <span [class]="'leave-badge leave-' + r.type.toLowerCase()">{{ r.type }}</span>
+                      <span style="font-size:0.85rem;white-space:nowrap">
+                        {{ r.startDate | date:'d MMM' }} – {{ r.endDate | date:'d MMM y' }}
+                      </span>
+                      <span style="font-weight:600;font-size:0.85rem;white-space:nowrap">{{ r.daysCount }}d</span>
+                      @if (r.notes) {
+                        <span style="opacity:0.55;font-size:0.8rem;flex:1;min-width:0;
+                                     overflow:hidden;text-overflow:ellipsis;white-space:nowrap"
+                              [matTooltip]="r.notes">{{ r.notes }}</span>
+                      } @else {
+                        <span style="flex:1"></span>
+                      }
+                      <div style="display:flex;gap:2px;flex-shrink:0;margin-left:auto">
+                        <app-icon-btn icon="edit" size="sm" tooltip="Edit" (btnClick)="openEdit(r)" />
+                        <app-icon-btn icon="delete" size="sm" tooltip="Delete" [danger]="true" (btnClick)="delete(r)" />
+                      </div>
+                    </div>
+                  }
+                </div>
+              </mat-expansion-panel>
+            }
+          </mat-accordion>
+        }
+      }
+    }

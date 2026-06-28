@@ -1,0 +1,91 @@
+using TeamManager.Api.Middleware;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using TeamManager.Api.Application.DTOs.Timesheet;
+using TeamManager.Api.Application.Services.Interfaces;
+using TeamManager.Api.Infrastructure.Data;
+
+namespace TeamManager.Api.Presentation.Controllers;
+
+public record EnqueueSyncRequest(Guid[] EntryIds, string? Cookie = null);
+
+[ApiController]
+[RequireFeature("team")]
+[RequireSelfOrLead]
+[Route("api/v1/team-members/{memberId:guid}/timesheets")]
+public class TimesheetsController(ITimesheetService service) : ControllerBase
+{
+    [HttpGet]
+    public async Task<IActionResult> GetByMonth(Guid memberId, [FromQuery] int year, [FromQuery] int month)
+        => Ok(await service.GetByMonthAsync(memberId, year, month));
+
+    [HttpPost]
+    public async Task<IActionResult> Create(Guid memberId, [FromBody] CreateTimesheetEntryRequest req)
+    {
+        try
+        {
+            var result = await service.CreateAsync(memberId, req);
+            _ = WebSocketMiddleware.BroadcastAsync("timesheet_entry_created", new { memberId, entry = result });
+            return Created("", result);
+        }
+        catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
+    }
+
+    [HttpPut("{entryId:guid}")]
+    public async Task<IActionResult> Update(Guid memberId, Guid entryId, [FromBody] UpdateTimesheetEntryRequest req)
+    {
+        try
+        {
+            var result = await service.UpdateAsync(memberId, entryId, req);
+            if (result is null) return NotFound();
+            _ = WebSocketMiddleware.BroadcastAsync("timesheet_entry_updated", new { memberId, entry = result });
+            return Ok(result);
+        }
+        catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
+    }
+
+    [HttpDelete("{entryId:guid}")]
+    public async Task<IActionResult> Delete(Guid memberId, Guid entryId)
+    {
+        var success = await service.DeleteAsync(memberId, entryId);
+        if (!success) return NotFound();
+        _ = WebSocketMiddleware.BroadcastAsync("timesheet_entry_deleted", new { memberId, entryId });
+        return NoContent();
+    }
+
+    [HttpPost("enqueue-sync")]
+    public async Task<IActionResult> EnqueueSync(Guid memberId, [FromBody] EnqueueSyncRequest req, [FromServices] AppDbContext db)
+    {
+        var addConfig = await db.ApiRequestConfigs
+            .Where(c => c.Action == "AddTimesheetEntry" && c.Enabled)
+            .Select(c => new { c.Url, c.BodyTemplate, c.HeadersJson, c.StoredCookie })
+            .FirstOrDefaultAsync();
+
+        if (addConfig != null)
+        {
+            var needsCookie = addConfig.Url.Contains("{cookie}")
+                || addConfig.BodyTemplate.Contains("{cookie}")
+                || addConfig.HeadersJson.Contains("{cookie}");
+            var cookieAvailable = !string.IsNullOrWhiteSpace(addConfig.StoredCookie)
+                || !string.IsNullOrWhiteSpace(req.Cookie);
+            if (needsCookie && !cookieAvailable)
+                return BadRequest(new { message = "Cookie required for sync. Set one in Integrations → Credentials." });
+        }
+
+        var count = await service.EnqueueSyncAsync(memberId, req.EntryIds);
+        return Ok(new { enqueued = count });
+    }
+
+    [HttpPost("analyze-quality")]
+    public async Task<IActionResult> AnalyzeQuality(Guid memberId, [FromBody] AnalyzeTimesheetQualityRequest req)
+        => Ok(await service.AnalyzeQualityAsync(memberId, req.LookbackDays));
+
+    [HttpGet("export")]
+    public async Task<IActionResult> Export(Guid memberId, [FromQuery] int year, [FromQuery] int month)
+    {
+        var bytes = await service.ExportMonthAsync(memberId, year, month);
+        return File(bytes,
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            $"timesheet-{year:D4}-{month:D2}.xlsx");
+    }
+}

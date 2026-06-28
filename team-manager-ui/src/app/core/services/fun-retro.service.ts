@@ -1,0 +1,54 @@
+import { Injectable, inject } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { Observable } from 'rxjs';
+import { FunRetroAnalysis, FunRetroSession, FunRetroSessionSummary } from '../models/fun-retro.model';
+
+@Injectable({ providedIn: 'root' })
+export class FunRetroService {
+  private http = inject(HttpClient);
+  private base = '/api/v1/fun-retro';
+
+  getSessions(): Observable<FunRetroSessionSummary[]> {
+    return this.http.get<FunRetroSessionSummary[]>(this.base);
+  }
+
+  getSession(id: string): Observable<FunRetroSession> {
+    return this.http.get<FunRetroSession>(`${this.base}/${id}`);
+  }
+
+  createSession(req: { title?: string; sprintId?: string }): Observable<FunRetroSession> {
+    return this.http.post<FunRetroSession>(this.base, req);
+  }
+
+  addCard(sessionId: string, column: string, text: string): Observable<FunRetroSession> {
+    return this.http.post<FunRetroSession>(`${this.base}/${sessionId}/cards`, { column, text });
+  }
+
+  deleteCard(sessionId: string, cardId: string): Observable<void> {
+    return this.http.delete<void>(`${this.base}/${sessionId}/cards/${cardId}`);
+  }
+
+  setPhase(sessionId: string, phase: string): Observable<FunRetroSession> {
+    return this.http.put<FunRetroSession>(`${this.base}/${sessionId}/phase`, { phase });
+  }
+
+  toggleVote(sessionId: string, cardId: string): Observable<void> {
+    return this.http.post<void>(`${this.base}/${sessionId}/cards/${cardId}/vote`, {});
+  }
+
+  toggleReaction(sessionId: string, cardId: string, emoji: string): Observable<void> {
+    return this.http.post<void>(`${this.base}/${sessionId}/cards/${cardId}/react`, { emoji });
+  }
+
+  updateCardPosition(sessionId: string, cardId: string, x: number, y: number): Observable<void> {
+    return this.http.patch<void>(`${this.base}/${sessionId}/cards/${cardId}/position`, { x, y });
+  }
+
+  updateCardColor(sessionId: string, cardId: string, color: string | null): Observable<void> {
+    return this.http.patch<void>(`${this.base}/${sessionId}/cards/${cardId}/color`, { color });
+  }
+
+  analyse(sessionId: string): Observable<FunRetroAnalysis> {
+    return this.http.post<FunRetroAnalysis>(`${this.base}/${sessionId}/analyse`, {});
+  }
+}
