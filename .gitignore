@@ -8,6 +8,13 @@
 # Claude Code
 .claude/settings.local.json
 
+# MCP / tool config with embedded secrets
+.mcp.json
+.opencode/opencode.json
+
+# HTTP Basic Auth credentials
+.htpasswd
+
 # Playwright MCP session logs
 .playwright-mcp/
 
