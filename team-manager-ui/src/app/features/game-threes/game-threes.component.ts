@@ -1,6 +1,6 @@
 import {
   Component, inject, signal, computed, OnInit, OnDestroy,
-  HostListener, ChangeDetectionStrategy, ElementRef, ViewChild, AfterViewInit
+  HostListener, ChangeDetectionStrategy, AfterViewInit
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
@@ -11,44 +11,34 @@ import { GameThreesService } from '../../core/services/game-threes.service';
 import { WebSocketService } from '../../core/websocket/websocket.service';
 import { FeatureAccessService } from '../../core/services/feature-access.service';
 import { NavService } from '../../core/nav/nav.service';
-import { GameThreesSession, GameThreesSessionSummary, GameThreesParticipant } from '../../core/models/game-threes.model';
+import { GameThreesSession, GameThreesSessionSummary } from '../../core/models/game-threes.model';
 
-// Tile colours: 1 = white, 2 = pale blue, 3+ follow Threes-inspired palette
 const TILE_COLORS: Record<number, string> = {
   0:    'rgba(255,255,255,0.04)',
-  1:    '#f0ece4',
-  2:    '#aee1f9',
-  3:    '#f6635c',
-  6:    '#f2a45a',
-  12:   '#f5c842',
-  24:   '#9dd96c',
-  48:   '#5fcfa0',
-  96:   '#4db6f0',
-  192:  '#7b88f7',
-  384:  '#b580f5',
-  768:  '#f07ac4',
-  1536: '#f0425c',
-  3072: '#ffd700',
+  1:    '#f0ece4', 2:    '#aee1f9', 3:    '#f6635c',
+  6:    '#f2a45a', 12:   '#f5c842', 24:   '#9dd96c',
+  48:   '#5fcfa0', 96:   '#4db6f0', 192:  '#7b88f7',
+  384:  '#b580f5', 768:  '#f07ac4', 1536: '#f0425c', 3072: '#ffd700',
 };
 
 const TILE_TEXT: Record<number, string> = {
-  0:    'transparent',
-  1:    '#8a8077',
-  2:    '#3a85b0',
-  3:    '#ffffff',
-  6:    '#ffffff',
-  12:   '#ffffff',
-  24:   '#ffffff',
-  48:   '#ffffff',
-  96:   '#ffffff',
-  192:  '#ffffff',
-  384:  '#ffffff',
-  768:  '#ffffff',
-  1536: '#ffffff',
-  3072: '#776e65',
+  0: 'transparent', 1: '#8a8077', 2: '#3a85b0',
+  3: '#ffffff', 6: '#ffffff', 12: '#ffffff', 24: '#ffffff',
+  48: '#ffffff', 96: '#ffffff', 192: '#ffffff', 384: '#ffffff',
+  768: '#ffffff', 1536: '#ffffff', 3072: '#776e65',
 };
 
 const PLAYER_COLORS = ['#64b5f6', '#ffa726', '#81c784', '#f48fb1', '#ce93d8', '#80cbc4'];
+
+interface AnimTile {
+  id: number;
+  value: number;
+  row: number;
+  col: number;
+  state: 'idle' | 'appearing' | 'merged';
+}
+
+interface SimMove { fromIdx: number; toIdx: number; willMerge: boolean; }
 
 @Component({
   selector: 'app-game-threes',
@@ -56,7 +46,7 @@ const PLAYER_COLORS = ['#64b5f6', '#ffa726', '#81c784', '#f48fb1', '#ce93d8', '#
   imports: [FormsModule, MatIconModule, MatSnackBarModule],
   changeDetection: ChangeDetectionStrategy.Default,
   template: `
-    <div class="page" #pageEl [class.no-scroll]="activePlaying()" [class.immersive]="nav.hideNav()">
+    <div class="page" [class.no-scroll]="activePlaying()" [class.immersive]="nav.hideNav()">
 
       @if (!session()) {
         <!-- ── LOBBY ── -->
@@ -64,7 +54,7 @@ const PLAYER_COLORS = ['#64b5f6', '#ffa726', '#81c784', '#f48fb1', '#ce93d8', '#
           <div class="lobby-badge">3</div>
           <div>
             <h2 class="lobby-title">Threes!</h2>
-            <span class="lobby-sub">Slide 1s & 2s together — then match threes</span>
+            <span class="lobby-sub">Slide 1s &amp; 2s together — then match threes</span>
           </div>
           @if (canHost()) {
             <button class="create-btn" (click)="showCreate = !showCreate" [class.active]="showCreate">
@@ -172,14 +162,25 @@ const PLAYER_COLORS = ['#64b5f6', '#ffa726', '#81c784', '#f48fb1', '#ce93d8', '#
                   @if (p.isGameOver) { <span class="board-over">GAME OVER</span> }
                 </div>
                 <div class="board">
-                  @for (cell of p.board; track $index) {
-                    <div class="cell"
-                         [style.background]="tileColor(cell)"
-                         [style.color]="tileText(cell)"
-                         [class.tile-appear]="p.isMe && cellAnim().appear.includes($index)"
-                         [class.tile-merge]="p.isMe && cellAnim().merge.includes($index)">
-                      {{ cell || '' }}
-                    </div>
+                  @if (p.isMe) {
+                    @for (_ of BOARD_BG; track $index) { <div class="cell-bg"></div> }
+                    @for (tile of myAnimTiles(); track tile.id) {
+                      <div class="tile-anim"
+                           [style.left]="tilePos(tile.col)"
+                           [style.top]="tilePos(tile.row)"
+                           [style.background]="tileColor(tile.value)"
+                           [style.color]="tileText(tile.value)"
+                           [class.tile-appear]="tile.state === 'appearing'"
+                           [class.tile-merge]="tile.state === 'merged'">
+                        {{ tile.value }}
+                      </div>
+                    }
+                  } @else {
+                    @for (cell of p.board; track $index) {
+                      <div class="cell" [style.background]="tileColor(cell)" [style.color]="tileText(cell)">
+                        {{ cell || '' }}
+                      </div>
+                    }
                   }
                 </div>
               </div>
@@ -197,7 +198,6 @@ const PLAYER_COLORS = ['#64b5f6', '#ffa726', '#81c784', '#f48fb1', '#ce93d8', '#
     .page.immersive { max-width: 100%; padding: 0; }
     .page.immersive .game-wrap { padding: 8px; gap: 8px; }
 
-    /* Lobby */
     .lobby-header { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
     .lobby-badge { width: 32px; height: 32px; border-radius: 8px; background: #f6635c; color: #fff; font-size: 1.1rem; font-weight: 900; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
     .lobby-title { font-size: 1.3rem; font-weight: 700; color: rgba(255,255,255,0.9); margin: 0 0 2px; }
@@ -235,7 +235,6 @@ const PLAYER_COLORS = ['#64b5f6', '#ffa726', '#81c784', '#f48fb1', '#ce93d8', '#
     .sc-status { font-size: 0.72rem; font-weight: 600; padding: 3px 8px; border-radius: 10px; }
     .sc-status.inprogress { background: rgba(255,167,38,0.12); color: #ffa726; }
 
-    /* Game */
     .game-wrap { display: flex; flex-direction: column; gap: 14px; }
     .game-header { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
     .back-btn { background: transparent; border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 6px; cursor: pointer; color: rgba(255,255,255,0.55); display: flex; align-items: center; transition: all 0.12s; }
@@ -263,9 +262,12 @@ const PLAYER_COLORS = ['#64b5f6', '#ffa726', '#81c784', '#f48fb1', '#ce93d8', '#
     .next-tile { width: 28px; height: 28px; border-radius: 5px; display: flex; align-items: center; justify-content: center; font-size: 0.85rem; font-weight: 800; flex-shrink: 0; }
     .next-hint { font-size: 0.72rem; color: rgba(255,255,255,0.25); margin-left: 4px; }
 
-    /* Boards */
     .boards-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px; }
     .boards-grid.solo { grid-template-columns: minmax(200px, 340px); justify-content: center; }
+    @media (min-width: 768px) {
+      .boards-grid { grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
+      .boards-grid.solo { grid-template-columns: minmax(260px, 500px); }
+    }
 
     .board-wrap { display: flex; flex-direction: column; gap: 6px; }
     .board-wrap.gameover .board { opacity: 0.45; }
@@ -277,6 +279,7 @@ const PLAYER_COLORS = ['#64b5f6', '#ffa726', '#81c784', '#f48fb1', '#ce93d8', '#
     .board-over { font-size: 0.62rem; font-weight: 700; color: rgba(255,255,255,0.35); letter-spacing: 0.5px; }
 
     .board {
+      position: relative;
       display: grid;
       grid-template-columns: repeat(4, 1fr);
       gap: 6px;
@@ -284,28 +287,38 @@ const PLAYER_COLORS = ['#64b5f6', '#ffa726', '#81c784', '#f48fb1', '#ce93d8', '#
       border-radius: 8px;
       padding: 8px;
       aspect-ratio: 1;
+      --ts: calc((100% - 34px) / 4);
+      --step: calc(var(--ts) + 6px);
     }
 
     .cell {
-      display: flex;
-      align-items: center;
-      justify-content: center;
+      display: flex; align-items: center; justify-content: center;
+      border-radius: 4px; font-weight: 800; font-size: 1rem;
+      transition: background 0.1s; aspect-ratio: 1; min-width: 0;
+    }
+
+    .cell-bg {
+      background: rgba(255,255,255,0.04);
       border-radius: 4px;
-      font-weight: 800;
-      font-size: 1rem;
-      transition: background 0.08s, color 0.08s;
       aspect-ratio: 1;
-      min-width: 0;
+    }
+
+    .tile-anim {
+      position: absolute; z-index: 2;
+      width: var(--ts); height: var(--ts);
+      display: flex; align-items: center; justify-content: center;
+      border-radius: 4px; font-weight: 800; font-size: 1rem;
+      transition: left 0.12s ease-in-out, top 0.12s ease-in-out;
+      will-change: left, top;
     }
 
     @keyframes tile-appear { 0%{transform:scale(0);opacity:0} 70%{transform:scale(1.12)} 100%{transform:scale(1);opacity:1} }
-    @keyframes tile-merge-pop { 0%{transform:scale(1)} 40%{transform:scale(1.2)} 100%{transform:scale(1)} }
-    .cell.tile-appear { animation: tile-appear 0.18s ease-out both; }
-    .cell.tile-merge  { animation: tile-merge-pop 0.22s cubic-bezier(0.34,1.56,0.64,1) both; }
+    @keyframes tile-merge-pop { 0%{transform:scale(1)} 45%{transform:scale(1.2)} 100%{transform:scale(1)} }
+    .tile-anim.tile-appear { animation: tile-appear 0.18s ease-out both; }
+    .tile-anim.tile-merge  { animation: tile-merge-pop 0.22s cubic-bezier(0.34,1.56,0.64,1) both; }
   `]
 })
 export class GameThreesComponent implements OnInit, OnDestroy, AfterViewInit {
-  @ViewChild('pageEl') pageEl!: ElementRef<HTMLDivElement>;
 
   private svc = inject(GameThreesService);
   private ws = inject(WebSocketService);
@@ -320,14 +333,21 @@ export class GameThreesComponent implements OnInit, OnDestroy, AfterViewInit {
   creating = signal(false);
   joining = signal(false);
 
+  myAnimTiles = signal<AnimTile[]>([]);
+  readonly BOARD_BG = Array.from({ length: 16 }, (_, i) => i);
+
+  private nextTileId = 0;
+  private touchBlocker = (e: TouchEvent) => { if (this.activePlaying() && e.touches[0].clientX < 20) e.preventDefault(); };
+  private moving = false;
+  private slideAnimDone = false;
+  private pendingNewBoard: number[] | null = null;
+  private prevBoardForAnim: number[] = [];
+
   showCreate = false;
   newTitle = '';
 
   private touchStartX = 0;
   private touchStartY = 0;
-
-  cellAnim = signal<{ appear: number[]; merge: number[] }>({ appear: [], merge: [] });
-  private animTimer: any;
 
   canHost = computed(() => this.featureAccess.hasAccess('threes-host'));
   alreadyJoined = computed(() => this.session()?.participants.some(p => p.isMe) ?? false);
@@ -369,10 +389,13 @@ export class GameThreesComponent implements OnInit, OnDestroy, AfterViewInit {
     });
   }
 
-  ngAfterViewInit() { this.pageEl.nativeElement.focus(); }
+  ngAfterViewInit() {
+    document.addEventListener('touchstart', this.touchBlocker, { passive: false });
+  }
 
   ngOnDestroy() {
     this.enterGame(false);
+    document.removeEventListener('touchstart', this.touchBlocker);
     this.destroy$.next();
     this.destroy$.complete();
   }
@@ -382,7 +405,112 @@ export class GameThreesComponent implements OnInit, OnDestroy, AfterViewInit {
     document.body.style.overflow = active ? 'hidden' : '';
   }
 
-  @HostListener('keydown', ['$event'])
+  // ── Tile positioning ─────────────────────────────────────────────────────────
+
+  tilePos(index: number): string {
+    return index === 0 ? '8px' : `calc(8px + ${index} * var(--step))`;
+  }
+
+  // ── Tile animation ───────────────────────────────────────────────────────────
+
+  private initMyTiles(board: number[]) {
+    this.myAnimTiles.set(
+      board.map((val, i) => val === 0 ? null : {
+        id: this.nextTileId++,
+        value: val,
+        row: Math.floor(i / 4),
+        col: i % 4,
+        state: 'idle' as const,
+      }).filter(Boolean) as AnimTile[]
+    );
+  }
+
+  private canMerge(a: number, b: number): boolean {
+    if (!a || !b) return false;
+    if ((a === 1 && b === 2) || (a === 2 && b === 1)) return true;
+    return a === b && a >= 3;
+  }
+
+  private simulateSlide(board: number[], direction: string): SimMove[] {
+    const moves: SimMove[] = [];
+    const isHoriz = direction === 'left' || direction === 'right';
+    const reversed = direction === 'right' || direction === 'down';
+
+    for (let line = 0; line < 4; line++) {
+      const indices = isHoriz
+        ? [0, 1, 2, 3].map(i => line * 4 + i)
+        : [0, 1, 2, 3].map(i => i * 4 + line);
+      const ordered = reversed ? [...indices].reverse() : indices;
+      const cells = ordered.map(idx => ({ idx, val: board[idx] }));
+      const nonZero = cells.filter(c => c.val !== 0);
+      const outPos = ordered;
+
+      let out = 0, i = 0;
+      while (i < nonZero.length) {
+        const a = nonZero[i];
+        const b = nonZero[i + 1];
+        if (b && this.canMerge(a.val, b.val)) {
+          moves.push({ fromIdx: a.idx, toIdx: outPos[out], willMerge: false });
+          moves.push({ fromIdx: b.idx, toIdx: outPos[out], willMerge: true });
+          out++; i += 2;
+        } else {
+          moves.push({ fromIdx: a.idx, toIdx: outPos[out], willMerge: false });
+          out++; i++;
+        }
+      }
+    }
+    return moves;
+  }
+
+  private applySlideToTiles(moves: SimMove[]) {
+    const tiles: AnimTile[] = this.myAnimTiles().map(t => ({ ...t, state: 'idle' as AnimTile['state'] }));
+    const moved = new Set<number>();
+
+    for (const m of moves) {
+      const fromRow = Math.floor(m.fromIdx / 4), fromCol = m.fromIdx % 4;
+      const toRow   = Math.floor(m.toIdx   / 4), toCol   = m.toIdx   % 4;
+      const tile = tiles.find(t => !moved.has(t.id) && t.row === fromRow && t.col === fromCol);
+      if (tile) {
+        tile.row = toRow;
+        tile.col = toCol;
+        if (m.willMerge) tile.state = 'merged';
+        moved.add(tile.id);
+      }
+    }
+    this.myAnimTiles.set(tiles);
+  }
+
+  private reconcile(prevBoard: number[], newBoard: number[]) {
+    const survivors = this.myAnimTiles().filter(t => t.state !== 'merged');
+    const used = new Set<number>();
+    const result: AnimTile[] = [];
+
+    for (const tile of survivors) {
+      const posIdx = tile.row * 4 + tile.col;
+      if (used.has(posIdx)) continue;
+      const newVal = newBoard[posIdx];
+      if (!newVal) continue;
+      used.add(posIdx);
+      result.push(tile.value !== newVal
+        ? { ...tile, value: newVal, state: 'merged' }
+        : { ...tile, state: 'idle' });
+    }
+
+    // Spawned tile: any position in newBoard that no survivor claimed
+    for (let i = 0; i < 16; i++) {
+      if (newBoard[i] !== 0 && !used.has(i)) {
+        result.push({ id: this.nextTileId++, value: newBoard[i], row: Math.floor(i / 4), col: i % 4, state: 'appearing' });
+        used.add(i);
+      }
+    }
+
+    this.myAnimTiles.set(result);
+    setTimeout(() => this.myAnimTiles.update(ts => ts.map(t => ({ ...t, state: 'idle' }))), 260);
+  }
+
+  // ── Input handlers ───────────────────────────────────────────────────────────
+
+  @HostListener('window:keydown', ['$event'])
   onKey(event: KeyboardEvent) {
     const s = this.session();
     if (!s || s.status !== 'inprogress') return;
@@ -390,6 +518,8 @@ export class GameThreesComponent implements OnInit, OnDestroy, AfterViewInit {
     if (!me || me.isGameOver) return;
     const dirMap: Record<string, 'left' | 'right' | 'up' | 'down'> = {
       ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down',
+      a: 'left', d: 'right', w: 'up', s: 'down',
+      A: 'left', D: 'right', W: 'up', S: 'down',
     };
     const dir = dirMap[event.key];
     if (!dir) return;
@@ -412,39 +542,58 @@ export class GameThreesComponent implements OnInit, OnDestroy, AfterViewInit {
     const dx = event.changedTouches[0].clientX - this.touchStartX;
     const dy = event.changedTouches[0].clientY - this.touchStartY;
     if (Math.max(Math.abs(dx), Math.abs(dy)) < 30) return;
-    if (Math.abs(dx) > Math.abs(dy)) {
-      this.move(dx > 0 ? 'right' : 'left');
-    } else {
-      this.move(dy > 0 ? 'down' : 'up');
-    }
+    this.move(Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy > 0 ? 'down' : 'up'));
   }
 
   private move(direction: 'left' | 'right' | 'up' | 'down') {
+    if (this.moving) return;
     const s = this.session();
-    if (!s) return;
-    const prevBoard = this.myParticipant()?.board ?? [];
+    const me = this.myParticipant();
+    if (!s || !me) return;
+    this.moving = true;
+
+    const prevBoard = [...me.board];
+    const moves = this.simulateSlide(prevBoard, direction);
+    const willChange = moves.some(m => m.fromIdx !== m.toIdx || m.willMerge);
+
+    if (willChange) {
+      this.applySlideToTiles(moves);
+      this.slideAnimDone = false;
+      this.pendingNewBoard = null;
+      this.prevBoardForAnim = prevBoard;
+
+      setTimeout(() => {
+        this.slideAnimDone = true;
+        this.moving = false;
+        if (this.pendingNewBoard) {
+          this.reconcile(this.prevBoardForAnim, this.pendingNewBoard);
+          this.pendingNewBoard = null;
+        }
+      }, 120);
+    } else {
+      this.moving = false;
+    }
+
     this.svc.makeMove(s.id, direction).subscribe({
       next: updated => {
         this.session.set(updated);
         const newBoard = updated.participants.find(p => p.isMe)?.board ?? [];
-        this.triggerCellAnim(prevBoard, newBoard);
+        if (willChange) {
+          if (this.slideAnimDone) {
+            this.reconcile(this.prevBoardForAnim, newBoard);
+          } else {
+            this.pendingNewBoard = newBoard;
+          }
+        }
       },
-      error: () => {},
+      error: () => {
+        if (!this.slideAnimDone) this.moving = false;
+        this.initMyTiles(prevBoard);
+      },
     });
   }
 
-  private triggerCellAnim(prev: number[], curr: number[]) {
-    const appear: number[] = [];
-    const merge: number[] = [];
-    for (let i = 0; i < 16; i++) {
-      if (prev[i] === 0 && curr[i] !== 0) appear.push(i);
-      else if (prev[i] > 0 && curr[i] > prev[i]) merge.push(i);
-    }
-    if (appear.length === 0 && merge.length === 0) return;
-    clearTimeout(this.animTimer);
-    this.cellAnim.set({ appear, merge });
-    this.animTimer = setTimeout(() => this.cellAnim.set({ appear: [], merge: [] }), 320);
-  }
+  // ── Lobby / session actions ──────────────────────────────────────────────────
 
   loadSessions() {
     this.loading.set(true);
@@ -457,7 +606,13 @@ export class GameThreesComponent implements OnInit, OnDestroy, AfterViewInit {
   openSession(id: string) {
     this.loading.set(true);
     this.svc.getSession(id).subscribe({
-      next: s => { this.session.set(s); this.loading.set(false); this.enterGame(true); },
+      next: s => {
+        this.session.set(s);
+        const me = s.participants.find(p => p.isMe);
+        if (me) this.initMyTiles(me.board);
+        this.loading.set(false);
+        this.enterGame(true);
+      },
       error: () => { this.loading.set(false); this.snackBar.open('Failed to load game', 'OK', { duration: 3000 }); },
     });
   }
@@ -465,6 +620,7 @@ export class GameThreesComponent implements OnInit, OnDestroy, AfterViewInit {
   backToLobby() {
     this.enterGame(false);
     this.session.set(null);
+    this.myAnimTiles.set([]);
     this.loadSessions();
   }
 
@@ -476,6 +632,8 @@ export class GameThreesComponent implements OnInit, OnDestroy, AfterViewInit {
         this.showCreate = false;
         this.newTitle = '';
         this.session.set(s);
+        const me = s.participants.find(p => p.isMe);
+        if (me) this.initMyTiles(me.board);
         this.enterGame(true);
       },
       error: () => { this.creating.set(false); this.snackBar.open('Failed to create game', 'OK', { duration: 3000 }); },
@@ -487,12 +645,20 @@ export class GameThreesComponent implements OnInit, OnDestroy, AfterViewInit {
     if (!s) return;
     this.joining.set(true);
     this.svc.joinSession(s.id).subscribe({
-      next: updated => { this.session.set(updated); this.joining.set(false); this.enterGame(true); },
+      next: updated => {
+        this.session.set(updated);
+        const me = updated.participants.find(p => p.isMe);
+        if (me) this.initMyTiles(me.board);
+        this.joining.set(false);
+        this.enterGame(true);
+      },
       error: err => { this.joining.set(false); this.snackBar.open(err?.error?.error ?? 'Failed to join', 'OK', { duration: 3000 }); },
     });
   }
 
+  // ── Helpers ──────────────────────────────────────────────────────────────────
+
   tileColor(value: number): string { return TILE_COLORS[value] ?? '#c3a07a'; }
-  tileText(value: number): string { return TILE_TEXT[value] ?? '#ffffff'; }
+  tileText(value: number): string  { return TILE_TEXT[value]  ?? '#ffffff'; }
   playerColor(order: number): string { return PLAYER_COLORS[order % PLAYER_COLORS.length]; }
 }

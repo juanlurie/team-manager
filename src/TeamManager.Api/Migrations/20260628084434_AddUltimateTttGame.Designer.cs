@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using TeamManager.Api.Infrastructure.Data;
@@ -11,9 +12,11 @@ using TeamManager.Api.Infrastructure.Data;
 namespace TeamManager.Api.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260628084434_AddUltimateTttGame")]
+    partial class AddUltimateTttGame
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1202,13 +1205,10 @@ namespace TeamManager.Api.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
 
-                    b.Property<bool>("IsAi")
-                        .HasColumnType("boolean");
-
                     b.Property<bool>("IsWinner")
                         .HasColumnType("boolean");
 
-                    b.Property<Guid?>("MemberId")
+                    b.Property<Guid>("MemberId")
                         .HasColumnType("uuid");
 
                     b.Property<int>("Order")
@@ -1253,9 +1253,6 @@ namespace TeamManager.Api.Migrations
 
                     b.Property<Guid?>("CurrentTurnMemberId")
                         .HasColumnType("uuid");
-
-                    b.Property<bool>("IsAiGame")
-                        .HasColumnType("boolean");
 
                     b.Property<int>("NextBoardIndex")
                         .HasColumnType("integer");
@@ -4178,7 +4175,8 @@ namespace TeamManager.Api.Migrations
                     b.HasOne("TeamManager.Api.Domain.Entities.TeamMember", "Member")
                         .WithMany()
                         .HasForeignKey("MemberId")
-                        .OnDelete(DeleteBehavior.Restrict);
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
 
                     b.HasOne("TeamManager.Api.Domain.Entities.GameUltimateTttSession", "Session")
                         .WithMany("Participants")

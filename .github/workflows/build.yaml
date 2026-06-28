@@ -43,7 +43,6 @@ jobs:
           file: ./src/TeamManager.Api/Dockerfile
           push: true
           tags: |
-            ${{ env.REGISTRY }}/${{ env.OWNER }}/team-manager-api:latest
             ${{ env.REGISTRY }}/${{ env.OWNER }}/team-manager-api:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
@@ -69,7 +68,6 @@ jobs:
           file: ./team-manager-ui/Dockerfile
           push: true
           tags: |
-            ${{ env.REGISTRY }}/${{ env.OWNER }}/team-manager-ui:latest
             ${{ env.REGISTRY }}/${{ env.OWNER }}/team-manager-ui:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
@@ -90,7 +88,6 @@ jobs:
           file: ./mcp-server/Dockerfile
           push: true
           tags: |
-            ${{ env.REGISTRY }}/${{ env.OWNER }}/team-manager-mcp:latest
             ${{ env.REGISTRY }}/${{ env.OWNER }}/team-manager-mcp:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
@@ -104,16 +101,14 @@ jobs:
           ignore-unfixed: true
           format: table
 
-      - name: Update k8s image tags
+      - name: Update beta overlay image tags
         run: |
-          sed -i "s|${{ env.REGISTRY }}/${{ env.OWNER }}/team-manager-api:.*|${{ env.REGISTRY }}/${{ env.OWNER }}/team-manager-api:${{ github.sha }}|g" k8s/api.yaml
-          sed -i "s|${{ env.REGISTRY }}/${{ env.OWNER }}/team-manager-ui:.*|${{ env.REGISTRY }}/${{ env.OWNER }}/team-manager-ui:${{ github.sha }}|g" k8s/ui.yaml
-          sed -i "s|${{ env.REGISTRY }}/${{ env.OWNER }}/team-manager-mcp:.*|${{ env.REGISTRY }}/${{ env.OWNER }}/team-manager-mcp:${{ github.sha }}|g" k8s/mcp-gateway.yaml
+          sed -i "s|newTag: .*|newTag: \"${{ github.sha }}\"|g" k8s/overlays/beta/kustomization.yaml
 
-      - name: Commit and push manifest updates
+      - name: Commit and push beta manifest
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add k8s/api.yaml k8s/ui.yaml k8s/mcp-gateway.yaml
-          git diff --staged --quiet || git commit -m "chore: update image tags to ${{ github.sha }} [skip ci]"
+          git add k8s/overlays/beta/kustomization.yaml
+          git diff --staged --quiet || git commit -m "chore: deploy ${{ github.sha }} to beta [skip ci]"
           git push

@@ -28,6 +28,10 @@ export const GAMES_ROUTES: Routes = [
         loadChildren: () => import('../game-threes/game-threes.routes').then(m => m.GAME_THREES_ROUTES)
       },
       {
+        path: 'ultimate-ttt',
+        loadChildren: () => import('../game-ultimate-ttt/game-ultimate-ttt.routes').then(m => m.GAME_ULTIMATE_TTT_ROUTES)
+      },
+      {
         path: 'leaderboard',
         loadComponent: () => import('../leaderboard/leaderboard.component').then(m => m.LeaderboardComponent)
       }

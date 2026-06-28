@@ -102,6 +102,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<Game2048Participant> Game2048Participants => Set<Game2048Participant>();
     public DbSet<GameThreesSession> GameThreesSessions => Set<GameThreesSession>();
     public DbSet<GameThreesParticipant> GameThreesParticipants => Set<GameThreesParticipant>();
+    public DbSet<GameUltimateTttSession> GameUltimateTttSessions => Set<GameUltimateTttSession>();
+    public DbSet<GameUltimateTttParticipant> GameUltimateTttParticipants => Set<GameUltimateTttParticipant>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -188,5 +190,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         modelBuilder.ApplyConfiguration(new Game2048ParticipantConfiguration());
         modelBuilder.ApplyConfiguration(new GameThreesSessionConfiguration());
         modelBuilder.ApplyConfiguration(new GameThreesParticipantConfiguration());
+        modelBuilder.ApplyConfiguration(new GameUltimateTttSessionConfiguration());
+        modelBuilder.ApplyConfiguration(new GameUltimateTttParticipantConfiguration());
     }
 }

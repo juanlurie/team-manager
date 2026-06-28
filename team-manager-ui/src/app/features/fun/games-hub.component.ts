@@ -16,6 +16,7 @@ const GAMES_TABS: GamesTab[] = [
   { label: 'Dots & Boxes', route: 'dots-and-boxes', featureKey: 'dots-and-boxes' },
   { label: '2048', route: '2048', featureKey: '2048' },
   { label: 'Threes', route: 'threes', featureKey: 'threes' },
+  { label: 'Tic Tac Toe', route: 'ultimate-ttt', featureKey: 'ultimate-ttt' },
   { label: 'Leaderboard', route: 'leaderboard', featureKey: 'leaderboard' },
 ];
 
