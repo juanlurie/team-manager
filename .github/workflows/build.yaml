@@ -56,8 +56,8 @@ jobs:
           ignore-unfixed: true
           format: table
 
-      - name: Audit UI dependencies
-        run: npm audit --audit-level=high
+      - name: Audit UI dependencies (production only)
+        run: npm audit --omit=dev --audit-level=high
         working-directory: ./team-manager-ui
         continue-on-error: true
 
