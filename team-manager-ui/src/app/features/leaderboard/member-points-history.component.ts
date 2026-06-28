@@ -98,7 +98,7 @@ const SOURCE_COLORS: Record<string, string> = {
 export class MemberPointsHistoryComponent implements OnInit {
   private svc = inject(LeaderboardService);
   private ref = inject(MatDialogRef<MemberPointsHistoryComponent>);
-  private data = inject<{ memberId: string; firstName: string; lastName: string; avatarSeed: string | null; totalPoints: number }>(MAT_DIALOG_DATA);
+  protected data = inject<{ memberId: string; firstName: string; lastName: string; avatarSeed: string | null; totalPoints: number }>(MAT_DIALOG_DATA);
 
   loading = signal(true);
   history = signal<PointHistoryEntry[]>([]);
