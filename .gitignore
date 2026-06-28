@@ -8,6 +8,9 @@
 # Claude Code
 .claude/settings.local.json
 
+# Playwright MCP session logs
+.playwright-mcp/
+
 # .NET build output
 src/TeamManager.Api/bin/
 src/TeamManager.Api/obj/
