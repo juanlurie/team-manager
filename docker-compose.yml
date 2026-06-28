@@ -38,7 +38,8 @@ services:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:5000
       ConnectionStrings__DefaultConnection: "Host=db;Port=5432;Database=${DB_NAME};Username=${DB_USER};Password=${DB_PASSWORD}"
-      Jwt__ClientSecret: ${GOOGLE_CLIENT_SECRET}
+      Jwt__Authority: ""
+      Jwt__Audience: ""
     networks:
       - default
     ports:

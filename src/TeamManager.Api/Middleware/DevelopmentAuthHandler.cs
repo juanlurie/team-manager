@@ -18,12 +18,22 @@ public class DevelopmentAuthHandler : AuthenticationHandler<AuthenticationScheme
         if (Request.Headers.ContainsKey("X-API-Key"))
             return Task.FromResult(AuthenticateResult.NoResult());
 
+        // Read optional override from config/env so different devs can point at their own account.
+        // We do NOT add email here on purpose — the ClaimsTransformer would then set TMID which
+        // causes feature checks to run. Without TMID the RequireFeature attribute skips the check,
+        // giving dev mode unrestricted access. auth/me handles the identity lookup separately.
+        var devEmail = Context.RequestServices
+            .GetService<IConfiguration>()
+            ?["DevAuth:Email"] ?? "admin@team.local";
+
         var claims = new[]
         {
-            new Claim(ClaimTypes.NameIdentifier, "65f1106f-6020-419f-bced-4011857e9f9b"),
+            new Claim(ClaimTypes.NameIdentifier, DevSub),
             new Claim("sub", DevSub),
             new Claim(ClaimTypes.Role, "TeamLead"),
-            new Claim("name", "Dev TeamLead")
+            new Claim("name", "Dev TeamLead"),
+            // DevEmail stored separately so auth/me can use it without triggering transformer lookup
+            new Claim("dev_email", devEmail),
         };
 
         var identity = new ClaimsIdentity(claims, Scheme.Name);

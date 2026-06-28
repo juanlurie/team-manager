@@ -164,11 +164,9 @@ import { Router } from '@angular/router';
         </div>
       } @else if (activeTab === 2) {
         <!-- ── Retrospective ── -->
-        <div style="padding-top:12px">
-          @if (dashboard(); as d) {
-            <app-sprint-retro [sprintId]="sprintId" [sprint]="d.sprint"></app-sprint-retro>
-          }
-        </div>
+        @if (dashboard(); as d) {
+          <app-sprint-retro [sprintId]="sprintId" [sprint]="d.sprint"></app-sprint-retro>
+        }
       } @else if (activeTab === 3) {
         <!-- ── MVP Vote ── -->
         <div style="padding-top:12px">

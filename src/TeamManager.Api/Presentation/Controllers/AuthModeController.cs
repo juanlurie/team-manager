@@ -25,6 +25,20 @@ public class AuthModeController(IConfiguration configuration, IHttpClientFactory
             return Unauthorized();
 
         var tmid = User.FindFirst("TMID")?.Value;
+
+        // Dev auth: no TMID from transformer, look up by dev_email claim
+        if (string.IsNullOrEmpty(tmid) && User.Identity?.AuthenticationType == "Development")
+        {
+            var email = User.FindFirst("dev_email")?.Value;
+            if (!string.IsNullOrEmpty(email))
+            {
+                var byEmail = await db.TeamMembers
+                    .FirstOrDefaultAsync(m => m.Email.ToLower() == email.ToLower() && m.IsActive);
+                if (byEmail != null)
+                    tmid = byEmail.Id.ToString();
+            }
+        }
+
         if (string.IsNullOrEmpty(tmid))
         {
             // Return Google claims so the frontend can pre-fill the access request form
