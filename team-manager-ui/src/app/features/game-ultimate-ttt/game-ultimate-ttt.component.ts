@@ -32,12 +32,27 @@ const INDICES = [0, 1, 2, 3, 4, 5, 6, 7, 8];
             <h2 class="lobby-title">Ultimate Tic Tac Toe</h2>
             <span class="lobby-sub">Win 3 boards in a row to claim the meta-board</span>
           </div>
+          <button class="help-btn" (click)="showRules = !showRules" [class.active]="showRules" title="How to play">?</button>
           @if (canHost()) {
             <button class="create-btn" (click)="showCreate = !showCreate" [class.active]="showCreate">
               <mat-icon>add</mat-icon> New Game
             </button>
           }
         </div>
+
+        @if (showRules) {
+          <div class="rules-panel">
+            <div class="rules-title">How to play Ultimate Tic Tac Toe</div>
+            <ul class="rules-list">
+              <li>The board is a <strong>3×3 grid of mini Tic Tac Toe boards</strong>.</li>
+              <li>Where you play inside a mini-board <strong>determines which mini-board your opponent must play in next</strong>.</li>
+              <li>If sent to an already-won or full board, your opponent may <strong>play anywhere</strong>.</li>
+              <li>Win a mini-board by getting <strong>3 in a row</strong> — just like regular Tic Tac Toe.</li>
+              <li>Win the game by claiming <strong>3 mini-boards in a row</strong> on the meta-board.</li>
+              <li>You can also play against the <strong>AI opponent</strong> when creating a game.</li>
+            </ul>
+          </div>
+        }
 
         @if (showCreate) {
           <div class="create-form">
@@ -90,12 +105,27 @@ const INDICES = [0, 1, 2, 3, 4, 5, 6, 7, 8];
           <div class="game-header">
             <button class="back-btn" (click)="backToLobby()"><mat-icon>arrow_back</mat-icon></button>
             <span class="game-title">{{ s.title || 'Ultimate Tic Tac Toe' }}</span>
+            <button class="help-btn" (click)="showRules = !showRules" [class.active]="showRules" title="How to play">?</button>
             @if (!alreadyJoined() && s.status === 'waiting') {
               <button class="action-btn primary" (click)="joinGame()" [disabled]="joining()">
                 {{ joining() ? 'Joining…' : 'Join Game' }}
               </button>
             }
           </div>
+
+          @if (showRules) {
+            <div class="rules-panel">
+              <div class="rules-title">How to play Ultimate Tic Tac Toe</div>
+              <ul class="rules-list">
+                <li>The board is a <strong>3×3 grid of mini Tic Tac Toe boards</strong>.</li>
+                <li>Where you play inside a mini-board <strong>determines which mini-board your opponent must play in next</strong>.</li>
+                <li>If sent to an already-won or full board, your opponent may <strong>play anywhere</strong>.</li>
+                <li>Win a mini-board by getting <strong>3 in a row</strong> — just like regular Tic Tac Toe.</li>
+                <li>Win the game by claiming <strong>3 mini-boards in a row</strong> on the meta-board.</li>
+                <li>You can also play against the <strong>AI opponent</strong> when creating a game.</li>
+              </ul>
+            </div>
+          }
 
           <!-- Players -->
           <div class="scoreboard">
@@ -202,6 +232,13 @@ const INDICES = [0, 1, 2, 3, 4, 5, 6, 7, 8];
     .lobby-title { font-size: 1.3rem; font-weight: 700; color: rgba(255,255,255,0.9); margin: 0 0 2px; }
     .lobby-sub { font-size: 0.78rem; color: rgba(255,255,255,0.38); }
     .create-btn { margin-left: auto; display: flex; align-items: center; gap: 6px; padding: 7px 14px; background: rgba(100,181,246,0.12); border: 1px solid rgba(100,181,246,0.35); border-radius: 8px; color: #64b5f6; font-size: 0.82rem; font-weight: 600; cursor: pointer; font-family: inherit; transition: all 0.12s; }
+    .help-btn { width: 28px; height: 28px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.15); background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.5); font-size: 0.85rem; font-weight: 700; cursor: pointer; font-family: inherit; display: flex; align-items: center; justify-content: center; transition: all 0.12s; flex-shrink: 0; }
+    .help-btn:hover, .help-btn.active { border-color: #64b5f6; color: #64b5f6; background: rgba(100,181,246,0.1); }
+    .rules-panel { background: rgba(100,181,246,0.06); border: 1px solid rgba(100,181,246,0.2); border-radius: 10px; padding: 14px 18px; margin-bottom: 16px; }
+    .rules-title { font-size: 0.82rem; font-weight: 700; color: #64b5f6; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.05em; }
+    .rules-list { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 5px; }
+    .rules-list li { font-size: 0.82rem; color: rgba(255,255,255,0.65); line-height: 1.5; }
+    .rules-list strong { color: rgba(255,255,255,0.9); }
     .create-btn:hover, .create-btn.active { background: rgba(100,181,246,0.22); border-color: #64b5f6; }
     .create-btn mat-icon { font-size: 16px; width: 16px; height: 16px; }
 
@@ -359,6 +396,7 @@ export class GameUltimateTttComponent implements OnInit, OnDestroy {
   moving = signal(false);
 
   showCreate = false;
+  showRules = false;
   newTitle = '';
   vsAi = false;
 

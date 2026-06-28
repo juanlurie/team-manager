@@ -54,12 +54,27 @@ interface SimMove { fromIdx: number; toIdx: number; willMerge: boolean; }
             <h2 class="lobby-title">2048</h2>
             <span class="lobby-sub">Compete for the highest score</span>
           </div>
+          <button class="help-btn" (click)="showRules = !showRules" [class.active]="showRules" title="How to play">?</button>
           @if (canHost()) {
             <button class="create-btn" (click)="showCreate = !showCreate" [class.active]="showCreate">
               <mat-icon>add</mat-icon> New Game
             </button>
           }
         </div>
+
+        @if (showRules) {
+          <div class="rules-panel">
+            <div class="rules-title">How to play 2048</div>
+            <ul class="rules-list">
+              <li>Use <strong>arrow keys</strong> or <strong>swipe</strong> to slide all tiles.</li>
+              <li>When two tiles with the <strong>same number</strong> collide, they <strong>merge into one</strong>.</li>
+              <li>Each move adds a new <strong>2</strong> or <strong>4</strong> tile to the board.</li>
+              <li>Reach the <strong>2048 tile</strong> to win — but keep going for a higher score!</li>
+              <li>The game ends when <strong>no moves remain</strong>.</li>
+              <li>In multiplayer, the player with the <strong>highest score</strong> when everyone finishes wins.</li>
+            </ul>
+          </div>
+        }
 
         @if (showCreate) {
           <div class="create-form">
@@ -104,12 +119,27 @@ interface SimMove { fromIdx: number; toIdx: number; willMerge: boolean; }
           <div class="game-header">
             <button class="back-btn" (click)="backToLobby()"><mat-icon>arrow_back</mat-icon></button>
             <span class="game-title">{{ s.title || '2048' }}</span>
+            <button class="help-btn" (click)="showRules = !showRules" [class.active]="showRules" title="How to play">?</button>
             @if (!alreadyJoined() && s.status === 'inprogress') {
               <button class="action-btn primary" (click)="joinGame()" [disabled]="joining()">
                 {{ joining() ? 'Joining…' : 'Join Game' }}
               </button>
             }
           </div>
+
+          @if (showRules) {
+            <div class="rules-panel">
+              <div class="rules-title">How to play 2048</div>
+              <ul class="rules-list">
+                <li>Use <strong>arrow keys</strong> or <strong>swipe</strong> to slide all tiles.</li>
+                <li>When two tiles with the <strong>same number</strong> collide, they <strong>merge into one</strong>.</li>
+                <li>Each move adds a new <strong>2</strong> or <strong>4</strong> tile to the board.</li>
+                <li>Reach the <strong>2048 tile</strong> to win — but keep going for a higher score!</li>
+                <li>The game ends when <strong>no moves remain</strong>.</li>
+                <li>In multiplayer, the player with the <strong>highest score</strong> when everyone finishes wins.</li>
+              </ul>
+            </div>
+          }
 
           <!-- Leaderboard -->
           <div class="scoreboard">
@@ -203,6 +233,13 @@ interface SimMove { fromIdx: number; toIdx: number; willMerge: boolean; }
     .lobby-sub { font-size: 0.78rem; color: rgba(255,255,255,0.38); }
     .create-btn { margin-left: auto; display: flex; align-items: center; gap: 6px; padding: 7px 14px; background: rgba(100,181,246,0.12); border: 1px solid rgba(100,181,246,0.35); border-radius: 8px; color: #64b5f6; font-size: 0.82rem; font-weight: 600; cursor: pointer; font-family: inherit; transition: all 0.12s; }
     .create-btn:hover, .create-btn.active { background: rgba(100,181,246,0.22); border-color: #64b5f6; }
+    .help-btn { width: 28px; height: 28px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.15); background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.5); font-size: 0.85rem; font-weight: 700; cursor: pointer; font-family: inherit; display: flex; align-items: center; justify-content: center; transition: all 0.12s; flex-shrink: 0; }
+    .help-btn:hover, .help-btn.active { border-color: #64b5f6; color: #64b5f6; background: rgba(100,181,246,0.1); }
+    .rules-panel { background: rgba(100,181,246,0.06); border: 1px solid rgba(100,181,246,0.2); border-radius: 10px; padding: 14px 18px; margin-bottom: 16px; }
+    .rules-title { font-size: 0.82rem; font-weight: 700; color: #64b5f6; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.05em; }
+    .rules-list { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 5px; }
+    .rules-list li { font-size: 0.82rem; color: rgba(255,255,255,0.65); line-height: 1.5; }
+    .rules-list strong { color: rgba(255,255,255,0.9); }
     .create-btn mat-icon { font-size: 16px; width: 16px; height: 16px; }
 
     .create-form { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 16px; margin-bottom: 20px; display: flex; flex-direction: column; gap: 12px; }
@@ -350,6 +387,7 @@ export class Game2048Component implements OnInit, OnDestroy, AfterViewInit {
   private prevBoardForAnim: number[] = [];
 
   showCreate = false;
+  showRules = false;
   newTitle = '';
 
   private touchStartX = 0;
