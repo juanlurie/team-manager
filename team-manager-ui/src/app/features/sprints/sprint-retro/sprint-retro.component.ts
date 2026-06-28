@@ -31,10 +31,16 @@ const COL_META = {
   standalone: true,
   imports: [FormsModule, MatButtonModule, MatIconModule, MatTooltipModule, IconButtonComponent],
   styles: [`
-    :host { display:block; }
+    :host { display:flex; flex-direction:column; min-width:0; overflow:hidden; }
 
     /* ── Shared ───────────────────────────────── */
-    .retro-wrap { display:flex; flex-direction:column; gap:0; }
+    .retro-wrap {
+      display:flex; flex-direction:column; gap:0;
+      height: calc(100vh - 220px);
+      min-height: 400px;
+      overflow: hidden;
+      min-width: 0;
+    }
     .phase-header { display:flex; align-items:center; gap:10px; padding:12px 16px 10px;
       border-bottom:1px solid rgba(255,255,255,0.07); flex-wrap:wrap; }
     .phase-badge { padding:3px 12px; border-radius:20px; font-size:11px; font-weight:700;
@@ -59,11 +65,19 @@ const COL_META = {
     /* ── Living Board (desktop) ───────────────── */
     .board { display:none; }
     @media (min-width:900px) {
-      .board { display:grid; grid-template-columns:repeat(3,1fr); flex:1; overflow:hidden; }
+      .board {
+        display:grid;
+        grid-template-columns:repeat(3,1fr);
+        flex:1;
+        min-height:0;
+        overflow:hidden;
+        width:100%;
+        min-width:0;
+      }
       .stepper { display:none; }
     }
     .col { display:flex; flex-direction:column; border-right:1px solid rgba(255,255,255,0.06);
-      overflow:hidden; }
+      overflow:hidden; min-width:0; }
     .col:last-child { border-right:none; }
     .col-hdr { padding:10px 14px 8px; display:flex; align-items:center; gap:7px; flex-shrink:0; }
     .col-label { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; }
@@ -109,7 +123,7 @@ const COL_META = {
     .del-btn:hover { color:#ef5350; }
 
     /* ── Stepper (mobile) ─────────────────────── */
-    .stepper { display:flex; flex-direction:column; }
+    .stepper { display:flex; flex-direction:column; flex:1; min-height:0; overflow:hidden; }
     @media (min-width:900px) { .stepper { display:none; } }
     .step-pips { display:flex; align-items:center; justify-content:center; gap:6px;
       padding:10px 16px 8px; }

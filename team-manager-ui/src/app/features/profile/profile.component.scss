@@ -53,13 +53,24 @@
 
 .avatar-edit-btn {
   position: absolute;
-  bottom: -6px;
-  right: -6px;
-  width: 24px !important;
-  height: 24px !important;
+  bottom: -4px;
+  right: -4px;
+  width: 26px !important;
+  height: 26px !important;
+  min-width: 26px !important;
+  padding: 0 !important;
   background: #1e2d3d !important;
   border: 1px solid rgba(255,255,255,0.15) !important;
-  line-height: 24px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+
+  ::ng-deep .mat-icon {
+    font-size: 14px;
+    width: 14px;
+    height: 14px;
+    line-height: 14px;
+  }
 }
 
 .picker-card {
@@ -126,6 +137,18 @@
   font-size: 0.78rem;
   color: rgba(255,255,255,0.4);
   margin: 0 0 10px;
+}
+
+.multiavatar-credit {
+  font-size: 0.72rem;
+  color: rgba(255,255,255,0.3);
+  margin: 0 0 16px;
+
+  a {
+    color: #64b5f6;
+    text-decoration: none;
+    &:hover { text-decoration: underline; }
+  }
 }
 
 .picker-actions {
