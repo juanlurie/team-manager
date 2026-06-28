@@ -131,12 +131,10 @@ public class LeaderboardService(AppDbContext db) : ILeaderboardService
             .ToListAsync();
 
         games.Add(new HiScoreGameDto("2048", "2048", "pts", true,
-            p2048
+            DedupeEntries(p2048
                 .GroupBy(p => p.MemberId)
-                .Select(g => { var b = g.MaxBy(p => p.Score)!; return (b.MemberId, Name: $"{b.Member!.FirstName} {b.Member!.LastName}".Trim(), Score: (long)b.Score, At: (DateTimeOffset?)null); })
-                .OrderByDescending(x => x.Score).Take(10)
-                .Select((x, i) => new HiScoreEntryDto(i + 1, x.MemberId, x.Name, x.Score, x.At))
-                .ToList()
+                .Select(g => { var b = g.MaxBy(p => p.Score)!; return (b.MemberId, FullName: $"{b.Member!.FirstName} {b.Member!.LastName}".Trim(), Score: (long)b.Score, At: (DateTimeOffset?)null); })
+                .OrderByDescending(x => x.Score).Take(10))
         ));
 
         // ── Dots & Boxes ──────────────────────────────────────────────────────
@@ -147,12 +145,10 @@ public class LeaderboardService(AppDbContext db) : ILeaderboardService
             .ToListAsync();
 
         games.Add(new HiScoreGameDto("dots-and-boxes", "Dots & Boxes", "boxes", true,
-            pDnB
+            DedupeEntries(pDnB
                 .GroupBy(p => p.MemberId!.Value)
-                .Select(g => { var b = g.MaxBy(p => p.Score)!; return (MemberId: b.MemberId!.Value, Name: $"{b.Member!.FirstName} {b.Member!.LastName}".Trim(), Score: (long)b.Score, At: (DateTimeOffset?)null); })
-                .OrderByDescending(x => x.Score).Take(10)
-                .Select((x, i) => new HiScoreEntryDto(i + 1, x.MemberId, x.Name, x.Score, x.At))
-                .ToList()
+                .Select(g => { var b = g.MaxBy(p => p.Score)!; return (b.MemberId!.Value, FullName: $"{b.Member!.FirstName} {b.Member!.LastName}".Trim(), Score: (long)b.Score, At: (DateTimeOffset?)null); })
+                .OrderByDescending(x => x.Score).Take(10))
         ));
 
         // ── Quiz Classic ──────────────────────────────────────────────────────
@@ -163,12 +159,10 @@ public class LeaderboardService(AppDbContext db) : ILeaderboardService
             .ToListAsync();
 
         games.Add(new HiScoreGameDto("quiz-classic", "Quiz Game", "correct", true,
-            pQuizClassic
+            DedupeEntries(pQuizClassic
                 .GroupBy(p => p.MemberId)
-                .Select(g => { var b = g.MaxBy(p => p.Score)!; return (b.MemberId, Name: $"{b.Member!.FirstName} {b.Member!.LastName}".Trim(), Score: (long)b.Score, At: (DateTimeOffset?)null); })
-                .OrderByDescending(x => x.Score).Take(10)
-                .Select((x, i) => new HiScoreEntryDto(i + 1, x.MemberId, x.Name, x.Score, x.At))
-                .ToList()
+                .Select(g => { var b = g.MaxBy(p => p.Score)!; return (b.MemberId, FullName: $"{b.Member!.FirstName} {b.Member!.LastName}".Trim(), Score: (long)b.Score, At: (DateTimeOffset?)null); })
+                .OrderByDescending(x => x.Score).Take(10))
         ));
 
         // ── Quiz Millionaire ──────────────────────────────────────────────────
@@ -179,12 +173,10 @@ public class LeaderboardService(AppDbContext db) : ILeaderboardService
             .ToListAsync();
 
         games.Add(new HiScoreGameDto("quiz-millionaire", "Who Wants to Be a Millionaire", "pts", true,
-            pMillion
+            DedupeEntries(pMillion
                 .GroupBy(p => p.MemberId)
-                .Select(g => { var b = g.MaxBy(p => p.MillionaireWinnings)!; return (b.MemberId, Name: $"{b.Member!.FirstName} {b.Member!.LastName}".Trim(), Score: b.MillionaireWinnings, At: (DateTimeOffset?)null); })
-                .OrderByDescending(x => x.Score).Take(10)
-                .Select((x, i) => new HiScoreEntryDto(i + 1, x.MemberId, x.Name, x.Score, x.At))
-                .ToList()
+                .Select(g => { var b = g.MaxBy(p => p.MillionaireWinnings)!; return (b.MemberId, FullName: $"{b.Member!.FirstName} {b.Member!.LastName}".Trim(), Score: b.MillionaireWinnings, At: (DateTimeOffset?)null); })
+                .OrderByDescending(x => x.Score).Take(10))
         ));
 
         // ── Threes ────────────────────────────────────────────────────────────
@@ -195,13 +187,13 @@ public class LeaderboardService(AppDbContext db) : ILeaderboardService
             .ToListAsync();
 
         games.Add(new HiScoreGameDto("threes", "Threes!", "pts", true,
-            pThrees
+            DedupeEntries(pThrees
                 .GroupBy(p => p.MemberId)
-                .Select(g => { var b = g.MaxBy(p => p.Score)!; return (b.MemberId, Name: $"{b.Member!.FirstName} {b.Member!.LastName}".Trim(), Score: (long)b.Score, At: (DateTimeOffset?)null); })
-                .OrderByDescending(x => x.Score).Take(10)
-                .Select((x, i) => new HiScoreEntryDto(i + 1, x.MemberId, x.Name, x.Score, x.At))
-                .ToList()
+                .Select(g => { var b = g.MaxBy(p => p.Score)!; return (b.MemberId, FullName: $"{b.Member!.FirstName} {b.Member!.LastName}".Trim(), Score: (long)b.Score, At: (DateTimeOffset?)null); })
+                .OrderByDescending(x => x.Score).Take(10))
         ));
+
+
 
         // ── Wordle (fewest guesses to win) ────────────────────────────────────
         var pWordle = await db.WordleParticipants
@@ -210,12 +202,10 @@ public class LeaderboardService(AppDbContext db) : ILeaderboardService
             .ToListAsync();
 
         games.Add(new HiScoreGameDto("wordle", "Wordle", "guesses", false,
-            pWordle
+            DedupeEntries(pWordle
                 .GroupBy(p => p.MemberId)
-                .Select(g => { var b = g.MinBy(p => p.GuessCount)!; return (b.MemberId, Name: $"{b.Member!.FirstName} {b.Member!.LastName}".Trim(), Score: (long)b.GuessCount, At: b.FinishedAt); })
-                .OrderBy(x => x.Score).Take(10)
-                .Select((x, i) => new HiScoreEntryDto(i + 1, x.MemberId, x.Name, x.Score, x.At))
-                .ToList()
+                .Select(g => { var b = g.MinBy(p => p.GuessCount)!; return (b.MemberId, FullName: $"{b.Member!.FirstName} {b.Member!.LastName}".Trim(), Score: (long)b.GuessCount, At: b.FinishedAt); })
+                .OrderBy(x => x.Score).Take(10))
         ));
 
         // ── Wordle Royale (ELO rating) ────────────────────────────────────────
@@ -225,10 +215,9 @@ public class LeaderboardService(AppDbContext db) : ILeaderboardService
             .ToListAsync();
 
         games.Add(new HiScoreGameDto("wordle-royale", "Wordle Royale", "ELO", true,
-            royaleRatings
+            DedupeEntries(royaleRatings
                 .OrderByDescending(r => r.Elo).Take(10)
-                .Select((r, i) => new HiScoreEntryDto(i + 1, r.MemberId, $"{r.Member!.FirstName} {r.Member!.LastName}".Trim(), r.Elo, r.LastUpdatedAt))
-                .ToList()
+                .Select(r => (r.MemberId, FullName: $"{r.Member!.FirstName} {r.Member!.LastName}".Trim(), Score: (long)r.Elo, At: (DateTimeOffset?)r.LastUpdatedAt)))
         ));
 
         // ── Ultimate TTT (most wins) ──────────────────────────────────────────
@@ -239,15 +228,20 @@ public class LeaderboardService(AppDbContext db) : ILeaderboardService
             .ToListAsync();
 
         games.Add(new HiScoreGameDto("ultimate-ttt", "Ultimate Tic-Tac-Toe", "wins", true,
-            pTtt
+            DedupeEntries(pTtt
                 .GroupBy(p => p.MemberId!.Value)
-                .Select(g => { var b = g.First(); return (MemberId: b.MemberId!.Value, Name: $"{b.Member!.FirstName} {b.Member!.LastName}".Trim(), Score: (long)g.Count(), At: (DateTimeOffset?)null); })
-                .OrderByDescending(x => x.Score).Take(10)
-                .Select((x, i) => new HiScoreEntryDto(i + 1, x.MemberId, x.Name, x.Score, x.At))
-                .ToList()
+                .Select(g => { var b = g.First(); return (b.MemberId!.Value, FullName: $"{b.Member!.FirstName} {b.Member!.LastName}".Trim(), Score: (long)g.Count(), At: (DateTimeOffset?)null); })
+                .OrderByDescending(x => x.Score).Take(10))
         ));
 
         return games.Where(g => g.Entries.Count > 0).ToList();
+    }
+
+    private static List<HiScoreEntryDto> DedupeEntries(IEnumerable<(Guid MemberId, string FullName, long Score, DateTimeOffset? At)> ranked)
+    {
+        var list = ranked.ToList();
+        var names = GameNameHelper.DeduplicateFirstNames(list.Select(x => x.FullName).ToArray());
+        return list.Select((x, i) => new HiScoreEntryDto(i + 1, x.MemberId, names[i], x.Score, x.At)).ToList();
     }
 
     private static LeaderboardEntryDto BuildEntry(TeamMember m)

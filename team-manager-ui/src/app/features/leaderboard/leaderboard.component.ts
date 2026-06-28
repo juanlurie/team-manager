@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, signal, ChangeDetectionStrategy } from '@angular/core';
+import { Component, OnInit, inject, signal, computed, ChangeDetectionStrategy } from '@angular/core';
 import { DecimalPipe } from '@angular/common';
 
 import { MatIconModule } from '@angular/material/icon';
@@ -7,6 +7,7 @@ import { MatDialog } from '@angular/material/dialog';
 import { MatDialogModule } from '@angular/material/dialog';
 import { HiScoreGame, LeaderboardEntry } from '../../core/models/leaderboard.model';
 import { LeaderboardService } from '../../core/services/leaderboard.service';
+import { buildDuplicateFirstNames, memberDisplayName } from '../../core/utils/member-display-name';
 import { MemberPointsHistoryComponent } from './member-points-history.component';
 
 const POS_COLORS: Record<number, { bg: string; text: string; border: string; label: string }> = {
@@ -88,7 +89,7 @@ const SOURCE_COLORS: Record<string, { bg: string; text: string }> = {
                    [style.background]="POS_COLORS[2].bg" [style.color]="POS_COLORS[2].text" [style.border]="'2px solid ' + POS_COLORS[2].border">
                 {{p2.firstName[0]}}{{p2.lastName[0]}}
               </div>
-              <div style="font-weight:700;font-size:0.95rem">{{p2.firstName}} {{p2.lastName}}</div>
+              <div style="font-weight:700;font-size:0.95rem">{{memberName(p2)}}</div>
               <div style="font-size:1.4rem;font-weight:900;margin-top:6px" [style.color]="POS_COLORS[2].text">{{p2.totalPoints}} <span style="font-size:0.8rem;font-weight:400;opacity:0.6">pts</span></div>
             </div>
           }
@@ -105,7 +106,7 @@ const SOURCE_COLORS: Record<string, { bg: string; text: string }> = {
                    [style.background]="POS_COLORS[1].bg" [style.color]="POS_COLORS[1].text" [style.border]="'2px solid ' + POS_COLORS[1].border">
                 {{p1.firstName[0]}}{{p1.lastName[0]}}
               </div>
-              <div style="font-weight:700;font-size:1rem">{{p1.firstName}} {{p1.lastName}}</div>
+              <div style="font-weight:700;font-size:1rem">{{memberName(p1)}}</div>
               <div style="font-size:1.7rem;font-weight:900;margin-top:6px" [style.color]="POS_COLORS[1].text">{{p1.totalPoints}} <span style="font-size:0.85rem;font-weight:400;opacity:0.6">pts</span></div>
             </div>
           }
@@ -122,7 +123,7 @@ const SOURCE_COLORS: Record<string, { bg: string; text: string }> = {
                    [style.background]="POS_COLORS[3].bg" [style.color]="POS_COLORS[3].text" [style.border]="'2px solid ' + POS_COLORS[3].border">
                 {{p3.firstName[0]}}{{p3.lastName[0]}}
               </div>
-              <div style="font-weight:700;font-size:0.95rem">{{p3.firstName}} {{p3.lastName}}</div>
+              <div style="font-weight:700;font-size:0.95rem">{{memberName(p3)}}</div>
               <div style="font-size:1.4rem;font-weight:900;margin-top:6px" [style.color]="POS_COLORS[3].text">{{p3.totalPoints}} <span style="font-size:0.8rem;font-weight:400;opacity:0.6">pts</span></div>
             </div>
           }
@@ -150,7 +151,7 @@ const SOURCE_COLORS: Record<string, { bg: string; text: string }> = {
 
               <!-- Name + role -->
               <div style="flex:1;min-width:0">
-                <div style="font-weight:600;font-size:0.9rem">{{e.firstName}} {{e.lastName}}</div>
+                <div style="font-weight:600;font-size:0.9rem">{{memberName(e)}}</div>
                 <div style="font-size:0.72rem;opacity:0.4">{{e.role === 'TeamLead' ? 'Team Lead' : e.role}}</div>
               </div>
 
@@ -223,6 +224,9 @@ export class LeaderboardComponent implements OnInit {
   hiScores = signal<HiScoreGame[]>([]);
   hiLoading = signal(false);
   private hiLoaded = false;
+
+  private duplicates = computed(() => buildDuplicateFirstNames(this.entries()));
+  memberName = (e: LeaderboardEntry) => memberDisplayName(e, this.duplicates());
 
   readonly POS_COLORS = POS_COLORS;
 
