@@ -56,12 +56,27 @@ interface SimMove { fromIdx: number; toIdx: number; willMerge: boolean; }
             <h2 class="lobby-title">Threes!</h2>
             <span class="lobby-sub">Slide 1s &amp; 2s together — then match threes</span>
           </div>
+          <button class="help-btn" (click)="showRules = !showRules" [class.active]="showRules" title="How to play">?</button>
           @if (canHost()) {
             <button class="create-btn" (click)="showCreate = !showCreate" [class.active]="showCreate">
               <mat-icon>add</mat-icon> New Game
             </button>
           }
         </div>
+
+        @if (showRules) {
+          <div class="rules-panel">
+            <div class="rules-title">How to play Threes!</div>
+            <ul class="rules-list">
+              <li>Use <strong>arrow keys</strong> or <strong>swipe</strong> to slide the 4×4 grid.</li>
+              <li><strong>1 + 2 = 3</strong> — a blue 1 and a red 2 only merge with each other.</li>
+              <li><strong>3 + 3 = 6, 6 + 6 = 12…</strong> — multiples of 3 merge with their equal.</li>
+              <li>A new tile (peeked at the top) is added from the pushed edge each move.</li>
+              <li>The game ends when <strong>no moves remain</strong>.</li>
+              <li>Score = sum of all tile values. In multiplayer, <strong>highest score wins</strong>.</li>
+            </ul>
+          </div>
+        }
 
         @if (showCreate) {
           <div class="create-form">
@@ -106,12 +121,27 @@ interface SimMove { fromIdx: number; toIdx: number; willMerge: boolean; }
           <div class="game-header">
             <button class="back-btn" (click)="backToLobby()"><mat-icon>arrow_back</mat-icon></button>
             <span class="game-title">{{ s.title || 'Threes!' }}</span>
+            <button class="help-btn" (click)="showRules = !showRules" [class.active]="showRules" title="How to play">?</button>
             @if (!alreadyJoined() && s.status === 'inprogress') {
               <button class="action-btn primary" (click)="joinGame()" [disabled]="joining()">
                 {{ joining() ? 'Joining…' : 'Join Game' }}
               </button>
             }
           </div>
+
+          @if (showRules) {
+            <div class="rules-panel">
+              <div class="rules-title">How to play Threes!</div>
+              <ul class="rules-list">
+                <li>Use <strong>arrow keys</strong> or <strong>swipe</strong> to slide the 4×4 grid.</li>
+                <li><strong>1 + 2 = 3</strong> — a blue 1 and a red 2 only merge with each other.</li>
+                <li><strong>3 + 3 = 6, 6 + 6 = 12…</strong> — multiples of 3 merge with their equal.</li>
+                <li>A new tile (peeked at the top) is added from the pushed edge each move.</li>
+                <li>The game ends when <strong>no moves remain</strong>.</li>
+                <li>Score = sum of all tile values. In multiplayer, <strong>highest score wins</strong>.</li>
+              </ul>
+            </div>
+          }
 
           <!-- Scoreboard -->
           <div class="scoreboard">
@@ -203,6 +233,13 @@ interface SimMove { fromIdx: number; toIdx: number; willMerge: boolean; }
     .lobby-title { font-size: 1.3rem; font-weight: 700; color: rgba(255,255,255,0.9); margin: 0 0 2px; }
     .lobby-sub { font-size: 0.78rem; color: rgba(255,255,255,0.38); }
     .create-btn { margin-left: auto; display: flex; align-items: center; gap: 6px; padding: 7px 14px; background: rgba(246,99,92,0.12); border: 1px solid rgba(246,99,92,0.35); border-radius: 8px; color: #f6635c; font-size: 0.82rem; font-weight: 600; cursor: pointer; font-family: inherit; transition: all 0.12s; }
+    .help-btn { width: 28px; height: 28px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.15); background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.5); font-size: 0.85rem; font-weight: 700; cursor: pointer; font-family: inherit; display: flex; align-items: center; justify-content: center; transition: all 0.12s; flex-shrink: 0; }
+    .help-btn:hover, .help-btn.active { border-color: #f6635c; color: #f6635c; background: rgba(246,99,92,0.1); }
+    .rules-panel { background: rgba(246,99,92,0.06); border: 1px solid rgba(246,99,92,0.2); border-radius: 10px; padding: 14px 18px; margin-bottom: 16px; }
+    .rules-title { font-size: 0.82rem; font-weight: 700; color: #f6635c; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.05em; }
+    .rules-list { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 5px; }
+    .rules-list li { font-size: 0.82rem; color: rgba(255,255,255,0.65); line-height: 1.5; }
+    .rules-list strong { color: rgba(255,255,255,0.9); }
     .create-btn:hover, .create-btn.active { background: rgba(246,99,92,0.22); border-color: #f6635c; }
     .create-btn mat-icon { font-size: 16px; width: 16px; height: 16px; }
 
@@ -344,6 +381,7 @@ export class GameThreesComponent implements OnInit, OnDestroy, AfterViewInit {
   private prevBoardForAnim: number[] = [];
 
   showCreate = false;
+  showRules = false;
   newTitle = '';
 
   private touchStartX = 0;
