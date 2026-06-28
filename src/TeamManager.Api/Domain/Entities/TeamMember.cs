@@ -12,6 +12,7 @@ public class TeamMember
     public Guid? TeamLeadId { get; set; }
     public List<string> Crafts { get; set; } = [];
     public string? ExternalSubjectId { get; set; }
+    public string? AvatarSeed { get; set; }
     public bool IsActive { get; set; } = true;
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
     public DateOnly? BirthDate { get; set; }

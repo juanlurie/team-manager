@@ -100,6 +100,15 @@ public class TeamMemberService(AppDbContext db) : ITeamMemberService
         return await GetByIdAsync(id);
     }
 
+    public async Task<TeamMemberDto?> UpdateAvatarAsync(Guid id, string? seed)
+    {
+        var member = await db.TeamMembers.FindAsync(id);
+        if (member is null) return null;
+        member.AvatarSeed = string.IsNullOrWhiteSpace(seed) ? null : seed.Trim();
+        await db.SaveChangesAsync();
+        return await GetByIdAsync(id);
+    }
+
     public async Task<bool> DeleteAsync(Guid id)
     {
         var member = await db.TeamMembers.FindAsync(id);
@@ -119,6 +128,7 @@ public class TeamMemberService(AppDbContext db) : ITeamMemberService
         TeamLeadId = m.TeamLeadId,
         TeamLeadName = m.TeamLead is not null ? $"{m.TeamLead.FirstName} {m.TeamLead.LastName}" : null,
         Crafts = m.Crafts,
+        AvatarSeed = m.AvatarSeed,
         IsActive = m.IsActive,
         CreatedAt = m.CreatedAt,
         BirthDate = m.BirthDate,

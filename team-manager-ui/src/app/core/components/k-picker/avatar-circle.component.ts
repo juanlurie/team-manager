@@ -6,9 +6,14 @@ import { getAvatarColor, getInitials } from './k-picker.utils';
   standalone: true,
   template: `
     <div class="k-avatar" [style.width.px]="size()" [style.height.px]="size()"
-         [style.background-color]="bgColor()" [style.font-size.px]="fontSize()"
+         [style.background-color]="avatarSeed() ? 'transparent' : bgColor()"
+         [style.font-size.px]="fontSize()"
          [title]="name()">
-      {{ initials() }}
+      @if (avatarSeed()) {
+        <img [src]="avatarUrl()" [alt]="name()" [style.width.px]="size()" [style.height.px]="size()" style="border-radius:50%;object-fit:cover;display:block">
+      } @else {
+        {{ initials() }}
+      }
     </div>
   `,
   changeDetection: ChangeDetectionStrategy.Default,
@@ -28,11 +33,9 @@ import { getAvatarColor, getInitials } from './k-picker.utils';
   `]
 })
 export class AvatarCircleComponent {
-  /** Team member ID (used for deterministic color hash) */
   readonly memberId = input.required<string>();
-  /** Full display name (used for initials extraction and tooltip) */
   readonly name = input.required<string>();
-  /** Avatar size in pixels (default: 20) */
+  readonly avatarSeed = input<string | null>(null);
   readonly size = input<number>(20);
 
   protected initials = computed(() => {
@@ -43,6 +46,6 @@ export class AvatarCircleComponent {
   });
 
   protected bgColor = computed(() => getAvatarColor(this.memberId()));
-
   protected fontSize = computed(() => Math.max(8, Math.round(this.size() * 0.45)));
+  protected avatarUrl = computed(() => `https://api.multiavatar.com/${encodeURIComponent(this.avatarSeed()!)}.svg`);
 }

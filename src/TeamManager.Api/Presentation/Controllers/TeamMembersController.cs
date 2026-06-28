@@ -40,6 +40,13 @@ public class TeamMembersController(ITeamMemberService service) : ControllerBase
         return result is null ? NotFound() : Ok(result);
     }
 
+    [HttpPatch("{id:guid}/avatar")]
+    public async Task<IActionResult> UpdateAvatar(Guid id, [FromBody] UpdateAvatarRequest request)
+    {
+        var result = await service.UpdateAvatarAsync(id, request.Seed);
+        return result is null ? NotFound() : Ok(result);
+    }
+
     [RequireFeature("team")]
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> Delete(Guid id)

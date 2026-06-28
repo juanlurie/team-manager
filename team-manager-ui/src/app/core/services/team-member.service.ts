@@ -41,6 +41,10 @@ export class TeamMemberService {
     return this.http.put<TeamMember>(`${this.base}/${id}`, request);
   }
 
+  updateAvatar(id: string, seed: string | null): Observable<TeamMember> {
+    return this.http.patch<TeamMember>(`${this.base}/${id}/avatar`, { seed });
+  }
+
   delete(id: string): Observable<void> {
     return this.http.delete<void>(`${this.base}/${id}`);
   }
