@@ -2,6 +2,7 @@ using TeamManager.Api.Middleware;
 using Microsoft.AspNetCore.Mvc;
 using TeamManager.Api.Application.DTOs.TeamMember;
 using TeamManager.Api.Application.Services.Interfaces;
+using Microsoft.AspNetCore.Authorization;
 
 namespace TeamManager.Api.Presentation.Controllers;
 
@@ -40,9 +41,15 @@ public class TeamMembersController(ITeamMemberService service) : ControllerBase
         return result is null ? NotFound() : Ok(result);
     }
 
+    [Authorize]
     [HttpPatch("{id:guid}/avatar")]
     public async Task<IActionResult> UpdateAvatar(Guid id, [FromBody] UpdateAvatarRequest request)
     {
+        var callerId = HttpContext.GetCurrentMemberId();
+        var isLead = User.IsInRole("TeamLead") || User.IsInRole("TechLead");
+        if (!isLead && callerId != id)
+            return Forbid();
+
         var result = await service.UpdateAvatarAsync(id, request.Seed);
         return result is null ? NotFound() : Ok(result);
     }

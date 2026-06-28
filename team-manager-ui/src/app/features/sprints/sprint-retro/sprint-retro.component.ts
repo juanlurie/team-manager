@@ -68,6 +68,7 @@ const COL_META = {
       .board {
         display:grid;
         grid-template-columns:repeat(3,1fr);
+        grid-template-rows:1fr;
         flex:1;
         min-height:0;
         overflow:hidden;
