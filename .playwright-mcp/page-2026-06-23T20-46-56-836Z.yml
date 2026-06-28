@@ -1,0 +1,22 @@
+- generic [ref=e5]:
+  - navigation [ref=e6]:
+    - link "Dashboard" [ref=e7] [cursor=pointer]:
+      - /url: /dashboard
+      - img [ref=e8]: dashboard
+      - generic [ref=e9]: Dashboard
+    - link "Delivery" [ref=e10] [cursor=pointer]:
+      - /url: /delivery
+      - img [ref=e11]: rocket_launch
+      - generic [ref=e12]: Delivery
+    - link "Timesheet" [ref=e13] [cursor=pointer]:
+      - /url: /team/timesheet
+      - img [ref=e14]: schedule
+      - generic [ref=e15]: Timesheet
+    - link "Team" [ref=e16] [cursor=pointer]:
+      - /url: /team/members
+      - img [ref=e17]: people
+      - generic [ref=e18]: Team
+    - button "More" [ref=e19] [cursor=pointer]:
+      - img [ref=e21]: more_horiz
+      - generic [ref=e22]: More
+  - main [ref=e23]

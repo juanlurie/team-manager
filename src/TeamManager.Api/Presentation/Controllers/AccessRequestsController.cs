@@ -121,7 +121,11 @@ public class AccessRequestsController(AppDbContext db) : ControllerBase
             request.ReviewedAt = DateTimeOffset.UtcNow;
             request.ReviewNotes = dto?.Notes;
             await db.SaveChangesAsync();
-            _ = WebSocketMiddleware.BroadcastAsync("access_request_approved", new { requestId = request.Id });
+            // guestAllowed: true -- the requester's own browser is still an unapproved/anonymous
+        // connection (no TeamMember yet, so no TMID claim) at this point, and BroadcastAsync skips
+        // such connections by default. Without this, the requester never receives the event their
+        // own "waiting for approval" screen is listening for to auto-complete login.
+        _ = WebSocketMiddleware.BroadcastAsync("access_request_approved", new { requestId = request.Id }, guestAllowed: true);
             return Ok(new { status = "Approved", note = "Member reactivated." });
         }
 
@@ -148,7 +152,11 @@ public class AccessRequestsController(AppDbContext db) : ControllerBase
 
         await db.SaveChangesAsync();
 
-        _ = WebSocketMiddleware.BroadcastAsync("access_request_approved", new { requestId = request.Id });
+        // guestAllowed: true -- the requester's own browser is still an unapproved/anonymous
+        // connection (no TeamMember yet, so no TMID claim) at this point, and BroadcastAsync skips
+        // such connections by default. Without this, the requester never receives the event their
+        // own "waiting for approval" screen is listening for to auto-complete login.
+        _ = WebSocketMiddleware.BroadcastAsync("access_request_approved", new { requestId = request.Id }, guestAllowed: true);
         return Ok(new { status = "Approved", memberId = member.Id });
     }
 

@@ -758,6 +758,84 @@ namespace TeamManager.Api.Migrations
                     b.ToTable("DiscussionTasks");
                 });
 
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.DotsAndBoxesParticipant", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<string>("DisplayName")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<bool>("IsAi")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid?>("MemberId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Order")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Score")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("SessionId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("MemberId");
+
+                    b.HasIndex("SessionId");
+
+                    b.ToTable("DotsAndBoxesParticipants");
+                });
+
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.DotsAndBoxesSession", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<string>("BoxesJson")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("CreatedByMemberId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("CurrentParticipantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("GridSize")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("LinesJson")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Title")
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedByMemberId");
+
+                    b.HasIndex("CurrentParticipantId");
+
+                    b.ToTable("DotsAndBoxesSessions");
+                });
+
             modelBuilder.Entity("TeamManager.Api.Domain.Entities.Feature", b =>
                 {
                     b.Property<Guid>("Id")
@@ -840,6 +918,365 @@ namespace TeamManager.Api.Migrations
                         .HasDatabaseName("IX_FeaturePermission_FeatureKey_Role");
 
                     b.ToTable("FeaturePermissions");
+                });
+
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.FunRetroCard", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<Guid>("AuthorId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("AuthorName")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Color")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Column")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<double?>("PositionX")
+                        .HasColumnType("double precision");
+
+                    b.Property<double?>("PositionY")
+                        .HasColumnType("double precision");
+
+                    b.Property<Guid>("SessionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Text")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AuthorId");
+
+                    b.HasIndex("SessionId")
+                        .HasDatabaseName("IX_FunRetroCard_SessionId");
+
+                    b.ToTable("FunRetroCards");
+                });
+
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.FunRetroReaction", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<Guid>("CardId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Emoji")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("MemberId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CardId", "MemberId", "Emoji")
+                        .IsUnique()
+                        .HasDatabaseName("IX_FunRetroReaction_CardId_MemberId_Emoji");
+
+                    b.ToTable("FunRetroReactions");
+                });
+
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.FunRetroSession", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<string>("AiAnalysisJson")
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("CreatedByMemberId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Phase")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid?>("SprintId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Title")
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedByMemberId")
+                        .HasDatabaseName("IX_FunRetroSession_CreatedByMemberId");
+
+                    b.HasIndex("SprintId");
+
+                    b.ToTable("FunRetroSessions");
+                });
+
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.FunRetroVote", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<Guid>("CardId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("VoterId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CardId", "VoterId")
+                        .IsUnique()
+                        .HasDatabaseName("IX_FunRetroVote_CardId_VoterId");
+
+                    b.ToTable("FunRetroVotes");
+                });
+
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.Game2048Participant", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<string>("BoardJson")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("DisplayName")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<bool>("HasWon")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsGameOver")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid>("MemberId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Order")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Score")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("SessionId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("MemberId");
+
+                    b.HasIndex("SessionId");
+
+                    b.ToTable("Game2048Participants");
+                });
+
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.Game2048Session", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("CreatedByMemberId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Title")
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedByMemberId");
+
+                    b.ToTable("Game2048Sessions");
+                });
+
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.GameThreesParticipant", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("BoardJson")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("DisplayName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<bool>("IsGameOver")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid>("MemberId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("NextTile")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Order")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Score")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("SessionId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("MemberId");
+
+                    b.HasIndex("SessionId");
+
+                    b.ToTable("GameThreesParticipants");
+                });
+
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.GameThreesSession", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("CreatedByMemberId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("Title")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedByMemberId");
+
+                    b.ToTable("GameThreesSessions");
+                });
+
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.GameUltimateTttParticipant", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("DisplayName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<bool>("IsAi")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsWinner")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid?>("MemberId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Order")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Score")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("SessionId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("MemberId");
+
+                    b.HasIndex("SessionId");
+
+                    b.ToTable("GameUltimateTttParticipants");
+                });
+
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.GameUltimateTttSession", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("BigBoardJson")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("CellsJson")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("CreatedByMemberId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("CurrentTurnMemberId")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("IsAiGame")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("NextBoardIndex")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("Title")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<Guid?>("WinnerMemberId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedByMemberId");
+
+                    b.ToTable("GameUltimateTttSessions");
                 });
 
             modelBuilder.Entity("TeamManager.Api.Domain.Entities.GoogleCalendarToken", b =>
@@ -3144,6 +3581,109 @@ namespace TeamManager.Api.Migrations
                     b.ToTable("WordleParticipants");
                 });
 
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.WordleRoyaleMatch", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<int>("IsoWeek")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset>("PlayedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Player1EloAfter")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Player1EloChange")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Player1Guesses")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("Player1Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("Player1Won")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("Player2EloAfter")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Player2EloChange")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Player2Guesses")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("Player2Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("Player2Won")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid>("SessionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("WinnerId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Year")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SessionId")
+                        .HasDatabaseName("IX_WordleRoyaleMatch_SessionId");
+
+                    b.HasIndex("Year", "IsoWeek")
+                        .HasDatabaseName("IX_WordleRoyaleMatch_Week");
+
+                    b.HasIndex("Player1Id", "Year", "IsoWeek")
+                        .HasDatabaseName("IX_WordleRoyaleMatch_Player1Week");
+
+                    b.HasIndex("Player2Id", "Year", "IsoWeek")
+                        .HasDatabaseName("IX_WordleRoyaleMatch_Player2Week");
+
+                    b.ToTable("WordleRoyaleMatches");
+                });
+
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.WordleRoyaleRating", b =>
+                {
+                    b.Property<Guid>("MemberId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("BestStreak")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Draws")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Elo")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset>("LastUpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Losses")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("WinStreak")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Wins")
+                        .HasColumnType("integer");
+
+                    b.HasKey("MemberId");
+
+                    b.HasIndex("Elo")
+                        .HasDatabaseName("IX_WordleRoyaleRating_Elo");
+
+                    b.ToTable("WordleRoyaleRatings");
+                });
+
             modelBuilder.Entity("TeamManager.Api.Domain.Entities.WordleSession", b =>
                 {
                     b.Property<Guid>("Id")
@@ -3467,6 +4007,42 @@ namespace TeamManager.Api.Migrations
                     b.Navigation("DiscussionPoint");
                 });
 
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.DotsAndBoxesParticipant", b =>
+                {
+                    b.HasOne("TeamManager.Api.Domain.Entities.TeamMember", "Member")
+                        .WithMany()
+                        .HasForeignKey("MemberId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("TeamManager.Api.Domain.Entities.DotsAndBoxesSession", "Session")
+                        .WithMany("Participants")
+                        .HasForeignKey("SessionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Member");
+
+                    b.Navigation("Session");
+                });
+
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.DotsAndBoxesSession", b =>
+                {
+                    b.HasOne("TeamManager.Api.Domain.Entities.TeamMember", "CreatedBy")
+                        .WithMany()
+                        .HasForeignKey("CreatedByMemberId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("TeamManager.Api.Domain.Entities.DotsAndBoxesParticipant", "CurrentParticipant")
+                        .WithMany()
+                        .HasForeignKey("CurrentParticipantId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("CreatedBy");
+
+                    b.Navigation("CurrentParticipant");
+                });
+
             modelBuilder.Entity("TeamManager.Api.Domain.Entities.Feature", b =>
                 {
                     b.HasOne("TeamManager.Api.Domain.Entities.Sprint", "Sprint")
@@ -3476,6 +4052,154 @@ namespace TeamManager.Api.Migrations
                         .IsRequired();
 
                     b.Navigation("Sprint");
+                });
+
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.FunRetroCard", b =>
+                {
+                    b.HasOne("TeamManager.Api.Domain.Entities.TeamMember", "Author")
+                        .WithMany()
+                        .HasForeignKey("AuthorId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("TeamManager.Api.Domain.Entities.FunRetroSession", "Session")
+                        .WithMany("Cards")
+                        .HasForeignKey("SessionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Author");
+
+                    b.Navigation("Session");
+                });
+
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.FunRetroReaction", b =>
+                {
+                    b.HasOne("TeamManager.Api.Domain.Entities.FunRetroCard", "Card")
+                        .WithMany("Reactions")
+                        .HasForeignKey("CardId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Card");
+                });
+
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.FunRetroSession", b =>
+                {
+                    b.HasOne("TeamManager.Api.Domain.Entities.TeamMember", "CreatedBy")
+                        .WithMany()
+                        .HasForeignKey("CreatedByMemberId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("TeamManager.Api.Domain.Entities.Sprint", "Sprint")
+                        .WithMany()
+                        .HasForeignKey("SprintId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("CreatedBy");
+
+                    b.Navigation("Sprint");
+                });
+
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.FunRetroVote", b =>
+                {
+                    b.HasOne("TeamManager.Api.Domain.Entities.FunRetroCard", "Card")
+                        .WithMany("Votes")
+                        .HasForeignKey("CardId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Card");
+                });
+
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.Game2048Participant", b =>
+                {
+                    b.HasOne("TeamManager.Api.Domain.Entities.TeamMember", "Member")
+                        .WithMany()
+                        .HasForeignKey("MemberId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("TeamManager.Api.Domain.Entities.Game2048Session", "Session")
+                        .WithMany("Participants")
+                        .HasForeignKey("SessionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Member");
+
+                    b.Navigation("Session");
+                });
+
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.Game2048Session", b =>
+                {
+                    b.HasOne("TeamManager.Api.Domain.Entities.TeamMember", "CreatedBy")
+                        .WithMany()
+                        .HasForeignKey("CreatedByMemberId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("CreatedBy");
+                });
+
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.GameThreesParticipant", b =>
+                {
+                    b.HasOne("TeamManager.Api.Domain.Entities.TeamMember", "Member")
+                        .WithMany()
+                        .HasForeignKey("MemberId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("TeamManager.Api.Domain.Entities.GameThreesSession", "Session")
+                        .WithMany("Participants")
+                        .HasForeignKey("SessionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Member");
+
+                    b.Navigation("Session");
+                });
+
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.GameThreesSession", b =>
+                {
+                    b.HasOne("TeamManager.Api.Domain.Entities.TeamMember", "CreatedBy")
+                        .WithMany()
+                        .HasForeignKey("CreatedByMemberId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("CreatedBy");
+                });
+
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.GameUltimateTttParticipant", b =>
+                {
+                    b.HasOne("TeamManager.Api.Domain.Entities.TeamMember", "Member")
+                        .WithMany()
+                        .HasForeignKey("MemberId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("TeamManager.Api.Domain.Entities.GameUltimateTttSession", "Session")
+                        .WithMany("Participants")
+                        .HasForeignKey("SessionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Member");
+
+                    b.Navigation("Session");
+                });
+
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.GameUltimateTttSession", b =>
+                {
+                    b.HasOne("TeamManager.Api.Domain.Entities.TeamMember", "CreatedBy")
+                        .WithMany()
+                        .HasForeignKey("CreatedByMemberId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("CreatedBy");
                 });
 
             modelBuilder.Entity("TeamManager.Api.Domain.Entities.GoogleCalendarToken", b =>
@@ -4281,6 +5005,44 @@ namespace TeamManager.Api.Migrations
                     b.Navigation("Session");
                 });
 
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.WordleRoyaleMatch", b =>
+                {
+                    b.HasOne("TeamManager.Api.Domain.Entities.TeamMember", "Player1")
+                        .WithMany()
+                        .HasForeignKey("Player1Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("TeamManager.Api.Domain.Entities.TeamMember", "Player2")
+                        .WithMany()
+                        .HasForeignKey("Player2Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("TeamManager.Api.Domain.Entities.WordleSession", "Session")
+                        .WithMany()
+                        .HasForeignKey("SessionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Player1");
+
+                    b.Navigation("Player2");
+
+                    b.Navigation("Session");
+                });
+
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.WordleRoyaleRating", b =>
+                {
+                    b.HasOne("TeamManager.Api.Domain.Entities.TeamMember", "Member")
+                        .WithOne()
+                        .HasForeignKey("TeamManager.Api.Domain.Entities.WordleRoyaleRating", "MemberId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Member");
+                });
+
             modelBuilder.Entity("TeamManager.Api.Domain.Entities.WordleSession", b =>
                 {
                     b.HasOne("TeamManager.Api.Domain.Entities.TeamMember", "CreatedByMember")
@@ -4381,9 +5143,41 @@ namespace TeamManager.Api.Migrations
                     b.Navigation("Items");
                 });
 
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.DotsAndBoxesSession", b =>
+                {
+                    b.Navigation("Participants");
+                });
+
             modelBuilder.Entity("TeamManager.Api.Domain.Entities.Feature", b =>
                 {
                     b.Navigation("WorkItems");
+                });
+
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.FunRetroCard", b =>
+                {
+                    b.Navigation("Reactions");
+
+                    b.Navigation("Votes");
+                });
+
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.FunRetroSession", b =>
+                {
+                    b.Navigation("Cards");
+                });
+
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.Game2048Session", b =>
+                {
+                    b.Navigation("Participants");
+                });
+
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.GameThreesSession", b =>
+                {
+                    b.Navigation("Participants");
+                });
+
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.GameUltimateTttSession", b =>
+                {
+                    b.Navigation("Participants");
                 });
 
             modelBuilder.Entity("TeamManager.Api.Domain.Entities.MeetingSeries", b =>

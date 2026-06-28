@@ -2,7 +2,6 @@ apiVersion: v1
 kind: Service
 metadata:
   name: mcp-gateway
-  namespace: team-manager
 spec:
   selector:
     app: mcp-gateway
@@ -14,7 +13,6 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: mcp-gateway
-  namespace: team-manager
 spec:
   replicas: 1
   selector:
@@ -27,7 +25,7 @@ spec:
     spec:
       containers:
         - name: mcp-gateway
-          image: ghcr.io/juanlurie/team-manager-mcp:22103558c6898aa4d35acc5670021e8ca199ab9b
+          image: ghcr.io/juanlurie/team-manager-mcp
           ports:
             - containerPort: 8765
           env:

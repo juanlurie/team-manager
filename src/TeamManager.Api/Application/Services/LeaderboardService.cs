@@ -119,6 +119,108 @@ public class LeaderboardService(AppDbContext db) : ILeaderboardService
         return history.OrderByDescending(h => h.AwardedAt).ToList();
     }
 
+    public async Task<IReadOnlyList<HiScoreGameDto>> GetHiScoresAsync()
+    {
+        var games = new List<HiScoreGameDto>();
+
+        // ── 2048 ──────────────────────────────────────────────────────────────
+        var p2048 = await db.Game2048Participants
+            .Include(p => p.Member)
+            .Include(p => p.Session)
+            .Where(p => p.Session!.Status == "completed" && p.Member != null && p.Score > 0)
+            .ToListAsync();
+
+        games.Add(new HiScoreGameDto("2048", "2048", "pts", true,
+            p2048
+                .GroupBy(p => p.MemberId)
+                .Select(g => { var b = g.MaxBy(p => p.Score)!; return (b.MemberId, Name: $"{b.Member!.FirstName} {b.Member!.LastName}".Trim(), Score: (long)b.Score, At: (DateTimeOffset?)null); })
+                .OrderByDescending(x => x.Score).Take(10)
+                .Select((x, i) => new HiScoreEntryDto(i + 1, x.MemberId, x.Name, x.Score, x.At))
+                .ToList()
+        ));
+
+        // ── Dots & Boxes ──────────────────────────────────────────────────────
+        var pDnB = await db.DotsAndBoxesParticipants
+            .Include(p => p.Member)
+            .Include(p => p.Session)
+            .Where(p => p.Session!.Status == "completed" && p.Member != null && p.MemberId != null && p.Score > 0)
+            .ToListAsync();
+
+        games.Add(new HiScoreGameDto("dots-and-boxes", "Dots & Boxes", "boxes", true,
+            pDnB
+                .GroupBy(p => p.MemberId!.Value)
+                .Select(g => { var b = g.MaxBy(p => p.Score)!; return (MemberId: b.MemberId!.Value, Name: $"{b.Member!.FirstName} {b.Member!.LastName}".Trim(), Score: (long)b.Score, At: (DateTimeOffset?)null); })
+                .OrderByDescending(x => x.Score).Take(10)
+                .Select((x, i) => new HiScoreEntryDto(i + 1, x.MemberId, x.Name, x.Score, x.At))
+                .ToList()
+        ));
+
+        // ── Quiz Classic ──────────────────────────────────────────────────────
+        var pQuizClassic = await db.QuizGameParticipants
+            .Include(p => p.Member)
+            .Include(p => p.Session)
+            .Where(p => p.Session!.GameMode == QuizGameMode.Classic && p.Session.Status == QuizGameSessionStatus.Completed && p.Member != null && p.Score > 0)
+            .ToListAsync();
+
+        games.Add(new HiScoreGameDto("quiz-classic", "Quiz Game", "correct", true,
+            pQuizClassic
+                .GroupBy(p => p.MemberId)
+                .Select(g => { var b = g.MaxBy(p => p.Score)!; return (b.MemberId, Name: $"{b.Member!.FirstName} {b.Member!.LastName}".Trim(), Score: (long)b.Score, At: (DateTimeOffset?)null); })
+                .OrderByDescending(x => x.Score).Take(10)
+                .Select((x, i) => new HiScoreEntryDto(i + 1, x.MemberId, x.Name, x.Score, x.At))
+                .ToList()
+        ));
+
+        // ── Quiz Millionaire ──────────────────────────────────────────────────
+        var pMillion = await db.QuizGameParticipants
+            .Include(p => p.Member)
+            .Include(p => p.Session)
+            .Where(p => p.Session!.GameMode == QuizGameMode.Millionaire && p.Member != null && p.MillionaireWinnings > 0)
+            .ToListAsync();
+
+        games.Add(new HiScoreGameDto("quiz-millionaire", "Who Wants to Be a Millionaire", "pts", true,
+            pMillion
+                .GroupBy(p => p.MemberId)
+                .Select(g => { var b = g.MaxBy(p => p.MillionaireWinnings)!; return (b.MemberId, Name: $"{b.Member!.FirstName} {b.Member!.LastName}".Trim(), Score: b.MillionaireWinnings, At: (DateTimeOffset?)null); })
+                .OrderByDescending(x => x.Score).Take(10)
+                .Select((x, i) => new HiScoreEntryDto(i + 1, x.MemberId, x.Name, x.Score, x.At))
+                .ToList()
+        ));
+
+        // ── Threes ────────────────────────────────────────────────────────────
+        var pThrees = await db.GameThreesParticipants
+            .Include(p => p.Member)
+            .Include(p => p.Session)
+            .Where(p => p.Session!.Status == "completed" && p.Member != null && p.Score > 0)
+            .ToListAsync();
+
+        games.Add(new HiScoreGameDto("threes", "Threes!", "pts", true,
+            pThrees
+                .GroupBy(p => p.MemberId)
+                .Select(g => { var b = g.MaxBy(p => p.Score)!; return (b.MemberId, Name: $"{b.Member!.FirstName} {b.Member!.LastName}".Trim(), Score: (long)b.Score, At: (DateTimeOffset?)null); })
+                .OrderByDescending(x => x.Score).Take(10)
+                .Select((x, i) => new HiScoreEntryDto(i + 1, x.MemberId, x.Name, x.Score, x.At))
+                .ToList()
+        ));
+
+        // ── Wordle (fewest guesses to win) ────────────────────────────────────
+        var pWordle = await db.WordleParticipants
+            .Include(p => p.Member)
+            .Where(p => p.Status == WordleParticipantStatus.Won && p.Member != null && p.GuessCount > 0)
+            .ToListAsync();
+
+        games.Add(new HiScoreGameDto("wordle", "Wordle", "guesses", false,
+            pWordle
+                .GroupBy(p => p.MemberId)
+                .Select(g => { var b = g.MinBy(p => p.GuessCount)!; return (b.MemberId, Name: $"{b.Member!.FirstName} {b.Member!.LastName}".Trim(), Score: (long)b.GuessCount, At: b.FinishedAt); })
+                .OrderBy(x => x.Score).Take(10)
+                .Select((x, i) => new HiScoreEntryDto(i + 1, x.MemberId, x.Name, x.Score, x.At))
+                .ToList()
+        ));
+
+        return games.Where(g => g.Entries.Count > 0).ToList();
+    }
+
     private static LeaderboardEntryDto BuildEntry(TeamMember m)
     {
         var breakdown = new List<PointBreakdownItem>();

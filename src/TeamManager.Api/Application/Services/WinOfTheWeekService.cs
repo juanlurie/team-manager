@@ -689,10 +689,64 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
                         await bgDb.SaveChangesAsync();
                         _ = WebSocketMiddleware.BroadcastAsync("win_story_ready", new { weekId }, guestAllowed: true);
                     }
+                    await DispatchWinStoryNotificationsAsync(bgDb, story.Trim(), winnerName, weekId);
                 }
             }
             catch { /* best-effort */ }
         });
+    }
+
+    private static async Task DispatchWinStoryNotificationsAsync(AppDbContext db, string story, string winnerName, Guid weekId)
+    {
+        var webhooks = await db.ApiRequestConfigs
+            .Where(c => c.Action == "AiChatWinStory" && !c.IsAiConnection && c.Enabled)
+            .ToListAsync();
+
+        if (webhooks.Count == 0) return;
+
+        var escaped = JsonSerializer.Serialize(story)[1..^1]; // JSON-escape without surrounding quotes
+        var events = webhooks.Select(w => new ApiSyncEvent
+        {
+            Action = w.Action,
+            ConfigName = w.Name,
+            Label = $"Win Story — {winnerName}",
+            SourceType = "WinWeek",
+            SourceId = weekId.ToString(),
+            HttpMethod = w.Method.ToUpper(),
+            ResolvedUrl = w.Url,
+            ResolvedHeadersJson = w.HeadersJson,
+            ResolvedBody = (w.BodyTemplate ?? "").Replace("{userMessage}", escaped),
+            BodyFormat = w.BodyFormat,
+            Status = "pending"
+        }).ToList();
+
+        db.ApiSyncEvents.AddRange(events);
+        await db.SaveChangesAsync();
+
+        foreach (var evt in events)
+        {
+            try
+            {
+                using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(15) };
+                var headers = JsonSerializer.Deserialize<Dictionary<string, string>>(
+                    string.IsNullOrWhiteSpace(evt.ResolvedHeadersJson) ? "{}" : evt.ResolvedHeadersJson) ?? [];
+                foreach (var (k, v) in headers) client.DefaultRequestHeaders.TryAddWithoutValidation(k, v);
+
+                var mediaType = evt.BodyFormat == "urlencoded" ? "application/x-www-form-urlencoded" : "application/json";
+                var content = new StringContent(evt.ResolvedBody, Encoding.UTF8, mediaType);
+                var response = await client.PostAsync(evt.ResolvedUrl, content);
+                evt.ResponseStatus = (int)response.StatusCode;
+                evt.ResponseBody = await response.Content.ReadAsStringAsync();
+                evt.SentAt = DateTimeOffset.UtcNow;
+                evt.Status = response.IsSuccessStatusCode ? "sent" : "failed";
+            }
+            catch (Exception ex)
+            {
+                evt.Status = "failed";
+                evt.ResponseBody = ex.Message;
+            }
+        }
+        await db.SaveChangesAsync();
     }
 
     public async Task<int> GetTokenBalanceAsync(Guid memberId, Guid seriesId)
@@ -875,9 +929,23 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
             foreach (var seg in dotPath.Split('.'))
             {
                 if (int.TryParse(seg, out var idx))
+                {
                     current = current[idx];
+                }
+                else if (seg.Contains('['))
+                {
+                    // Handle field[N] notation e.g. content[0], choices[0]
+                    var bracket = seg.IndexOf('[');
+                    var propName = seg[..bracket];
+                    var indexStr = seg[(bracket + 1)..seg.IndexOf(']')];
+                    if (!current.TryGetProperty(propName, out var arr)) return null;
+                    if (!int.TryParse(indexStr, out var arrIdx)) return null;
+                    current = arr[arrIdx];
+                }
                 else if (current.TryGetProperty(seg, out var next))
+                {
                     current = next;
+                }
                 else return null;
             }
             return current.ValueKind == JsonValueKind.String ? current.GetString() : null;
@@ -960,7 +1028,7 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
         await CloseWeekWithWinnerAsync(week, winnerId);
     }
 
-    private async Task CloseWeekWithWinnerAsync(WinWeek week, Guid winnerNominationId)
+    private async Task CloseWeekWithWinnerAsync(WinWeek week, Guid winnerNominationId, bool wasRandom = false)
     {
         week.Status = WinWeekStatus.Closed;
         week.WinnerNominationId = winnerNominationId;
@@ -991,7 +1059,8 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
         _ = WebSocketMiddleware.BroadcastAsync("voting_closed", new
         {
             weekId = week.Id,
-            winnerId = week.WinnerNominationId
+            winnerId = week.WinnerNominationId,
+            wasRandom
         }, guestAllowed: true);
     }
 
@@ -1016,14 +1085,24 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
 
         // Pick winner: clear leader wins outright; ties or no votes get a random pick
         Guid winnerId;
+        bool wasRandom;
         if (leaders.Count == 1)
+        {
             winnerId = leaders[0].NominationId;
+            wasRandom = false;
+        }
         else if (leaders.Count > 1)
+        {
             winnerId = leaders[Random.Shared.Next(leaders.Count)].NominationId;
+            wasRandom = true;
+        }
         else
+        {
             winnerId = tiedIds[Random.Shared.Next(tiedIds.Count)];
+            wasRandom = true;
+        }
 
-        await CloseWeekWithWinnerAsync(week, winnerId);
+        await CloseWeekWithWinnerAsync(week, winnerId, wasRandom);
     }
 
     public async Task ClearExpiredQuizAsync(WinWeek week)

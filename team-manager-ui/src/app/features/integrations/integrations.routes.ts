@@ -16,7 +16,7 @@ export const INTEGRATIONS_ROUTES: Routes = [
     path: '',
     component: IntegrationsHubComponent,
     children: [
-      { path: '', redirectTo: 'api-configs', pathMatch: 'full' },
+      { path: '', redirectTo: 'library', pathMatch: 'full' },
       {
         path: 'api-configs',
         loadComponent: () => import('../api-request-configs/api-request-configs.component').then(m => m.ApiRequestConfigsComponent)
@@ -36,6 +36,10 @@ export const INTEGRATIONS_ROUTES: Routes = [
       {
         path: 'sync-queue',
         loadComponent: () => import('../sync-queue/sync-queue.component').then(m => m.SyncQueueComponent)
+      },
+      {
+        path: 'library',
+        loadComponent: () => import('./integration-library.component').then(m => m.IntegrationLibraryComponent)
       },
       {
         path: 'services',

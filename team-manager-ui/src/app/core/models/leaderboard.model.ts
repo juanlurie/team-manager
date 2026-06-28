@@ -1,3 +1,19 @@
+export interface HiScoreEntry {
+  rank: number;
+  memberId: string;
+  displayName: string;
+  score: number;
+  achievedAt: string | null;
+}
+
+export interface HiScoreGame {
+  key: string;
+  label: string;
+  unit: string;
+  higherIsBetter: boolean;
+  entries: HiScoreEntry[];
+}
+
 export interface PointBreakdownItem {
   source: string;
   label: string;

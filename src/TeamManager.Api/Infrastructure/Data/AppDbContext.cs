@@ -60,6 +60,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<WordleSession> WordleSessions => Set<WordleSession>();
     public DbSet<WordleParticipant> WordleParticipants => Set<WordleParticipant>();
     public DbSet<WordleGuess> WordleGuesses => Set<WordleGuess>();
+    public DbSet<WordleRoyaleRating> WordleRoyaleRatings => Set<WordleRoyaleRating>();
+    public DbSet<WordleRoyaleMatch> WordleRoyaleMatches => Set<WordleRoyaleMatch>();
     public DbSet<Poll> Polls => Set<Poll>();
     public DbSet<PollOption> PollOptions => Set<PollOption>();
     public DbSet<PollVote> PollVotes => Set<PollVote>();
@@ -90,6 +92,18 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<TimesheetSystemConfig> TimesheetSystemConfigs => Set<TimesheetSystemConfig>();
     public DbSet<JokeHistory> JokeHistory => Set<JokeHistory>();
     public DbSet<ConfigVariable> ConfigVariables => Set<ConfigVariable>();
+    public DbSet<FunRetroSession> FunRetroSessions => Set<FunRetroSession>();
+    public DbSet<FunRetroCard> FunRetroCards => Set<FunRetroCard>();
+    public DbSet<FunRetroVote> FunRetroVotes => Set<FunRetroVote>();
+    public DbSet<FunRetroReaction> FunRetroReactions => Set<FunRetroReaction>();
+    public DbSet<DotsAndBoxesSession> DotsAndBoxesSessions => Set<DotsAndBoxesSession>();
+    public DbSet<DotsAndBoxesParticipant> DotsAndBoxesParticipants => Set<DotsAndBoxesParticipant>();
+    public DbSet<Game2048Session> Game2048Sessions => Set<Game2048Session>();
+    public DbSet<Game2048Participant> Game2048Participants => Set<Game2048Participant>();
+    public DbSet<GameThreesSession> GameThreesSessions => Set<GameThreesSession>();
+    public DbSet<GameThreesParticipant> GameThreesParticipants => Set<GameThreesParticipant>();
+    public DbSet<GameUltimateTttSession> GameUltimateTttSessions => Set<GameUltimateTttSession>();
+    public DbSet<GameUltimateTttParticipant> GameUltimateTttParticipants => Set<GameUltimateTttParticipant>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -158,11 +172,25 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         modelBuilder.ApplyConfiguration(new WordleSessionConfiguration());
         modelBuilder.ApplyConfiguration(new WordleParticipantConfiguration());
         modelBuilder.ApplyConfiguration(new WordleGuessConfiguration());
+        modelBuilder.ApplyConfiguration(new WordleRoyaleRatingConfiguration());
+        modelBuilder.ApplyConfiguration(new WordleRoyaleMatchConfiguration());
         modelBuilder.ApplyConfiguration(new AiPromptConfiguration());
         modelBuilder.ApplyConfiguration(new PollConfiguration());
         modelBuilder.ApplyConfiguration(new PollOptionConfiguration());
         modelBuilder.ApplyConfiguration(new PollVoteConfiguration());
         modelBuilder.ApplyConfiguration(new FeaturePermissionConfiguration());
         modelBuilder.ApplyConfiguration(new MemberFeatureOverrideConfiguration());
+        modelBuilder.ApplyConfiguration(new FunRetroSessionConfiguration());
+        modelBuilder.ApplyConfiguration(new FunRetroCardConfiguration());
+        modelBuilder.ApplyConfiguration(new FunRetroVoteConfiguration());
+        modelBuilder.ApplyConfiguration(new FunRetroReactionConfiguration());
+        modelBuilder.ApplyConfiguration(new DotsAndBoxesSessionConfiguration());
+        modelBuilder.ApplyConfiguration(new DotsAndBoxesParticipantConfiguration());
+        modelBuilder.ApplyConfiguration(new Game2048SessionConfiguration());
+        modelBuilder.ApplyConfiguration(new Game2048ParticipantConfiguration());
+        modelBuilder.ApplyConfiguration(new GameThreesSessionConfiguration());
+        modelBuilder.ApplyConfiguration(new GameThreesParticipantConfiguration());
+        modelBuilder.ApplyConfiguration(new GameUltimateTttSessionConfiguration());
+        modelBuilder.ApplyConfiguration(new GameUltimateTttParticipantConfiguration());
     }
 }

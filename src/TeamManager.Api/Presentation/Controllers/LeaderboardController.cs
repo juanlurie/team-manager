@@ -37,4 +37,7 @@ public class LeaderboardController(ILeaderboardService service) : ControllerBase
     [HttpDelete("award/{id:guid}")]
     public async Task<IActionResult> RevokeAward(Guid id)
         => await service.RevokePointAwardAsync(id) ? NoContent() : NotFound();
+
+    [HttpGet("hi-scores")]
+    public async Task<IActionResult> GetHiScores() => Ok(await service.GetHiScoresAsync());
 }

@@ -44,6 +44,9 @@ public class AiPromptExecutorService(AppDbContext db)
         var headers = string.IsNullOrWhiteSpace(config.HeadersJson)
             ? new Dictionary<string, string>()
             : JsonSerializer.Deserialize<Dictionary<string, string>>(config.HeadersJson) ?? new();
+        var secretHeaders = string.IsNullOrWhiteSpace(config.SecretHeadersJson)
+            ? new Dictionary<string, string>()
+            : JsonSerializer.Deserialize<Dictionary<string, string>>(config.SecretHeadersJson) ?? new();
         var mappingOpts = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
         var mapping = string.IsNullOrWhiteSpace(config.MappingJson)
             ? new MappingConfigDto()
@@ -94,6 +97,7 @@ public class AiPromptExecutorService(AppDbContext db)
         try
         {
             var executionHeaders = headers.ToDictionary(kvp => kvp.Key, kvp => ResolveForExecution(kvp.Value));
+            foreach (var (k, v) in secretHeaders) executionHeaders[k] = v;
             var executionUrl = ResolveForExecution(config.Url);
             var executionBody = ResolveForExecution(config.BodyTemplate ?? "");
 

@@ -45,6 +45,8 @@ public record WordleSessionDto
     public string? RevealedWord { get; init; }
     // Only meaningful alongside RevealedWord -- null while the word isn't revealed yet.
     public bool? RevealedWordIsAiGenerated { get; init; }
+    // Populated on the first fetch after session completes; null while in progress.
+    public MyRoyaleResultDto? MyRoyaleResult { get; init; }
 }
 
 public record CreateWordleSessionRequest(string? Title);

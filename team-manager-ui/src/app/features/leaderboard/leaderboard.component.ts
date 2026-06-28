@@ -1,10 +1,11 @@
 import { Component, OnInit, inject, signal, ChangeDetectionStrategy } from '@angular/core';
+import { DecimalPipe } from '@angular/common';
 
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatDialog } from '@angular/material/dialog';
 import { MatDialogModule } from '@angular/material/dialog';
-import { LeaderboardEntry } from '../../core/models/leaderboard.model';
+import { HiScoreGame, LeaderboardEntry } from '../../core/models/leaderboard.model';
 import { LeaderboardService } from '../../core/services/leaderboard.service';
 import { MemberPointsHistoryComponent } from './member-points-history.component';
 
@@ -25,20 +26,52 @@ const SOURCE_COLORS: Record<string, { bg: string; text: string }> = {
 @Component({
   selector: 'app-leaderboard',
   standalone: true,
-  imports: [MatIconModule, MatTooltipModule, MatDialogModule],
+  imports: [MatIconModule, MatTooltipModule, MatDialogModule, DecimalPipe],
   styles: [`
     .podium-card { transition:opacity 0.15s; }
     .podium-card:hover { opacity:0.8; }
     .rank-row { transition:opacity 0.15s; }
     .rank-row:hover { opacity:0.75; }
+
+    .lb-tab { padding:10px 16px;background:none;border:none;border-bottom:2px solid transparent;color:rgba(255,255,255,0.4);font-size:0.85rem;font-weight:500;cursor:pointer;font-family:inherit;transition:all 0.12s; }
+    .lb-tab:hover { color:rgba(255,255,255,0.7); }
+    .lb-tab.active { color:#64b5f6;border-bottom-color:#64b5f6; }
+
+    .hs-grid { display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px; }
+    .hs-card { background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07);border-radius:12px;overflow:hidden; }
+    .hs-card-header { display:flex;align-items:baseline;justify-content:space-between;padding:12px 14px 10px;border-bottom:1px solid rgba(255,255,255,0.06); }
+    .hs-game-label { font-size:0.9rem;font-weight:700;color:rgba(255,255,255,0.85); }
+    .hs-unit { font-size:0.7rem;color:rgba(255,255,255,0.3); }
+    .hs-rows { display:flex;flex-direction:column; }
+    .hs-row { display:flex;align-items:center;gap:10px;padding:8px 14px;border-bottom:1px solid rgba(255,255,255,0.04); }
+    .hs-row:last-child { border-bottom:none; }
+    .hs-rank { width:20px;font-size:0.75rem;font-weight:700;color:rgba(255,255,255,0.25);flex-shrink:0;text-align:center; }
+    .hs-gold .hs-rank   { color:#FFD700; }
+    .hs-silver .hs-rank { color:#C0C0C0; }
+    .hs-bronze .hs-rank { color:#CD7F32; }
+    .hs-avatar { width:26px;height:26px;border-radius:50%;background:rgba(100,181,246,0.12);color:#64b5f6;font-size:0.7rem;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0; }
+    .hs-gold   .hs-avatar { background:rgba(255,215,0,0.12);color:#FFD700; }
+    .hs-silver .hs-avatar { background:rgba(192,192,192,0.12);color:#C0C0C0; }
+    .hs-bronze .hs-avatar { background:rgba(205,127,50,0.12);color:#CD7F32; }
+    .hs-name { flex:1;font-size:0.82rem;color:rgba(255,255,255,0.75);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
+    .hs-score { font-size:0.9rem;font-weight:800;color:rgba(255,255,255,0.9);flex-shrink:0; }
+    .hs-unit-small { font-size:0.65rem;font-weight:400;opacity:0.45; }
   `],
   changeDetection: ChangeDetectionStrategy.Default,
   template: `
     <div style="max-width:900px;margin:0 auto;padding:0 8px">
-      <div style="display:flex;align-items:center;gap:12px;margin-bottom:24px">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">
         <mat-icon style="font-size:1.6rem;width:1.6rem;height:1.6rem;color:#FFD700">emoji_events</mat-icon>
         <h2 style="margin:0;font-size:1.3rem;font-weight:700">Leaderboard</h2>
       </div>
+
+      <!-- Tabs -->
+      <div style="display:flex;gap:0;margin-bottom:20px;border-bottom:1px solid rgba(255,255,255,0.08)">
+        <button class="lb-tab" [class.active]="tab()==='points'" (click)="tab.set('points')">Points</button>
+        <button class="lb-tab" [class.active]="tab()==='hiscores'" (click)="switchHiScores()">Hi Scores</button>
+      </div>
+
+      @if (tab() === 'points') {
 
       @if (entries().length > 0) {
         <!-- F1 Podium: top 3 -->
@@ -145,6 +178,38 @@ const SOURCE_COLORS: Record<string, { bg: string; text: string }> = {
       @if (entries().length === 0 && !loading()) {
         <div style="text-align:center;padding:64px;opacity:0.35">No data yet</div>
       }
+
+      } @else {
+
+      <!-- Hi Scores tab -->
+      @if (hiLoading()) {
+        <div style="text-align:center;padding:64px;opacity:0.35">Loading…</div>
+      } @else if (hiScores().length === 0) {
+        <div style="text-align:center;padding:64px;opacity:0.35">No game scores yet</div>
+      } @else {
+        <div class="hs-grid">
+          @for (game of hiScores(); track game.key) {
+            <div class="hs-card">
+              <div class="hs-card-header">
+                <span class="hs-game-label">{{ game.label }}</span>
+                <span class="hs-unit">{{ game.higherIsBetter ? 'best' : 'fewest' }} {{ game.unit }}</span>
+              </div>
+              <div class="hs-rows">
+                @for (e of game.entries; track e.memberId) {
+                  <div class="hs-row" [class.hs-gold]="e.rank===1" [class.hs-silver]="e.rank===2" [class.hs-bronze]="e.rank===3">
+                    <span class="hs-rank">{{ e.rank }}</span>
+                    <span class="hs-avatar">{{ e.displayName[0] }}</span>
+                    <span class="hs-name">{{ e.displayName }}</span>
+                    <span class="hs-score">{{ e.score | number }}<span class="hs-unit-small"> {{ game.unit }}</span></span>
+                  </div>
+                }
+              </div>
+            </div>
+          }
+        </div>
+      }
+
+      }
     </div>
   `
 })
@@ -154,6 +219,10 @@ export class LeaderboardComponent implements OnInit {
 
   entries = signal<LeaderboardEntry[]>([]);
   loading = signal(true);
+  tab = signal<'points' | 'hiscores'>('points');
+  hiScores = signal<HiScoreGame[]>([]);
+  hiLoading = signal(false);
+  private hiLoaded = false;
 
   readonly POS_COLORS = POS_COLORS;
 
@@ -163,6 +232,17 @@ export class LeaderboardComponent implements OnInit {
     this.svc.getLeaderboard().subscribe(data => {
       this.entries.set(data);
       this.loading.set(false);
+    });
+  }
+
+  switchHiScores() {
+    this.tab.set('hiscores');
+    if (this.hiLoaded) return;
+    this.hiLoaded = true;
+    this.hiLoading.set(true);
+    this.svc.getHiScores().subscribe(data => {
+      this.hiScores.set(data);
+      this.hiLoading.set(false);
     });
   }
 

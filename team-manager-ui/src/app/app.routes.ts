@@ -29,9 +29,14 @@ export const routes: Routes = [
         redirectTo: 'delivery/export',
         pathMatch: 'full'
       },
+      { path: 'fun', redirectTo: 'pulse', pathMatch: 'prefix' },
       {
-        path: 'fun',
-        loadChildren: () => import('./features/fun/fun.routes').then(m => m.FUN_ROUTES)
+        path: 'pulse',
+        loadChildren: () => import('./features/fun/pulse.routes').then(m => m.PULSE_ROUTES)
+      },
+      {
+        path: 'games',
+        loadChildren: () => import('./features/fun/games.routes').then(m => m.GAMES_ROUTES)
       },
       {
         path: 'discussion',
@@ -122,9 +127,9 @@ export const routes: Routes = [
     loadChildren: () => import('./features/guest-wow/guest-wow.routes').then(m => m.GUEST_WOW_ROUTES)
   },
   // Backward compatibility redirects
-  { path: 'win-of-the-week', redirectTo: 'fun/win-of-the-week', pathMatch: 'full' },
-  { path: 'leaderboard', redirectTo: 'fun/leaderboard', pathMatch: 'full' },
-  { path: 'wheel', redirectTo: 'fun/wheel', pathMatch: 'full' },
+  { path: 'win-of-the-week', redirectTo: 'pulse/win-of-the-week', pathMatch: 'full' },
+  { path: 'leaderboard', redirectTo: 'games/leaderboard', pathMatch: 'full' },
+  { path: 'wheel', redirectTo: 'pulse/wheel', pathMatch: 'full' },
   { path: 'meeting-series', redirectTo: 'meetings/series', pathMatch: 'full' },
   { path: 'meeting-series/:id', redirectTo: 'meetings/series/:id', pathMatch: 'full' },
   { path: 'meeting-series/:id/:rest', redirectTo: 'meetings/series/:id/:rest', pathMatch: 'prefix' },

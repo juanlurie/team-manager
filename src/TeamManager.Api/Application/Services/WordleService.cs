@@ -12,7 +12,7 @@ namespace TeamManager.Api.Application.Services;
 // session. Guesses are private between players -- the session view only ever exposes other
 // participants' guess COUNT and status, never their actual guessed words, so nobody can pick up
 // hints about the answer from someone else's attempts.
-public class WordleService(AppDbContext db, WordleWordGeneratorService wordGenerator)
+public class WordleService(AppDbContext db, WordleWordGeneratorService wordGenerator, WordleRoyaleService royale)
 {
     public async Task<List<WordleSessionSummaryDto>> GetOpenSessionsAsync()
     {
@@ -103,6 +103,8 @@ public class WordleService(AppDbContext db, WordleWordGeneratorService wordGener
         var normalized = (word ?? "").Trim().ToUpperInvariant();
         if (normalized.Length != WordleWordBank.WordLength || !normalized.All(char.IsAsciiLetterUpper))
             throw new InvalidOperationException($"Guess must be exactly {WordleWordBank.WordLength} letters.");
+        if (!WordleWordBank.IsValidGuess(normalized))
+            throw new InvalidOperationException("Not in word list.");
 
         var guessIndex = participant.GuessCount;
         var letters = ScoreGuess(normalized, session.Word);
@@ -154,6 +156,10 @@ public class WordleService(AppDbContext db, WordleWordGeneratorService wordGener
             Letters = JsonSerializer.Deserialize<List<string>>(g.ResultJson) ?? []
         }).ToList();
 
+        DTOs.Wordle.MyRoyaleResultDto? myRoyaleResult = null;
+        if (session.Status == WordleSessionStatus.Completed && me is not null)
+            myRoyaleResult = await royale.GetSessionResultForMemberAsync(session.Id, memberId);
+
         return new WordleSessionDto
         {
             Id = session.Id,
@@ -172,7 +178,8 @@ public class WordleService(AppDbContext db, WordleWordGeneratorService wordGener
             MyStatus = me?.Status.ToString() ?? "Playing",
             MyGuesses = myGuesses,
             RevealedWord = me is { Status: not WordleParticipantStatus.Playing } ? session.Word : null,
-            RevealedWordIsAiGenerated = me is { Status: not WordleParticipantStatus.Playing } ? session.IsAiGenerated : null
+            RevealedWordIsAiGenerated = me is { Status: not WordleParticipantStatus.Playing } ? session.IsAiGenerated : null,
+            MyRoyaleResult = myRoyaleResult
         };
     }
 
@@ -201,6 +208,7 @@ public class WordleService(AppDbContext db, WordleWordGeneratorService wordGener
         session.CompletedAt = completedAt;
 
         await AwardLeaderboardPointsAsync(session, participants);
+        await royale.ProcessSessionAsync(session, participants);
         _ = WebSocketMiddleware.BroadcastAsync("wordle_completed", new { sessionId = session.Id });
     }
 

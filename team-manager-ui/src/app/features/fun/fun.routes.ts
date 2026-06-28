@@ -1,10 +1,10 @@
 import { Routes } from '@angular/router';
-import { FunHubComponent } from './fun-hub.component';
+import { PulseHubComponent } from './fun-hub.component';
 
 export const FUN_ROUTES: Routes = [
   {
     path: '',
-    component: FunHubComponent,
+    component: PulseHubComponent,
     children: [
       { path: '', redirectTo: 'win-of-the-week', pathMatch: 'full' },
       {
@@ -54,6 +54,14 @@ export const FUN_ROUTES: Routes = [
       {
         path: 'wordle',
         loadChildren: () => import('../wordle/wordle.routes').then(m => m.WORDLE_ROUTES)
+      },
+      {
+        path: 'retro',
+        loadComponent: () => import('./retro/retro.component').then(m => m.FunRetroComponent)
+      },
+      {
+        path: 'dots-and-boxes',
+        loadChildren: () => import('../dots-and-boxes/dots-and-boxes.routes').then(m => m.DOTS_AND_BOXES_ROUTES)
       }
     ]
   }

@@ -72,6 +72,12 @@ builder.Services.AddScoped<QuizGameService>();
 builder.Services.AddScoped<PollService>();
 builder.Services.AddScoped<WordleWordGeneratorService>();
 builder.Services.AddScoped<WordleService>();
+builder.Services.AddScoped<WordleRoyaleService>();
+builder.Services.AddScoped<FunRetroService>();
+builder.Services.AddScoped<DotsAndBoxesService>();
+builder.Services.AddScoped<Game2048Service>();
+builder.Services.AddScoped<GameThreesService>();
+builder.Services.AddScoped<GameUltimateTttService>();
 builder.Services.AddScoped<IWinOfTheWeekService, WinOfTheWeekService>();
 builder.Services.AddScoped<GuestWinOfTheWeekService>();
 builder.Services.AddScoped<WinSeriesService>();
@@ -193,6 +199,11 @@ static async Task SeedFeaturePermissionsAsync(AppDbContext db)
         ("polls", "Fun Hub", "Polls"),
         ("quiz-game", "Fun Hub", "Quiz Game"),
         ("wordle", "Fun Hub", "Wordle"),
+        ("retro", "Fun Hub", "Retro"),
+        ("dots-and-boxes", "Fun Hub", "Dots & Boxes"),
+        ("2048", "Fun Hub", "2048"),
+        ("threes", "Fun Hub", "Threes"),
+        ("ultimate-ttt", "Fun Hub", "Ultimate Tic Tac Toe"),
         ("team", "Team", "Team Management"),
         // wow-host/polls-host/quiz-game-host/wordle-host are seeded separately with role-specific defaults
 
@@ -233,6 +244,11 @@ static async Task SeedFeaturePermissionsAsync(AppDbContext db)
         ("polls-host", "Polls — Host"),
         ("quiz-game-host", "Quiz Game — Host"),
         ("wordle-host", "Wordle — Host"),
+        ("retro-host", "Retro — Host"),
+        ("dots-and-boxes-host", "Dots & Boxes — Host"),
+        ("2048-host", "2048 — Host"),
+        ("threes-host", "Threes — Host"),
+        ("ultimate-ttt-host", "Ultimate Tic Tac Toe — Host"),
     };
     var hostRoleDefaults = new[] { ("Member", false), ("TeamLead", true), ("TechLead", true) };
     foreach (var (key, label) in hostFeatures)

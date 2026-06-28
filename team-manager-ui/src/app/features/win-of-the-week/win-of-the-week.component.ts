@@ -462,10 +462,11 @@ export class WinOfTheWeekComponent implements OnInit, OnDestroy {
           const wk = this.currentWeek();
           const snap = this.suddenDeathSnapshot;
           this.suddenDeathSnapshot = null;
+          const wasRandom = msg.data['wasRandom'] as boolean;
           const source = wk?.status === 'SuddenDeath' ? wk
             : snap ? { nominations: snap.nominations, tiedNominationIds: snap.tiedNominationIds } : null;
           const tiedNoms = source ? source.nominations.filter(n => source.tiedNominationIds.includes(n.id)) : [];
-          if (tiedNoms.length > 0) {
+          if (wasRandom && tiedNoms.length > 0) {
             const winnerId = msg.data['winnerId'] as string;
             const winner = tiedNoms.find(n => n.id === winnerId);
             runTieBreakSpin(

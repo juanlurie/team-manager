@@ -1,3 +1,5 @@
+import { MyRoyaleResult } from './wordle-royale.model';
+
 export type WordleStatus = 'Playing' | 'Won' | 'Lost';
 
 export interface WordleSessionSummary {
@@ -35,6 +37,7 @@ export interface WordleSession {
   myGuesses: WordleGuessResult[];
   revealedWord: string | null;
   revealedWordIsAiGenerated: boolean | null;
+  myRoyaleResult: MyRoyaleResult | null;
 }
 
 export interface CreateWordleSessionRequest {

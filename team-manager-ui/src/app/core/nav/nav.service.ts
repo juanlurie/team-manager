@@ -9,7 +9,8 @@ const ALL_PRIMARY_NAV: NavItem[] = [
   { path: '/discussion',     icon: 'forum',           label: 'Discussion',   featureKey: 'discussion' },
   { path: '/meetings',       icon: 'event',           label: 'Meetings',     featureKey: 'meetings' },
   { path: '/team',           icon: 'people',          label: 'Team',         featureKey: 'team' },
-  { path: '/fun',            icon: 'casino',          label: 'Fun Hub',      featureKey: 'fun-hub' },
+  { path: '/pulse',          icon: 'favorite',        label: 'Pulse',        featureKey: 'fun-hub' },
+  { path: '/games',          icon: 'sports_esports',  label: 'Games',        featureKey: 'fun-hub' },
 ];
 
 const ALL_SECONDARY_NAV: NavItem[] = [
@@ -29,7 +30,8 @@ const ALL_MORE_NAV: NavItem[] = [
   { path: '/delivery',       icon: 'rocket_launch',  label: 'Delivery',      featureKey: 'features' },
   { path: '/discussion',     icon: 'forum',          label: 'Discussion',    featureKey: 'discussion' },
   { path: '/meetings',       icon: 'event',          label: 'Meetings',      featureKey: 'meetings' },
-  { path: '/fun',            icon: 'casino',         label: 'Fun Hub',       featureKey: 'fun-hub' },
+  { path: '/pulse',          icon: 'favorite',       label: 'Pulse',         featureKey: 'fun-hub' },
+  { path: '/games',          icon: 'sports_esports', label: 'Games',         featureKey: 'fun-hub' },
   { path: '/integrations',   icon: 'hub',            label: 'Integrations',  featureKey: 'settings' },
   { path: '/settings',       icon: 'settings',       label: 'Settings',      featureKey: 'settings' },
   { path: '/profile',        icon: 'person',         label: 'Profile' },
@@ -42,6 +44,7 @@ export class NavService {
 
   currentUrl = signal(this.router.url);
   expanded = signal(localStorage.getItem('nav-expanded') === 'true');
+  hideNav = signal(false);
 
   isLoginPage = computed(() => this.currentUrl() === '/login');
   isMoreActive = computed(() => ALL_MORE_NAV.some(item => this.currentUrl().startsWith(item.path)));
