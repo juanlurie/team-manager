@@ -13,6 +13,21 @@
     </mat-card-header>
 
     <mat-card-content>
+      <div class="logo-upload-row">
+        <label class="logo-upload-btn">
+          <mat-icon>add_photo_alternate</mat-icon>
+          {{ uploadedLogoBase64() ? 'Change Logo' : 'Upload Logo (optional)' }}
+          <input type="file" accept="image/*" (change)="onLogoUpload($event)" style="display:none">
+        </label>
+        @if (uploadedLogoBase64()) {
+          <img [src]="'data:image/' + uploadedLogoExt() + ';base64,' + uploadedLogoBase64()"
+               alt="Logo preview" class="logo-preview">
+          <button mat-icon-button (click)="clearLogo()" type="button" matTooltip="Remove logo">
+            <mat-icon style="font-size:18px;width:18px;height:18px">close</mat-icon>
+          </button>
+        }
+      </div>
+
       <!-- Desktop table layout -->
       <table class="expense-table desktop-table">
         <thead>

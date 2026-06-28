@@ -3,9 +3,9 @@ export const TIMESHEET_PROJECTS = [
   'Training',
   'Meetings and Reviews',
   'Social Events',
-  'Entelect Maintenance',
+  'Maintenance',
   'Remote Culture',
-  'Entelect Software Recruitment',
+  'Software Recruitment',
   'People Training',
   'R - Standard Bank BCB - OB4B Backbase Features',
 ];
@@ -31,16 +31,16 @@ export const CATEGORIES_BY_PROJECT: Record<string, string[]> = {
   'Meetings and Reviews': [
     'Review Attendance', 'Review Facilitation', 'Online Review Capture',
     'One On One Attendance', 'One On One Facilitation', 'Client Interview',
-    'Entelect Knowledge Sharing Meeting', 'Team Lead Inductions',
+    'Knowledge Sharing Meeting', 'Team Lead Inductions',
     'New Employee Induction', 'Client Interview Preparation',
     'Team Lead Breakaway', 'Existing Employee Induction',
-    'Project Lead Programme', 'Entelect Flights',
+    'Project Lead Programme', 'Company Flights',
   ],
   'Social Events': [
     'Team Lunch Attendance', 'Team Building Attendance',
     'Social Club Attendance', 'Year End Function Attendance', 'Community Contribution',
   ],
-  'Entelect Maintenance': ['PC Maintenance'],
+  'Maintenance': ['PC Maintenance'],
   'Remote Culture': [
     'Movie Debate', 'Dad Joke Penalty Shootout', 'Team Chat Roulette', 'Other',
     'Pet Hour', "It's Wednesday My Dudes", 'Build a Burger', 'Where in the World',
@@ -50,7 +50,7 @@ export const CATEGORIES_BY_PROJECT: Record<string, string[]> = {
     'Have you Ever', 'Word at a Time Story', 'Riddle Time Trial', 'Talent Show',
     'Gartic Phone', 'Lip Sync Battle', 'Hidden Talent Show', 'Random Trivia',
   ],
-  'Entelect Software Recruitment': ['Interviews', 'Candidate Search', 'Administration', 'General', 'Graduate Initiatives'],
+  'Software Recruitment': ['Interviews', 'Candidate Search', 'Administration', 'General', 'Graduate Initiatives'],
   'People Training': [
     'H4x0r', '1337', 'Career Accelerator Programme',
     'ElevateHER Leadership Programme', 'Craft Project Lead Programme',

@@ -10,7 +10,6 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatDialogModule, MatDialog } from '@angular/material/dialog';
 import { AuthService } from '../../core/auth/auth.service';
 import * as ExcelJS from 'exceljs';
-import { LOGO_BASE64 } from './logo.base64';
 
 interface ExpenseItem {
   description: string;
@@ -48,6 +47,9 @@ export class ExpenseClaimComponent implements OnInit {
   showItemDialog = signal(false);
   editingIndex = signal<number | null>(null);
   itemForm!: FormGroup;
+
+  uploadedLogoBase64 = signal<string | null>(null);
+  uploadedLogoExt = signal<'jpeg' | 'png' | 'gif'>('jpeg');
 
   @ViewChild('descInput') descInput!: ElementRef<HTMLInputElement>;
 
@@ -116,6 +118,23 @@ export class ExpenseClaimComponent implements OnInit {
     this.items.set(this.items().filter((_, i) => i !== index));
   }
 
+  onLogoUpload(event: Event): void {
+    const file = (event.target as HTMLInputElement).files?.[0];
+    if (!file) return;
+    const ext: 'jpeg' | 'png' | 'gif' = file.type.includes('png') ? 'png' : file.type.includes('gif') ? 'gif' : 'jpeg';
+    this.uploadedLogoExt.set(ext);
+    const reader = new FileReader();
+    reader.onload = () => {
+      const base64 = (reader.result as string).split(',')[1];
+      this.uploadedLogoBase64.set(base64);
+    };
+    reader.readAsDataURL(file);
+  }
+
+  clearLogo(): void {
+    this.uploadedLogoBase64.set(null);
+  }
+
   async generateAndDownload(): Promise<void> {
     if (this.items().length === 0) {
       this.snackBar.open('Please add at least one expense item', 'Close', { duration: 3000 });
@@ -160,15 +179,18 @@ export class ExpenseClaimComponent implements OnInit {
       }
     }
 
-    const logoBytes = Uint8Array.from(atob(LOGO_BASE64), c => c.charCodeAt(0));
-    const logoId = workbook.addImage({
-      buffer: logoBytes as any,
-      extension: 'jpeg',
-    });
-    worksheet.addImage(logoId, {
-      tl: { col: 2, row: 0 },
-      ext: { width: 280, height: 93 },
-    });
+    const logoBase64 = this.uploadedLogoBase64();
+    if (logoBase64) {
+      const logoBytes = Uint8Array.from(atob(logoBase64), c => c.charCodeAt(0));
+      const logoId = workbook.addImage({
+        buffer: logoBytes as any,
+        extension: this.uploadedLogoExt(),
+      });
+      worksheet.addImage(logoId, {
+        tl: { col: 2, row: 0 },
+        ext: { width: 280, height: 93 },
+      });
+    }
 
     worksheet.mergeCells('C6:E7');
     const titleCell = worksheet.getCell('C6');

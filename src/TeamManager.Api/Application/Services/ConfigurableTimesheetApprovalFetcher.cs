@@ -35,7 +35,7 @@ public class ConfigurableTimesheetApprovalFetcher : ITimesheetApprovalFetcher
         var credentials = request.Credentials ?? new();
 
         // Storage values are non-secret and deliberately leave {cookie} and any named credential
-        // placeholders (e.g. {entelectCookie}) unresolved, so session tokens are never written to
+        // placeholders (e.g. {authCookie}) unresolved, so session tokens are never written to
         // the ApiSyncEvent row that this fetch logs (see below).
         string ResolveForStorage(string t) =>
             ResolveTemplate(ConfigVariableResolver.Apply(t, publicConfigVars), request.Start, request.End, "{cookie}");
