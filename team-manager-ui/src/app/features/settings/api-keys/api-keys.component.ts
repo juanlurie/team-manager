@@ -42,7 +42,7 @@ export class ApiKeysComponent implements OnInit {
   newlyCreatedKey: CreatedApiKeyResult | null = null;
   configCopied = false;
 
-  private get mcpServerUrl(): string {
+  protected get mcpServerUrl(): string {
     const { protocol, hostname, port } = window.location;
     const mcpHost = hostname.startsWith('team.')
       ? hostname.replace('team.', 'team-mcp.')
