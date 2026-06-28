@@ -10,6 +10,7 @@ import { AvatarCircleComponent } from './avatar-circle.component';
     <span class="k-chip" [title]="member().firstName + ' ' + member().lastName">
       <app-avatar-circle [memberId]="member().id"
                           [name]="member().firstName + ' ' + member().lastName"
+                          [avatarSeed]="member().avatarSeed"
                           [size]="16" />
       <span class="k-chip-label">{{ displayName() }}</span>
       <button class="k-chip-remove" (click)="onRemove($event)"

@@ -1,5 +1,8 @@
 import { Component, computed, input, ChangeDetectionStrategy } from '@angular/core';
+import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
+import { inject } from '@angular/core';
 import { getAvatarColor, getInitials } from './k-picker.utils';
+import { generateAvatar } from '../../utils/multiavatar';
 
 @Component({
   selector: 'app-avatar-circle',
@@ -10,7 +13,7 @@ import { getAvatarColor, getInitials } from './k-picker.utils';
          [style.font-size.px]="fontSize()"
          [title]="name()">
       @if (avatarSeed()) {
-        <img [src]="avatarUrl()" [alt]="name()" [style.width.px]="size()" [style.height.px]="size()" style="border-radius:50%;object-fit:cover;display:block">
+        <span [innerHTML]="avatarSvg()" style="display:flex;width:100%;height:100%"></span>
       } @else {
         {{ initials() }}
       }
@@ -30,9 +33,12 @@ import { getAvatarColor, getInitials } from './k-picker.utils';
       user-select: none;
       overflow: hidden;
     }
+    :host ::ng-deep svg { width: 100%; height: 100%; }
   `]
 })
 export class AvatarCircleComponent {
+  private sanitizer = inject(DomSanitizer);
+
   readonly memberId = input.required<string>();
   readonly name = input.required<string>();
   readonly avatarSeed = input<string | null>(null);
@@ -47,5 +53,8 @@ export class AvatarCircleComponent {
 
   protected bgColor = computed(() => getAvatarColor(this.memberId()));
   protected fontSize = computed(() => Math.max(8, Math.round(this.size() * 0.45)));
-  protected avatarUrl = computed(() => `https://api.multiavatar.com/${encodeURIComponent(this.avatarSeed()!)}.svg`);
+  protected avatarSvg = computed((): SafeHtml => {
+    const seed = this.avatarSeed();
+    return seed ? this.sanitizer.bypassSecurityTrustHtml(generateAvatar(seed)) : '';
+  });
 }

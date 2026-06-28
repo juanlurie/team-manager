@@ -21,6 +21,7 @@
     "@angular/router": "^22.0.1",
     "@angular/service-worker": "^22.0.1",
     "@fontsource/geist": "^5.2.9",
+    "@multiavatar/multiavatar": "^1.0.7",
     "@types/qrcode": "^1.5.6",
     "angular-oauth2-oidc": "^17.0.2",
     "exceljs": "^4.4.0",

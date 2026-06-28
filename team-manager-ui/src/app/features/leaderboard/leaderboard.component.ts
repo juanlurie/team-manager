@@ -9,6 +9,7 @@ import { HiScoreGame, LeaderboardEntry } from '../../core/models/leaderboard.mod
 import { LeaderboardService } from '../../core/services/leaderboard.service';
 import { buildDuplicateFirstNames, memberDisplayName } from '../../core/utils/member-display-name';
 import { MemberPointsHistoryComponent } from './member-points-history.component';
+import { AvatarCircleComponent } from '../../core/components/k-picker/avatar-circle.component';
 
 const POS_COLORS: Record<number, { bg: string; text: string; border: string; label: string }> = {
   1: { bg: 'rgba(255,215,0,0.12)',   text: '#FFD700', border: 'rgba(255,215,0,0.4)',   label: 'P1' },
@@ -27,7 +28,7 @@ const SOURCE_COLORS: Record<string, { bg: string; text: string }> = {
 @Component({
   selector: 'app-leaderboard',
   standalone: true,
-  imports: [MatIconModule, MatTooltipModule, MatDialogModule, DecimalPipe],
+  imports: [MatIconModule, MatTooltipModule, MatDialogModule, DecimalPipe, AvatarCircleComponent],
   styles: [`
     .podium-card { transition:opacity 0.15s; }
     .podium-card:hover { opacity:0.8; }
@@ -85,9 +86,8 @@ const SOURCE_COLORS: Record<string, { bg: string; text: string }> = {
                  (click)="openMember(p2.memberId)" class="podium-card"
                  style="border:1px solid;border-radius:14px;padding:20px 16px 16px;text-align:center;order:1;cursor:pointer">
               <div style="font-size:2rem;font-weight:900;margin-bottom:8px" [style.color]="POS_COLORS[2].text">P2</div>
-              <div style="width:52px;height:52px;border-radius:50%;margin:0 auto 10px;display:flex;align-items:center;justify-content:center;font-size:1rem;font-weight:700"
-                   [style.background]="POS_COLORS[2].bg" [style.color]="POS_COLORS[2].text" [style.border]="'2px solid ' + POS_COLORS[2].border">
-                {{p2.firstName[0]}}{{p2.lastName[0]}}
+              <div style="margin:0 auto 10px;width:52px">
+                <app-avatar-circle [memberId]="p2.memberId" [name]="p2.firstName + ' ' + p2.lastName" [avatarSeed]="p2.avatarSeed" [size]="52" />
               </div>
               <div style="font-weight:700;font-size:0.95rem">{{memberName(p2)}}</div>
               <div style="font-size:1.4rem;font-weight:900;margin-top:6px" [style.color]="POS_COLORS[2].text">{{p2.totalPoints}} <span style="font-size:0.8rem;font-weight:400;opacity:0.6">pts</span></div>
@@ -102,9 +102,8 @@ const SOURCE_COLORS: Record<string, { bg: string; text: string }> = {
                  (click)="openMember(p1.memberId)" class="podium-card"
                  style="border:1px solid;border-radius:14px;padding:28px 16px 20px;text-align:center;order:2;cursor:pointer">
               <div style="font-size:2.4rem;font-weight:900;margin-bottom:8px" [style.color]="POS_COLORS[1].text">P1</div>
-              <div style="width:60px;height:60px;border-radius:50%;margin:0 auto 10px;display:flex;align-items:center;justify-content:center;font-size:1.1rem;font-weight:700"
-                   [style.background]="POS_COLORS[1].bg" [style.color]="POS_COLORS[1].text" [style.border]="'2px solid ' + POS_COLORS[1].border">
-                {{p1.firstName[0]}}{{p1.lastName[0]}}
+              <div style="margin:0 auto 10px;width:60px">
+                <app-avatar-circle [memberId]="p1.memberId" [name]="p1.firstName + ' ' + p1.lastName" [avatarSeed]="p1.avatarSeed" [size]="60" />
               </div>
               <div style="font-weight:700;font-size:1rem">{{memberName(p1)}}</div>
               <div style="font-size:1.7rem;font-weight:900;margin-top:6px" [style.color]="POS_COLORS[1].text">{{p1.totalPoints}} <span style="font-size:0.85rem;font-weight:400;opacity:0.6">pts</span></div>
@@ -119,9 +118,8 @@ const SOURCE_COLORS: Record<string, { bg: string; text: string }> = {
                  (click)="openMember(p3.memberId)" class="podium-card"
                  style="border:1px solid;border-radius:14px;padding:16px 16px 16px;text-align:center;order:3;cursor:pointer">
               <div style="font-size:2rem;font-weight:900;margin-bottom:8px" [style.color]="POS_COLORS[3].text">P3</div>
-              <div style="width:52px;height:52px;border-radius:50%;margin:0 auto 10px;display:flex;align-items:center;justify-content:center;font-size:1rem;font-weight:700"
-                   [style.background]="POS_COLORS[3].bg" [style.color]="POS_COLORS[3].text" [style.border]="'2px solid ' + POS_COLORS[3].border">
-                {{p3.firstName[0]}}{{p3.lastName[0]}}
+              <div style="margin:0 auto 10px;width:52px">
+                <app-avatar-circle [memberId]="p3.memberId" [name]="p3.firstName + ' ' + p3.lastName" [avatarSeed]="p3.avatarSeed" [size]="52" />
               </div>
               <div style="font-weight:700;font-size:0.95rem">{{memberName(p3)}}</div>
               <div style="font-size:1.4rem;font-weight:900;margin-top:6px" [style.color]="POS_COLORS[3].text">{{p3.totalPoints}} <span style="font-size:0.8rem;font-weight:400;opacity:0.6">pts</span></div>
@@ -145,9 +143,7 @@ const SOURCE_COLORS: Record<string, { bg: string; text: string }> = {
               </div>
 
               <!-- Avatar -->
-              <div style="width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:0.75rem;font-weight:700;flex-shrink:0;background:rgba(100,181,246,0.1);color:#64b5f6;border:1px solid rgba(100,181,246,0.2)">
-                {{e.firstName[0]}}{{e.lastName[0]}}
-              </div>
+              <app-avatar-circle [memberId]="e.memberId" [name]="e.firstName + ' ' + e.lastName" [avatarSeed]="e.avatarSeed" [size]="34" />
 
               <!-- Name + role -->
               <div style="flex:1;min-width:0">
@@ -199,7 +195,7 @@ const SOURCE_COLORS: Record<string, { bg: string; text: string }> = {
                 @for (e of game.entries; track e.memberId) {
                   <div class="hs-row" [class.hs-gold]="e.rank===1" [class.hs-silver]="e.rank===2" [class.hs-bronze]="e.rank===3">
                     <span class="hs-rank">{{ e.rank }}</span>
-                    <span class="hs-avatar">{{ e.displayName[0] }}</span>
+                    <app-avatar-circle [memberId]="e.memberId" [name]="e.displayName" [avatarSeed]="e.avatarSeed" [size]="26" />
                     <span class="hs-name">{{ e.displayName }}</span>
                     <span class="hs-score">{{ e.score | number }}<span class="hs-unit-small"> {{ game.unit }}</span></span>
                   </div>
@@ -259,6 +255,7 @@ export class LeaderboardComponent implements OnInit {
         memberId: entry.memberId,
         firstName: entry.firstName,
         lastName: entry.lastName,
+        avatarSeed: entry.avatarSeed,
         totalPoints: entry.totalPoints
       }
     });

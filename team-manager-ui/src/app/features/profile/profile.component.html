@@ -7,8 +7,7 @@
       <div class="user-info">
         <div class="avatar-wrap">
           @if (member()?.avatarSeed) {
-            <img [src]="'https://api.multiavatar.com/' + encodeURIComponent(member()!.avatarSeed!) + '.svg'"
-                 alt="Avatar" class="avatar-img">
+            <div class="avatar-img" [innerHTML]="currentAvatarSvg()"></div>
           } @else {
             <div class="avatar">{{ userName.charAt(0) }}</div>
           }
@@ -30,21 +29,38 @@
     <mat-card class="picker-card">
       <mat-card-header>
         <mat-card-title style="font-size:1rem">Choose your avatar</mat-card-title>
+        <mat-card-subtitle style="font-size:0.8rem;margin-top:4px">
+          Type any word or phrase to generate a unique avatar
+        </mat-card-subtitle>
       </mat-card-header>
       <mat-card-content>
+
+        <!-- Input + live preview -->
+        <div class="seed-row">
+          <div class="preview-avatar" [innerHTML]="previewSvg()"></div>
+          <mat-form-field appearance="outline" style="flex:1">
+            <mat-label>Avatar seed</mat-label>
+            <input matInput [value]="seedInput()" (input)="onSeedInput($event)" placeholder="e.g. your name, a word…">
+            <mat-hint>Any text generates a unique avatar</mat-hint>
+          </mat-form-field>
+        </div>
+
+        <!-- Suggestions -->
+        <p class="suggestions-label">Or pick one of these:</p>
         <div class="avatar-grid">
-          @for (seed of avatarOptions(); track seed) {
-            <button class="avatar-option" [class.selected]="selectedSeed() === seed"
-                    (click)="selectSeed(seed)" [matTooltip]="seed">
-              <img [src]="'https://api.multiavatar.com/' + encodeURIComponent(seed) + '.svg'" [alt]="seed">
+          @for (seed of avatarSuggestions(); track seed) {
+            <button class="avatar-option" [class.selected]="seedInput() === seed"
+                    (click)="selectSeed(seed)" [matTooltip]="seed"
+                    [innerHTML]="suggestionSvg(seed)">
             </button>
           }
         </div>
+
         <div class="picker-actions">
           <button mat-stroked-button (click)="clearAvatar()" type="button">
             <mat-icon>person_outline</mat-icon> Use initials
           </button>
-          <button mat-flat-button color="primary" (click)="saveAvatar()" [disabled]="saving()">
+          <button mat-flat-button color="primary" (click)="saveAvatar()" [disabled]="saving() || !seedInput()">
             {{ saving() ? 'Saving…' : 'Save avatar' }}
           </button>
         </div>

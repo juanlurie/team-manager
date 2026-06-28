@@ -25,11 +25,12 @@ const CRAFT_LABELS: Record<string, string> = {
 
 import { MatMenuModule } from '@angular/material/menu';
 import { buildDuplicateFirstNames, memberDisplayName } from '../../../core/utils/member-display-name';
+import { AvatarCircleComponent } from '../../../core/components/k-picker/avatar-circle.component';
 
 @Component({
   selector: 'app-team-list',
   standalone: true,
-  imports: [MatButtonModule, MatIconModule, MatDialogModule, MatChipsModule, MatTooltipModule, MatProgressSpinnerModule, IconButtonComponent, FilterBarComponent, MatMenuModule],
+  imports: [MatButtonModule, MatIconModule, MatDialogModule, MatChipsModule, MatTooltipModule, MatProgressSpinnerModule, IconButtonComponent, FilterBarComponent, MatMenuModule, AvatarCircleComponent],
   template: `
     <div class="tl-header">
       <h2 class="tl-title">Team Members</h2>
@@ -68,11 +69,7 @@ import { buildDuplicateFirstNames, memberDisplayName } from '../../../core/utils
              [matTooltip]="canOpen(m) ? '' : 'You can only view your own profile'"
              style="border-radius:10px;border:1px solid rgba(255,255,255,0.08);padding:12px 14px;display:flex;flex-direction:column">
           <div style="display:flex;align-items:center;gap:12px">
-            <div style="width:36px;height:36px;border-radius:50%;background:rgba(100,181,246,0.15);
-                        color:#64b5f6;font-size:0.75rem;font-weight:700;display:flex;align-items:center;
-                        justify-content:center;flex-shrink:0;border:1px solid rgba(100,181,246,0.2)">
-              {{ m.firstName.charAt(0) }}{{ m.lastName.charAt(0) }}
-            </div>
+            <app-avatar-circle [memberId]="m.id" [name]="m.firstName + ' ' + m.lastName" [avatarSeed]="m.avatarSeed" [size]="36" />
 
             <div style="flex:1;min-width:0">
               <div style="font-weight:600;font-size:0.9rem">{{ m.firstName }} {{ m.lastName }}</div>
