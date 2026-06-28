@@ -4,6 +4,7 @@ export interface HiScoreEntry {
   displayName: string;
   score: number;
   achievedAt: string | null;
+  avatarSeed: string | null;
 }
 
 export interface HiScoreGame {
@@ -27,6 +28,7 @@ export interface LeaderboardEntry {
   firstName: string;
   lastName: string;
   role: string;
+  avatarSeed: string | null;
   totalPoints: number;
   badgePoints: number;
   sprintPoints: number;

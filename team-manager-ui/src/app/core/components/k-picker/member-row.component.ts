@@ -12,6 +12,7 @@ import { AvatarCircleComponent } from './avatar-circle.component';
          (click)="onSelect()" (mouseenter)="onHover()">
       <app-avatar-circle [memberId]="member().id"
                           [name]="member().firstName + ' ' + member().lastName"
+                          [avatarSeed]="member().avatarSeed"
                           [size]="20" />
       <span class="k-row-name" [title]="member().firstName + ' ' + member().lastName">
         {{ displayName() }}

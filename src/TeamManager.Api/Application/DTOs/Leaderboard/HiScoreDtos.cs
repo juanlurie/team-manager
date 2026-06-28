@@ -5,7 +5,8 @@ public record HiScoreEntryDto(
     Guid MemberId,
     string DisplayName,
     long Score,
-    DateTimeOffset? AchievedAt
+    DateTimeOffset? AchievedAt,
+    string? AvatarSeed = null
 );
 
 public record HiScoreGameDto(

@@ -4,6 +4,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatDialogModule, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { LeaderboardService, PointHistoryEntry } from '../../core/services/leaderboard.service';
+import { AvatarCircleComponent } from '../../core/components/k-picker/avatar-circle.component';
 
 const SOURCE_ICONS: Record<string, string> = {
   badge: 'workspace_premium',
@@ -22,7 +23,7 @@ const SOURCE_COLORS: Record<string, string> = {
 @Component({
   selector: 'app-member-points-history',
   standalone: true,
-  imports: [MatIconModule, MatDialogModule, MatProgressSpinnerModule],
+  imports: [MatIconModule, MatDialogModule, MatProgressSpinnerModule, AvatarCircleComponent],
   template: `
     <div class="dialog-wrap">
       <div class="dialog-header">
@@ -36,9 +37,7 @@ const SOURCE_COLORS: Record<string, string> = {
       } @else if (member()) {
         @let m = member()!;
         <div class="member-header">
-          <div class="avatar" [style.color]="avatarColor" [style.borderColor]="avatarColor">
-            {{m.firstName[0]}}{{m.lastName[0]}}
-          </div>
+          <app-avatar-circle [memberId]="data.memberId" [name]="m.firstName + ' ' + m.lastName" [avatarSeed]="m.avatarSeed ?? null" [size]="48" />
           <div class="member-info">
             <div class="name">{{m.firstName}} {{m.lastName}}</div>
             <div class="total">{{m.totalPoints}} <span>pts</span></div>
@@ -99,17 +98,17 @@ const SOURCE_COLORS: Record<string, string> = {
 export class MemberPointsHistoryComponent implements OnInit {
   private svc = inject(LeaderboardService);
   private ref = inject(MatDialogRef<MemberPointsHistoryComponent>);
-  private data = inject<{ memberId: string; firstName: string; lastName: string; totalPoints: number }>(MAT_DIALOG_DATA);
+  private data = inject<{ memberId: string; firstName: string; lastName: string; avatarSeed: string | null; totalPoints: number }>(MAT_DIALOG_DATA);
 
   loading = signal(true);
   history = signal<PointHistoryEntry[]>([]);
-  member = signal<{ firstName: string; lastName: string; totalPoints: number } | null>(null);
+  member = signal<{ firstName: string; lastName: string; avatarSeed?: string | null; totalPoints: number } | null>(null);
 
   readonly SOURCE_ICONS = SOURCE_ICONS;
   readonly SOURCE_COLORS = SOURCE_COLORS;
 
   ngOnInit() {
-    this.member.set({ firstName: this.data.firstName, lastName: this.data.lastName, totalPoints: this.data.totalPoints });
+    this.member.set({ firstName: this.data.firstName, lastName: this.data.lastName, avatarSeed: this.data.avatarSeed, totalPoints: this.data.totalPoints });
     this.svc.getMemberHistory(this.data.memberId).subscribe({
       next: entries => { this.history.set(entries); this.loading.set(false); },
       error: () => { this.loading.set(false); }

@@ -133,7 +133,7 @@ public class LeaderboardService(AppDbContext db) : ILeaderboardService
         games.Add(new HiScoreGameDto("2048", "2048", "pts", true,
             DedupeEntries(p2048
                 .GroupBy(p => p.MemberId)
-                .Select(g => { var b = g.MaxBy(p => p.Score)!; return (b.MemberId, FullName: $"{b.Member!.FirstName} {b.Member!.LastName}".Trim(), Score: (long)b.Score, At: (DateTimeOffset?)null); })
+                .Select(g => { var b = g.MaxBy(p => p.Score)!; return (b.MemberId, FullName: $"{b.Member!.FirstName} {b.Member!.LastName}".Trim(), Score: (long)b.Score, At: (DateTimeOffset?)null, b.Member!.AvatarSeed); })
                 .OrderByDescending(x => x.Score).Take(10))
         ));
 
@@ -147,7 +147,7 @@ public class LeaderboardService(AppDbContext db) : ILeaderboardService
         games.Add(new HiScoreGameDto("dots-and-boxes", "Dots & Boxes", "boxes", true,
             DedupeEntries(pDnB
                 .GroupBy(p => p.MemberId!.Value)
-                .Select(g => { var b = g.MaxBy(p => p.Score)!; return (b.MemberId!.Value, FullName: $"{b.Member!.FirstName} {b.Member!.LastName}".Trim(), Score: (long)b.Score, At: (DateTimeOffset?)null); })
+                .Select(g => { var b = g.MaxBy(p => p.Score)!; return (b.MemberId!.Value, FullName: $"{b.Member!.FirstName} {b.Member!.LastName}".Trim(), Score: (long)b.Score, At: (DateTimeOffset?)null, b.Member!.AvatarSeed); })
                 .OrderByDescending(x => x.Score).Take(10))
         ));
 
@@ -161,7 +161,7 @@ public class LeaderboardService(AppDbContext db) : ILeaderboardService
         games.Add(new HiScoreGameDto("quiz-classic", "Quiz Game", "correct", true,
             DedupeEntries(pQuizClassic
                 .GroupBy(p => p.MemberId)
-                .Select(g => { var b = g.MaxBy(p => p.Score)!; return (b.MemberId, FullName: $"{b.Member!.FirstName} {b.Member!.LastName}".Trim(), Score: (long)b.Score, At: (DateTimeOffset?)null); })
+                .Select(g => { var b = g.MaxBy(p => p.Score)!; return (b.MemberId, FullName: $"{b.Member!.FirstName} {b.Member!.LastName}".Trim(), Score: (long)b.Score, At: (DateTimeOffset?)null, b.Member!.AvatarSeed); })
                 .OrderByDescending(x => x.Score).Take(10))
         ));
 
@@ -175,7 +175,7 @@ public class LeaderboardService(AppDbContext db) : ILeaderboardService
         games.Add(new HiScoreGameDto("quiz-millionaire", "Who Wants to Be a Millionaire", "pts", true,
             DedupeEntries(pMillion
                 .GroupBy(p => p.MemberId)
-                .Select(g => { var b = g.MaxBy(p => p.MillionaireWinnings)!; return (b.MemberId, FullName: $"{b.Member!.FirstName} {b.Member!.LastName}".Trim(), Score: b.MillionaireWinnings, At: (DateTimeOffset?)null); })
+                .Select(g => { var b = g.MaxBy(p => p.MillionaireWinnings)!; return (b.MemberId, FullName: $"{b.Member!.FirstName} {b.Member!.LastName}".Trim(), Score: b.MillionaireWinnings, At: (DateTimeOffset?)null, b.Member!.AvatarSeed); })
                 .OrderByDescending(x => x.Score).Take(10))
         ));
 
@@ -189,7 +189,7 @@ public class LeaderboardService(AppDbContext db) : ILeaderboardService
         games.Add(new HiScoreGameDto("threes", "Threes!", "pts", true,
             DedupeEntries(pThrees
                 .GroupBy(p => p.MemberId)
-                .Select(g => { var b = g.MaxBy(p => p.Score)!; return (b.MemberId, FullName: $"{b.Member!.FirstName} {b.Member!.LastName}".Trim(), Score: (long)b.Score, At: (DateTimeOffset?)null); })
+                .Select(g => { var b = g.MaxBy(p => p.Score)!; return (b.MemberId, FullName: $"{b.Member!.FirstName} {b.Member!.LastName}".Trim(), Score: (long)b.Score, At: (DateTimeOffset?)null, b.Member!.AvatarSeed); })
                 .OrderByDescending(x => x.Score).Take(10))
         ));
 
@@ -204,7 +204,7 @@ public class LeaderboardService(AppDbContext db) : ILeaderboardService
         games.Add(new HiScoreGameDto("wordle", "Wordle", "guesses", false,
             DedupeEntries(pWordle
                 .GroupBy(p => p.MemberId)
-                .Select(g => { var b = g.MinBy(p => p.GuessCount)!; return (b.MemberId, FullName: $"{b.Member!.FirstName} {b.Member!.LastName}".Trim(), Score: (long)b.GuessCount, At: b.FinishedAt); })
+                .Select(g => { var b = g.MinBy(p => p.GuessCount)!; return (b.MemberId, FullName: $"{b.Member!.FirstName} {b.Member!.LastName}".Trim(), Score: (long)b.GuessCount, At: b.FinishedAt, b.Member!.AvatarSeed); })
                 .OrderBy(x => x.Score).Take(10))
         ));
 
@@ -217,7 +217,7 @@ public class LeaderboardService(AppDbContext db) : ILeaderboardService
         games.Add(new HiScoreGameDto("wordle-royale", "Wordle Royale", "ELO", true,
             DedupeEntries(royaleRatings
                 .OrderByDescending(r => r.Elo).Take(10)
-                .Select(r => (r.MemberId, FullName: $"{r.Member!.FirstName} {r.Member!.LastName}".Trim(), Score: (long)r.Elo, At: (DateTimeOffset?)r.LastUpdatedAt)))
+                .Select(r => (r.MemberId, FullName: $"{r.Member!.FirstName} {r.Member!.LastName}".Trim(), Score: (long)r.Elo, At: (DateTimeOffset?)r.LastUpdatedAt, r.Member!.AvatarSeed)))
         ));
 
         // ── Ultimate TTT (most wins) ──────────────────────────────────────────
@@ -230,18 +230,18 @@ public class LeaderboardService(AppDbContext db) : ILeaderboardService
         games.Add(new HiScoreGameDto("ultimate-ttt", "Ultimate Tic-Tac-Toe", "wins", true,
             DedupeEntries(pTtt
                 .GroupBy(p => p.MemberId!.Value)
-                .Select(g => { var b = g.First(); return (b.MemberId!.Value, FullName: $"{b.Member!.FirstName} {b.Member!.LastName}".Trim(), Score: (long)g.Count(), At: (DateTimeOffset?)null); })
+                .Select(g => { var b = g.First(); return (b.MemberId!.Value, FullName: $"{b.Member!.FirstName} {b.Member!.LastName}".Trim(), Score: (long)g.Count(), At: (DateTimeOffset?)null, b.Member!.AvatarSeed); })
                 .OrderByDescending(x => x.Score).Take(10))
         ));
 
         return games.Where(g => g.Entries.Count > 0).ToList();
     }
 
-    private static List<HiScoreEntryDto> DedupeEntries(IEnumerable<(Guid MemberId, string FullName, long Score, DateTimeOffset? At)> ranked)
+    private static List<HiScoreEntryDto> DedupeEntries(IEnumerable<(Guid MemberId, string FullName, long Score, DateTimeOffset? At, string? AvatarSeed)> ranked)
     {
         var list = ranked.ToList();
         var names = GameNameHelper.DeduplicateFirstNames(list.Select(x => x.FullName).ToArray());
-        return list.Select((x, i) => new HiScoreEntryDto(i + 1, x.MemberId, names[i], x.Score, x.At)).ToList();
+        return list.Select((x, i) => new HiScoreEntryDto(i + 1, x.MemberId, names[i], x.Score, x.At, x.AvatarSeed)).ToList();
     }
 
     private static LeaderboardEntryDto BuildEntry(TeamMember m)
@@ -287,6 +287,7 @@ public class LeaderboardService(AppDbContext db) : ILeaderboardService
             FirstName = m.FirstName,
             LastName = m.LastName,
             Role = m.Role.ToString(),
+            AvatarSeed = m.AvatarSeed,
             TotalPoints = badgePoints + sprintPoints + bonusPoints,
             BadgePoints = badgePoints,
             SprintPoints = sprintPoints,

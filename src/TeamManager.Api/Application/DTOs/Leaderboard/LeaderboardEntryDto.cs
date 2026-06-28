@@ -9,6 +9,7 @@ public record LeaderboardEntryDto
     public string FirstName { get; init; } = string.Empty;
     public string LastName { get; init; } = string.Empty;
     public string Role { get; init; } = string.Empty;
+    public string? AvatarSeed { get; init; }
     public int TotalPoints { get; init; }
     public int BadgePoints { get; init; }
     public int SprintPoints { get; init; }
