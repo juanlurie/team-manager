@@ -1,0 +1,43 @@
+diff --git a/team-manager-ui/src/app/shared/components/filter-bar/filter-bar.component.ts b/team-manager-ui/src/app/shared/components/filter-bar/filter-bar.component.ts
+index f551a47d..ffa9ab1a 100644
+--- a/team-manager-ui/src/app/shared/components/filter-bar/filter-bar.component.ts
++++ b/team-manager-ui/src/app/shared/components/filter-bar/filter-bar.component.ts
+@@ -470,6 +470,11 @@ export class FilterBarComponent implements OnInit {
+         return;
+       }
+     }
++    if (event.key === 'Escape' && this.search()) {
++      event.preventDefault();
++      this.search.set('');
++      this.searchChange.emit('');
++    }
+   }
+ 
+   ngOnInit() {
+diff --git a/team-manager-ui/src/app/shared/components/search-input/search-input.component.ts b/team-manager-ui/src/app/shared/components/search-input/search-input.component.ts
+index 0b28dde5..a697c9b9 100644
+--- a/team-manager-ui/src/app/shared/components/search-input/search-input.component.ts
++++ b/team-manager-ui/src/app/shared/components/search-input/search-input.component.ts
+@@ -23,8 +23,9 @@ import { MatIconModule } from '@angular/material/icon';
+       <input matInput type="text"
+              [ngModel]="value()"
+              [placeholder]="placeholder()"
+-             (ngModelChange)="onInput($event)"
+-             (blur)="onTouched()">
++              (ngModelChange)="onInput($event)"
++             (blur)="onTouched()"
++             (keydown)="onKeydown($event)">
+       @if (value()) {
+         <button matSuffix type="button" class="clear-btn"
+                 (click)="clear($event)"
+@@ -76,4 +77,10 @@ export class SearchInputComponent implements ControlValueAccessor {
+     this.onChange('');
+     this.valueChange.emit('');
+   }
++
++  onKeydown(event: KeyboardEvent): void {
++    if (event.key === 'Escape' && this.value()) {
++      this.clear(event);
++    }
++  }
+ }

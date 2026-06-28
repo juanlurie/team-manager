@@ -1,0 +1,45 @@
+{
+  "name": "team-manager-ui",
+  "version": "0.0.1",
+  "scripts": {
+    "ng": "ng",
+    "start": "ng serve",
+    "build": "ng build",
+    "watch": "ng build --watch --configuration development"
+  },
+  "private": true,
+  "dependencies": {
+    "@angular/animations": "^22.0.1",
+    "@angular/cdk": "^22.0.1",
+    "@angular/common": "^22.0.1",
+    "@angular/compiler": "^22.0.1",
+    "@angular/core": "^22.0.1",
+    "@angular/forms": "^22.0.1",
+    "@angular/material": "^22.0.1",
+    "@angular/platform-browser": "^22.0.1",
+    "@angular/platform-browser-dynamic": "^22.0.1",
+    "@angular/router": "^22.0.1",
+    "@angular/service-worker": "^22.0.1",
+    "@fontsource/geist": "^5.2.9",
+    "@types/qrcode": "^1.5.6",
+    "angular-oauth2-oidc": "^17.0.2",
+    "exceljs": "^4.4.0",
+    "marked": "^18.0.5",
+    "material-icons": "^1.13.14",
+    "pptxgenjs": "^3.12.0",
+    "qrcode": "^1.5.4",
+    "rxjs": "~7.8.0",
+    "tslib": "^2.3.0",
+    "zone.js": "~0.15.0"
+  },
+  "devDependencies": {
+    "@angular-devkit/build-angular": "^22.0.1",
+    "@angular/cli": "^22.0.1",
+    "@angular/compiler-cli": "^22.0.1",
+    "typescript": "~6.0.3"
+  },
+  "overrides": {
+    "esbuild": "0.28.1",
+    "uuid": "11.1.1"
+  }
+}

@@ -1,0 +1,184 @@
+import { Component, OnInit, inject, signal, ChangeDetectionStrategy } from '@angular/core';
+
+import { FormsModule } from '@angular/forms';
+import { MatButtonModule } from '@angular/material/button';
+import { MatIconModule } from '@angular/material/icon';
+import { MatInputModule } from '@angular/material/input';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatDialogModule, MatDialogRef } from '@angular/material/dialog';
+import { MatSnackBar } from '@angular/material/snack-bar';
+import { SlotLocationService } from '../../core/services/slot-location.service';
+import { SlotLocation } from '../../core/models/slot-location.model';
+
+@Component({
+  selector: 'app-locations-config-dialog',
+  standalone: true,
+  imports: [FormsModule, MatButtonModule, MatIconModule, MatInputModule, MatFormFieldModule, MatDialogModule],
+  template: `
+    <div class="dialog-header">
+      <h2>Manage Locations</h2>
+      <button mat-icon-button (click)="dialogRef.close()">
+        <mat-icon>close</mat-icon>
+      </button>
+    </div>
+    <div class="dialog-content">
+      <div class="toolbar">
+        <button mat-raised-button color="primary" (click)="startAdd()">
+          <mat-icon style="font-size:1rem;width:1rem;height:1rem">add</mat-icon>
+          Add Location
+        </button>
+      </div>
+
+      @if (editingNew()) {
+        <div class="form-row">
+          <mat-form-field appearance="outline" style="flex:1">
+            <mat-label>Name</mat-label>
+            <input matInput [(ngModel)]="editForm.name" placeholder="e.g. Boardroom A">
+          </mat-form-field>
+          <mat-form-field appearance="outline" style="width:100px">
+            <mat-label>Color</mat-label>
+            <input matInput [(ngModel)]="editForm.color" type="color" style="padding:2px;height:36px">
+          </mat-form-field>
+          <button mat-raised-button color="primary" [disabled]="!editForm.name.trim()" (click)="saveNew()">Save</button>
+          <button mat-stroked-button (click)="cancelEdit()">Cancel</button>
+        </div>
+      }
+
+      <div class="loc-list">
+        @for (loc of locations(); track loc.id) {
+          <div class="loc-row" [class.editing]="editingId() === loc.id">
+            @if (editingId() === loc.id) {
+              <mat-form-field appearance="outline" style="flex:1">
+                <mat-label>Name</mat-label>
+                <input matInput [(ngModel)]="editForm.name">
+              </mat-form-field>
+              <mat-form-field appearance="outline" style="width:100px">
+                <mat-label>Color</mat-label>
+                <input matInput [(ngModel)]="editForm.color" type="color" style="padding:2px;height:36px">
+              </mat-form-field>
+              <button mat-raised-button color="primary" [disabled]="!editForm.name.trim()" (click)="saveEdit(loc.id)">Save</button>
+              <button mat-stroked-button (click)="cancelEdit()">Cancel</button>
+            } @else {
+              <span class="color-dot" [style.background]="loc.color"></span>
+              <span style="flex:1;font-weight:500">{{ loc.name }}</span>
+              <span style="opacity:0.4;font-size:0.8rem;margin-right:8px">#{{ loc.color }}</span>
+              <span class="badge" [class.inactive]="!loc.isActive">{{ loc.isActive ? 'Active' : 'Inactive' }}</span>
+              <button mat-icon-button (click)="startEdit(loc)">
+                <mat-icon style="font-size:1.1rem">edit</mat-icon>
+              </button>
+              <button mat-icon-button (click)="deleteLoc(loc.id)" style="color:#ef5350">
+                <mat-icon style="font-size:1.1rem">delete</mat-icon>
+              </button>
+            }
+          </div>
+        }
+        @if (locations().length === 0 && !editingNew()) {
+          <div class="empty-msg">No locations configured. Add one above.</div>
+        }
+      </div>
+    </div>
+  `,
+  changeDetection: ChangeDetectionStrategy.Default,
+  styles: [`
+    .dialog-header { display:flex;align-items:center;justify-content:space-between;padding:16px 24px 8px; }
+    .dialog-header h2 { margin:0;font-size:1.2rem;font-weight:700; }
+    .dialog-content { padding:8px 24px 24px; }
+    .toolbar { margin-bottom:12px; }
+    .form-row { display:flex;gap:8px;align-items:center;margin-bottom:12px; }
+    .loc-list { display:flex;flex-direction:column;gap:6px; }
+    .loc-row {
+      display:flex;align-items:center;gap:10px;padding:10px 14px;
+      border-radius:10px;border:1px solid rgba(255,255,255,0.06);
+      background:rgba(255,255,255,0.02);
+    }
+    .loc-row.editing { background:rgba(100,181,246,0.06);border-color:rgba(100,181,246,0.2); }
+    .color-dot { width:16px;height:16px;border-radius:50%;flex-shrink:0;border:1px solid rgba(255,255,255,0.15); }
+    .badge {
+      font-size:0.7rem;padding:2px 8px;border-radius:10px;
+      background:rgba(76,175,80,0.15);color:#4caf50;
+    }
+    .badge.inactive { background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.35); }
+    .empty-msg { text-align:center;padding:48px;opacity:0.35; }
+  `]
+})
+export class LocationsConfigDialogComponent implements OnInit {
+  private svc = inject(SlotLocationService);
+  private snack = inject(MatSnackBar);
+  dialogRef = inject(MatDialogRef<LocationsConfigDialogComponent>);
+
+  locations = signal<SlotLocation[]>([]);
+  editingId = signal<string | null>(null);
+  editingNew = signal(false);
+
+  editForm = { name: '', color: '#64b5f6' };
+
+  ngOnInit() {
+    this.load();
+  }
+
+  private load() {
+    this.svc.getAll().subscribe(locs => this.locations.set(locs));
+  }
+
+  startAdd() {
+    this.editingNew.set(true);
+    this.editingId.set(null);
+    this.editForm = { name: '', color: '#64b5f6' };
+  }
+
+  startEdit(loc: SlotLocation) {
+    this.editingNew.set(false);
+    this.editingId.set(loc.id);
+    this.editForm = { name: loc.name, color: loc.color };
+  }
+
+  cancelEdit() {
+    this.editingId.set(null);
+    this.editingNew.set(false);
+  }
+
+  saveNew() {
+    if (!this.editForm.name.trim()) return;
+    this.svc.create({
+      name: this.editForm.name.trim(),
+      color: this.editForm.color,
+      isActive: true,
+      sortOrder: this.locations().length
+    }).subscribe({
+      next: () => {
+        this.snack.open('Location added', 'OK', { duration: 2000 });
+        this.editingNew.set(false);
+        this.load();
+      },
+      error: () => this.snack.open('Failed to add location', 'OK', { duration: 3000 })
+    });
+  }
+
+  saveEdit(id: string) {
+    if (!this.editForm.name.trim()) return;
+    this.svc.update(id, {
+      name: this.editForm.name.trim(),
+      color: this.editForm.color,
+      isActive: true,
+      sortOrder: 0
+    }).subscribe({
+      next: () => {
+        this.snack.open('Location updated', 'OK', { duration: 2000 });
+        this.editingId.set(null);
+        this.load();
+      },
+      error: () => this.snack.open('Failed to update', 'OK', { duration: 3000 })
+    });
+  }
+
+  deleteLoc(id: string) {
+    if (!confirm('Delete this location?')) return;
+    this.svc.delete(id).subscribe({
+      next: () => {
+        this.snack.open('Location deleted', 'OK', { duration: 2000 });
+        this.load();
+      },
+      error: () => this.snack.open('Failed to delete. It may be in use.', 'OK', { duration: 3000 })
+    });
+  }
+}

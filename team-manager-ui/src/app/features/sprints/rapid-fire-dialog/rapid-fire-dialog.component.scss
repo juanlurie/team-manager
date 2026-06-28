@@ -1,0 +1,107 @@
+    :host { display: flex; flex-direction: column; height: 100%; overflow: hidden; }
+
+    .rf-shell { display:flex;flex-direction:column;height:100%;overflow:hidden;position:relative; }
+
+    /* Top bar */
+    .rf-topbar { display:flex;align-items:center;gap:12px;padding:16px 20px 0;flex-shrink:0; }
+    .rf-bolt { color:#ff9800; }
+    .rf-title { font-size:1rem;font-weight:600; }
+    .rf-counter { font-size:0.78rem;opacity:0.4; }
+
+    /* Progress bar */
+    .rf-progbar { height:3px;background:rgba(255,255,255,0.06);margin:12px 0 0;flex-shrink:0; }
+    .rf-progfill { height:100%;background:#ff9800;transition:width 0.3s; }
+
+    /* Two-column body */
+    .rf-body { display:flex;flex:1;overflow:hidden;min-height:0; }
+
+    /* Left column */
+    .rf-left { flex:1;display:flex;flex-direction:column;padding:16px 20px;overflow:hidden;min-width:0; }
+    .rf-panel-label { font-size:0.7rem;opacity:0.4;text-transform:uppercase;letter-spacing:0.08em;
+                      margin-bottom:10px;flex-shrink:0; }
+    .rf-empty { font-size:0.85rem;opacity:0.3;font-style:italic;padding:8px 0; }
+    .rf-work-list { flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:8px;padding-right:4px; }
+
+    /* Work item card — always editable */
+    .rf-wi-card { border-radius:8px;background:rgba(255,255,255,0.04);
+                  border:1px solid rgba(255,255,255,0.08);padding:10px 12px;
+                  display:flex;flex-direction:column;gap:8px;
+                  transition:border-color 0.15s,opacity 0.15s; }
+    .rf-wi-card:hover { border-color:rgba(255,255,255,0.14); }
+    .rf-wi-saving { opacity:0.6; }
+    .rf-wi-feature { font-size:0.68rem;opacity:0.4;font-weight:600;text-transform:uppercase;
+                     letter-spacing:0.07em; }
+
+    /* Controls row: status + type selects */
+    .rf-wi-controls { display:flex;gap:8px; }
+    .rf-sel { background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.12);
+              border-radius:6px;font-size:0.78rem;font-weight:600;padding:5px 8px;
+              cursor:pointer;color:inherit;transition:background 0.15s;outline:none; }
+    .rf-sel:focus { border-color:rgba(255,255,255,0.3);background:rgba(255,255,255,0.1); }
+    .rf-status-sel { min-width:110px; }
+    .rf-type-sel { min-width:90px; }
+
+    /* Title row */
+    .rf-wi-title-row { display:flex;align-items:center;gap:6px; }
+    .rf-wi-input { flex:1;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);
+                   border-radius:6px;padding:7px 10px;font-size:0.88rem;color:inherit;
+                   outline:none;font-family:inherit;min-width:0; }
+    .rf-wi-input:focus { border-color:rgba(255,255,255,0.3);background:rgba(255,255,255,0.08); }
+
+    .rf-icon-btn { display:flex;align-items:center;justify-content:center;
+                   width:32px;height:32px;border:none;border-radius:6px;background:transparent;
+                   color:rgba(255,255,255,0.4);cursor:pointer;flex-shrink:0;
+                   transition:background 0.15s,color 0.15s; }
+    .rf-icon-btn:hover { background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.9); }
+    .rf-icon-btn:disabled { opacity:0.3;cursor:default; }
+    .rf-icon-btn mat-icon { font-size:17px;width:17px;height:17px;line-height:17px; }
+    .rf-saving-spin { font-size:16px;width:16px;height:16px;line-height:16px;
+                      opacity:0.4;animation:rf-spin 1s linear infinite;flex-shrink:0; }
+    @keyframes rf-spin { to { transform:rotate(360deg); } }
+
+    /* Column divider */
+    .rf-col-divider { width:1px;background:rgba(255,255,255,0.07);flex-shrink:0;margin:12px 0; }
+
+    /* Right column */
+    .rf-right { width:380px;flex-shrink:0;display:flex;flex-direction:column;
+                overflow:hidden;padding:16px 20px; }
+
+    /* Member */
+    .rf-member { display:flex;align-items:center;gap:14px;padding-bottom:16px;flex-shrink:0; }
+    .rf-avatar { width:44px;height:44px;border-radius:50%;background:rgba(255,152,0,0.15);
+                 color:#ff9800;font-size:0.85rem;font-weight:700;display:flex;align-items:center;
+                 justify-content:center;flex-shrink:0;border:1px solid rgba(255,152,0,0.3); }
+    .rf-member-name { font-size:1.05rem;font-weight:700; }
+    .rf-crafts { font-size:0.75rem;opacity:0.45; }
+    .rf-deferred-pill { font-size:0.7rem;color:#ff9800;background:rgba(255,152,0,0.12);
+                        padding:1px 7px;border-radius:10px;border:1px solid rgba(255,152,0,0.3); }
+    .rf-section-label { font-size:0.7rem;opacity:0.4;text-transform:uppercase;letter-spacing:0.08em; }
+
+    /* Form */
+    .rf-form { flex:1;overflow-y:auto;padding:12px 0 0; }
+
+    /* Actions */
+    .rf-actions { display:flex;align-items:center;gap:8px;padding-top:12px;flex-shrink:0;
+                  border-top:1px solid rgba(255,255,255,0.06); }
+    .rf-act-btn { display:flex;align-items:center;justify-content:center;
+                  width:36px;height:36px;border:1px solid rgba(255,255,255,0.12);
+                  border-radius:8px;background:transparent;color:rgba(255,255,255,0.55);
+                  cursor:pointer;flex-shrink:0;transition:background 0.15s,color 0.15s; }
+    .rf-act-btn:hover:not(:disabled) { background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.9); }
+    .rf-act-btn:disabled { opacity:0.3;cursor:default; }
+    .rf-act-btn mat-icon { font-size:18px;width:18px;height:18px;line-height:18px; }
+
+    /* Done overlay */
+    .rf-done-overlay { position:absolute;inset:0;background:rgba(15,17,23,0.95);display:flex;
+                       flex-direction:column;align-items:center;justify-content:center;
+                       gap:16px;border-radius:inherit; }
+
+    /* Mobile: stack columns vertically */
+    @media (max-width: 640px) {
+      .rf-body { flex-direction:column;overflow-y:auto; }
+      .rf-left { flex:0 0 auto;max-height:40vh;padding:12px 16px; }
+      .rf-col-divider { width:auto;height:1px;margin:0 16px; }
+      .rf-right { width:auto;flex:none;overflow:visible;padding:12px 16px; }
+      .rf-form { flex:none;overflow:visible; }
+      .rf-actions { position:sticky;bottom:0;background:#1a2636;padding:10px 0 4px; }
+    }
