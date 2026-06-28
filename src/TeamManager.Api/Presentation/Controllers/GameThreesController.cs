@@ -10,7 +10,7 @@ namespace TeamManager.Api.Presentation.Controllers;
 [Route("api/v1/game-threes")]
 public class GameThreesController(GameThreesService svc) : ControllerBase
 {
-    private Guid MemberId => Guid.Parse(User.FindFirst("sub")?.Value ?? Guid.Empty.ToString());
+    private Guid MemberId => Guid.TryParse(User.FindFirst("TMID")?.Value, out var id) ? id : Guid.Empty;
 
     [HttpGet("sessions")]
     public async Task<IActionResult> GetSessions() => Ok(await svc.GetOpenSessionsAsync());
