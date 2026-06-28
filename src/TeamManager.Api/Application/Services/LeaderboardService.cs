@@ -218,6 +218,35 @@ public class LeaderboardService(AppDbContext db) : ILeaderboardService
                 .ToList()
         ));
 
+        // ── Wordle Royale (ELO rating) ────────────────────────────────────────
+        var royaleRatings = await db.WordleRoyaleRatings
+            .Include(r => r.Member)
+            .Where(r => r.Member != null && (r.Wins + r.Losses + r.Draws) > 0)
+            .ToListAsync();
+
+        games.Add(new HiScoreGameDto("wordle-royale", "Wordle Royale", "ELO", true,
+            royaleRatings
+                .OrderByDescending(r => r.Elo).Take(10)
+                .Select((r, i) => new HiScoreEntryDto(i + 1, r.MemberId, $"{r.Member!.FirstName} {r.Member!.LastName}".Trim(), r.Elo, r.LastUpdatedAt))
+                .ToList()
+        ));
+
+        // ── Ultimate TTT (most wins) ──────────────────────────────────────────
+        var pTtt = await db.GameUltimateTttParticipants
+            .Include(p => p.Member)
+            .Include(p => p.Session)
+            .Where(p => p.Session!.Status == "completed" && p.Member != null && !p.IsAi && p.IsWinner)
+            .ToListAsync();
+
+        games.Add(new HiScoreGameDto("ultimate-ttt", "Ultimate Tic-Tac-Toe", "wins", true,
+            pTtt
+                .GroupBy(p => p.MemberId!.Value)
+                .Select(g => { var b = g.First(); return (MemberId: b.MemberId!.Value, Name: $"{b.Member!.FirstName} {b.Member!.LastName}".Trim(), Score: (long)g.Count(), At: (DateTimeOffset?)null); })
+                .OrderByDescending(x => x.Score).Take(10)
+                .Select((x, i) => new HiScoreEntryDto(i + 1, x.MemberId, x.Name, x.Score, x.At))
+                .ToList()
+        ));
+
         return games.Where(g => g.Entries.Count > 0).ToList();
     }
 
