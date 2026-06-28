@@ -33,9 +33,7 @@ public class GameUltimateTttService(AppDbContext db)
                 Title = s.Title,
                 Status = s.Status,
                 PlayerCount = s.Participants.Count,
-                CreatedByName = s.CreatedBy != null
-                    ? $"{s.CreatedBy.FirstName} {s.CreatedBy.LastName}".Trim()
-                    : "",
+                CreatedByName = s.CreatedBy != null ? s.CreatedBy.FirstName : "",
                 CreatedAt = s.CreatedAt,
             })
             .ToListAsync();
@@ -365,6 +363,9 @@ public class GameUltimateTttService(AppDbContext db)
 
     private static GameUltimateTttSessionDto ToDto(GameUltimateTttSession session, Guid memberId)
     {
+        var participants = session.Participants.OrderBy(p => p.Order).ToList();
+        var displayNames = GameNameHelper.DeduplicateFirstNames(participants.Select(p => p.DisplayName).ToArray());
+
         return new GameUltimateTttSessionDto
         {
             Id = session.Id,
@@ -379,13 +380,12 @@ public class GameUltimateTttService(AppDbContext db)
             CurrentTurnMemberId = session.CurrentTurnMemberId,
             NextBoardIndex = session.NextBoardIndex,
             WinnerMemberId = session.WinnerMemberId,
-            Participants = session.Participants
-                .OrderBy(p => p.Order)
-                .Select(p => new GameUltimateTttParticipantDto
+            Participants = participants
+                .Select((p, i) => new GameUltimateTttParticipantDto
                 {
                     Id = p.Id,
                     MemberId = p.MemberId,
-                    DisplayName = p.DisplayName,
+                    DisplayName = displayNames[i],
                     Order = p.Order,
                     Score = p.Score,
                     IsWinner = p.IsWinner,

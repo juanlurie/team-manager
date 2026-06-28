@@ -30,7 +30,7 @@ public class QuizGameService(AppDbContext db, QuizQuestionGeneratorService quest
             Status = s.Status.ToString(),
             GameMode = s.GameMode.ToString(),
             QuestionCount = s.QuestionCount,
-            CreatedByName = s.CreatedByMember != null ? $"{s.CreatedByMember.FirstName} {s.CreatedByMember.LastName}" : "Someone",
+            CreatedByName = s.CreatedByMember != null ? s.CreatedByMember.FirstName : "Someone",
             ParticipantCount = s.Participants.Count,
             CreatedAt = s.CreatedAt
         }).ToList();
@@ -375,15 +375,17 @@ public class QuizGameService(AppDbContext db, QuizQuestionGeneratorService quest
             IsCreator = session.CreatedByMemberId == memberId,
             IsParticipant = participants.Any(p => p.MemberId == memberId),
             CurrentMemberId = memberId,
-            Participants = participants.Select(p => new QuizGameParticipantDto
-            {
-                MemberId = p.MemberId,
-                MemberName = p.Member != null ? $"{p.Member.FirstName} {p.Member.LastName}" : "Someone",
-                Score = p.Score,
-                MillionaireRoundIndex = p.MillionaireRoundIndex,
-                MillionaireWinnings = p.MillionaireWinnings,
-                MillionaireStatus = p.MillionaireStatus.ToString()
-            }).ToList(),
+            Participants = GameNameHelper.DeduplicateFirstNames(
+                    participants.Select(p => p.Member != null ? $"{p.Member.FirstName} {p.Member.LastName}" : "Someone").ToArray())
+                .Zip(participants, (name, p) => new QuizGameParticipantDto
+                {
+                    MemberId = p.MemberId,
+                    MemberName = name,
+                    Score = p.Score,
+                    MillionaireRoundIndex = p.MillionaireRoundIndex,
+                    MillionaireWinnings = p.MillionaireWinnings,
+                    MillionaireStatus = p.MillionaireStatus.ToString()
+                }).ToList(),
             MillionairePrizeLadder = session.GameMode == QuizGameMode.Millionaire ? MillionaireLadder.PrizeValues.ToList() : [],
             MillionaireSafeHavenRounds = session.GameMode == QuizGameMode.Millionaire ? MillionaireLadder.SafeHavenRoundIndexes.ToList() : [],
             MyMillionaireRun = myRun

@@ -39,6 +39,7 @@ import { FilterDropdownComponent } from './filter-dropdown.component';
             <!-- Selected member chips -->
             @for (member of selectedMembers(); track member.id) {
               <app-selected-member-chip [member]="member"
+                                         [duplicateFirstNames]="duplicateFirstNames()"
                                          (remove)="removeMember($event)" />
             }
             <!-- Search input -->
@@ -99,6 +100,7 @@ import { FilterDropdownComponent } from './filter-dropdown.component';
                   <app-member-row [member]="item"
                                   [isActive]="globalActiveIndex() === computeGlobalIndex(secIdx, idx)"
                                   [isSelected]="selectedIds().has(item.id)"
+                                  [duplicateFirstNames]="duplicateFirstNames()"
                                   (select)="toggleMember($event)"
                                   (hover)="onRowHover(secIdx, idx)" />
                 }
@@ -436,6 +438,13 @@ export class KPickerDialogComponent implements OnInit {
     sections.push({ label: 'People', items: peopleItems, type: 'people' });
 
     return sections;
+  });
+
+  /** Set of first names that appear more than once in the member list (for disambiguation) */
+  protected duplicateFirstNames = computed(() => {
+    const counts = new Map<string, number>();
+    for (const m of this.members()) counts.set(m.firstName, (counts.get(m.firstName) ?? 0) + 1);
+    return new Set([...counts.entries()].filter(([, c]) => c > 1).map(([fn]) => fn));
   });
 
   /** Whether there are no results to show */

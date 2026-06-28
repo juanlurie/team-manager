@@ -1,4 +1,4 @@
-import { Component, input, output, ChangeDetectionStrategy } from '@angular/core';
+import { Component, input, output, ChangeDetectionStrategy, computed } from '@angular/core';
 import { TeamMember } from '../../models/team-member.model';
 import { AvatarCircleComponent } from './avatar-circle.component';
 
@@ -11,7 +11,7 @@ import { AvatarCircleComponent } from './avatar-circle.component';
       <app-avatar-circle [memberId]="member().id"
                           [name]="member().firstName + ' ' + member().lastName"
                           [size]="16" />
-      <span class="k-chip-label">{{ member().firstName }} {{ member().lastName }}</span>
+      <span class="k-chip-label">{{ displayName() }}</span>
       <button class="k-chip-remove" (click)="onRemove($event)"
               [attr.aria-label]="'Remove ' + member().firstName + ' ' + member().lastName"
               tabindex="0">×</button>
@@ -69,7 +69,15 @@ import { AvatarCircleComponent } from './avatar-circle.component';
 })
 export class SelectedMemberChipComponent {
   readonly member = input.required<TeamMember>();
+  readonly duplicateFirstNames = input<Set<string>>(new Set());
   readonly remove = output<TeamMember>();
+
+  protected displayName = computed(() => {
+    const m = this.member();
+    return this.duplicateFirstNames().has(m.firstName)
+      ? `${m.firstName} ${m.lastName}`
+      : m.firstName;
+  });
 
   onRemove(event: MouseEvent): void {
     event.stopPropagation();

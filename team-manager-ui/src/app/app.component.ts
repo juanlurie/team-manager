@@ -18,6 +18,7 @@ import { AppSidebarComponent } from './shared/components/app-sidebar/app-sidebar
 import { AppBottomNavComponent } from './shared/components/app-bottom-nav/app-bottom-nav.component';
 import { AccessRequestsService } from './core/services/access-requests.service';
 import { PendingApprovalsDialogComponent } from './shared/components/pending-approvals-dialog/pending-approvals-dialog.component';
+import { buildDuplicateFirstNames, memberDisplayName } from './core/utils/member-display-name';
 
 const routeFade = trigger('routeFade', [
   transition('* <=> *', [
@@ -263,8 +264,9 @@ export class AppComponent {
       if (result) {
         this.globalFilterSvc.setSelectedMembers(result.selectedMembers);
         if (result.selectedMembers.length > 0) {
+          const dupes = buildDuplicateFirstNames(result.selectedMembers);
           const hint = result.selectedMembers
-            .map(m => `@${m.firstName} ${m.lastName}`)
+            .map(m => `@${memberDisplayName(m, dupes)}`)
             .join(' ');
           this.globalFilterSvc.setSearchHint(hint);
           this.globalFilterSvc.setFilters({ squadId: null, featureId: null, leadId: null });

@@ -19,6 +19,7 @@ import { TeamMemberService } from '../../core/services/team-member.service';
 import { SquadService } from '../../core/services/squad.service';
 import { Squad } from '../../core/models/squad.model';
 import { WorkItem } from '../../core/models/work-item.model';
+import { buildDuplicateFirstNames, memberDisplayName } from '../../core/utils/member-display-name';
 
 const ACTIVE_STATUSES = ['InProgress', 'ReadyForRelease', 'Planned', 'Completed'];
 const DONE_STATUS = 'Released';
@@ -185,7 +186,8 @@ export class AllFeaturesComponent implements OnInit {
   ngOnInit() {
     this.load();
     this.teamMemberSvc.getAll().subscribe(members => {
-      const opts = members.map(m => ({ id: m.firstName + ' ' + m.lastName, label: m.firstName + ' ' + m.lastName }));
+      const dupes = buildDuplicateFirstNames(members);
+      const opts = members.map(m => ({ id: `${m.firstName} ${m.lastName}`, label: memberDisplayName(m, dupes) }));
       this.teamMembers.set(opts);
       this.filterGroups[1].options = opts;
     });

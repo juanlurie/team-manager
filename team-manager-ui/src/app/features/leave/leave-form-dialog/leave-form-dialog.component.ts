@@ -12,6 +12,7 @@ import { LeaveService } from '../../../core/services/leave.service';
 import { LeaveRecord } from '../../../core/models/leave-record.model';
 import { TeamMember } from '../../../core/models/team-member.model';
 import { countWorkingDays, isWeekend, toDateString, parseDateString, getSAPublicHolidays } from '../../../core/utils/date-utils';
+import { buildDuplicateFirstNames, memberDisplayName } from '../../../core/utils/member-display-name';
 
 @Component({
   selector: 'app-leave-form-dialog',
@@ -26,7 +27,7 @@ import { countWorkingDays, isWeekend, toDateString, parseDateString, getSAPublic
           <mat-label>Team Member</mat-label>
           <mat-select formControlName="teamMemberId">
             @for (m of data.members; track m.id) {
-              <mat-option [value]="m.id">{{ m.firstName }} {{ m.lastName }}</mat-option>
+              <mat-option [value]="m.id">{{ memberName(m) }}</mat-option>
             }
           </mat-select>
         </mat-form-field>
@@ -98,6 +99,9 @@ export class LeaveFormDialogComponent implements OnInit {
   private svc = inject(LeaveService);
   private dialogRef = inject(MatDialogRef<LeaveFormDialogComponent>);
   data: { members: TeamMember[]; record?: LeaveRecord; preselectedMemberId?: string } = inject(MAT_DIALOG_DATA);
+
+  private _duplicates = buildDuplicateFirstNames(this.data.members);
+  memberName = (m: TeamMember) => memberDisplayName(m, this._duplicates);
 
   dayCalc = signal<{ days: number; holidaysSkipped: number } | null>(null);
 

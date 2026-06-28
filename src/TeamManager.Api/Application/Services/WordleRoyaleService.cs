@@ -130,11 +130,14 @@ public class WordleRoyaleService(AppDbContext db)
             .ThenBy(r => r.Member!.LastName)
             .ToListAsync();
 
+        var fullNames = ratings.Select(r => r.Member != null ? $"{r.Member.FirstName} {r.Member.LastName}" : "Unknown").ToArray();
+        var displayNames = GameNameHelper.DeduplicateFirstNames(fullNames);
+
         return ratings.Select((r, i) => new RoyaleStandingDto
         {
             Rank = i + 1,
             MemberId = r.MemberId,
-            MemberName = r.Member != null ? $"{r.Member.FirstName} {r.Member.LastName}" : "Unknown",
+            MemberName = displayNames[i],
             Elo = r.Elo,
             WinStreak = r.WinStreak,
             BestStreak = r.BestStreak,
@@ -208,23 +211,30 @@ public class WordleRoyaleService(AppDbContext db)
         return (0.5, 0.5);
     }
 
-    private static RoyaleMatchDto ToDto(WordleRoyaleMatch m) => new()
+    private static RoyaleMatchDto ToDto(WordleRoyaleMatch m)
     {
-        Id = m.Id,
-        SessionId = m.SessionId,
-        Player1Id = m.Player1Id,
-        Player1Name = m.Player1 != null ? $"{m.Player1.FirstName} {m.Player1.LastName}" : "Unknown",
-        Player2Id = m.Player2Id,
-        Player2Name = m.Player2 != null ? $"{m.Player2.FirstName} {m.Player2.LastName}" : "Unknown",
-        WinnerId = m.WinnerId,
-        Player1Guesses = m.Player1Guesses,
-        Player2Guesses = m.Player2Guesses,
-        Player1Won = m.Player1Won,
-        Player2Won = m.Player2Won,
-        Player1EloChange = m.Player1EloChange,
-        Player2EloChange = m.Player2EloChange,
-        Player1EloAfter = m.Player1EloAfter,
-        Player2EloAfter = m.Player2EloAfter,
-        PlayedAt = m.PlayedAt
-    };
+        var names = GameNameHelper.DeduplicateFirstNames([
+            m.Player1 != null ? $"{m.Player1.FirstName} {m.Player1.LastName}" : "Unknown",
+            m.Player2 != null ? $"{m.Player2.FirstName} {m.Player2.LastName}" : "Unknown",
+        ]);
+        return new()
+        {
+            Id = m.Id,
+            SessionId = m.SessionId,
+            Player1Id = m.Player1Id,
+            Player1Name = names[0],
+            Player2Id = m.Player2Id,
+            Player2Name = names[1],
+            WinnerId = m.WinnerId,
+            Player1Guesses = m.Player1Guesses,
+            Player2Guesses = m.Player2Guesses,
+            Player1Won = m.Player1Won,
+            Player2Won = m.Player2Won,
+            Player1EloChange = m.Player1EloChange,
+            Player2EloChange = m.Player2EloChange,
+            Player1EloAfter = m.Player1EloAfter,
+            Player2EloAfter = m.Player2EloAfter,
+            PlayedAt = m.PlayedAt
+        };
+    }
 }

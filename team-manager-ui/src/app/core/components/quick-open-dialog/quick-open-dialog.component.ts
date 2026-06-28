@@ -7,6 +7,7 @@ import { Router } from '@angular/router';
 import { TeamMemberService } from '../../services/team-member.service';
 import { TeamMember } from '../../models/team-member.model';
 import { FeatureAccessService } from '../../services/feature-access.service';
+import { buildDuplicateFirstNames, memberDisplayName } from '../../utils/member-display-name';
 
 interface QuickOpenItem {
   id: string;
@@ -162,10 +163,11 @@ export class QuickOpenDialogComponent implements AfterViewInit, OnInit {
 
   allItems = computed(() => {
     const members = this.teamMembers();
+    const dupes = buildDuplicateFirstNames(members);
     const memberItems: QuickOpenItem[] = members.map(m => ({
       id: `member-${m.id}`,
       path: `/team/${m.id}`,
-      label: `${m.firstName} ${m.lastName}`,
+      label: memberDisplayName(m, dupes),
       icon: 'person'
     }));
     const filtered = QUICK_OPEN_ITEMS.filter(item => {

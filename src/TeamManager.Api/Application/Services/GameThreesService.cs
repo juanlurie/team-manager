@@ -24,9 +24,7 @@ public class GameThreesService(AppDbContext db)
                 Title = s.Title,
                 Status = s.Status,
                 PlayerCount = s.Participants.Count,
-                CreatedByName = s.CreatedBy != null
-                    ? $"{s.CreatedBy.FirstName} {s.CreatedBy.LastName}".Trim()
-                    : "",
+                CreatedByName = s.CreatedBy != null ? s.CreatedBy.FirstName : "",
                 CreatedAt = s.CreatedAt,
             })
             .ToListAsync();
@@ -317,6 +315,9 @@ public class GameThreesService(AppDbContext db)
 
     private static GameThreesSessionDto ToDto(GameThreesSession session, Guid memberId)
     {
+        var participants = session.Participants.OrderBy(p => p.Order).ToList();
+        var displayNames = GameNameHelper.DeduplicateFirstNames(participants.Select(p => p.DisplayName).ToArray());
+
         return new GameThreesSessionDto
         {
             Id = session.Id,
@@ -325,13 +326,12 @@ public class GameThreesService(AppDbContext db)
             CreatedByMemberId = session.CreatedByMemberId,
             IsCreator = session.CreatedByMemberId == memberId,
             CreatedAt = session.CreatedAt,
-            Participants = session.Participants
-                .OrderBy(p => p.Order)
-                .Select(p => new GameThreesParticipantDto
+            Participants = participants
+                .Select((p, i) => new GameThreesParticipantDto
                 {
                     Id = p.Id,
                     MemberId = p.MemberId,
-                    DisplayName = p.DisplayName,
+                    DisplayName = displayNames[i],
                     Order = p.Order,
                     Score = p.Score,
                     Board = JsonSerializer.Deserialize<int[]>(p.BoardJson, _json) ?? new int[16],

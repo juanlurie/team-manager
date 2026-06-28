@@ -1,4 +1,4 @@
-import { Component, input, output, HostListener, ChangeDetectionStrategy } from '@angular/core';
+import { Component, input, output, HostListener, ChangeDetectionStrategy, computed } from '@angular/core';
 import { TeamMember } from '../../models/team-member.model';
 import { AvatarCircleComponent } from './avatar-circle.component';
 
@@ -14,7 +14,7 @@ import { AvatarCircleComponent } from './avatar-circle.component';
                           [name]="member().firstName + ' ' + member().lastName"
                           [size]="20" />
       <span class="k-row-name" [title]="member().firstName + ' ' + member().lastName">
-        {{ member().firstName }} {{ member().lastName }}
+        {{ displayName() }}
       </span>
       <span class="k-row-meta">{{ memberMeta() }}</span>
     </div>
@@ -64,6 +64,14 @@ export class MemberRowComponent {
   readonly member = input.required<TeamMember>();
   readonly isActive = input<boolean>(false);
   readonly isSelected = input<boolean>(false);
+  readonly duplicateFirstNames = input<Set<string>>(new Set());
+
+  protected displayName = computed(() => {
+    const m = this.member();
+    return this.duplicateFirstNames().has(m.firstName)
+      ? `${m.firstName} ${m.lastName}`
+      : m.firstName;
+  });
 
   readonly select = output<TeamMember>();
   readonly hover = output<void>();

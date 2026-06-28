@@ -28,7 +28,7 @@ public class WordleService(AppDbContext db, WordleWordGeneratorService wordGener
             Id = s.Id,
             Title = s.Title,
             Status = s.Status.ToString(),
-            CreatedByName = s.CreatedByMember != null ? $"{s.CreatedByMember.FirstName} {s.CreatedByMember.LastName}" : "Someone",
+            CreatedByName = s.CreatedByMember != null ? s.CreatedByMember.FirstName : "Someone",
             ParticipantCount = s.Participants.Count,
             CreatedAt = s.CreatedAt
         }).ToList();
@@ -168,13 +168,15 @@ public class WordleService(AppDbContext db, WordleWordGeneratorService wordGener
             IsCreator = session.CreatedByMemberId == memberId,
             IsParticipant = me is not null,
             CurrentMemberId = memberId,
-            Participants = session.Participants.Select(p => new WordleParticipantDto
-            {
-                MemberId = p.MemberId,
-                MemberName = p.Member != null ? $"{p.Member.FirstName} {p.Member.LastName}" : "Someone",
-                Status = p.Status.ToString(),
-                GuessCount = p.GuessCount
-            }).ToList(),
+            Participants = GameNameHelper.DeduplicateFirstNames(
+                    session.Participants.Select(p => p.Member != null ? $"{p.Member.FirstName} {p.Member.LastName}" : "Someone").ToArray())
+                .Zip(session.Participants, (name, p) => new WordleParticipantDto
+                {
+                    MemberId = p.MemberId,
+                    MemberName = name,
+                    Status = p.Status.ToString(),
+                    GuessCount = p.GuessCount
+                }).ToList(),
             MyStatus = me?.Status.ToString() ?? "Playing",
             MyGuesses = myGuesses,
             RevealedWord = me is { Status: not WordleParticipantStatus.Playing } ? session.Word : null,

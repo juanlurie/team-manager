@@ -31,6 +31,7 @@ import { WowTieBreakSpinnerComponent } from '../../shared/components/wow-tie-bre
 import { WowCurrentWeekComponent } from './wow-current-week.component';
 import { runTieBreakSpin } from '../../shared/utils/wow.utils';
 import { clearCacheForPattern } from '../../core/interceptors/http-cache.interceptor';
+import { buildDuplicateFirstNames, memberDisplayName } from '../../core/utils/member-display-name';
 
 @Component({
   selector: 'app-wow-series-sheet',
@@ -190,7 +191,7 @@ export class WowSeriesSheetComponent {
           <mat-label>Who are you nominating?</mat-label>
           <mat-select [(ngModel)]="nominateForm.nomineeMemberId">
             @for (m of allMembers(); track m.id) {
-              <mat-option [value]="m.id">{{ m.firstName }} {{ m.lastName }}</mat-option>
+              <mat-option [value]="m.id">{{ memberName(m) }}</mat-option>
             }
           </mat-select>
         </mat-form-field>
@@ -304,6 +305,8 @@ export class WinOfTheWeekComponent implements OnInit, OnDestroy {
   activeTab           = signal('current');
   currentWeek         = signal<WinWeek | null>(null);
   allMembers          = signal<TeamMember[]>([]);
+  memberDuplicates    = computed(() => buildDuplicateFirstNames(this.allMembers()));
+  memberName          = (m: TeamMember) => memberDisplayName(m, this.memberDuplicates());
   loading             = signal(true);
   submitting          = signal(false);
   showDialog          = signal(false);

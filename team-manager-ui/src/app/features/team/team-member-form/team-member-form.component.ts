@@ -22,6 +22,7 @@ import { ConfirmDialogComponent } from '../../../shared/components/confirm-dialo
 import { IconButtonComponent } from '../../../shared/components/icon-btn/icon-btn.component';
 import { Achievement, MemberAchievement } from '../../../core/models/achievement.model';
 import { LeaderboardEntry } from '../../../core/models/leaderboard.model';
+import { buildDuplicateFirstNames, memberDisplayName } from '../../../core/utils/member-display-name';
 
 const CATEGORY_COLORS: Record<string, { bg: string; text: string }> = {
   SME:       { bg: 'rgba(171,71,188,0.15)',  text: '#ce93d8' },
@@ -68,7 +69,7 @@ const CATEGORY_COLORS: Record<string, { bg: string; text: string }> = {
           <mat-select formControlName="teamLeadId">
             <mat-option [value]="null">None</mat-option>
             @for (m of teamLeads; track m.id) {
-              <mat-option [value]="m.id">{{ m.firstName }} {{ m.lastName }}</mat-option>
+              <mat-option [value]="m.id">{{ leadName(m) }}</mat-option>
             }
           </mat-select>
         </mat-form-field>
@@ -242,6 +243,8 @@ export class TeamMemberFormComponent implements OnInit {
   get teamLeads() {
     return this.data.allMembers.filter(m => m.role === 'TeamLead' || m.role === 'TechLead');
   }
+
+  leadName = (m: TeamMember) => memberDisplayName(m, buildDuplicateFirstNames(this.teamLeads));
 
   ngOnInit() {
     this.squadSvc.getAll().subscribe(s => this.allSquads.set(s));

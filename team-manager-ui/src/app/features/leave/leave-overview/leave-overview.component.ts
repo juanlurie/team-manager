@@ -26,6 +26,7 @@ import { LeaveImportDialogComponent } from '../leave-import-dialog/leave-import-
 import { ConfirmDialogComponent } from '../../../shared/components/confirm-dialog/confirm-dialog.component';
 import { IconButtonComponent } from '../../../shared/components/icon-btn/icon-btn.component';
 import { FilterBarComponent, FilterGroup } from '../../../shared/components/filter-bar/filter-bar.component';
+import { buildDuplicateFirstNames, memberDisplayName } from '../../../core/utils/member-display-name';
 
 interface MemberLeaveGroup {
   teamMemberId: string;
@@ -146,7 +147,7 @@ export class LeaveOverviewComponent implements OnInit {
       key: 'lead', label: 'Lead', icon: 'person',
       options: [
         { id: 'null', label: 'All' },
-        ...this.teamLeads().map(m => ({ id: m.id, label: m.firstName + ' ' + m.lastName }))
+        ...this.teamLeads().map(m => ({ id: m.id, label: memberDisplayName(m, buildDuplicateFirstNames(this.teamLeads())) }))
       ]
     },
     {

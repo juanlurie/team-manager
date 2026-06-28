@@ -10,6 +10,7 @@ import { MeetingSeriesService } from '../../core/services/meeting-series.service
 import { TeamMemberService } from '../../core/services/team-member.service';
 import { TeamMember } from '../../core/models/team-member.model';
 import { MeetingSeries } from '../../core/models/meeting-series.model';
+import { buildDuplicateFirstNames, memberDisplayName } from '../../core/utils/member-display-name';
 
 @Component({
   selector: 'app-meeting-series-item-create',
@@ -50,7 +51,7 @@ import { MeetingSeries } from '../../core/models/meeting-series.model';
             <button class="chip member-chip"
                     [class.active]="mandatoryIds().has(m.id)"
                     (click)="toggleMandatory(m.id)">
-              {{ m.firstName }} {{ m.lastName }}
+              {{ memberName(m) }}
             </button>
           }
         </div>
@@ -59,7 +60,7 @@ import { MeetingSeries } from '../../core/models/meeting-series.model';
             @for (id of mandatoryIds(); track id) {
               @let m = memberMap()[id];
               <span class="chip active" style="background:rgba(100,181,246,0.15);border-color:rgba(100,181,246,0.4);color:#64b5f6">
-                {{ m?.firstName }} {{ m?.lastName }}
+                {{ memberName(m) }}
                 <span class="chip-remove" (click)="removeMandatory(id)">×</span>
               </span>
             }
@@ -74,7 +75,7 @@ import { MeetingSeries } from '../../core/models/meeting-series.model';
             <button class="chip member-chip"
                     [class.active]="optionalIds().has(m.id)"
                     (click)="toggleOptional(m.id)">
-              {{ m.firstName }} {{ m.lastName }}
+              {{ memberName(m) }}
             </button>
           }
         </div>
@@ -83,7 +84,7 @@ import { MeetingSeries } from '../../core/models/meeting-series.model';
             @for (id of optionalIds(); track id) {
               @let m = memberMap()[id];
               <span class="chip active" style="background:rgba(129,199,132,0.15);border-color:rgba(129,199,132,0.4);color:#81c784">
-                {{ m?.firstName }} {{ m?.lastName }}
+                {{ memberName(m) }}
                 <span class="chip-remove" (click)="removeOptional(id)">×</span>
               </span>
             }
@@ -148,6 +149,8 @@ export class MeetingSeriesItemCreateComponent implements OnInit {
     for (const m of this.allMembers()) map[m.id] = m;
     return map;
   });
+  private memberDuplicates = computed(() => buildDuplicateFirstNames(this.allMembers()));
+  memberName = (m: TeamMember | undefined) => m ? memberDisplayName(m, this.memberDuplicates()) : '';
 
   ngOnInit() {
     this.memberSvc.getAll({ isActive: true }).subscribe(members => {

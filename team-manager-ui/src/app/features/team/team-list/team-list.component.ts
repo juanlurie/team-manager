@@ -24,6 +24,7 @@ const CRAFT_LABELS: Record<string, string> = {
 };
 
 import { MatMenuModule } from '@angular/material/menu';
+import { buildDuplicateFirstNames, memberDisplayName } from '../../../core/utils/member-display-name';
 
 @Component({
   selector: 'app-team-list',
@@ -194,7 +195,7 @@ export class TeamListComponent implements OnInit {
         key: 'lead',
         label: 'Lead',
         icon: 'person',
-        options: leads.map(t => ({ id: t.id, label: `${t.firstName} ${t.lastName}` })),
+        options: leads.map(t => ({ id: t.id, label: memberDisplayName(t, buildDuplicateFirstNames(leads)) })),
       });
     }
     return groups;

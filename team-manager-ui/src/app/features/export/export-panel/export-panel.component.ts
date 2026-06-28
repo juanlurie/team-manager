@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, signal, ChangeDetectionStrategy } from '@angular/core';
+import { Component, OnInit, inject, signal, computed, ChangeDetectionStrategy } from '@angular/core';
 
 import { FormsModule } from '@angular/forms';
 import { forkJoin } from 'rxjs';
@@ -22,6 +22,7 @@ import { DiscussionPointService } from '../../../core/services/discussion-point.
 import { LeaveService } from '../../../core/services/leave.service';
 import { SquadService } from '../../../core/services/squad.service';
 import { Squad } from '../../../core/models/squad.model';
+import { buildDuplicateFirstNames, memberDisplayName } from '../../../core/utils/member-display-name';
 
 const NAVY      = '1F3664';
 const WHITE     = 'FFFFFF';
@@ -79,7 +80,7 @@ const TYPE_COLOR: Record<string, string> = {
             <mat-select [(ngModel)]="selectedTeamLeadId">
               <mat-option value="">All members</mat-option>
               @for (tl of teamLeads(); track tl.id) {
-                <mat-option [value]="tl.id">{{ tl.firstName }} {{ tl.lastName }}'s team</mat-option>
+                <mat-option [value]="tl.id">{{ leadLabel(tl) }}</mat-option>
               }
             </mat-select>
           </mat-form-field>
@@ -158,6 +159,8 @@ export class ExportPanelComponent implements OnInit {
 
   sprints    = signal<Sprint[]>([]);
   teamLeads  = signal<TeamMember[]>([]);
+  private leadDuplicates = computed(() => buildDuplicateFirstNames(this.teamLeads()));
+  leadLabel = (tl: TeamMember) => `${memberDisplayName(tl, this.leadDuplicates())}'s team`;
   selectedSprintId    = '';
   selectedTeamLeadId  = '';
   leaveFrom = this.defaultFrom();

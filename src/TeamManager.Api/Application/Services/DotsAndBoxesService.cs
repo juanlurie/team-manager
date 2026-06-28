@@ -25,9 +25,7 @@ public class DotsAndBoxesService(AppDbContext db)
                 Status = s.Status,
                 GridSize = s.GridSize,
                 PlayerCount = s.Participants.Count,
-                CreatedByName = s.CreatedBy != null
-                    ? $"{s.CreatedBy.FirstName} {s.CreatedBy.LastName}".Trim()
-                    : "",
+                CreatedByName = s.CreatedBy != null ? s.CreatedBy.FirstName : "",
                 CreatedAt = s.CreatedAt,
             })
             .ToListAsync();
@@ -352,13 +350,15 @@ public class DotsAndBoxesService(AppDbContext db)
 
         var myParticipant = session.Participants.FirstOrDefault(p => p.MemberId == memberId);
 
-        var participantDtos = session.Participants
-            .OrderBy(p => p.Order)
-            .Select(p => new DotsAndBoxesParticipantDto
+        var orderedParticipants = session.Participants.OrderBy(p => p.Order).ToList();
+        var displayNames = GameNameHelper.DeduplicateFirstNames(orderedParticipants.Select(p => p.DisplayName).ToArray());
+
+        var participantDtos = orderedParticipants
+            .Select((p, i) => new DotsAndBoxesParticipantDto
             {
                 Id = p.Id,
                 MemberId = p.MemberId,
-                DisplayName = p.DisplayName,
+                DisplayName = displayNames[i],
                 Order = p.Order,
                 Score = p.Score,
                 IsMe = p.MemberId == memberId,

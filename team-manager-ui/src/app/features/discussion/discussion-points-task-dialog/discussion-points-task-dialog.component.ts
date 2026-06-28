@@ -13,6 +13,7 @@ import { DiscussionTask, CreateDiscussionTaskRequest } from '../../../core/model
 import { TeamMember } from '../../../core/models/team-member.model';
 import { DiscussionPointService } from '../../../core/services/discussion-point.service';
 import { TeamMemberService } from '../../../core/services/team-member.service';
+import { buildDuplicateFirstNames, memberDisplayName } from '../../../core/utils/member-display-name';
 
 export interface TaskDialogData {
   discussionPointId: string;
@@ -46,7 +47,7 @@ export interface TaskDialogData {
           <mat-select [(ngModel)]="form.teamMemberId">
             <mat-option [value]="null">None</mat-option>
             @for (m of teamMembers; track m.id) {
-              <mat-option [value]="m.id">{{ m.firstName }} {{ m.lastName }}</mat-option>
+              <mat-option [value]="m.id">{{ memberName(m) }}</mat-option>
             }
           </mat-select>
         </mat-form-field>
@@ -80,6 +81,7 @@ export class DiscussionPointsTaskDialogComponent {
 
   teamMembers: TeamMember[] = [];
   dueDateValue: string | null = null;
+  memberName = (m: TeamMember) => memberDisplayName(m, buildDuplicateFirstNames(this.teamMembers));
 
   form: CreateDiscussionTaskRequest & { isCompleted?: boolean } = {
     title: '',

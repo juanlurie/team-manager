@@ -24,9 +24,7 @@ public class Game2048Service(AppDbContext db)
                 Title = s.Title,
                 Status = s.Status,
                 PlayerCount = s.Participants.Count,
-                CreatedByName = s.CreatedBy != null
-                    ? $"{s.CreatedBy.FirstName} {s.CreatedBy.LastName}".Trim()
-                    : "",
+                CreatedByName = s.CreatedBy != null ? s.CreatedBy.FirstName : "",
                 CreatedAt = s.CreatedAt,
             })
             .ToListAsync();
@@ -283,6 +281,9 @@ public class Game2048Service(AppDbContext db)
 
     private static Game2048SessionDto ToDto(Game2048Session session, Guid memberId)
     {
+        var participants = session.Participants.OrderBy(p => p.Order).ToList();
+        var displayNames = GameNameHelper.DeduplicateFirstNames(participants.Select(p => p.DisplayName).ToArray());
+
         return new Game2048SessionDto
         {
             Id = session.Id,
@@ -291,13 +292,12 @@ public class Game2048Service(AppDbContext db)
             CreatedByMemberId = session.CreatedByMemberId,
             IsCreator = session.CreatedByMemberId == memberId,
             CreatedAt = session.CreatedAt,
-            Participants = session.Participants
-                .OrderBy(p => p.Order)
-                .Select(p => new Game2048ParticipantDto
+            Participants = participants
+                .Select((p, i) => new Game2048ParticipantDto
                 {
                     Id = p.Id,
                     MemberId = p.MemberId,
-                    DisplayName = p.DisplayName,
+                    DisplayName = displayNames[i],
                     Order = p.Order,
                     Score = p.Score,
                     Board = JsonSerializer.Deserialize<int[]>(p.BoardJson, _json) ?? new int[16],
