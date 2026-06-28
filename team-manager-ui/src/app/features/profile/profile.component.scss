@@ -38,6 +38,77 @@
   flex-shrink: 0;
 }
 
+.avatar-wrap {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.avatar-img {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  object-fit: cover;
+  display: block;
+}
+
+.avatar-edit-btn {
+  position: absolute;
+  bottom: -6px;
+  right: -6px;
+  width: 24px !important;
+  height: 24px !important;
+  background: #1e2d3d !important;
+  border: 1px solid rgba(255,255,255,0.15) !important;
+  line-height: 24px !important;
+}
+
+.picker-card {
+  background: #131e2b;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  margin-bottom: 24px;
+}
+
+.avatar-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.avatar-option {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  padding: 0;
+  cursor: pointer;
+  background: rgba(255,255,255,0.04);
+  overflow: hidden;
+  transition: border-color 0.15s, transform 0.1s;
+
+  img {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+
+  &:hover {
+    border-color: rgba(100, 181, 246, 0.5);
+    transform: scale(1.05);
+  }
+
+  &.selected {
+    border-color: #64b5f6;
+    box-shadow: 0 0 0 3px rgba(100, 181, 246, 0.25);
+  }
+}
+
+.picker-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+}
+
 .details {
   flex: 1;
   min-width: 0;

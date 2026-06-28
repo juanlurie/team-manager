@@ -8,5 +8,6 @@ public interface ITeamMemberService
     Task<TeamMemberDto?> GetByIdAsync(Guid id);
     Task<TeamMemberDto> CreateAsync(CreateTeamMemberRequest request);
     Task<TeamMemberDto?> UpdateAsync(Guid id, UpdateTeamMemberRequest request);
+    Task<TeamMemberDto?> UpdateAvatarAsync(Guid id, string? seed);
     Task<bool> DeleteAsync(Guid id);
 }

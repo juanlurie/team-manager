@@ -13,6 +13,7 @@ public record TeamMemberDto
     public Guid? TeamLeadId { get; init; }
     public string? TeamLeadName { get; init; }
     public List<string> Crafts { get; init; } = [];
+    public string? AvatarSeed { get; init; }
     public bool IsActive { get; init; }
     public DateTimeOffset CreatedAt { get; init; }
     public DateOnly? BirthDate { get; init; }

@@ -20,6 +20,7 @@ export interface TeamMember {
   teamLeadId: string | null;
   teamLeadName: string | null;
   crafts: string[];
+  avatarSeed: string | null;
   isActive: boolean;
   createdAt: string;
   birthDate: string | null;

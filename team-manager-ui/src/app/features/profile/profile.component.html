@@ -5,7 +5,17 @@
   <mat-card class="info-card">
     <mat-card-content>
       <div class="user-info">
-        <div class="avatar">{{ userName.charAt(0) }}</div>
+        <div class="avatar-wrap">
+          @if (member()?.avatarSeed) {
+            <img [src]="'https://api.multiavatar.com/' + encodeURIComponent(member()!.avatarSeed!) + '.svg'"
+                 alt="Avatar" class="avatar-img">
+          } @else {
+            <div class="avatar">{{ userName.charAt(0) }}</div>
+          }
+          <button mat-icon-button class="avatar-edit-btn" (click)="openAvatarPicker()" matTooltip="Change avatar">
+            <mat-icon style="font-size:16px;width:16px;height:16px">edit</mat-icon>
+          </button>
+        </div>
         <div class="details">
           <h2 class="display-name">{{ userName }}</h2>
           <p class="email">{{ userEmail }}</p>
@@ -14,4 +24,31 @@
       </div>
     </mat-card-content>
   </mat-card>
+
+  <!-- ── Avatar Picker ── -->
+  @if (showPicker()) {
+    <mat-card class="picker-card">
+      <mat-card-header>
+        <mat-card-title style="font-size:1rem">Choose your avatar</mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="avatar-grid">
+          @for (seed of avatarOptions(); track seed) {
+            <button class="avatar-option" [class.selected]="selectedSeed() === seed"
+                    (click)="selectSeed(seed)" [matTooltip]="seed">
+              <img [src]="'https://api.multiavatar.com/' + encodeURIComponent(seed) + '.svg'" [alt]="seed">
+            </button>
+          }
+        </div>
+        <div class="picker-actions">
+          <button mat-stroked-button (click)="clearAvatar()" type="button">
+            <mat-icon>person_outline</mat-icon> Use initials
+          </button>
+          <button mat-flat-button color="primary" (click)="saveAvatar()" [disabled]="saving()">
+            {{ saving() ? 'Saving…' : 'Save avatar' }}
+          </button>
+        </div>
+      </mat-card-content>
+    </mat-card>
+  }
 </div>
