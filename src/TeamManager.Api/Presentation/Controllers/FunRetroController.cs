@@ -119,6 +119,40 @@ public class FunRetroController(FunRetroService service) : ControllerBase
         return Ok(analysis);
     }
 
+    [HttpPost("{id:guid}/timer")]
+    public async Task<IActionResult> SetTimer(Guid id, [FromBody] TimerRequest request)
+    {
+        var memberId = GetCurrentMemberId();
+        if (!memberId.HasValue) return Unauthorized();
+
+        var timerJson = System.Text.Json.JsonSerializer.Serialize(request,
+            new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase });
+        var success = await service.SetTimerAsync(id, memberId.Value, timerJson);
+        if (!success) return NotFound();
+        return Ok(new { timerJson });
+    }
+
+    [HttpGet("{id:guid}/previous-actions")]
+    public async Task<IActionResult> GetPreviousActions(Guid id)
+    {
+        var memberId = GetCurrentMemberId();
+        if (!memberId.HasValue) return Unauthorized();
+
+        var actions = await service.GetPreviousActionsAsync(id);
+        return Ok(actions);
+    }
+
+    [HttpPost("{id:guid}/icebreaker-answer")]
+    public async Task<IActionResult> SubmitIcebreakerAnswer(Guid id, [FromBody] IcebreakerAnswerRequest request)
+    {
+        var memberId = GetCurrentMemberId();
+        if (!memberId.HasValue) return Unauthorized();
+
+        var (success, answers) = await service.SubmitIcebreakerAnswerAsync(id, memberId.Value, request.Answer);
+        if (!success) return NotFound();
+        return Ok(answers);
+    }
+
     private Guid? GetCurrentMemberId()
     {
         var claim = User.FindFirst("TMID")?.Value;
@@ -130,3 +164,5 @@ public record SetPhaseRequest(string Phase);
 public record ReactRequest(string Emoji);
 public record CardPositionRequest(double X, double Y);
 public record CardColorRequest(string? Color);
+public record TimerRequest(int TotalSeconds, DateTimeOffset? StartedAt, DateTimeOffset? PausedAt, double ElapsedBeforePause);
+public record IcebreakerAnswerRequest(string Answer);

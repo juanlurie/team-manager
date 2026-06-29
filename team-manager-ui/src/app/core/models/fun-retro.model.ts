@@ -42,6 +42,8 @@ export interface FunRetroSession {
   totalCardCount: number;
   currentMemberId?: string;
   aiAnalysis: FunRetroAnalysis | null;
+  timerJson: string | null;
+  icebreakerAnswers: { memberId: string; memberName: string; answer: string }[];
 }
 
 export interface FunRetroSessionSummary {
