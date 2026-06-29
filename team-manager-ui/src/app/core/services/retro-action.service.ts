@@ -12,6 +12,10 @@ export class RetroActionService {
     return this.http.get<RetroAction[]>(`${API_BASE}/retro-actions?sprintId=${sprintId}`);
   }
 
+  getPreviousBySprintId(sprintId: string): Observable<RetroAction[]> {
+    return this.http.get<RetroAction[]>(`${API_BASE}/retro-actions?previousOf=${sprintId}`);
+  }
+
   create(request: CreateRetroActionRequest): Observable<RetroAction> {
     return this.http.post<RetroAction>(`${API_BASE}/retro-actions`, request);
   }

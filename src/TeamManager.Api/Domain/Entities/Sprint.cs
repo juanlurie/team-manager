@@ -15,6 +15,8 @@ public class Sprint
     public string? RetroDidntGoWell { get; set; }
     public string? RetroActionItems { get; set; }
     public string? RetroPhase { get; set; }
+    public string? RetroTimerJson { get; set; }
+    public string? RetroIcebreakerAnswersJson { get; set; }
 
     public PI? PI { get; set; }
     public ICollection<SprintMember> SprintMembers { get; set; } = [];

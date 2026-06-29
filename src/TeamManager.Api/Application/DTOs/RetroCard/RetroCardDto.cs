@@ -11,4 +11,12 @@ public record RetroCardDto
     public DateTimeOffset CreatedAt { get; init; }
     public int VoteCount { get; init; }
     public int MyVoteCount { get; init; }
+    public IReadOnlyList<ReactionSummaryDto> Reactions { get; init; } = [];
+}
+
+public record ReactionSummaryDto
+{
+    public string Emoji { get; init; } = string.Empty;
+    public int Count { get; init; }
+    public bool Mine { get; init; }
 }

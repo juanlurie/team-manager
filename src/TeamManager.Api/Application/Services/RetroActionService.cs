@@ -17,6 +17,29 @@ public class RetroActionService(AppDbContext db) : IRetroActionService
         return items.Select(ToDto).ToList();
     }
 
+    public async Task<IReadOnlyList<RetroActionDto>> GetPreviousBySprintAsync(Guid currentSprintId)
+    {
+        var current = await db.Sprints.FindAsync(currentSprintId);
+        if (current is null) return [];
+
+        // Most recent sprint (by EndDate) before the current one that actually has retro actions.
+        var prevSprintId = await db.Sprints
+            .Where(s => s.Id != currentSprintId && s.EndDate <= current.EndDate)
+            .Where(s => db.RetroActions.Any(a => a.SprintId == s.Id))
+            .OrderByDescending(s => s.EndDate)
+            .ThenByDescending(s => s.SprintNumber)
+            .Select(s => (Guid?)s.Id)
+            .FirstOrDefaultAsync();
+
+        if (prevSprintId is null) return [];
+
+        var items = await db.RetroActions
+            .Where(r => r.SprintId == prevSprintId.Value)
+            .OrderBy(r => r.CreatedAt)
+            .ToListAsync();
+        return items.Select(ToDto).ToList();
+    }
+
     public async Task<RetroActionDto> CreateAsync(CreateRetroActionRequest request)
     {
         var action = new RetroAction

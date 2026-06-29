@@ -15,4 +15,10 @@ public interface ISprintService
     Task<SprintDto?> CloneAsync(Guid sourceId, CloneSprintRequest request);
     Task<SprintDto?> CloseAsync(Guid id);
     Task<IReadOnlyList<VelocityEntryDto>> GetVelocityAsync(Guid? piId);
+    Task<bool> SetRetroTimerAsync(Guid id, string timerJson);
+    Task<string?> GetRetroTimerAsync(Guid id);
+    Task<IReadOnlyList<IcebreakerAnswerDto>> GetIcebreakerAnswersAsync(Guid id);
+    Task<IReadOnlyList<IcebreakerAnswerDto>?> UpsertIcebreakerAnswerAsync(
+        Guid id, Guid memberId, string answer);
+    Task<string?> GenerateRetroSummaryAsync(Guid id);
 }

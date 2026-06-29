@@ -13,6 +13,7 @@ export interface Sprint {
   retroDidntGoWell: string | null;
   retroActionItems: string | null;
   retroPhase: string | null;
+  retroTimerJson: string | null;
 }
 
 export interface PI {

@@ -29,7 +29,26 @@ public class RetroCardService(AppDbContext db) : IRetroCardService
                    .ToDictionary(g => g.Key, g => g.Count())
             : [];
 
-        return cards.Select(c => ToDto(c, voteCounts, myVotes)).ToList();
+        var reactions = await db.RetroCardReactions
+            .Where(r => r.SprintId == sprintId)
+            .ToListAsync();
+
+        var reactionsByCard = reactions
+            .GroupBy(r => r.CardId)
+            .ToDictionary(
+                g => g.Key,
+                g => (IReadOnlyList<ReactionSummaryDto>)g
+                    .GroupBy(r => r.Emoji)
+                    .Select(eg => new ReactionSummaryDto
+                    {
+                        Emoji = eg.Key,
+                        Count = eg.Count(),
+                        Mine = currentUserId.HasValue && eg.Any(r => r.MemberId == currentUserId.Value),
+                    })
+                    .OrderByDescending(s => s.Count)
+                    .ToList());
+
+        return cards.Select(c => ToDto(c, voteCounts, myVotes, reactionsByCard)).ToList();
     }
 
     public async Task<RetroCardDto> CreateAsync(CreateRetroCardRequest request, Guid? authorId = null)
@@ -53,7 +72,7 @@ public class RetroCardService(AppDbContext db) : IRetroCardService
         };
         db.RetroCards.Add(card);
         await db.SaveChangesAsync();
-        return ToDto(card, [], []);
+        return ToDto(card, [], [], []);
     }
 
     public async Task<bool> DeleteAsync(Guid id)
@@ -98,10 +117,61 @@ public class RetroCardService(AppDbContext db) : IRetroCardService
         return new ToggleVoteResponse(cardId, voteCount, myVoteCount, existing is null);
     }
 
+    public async Task<ToggleReactionResponse?> ToggleReactionAsync(
+        Guid cardId, Guid sprintId, string emoji, Guid memberId)
+    {
+        var card = await db.RetroCards.FindAsync(cardId);
+        if (card is null) return null;
+
+        var member = await db.TeamMembers.FindAsync(memberId);
+        var memberName = member is null ? "" : $"{member.FirstName} {member.LastName}".Trim();
+
+        var existing = await db.RetroCardReactions
+            .FirstOrDefaultAsync(r => r.CardId == cardId && r.MemberId == memberId && r.Emoji == emoji);
+
+        int delta;
+        if (existing is not null)
+        {
+            db.RetroCardReactions.Remove(existing);
+            delta = -1;
+        }
+        else
+        {
+            db.RetroCardReactions.Add(new RetroCardReaction
+            {
+                CardId     = cardId,
+                SprintId   = sprintId,
+                MemberId   = memberId,
+                MemberName = memberName,
+                Emoji      = emoji,
+            });
+            delta = 1;
+        }
+        await db.SaveChangesAsync();
+
+        var cardReactions = await db.RetroCardReactions
+            .Where(r => r.CardId == cardId)
+            .ToListAsync();
+
+        var summary = cardReactions
+            .GroupBy(r => r.Emoji)
+            .Select(g => new ReactionSummaryDto
+            {
+                Emoji = g.Key,
+                Count = g.Count(),
+                Mine = g.Any(r => r.MemberId == memberId),
+            })
+            .OrderByDescending(s => s.Count)
+            .ToList();
+
+        return new ToggleReactionResponse(cardId, emoji, delta, memberId, memberName, summary);
+    }
+
     private static RetroCardDto ToDto(
         RetroCard card,
         Dictionary<Guid, int> voteCounts,
-        Dictionary<Guid, int> myVotes) => new()
+        Dictionary<Guid, int> myVotes,
+        Dictionary<Guid, IReadOnlyList<ReactionSummaryDto>> reactionsByCard) => new()
     {
         Id         = card.Id,
         SprintId   = card.SprintId,
@@ -112,5 +182,6 @@ public class RetroCardService(AppDbContext db) : IRetroCardService
         CreatedAt  = card.CreatedAt,
         VoteCount  = voteCounts.GetValueOrDefault(card.Id),
         MyVoteCount = myVotes.GetValueOrDefault(card.Id),
+        Reactions  = reactionsByCard.GetValueOrDefault(card.Id) ?? [],
     };
 }

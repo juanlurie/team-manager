@@ -8,4 +8,6 @@ public interface IRetroCardService
     Task<RetroCardDto> CreateAsync(CreateRetroCardRequest request, Guid? authorId = null);
     Task<bool> DeleteAsync(Guid id);
     Task<ToggleVoteResponse?> ToggleVoteAsync(Guid cardId, Guid voterId);
+    Task<ToggleReactionResponse?> ToggleReactionAsync(
+        Guid cardId, Guid sprintId, string emoji, Guid memberId);
 }

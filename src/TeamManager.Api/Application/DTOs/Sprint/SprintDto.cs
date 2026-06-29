@@ -16,4 +16,5 @@ public record SprintDto
     public string? RetroDidntGoWell { get; init; }
     public string? RetroActionItems { get; init; }
     public string? RetroPhase { get; init; }
+    public string? RetroTimerJson { get; init; }
 }

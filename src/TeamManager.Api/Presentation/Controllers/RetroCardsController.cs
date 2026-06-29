@@ -52,6 +52,28 @@ public class RetroCardsController(IRetroCardService service) : ControllerBase
         return Ok(result);
     }
 
+    [HttpPost("{id:guid}/react")]
+    public async Task<IActionResult> React(Guid id, [FromBody] RetroReactRequest request)
+    {
+        var memberId = GetCurrentMemberId();
+        if (!memberId.HasValue) return Unauthorized();
+        if (string.IsNullOrWhiteSpace(request.Emoji)) return BadRequest(new { error = "Emoji required." });
+
+        var result = await service.ToggleReactionAsync(id, request.SprintId, request.Emoji, memberId.Value);
+        if (result is null) return NotFound();
+
+        _ = WebSocketMiddleware.BroadcastAsync("retro_reaction_toggled", new
+        {
+            sprintId   = request.SprintId,
+            cardId     = id,
+            emoji      = result.Emoji,
+            delta      = result.Delta,
+            memberId   = result.MemberId,
+            memberName = result.MemberName,
+        });
+        return Ok(result);
+    }
+
     private Guid? GetCurrentMemberId()
     {
         var claim = User.FindFirst("TMID")?.Value;
