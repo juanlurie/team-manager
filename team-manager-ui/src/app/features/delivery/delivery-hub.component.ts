@@ -34,7 +34,7 @@ const DELIVERY_TABS: DeliveryTab[] = [
   `,
   changeDetection: ChangeDetectionStrategy.Default,
   styles: [`
-    .hub { max-width:900px;margin:0 auto;padding:8px; }
+    .hub { padding:8px; }
     .hub-tabs {
       display:flex;gap:0;margin-bottom:16px;
       border-bottom:1px solid rgba(255,255,255,0.08);
