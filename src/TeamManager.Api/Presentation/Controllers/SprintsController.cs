@@ -82,4 +82,68 @@ public class SprintsController(ISprintService service) : ControllerBase
     [HttpGet("velocity")]
     public async Task<IActionResult> GetVelocity([FromQuery] Guid? piId)
         => Ok(await service.GetVelocityAsync(piId));
+
+    // ── Retro phase timer ──────────────────────────
+    [HttpGet("{id:guid}/retro-timer")]
+    public async Task<IActionResult> GetRetroTimer(Guid id)
+        => Ok(new { timerJson = await service.GetRetroTimerAsync(id) });
+
+    [HttpPost("{id:guid}/retro-timer")]
+    public async Task<IActionResult> SetRetroTimer(Guid id, [FromBody] RetroTimerRequest request)
+    {
+        var timerJson = System.Text.Json.JsonSerializer.Serialize(new
+        {
+            totalSeconds       = request.TotalSeconds,
+            startedAt          = request.StartedAt,
+            pausedAt           = request.PausedAt,
+            elapsedBeforePause = request.ElapsedBeforePause,
+        });
+        var ok = await service.SetRetroTimerAsync(id, timerJson);
+        if (!ok) return NotFound();
+        _ = WebSocketMiddleware.BroadcastAsync("retro_timer_updated", new { sprintId = id, timerJson });
+        return Ok(new { timerJson });
+    }
+
+    // ── Retro icebreaker ───────────────────────────
+    [HttpGet("{id:guid}/retro-icebreaker-answers")]
+    public async Task<IActionResult> GetIcebreakerAnswers(Guid id)
+        => Ok(await service.GetIcebreakerAnswersAsync(id));
+
+    [HttpPost("{id:guid}/retro-icebreaker-answer")]
+    public async Task<IActionResult> SubmitIcebreakerAnswer(Guid id, [FromBody] IcebreakerAnswerRequest request)
+    {
+        var memberId = GetCurrentMemberId();
+        if (!memberId.HasValue) return Unauthorized();
+        var answer = (request.Answer ?? string.Empty).Trim();
+        if (string.IsNullOrEmpty(answer)) return BadRequest(new { error = "Answer required." });
+
+        var answers = await service.UpsertIcebreakerAnswerAsync(id, memberId.Value, answer);
+        if (answers is null) return NotFound();
+
+        var mine = answers.FirstOrDefault(a => a.MemberId == memberId.Value);
+        _ = WebSocketMiddleware.BroadcastAsync("retro_icebreaker_answered", new
+        {
+            sprintId   = id,
+            memberId   = memberId.Value,
+            memberName = mine?.MemberName ?? string.Empty,
+            answer,
+        });
+        return Ok(answers);
+    }
+
+    // ── Retro AI summary ───────────────────────────
+    [HttpPost("{id:guid}/retro-summary")]
+    public async Task<IActionResult> RetroSummary(Guid id)
+    {
+        var summary = await service.GenerateRetroSummaryAsync(id);
+        if (string.IsNullOrWhiteSpace(summary))
+            return StatusCode(503, new { error = "AI summary not configured" });
+        return Ok(new { summary });
+    }
+
+    private Guid? GetCurrentMemberId()
+    {
+        var claim = User.FindFirst("TMID")?.Value;
+        return Guid.TryParse(claim, out var id) ? id : null;
+    }
 }

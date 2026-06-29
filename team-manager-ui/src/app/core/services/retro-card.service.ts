@@ -2,7 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { API_BASE } from './api.config';
-import { RetroCard, CreateRetroCardRequest, ToggleVoteResponse } from '../models/retro-card.model';
+import { RetroCard, CreateRetroCardRequest, ToggleVoteResponse, ToggleReactionResponse } from '../models/retro-card.model';
 import { Sprint } from '../models/sprint.model';
 
 @Injectable({ providedIn: 'root' })
@@ -27,5 +27,9 @@ export class RetroCardService {
 
   updatePhase(sprintId: string, phase: string | null): Observable<Sprint> {
     return this.http.patch<Sprint>(`${API_BASE}/sprints/${sprintId}/retro-phase`, { phase });
+  }
+
+  toggleReaction(cardId: string, emoji: string, sprintId: string): Observable<ToggleReactionResponse> {
+    return this.http.post<ToggleReactionResponse>(`${API_BASE}/retro-cards/${cardId}/react`, { sprintId, emoji });
   }
 }

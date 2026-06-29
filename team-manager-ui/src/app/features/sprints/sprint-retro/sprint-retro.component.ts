@@ -4,18 +4,20 @@ import {
 } from '@angular/core';
 
 import { FormsModule } from '@angular/forms';
+import { HttpClient } from '@angular/common/http';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { debounceTime, Subject, Subscription } from 'rxjs';
 
 import { Sprint } from '../../../core/models/sprint.model';
-import { RetroCard, RetroColumn, RetroPhase } from '../../../core/models/retro-card.model';
+import { RetroCard, RetroColumn, RetroPhase, RetroReaction } from '../../../core/models/retro-card.model';
 import { RetroAction, CreateRetroActionRequest } from '../../../core/models/retro-action.model';
 import { MemberSprintCard } from '../../../core/models/dashboard.model';
 import { RetroCardService } from '../../../core/services/retro-card.service';
 import { RetroActionService } from '../../../core/services/retro-action.service';
 import { SprintService } from '../../../core/services/sprint.service';
+import { API_BASE } from '../../../core/services/api.config';
 import { WebSocketService } from '../../../core/websocket/websocket.service';
 import { IconButtonComponent } from '../../../shared/components/icon-btn/icon-btn.component';
 
@@ -25,6 +27,49 @@ const COL_META = {
   better: { label: '⚠️ Didn\'t Go Well', color: '#ff9800', prompt: "What could've gone better?" },
   action: { label: '🎯 Action Items',    color: '#e91e8c', prompt: 'What should we do differently?' },
 } as const;
+
+const REACTION_EMOJIS = ['👍', '😅', '🔥', '😬', '💯'];
+
+// Default suggested timer durations (seconds) per phase.
+const PHASE_TIMER_DEFAULTS: Record<RetroPhase, number> = {
+  lobby: 300, add: 480, vote: 180, discuss: 180, actions: 300,
+};
+
+const ICEBREAKER_QUESTIONS = [
+  "What's one word that describes this sprint?",
+  "If this sprint were a weather forecast, what would it be?",
+  "What's one thing you wish you'd known at the start of this sprint?",
+  "On a scale of 🐢 to 🚀 how was your productivity?",
+  "What's the best thing that happened outside of work this sprint?",
+  "What song best describes your last two weeks?",
+  "If this sprint were a movie, what genre would it be?",
+  "What's one habit you want to build next sprint?",
+  "Rate your energy this sprint: 🪫 🔋 ⚡ 🚀",
+  "What's a superpower you wish you had this sprint?",
+  "One emoji that sums up your sprint:",
+  "What's something the team did that you're proud of?",
+  "What would you do differently if you started this sprint again?",
+  "What's your biggest win this sprint (personal or team)?",
+  "Name a challenge you overcame this sprint:",
+  "What's one thing that surprised you this sprint?",
+  "If you could add one hour to your day next sprint, how would you use it?",
+  "What's one thing you learned this sprint?",
+  "How full is your motivation tank right now? 0–10",
+  "What's one thing you want to celebrate from this sprint?",
+];
+
+interface RetroTimerState {
+  totalSeconds: number;
+  startedAt: string | null;
+  pausedAt: string | null;
+  elapsedBeforePause: number;
+}
+
+interface IcebreakerAnswer {
+  memberId: string;
+  memberName: string;
+  answer: string;
+}
 
 @Component({
   selector: 'app-sprint-retro',
@@ -173,6 +218,37 @@ const COL_META = {
       outline:none; }
     .action-input:focus { border-color:rgba(100,181,246,.6); }
     .new-action-row { display:flex; gap:6px; margin-top:10px; align-items:center; }
+
+    /* ── Phase timer ──────────────────────────── */
+    .timer-bar { height:3px; position:relative; overflow:hidden; background:rgba(255,255,255,0.07); flex-shrink:0; }
+    .timer-fill { height:100%; background:#64b5f6; transition:width 1s linear; }
+    .timer-fill.danger { background:#ef5350; }
+    .timer-display { font-size:13px; font-weight:700; font-variant-numeric:tabular-nums; }
+    .timer-controls { display:flex; gap:4px; align-items:center; }
+    .timer-controls .phase-btn { padding:4px 8px; }
+
+    /* ── Reactions ────────────────────────────── */
+    .reaction-row { display:flex; gap:4px; flex-wrap:wrap; margin-top:4px; }
+    .reaction-pill { display:flex; align-items:center; gap:3px; padding:2px 8px; border-radius:100px;
+      border:1px solid rgba(255,255,255,0.12); background:transparent; color:rgba(255,255,255,0.6);
+      font-size:12px; cursor:pointer; transition:all 0.1s; font-family:inherit; }
+    .reaction-pill:hover { border-color:rgba(255,255,255,0.3); color:rgba(255,255,255,0.85); }
+    .reaction-pill.mine { border-color:rgba(100,181,246,0.5); background:rgba(100,181,246,0.1); color:#64b5f6; }
+
+    /* ── Icebreaker ───────────────────────────── */
+    .lobby-extras { padding:12px 16px; display:flex; flex-direction:column; gap:14px; overflow-y:auto; }
+    .icebreaker-box { background:rgba(100,181,246,0.05); border:1px solid rgba(100,181,246,0.2); border-radius:10px; padding:14px 16px; }
+    .icebreaker-q { font-size:14px; font-weight:600; margin-bottom:10px; }
+    .answer-chips { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
+    .answer-chip { font-size:12px; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1); border-radius:100px; padding:3px 10px; }
+
+    /* ── Previous actions check-in ────────────── */
+    .prev-actions-section { padding:0 16px 12px; }
+    .prev-action-item { display:flex; align-items:flex-start; gap:8px; padding:7px 0; border-bottom:1px solid rgba(255,255,255,0.05); }
+    .prev-action-bar { width:3px; border-radius:2px; flex-shrink:0; align-self:stretch; min-height:20px; }
+
+    /* ── AI summary ───────────────────────────── */
+    .ai-summary-panel { margin:0 16px 12px; padding:14px; background:rgba(100,181,246,0.05); border:1px solid rgba(100,181,246,0.2); border-radius:10px; }
   `],
   changeDetection: ChangeDetectionStrategy.Default,
   template: `
@@ -186,6 +262,20 @@ const COL_META = {
         <span class="budget">{{ budget() }} vote{{ budget() !== 1 ? 's' : '' }} left</span>
       }
     </span>
+    @if (phase() !== 'lobby' && timer()) {
+      <div class="timer-controls">
+        <span class="timer-display" [style.color]="timerExpired() ? '#ef5350' : 'rgba(255,255,255,.85)'">{{ timerDisplay() }}</span>
+        <button class="phase-btn" (click)="timerRunning() ? timerPause() : timerStart()"
+                [matTooltip]="timerRunning() ? 'Pause' : 'Start'">{{ timerRunning() ? '⏸' : '▶' }}</button>
+        <button class="phase-btn" (click)="timerAddTwo()" matTooltip="Add 2 minutes">+2m</button>
+        <button class="phase-btn" (click)="timerReset()" matTooltip="Reset timer">↻</button>
+      </div>
+    }
+    @if (phase() === 'actions') {
+      <button class="phase-btn primary" (click)="generateSummary()" [disabled]="aiSummaryLoading()">
+        {{ aiSummaryLoading() ? '✨ Generating…' : '✨ AI Summary' }}
+      </button>
+    }
     @if (phase() !== 'lobby') {
       <button class="phase-btn" (click)="regressPhase()" [disabled]="phase() === 'add'">← Back</button>
     }
@@ -193,6 +283,78 @@ const COL_META = {
       {{ phase() === 'lobby' ? '▶ Start Retro' : phase() === 'actions' ? '✓ Done' : 'Next →' }}
     </button>
   </div>
+
+  <!-- ── Phase timer progress bar ── -->
+  @if (phase() !== 'lobby' && timer()) {
+    <div class="timer-bar">
+      <div class="timer-fill" [class.danger]="timerExpired()" [style.width.%]="timerProgress() * 100"></div>
+    </div>
+  }
+
+  <!-- ── AI summary panel ── -->
+  @if (phase() === 'actions' && (aiSummary() || aiSummaryError())) {
+    <div class="ai-summary-panel">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <span style="font-weight:700;font-size:13px;color:#64b5f6">✨ AI Summary</span>
+        <div style="display:flex;gap:6px">
+          @if (aiSummary()) { <button class="phase-btn" (click)="copySummary()">📋 Copy</button> }
+          <button class="phase-btn" (click)="dismissSummary()">×</button>
+        </div>
+      </div>
+      @if (aiSummary()) {
+        <div style="font-size:13px;line-height:1.5;white-space:pre-wrap">{{ aiSummary() }}</div>
+      }
+      @if (aiSummaryError()) {
+        <div style="font-size:12px;color:#ef5350">{{ aiSummaryError() }}</div>
+      }
+    </div>
+  }
+
+  <!-- ── Lobby extras: icebreaker + previous actions ── -->
+  @if (phase() === 'lobby') {
+    <div class="lobby-extras">
+      <div class="icebreaker-box">
+        <div class="icebreaker-q">🧊 {{ icebreakerQuestion() }}</div>
+        <div style="display:flex;gap:6px">
+          <input class="action-input" style="flex:1" placeholder="Your answer…" maxlength="120"
+                 [(ngModel)]="icebreakerInput" (keydown.enter)="submitIcebreaker()" />
+          <button class="add-submit" [disabled]="!icebreakerInput.trim()" (click)="submitIcebreaker()">Send</button>
+        </div>
+        @if (icebreakerAnswers().length) {
+          <div class="answer-chips">
+            @for (a of icebreakerAnswers(); track a.memberId) {
+              <span class="answer-chip"><b>{{ a.memberName }}:</b> {{ a.answer }}</span>
+            }
+          </div>
+        }
+      </div>
+
+      @if (prevActions().length) {
+        <div class="prev-actions-section">
+          <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:rgba(255,255,255,.4);margin:0 0 8px">
+            Last sprint's action items
+          </div>
+          @for (a of prevActions(); track a.id) {
+            <div class="prev-action-item">
+              <span class="prev-action-bar" [style.background]="prevActionColor(a.status)"></span>
+              <div style="flex:1;min-width:0">
+                <div style="font-size:12px;line-height:1.4"
+                     [style.opacity]="a.status === 'Done' ? '.5' : '1'"
+                     [style.text-decoration]="a.status === 'Done' ? 'line-through' : ''">{{ a.title }}</div>
+                <div style="font-size:10px;opacity:.4;margin-top:2px">{{ a.status }}@if (a.assignedTo) { · {{ a.assignedTo }} }</div>
+              </div>
+              @if (a.status !== 'Done') {
+                <button class="phase-btn" (click)="markPrevDone(a)">✓ Mark Done</button>
+                <button class="phase-btn" [disabled]="carriedActionIds().has(a.id)" (click)="carryForward(a)">
+                  {{ carriedActionIds().has(a.id) ? '✓ Carried' : '⤴ Carry forward' }}
+                </button>
+              }
+            </div>
+          }
+        </div>
+      }
+    </div>
+  }
 
   <!-- ══════════════════════════════════════════ -->
   <!-- DESKTOP: Living Board                      -->
@@ -241,6 +403,19 @@ const COL_META = {
                   }
                 </div>
               </div>
+              @if (phase() === 'add' || phase() === 'discuss') {
+                <div class="reaction-row">
+                  @for (r of visibleReactions(card); track r.emoji) {
+                    <button class="reaction-pill" [class.mine]="r.mine" (click)="toggleReaction(card, r.emoji)">
+                      {{ r.emoji }}@if (r.count > 0) { <span>{{ r.count }}</span> }
+                    </button>
+                  }
+                  @if (!isReactionsExpanded(card) && hiddenReactionCount(card) > 0) {
+                    <button class="reaction-pill" (click)="expandReactions(card)">+{{ hiddenReactionCount(card) }} more</button>
+                  }
+                  <button class="reaction-pill" (click)="toggleReactionPicker(card)">{{ isReactionsExpanded(card) ? '×' : '＋' }}</button>
+                </div>
+              }
             </div>
           }
         </div>
@@ -355,6 +530,17 @@ const COL_META = {
                   <button class="del-btn" (click)="deleteCard(card)">×</button>
                 }
               </div>
+              <div class="reaction-row">
+                @for (r of visibleReactions(card); track r.emoji) {
+                  <button class="reaction-pill" [class.mine]="r.mine" (click)="toggleReaction(card, r.emoji)">
+                    {{ r.emoji }}@if (r.count > 0) { <span>{{ r.count }}</span> }
+                  </button>
+                }
+                @if (!isReactionsExpanded(card) && hiddenReactionCount(card) > 0) {
+                  <button class="reaction-pill" (click)="expandReactions(card)">+{{ hiddenReactionCount(card) }} more</button>
+                }
+                <button class="reaction-pill" (click)="toggleReactionPicker(card)">{{ isReactionsExpanded(card) ? '×' : '＋' }}</button>
+              </div>
             </div>
           }
           <textarea class="add-input" rows="2" [placeholder]="colMeta[mobileCol()].prompt"
@@ -402,6 +588,19 @@ const COL_META = {
             <div style="margin-top:8px">
               <button class="to-action-btn" (click)="convertToAction(discussionQueue()[spotlightIndex()])">→ Turn into action</button>
             </div>
+            @if (discussionQueue()[spotlightIndex()]; as sc) {
+              <div class="reaction-row">
+                @for (r of visibleReactions(sc); track r.emoji) {
+                  <button class="reaction-pill" [class.mine]="r.mine" (click)="toggleReaction(sc, r.emoji)">
+                    {{ r.emoji }}@if (r.count > 0) { <span>{{ r.count }}</span> }
+                  </button>
+                }
+                @if (!isReactionsExpanded(sc) && hiddenReactionCount(sc) > 0) {
+                  <button class="reaction-pill" (click)="expandReactions(sc)">+{{ hiddenReactionCount(sc) }} more</button>
+                }
+                <button class="reaction-pill" (click)="toggleReactionPicker(sc)">{{ isReactionsExpanded(sc) ? '×' : '＋' }}</button>
+              </div>
+            }
           </div>
           <div style="display:flex;gap:8px;margin-bottom:12px">
             <button class="phase-btn" style="flex:1" [disabled]="spotlightIndex()===0" (click)="prevSpotlight()">← Prev</button>
@@ -474,12 +673,34 @@ export class SprintRetroComponent implements OnInit, OnDestroy {
   private cardSvc   = inject(RetroCardService);
   private actionSvc = inject(RetroActionService);
   private wsSvc     = inject(WebSocketService);
+  private http      = inject(HttpClient);
 
   cards   = signal<RetroCard[]>([]);
   actions = signal<RetroAction[]>([]);
   phase   = signal<RetroPhase>('lobby');
   spotlightIndex = signal(0);
   mobileCol = signal<RetroColumn>('well');
+
+  // Phase timer
+  timer = signal<RetroTimerState | null>(null);
+  private nowMs = signal(Date.now());
+  private tickHandle?: ReturnType<typeof setInterval>;
+
+  // Reactions
+  expandedReactionIds = signal<Set<string>>(new Set());
+
+  // Previous actions check-in
+  prevActions = signal<RetroAction[]>([]);
+  carriedActionIds = signal<Set<string>>(new Set());
+
+  // Icebreaker
+  icebreakerAnswers = signal<IcebreakerAnswer[]>([]);
+  icebreakerInput = '';
+
+  // AI summary
+  aiSummary = signal<string | null>(null);
+  aiSummaryLoading = signal(false);
+  aiSummaryError = signal<string | null>(null);
 
   addTexts: Record<string, string> = { well: '', better: '', action: '' };
   newActionTitle = '';
@@ -528,6 +749,32 @@ export class SprintRetroComponent implements OnInit, OnDestroy {
     discuss: 'Discussion', actions: 'Action Items',
   })[this.phase()] ?? this.phase());
 
+  // ── Timer computed ─────────────────────────────
+  timerRunning = computed(() => {
+    const t = this.timer();
+    return !!t && !!t.startedAt;
+  });
+
+  timerRemaining = computed(() => {
+    const t = this.timer();
+    if (!t) return 0;
+    let elapsed = t.elapsedBeforePause;
+    if (t.startedAt) elapsed += (this.nowMs() - new Date(t.startedAt).getTime()) / 1000;
+    return Math.max(0, Math.round(t.totalSeconds - elapsed));
+  });
+
+  timerProgress = computed(() => {
+    const t = this.timer();
+    if (!t || !t.totalSeconds) return 0;
+    return Math.min(1, Math.max(0, 1 - this.timerRemaining() / t.totalSeconds));
+  });
+
+  timerExpired = computed(() => !!this.timer() && this.timerRemaining() <= 0);
+  timerDisplay = computed(() => this.formatTime(this.timerRemaining()));
+
+  icebreakerQuestion = computed(() =>
+    ICEBREAKER_QUESTIONS[this.hashSprintId(this.sprintId) % ICEBREAKER_QUESTIONS.length]);
+
   private wsSub?: Subscription;
   private resize$ = new Subject<void>();
   private resizeSub?: Subscription;
@@ -535,8 +782,18 @@ export class SprintRetroComponent implements OnInit, OnDestroy {
   ngOnInit() {
     this.phase.set((this.sprint?.retroPhase as RetroPhase | null) ?? 'lobby');
 
-    this.cardSvc.getBySprintId(this.sprintId).subscribe(cards => this.cards.set(cards));
+    this.cardSvc.getBySprintId(this.sprintId).subscribe(cards =>
+      this.cards.set(cards.map(c => ({ ...c, reactions: c.reactions ?? [] }))));
     this.actionSvc.getBySprintId(this.sprintId).subscribe(a => this.actions.set(a));
+    this.actionSvc.getPreviousBySprintId(this.sprintId).subscribe(a => this.prevActions.set(a));
+
+    // Phase timer: load persisted state + tick the display every second.
+    this.loadTimer();
+    this.tickHandle = setInterval(() => this.nowMs.set(Date.now()), 1000);
+
+    // Icebreaker answers
+    this.http.get<IcebreakerAnswer[]>(`${API_BASE}/sprints/${this.sprintId}/retro-icebreaker-answers`)
+      .subscribe(list => this.icebreakerAnswers.set(list ?? []));
 
     this.wsSvc.connect();
     this.wsSub = this.wsSvc.messages$.subscribe(msg => {
@@ -545,7 +802,7 @@ export class SprintRetroComponent implements OnInit, OnDestroy {
       if (d?.sprintId !== this.sprintId) return;
 
       if (msg.type === 'retro_card_added') {
-        const card = d.card as RetroCard;
+        const card = { ...(d.card as RetroCard), reactions: (d.card?.reactions ?? []) };
         if (!this.cards().find(c => c.id === card.id))
           this.cards.update(cs => [...cs, card]);
       }
@@ -561,6 +818,17 @@ export class SprintRetroComponent implements OnInit, OnDestroy {
         this.phase.set(d.phase ?? 'lobby');
         this.spotlightIndex.set(0);
       }
+      if (msg.type === 'retro_timer_updated') {
+        this.timer.set(this.parseTimer(d.timerJson));
+      }
+      if (msg.type === 'retro_reaction_toggled') {
+        // The acting user already updated locally from the HTTP response.
+        if (d.memberId !== this.currentMemberId)
+          this.applyReactionDelta(d.cardId, d.emoji, d.delta, d.memberId);
+      }
+      if (msg.type === 'retro_icebreaker_answered') {
+        this.upsertIcebreakerAnswer({ memberId: d.memberId, memberName: d.memberName, answer: d.answer });
+      }
       if (['retro_action_created', 'retro_action_updated', 'retro_action_deleted'].includes(msg.type)) {
         this.actionSvc.getBySprintId(this.sprintId).subscribe(a => this.actions.set(a));
       }
@@ -570,6 +838,7 @@ export class SprintRetroComponent implements OnInit, OnDestroy {
   ngOnDestroy() {
     this.wsSub?.unsubscribe();
     this.resizeSub?.unsubscribe();
+    if (this.tickHandle) clearInterval(this.tickHandle);
   }
 
   // ── Phase control ──────────────────────────────
@@ -587,6 +856,8 @@ export class SprintRetroComponent implements OnInit, OnDestroy {
     this.phase.set(p);
     this.spotlightIndex.set(0);
     this.cardSvc.updatePhase(this.sprintId, p).subscribe();
+    // Timer resets automatically when the phase changes.
+    this.timerReset();
   }
 
   // ── Cards ──────────────────────────────────────
@@ -689,5 +960,194 @@ export class SprintRetroComponent implements OnInit, OnDestroy {
 
   nextStatusLabel(s: string) {
     return { Open: 'Mark In Progress', InProgress: 'Mark Done', Done: 'Reopen' }[s] ?? '';
+  }
+
+  // ── Phase timer ────────────────────────────────
+  private formatTime(totalSeconds: number): string {
+    const s = Math.max(0, Math.floor(totalSeconds));
+    const m = Math.floor(s / 60);
+    const sec = s % 60;
+    return `${m}:${sec.toString().padStart(2, '0')}`;
+  }
+
+  private parseTimer(json: string | null | undefined): RetroTimerState | null {
+    if (!json) return null;
+    try {
+      const t = JSON.parse(json);
+      return {
+        totalSeconds: t.totalSeconds ?? 0,
+        startedAt: t.startedAt ?? null,
+        pausedAt: t.pausedAt ?? null,
+        elapsedBeforePause: t.elapsedBeforePause ?? 0,
+      };
+    } catch { return null; }
+  }
+
+  private loadTimer() {
+    this.http.get<{ timerJson: string | null }>(`${API_BASE}/sprints/${this.sprintId}/retro-timer`)
+      .subscribe(r => this.timer.set(this.parseTimer(r?.timerJson)));
+  }
+
+  private freshTimer(): RetroTimerState {
+    return {
+      totalSeconds: PHASE_TIMER_DEFAULTS[this.phase()] ?? 300,
+      startedAt: null,
+      pausedAt: null,
+      elapsedBeforePause: 0,
+    };
+  }
+
+  private saveTimer(t: RetroTimerState) {
+    this.timer.set(t);
+    this.http.post(`${API_BASE}/sprints/${this.sprintId}/retro-timer`, t).subscribe();
+  }
+
+  timerStart() {
+    const t = this.timer() ?? this.freshTimer();
+    if (t.startedAt) return;
+    this.saveTimer({ ...t, startedAt: new Date().toISOString(), pausedAt: null });
+  }
+
+  timerPause() {
+    const t = this.timer();
+    if (!t || !t.startedAt) return;
+    const elapsed = t.elapsedBeforePause + (Date.now() - new Date(t.startedAt).getTime()) / 1000;
+    this.saveTimer({ ...t, startedAt: null, pausedAt: new Date().toISOString(), elapsedBeforePause: Math.round(elapsed) });
+  }
+
+  timerAddTwo() {
+    const t = this.timer() ?? this.freshTimer();
+    this.saveTimer({ ...t, totalSeconds: t.totalSeconds + 120 });
+  }
+
+  timerReset() {
+    this.saveTimer(this.freshTimer());
+  }
+
+  // ── Reactions ──────────────────────────────────
+  toggleReaction(card: RetroCard, emoji: string) {
+    this.cardSvc.toggleReaction(card.id, emoji, this.sprintId).subscribe(res => {
+      this.cards.update(cs => cs.map(c => c.id === card.id ? { ...c, reactions: res.reactions } : c));
+    });
+  }
+
+  private applyReactionDelta(cardId: string, emoji: string, delta: number, memberId: string) {
+    this.cards.update(cs => cs.map(c => {
+      if (c.id !== cardId) return c;
+      const reactions = [...(c.reactions ?? [])];
+      const idx = reactions.findIndex(r => r.emoji === emoji);
+      if (idx >= 0) {
+        const count = Math.max(0, reactions[idx].count + delta);
+        const mine = memberId === this.currentMemberId ? delta > 0 : reactions[idx].mine;
+        if (count === 0) reactions.splice(idx, 1);
+        else reactions[idx] = { emoji, count, mine };
+      } else if (delta > 0) {
+        reactions.push({ emoji, count: 1, mine: memberId === this.currentMemberId });
+      }
+      return { ...c, reactions };
+    }));
+  }
+
+  isReactionsExpanded(card: RetroCard): boolean {
+    return this.expandedReactionIds().has(card.id);
+  }
+
+  toggleReactionPicker(card: RetroCard) {
+    this.expandedReactionIds.update(s => {
+      const n = new Set(s);
+      n.has(card.id) ? n.delete(card.id) : n.add(card.id);
+      return n;
+    });
+  }
+
+  expandReactions(card: RetroCard) {
+    this.expandedReactionIds.update(s => new Set(s).add(card.id));
+  }
+
+  visibleReactions(card: RetroCard): RetroReaction[] {
+    const present = (card.reactions ?? []).filter(r => r.count > 0).slice().sort((a, b) => b.count - a.count);
+    if (this.isReactionsExpanded(card)) {
+      return REACTION_EMOJIS.map(e => present.find(r => r.emoji === e) ?? { emoji: e, count: 0, mine: false });
+    }
+    return present.slice(0, 3);
+  }
+
+  hiddenReactionCount(card: RetroCard): number {
+    const present = (card.reactions ?? []).filter(r => r.count > 0);
+    return Math.max(0, present.length - 3);
+  }
+
+  // ── Previous actions check-in ──────────────────
+  prevActionColor(status: string): string {
+    return { Done: '#4caf50', InProgress: '#ff9800', Open: '#ef5350' }[status] ?? '#ef5350';
+  }
+
+  markPrevDone(action: RetroAction) {
+    const req: CreateRetroActionRequest = {
+      sprintId: action.sprintId, title: action.title, notes: action.notes,
+      assignedTo: action.assignedTo, status: 'Done', dueDate: action.dueDate,
+    };
+    this.actionSvc.update(action.id, req).subscribe(updated =>
+      this.prevActions.update(list => list.map(a => a.id === updated.id ? updated : a)));
+  }
+
+  carryForward(action: RetroAction) {
+    if (this.carriedActionIds().has(action.id)) return;
+    const req: CreateRetroActionRequest = {
+      sprintId: this.sprintId, title: action.title, notes: null,
+      assignedTo: null, status: 'Open', dueDate: null,
+    };
+    this.actionSvc.create(req).subscribe(a => {
+      this.actions.update(list => [...list, a]);
+      this.carriedActionIds.update(s => new Set(s).add(action.id));
+    });
+  }
+
+  // ── Icebreaker ─────────────────────────────────
+  private hashSprintId(s: string): number {
+    let h = 0;
+    for (let i = 0; i < s.length; i++) {
+      h = (h << 5) - h + s.charCodeAt(i);
+      h |= 0;
+    }
+    return Math.abs(h);
+  }
+
+  private upsertIcebreakerAnswer(ans: IcebreakerAnswer) {
+    this.icebreakerAnswers.update(list => {
+      const others = list.filter(a => a.memberId !== ans.memberId);
+      return [...others, ans];
+    });
+  }
+
+  submitIcebreaker() {
+    const answer = this.icebreakerInput.trim();
+    if (!answer) return;
+    this.icebreakerInput = '';
+    this.http.post<IcebreakerAnswer[]>(`${API_BASE}/sprints/${this.sprintId}/retro-icebreaker-answer`, { answer })
+      .subscribe(list => this.icebreakerAnswers.set(list ?? []));
+  }
+
+  // ── AI summary ─────────────────────────────────
+  generateSummary() {
+    this.aiSummaryError.set(null);
+    this.aiSummaryLoading.set(true);
+    this.http.post<{ summary: string }>(`${API_BASE}/sprints/${this.sprintId}/retro-summary`, {}).subscribe({
+      next: r => { this.aiSummary.set(r.summary); this.aiSummaryLoading.set(false); },
+      error: () => {
+        this.aiSummaryError.set('AI summary is not configured yet. Ask an admin to set up the "retro_summary" prompt.');
+        this.aiSummaryLoading.set(false);
+      },
+    });
+  }
+
+  copySummary() {
+    const s = this.aiSummary();
+    if (s) navigator.clipboard?.writeText(s);
+  }
+
+  dismissSummary() {
+    this.aiSummary.set(null);
+    this.aiSummaryError.set(null);
   }
 }

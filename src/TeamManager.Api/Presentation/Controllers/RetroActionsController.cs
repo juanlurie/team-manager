@@ -11,8 +11,14 @@ namespace TeamManager.Api.Presentation.Controllers;
 public class RetroActionsController(IRetroActionService service) : ControllerBase
 {
     [HttpGet]
-    public async Task<IActionResult> GetBySprint([FromQuery] Guid sprintId)
-        => Ok(await service.GetBySprintAsync(sprintId));
+    public async Task<IActionResult> GetBySprint([FromQuery] Guid? sprintId, [FromQuery] Guid? previousOf)
+    {
+        if (previousOf.HasValue)
+            return Ok(await service.GetPreviousBySprintAsync(previousOf.Value));
+        if (sprintId.HasValue)
+            return Ok(await service.GetBySprintAsync(sprintId.Value));
+        return BadRequest(new { error = "sprintId or previousOf is required." });
+    }
 
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] CreateRetroActionRequest request)

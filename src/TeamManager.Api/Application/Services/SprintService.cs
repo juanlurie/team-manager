@@ -7,7 +7,7 @@ using TeamManager.Api.Infrastructure.Data;
 
 namespace TeamManager.Api.Application.Services;
 
-public class SprintService(AppDbContext db) : ISprintService
+public class SprintService(AppDbContext db, AiPromptExecutorService aiExecutor) : ISprintService
 {
     public async Task<IReadOnlyList<SprintDto>> GetAllAsync(Guid? piId, DateOnly? from, DateOnly? to)
     {
@@ -88,6 +88,95 @@ public class SprintService(AppDbContext db) : ISprintService
         sprint.RetroPhase = phase;
         await db.SaveChangesAsync();
         return await GetByIdAsync(id);
+    }
+
+    public async Task<bool> SetRetroTimerAsync(Guid id, string timerJson)
+    {
+        var sprint = await db.Sprints.FindAsync(id);
+        if (sprint is null) return false;
+        sprint.RetroTimerJson = timerJson;
+        await db.SaveChangesAsync();
+        return true;
+    }
+
+    public async Task<string?> GetRetroTimerAsync(Guid id)
+    {
+        var sprint = await db.Sprints.FindAsync(id);
+        return sprint?.RetroTimerJson;
+    }
+
+    public async Task<IReadOnlyList<IcebreakerAnswerDto>> GetIcebreakerAnswersAsync(Guid id)
+    {
+        var sprint = await db.Sprints.FindAsync(id);
+        return DeserializeIcebreaker(sprint?.RetroIcebreakerAnswersJson);
+    }
+
+    public async Task<IReadOnlyList<IcebreakerAnswerDto>?> UpsertIcebreakerAnswerAsync(
+        Guid id, Guid memberId, string answer)
+    {
+        var sprint = await db.Sprints.FindAsync(id);
+        if (sprint is null) return null;
+
+        var member = await db.TeamMembers.FindAsync(memberId);
+        var memberName = member is null ? "" : $"{member.FirstName} {member.LastName}".Trim();
+
+        var answers = DeserializeIcebreaker(sprint.RetroIcebreakerAnswersJson).ToList();
+        answers.RemoveAll(a => a.MemberId == memberId);
+        answers.Add(new IcebreakerAnswerDto { MemberId = memberId, MemberName = memberName, Answer = answer });
+
+        sprint.RetroIcebreakerAnswersJson = System.Text.Json.JsonSerializer.Serialize(answers);
+        await db.SaveChangesAsync();
+        return answers;
+    }
+
+    public async Task<string?> GenerateRetroSummaryAsync(Guid id)
+    {
+        var sprint = await db.Sprints.FindAsync(id);
+        if (sprint is null) return null;
+
+        var cards = await db.RetroCards
+            .Where(c => c.SprintId == id)
+            .OrderByDescending(c => c.CreatedAt)
+            .ToListAsync();
+        var actions = await db.RetroActions
+            .Where(a => a.SprintId == id)
+            .OrderBy(a => a.CreatedAt)
+            .ToListAsync();
+
+        string Join(IEnumerable<string> lines)
+        {
+            var list = lines.ToList();
+            return list.Count == 0 ? "(none)" : string.Join("\n", list.Select(l => $"- {l}"));
+        }
+
+        var wentWell = Join(cards.Where(c => c.Column == "well").Select(c => c.Text));
+        var couldBeBetter = Join(cards.Where(c => c.Column == "better").Select(c => c.Text));
+        var actionItems = Join(actions.Select(a =>
+            string.IsNullOrWhiteSpace(a.AssignedTo) ? a.Title : $"{a.Title} (owner: {a.AssignedTo})"));
+
+        var promptParams = new Dictionary<string, string>
+        {
+            ["sprintName"]        = sprint.Name,
+            ["cardsWentWell"]     = wentWell,
+            ["cardsCouldBeBetter"] = couldBeBetter,
+            ["actionItems"]       = actionItems,
+        };
+
+        return await aiExecutor.ExecuteAsync(
+            "retro_summary", promptParams, "sprint", $"Retro summary: {sprint.Name}", id.ToString());
+    }
+
+    private static IReadOnlyList<IcebreakerAnswerDto> DeserializeIcebreaker(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return [];
+        try
+        {
+            return System.Text.Json.JsonSerializer.Deserialize<List<IcebreakerAnswerDto>>(json) ?? [];
+        }
+        catch
+        {
+            return [];
+        }
     }
 
     public async Task<int> InitializeMembersAsync(Guid sprintId)
@@ -189,5 +278,6 @@ public class SprintService(AppDbContext db) : ISprintService
         RetroDidntGoWell = s.RetroDidntGoWell,
         RetroActionItems = s.RetroActionItems,
         RetroPhase = s.RetroPhase,
+        RetroTimerJson = s.RetroTimerJson,
     };
 }
