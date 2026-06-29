@@ -482,14 +482,28 @@ interface TimerState {
       content:'•';position:absolute;left:0;color:rgba(100,181,246,0.6);
     }
 
-    /* Timer */
-    .timer-bar { height:3px; overflow:hidden; background:rgba(255,255,255,0.06); flex-shrink:0; }
-    .timer-fill { height:100%; background:#64b5f6; transition:width 1s linear; }
-    .timer-fill.danger { background:#ef5350; }
-    .timer-row { display:flex; align-items:center; gap:8px; padding:8px 16px 0; flex-wrap:wrap; }
-    .timer-display { font-size:13px; font-weight:700; font-variant-numeric:tabular-nums; min-width:42px; }
-    .timer-btn { font-size:11px; padding:3px 8px; border-radius:6px; border:1px solid rgba(255,255,255,0.12); background:transparent; color:rgba(255,255,255,0.6); cursor:pointer; font-family:inherit; }
-    .timer-btn:hover { background:rgba(255,255,255,0.06); }
+    /* Timer ring */
+    .timer-widget { display:flex; flex-direction:column; align-items:center; flex-shrink:0; gap:3px; }
+    .timer-ring-wrap { position:relative; width:72px; height:72px; flex-shrink:0; }
+    .timer-svg { width:72px; height:72px; }
+    .timer-track { fill:none; stroke:rgba(255,255,255,0.08); stroke-width:5; }
+    .timer-arc { fill:none; stroke-width:5; stroke-linecap:round; transition:stroke-dashoffset 1s linear, stroke 0.5s ease; }
+    .timer-center { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); display:flex; flex-direction:column; align-items:center; line-height:1; }
+    .timer-time { font-size:14px; font-weight:800; font-variant-numeric:tabular-nums; transition:color 0.5s; }
+    .timer-expired-icon { font-size:22px; }
+    .timer-label { font-size:8px; text-transform:uppercase; letter-spacing:.06em; color:rgba(255,255,255,0.3); margin-top:1px; }
+    .timer-controls { display:flex; gap:3px; flex-wrap:wrap; justify-content:center; }
+    .timer-btn { font-size:10px; padding:2px 7px; border-radius:6px; border:1px solid rgba(255,255,255,0.12); background:transparent; color:rgba(255,255,255,0.55); cursor:pointer; font-family:inherit; transition:all 0.1s; }
+    .timer-btn:hover { background:rgba(255,255,255,0.08); color:rgba(255,255,255,0.9); }
+    .timer-widget.timer-danger .timer-ring-wrap { animation:timer-glow 0.9s ease-in-out infinite alternate; }
+    .timer-widget.timer-expired .timer-ring-wrap { animation:timer-pulse 0.5s ease-in-out infinite alternate; }
+    @keyframes timer-glow { from { filter:drop-shadow(0 0 3px rgba(239,83,80,0.3)); } to { filter:drop-shadow(0 0 10px rgba(239,83,80,0.7)); } }
+    @keyframes timer-pulse { from { opacity:1; } to { opacity:0.35; } }
+    /* Thin gradient bar under header */
+    .timer-bar { height:4px; overflow:hidden; background:rgba(255,255,255,0.05); }
+    .timer-fill { height:100%; transition:width 1s linear, background-color 0.5s ease; }
+    .timer-bar.timer-danger { animation:bar-glow 0.9s ease-in-out infinite alternate; }
+    @keyframes bar-glow { from { box-shadow:none; } to { box-shadow:0 0 8px rgba(239,83,80,0.6); } }
 
     /* Icebreaker */
     .icebreaker-box { background:rgba(100,181,246,0.05); border:1px solid rgba(100,181,246,0.18); border-radius:10px; padding:14px 16px; margin:14px 0 0; }
@@ -575,6 +589,51 @@ interface TimerState {
             <span class="session-sub">{{ s.cards.length }} card{{ s.cards.length !== 1 ? 's' : '' }}</span>
           </div>
           <div class="host-controls">
+            <!-- Timer ring (non-lobby phases) -->
+            @if (s.phase !== 'lobby') {
+              <div class="timer-widget"
+                   [class.timer-danger]="timerRemaining() <= 30 && !timerExpired() && timerRunning()"
+                   [class.timer-expired]="timerExpired()">
+                <div class="timer-ring-wrap">
+                  <svg class="timer-svg" viewBox="0 0 72 72">
+                    <circle class="timer-track" cx="36" cy="36" r="28"/>
+                    @if (timer()?.startedAt || (timer() && !timer()?.startedAt)) {
+                      <circle class="timer-arc"
+                              cx="36" cy="36" r="28"
+                              transform="rotate(-90 36 36)"
+                              [style.stroke]="timerColor()"
+                              [attr.stroke-dasharray]="175.93"
+                              [attr.stroke-dashoffset]="timer() ? 175.93 * timerProgress() : 0"/>
+                    }
+                  </svg>
+                  <div class="timer-center">
+                    @if (timerExpired()) {
+                      <span class="timer-expired-icon">⏰</span>
+                    } @else {
+                      <span class="timer-time" [style.color]="timer() ? timerColor() : 'rgba(255,255,255,0.25)'">
+                        {{ timerDisplay() }}
+                      </span>
+                    }
+                    @if (!timerExpired()) {
+                      <span class="timer-label">{{ timerRunning() ? 'running' : timer() ? 'paused' : 'timer' }}</span>
+                    }
+                  </div>
+                </div>
+                @if (s.isCreator) {
+                  <div class="timer-controls">
+                    @if (!timer()) {
+                      <button class="timer-btn" (click)="setTimerPreset(300)">5m</button>
+                      <button class="timer-btn" (click)="setTimerPreset(480)">8m</button>
+                      <button class="timer-btn" (click)="setTimerPreset(600)">10m</button>
+                    } @else {
+                      <button class="timer-btn" (click)="toggleTimer()">{{ timerRunning() ? '⏸' : '▶' }}</button>
+                      <button class="timer-btn" (click)="addTimerMinutes(2)">+2m</button>
+                      <button class="timer-btn" (click)="resetTimer()">↺</button>
+                    }
+                  </div>
+                }
+              </div>
+            }
             <button mat-icon-button (click)="shareSession(s)" title="Share">
               <mat-icon>share</mat-icon>
             </button>
@@ -584,24 +643,12 @@ interface TimerState {
           </div>
         </div>
 
-        <!-- Phase timer (all phases except lobby) -->
-        @if (s.phase !== 'lobby') {
-          @if (timer()) {
-            <div class="timer-bar">
-              <div class="timer-fill" [class.danger]="timerExpired() || timerRemaining() <= 30"
-                   [style.width.%]="timerProgress() * 100"></div>
-            </div>
-          }
-          <div class="timer-row">
-            <span class="timer-display" [style.color]="timerExpired() ? '#ef5350' : null">{{ timerDisplay() }}</span>
-            @if (s.isCreator) {
-              <button class="timer-btn" (click)="toggleTimer()">{{ timerRunning() ? 'Pause' : 'Start' }}</button>
-              <button class="timer-btn" (click)="addTimerMinutes(2)">+2m</button>
-              <button class="timer-btn" (click)="resetTimer()">Reset</button>
-              <button class="timer-btn" (click)="setTimerPreset(300)">5m</button>
-              <button class="timer-btn" (click)="setTimerPreset(480)">8m</button>
-              <button class="timer-btn" (click)="setTimerPreset(600)">10m</button>
-            }
+        <!-- Gradient timer bar (under header, when timer is active) -->
+        @if (s.phase !== 'lobby' && timer()) {
+          <div class="timer-bar" [class.timer-danger]="timerRemaining() <= 30 && !timerExpired()">
+            <div class="timer-fill"
+                 [style.width.%]="(1 - timerProgress()) * 100"
+                 [style.background-color]="timerColor()"></div>
           </div>
         }
 
@@ -990,6 +1037,14 @@ export class FunRetroComponent implements OnInit, OnDestroy {
   timerRunning = computed(() => !!this.timer()?.startedAt && !this.timer()?.pausedAt && !this.timerExpired());
   timerDisplay = computed(() => this.formatTime(this.timerRemaining()));
   timerProgress = computed(() => Math.min(1, Math.max(0, 1 - this.timerRemaining() / (this.timer()?.totalSeconds ?? 1))));
+  timerColor = computed(() => {
+    const t = this.timer();
+    if (!t) return '#64b5f6';
+    const pct = this.timerRemaining() / t.totalSeconds;
+    if (pct > 0.25) return '#64b5f6';
+    if (pct > 0.1) return '#ff9800';
+    return '#ef5350';
+  });
 
   // ── Icebreaker ──
   icebreakerAnswers = signal<{ memberId: string; memberName: string; answer: string }[]>([]);
