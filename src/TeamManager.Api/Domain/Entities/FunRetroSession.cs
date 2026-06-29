@@ -12,4 +12,6 @@ public class FunRetroSession
     public Sprint? Sprint { get; set; }
     public ICollection<FunRetroCard> Cards { get; set; } = [];
     public string? AiAnalysisJson { get; set; }
+    public string? TimerJson { get; set; }
+    public string? IcebreakerAnswersJson { get; set; }
 }

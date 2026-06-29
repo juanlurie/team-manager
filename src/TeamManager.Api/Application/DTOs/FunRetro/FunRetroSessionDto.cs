@@ -13,6 +13,22 @@ public record FunRetroSessionDto
     public List<FunRetroCardDto> Cards { get; init; } = [];
     public int TotalCardCount { get; init; }
     public FunRetroAnalysisDto? AiAnalysis { get; init; }
+    public string? TimerJson { get; init; }
+    public List<IcebreakerAnswerDto> IcebreakerAnswers { get; init; } = [];
+}
+
+public record IcebreakerAnswerDto
+{
+    public Guid MemberId { get; init; }
+    public string MemberName { get; init; } = "";
+    public string Answer { get; init; } = "";
+}
+
+public record FunRetroPrevActionDto
+{
+    public Guid Id { get; init; }
+    public string Text { get; init; } = "";
+    public string? AuthorName { get; init; }
 }
 
 public record FunRetroAnalysisDto

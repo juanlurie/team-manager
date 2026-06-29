@@ -31,7 +31,43 @@ const PHASE_META: Record<string, { label: string; color: string }> = {
   done:    { label: 'Done',          color: '#ce93d8' },
 };
 
-const REACTION_EMOJIS = ['👍', '❤️', '😄'];
+const REACTION_EMOJIS = ['👍', '😅', '🔥', '😬', '💯'];
+
+const ICEBREAKER_QUESTIONS = [
+  "What's one word that describes this session?",
+  "If this retro were a weather forecast, what would it be?",
+  "What's one thing you wish you'd known at the start?",
+  "On a scale of 🐢 to 🚀 how was your productivity?",
+  "What's the best thing that happened outside of work this sprint?",
+  "What song best describes your last two weeks?",
+  "If this sprint were a movie, what genre would it be?",
+  "What's one habit you want to build next sprint?",
+  "Rate your energy this sprint: 🪫 🔋 ⚡ 🚀",
+  "What's a superpower you wish you had this sprint?",
+  "One emoji that sums up your sprint:",
+  "What's something the team did that you're proud of?",
+  "What would you do differently if you started over?",
+  "What's your biggest win (personal or team)?",
+  "Name a challenge you overcame this sprint:",
+  "What's one thing that surprised you?",
+  "If you could add one hour to your day next sprint, how would you use it?",
+  "What's one thing you learned?",
+  "How full is your motivation tank right now? 0–10",
+  "What's one thing you want to celebrate from this sprint?",
+];
+
+function hashStr(s: string): number {
+  let h = 0;
+  for (const c of s) h = (h * 31 + c.charCodeAt(0)) | 0;
+  return Math.abs(h);
+}
+
+interface TimerState {
+  totalSeconds: number;
+  startedAt: string | null;
+  pausedAt: string | null;
+  elapsedBeforePause: number;
+}
 
 @Component({
   selector: 'app-fun-retro',
@@ -445,6 +481,33 @@ const REACTION_EMOJIS = ['👍', '❤️', '😄'];
     .ai-list-item::before {
       content:'•';position:absolute;left:0;color:rgba(100,181,246,0.6);
     }
+
+    /* Timer */
+    .timer-bar { height:3px; overflow:hidden; background:rgba(255,255,255,0.06); flex-shrink:0; }
+    .timer-fill { height:100%; background:#64b5f6; transition:width 1s linear; }
+    .timer-fill.danger { background:#ef5350; }
+    .timer-row { display:flex; align-items:center; gap:8px; padding:8px 16px 0; flex-wrap:wrap; }
+    .timer-display { font-size:13px; font-weight:700; font-variant-numeric:tabular-nums; min-width:42px; }
+    .timer-btn { font-size:11px; padding:3px 8px; border-radius:6px; border:1px solid rgba(255,255,255,0.12); background:transparent; color:rgba(255,255,255,0.6); cursor:pointer; font-family:inherit; }
+    .timer-btn:hover { background:rgba(255,255,255,0.06); }
+
+    /* Icebreaker */
+    .icebreaker-box { background:rgba(100,181,246,0.05); border:1px solid rgba(100,181,246,0.18); border-radius:10px; padding:14px 16px; margin:14px 0 0; }
+    .icebreaker-q { font-size:0.88rem; font-weight:600; margin-bottom:10px; }
+    .icebreaker-input-row { display:flex; gap:6px; }
+    .icebreaker-input { flex:1; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.12); border-radius:6px; color:inherit; font-size:0.82rem; padding:7px 9px; outline:none; font-family:inherit; }
+    .icebreaker-input:focus { border-color:#64b5f6; }
+    .icebreaker-send { padding:5px 12px; background:rgba(100,181,246,0.15); border:1px solid rgba(100,181,246,0.3); border-radius:6px; color:#64b5f6; font-size:0.8rem; font-family:inherit; cursor:pointer; }
+    .icebreaker-send:disabled { opacity:0.4; cursor:not-allowed; }
+    .answer-chips { display:flex; flex-wrap:wrap; gap:5px; margin-top:8px; }
+    .answer-chip { font-size:0.72rem; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); border-radius:100px; padding:3px 10px; }
+
+    /* Prev actions */
+    .prev-actions-box { border:1px solid rgba(255,255,255,0.07); border-radius:10px; padding:12px 14px; margin-top:14px; }
+    .prev-actions-title { font-size:0.72rem; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:rgba(255,255,255,.35); margin-bottom:8px; }
+    .prev-action-row { display:flex; align-items:center; gap:8px; padding:5px 0; border-bottom:1px solid rgba(255,255,255,0.04); }
+    .prev-action-text { flex:1; font-size:0.8rem; color:rgba(255,255,255,0.8); }
+    .prev-carry-btn { font-size:0.72rem; padding:3px 8px; border-radius:6px; border:1px solid rgba(100,181,246,0.3); background:rgba(100,181,246,0.08); color:#64b5f6; cursor:pointer; font-family:inherit; white-space:nowrap; }
   `],
   template: `
     <!-- ══════════════════════════════════════════════════════ -->
@@ -521,6 +584,27 @@ const REACTION_EMOJIS = ['👍', '❤️', '😄'];
           </div>
         </div>
 
+        <!-- Phase timer (all phases except lobby) -->
+        @if (s.phase !== 'lobby') {
+          @if (timer()) {
+            <div class="timer-bar">
+              <div class="timer-fill" [class.danger]="timerExpired() || timerRemaining() <= 30"
+                   [style.width.%]="timerProgress() * 100"></div>
+            </div>
+          }
+          <div class="timer-row">
+            <span class="timer-display" [style.color]="timerExpired() ? '#ef5350' : null">{{ timerDisplay() }}</span>
+            @if (s.isCreator) {
+              <button class="timer-btn" (click)="toggleTimer()">{{ timerRunning() ? 'Pause' : 'Start' }}</button>
+              <button class="timer-btn" (click)="addTimerMinutes(2)">+2m</button>
+              <button class="timer-btn" (click)="resetTimer()">Reset</button>
+              <button class="timer-btn" (click)="setTimerPreset(300)">5m</button>
+              <button class="timer-btn" (click)="setTimerPreset(480)">8m</button>
+              <button class="timer-btn" (click)="setTimerPreset(600)">10m</button>
+            }
+          </div>
+        }
+
         <!-- Step bar (all phases except lobby) -->
         @if (s.phase !== 'lobby') {
           <div class="step-bar">
@@ -558,6 +642,24 @@ const REACTION_EMOJIS = ['👍', '❤️', '😄'];
 
         <!-- Phase guidance -->
         @if (s.phase === 'lobby') {
+          <div class="icebreaker-box">
+            <div class="icebreaker-q">🧊 Icebreaker — {{ icebreakerQuestion() }}</div>
+            <div class="icebreaker-input-row">
+              <input class="icebreaker-input" placeholder="Your answer…"
+                     [(ngModel)]="icebreakerInput"
+                     (keyup.enter)="submitIcebreaker()"
+                     [disabled]="submittingIcebreaker()" />
+              <button class="icebreaker-send" (click)="submitIcebreaker()"
+                      [disabled]="!icebreakerInput.trim() || submittingIcebreaker()">Send</button>
+            </div>
+            @if (icebreakerAnswers().length) {
+              <div class="answer-chips">
+                @for (a of icebreakerAnswers(); track a.memberId) {
+                  <span class="answer-chip"><strong>{{ a.memberName }}:</strong> {{ a.answer }}</span>
+                }
+              </div>
+            }
+          </div>
           <div class="lobby-phase-info">
             <mat-icon style="font-size:2rem;height:2rem;width:2rem;color:rgba(255,255,255,0.2);display:block;margin:0 auto 10px">hourglass_empty</mat-icon>
             @if (s.isCreator) {
@@ -572,6 +674,20 @@ const REACTION_EMOJIS = ['👍', '❤️', '😄'];
                 @if (advancingPhase()) { <mat-spinner diameter="16" style="display:inline-block;margin-right:6px" /> }
                 Start Retro
               </button>
+            </div>
+          }
+          @if (prevActions().length) {
+            <div class="prev-actions-box">
+              <div class="prev-actions-title">From last retro — action items</div>
+              @for (a of prevActions(); track a.id) {
+                <div class="prev-action-row">
+                  <span class="prev-action-text">
+                    {{ a.text }}
+                    @if (a.authorName) { <span style="opacity:0.5"> — {{ a.authorName }}</span> }
+                  </span>
+                  <button class="prev-carry-btn" (click)="carryForward(a)">⤴ Carry forward</button>
+                </div>
+              }
             </div>
           }
         }
@@ -853,6 +969,40 @@ export class FunRetroComponent implements OnInit, OnDestroy {
   revealing = signal(false);
   analysing = signal(false);
 
+  // ── Phase timer ──
+  timer = signal<TimerState | null>(null);
+  private nowTick = signal(Date.now());
+  private timerInterval?: ReturnType<typeof setInterval>;
+
+  timerRemaining = computed(() => {
+    const t = this.timer();
+    this.nowTick(); // live dependency
+    if (!t) return 0;
+    if (!t.startedAt) return t.totalSeconds;
+    const start = new Date(t.startedAt).getTime();
+    if (t.pausedAt) {
+      const paused = new Date(t.pausedAt).getTime();
+      return Math.max(0, Math.round(t.totalSeconds - t.elapsedBeforePause - (paused - start) / 1000));
+    }
+    return Math.max(0, Math.round(t.totalSeconds - t.elapsedBeforePause - (Date.now() - start) / 1000));
+  });
+  timerExpired = computed(() => this.timerRemaining() <= 0 && !!this.timer()?.startedAt);
+  timerRunning = computed(() => !!this.timer()?.startedAt && !this.timer()?.pausedAt && !this.timerExpired());
+  timerDisplay = computed(() => this.formatTime(this.timerRemaining()));
+  timerProgress = computed(() => Math.min(1, Math.max(0, 1 - this.timerRemaining() / (this.timer()?.totalSeconds ?? 1))));
+
+  // ── Icebreaker ──
+  icebreakerAnswers = signal<{ memberId: string; memberName: string; answer: string }[]>([]);
+  icebreakerInput = '';
+  submittingIcebreaker = signal(false);
+  icebreakerQuestion = computed(() => {
+    const id = this.session()?.id ?? '';
+    return ICEBREAKER_QUESTIONS[hashStr(id) % ICEBREAKER_QUESTIONS.length];
+  });
+
+  // ── Previous actions ──
+  prevActions = signal<{ id: string; text: string; authorName: string | null }[]>([]);
+
   isDesktop = signal(typeof window !== 'undefined' ? window.innerWidth >= 800 : false);
   localPositions = signal<Record<string, { x: number; y: number }>>({});
   draggingId = signal<string | null>(null);
@@ -984,6 +1134,7 @@ export class FunRetroComponent implements OnInit, OnDestroy {
     } else {
       this.loadSessions();
     }
+    this.timerInterval = setInterval(() => this.nowTick.set(Date.now()), 1000);
     this.wsSub = this.wsSvc.messages$.pipe(takeUntil(this.destroy$)).subscribe(msg => {
       if (!msg) return;
       const s = this.session();
@@ -995,7 +1146,27 @@ export class FunRetroComponent implements OnInit, OnDestroy {
           if (msg.data['sessionId'] === s.id) this.silentRefresh();
           break;
         case 'fun_retro_phase_changed':
-          if (msg.data['sessionId'] === s.id) this.silentRefresh();
+          if (msg.data['sessionId'] === s.id) {
+            this.timer.set(null); // reset timer on phase change
+            this.silentRefresh();
+          }
+          break;
+        case 'fun_retro_timer_updated':
+          if (msg.data['sessionId'] === s.id) {
+            const tj = msg.data['timerJson'] as string | null;
+            this.timer.set(tj ? JSON.parse(tj) : null);
+          }
+          break;
+        case 'fun_retro_icebreaker_answered':
+          if (msg.data['sessionId'] === s.id) {
+            const memberId = msg.data['memberId'] as string;
+            const memberName = msg.data['memberName'] as string;
+            const answer = msg.data['answer'] as string;
+            this.icebreakerAnswers.update(list => [
+              ...list.filter(a => a.memberId !== memberId),
+              { memberId, memberName, answer },
+            ]);
+          }
           break;
         case 'fun_retro_analysed':
           if (msg.data['sessionId'] === s.id) this.silentRefresh();
@@ -1029,6 +1200,7 @@ export class FunRetroComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.destroy$.next();
     this.destroy$.complete();
+    if (this.timerInterval) clearInterval(this.timerInterval);
   }
 
   loadSessions(): void {
@@ -1044,6 +1216,7 @@ export class FunRetroComponent implements OnInit, OnDestroy {
     this.svc.getSession(id).subscribe({
       next: s => {
         this.session.set(s);
+        this.applyExtras(s, true);
         this.loading.set(false);
         this.router.navigate(['/pulse/retro', id], { replaceUrl: true });
       },
@@ -1059,8 +1232,113 @@ export class FunRetroComponent implements OnInit, OnDestroy {
     const s = this.session();
     if (!s) return;
     this.svc.getSession(s.id).subscribe({
-      next: updated => this.session.set(updated),
+      next: updated => {
+        this.session.set(updated);
+        // WS owns the timer signal; only re-sync icebreaker answers here
+        this.applyExtras(updated, false);
+      },
       error: () => {}
+    });
+  }
+
+  /** Sync timer (optional) + icebreaker answers from a freshly loaded session; load prev actions in lobby. */
+  private applyExtras(s: FunRetroSession, syncTimer: boolean): void {
+    this.icebreakerAnswers.set(s.icebreakerAnswers ?? []);
+    if (syncTimer) {
+      this.timer.set(s.timerJson ? JSON.parse(s.timerJson) : null);
+    }
+    if (s.phase === 'lobby') {
+      this.loadPrevActions(s.id);
+    } else {
+      this.prevActions.set([]);
+    }
+  }
+
+  private loadPrevActions(sessionId: string): void {
+    this.svc.getPreviousActions(sessionId).subscribe({
+      next: list => this.prevActions.set(list),
+      error: () => {}
+    });
+  }
+
+  // ── Timer controls (creator only) ──
+  private saveTimer(state: TimerState): void {
+    this.timer.set(state);
+    const s = this.session();
+    if (!s) return;
+    this.svc.setTimer(s.id, state).subscribe({
+      error: () => this.snackBar.open('Failed to update timer', 'OK', { duration: 3000 })
+    });
+  }
+
+  toggleTimer(): void {
+    const t = this.timer();
+    const total = t?.totalSeconds ?? 300;
+    if (!t || !t.startedAt) {
+      // start (or first start)
+      this.saveTimer({ totalSeconds: total, startedAt: new Date().toISOString(), pausedAt: null, elapsedBeforePause: t?.elapsedBeforePause ?? 0 });
+    } else if (t.pausedAt) {
+      // resume — accumulate the paused segment
+      const start = new Date(t.startedAt).getTime();
+      const paused = new Date(t.pausedAt).getTime();
+      const elapsed = (t.elapsedBeforePause ?? 0) + (paused - start) / 1000;
+      this.saveTimer({ totalSeconds: total, startedAt: new Date().toISOString(), pausedAt: null, elapsedBeforePause: elapsed });
+    } else {
+      // running — pause
+      this.saveTimer({ ...t, pausedAt: new Date().toISOString() });
+    }
+  }
+
+  addTimerMinutes(mins: number): void {
+    const t = this.timer() ?? { totalSeconds: 300, startedAt: null, pausedAt: null, elapsedBeforePause: 0 };
+    this.saveTimer({ ...t, totalSeconds: t.totalSeconds + mins * 60 });
+  }
+
+  resetTimer(): void {
+    this.saveTimer({ totalSeconds: this.timer()?.totalSeconds ?? 300, startedAt: null, pausedAt: null, elapsedBeforePause: 0 });
+  }
+
+  setTimerPreset(seconds: number): void {
+    this.saveTimer({ totalSeconds: seconds, startedAt: null, pausedAt: null, elapsedBeforePause: 0 });
+  }
+
+  formatTime(totalSecs: number): string {
+    const s = Math.max(0, Math.floor(totalSecs));
+    const m = Math.floor(s / 60);
+    const sec = s % 60;
+    return `${m.toString().padStart(2, '0')}:${sec.toString().padStart(2, '0')}`;
+  }
+
+  // ── Icebreaker ──
+  submitIcebreaker(): void {
+    const s = this.session();
+    if (!s) return;
+    const ans = this.icebreakerInput.trim();
+    if (!ans) return;
+    this.submittingIcebreaker.set(true);
+    this.svc.submitIcebreakerAnswer(s.id, ans).subscribe({
+      next: list => {
+        this.icebreakerAnswers.set(list);
+        this.icebreakerInput = '';
+        this.submittingIcebreaker.set(false);
+      },
+      error: () => {
+        this.submittingIcebreaker.set(false);
+        this.snackBar.open('Failed to submit answer', 'OK', { duration: 3000 });
+      }
+    });
+  }
+
+  // ── Previous actions ──
+  carryForward(a: { id: string; text: string; authorName: string | null }): void {
+    const s = this.session();
+    if (!s) return;
+    this.svc.addCard(s.id, 'action', a.text).subscribe({
+      next: updated => {
+        this.session.set(updated);
+        this.prevActions.update(list => list.filter(x => x.id !== a.id));
+      },
+      error: () => this.snackBar.open('Failed to carry forward', 'OK', { duration: 3000 })
     });
   }
 
@@ -1105,6 +1383,7 @@ export class FunRetroComponent implements OnInit, OnDestroy {
         this.showNewForm.set(false);
         this.newTitle = '';
             this.session.set(s);
+            this.applyExtras(s, true);
       },
       error: () => {
         this.creating.set(false);
@@ -1179,7 +1458,7 @@ export class FunRetroComponent implements OnInit, OnDestroy {
     if (!s || !next) return;
     this.advancingPhase.set(true);
     this.svc.setPhase(s.id, next).subscribe({
-      next: updated => { this.session.set(updated); this.advancingPhase.set(false); },
+      next: updated => { this.session.set(updated); this.timer.set(null); this.prevActions.set([]); this.advancingPhase.set(false); },
       error: () => { this.advancingPhase.set(false); this.snackBar.open('Failed to advance phase', 'OK', { duration: 3000 }); }
     });
   }

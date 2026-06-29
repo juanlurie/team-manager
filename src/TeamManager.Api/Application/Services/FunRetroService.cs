@@ -94,6 +94,17 @@ public class FunRetroService(AppDbContext db, AiPromptExecutorService aiExecutor
             catch { /* ignore malformed */ }
         }
 
+        var icebreakerAnswers = new List<IcebreakerAnswerDto>();
+        if (session.IcebreakerAnswersJson is not null)
+        {
+            try
+            {
+                icebreakerAnswers = JsonSerializer.Deserialize<List<IcebreakerAnswerDto>>(session.IcebreakerAnswersJson,
+                    new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? [];
+            }
+            catch { /* ignore malformed */ }
+        }
+
         return new FunRetroSessionDto
         {
             Id = session.Id,
@@ -107,7 +118,81 @@ public class FunRetroService(AppDbContext db, AiPromptExecutorService aiExecutor
             Cards = cardDtos,
             TotalCardCount = totalCardCount,
             AiAnalysis = analysis,
+            TimerJson = session.TimerJson,
+            IcebreakerAnswers = icebreakerAnswers,
         };
+    }
+
+    public async Task<bool> SetTimerAsync(Guid sessionId, Guid memberId, string timerJson)
+    {
+        var session = await db.FunRetroSessions.FindAsync(sessionId);
+        if (session is null) return false;
+        if (session.CreatedByMemberId != memberId) return false;
+
+        session.TimerJson = timerJson;
+        await db.SaveChangesAsync();
+
+        _ = WebSocketMiddleware.BroadcastAsync("fun_retro_timer_updated", new { sessionId, timerJson });
+        return true;
+    }
+
+    public async Task<List<FunRetroPrevActionDto>> GetPreviousActionsAsync(Guid sessionId)
+    {
+        var current = await db.FunRetroSessions.FindAsync(sessionId);
+        if (current is null) return [];
+
+        var prev = await db.FunRetroSessions
+            .Where(s => s.CreatedAt < current.CreatedAt)
+            .OrderByDescending(s => s.CreatedAt)
+            .Include(s => s.Cards)
+            .FirstOrDefaultAsync();
+
+        if (prev is null) return [];
+
+        return prev.Cards
+            .Where(c => c.Column == "action" && c.Text != null)
+            .OrderBy(c => c.CreatedAt)
+            .Select(c => new FunRetroPrevActionDto
+            {
+                Id = c.Id,
+                Text = c.Text!,
+                AuthorName = c.AuthorName,
+            })
+            .ToList();
+    }
+
+    public async Task<(bool success, List<IcebreakerAnswerDto> answers)> SubmitIcebreakerAnswerAsync(
+        Guid sessionId, Guid memberId, string answer)
+    {
+        var session = await db.FunRetroSessions.FindAsync(sessionId);
+        if (session is null) return (false, []);
+
+        var member = await db.TeamMembers.FindAsync(memberId);
+        if (member is null) return (false, []);
+
+        var memberName = $"{member.FirstName} {member.LastName}".Trim();
+
+        var answers = new List<IcebreakerAnswerDto>();
+        if (session.IcebreakerAnswersJson is not null)
+        {
+            try
+            {
+                answers = JsonSerializer.Deserialize<List<IcebreakerAnswerDto>>(session.IcebreakerAnswersJson,
+                    new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? [];
+            }
+            catch { answers = []; }
+        }
+
+        answers.RemoveAll(a => a.MemberId == memberId);
+        answers.Add(new IcebreakerAnswerDto { MemberId = memberId, MemberName = memberName, Answer = answer });
+
+        session.IcebreakerAnswersJson = JsonSerializer.Serialize(answers);
+        await db.SaveChangesAsync();
+
+        _ = WebSocketMiddleware.BroadcastAsync("fun_retro_icebreaker_answered",
+            new { sessionId, memberId, memberName, answer });
+
+        return (true, answers);
     }
 
     public async Task<List<FunRetroSessionSummaryDto>> GetOpenSessionsAsync()

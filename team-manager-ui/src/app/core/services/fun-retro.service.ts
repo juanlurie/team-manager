@@ -51,4 +51,16 @@ export class FunRetroService {
   analyse(sessionId: string): Observable<FunRetroAnalysis> {
     return this.http.post<FunRetroAnalysis>(`${this.base}/${sessionId}/analyse`, {});
   }
+
+  setTimer(sessionId: string, timer: { totalSeconds: number; startedAt: string | null; pausedAt: string | null; elapsedBeforePause: number }): Observable<{ timerJson: string }> {
+    return this.http.post<{ timerJson: string }>(`${this.base}/${sessionId}/timer`, timer);
+  }
+
+  getPreviousActions(sessionId: string): Observable<{ id: string; text: string; authorName: string | null }[]> {
+    return this.http.get<{ id: string; text: string; authorName: string | null }[]>(`${this.base}/${sessionId}/previous-actions`);
+  }
+
+  submitIcebreakerAnswer(sessionId: string, answer: string): Observable<{ memberId: string; memberName: string; answer: string }[]> {
+    return this.http.post<{ memberId: string; memberName: string; answer: string }[]>(`${this.base}/${sessionId}/icebreaker-answer`, { answer });
+  }
 }
