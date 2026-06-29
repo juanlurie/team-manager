@@ -118,7 +118,7 @@ interface TimerState {
     .session-wrap { padding:4px 0; }
     .session-header {
       display:flex;align-items:flex-start;justify-content:space-between;
-      gap:12px;margin-bottom:16px;flex-wrap:wrap;
+      gap:8px;margin-bottom:8px;flex-wrap:wrap;
     }
     .session-title-row { display:flex;flex-direction:column;gap:6px; }
     .session-name { font-size:1rem;font-weight:600;color:rgba(255,255,255,0.9); }
@@ -249,21 +249,21 @@ interface TimerState {
     /* ── step bar ───────────────────────────────────────── */
     .step-bar {
       display:flex;align-items:center;gap:0;
-      margin-bottom:16px;
+      margin-bottom:8px;
       background:rgba(255,255,255,0.03);
       border:1px solid rgba(255,255,255,0.07);
-      border-radius:10px;padding:14px 16px;
+      border-radius:8px;padding:6px 12px;
       overflow-x:auto;scrollbar-width:none;
     }
     .step-bar::-webkit-scrollbar { display:none; }
     .step-item {
-      display:flex;align-items:center;gap:8px;
+      display:flex;align-items:center;gap:6px;
       flex-shrink:0;
     }
     .step-circle {
-      width:28px;height:28px;border-radius:50%;
+      width:22px;height:22px;border-radius:50%;
       display:flex;align-items:center;justify-content:center;
-      font-size:0.75rem;font-weight:700;flex-shrink:0;
+      font-size:0.68rem;font-weight:700;flex-shrink:0;
       border:2px solid rgba(255,255,255,0.15);
       color:rgba(255,255,255,0.3);background:transparent;
       transition:all 0.2s;
@@ -271,7 +271,7 @@ interface TimerState {
     .step-circle.done-step {
       background:#4caf50;border-color:#4caf50;color:#fff;
     }
-    .step-circle mat-icon { font-size:14px;height:14px;width:14px; }
+    .step-circle mat-icon { font-size:12px;height:12px;width:12px; }
     .step-circle.active-step {
       border-color:currentColor;color:inherit;
       box-shadow:0 0 0 3px currentColor;
@@ -279,7 +279,7 @@ interface TimerState {
       opacity:1;
     }
     .step-label {
-      font-size:0.78rem;font-weight:600;
+      font-size:0.72rem;font-weight:600;
       color:rgba(255,255,255,0.25);white-space:nowrap;
     }
     .step-label.active-label { color:inherit; }
@@ -292,12 +292,12 @@ interface TimerState {
 
     /* phase guidance */
     .phase-guide {
-      display:flex;align-items:flex-start;gap:10px;
-      padding:12px 14px;border-radius:8px;margin-bottom:14px;
-      font-size:0.82rem;line-height:1.5;
+      display:flex;align-items:center;gap:8px;
+      padding:5px 10px;border-radius:6px;margin-bottom:6px;
+      font-size:0.78rem;line-height:1.4;
       background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.07);
     }
-    .phase-guide mat-icon { font-size:18px;height:18px;width:18px;flex-shrink:0;margin-top:1px;opacity:0.7; }
+    .phase-guide mat-icon { font-size:15px;height:15px;width:15px;flex-shrink:0;opacity:0.7; }
 
     /* advance button */
     .advance-wrap {
@@ -345,7 +345,8 @@ interface TimerState {
         linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
         linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
       background-size:40px 40px;
-      height:520px;
+      height:calc(100vh - 380px);
+      min-height:380px;
       cursor:default;
     }
     .canvas-inner {
@@ -483,18 +484,19 @@ interface TimerState {
     }
 
     /* Timer ring */
-    .timer-widget { display:flex; flex-direction:column; align-items:center; flex-shrink:0; gap:3px; }
-    .timer-ring-wrap { position:relative; width:72px; height:72px; flex-shrink:0; }
-    .timer-svg { width:72px; height:72px; }
+    .timer-widget { display:flex; flex-direction:column; align-items:center; flex-shrink:0; gap:2px; }
+    .timer-ring-wrap { position:relative; width:58px; height:58px; flex-shrink:0; }
+    .timer-svg { width:58px; height:58px; }
     .timer-track { fill:none; stroke:rgba(255,255,255,0.08); stroke-width:5; }
     .timer-arc { fill:none; stroke-width:5; stroke-linecap:round; transition:stroke-dashoffset 1s linear, stroke 0.5s ease; }
     .timer-center { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); display:flex; flex-direction:column; align-items:center; line-height:1; }
-    .timer-time { font-size:14px; font-weight:800; font-variant-numeric:tabular-nums; transition:color 0.5s; }
-    .timer-expired-icon { font-size:22px; }
-    .timer-label { font-size:8px; text-transform:uppercase; letter-spacing:.06em; color:rgba(255,255,255,0.3); margin-top:1px; }
+    .timer-time { font-size:12px; font-weight:800; font-variant-numeric:tabular-nums; transition:color 0.5s; }
+    .timer-label { font-size:7px; text-transform:uppercase; letter-spacing:.06em; color:rgba(255,255,255,0.3); margin-top:1px; }
     .timer-controls { display:flex; gap:3px; flex-wrap:wrap; justify-content:center; }
-    .timer-btn { font-size:10px; padding:2px 7px; border-radius:6px; border:1px solid rgba(255,255,255,0.12); background:transparent; color:rgba(255,255,255,0.55); cursor:pointer; font-family:inherit; transition:all 0.1s; }
+    .timer-btn { font-size:10px; padding:2px 6px; border-radius:6px; border:1px solid rgba(255,255,255,0.12); background:transparent; color:rgba(255,255,255,0.55); cursor:pointer; font-family:inherit; transition:all 0.1s; display:flex; align-items:center; justify-content:center; }
     .timer-btn:hover { background:rgba(255,255,255,0.08); color:rgba(255,255,255,0.9); }
+    .timer-icon { font-size:13px; height:13px; width:13px; }
+    .timer-expired-icon { font-size:18px; height:18px; width:18px; color:#64b5f6; }
     .timer-widget.timer-danger .timer-ring-wrap { animation:timer-glow 0.9s ease-in-out infinite alternate; }
     .timer-widget.timer-expired .timer-ring-wrap { animation:timer-pulse 0.5s ease-in-out infinite alternate; }
     @keyframes timer-glow { from { filter:drop-shadow(0 0 3px rgba(239,83,80,0.3)); } to { filter:drop-shadow(0 0 10px rgba(239,83,80,0.7)); } }
@@ -595,20 +597,20 @@ interface TimerState {
                    [class.timer-danger]="timerRemaining() <= 30 && !timerExpired() && timerRunning()"
                    [class.timer-expired]="timerExpired()">
                 <div class="timer-ring-wrap">
-                  <svg class="timer-svg" viewBox="0 0 72 72">
-                    <circle class="timer-track" cx="36" cy="36" r="28"/>
+                  <svg class="timer-svg" viewBox="0 0 60 60">
+                    <circle class="timer-track" cx="30" cy="30" r="22"/>
                     @if (timer()?.startedAt || (timer() && !timer()?.startedAt)) {
                       <circle class="timer-arc"
-                              cx="36" cy="36" r="28"
-                              transform="rotate(-90 36 36)"
+                              cx="30" cy="30" r="22"
+                              transform="rotate(-90 30 30)"
                               [style.stroke]="timerColor()"
-                              [attr.stroke-dasharray]="175.93"
-                              [attr.stroke-dashoffset]="timer() ? 175.93 * timerProgress() : 0"/>
+                              [attr.stroke-dasharray]="138.23"
+                              [attr.stroke-dashoffset]="timer() ? 138.23 * timerProgress() : 0"/>
                     }
                   </svg>
                   <div class="timer-center">
                     @if (timerExpired()) {
-                      <span class="timer-expired-icon">⏰</span>
+                      <mat-icon class="timer-expired-icon">alarm</mat-icon>
                     } @else {
                       <span class="timer-time" [style.color]="timer() ? timerColor() : 'rgba(255,255,255,0.25)'">
                         {{ timerDisplay() }}
@@ -626,9 +628,13 @@ interface TimerState {
                       <button class="timer-btn" (click)="setTimerPreset(480)">8m</button>
                       <button class="timer-btn" (click)="setTimerPreset(600)">10m</button>
                     } @else {
-                      <button class="timer-btn" (click)="toggleTimer()">{{ timerRunning() ? '⏸' : '▶' }}</button>
+                      <button class="timer-btn" (click)="toggleTimer()">
+                        <mat-icon class="timer-icon">{{ timerRunning() ? 'pause' : 'play_arrow' }}</mat-icon>
+                      </button>
                       <button class="timer-btn" (click)="addTimerMinutes(2)">+2m</button>
-                      <button class="timer-btn" (click)="resetTimer()">↺</button>
+                      <button class="timer-btn" (click)="resetTimer()">
+                        <mat-icon class="timer-icon">restart_alt</mat-icon>
+                      </button>
                     }
                   </div>
                 }
@@ -690,7 +696,7 @@ interface TimerState {
         <!-- Phase guidance -->
         @if (s.phase === 'lobby') {
           <div class="icebreaker-box">
-            <div class="icebreaker-q">🧊 Icebreaker — {{ icebreakerQuestion() }}</div>
+            <div class="icebreaker-q">Icebreaker — {{ icebreakerQuestion() }}</div>
             <div class="icebreaker-input-row">
               <input class="icebreaker-input" placeholder="Your answer…"
                      [(ngModel)]="icebreakerInput"
