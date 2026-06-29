@@ -152,6 +152,19 @@ interface TimerState {
     }
     @media(max-width:700px) {
       .board { grid-template-columns:1fr; }
+      /* Compact header on mobile */
+      .session-header { margin-bottom:6px; gap:6px; }
+      .session-name { font-size:0.88rem; }
+      .session-sub { display:none; }
+      /* Hide timer ring on mobile — show compact timer row instead */
+      .timer-widget { display:none; }
+      /* Slim step bar on mobile — circles only, no labels */
+      .step-bar { padding:4px 8px; margin-bottom:6px; }
+      .step-label { display:none; }
+      .step-connector { min-width:12px; margin:0 4px; }
+      /* Phase guide single-line on mobile */
+      .phase-guide { padding:4px 8px; margin-bottom:4px; font-size:0.74rem; }
+      .phase-guide mat-icon { display:none; }
     }
     @media(min-width:701px) {
       .session-wrap { max-width:100%; }
@@ -501,6 +514,19 @@ interface TimerState {
     .timer-widget.timer-expired .timer-ring-wrap { animation:timer-pulse 0.5s ease-in-out infinite alternate; }
     @keyframes timer-glow { from { filter:drop-shadow(0 0 3px rgba(239,83,80,0.3)); } to { filter:drop-shadow(0 0 10px rgba(239,83,80,0.7)); } }
     @keyframes timer-pulse { from { opacity:1; } to { opacity:0.35; } }
+    /* Mobile compact timer row */
+    .mobile-timer-row { display:none; }
+    @media(max-width:700px) {
+      .mobile-timer-row {
+        display:flex; align-items:center; gap:4px;
+        margin-bottom:6px;
+      }
+      .mobile-timer-time {
+        font-size:12px; font-weight:800; font-variant-numeric:tabular-nums;
+        min-width:36px; transition:color 0.5s;
+      }
+      .mobile-timer-time.expired { animation:timer-pulse 0.5s ease-in-out infinite alternate; }
+    }
     /* Thin gradient bar under header */
     .timer-bar { height:4px; overflow:hidden; background:rgba(255,255,255,0.05); }
     .timer-fill { height:100%; transition:width 1s linear, background-color 0.5s ease; }
@@ -524,6 +550,16 @@ interface TimerState {
     .prev-action-row { display:flex; align-items:center; gap:8px; padding:5px 0; border-bottom:1px solid rgba(255,255,255,0.04); }
     .prev-action-text { flex:1; font-size:0.8rem; color:rgba(255,255,255,0.8); }
     .prev-carry-btn { font-size:0.72rem; padding:3px 8px; border-radius:6px; border:1px solid rgba(100,181,246,0.3); background:rgba(100,181,246,0.08); color:#64b5f6; cursor:pointer; font-family:inherit; white-space:nowrap; }
+
+    /* ── mobile overrides (must come LAST to win over base rules) ── */
+    @media(max-width:700px) {
+      .timer-widget { display:none !important; }
+      .step-bar { padding:4px 8px; margin-bottom:5px; }
+      .step-circle { width:20px; height:20px; }
+      .step-connector { min-width:10px; margin:0 3px; }
+      .phase-guide { padding:4px 8px; margin-bottom:4px; font-size:0.74rem; }
+      .session-header { margin-bottom:6px; }
+    }
   `],
   template: `
     <!-- ══════════════════════════════════════════════════════ -->
@@ -655,6 +691,28 @@ interface TimerState {
             <div class="timer-fill"
                  [style.width.%]="(1 - timerProgress()) * 100"
                  [style.background-color]="timerColor()"></div>
+          </div>
+        }
+
+        <!-- Mobile-only compact timer row -->
+        @if (s.phase !== 'lobby' && s.isCreator) {
+          <div class="mobile-timer-row">
+            @if (!timer()) {
+              <button class="timer-btn" (click)="setTimerPreset(300)">5m</button>
+              <button class="timer-btn" (click)="setTimerPreset(480)">8m</button>
+              <button class="timer-btn" (click)="setTimerPreset(600)">10m</button>
+            } @else {
+              <span class="mobile-timer-time" [style.color]="timerColor()" [class.expired]="timerExpired()">
+                @if (timerExpired()) { <mat-icon style="font-size:14px;height:14px;width:14px;vertical-align:middle">alarm</mat-icon> } @else { {{ timerDisplay() }} }
+              </span>
+              <button class="timer-btn" (click)="toggleTimer()">
+                <mat-icon class="timer-icon">{{ timerRunning() ? 'pause' : 'play_arrow' }}</mat-icon>
+              </button>
+              <button class="timer-btn" (click)="addTimerMinutes(2)">+2m</button>
+              <button class="timer-btn" (click)="resetTimer()">
+                <mat-icon class="timer-icon">restart_alt</mat-icon>
+              </button>
+            }
           </div>
         }
 
