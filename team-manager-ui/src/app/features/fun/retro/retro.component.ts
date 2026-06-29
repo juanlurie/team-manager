@@ -490,11 +490,12 @@ interface TimerState {
     .timer-arc { fill:none; stroke-width:5; stroke-linecap:round; transition:stroke-dashoffset 1s linear, stroke 0.5s ease; }
     .timer-center { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); display:flex; flex-direction:column; align-items:center; line-height:1; }
     .timer-time { font-size:14px; font-weight:800; font-variant-numeric:tabular-nums; transition:color 0.5s; }
-    .timer-expired-icon { font-size:22px; }
     .timer-label { font-size:8px; text-transform:uppercase; letter-spacing:.06em; color:rgba(255,255,255,0.3); margin-top:1px; }
     .timer-controls { display:flex; gap:3px; flex-wrap:wrap; justify-content:center; }
-    .timer-btn { font-size:10px; padding:2px 7px; border-radius:6px; border:1px solid rgba(255,255,255,0.12); background:transparent; color:rgba(255,255,255,0.55); cursor:pointer; font-family:inherit; transition:all 0.1s; }
+    .timer-btn { font-size:10px; padding:2px 7px; border-radius:6px; border:1px solid rgba(255,255,255,0.12); background:transparent; color:rgba(255,255,255,0.55); cursor:pointer; font-family:inherit; transition:all 0.1s; display:flex; align-items:center; justify-content:center; }
     .timer-btn:hover { background:rgba(255,255,255,0.08); color:rgba(255,255,255,0.9); }
+    .timer-icon { font-size:14px; height:14px; width:14px; }
+    .timer-expired-icon { font-size:22px; height:22px; width:22px; color:#64b5f6; }
     .timer-widget.timer-danger .timer-ring-wrap { animation:timer-glow 0.9s ease-in-out infinite alternate; }
     .timer-widget.timer-expired .timer-ring-wrap { animation:timer-pulse 0.5s ease-in-out infinite alternate; }
     @keyframes timer-glow { from { filter:drop-shadow(0 0 3px rgba(239,83,80,0.3)); } to { filter:drop-shadow(0 0 10px rgba(239,83,80,0.7)); } }
@@ -608,7 +609,7 @@ interface TimerState {
                   </svg>
                   <div class="timer-center">
                     @if (timerExpired()) {
-                      <span class="timer-expired-icon">⏰</span>
+                      <mat-icon class="timer-expired-icon">alarm</mat-icon>
                     } @else {
                       <span class="timer-time" [style.color]="timer() ? timerColor() : 'rgba(255,255,255,0.25)'">
                         {{ timerDisplay() }}
@@ -626,9 +627,13 @@ interface TimerState {
                       <button class="timer-btn" (click)="setTimerPreset(480)">8m</button>
                       <button class="timer-btn" (click)="setTimerPreset(600)">10m</button>
                     } @else {
-                      <button class="timer-btn" (click)="toggleTimer()">{{ timerRunning() ? '⏸' : '▶' }}</button>
+                      <button class="timer-btn" (click)="toggleTimer()">
+                        <mat-icon class="timer-icon">{{ timerRunning() ? 'pause' : 'play_arrow' }}</mat-icon>
+                      </button>
                       <button class="timer-btn" (click)="addTimerMinutes(2)">+2m</button>
-                      <button class="timer-btn" (click)="resetTimer()">↺</button>
+                      <button class="timer-btn" (click)="resetTimer()">
+                        <mat-icon class="timer-icon">restart_alt</mat-icon>
+                      </button>
                     }
                   </div>
                 }
@@ -690,7 +695,7 @@ interface TimerState {
         <!-- Phase guidance -->
         @if (s.phase === 'lobby') {
           <div class="icebreaker-box">
-            <div class="icebreaker-q">🧊 Icebreaker — {{ icebreakerQuestion() }}</div>
+            <div class="icebreaker-q">Icebreaker — {{ icebreakerQuestion() }}</div>
             <div class="icebreaker-input-row">
               <input class="icebreaker-input" placeholder="Your answer…"
                      [(ngModel)]="icebreakerInput"
