@@ -185,29 +185,21 @@ interface TimerState {
     /* cards */
     .retro-card {
       background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.09);
-      border-radius:8px;padding:10px 12px;position:relative;
+      border-radius:10px;padding:10px 12px;position:relative;
+      transition:border-color 0.15s, background 0.15s;
     }
+    .retro-card:hover { background:rgba(255,255,255,0.08); }
     .retro-card.hidden-card {
-      background:rgba(255,255,255,0.03);border-style:dashed;
-      opacity:0.5;
+      background:rgba(255,255,255,0.03);border-style:dashed;opacity:0.5;
     }
     .retro-card.own-card { border-color:rgba(100,181,246,0.25); }
-    .card-text { font-size:0.82rem;color:rgba(255,255,255,0.85);line-height:1.4; }
+    .card-header { display:flex;align-items:center;gap:7px;margin-bottom:7px; }
+    .card-author-name { font-size:0.72rem;font-weight:600;color:rgba(255,255,255,0.55); }
+    .card-text { font-size:0.85rem;color:rgba(255,255,255,0.9);line-height:1.5; }
     .card-hidden-text { font-size:0.78rem;color:rgba(255,255,255,0.3);font-style:italic; }
     .card-author { font-size:0.68rem;color:rgba(255,255,255,0.35);margin-top:4px; }
-    .card-footer { display:flex;align-items:center;justify-content:space-between;margin-top:8px; }
-    .card-vote-btn {
-      display:inline-flex;align-items:center;gap:4px;
-      font-size:0.72rem;padding:3px 8px;border-radius:14px;
-      border:1px solid rgba(255,255,255,0.15);background:transparent;
-      color:rgba(255,255,255,0.55);cursor:pointer;transition:all 0.15s;
-    }
-    .card-vote-btn.voted {
-      border-color:rgba(255,152,0,0.5);background:rgba(255,152,0,0.12);color:#ff9800;
-    }
-    .card-vote-btn:disabled { opacity:0.35;cursor:default; }
-    .card-vote-btn mat-icon { font-size:14px;height:14px;width:14px; }
-    .card-reactions { display:flex;gap:5px;flex-wrap:wrap;margin-top:6px; }
+    .card-footer { display:flex;align-items:center;justify-content:space-between;margin-top:10px;gap:6px; }
+    .card-reactions { display:flex;gap:4px;flex-wrap:wrap;flex:1; }
     .reaction-btn {
       display:inline-flex;align-items:center;gap:3px;
       font-size:0.72rem;padding:3px 7px;border-radius:14px;
@@ -218,6 +210,21 @@ interface TimerState {
       border-color:rgba(100,181,246,0.4);background:rgba(100,181,246,0.1);color:#64b5f6;
     }
     .reaction-btn:hover { background:rgba(255,255,255,0.08); }
+    .card-vote-row { display:flex;align-items:center;gap:0; flex-shrink:0; }
+    .card-vote-count {
+      min-width:26px;text-align:center;font-size:0.78rem;font-weight:700;
+      color:rgba(255,255,255,0.75);font-variant-numeric:tabular-nums;
+    }
+    .card-vote-count.has-votes { color:#ff9800; }
+    .vote-inc-btn, .vote-dec-btn {
+      display:inline-flex;align-items:center;justify-content:center;
+      width:26px;height:26px;border-radius:50%;border:1px solid rgba(255,255,255,0.13);
+      background:transparent;color:rgba(255,255,255,0.45);cursor:pointer;
+      font-size:16px;line-height:1;transition:all 0.15s;padding:0;
+    }
+    .vote-inc-btn:hover:not(:disabled) { background:rgba(255,152,0,0.15);border-color:rgba(255,152,0,0.4);color:#ff9800; }
+    .vote-dec-btn:hover:not(:disabled) { background:rgba(255,255,255,0.08);border-color:rgba(255,255,255,0.2);color:rgba(255,255,255,0.7); }
+    .vote-inc-btn:disabled, .vote-dec-btn:disabled { opacity:0.25;cursor:default; }
     .delete-card-btn {
       position:absolute;top:6px;right:6px;
       background:transparent;border:none;cursor:pointer;
@@ -369,16 +376,20 @@ interface TimerState {
     .sticky-text { font-size:0.8rem;color:rgba(0,0,0,0.82);line-height:1.4;flex:1; }
     .sticky-author { font-size:0.65rem;color:rgba(0,0,0,0.45);margin-top:2px; }
     .sticky-footer { display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:4px; }
-    .sticky-vote-btn {
-      display:inline-flex;align-items:center;gap:3px;
-      font-size:0.68rem;padding:2px 6px;border-radius:12px;
-      border:1px solid rgba(0,0,0,0.2);background:transparent;
-      color:rgba(0,0,0,0.55);cursor:pointer;transition:all 0.15s;
+    .sticky-vote-row { display:flex;align-items:center;gap:0;margin-top:4px; }
+    .sticky-vote-count { min-width:22px;text-align:center;font-size:0.7rem;font-weight:700;color:rgba(0,0,0,0.45);font-variant-numeric:tabular-nums; }
+    .sticky-vote-count.has-votes { color:#e65100; }
+    .sticky-vinc-btn, .sticky-vdec-btn {
+      display:inline-flex;align-items:center;justify-content:center;
+      width:22px;height:22px;border-radius:50%;
+      border:1px solid rgba(0,0,0,0.18);background:transparent;
+      color:rgba(0,0,0,0.4);cursor:pointer;font-size:14px;line-height:1;
+      transition:all 0.15s;padding:0;
     }
-    .sticky-vote-btn.voted { border-color:#e65100;background:rgba(230,81,0,0.12);color:#e65100; }
-    .sticky-vote-btn:disabled { opacity:0.35;cursor:default; }
-    .sticky-vote-btn mat-icon { font-size:12px;height:12px;width:12px; }
-    .sticky-reactions { display:flex;gap:3px;flex-wrap:wrap; }
+    .sticky-vinc-btn:hover:not(:disabled) { background:rgba(230,81,0,0.12);border-color:rgba(230,81,0,0.4);color:#e65100; }
+    .sticky-vdec-btn:hover:not(:disabled) { background:rgba(0,0,0,0.06);color:rgba(0,0,0,0.65); }
+    .sticky-vinc-btn:disabled, .sticky-vdec-btn:disabled { opacity:0.25;cursor:default; }
+    .sticky-reactions { display:flex;gap:3px;flex-wrap:wrap;margin-top:4px; }
     .sticky-reaction-btn {
       display:inline-flex;align-items:center;gap:2px;
       font-size:0.68rem;padding:2px 5px;border-radius:10px;
@@ -798,36 +809,42 @@ interface TimerState {
                         <button class="delete-card-btn" (click)="deleteCard(card)"><mat-icon>close</mat-icon></button>
                       }
                       @if (card.text !== null) {
-                        <div class="card-text" [style.padding-right]="card.isOwn && s.phase === 'add' ? '20px' : '0'">{{ card.text }}</div>
                         @if (card.authorName && s.phase !== 'add') {
-                          <div class="card-author-row">
-                            <app-avatar-circle [memberId]="card.authorId" [name]="card.authorName" [size]="16" />
-                            <span>{{ card.authorName }}</span>
+                          <div class="card-header">
+                            <app-avatar-circle [memberId]="card.authorId" [name]="card.authorName" [size]="20" />
+                            <span class="card-author-name">{{ card.authorName }}</span>
+                          </div>
+                        }
+                        <div class="card-text" [style.padding-right]="card.isOwn && s.phase === 'add' ? '20px' : '0'">{{ card.text }}</div>
+                        @if (s.phase === 'vote' || s.phase === 'discuss' || s.phase === 'done') {
+                          <div class="card-footer">
+                            @if (s.phase === 'discuss') {
+                              <div class="card-reactions">
+                                @for (emoji of reactionEmojis; track emoji) {
+                                  <button class="reaction-btn" [class.reacted]="getReaction(card, emoji)?.mine" (click)="toggleReaction(card, emoji)">
+                                    {{ emoji }} @if (getReactionCount(card, emoji) > 0) { <span>{{ getReactionCount(card, emoji) }}</span> }
+                                  </button>
+                                }
+                              </div>
+                            } @else {
+                              <span></span>
+                            }
+                            <div class="card-vote-row">
+                              @if (s.phase === 'vote') {
+                                <button class="vote-dec-btn"
+                                        [disabled]="card.myVoteCount === 0"
+                                        (click)="toggleVote(card)">−</button>
+                              }
+                              <span class="card-vote-count" [class.has-votes]="card.voteCount > 0">{{ card.voteCount }}</span>
+                              @if (s.phase === 'vote') {
+                                <button class="vote-inc-btn"
+                                        [disabled]="voteBudget() === 0 && card.myVoteCount === 0"
+                                        (click)="toggleVote(card)">+</button>
+                              }
+                            </div>
                           </div>
                         }
                       } @else { <div class="card-hidden-text">🔒 Hidden</div> }
-                      @if (s.phase === 'vote' && card.text !== null) {
-                        <div class="card-footer">
-                          <span class="vote-count-chip"><mat-icon>thumb_up</mat-icon>{{ card.voteCount }}</span>
-                          <button class="card-vote-btn" [class.voted]="card.myVoteCount > 0"
-                                  [disabled]="voteBudget() === 0 && card.myVoteCount === 0" (click)="toggleVote(card)">
-                            <mat-icon>{{ card.myVoteCount > 0 ? 'thumb_up' : 'thumb_up_off_alt' }}</mat-icon>
-                            {{ card.myVoteCount > 0 ? 'Voted' : 'Vote' }}
-                          </button>
-                        </div>
-                      }
-                      @if ((s.phase === 'discuss' || s.phase === 'done') && card.text !== null) {
-                        <div class="card-footer"><span class="vote-count-chip"><mat-icon>thumb_up</mat-icon>{{ card.voteCount }}</span></div>
-                      }
-                      @if (s.phase === 'discuss' && card.text !== null) {
-                        <div class="card-reactions">
-                          @for (emoji of reactionEmojis; track emoji) {
-                            <button class="reaction-btn" [class.reacted]="getReaction(card, emoji)?.mine" (click)="toggleReaction(card, emoji)">
-                              {{ emoji }} @if (getReactionCount(card, emoji) > 0) { <span>{{ getReactionCount(card, emoji) }}</span> }
-                            </button>
-                          }
-                        </div>
-                      }
                       @if (card.text !== null && (card.isOwn || s.phase === 'vote' || s.phase === 'discuss')) {
                         <div class="card-color-row">
                           @for (swatch of stickyPalette; track swatch) {
@@ -909,17 +926,20 @@ interface TimerState {
                           </div>
                         }
                         <div class="sticky-footer">
-                          @if (s.phase === 'vote') {
-                            <span class="sticky-vote-chip"><mat-icon>thumb_up</mat-icon>{{ item.card.voteCount }}</span>
-                            <button class="sticky-vote-btn" [class.voted]="item.card.myVoteCount > 0"
-                                    [disabled]="voteBudget() === 0 && item.card.myVoteCount === 0"
-                                    (mousedown)="$event.stopPropagation()" (click)="toggleVote(item.card)">
-                              <mat-icon>{{ item.card.myVoteCount > 0 ? 'thumb_up' : 'thumb_up_off_alt' }}</mat-icon>
-                              {{ item.card.myVoteCount > 0 ? 'Voted' : 'Vote' }}
-                            </button>
-                          }
-                          @if (s.phase === 'discuss' || s.phase === 'done') {
-                            <span class="sticky-vote-chip"><mat-icon>thumb_up</mat-icon>{{ item.card.voteCount }}</span>
+                          @if (s.phase === 'vote' || s.phase === 'discuss' || s.phase === 'done') {
+                            <div class="sticky-vote-row">
+                              @if (s.phase === 'vote') {
+                                <button class="sticky-vdec-btn"
+                                        [disabled]="item.card.myVoteCount === 0"
+                                        (mousedown)="$event.stopPropagation()" (click)="toggleVote(item.card)">−</button>
+                              }
+                              <span class="sticky-vote-count" [class.has-votes]="item.card.voteCount > 0">{{ item.card.voteCount }}</span>
+                              @if (s.phase === 'vote') {
+                                <button class="sticky-vinc-btn"
+                                        [disabled]="voteBudget() === 0 && item.card.myVoteCount === 0"
+                                        (mousedown)="$event.stopPropagation()" (click)="toggleVote(item.card)">+</button>
+                              }
+                            </div>
                           }
                         </div>
                         @if (s.phase === 'discuss') {
