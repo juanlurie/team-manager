@@ -14,6 +14,7 @@ import { Router, ActivatedRoute } from '@angular/router';
 import { FunRetroService } from '../../../core/services/fun-retro.service';
 import { FunRetroAnalysis, FunRetroSession, FunRetroSessionSummary, FunRetroCard } from '../../../core/models/fun-retro.model';
 import { WebSocketService } from '../../../core/websocket/websocket.service';
+import { AvatarCircleComponent } from '../../../core/components/k-picker/avatar-circle.component';
 
 const COLS = [
   { key: 'well',   label: '✅ Went Well',       color: '#4caf50' },
@@ -79,6 +80,7 @@ interface TimerState {
     MatIconModule,
     MatProgressSpinnerModule,
     MatSnackBarModule,
+    AvatarCircleComponent,
   ],
   changeDetection: ChangeDetectionStrategy.Default,
   styles: [`
@@ -420,7 +422,7 @@ interface TimerState {
     }
     .sticky-del-btn:hover { color:rgba(200,0,0,0.7); }
     .sticky-color-btn {
-      position:absolute;top:6px;right:6px;
+      position:absolute;top:6px;left:6px;
       width:14px;height:14px;border-radius:50%;
       border:1.5px solid rgba(0,0,0,0.25);
       cursor:pointer;background:transparent;padding:0;
@@ -428,7 +430,7 @@ interface TimerState {
     }
     .sticky:hover .sticky-color-btn { opacity:1; }
     .color-picker-popover {
-      position:absolute;top:24px;right:0;z-index:200;
+      position:absolute;top:24px;left:0;z-index:200;
       background:#2a2a2a;border:1px solid rgba(255,255,255,0.12);
       border-radius:8px;padding:8px;display:flex;gap:6px;flex-wrap:wrap;
       width:116px;box-shadow:0 4px 16px rgba(0,0,0,0.5);
@@ -526,6 +528,15 @@ interface TimerState {
     .icebreaker-send:disabled { opacity:0.4; cursor:not-allowed; }
     .answer-chips { display:flex; flex-wrap:wrap; gap:5px; margin-top:8px; }
     .answer-chip { font-size:0.72rem; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); border-radius:100px; padding:3px 10px; }
+
+    /* Mobile card color swatches */
+    .card-color-row { display:flex; gap:5px; flex-wrap:wrap; margin-top:8px; padding-top:8px; border-top:1px solid rgba(255,255,255,0.06); }
+    .card-swatch { width:20px; height:20px; border-radius:50%; cursor:pointer; border:2px solid transparent; flex-shrink:0; transition:border-color 0.1s, transform 0.1s; }
+    .card-swatch:hover, .card-swatch.active { border-color:rgba(255,255,255,0.7); transform:scale(1.15); }
+
+    /* Author row with avatar */
+    .card-author-row { display:flex; align-items:center; gap:5px; margin-top:4px; font-size:0.68rem; color:rgba(255,255,255,0.35); }
+    .sticky-author-row { display:flex; align-items:center; gap:4px; margin-top:2px; }
 
     /* Prev actions */
     .prev-actions-box { border:1px solid rgba(255,255,255,0.07); border-radius:10px; padding:12px 14px; margin-top:14px; }
@@ -781,13 +792,19 @@ interface TimerState {
                     </div>
                   }
                   @for (card of cardsForCol(col.key); track card.id) {
-                    <div class="retro-card" [class.hidden-card]="card.text === null" [class.own-card]="card.isOwn">
+                    <div class="retro-card" [class.hidden-card]="card.text === null" [class.own-card]="card.isOwn"
+                         [style.border-left]="card.text !== null ? '3px solid ' + resolveCardColor(card) : null">
                       @if (card.isOwn && s.phase === 'add') {
                         <button class="delete-card-btn" (click)="deleteCard(card)"><mat-icon>close</mat-icon></button>
                       }
                       @if (card.text !== null) {
                         <div class="card-text" [style.padding-right]="card.isOwn && s.phase === 'add' ? '20px' : '0'">{{ card.text }}</div>
-                        @if (card.authorName && s.phase !== 'add') { <div class="card-author">— {{ card.authorName }}</div> }
+                        @if (card.authorName && s.phase !== 'add') {
+                          <div class="card-author-row">
+                            <app-avatar-circle [memberId]="card.authorId" [name]="card.authorName" [size]="16" />
+                            <span>{{ card.authorName }}</span>
+                          </div>
+                        }
                       } @else { <div class="card-hidden-text">🔒 Hidden</div> }
                       @if (s.phase === 'vote' && card.text !== null) {
                         <div class="card-footer">
@@ -808,6 +825,15 @@ interface TimerState {
                             <button class="reaction-btn" [class.reacted]="getReaction(card, emoji)?.mine" (click)="toggleReaction(card, emoji)">
                               {{ emoji }} @if (getReactionCount(card, emoji) > 0) { <span>{{ getReactionCount(card, emoji) }}</span> }
                             </button>
+                          }
+                        </div>
+                      }
+                      @if (card.text !== null && (card.isOwn || s.phase === 'vote' || s.phase === 'discuss')) {
+                        <div class="card-color-row">
+                          @for (swatch of stickyPalette; track swatch) {
+                            <div class="card-swatch" [style.background]="swatch"
+                                 [class.active]="resolveCardColor(card) === swatch"
+                                 (click)="changeCardColor(card, swatch)"></div>
                           }
                         </div>
                       }
@@ -862,7 +888,7 @@ interface TimerState {
                         @if (s.phase === 'add' && item.card.isOwn) {
                           <button class="sticky-del-btn" (mousedown)="$event.stopPropagation()" (click)="deleteCard(item.card)">×</button>
                         }
-                        @if (s.phase === 'vote' || s.phase === 'discuss') {
+                        @if (s.phase === 'add' || s.phase === 'vote' || s.phase === 'discuss') {
                           <button class="sticky-color-btn" [style.background]="resolveCardColor(item.card)"
                                   (mousedown)="$event.stopPropagation()" (click)="toggleColorPicker($event, item.card.id)"></button>
                           @if (colorPickerOpenFor() === item.card.id) {
@@ -876,7 +902,12 @@ interface TimerState {
                           }
                         }
                         <div class="sticky-text">{{ item.card.text }}</div>
-                        @if (item.card.authorName && s.phase !== 'vote') { <div class="sticky-author">— {{ item.card.authorName }}</div> }
+                        @if (item.card.authorName && s.phase !== 'vote') {
+                          <div class="sticky-author-row">
+                            <app-avatar-circle [memberId]="item.card.authorId" [name]="item.card.authorName" [size]="14" />
+                            <span class="sticky-author">{{ item.card.authorName }}</span>
+                          </div>
+                        }
                         <div class="sticky-footer">
                           @if (s.phase === 'vote') {
                             <span class="sticky-vote-chip"><mat-icon>thumb_up</mat-icon>{{ item.card.voteCount }}</span>
