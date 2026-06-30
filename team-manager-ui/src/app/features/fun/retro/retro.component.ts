@@ -1148,8 +1148,11 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
     const el = this.elRef.nativeElement as HTMLElement;
     const rect = el.getBoundingClientRect();
     const gutter = 8;
-    el.style.setProperty('--canvas-ml', `-${rect.left - gutter}px`);
-    el.style.setProperty('--canvas-mr', `-${window.innerWidth - rect.right - gutter}px`);
+    const contentEl = el.closest('.content') as HTMLElement | null;
+    const contentLeft = contentEl ? contentEl.getBoundingClientRect().left : 0;
+    const contentRight = contentEl ? contentEl.getBoundingClientRect().right : window.innerWidth;
+    el.style.setProperty('--canvas-ml', `-${rect.left - contentLeft - gutter}px`);
+    el.style.setProperty('--canvas-mr', `-${contentRight - rect.right - gutter}px`);
   }
 
   @HostListener('document:mousemove', ['$event'])
