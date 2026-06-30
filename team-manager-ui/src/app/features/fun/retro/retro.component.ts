@@ -1125,7 +1125,13 @@ interface TimerState {
                                 </div>
                               </div>
                             }
-                          } @else { <div class="card-hidden-text">🔒 Hidden</div> }
+                          } @else {
+                            <div class="card-header">
+                              <app-avatar-circle [memberId]="card.authorId" [name]="card.authorName ?? ''" [size]="20" />
+                              <span class="card-author-name">{{ card.authorName }}</span>
+                            </div>
+                            <div class="card-hidden-text">🔒 Hidden until reveal</div>
+                          }
                           @if (card.text !== null && (card.isOwn || s.phase === 'vote' || s.phase === 'discuss')) {
                             <div class="card-color-row">
                               @for (swatch of stickyPalette; track swatch) {
@@ -1237,10 +1243,14 @@ interface TimerState {
                            [style.background]="resolveCardColor(item.card)"
                            (mousedown)="startDrag($event, item.card, item.x, item.y, col.key)">
                           @if (item.card.text === null) {
-                          <!-- Hidden card from another member during add phase -->
-                          <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:4px;opacity:0.45">
-                            <mat-icon style="font-size:20px;height:20px;width:20px">lock</mat-icon>
-                            <span style="font-size:0.68rem;color:rgba(0,0,0,0.6)">Hidden</span>
+                          <!-- Hidden card: show who wrote it, not what -->
+                          <div class="sticky-header">
+                            <app-avatar-circle [memberId]="item.card.authorId" [name]="item.card.authorName ?? ''" [size]="18" />
+                            <span class="sticky-author" style="flex:1">{{ item.card.authorName }}</span>
+                          </div>
+                          <div style="display:flex;align-items:center;gap:5px;opacity:0.4;margin-top:6px">
+                            <mat-icon style="font-size:14px;height:14px;width:14px">lock</mat-icon>
+                            <span style="font-size:0.7rem;color:rgba(0,0,0,0.6)">Hidden until reveal</span>
                           </div>
                         } @else {
                         <!-- Header: avatar + name + delete -->

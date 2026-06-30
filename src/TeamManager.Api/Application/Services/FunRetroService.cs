@@ -74,7 +74,7 @@ public class FunRetroService(AppDbContext db, AiPromptExecutorService aiExecutor
                     SessionId = c.SessionId,
                     Column = c.Column,
                     Text = hideContent ? null : c.Text,
-                    AuthorName = hideContent ? null : c.AuthorName,
+                    AuthorName = c.AuthorName, // always returned so participation is visible
                     AuthorId = c.AuthorId,
                     IsOwn = isOwn,
                     CreatedAt = c.CreatedAt,
