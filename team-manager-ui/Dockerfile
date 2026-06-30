@@ -3,6 +3,9 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm install --legacy-peer-deps
 COPY . .
+ARG GOOGLE_CLIENT_ID=YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com
+RUN sed -i "s|YOUR_GOOGLE_CLIENT_ID\.apps\.googleusercontent\.com|${GOOGLE_CLIENT_ID}|g" \
+      src/environments/environment.prod.ts
 RUN npx ng build --configuration production
 
 FROM nginx:alpine

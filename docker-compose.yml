@@ -38,8 +38,8 @@ services:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:5000
       ConnectionStrings__DefaultConnection: "Host=db;Port=5432;Database=${DB_NAME};Username=${DB_USER};Password=${DB_PASSWORD}"
-      Jwt__Authority: ""
-      Jwt__Audience: ""
+      Jwt__Authority: "https://accounts.google.com"
+      Jwt__Audience: "${GOOGLE_CLIENT_ID}.apps.googleusercontent.com"
     networks:
       - default
     ports:
@@ -60,6 +60,8 @@ services:
     build:
       context: ./team-manager-ui
       dockerfile: Dockerfile
+      args:
+        GOOGLE_CLIENT_ID: "${GOOGLE_CLIENT_ID}"
     ports:
       - "80:80"
     volumes:

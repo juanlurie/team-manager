@@ -7,11 +7,9 @@ Tracks work items, leave, notes, and releases per person per sprint — and expo
 
 ---
 
-## Quick start (local development)
+## Local development
 
-### 1. Prerequisites
-
-Install these once:
+### 1. Install prerequisites
 
 ```bash
 # Homebrew (macOS)
@@ -32,89 +30,87 @@ npm install -g @angular/cli
 dotnet tool install --global dotnet-ef
 ```
 
-### 2. Google OAuth app
+### 2. Create a Google OAuth app
 
-This app uses Google Sign-In. You need your own OAuth credentials.
+The app uses Google Sign-In. You need your own OAuth credentials.
 
-1. Open the [Google Cloud Console](https://console.cloud.google.com/) and create a project.
-2. Go to **APIs & Services → Credentials → Create Credentials → OAuth 2.0 Client ID**.
-3. Choose **Web application** as the application type.
-4. Add `http://localhost:4200` under **Authorized JavaScript origins**.
-5. Add `http://localhost:4200` under **Authorized redirect URIs**.
-6. Copy the **Client ID** and **Client Secret**.
+1. Open [Google Cloud Console](https://console.cloud.google.com/) → **APIs & Services → Credentials**.
+2. Click **Create Credentials → OAuth 2.0 Client ID** → choose **Web application**.
+3. Under **Authorized JavaScript origins** add `http://localhost:4200`.
+4. Under **Authorized redirect URIs** add `http://localhost:4200`.
+5. Copy your **Client ID** and **Client Secret**.
 
-Update both config files with your Client ID:
+### 3. Configure credentials
 
-**`src/TeamManager.Api/appsettings.json`**
-```json
-"Jwt": {
-  "Authority": "https://accounts.google.com",
-  "Audience": "YOUR_CLIENT_ID.apps.googleusercontent.com"
-}
-```
-
-**`team-manager-ui/src/app/core/auth/auth.config.ts`**
+**Frontend** — edit `team-manager-ui/src/environments/environment.ts`:
 ```ts
-clientId: 'YOUR_CLIENT_ID.apps.googleusercontent.com',
+googleClientId: 'YOUR_CLIENT_ID.apps.googleusercontent.com',
 ```
 
-### 3. Database
+After editing, tell git to stop tracking local changes to that file:
+```bash
+git update-index --skip-worktree team-manager-ui/src/environments/environment.ts
+```
+
+**Backend** — store credentials using .NET user secrets (stored outside the repo):
+```bash
+cd src/TeamManager.Api
+dotnet user-secrets set "Jwt:Audience" "YOUR_CLIENT_ID.apps.googleusercontent.com"
+```
+
+The connection string default (`Password=CHANGE_ME`) works if your local PostgreSQL has no password set. If it does, set that too:
+```bash
+dotnet user-secrets set "ConnectionStrings:DefaultConnection" \
+  "Host=localhost;Port=5432;Database=team_manager;Username=postgres;Password=YOUR_PG_PASSWORD"
+```
+
+### 4. Set up the database
 
 ```bash
-# Create the database
 psql -U postgres -c "CREATE DATABASE team_manager;"
 
-# Run migrations (from repo root)
 cd src/TeamManager.Api
 dotnet ef database update
 ```
 
-The default connection string in `appsettings.json` connects as `postgres` with password `CHANGE_ME`.
-If your local PostgreSQL uses a different password, update that line before running migrations.
-
-### 4. Run the backend
+### 5. Run
 
 ```bash
+# Terminal 1 — backend
 cd src/TeamManager.Api
 dotnet run
-```
+# API: http://localhost:5000  Swagger: http://localhost:5000/swagger
 
-API: `http://localhost:5000`  
-Swagger: `http://localhost:5000/swagger`
-
-### 5. Run the frontend
-
-```bash
+# Terminal 2 — frontend
 cd team-manager-ui
 npm install
 ng serve
+# UI: http://localhost:4200
 ```
 
-UI: `http://localhost:4200`
-
-Open the app and sign in with Google. On first login you'll be prompted to link your Google account to a team member.
+Open `http://localhost:4200`, sign in with Google, and link your account to a team member when prompted.
 
 ---
 
 ## First-time app setup
 
-1. Go to **Team** and add your team leads, tech leads, and members — assign each member to their team lead.
-2. Go to **Sprints**, optionally create a PI first, then create sprints.
-3. Open a sprint and click **Initialize Members** — this auto-creates a sprint record for every active member.
-4. Add work items, leave, and notes for each person.
-5. View the sprint summary on the **Dashboard**.
+1. Go to **Team** → add team leads, tech leads, and members. Assign each member to their team lead.
+2. Go to **Sprints** → optionally create a PI, then create a sprint.
+3. Open the sprint → click **Initialize Members** — this creates a sprint record for every active member.
+4. Add work items, leave, and notes per person.
+5. View the summary on the **Dashboard**.
 
 ---
 
 ## PPTX Export
 
-1. Design a PowerPoint template with placeholders like `{{MEMBER_FULL_NAME}}`, `{{RELEASES}}`, etc.
-2. **Important:** Type placeholders as a single text run — do not format parts of the placeholder differently (this causes PowerPoint to split it into multiple runs, breaking replacement).
-3. One slide = one person's data. The export engine clones that slide for each team member.
-4. Add a summary slide with `{{SUMMARY_COMPLETED_COUNT}}` etc. for a totals page.
+1. Design a PowerPoint template using placeholders like `{{MEMBER_FULL_NAME}}`, `{{RELEASES}}`, etc.
+2. **Important:** Type each placeholder as a single text run — formatting individual characters inside a placeholder causes PowerPoint to split it into multiple runs, breaking replacement.
+3. One slide = one person. The export engine clones that slide for each team member.
+4. Add a summary slide with `{{SUMMARY_COMPLETED_COUNT}}` etc. for totals.
 5. Go to **Export**, upload the template, choose the sprint, and click **Generate & Download**.
 
-### Full placeholder reference
+### Placeholder reference
 
 | Placeholder | Value |
 |---|---|
@@ -148,7 +144,7 @@ Open the app and sign in with Google. On first login you'll be prompted to link 
 
 - Docker & Docker Compose
 - A Linux server (Ubuntu 22.04+ recommended)
-- A Google OAuth Client ID and Secret (see [Google OAuth app](#2-google-oauth-app) above)
+- A Google OAuth Client ID and Secret (see [step 2](#2-create-a-google-oauth-app) above — add your server's domain to the authorized origins/redirect URIs)
 
 ### 1. Clone the repo
 
@@ -164,11 +160,7 @@ cp .env.example .env
 nano .env
 ```
 
-Fill in:
-- `DB_PASSWORD` — any strong password for the PostgreSQL database
-- `GOOGLE_CLIENT_SECRET` — your Google OAuth client secret
-
-Then update `team-manager-ui/src/app/core/auth/auth.config.ts` and `src/TeamManager.Api/appsettings.json` with your Google Client ID as described in the [Google OAuth app](#2-google-oauth-app) section above.
+Fill in all values. The Google Client ID and Secret are the only credentials specific to your OAuth app — everything else is for the database.
 
 ### 3. Start the stack
 
@@ -176,8 +168,9 @@ Then update `team-manager-ui/src/app/core/auth/auth.config.ts` and `src/TeamMana
 docker compose up -d --build
 ```
 
-This launches 4 containers:
-- **PostgreSQL** — database with persistent volume
+This builds the Angular app with your `GOOGLE_CLIENT_ID` injected and starts 4 containers:
+
+- **db** — PostgreSQL with a persistent volume
 - **migrate** — runs EF Core migrations, then exits
 - **api** — .NET backend on port 5000
 - **ui** — Angular frontend on port 80
@@ -186,9 +179,9 @@ This launches 4 containers:
 
 Open `http://<server-ip>` in your browser. Sign in with Google.
 
-### 5. (Optional) Add a reverse proxy
+### 5. (Optional) HTTPS via reverse proxy
 
-For HTTPS, put nginx, Caddy, or Traefik in front of port 80. Example with Caddy:
+Put Caddy, nginx, or Traefik in front of port 80. Example with Caddy:
 
 ```
 your-domain.com {
@@ -196,7 +189,7 @@ your-domain.com {
 }
 ```
 
-Don't forget to add your domain to the **Authorized JavaScript origins** and **Authorized redirect URIs** in the Google Cloud Console.
+Also add `https://your-domain.com` to the authorized origins and redirect URIs in Google Cloud Console.
 
 ### Updating
 
@@ -209,19 +202,17 @@ docker compose up -d --build
 
 ## Terminal UI (TUI)
 
-A terminal dashboard for quick sprint check-ins. Install on any machine with Python 3.10+:
+A terminal dashboard for quick sprint check-ins. Requires Python 3.10+:
 
 ```bash
 curl -sSL https://raw.githubusercontent.com/juanlurie/team-manager-tui/main/install.sh | bash
 ```
 
-Then run from anywhere:
-
 ```bash
 # Local (no auth needed)
 team-manager-tui
 
-# Remote server with API key
+# Remote server
 TEAM_MANAGER_API_URL=https://your-domain.com \
 TEAM_MANAGER_API_KEY=your-key \
 team-manager-tui
