@@ -15,6 +15,7 @@ public record FunRetroSessionDto
     public FunRetroAnalysisDto? AiAnalysis { get; init; }
     public string? TimerJson { get; init; }
     public List<IcebreakerAnswerDto> IcebreakerAnswers { get; init; } = [];
+    public List<RetroColumnDto> Columns { get; init; } = [];
 }
 
 public record IcebreakerAnswerDto
@@ -76,10 +77,18 @@ public record FunRetroSessionSummaryDto
     public DateTimeOffset CreatedAt { get; init; }
 }
 
+public record RetroColumnDto
+{
+    public string Key { get; init; } = "";
+    public string Label { get; init; } = "";
+    public string Color { get; init; } = "#64b5f6";
+}
+
 public record CreateFunRetroSessionRequest
 {
     public string? Title { get; init; }
     public Guid? SprintId { get; init; }
+    public List<RetroColumnDto>? Columns { get; init; }
 }
 
 public record AddFunRetroCardRequest

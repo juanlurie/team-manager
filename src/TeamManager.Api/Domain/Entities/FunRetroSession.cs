@@ -14,4 +14,5 @@ public class FunRetroSession
     public string? AiAnalysisJson { get; set; }
     public string? TimerJson { get; set; }
     public string? IcebreakerAnswersJson { get; set; }
+    public string? ColumnsJson { get; set; }
 }
