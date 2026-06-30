@@ -21,6 +21,10 @@ export class PollService {
     return this.http.post<PollDetail>(this.base, req);
   }
 
+  getRetroPolls(retroSessionId: string): Observable<PollDetail[]> {
+    return this.http.get<PollDetail[]>(`/api/v1/fun-retro/${retroSessionId}/polls`);
+  }
+
   vote(pollId: string, optionId: string): Observable<PollDetail> {
     return this.http.post<PollDetail>(`${this.base}/${pollId}/vote`, { optionId });
   }

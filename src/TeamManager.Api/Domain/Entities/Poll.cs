@@ -11,7 +11,10 @@ public class Poll
     public DateTimeOffset? ClosedAt { get; set; }
     public DateTimeOffset? ScheduledCloseAt { get; set; }
 
+    public Guid? RetroSessionId { get; set; }
+
     public TeamMember? CreatedByMember { get; set; }
+    public FunRetroSession? RetroSession { get; set; }
     public ICollection<PollOption> Options { get; set; } = [];
     public ICollection<PollVote> Votes { get; set; } = [];
 }

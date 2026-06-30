@@ -2,13 +2,14 @@ using Microsoft.AspNetCore.Mvc;
 using TeamManager.Api.Application.DTOs.FunRetro;
 using TeamManager.Api.Application.Services;
 using TeamManager.Api.Middleware;
+using TeamManager.Api.Application.DTOs.Poll;
 
 namespace TeamManager.Api.Presentation.Controllers;
 
 [ApiController]
 [RequireFeature("retro")]
 [Route("api/v1/fun-retro")]
-public class FunRetroController(FunRetroService service) : ControllerBase
+public class FunRetroController(FunRetroService service, PollService pollService) : ControllerBase
 {
     [HttpGet]
     public async Task<IActionResult> GetOpenSessions()
@@ -151,6 +152,15 @@ public class FunRetroController(FunRetroService service) : ControllerBase
         var (success, answers) = await service.SubmitIcebreakerAnswerAsync(id, memberId.Value, request.Answer);
         if (!success) return NotFound();
         return Ok(answers);
+    }
+
+    [HttpGet("{id:guid}/polls")]
+    public async Task<IActionResult> GetPolls(Guid id)
+    {
+        var memberId = GetCurrentMemberId();
+        if (!memberId.HasValue) return Unauthorized();
+        var polls = await pollService.GetRetroSessionPollsAsync(id, memberId.Value);
+        return Ok(polls);
     }
 
     private Guid? GetCurrentMemberId()
