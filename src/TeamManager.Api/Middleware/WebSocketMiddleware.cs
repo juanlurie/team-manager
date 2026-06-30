@@ -7,7 +7,16 @@ namespace TeamManager.Api.Middleware;
 
 public class WebSocketMiddleware
 {
-    private static readonly ConcurrentDictionary<Guid, (WebSocket Socket, Guid? MemberId, string? WowSession)> _connections = new();
+    private sealed class ConnectionEntry
+    {
+        public required WebSocket Socket { get; init; }
+        public Guid? MemberId { get; init; }
+        public string? WowSession { get; set; }
+        public string? RetroSessionId { get; set; }
+        public string? RetroMemberName { get; set; }
+    }
+
+    private static readonly ConcurrentDictionary<Guid, ConnectionEntry> _connections = new();
     private static readonly SemaphoreSlim _broadcastLock = new(1, 1);
     private static ILogger? _logger;
 
@@ -33,7 +42,7 @@ public class WebSocketMiddleware
 
         var connectionId = Guid.NewGuid();
         var ws = await context.WebSockets.AcceptWebSocketAsync();
-        _connections[connectionId] = (ws, memberId, null);
+        _connections[connectionId] = new ConnectionEntry { Socket = ws, MemberId = memberId };
 
         try
         {
@@ -42,8 +51,10 @@ public class WebSocketMiddleware
         finally
         {
             _connections.TryRemove(connectionId, out var removed);
-            if (removed.WowSession != null)
+            if (removed?.WowSession != null)
                 _ = BroadcastToSessionAsync("presence_changed", removed.WowSession, new { connectedCount = GetSessionCount(removed.WowSession) });
+            if (removed?.RetroSessionId != null)
+                _ = BroadcastRetroPresenceAsync(removed.RetroSessionId);
         }
     }
 
@@ -57,6 +68,22 @@ public class WebSocketMiddleware
 
     public static bool IsMemberConnected(Guid memberId) =>
         _connections.Values.Any(c => c.MemberId == memberId);
+
+    public static List<(Guid MemberId, string MemberName)> GetRetroPresence(string sessionId) =>
+        _connections.Values
+            .Where(c => c.RetroSessionId == sessionId && c.MemberId.HasValue && c.RetroMemberName != null)
+            .GroupBy(c => c.MemberId!.Value)
+            .Select(g => (g.Key, g.First().RetroMemberName!))
+            .ToList();
+
+    private static async Task BroadcastRetroPresenceAsync(string sessionId)
+    {
+        var members = GetRetroPresence(sessionId)
+            .Select(m => new { memberId = m.MemberId, memberName = m.MemberName })
+            .ToList();
+        await BroadcastToRetroSessionAsync("fun_retro_presence", sessionId,
+            new { sessionId, members });
+    }
 
     private static async Task ListenAsync(WebSocket ws, Guid connectionId)
     {
@@ -95,27 +122,76 @@ public class WebSocketMiddleware
             var root = doc.RootElement;
             if (!root.TryGetProperty("type", out var typeProp)) return;
 
-            if (typeProp.GetString() == "join_wow")
+            switch (typeProp.GetString())
             {
-                if (!root.TryGetProperty("sessionKey", out var keyProp)) return;
-                var sessionKey = keyProp.GetString();
-                if (string.IsNullOrEmpty(sessionKey)) return;
-
-                if (_connections.TryGetValue(connectionId, out var entry))
+                case "join_wow":
                 {
-                    var oldSession = entry.WowSession;
-                    _connections[connectionId] = (entry.Socket, entry.MemberId, sessionKey);
+                    if (!root.TryGetProperty("sessionKey", out var keyProp)) return;
+                    var sessionKey = keyProp.GetString();
+                    if (string.IsNullOrEmpty(sessionKey)) return;
 
-                    // Notify the old session someone left
+                    if (!_connections.TryGetValue(connectionId, out var entry)) return;
+                    var oldSession = entry.WowSession;
+                    entry.WowSession = sessionKey;
+
                     if (oldSession != null && oldSession != sessionKey)
                         _ = BroadcastToSessionAsync("presence_changed", oldSession, new { connectedCount = GetSessionCount(oldSession) });
-
-                    // Notify the new session someone joined
                     _ = BroadcastToSessionAsync("presence_changed", sessionKey, new { connectedCount = GetSessionCount(sessionKey) });
+                    break;
+                }
+
+                case "join_retro":
+                {
+                    if (!root.TryGetProperty("sessionId", out var sidProp)) return;
+                    var sessionId = sidProp.GetString();
+                    if (string.IsNullOrEmpty(sessionId)) return;
+                    var memberName = root.TryGetProperty("memberName", out var nameProp) ? nameProp.GetString() : null;
+
+                    if (!_connections.TryGetValue(connectionId, out var entry)) return;
+                    var oldRetro = entry.RetroSessionId;
+                    entry.RetroSessionId = sessionId;
+                    entry.RetroMemberName = memberName;
+
+                    if (oldRetro != null && oldRetro != sessionId)
+                        _ = BroadcastRetroPresenceAsync(oldRetro);
+                    _ = BroadcastRetroPresenceAsync(sessionId);
+                    break;
+                }
+
+                case "leave_retro":
+                {
+                    if (!_connections.TryGetValue(connectionId, out var entry)) return;
+                    var oldRetro = entry.RetroSessionId;
+                    entry.RetroSessionId = null;
+                    entry.RetroMemberName = null;
+                    if (oldRetro != null)
+                        _ = BroadcastRetroPresenceAsync(oldRetro);
+                    break;
                 }
             }
         }
         catch { }
+    }
+
+    public static async Task BroadcastToRetroSessionAsync(string type, string sessionId, object data)
+    {
+        var message = JsonSerializer.Serialize(new { type, data });
+        var bytes = Encoding.UTF8.GetBytes(message);
+
+        await _broadcastLock.WaitAsync();
+        try
+        {
+            var dead = new List<Guid>();
+            foreach (var (id, entry) in _connections)
+            {
+                if (entry.RetroSessionId != sessionId) continue;
+                if (entry.Socket.State != WebSocketState.Open) { dead.Add(id); continue; }
+                try { await entry.Socket.SendAsync(new ArraySegment<byte>(bytes), WebSocketMessageType.Text, true, CancellationToken.None); }
+                catch { dead.Add(id); }
+            }
+            foreach (var id in dead) _connections.TryRemove(id, out _);
+        }
+        finally { _broadcastLock.Release(); }
     }
 
     public static async Task BroadcastToSessionAsync(string type, string sessionKey, object data)

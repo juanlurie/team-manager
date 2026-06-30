@@ -15,6 +15,7 @@ import { FunRetroService } from '../../../core/services/fun-retro.service';
 import { FunRetroAnalysis, FunRetroSession, FunRetroSessionSummary, FunRetroCard } from '../../../core/models/fun-retro.model';
 import { WebSocketService } from '../../../core/websocket/websocket.service';
 import { AvatarCircleComponent } from '../../../core/components/k-picker/avatar-circle.component';
+import { AuthService } from '../../../core/auth/auth.service';
 
 const COLS = [
   { key: 'well',   label: '✅ Went Well',       color: '#4caf50' },
@@ -131,6 +132,17 @@ interface TimerState {
       border:1px solid;
     }
     .host-controls { display:flex;align-items:center;gap:8px;flex-wrap:wrap; }
+    .presence-bar {
+      display:flex;align-items:center;gap:6px;margin-bottom:10px;flex-wrap:wrap;
+    }
+    .presence-label { font-size:0.68rem;color:rgba(255,255,255,0.3);text-transform:uppercase;letter-spacing:.05em;margin-right:2px; }
+    .presence-avatars { display:flex;align-items:center;gap:-4px; }
+    .presence-avatar-wrap {
+      display:inline-flex;align-items:center;gap:5px;
+      background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);
+      border-radius:20px;padding:2px 8px 2px 3px;font-size:0.7rem;
+      color:rgba(255,255,255,0.6);
+    }
     .votes-left-badge {
       padding:4px 10px;border-radius:20px;font-size:0.72rem;font-weight:600;
       background:rgba(255,152,0,0.12);border:1px solid rgba(255,152,0,0.3);color:#ff9800;
@@ -631,6 +643,19 @@ interface TimerState {
           </div>
         </div>
 
+        <!-- Presence bar -->
+        @if (presence().length > 0) {
+          <div class="presence-bar">
+            <span class="presence-label">In session</span>
+            @for (p of presence(); track p.memberId) {
+              <div class="presence-avatar-wrap">
+                <app-avatar-circle [memberId]="p.memberId" [name]="p.memberName" [size]="18" />
+                <span>{{ p.memberName }}</span>
+              </div>
+            }
+          </div>
+        }
+
         <!-- Timer row (non-lobby phases) -->
         @if (s.phase !== 'lobby') {
           <div class="timer-row"
@@ -1056,6 +1081,7 @@ interface TimerState {
 export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
   private svc = inject(FunRetroService);
   private wsSvc = inject(WebSocketService);
+  private authSvc = inject(AuthService);
   private snackBar = inject(MatSnackBar);
   private router = inject(Router);
   private route = inject(ActivatedRoute);
@@ -1122,6 +1148,7 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
   prevActions = signal<{ id: string; text: string; authorName: string | null }[]>([]);
 
   isDesktop = signal(typeof window !== 'undefined' ? window.innerWidth >= 800 : false);
+  presence = signal<{ memberId: string; memberName: string }[]>([]);
   localPositions = signal<Record<string, { x: number; y: number }>>({});
   draggingId = signal<string | null>(null);
   private dragState: { id: string; col: string; startMouseX: number; startMouseY: number; startX: number; startY: number } | null = null;
@@ -1327,6 +1354,11 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
             setTimeout(() => { this.revealing.set(false); this.silentRefresh(); }, 1500);
           }
           break;
+        case 'fun_retro_presence':
+          if (msg.data['sessionId'] === s.id) {
+            this.presence.set(msg.data['members'] as { memberId: string; memberName: string }[]);
+          }
+          break;
       }
     });
   }
@@ -1335,6 +1367,7 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
     this.destroy$.next();
     this.destroy$.complete();
     if (this.timerInterval) clearInterval(this.timerInterval);
+    this.wsSvc.send({ type: 'leave_retro' });
   }
 
   loadSessions(): void {
@@ -1353,6 +1386,7 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
         this.applyExtras(s, true);
         this.loading.set(false);
         this.router.navigate(['/pulse/retro', id], { replaceUrl: true });
+        this.joinRetroPresence(id);
       },
       error: () => {
         this.loading.set(false);
@@ -1360,6 +1394,12 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
         this.loadSessions();
       }
     });
+  }
+
+  private joinRetroPresence(sessionId: string): void {
+    const me = this.authSvc.me;
+    const memberName = me ? `${me.firstName} ${me.lastName}`.trim() : null;
+    this.wsSvc.send({ type: 'join_retro', sessionId, memberName });
   }
 
   silentRefresh(): void {
