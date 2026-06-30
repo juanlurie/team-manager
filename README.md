@@ -32,6 +32,29 @@ dotnet tool install --global dotnet-ef
 
 ---
 
+## Google OAuth Setup
+
+This app uses Google Sign-In for authentication.
+
+1. Go to the [Google Cloud Console](https://console.cloud.google.com/) and create a project.
+2. Enable the **Google Identity** API.
+3. Under **APIs & Services → Credentials**, create an **OAuth 2.0 Client ID** (Web application type).
+4. Add your app's origin (e.g. `http://localhost:4200`) as an authorized JavaScript origin.
+5. Copy the **Client ID** and **Client Secret**.
+6. Update `src/TeamManager.Api/appsettings.json`:
+   ```json
+   "Jwt": {
+     "Authority": "https://accounts.google.com",
+     "Audience": "YOUR_CLIENT_ID.apps.googleusercontent.com"
+   }
+   ```
+7. Add the Client Secret to your `.env` file:
+   ```
+   GOOGLE_CLIENT_SECRET=your-client-secret
+   ```
+
+---
+
 ## Database Setup
 
 ```bash

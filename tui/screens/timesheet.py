@@ -68,7 +68,7 @@ class LogTimeModal(ModalScreen):
         self._date_label = date_label
         self._quick_actions = quick_actions
         self._cat_map = cat_map
-        self._location_options = location_options or ["Home", "Other", "Client", "Entelect"]
+        self._location_options = location_options or ["Home", "Other", "Client", "Office"]
         self._default_location = default_location or "Home"
         self._custom = False
         self._dur_mins = 60
@@ -501,7 +501,7 @@ class TimesheetScreen(Screen):
         cfg = self._config
         ww = cfg.get("workWeek") or {}
         default_loc = ww.get(self._selected.strftime("%A"), "Home")
-        loc_opts = cfg.get("workLocationOptions") or ["Home", "Other", "Client", "Entelect"]
+        loc_opts = cfg.get("workLocationOptions") or ["Home", "Other", "Client", "Office"]
         quick_actions = cfg.get("quickActions") or []
         merge = cfg.get("mergeEntriesEnabled", False)
 
