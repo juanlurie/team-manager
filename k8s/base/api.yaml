@@ -74,6 +74,13 @@ spec:
                   key: db-password
             - name: ConnectionStrings__DefaultConnection
               value: "Host=db;Port=5432;Database=$(DB_NAME);Username=$(DB_USER);Password=$(DB_PASSWORD)"
+            - name: Jwt__Authority
+              value: "https://accounts.google.com"
+            - name: Jwt__Audience
+              valueFrom:
+                secretKeyRef:
+                  name: team-manager-secrets
+                  key: google-client-id
             - name: Jwt__ClientSecret
               valueFrom:
                 secretKeyRef:
