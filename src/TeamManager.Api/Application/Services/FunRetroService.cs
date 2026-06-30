@@ -359,6 +359,25 @@ public class FunRetroService(AppDbContext db, AiPromptExecutorService aiExecutor
         return true;
     }
 
+    public async Task<bool> UpdateCardTextAsync(Guid sessionId, Guid cardId, Guid memberId, string text)
+    {
+        var card = await db.FunRetroCards
+            .FirstOrDefaultAsync(c => c.Id == cardId && c.SessionId == sessionId);
+        if (card is null) return false;
+
+        var session = await db.FunRetroSessions.FindAsync(sessionId);
+        if (session is null) return false;
+
+        // Only the card author or the session creator can edit text
+        if (card.AuthorId != memberId && session.CreatedByMemberId != memberId) return false;
+
+        card.Text = text.Trim();
+        await db.SaveChangesAsync();
+
+        _ = WebSocketMiddleware.BroadcastAsync("fun_retro_card_text_updated", new { sessionId, cardId, text = card.Text });
+        return true;
+    }
+
     public async Task<bool> UpdateCardColorAsync(Guid sessionId, Guid cardId, string? color)
     {
         var card = await db.FunRetroCards
