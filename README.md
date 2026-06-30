@@ -5,57 +5,60 @@ Tracks work items, leave, notes, and releases per person per sprint — and expo
 
 **Stack:** Angular 22 · ASP.NET Core 9 · PostgreSQL 17
 
----  
+---
 
-## Prerequisites
+## Quick start (local development)
+
+### 1. Prerequisites
 
 Install these once:
 
 ```bash
-# 1. Homebrew (if not installed)
+# Homebrew (macOS)
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 
-# 2. .NET 9 SDK
+# .NET 9 SDK
 brew install dotnet
 
-# 3. Node.js 22
+# Node.js 22
 brew install node
 
-# 4. PostgreSQL 17
+# PostgreSQL 17
 brew install postgresql@17
 brew services start postgresql@17
 
-# 5. Angular CLI & EF Core tools
+# Angular CLI & EF Core tools
 npm install -g @angular/cli
 dotnet tool install --global dotnet-ef
 ```
 
----
+### 2. Google OAuth app
 
-## Google OAuth Setup
+This app uses Google Sign-In. You need your own OAuth credentials.
 
-This app uses Google Sign-In for authentication.
+1. Open the [Google Cloud Console](https://console.cloud.google.com/) and create a project.
+2. Go to **APIs & Services → Credentials → Create Credentials → OAuth 2.0 Client ID**.
+3. Choose **Web application** as the application type.
+4. Add `http://localhost:4200` under **Authorized JavaScript origins**.
+5. Add `http://localhost:4200` under **Authorized redirect URIs**.
+6. Copy the **Client ID** and **Client Secret**.
 
-1. Go to the [Google Cloud Console](https://console.cloud.google.com/) and create a project.
-2. Enable the **Google Identity** API.
-3. Under **APIs & Services → Credentials**, create an **OAuth 2.0 Client ID** (Web application type).
-4. Add your app's origin (e.g. `http://localhost:4200`) as an authorized JavaScript origin.
-5. Copy the **Client ID** and **Client Secret**.
-6. Update `src/TeamManager.Api/appsettings.json`:
-   ```json
-   "Jwt": {
-     "Authority": "https://accounts.google.com",
-     "Audience": "YOUR_CLIENT_ID.apps.googleusercontent.com"
-   }
-   ```
-7. Add the Client Secret to your `.env` file:
-   ```
-   GOOGLE_CLIENT_SECRET=your-client-secret
-   ```
+Update both config files with your Client ID:
 
----
+**`src/TeamManager.Api/appsettings.json`**
+```json
+"Jwt": {
+  "Authority": "https://accounts.google.com",
+  "Audience": "YOUR_CLIENT_ID.apps.googleusercontent.com"
+}
+```
 
-## Database Setup
+**`team-manager-ui/src/app/core/auth/auth.config.ts`**
+```ts
+clientId: 'YOUR_CLIENT_ID.apps.googleusercontent.com',
+```
+
+### 3. Database
 
 ```bash
 # Create the database
@@ -66,24 +69,20 @@ cd src/TeamManager.Api
 dotnet ef database update
 ```
 
-The connection string is in `src/TeamManager.Api/appsettings.json`.
-Change the password if your PostgreSQL uses a different one.
+The default connection string in `appsettings.json` connects as `postgres` with password `CHANGE_ME`.
+If your local PostgreSQL uses a different password, update that line before running migrations.
 
----
-
-## Running the Backend
+### 4. Run the backend
 
 ```bash
 cd src/TeamManager.Api
 dotnet run
 ```
 
-API runs at `http://localhost:5000`  
-Swagger UI: `http://localhost:5000/swagger`
+API: `http://localhost:5000`  
+Swagger: `http://localhost:5000/swagger`
 
----
-
-## Running the Frontend
+### 5. Run the frontend
 
 ```bash
 cd team-manager-ui
@@ -91,11 +90,13 @@ npm install
 ng serve
 ```
 
-UI runs at `http://localhost:4200`
+UI: `http://localhost:4200`
+
+Open the app and sign in with Google. On first login you'll be prompted to link your Google account to a team member.
 
 ---
 
-## First-Time Setup (in the app)
+## First-time app setup
 
 1. Go to **Team** and add your team leads, tech leads, and members — assign each member to their team lead.
 2. Go to **Sprints**, optionally create a PI first, then create sprints.
@@ -141,17 +142,18 @@ UI runs at `http://localhost:4200`
 
 ---
 
-## Self-Hosting with Docker
+## Self-hosting with Docker
 
 ### Prerequisites
 
 - Docker & Docker Compose
 - A Linux server (Ubuntu 22.04+ recommended)
+- A Google OAuth Client ID and Secret (see [Google OAuth app](#2-google-oauth-app) above)
 
 ### 1. Clone the repo
 
 ```bash
-git clone git@github.com:juanlurie/team-manager.git
+git clone https://github.com/juanlurie/team-manager.git
 cd team-manager
 ```
 
@@ -162,7 +164,11 @@ cp .env.example .env
 nano .env
 ```
 
-Set your database password and Google OAuth client secret in `.env`.
+Fill in:
+- `DB_PASSWORD` — any strong password for the PostgreSQL database
+- `GOOGLE_CLIENT_SECRET` — your Google OAuth client secret
+
+Then update `team-manager-ui/src/app/core/auth/auth.config.ts` and `src/TeamManager.Api/appsettings.json` with your Google Client ID as described in the [Google OAuth app](#2-google-oauth-app) section above.
 
 ### 3. Start the stack
 
@@ -189,6 +195,8 @@ your-domain.com {
     reverse_proxy localhost:80
 }
 ```
+
+Don't forget to add your domain to the **Authorized JavaScript origins** and **Authorized redirect URIs** in the Google Cloud Console.
 
 ### Updating
 
