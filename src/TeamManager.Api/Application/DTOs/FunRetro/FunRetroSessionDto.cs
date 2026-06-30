@@ -57,6 +57,7 @@ public record FunRetroCardDto
     public double? PositionX { get; init; }
     public double? PositionY { get; init; }
     public string? Color { get; init; }
+    public Guid? GroupId { get; init; }
 }
 
 public record FunRetroReactionDto

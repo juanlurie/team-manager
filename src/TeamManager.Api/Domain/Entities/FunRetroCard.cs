@@ -12,6 +12,7 @@ public class FunRetroCard
     public double? PositionX { get; set; }
     public double? PositionY { get; set; }
     public string? Color { get; set; }
+    public Guid? GroupId { get; set; }
     public FunRetroSession Session { get; set; } = null!;
     public TeamMember Author { get; set; } = null!;
     public ICollection<FunRetroVote> Votes { get; set; } = [];

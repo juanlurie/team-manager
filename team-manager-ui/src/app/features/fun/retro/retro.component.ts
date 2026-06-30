@@ -215,6 +215,26 @@ interface TimerState {
       border:1px solid;
     }
     .host-controls { display:flex;align-items:center;gap:8px;flex-wrap:wrap; }
+    /* card grouping */
+    .card-group-cluster {
+      border:1.5px dashed rgba(100,181,246,0.35);border-radius:12px;
+      padding:8px;margin-bottom:8px;background:rgba(100,181,246,0.03);
+      position:relative;
+    }
+    .card-group-label {
+      font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;
+      color:rgba(100,181,246,0.6);padding:2px 6px;margin-bottom:6px;
+      display:flex;align-items:center;gap:6px;
+    }
+    .card-group-label button { color:rgba(255,255,255,0.3);padding:0;margin:0; }
+    .card-group-cluster .sticky { margin-bottom:6px; }
+    .card-group-cluster .sticky:last-child { margin-bottom:0; }
+    .grouping-active .sticky:not(.grouping-source) { cursor:pointer;outline:2px dashed rgba(100,181,246,0.5);border-radius:10px; }
+    .grouping-active .sticky:not(.grouping-source):hover { outline-color:#64b5f6;background:rgba(100,181,246,0.08) !important; }
+    .grouping-source { outline:2px solid #64b5f6 !important;border-radius:10px; }
+    .group-btn { opacity:0;transition:opacity .15s; }
+    .sticky:hover .group-btn { opacity:1; }
+
     /* polls panel */
     .polls-panel {
       border:1px solid rgba(255,255,255,0.08);border-radius:10px;
@@ -781,6 +801,17 @@ interface TimerState {
           </div>
         }
 
+        <!-- Grouping mode banner -->
+        @if (groupingCardId() !== null) {
+          <div style="display:flex;align-items:center;gap:8px;background:rgba(100,181,246,0.1);border:1px solid rgba(100,181,246,0.3);border-radius:8px;padding:8px 12px;margin-bottom:8px;font-size:0.78rem;color:#64b5f6">
+            <mat-icon style="font-size:16px;height:16px;width:16px">link</mat-icon>
+            Click another card to group it together, or click the link icon again to cancel.
+            <button mat-icon-button style="margin-left:auto;width:24px;height:24px;line-height:24px" (click)="groupingCardId.set(null)">
+              <mat-icon style="font-size:16px;height:16px;width:16px">close</mat-icon>
+            </button>
+          </div>
+        }
+
         <!-- Polls toggle -->
         <div style="display:flex;justify-content:flex-end;margin-bottom:8px">
           <button mat-button style="font-size:0.75rem;color:#64b5f6;border:1px solid rgba(100,181,246,0.3);border-radius:20px;padding:2px 12px;height:28px;line-height:28px"
@@ -1025,20 +1056,90 @@ interface TimerState {
                       </button>
                     </div>
                   }
-                  @for (card of cardsForCol(col.key); track card.id) {
-                    <div class="retro-card" [class.hidden-card]="card.text === null" [class.own-card]="card.isOwn"
-                         [style.border-left]="card.text !== null ? '3px solid ' + resolveCardColor(card) : null">
-                      @if (card.isOwn && s.phase === 'add') {
-                        <button class="delete-card-btn" (click)="deleteCard(card)"><mat-icon>close</mat-icon></button>
+                  <!-- Grouped card clusters -->
+                  @for (group of groupsForCol(col.key); track group.groupId) {
+                    <div class="card-group-cluster">
+                      <div class="card-group-label">
+                        <mat-icon style="font-size:12px;height:12px;width:12px">link</mat-icon>
+                        Group ({{ group.cards.length }})
+                      </div>
+                      @for (card of group.cards; track card.id) {
+                        <div class="retro-card" [class.hidden-card]="card.text === null" [class.own-card]="card.isOwn"
+                             [class.grouping-source]="groupingCardId() === card.id"
+                             [style.border-left]="card.text !== null ? '3px solid ' + resolveCardColor(card) : null"
+                             (click)="groupingCardId() !== null && groupingCardId() !== card.id ? mergeIntoGroup(card) : null">
+                          @if (card.isOwn && s.phase === 'add') { <button class="delete-card-btn" (click)="deleteCard(card)"><mat-icon>close</mat-icon></button> }
+                          @if (card.text !== null) {
+                            <div style="display:flex;align-items:flex-start;justify-content:space-between">
+                              @if (card.authorName && s.phase !== 'add') {
+                                <div class="card-header">
+                                  <app-avatar-circle [memberId]="card.authorId" [name]="card.authorName" [size]="20" />
+                                  <span class="card-author-name">{{ card.authorName }}</span>
+                                </div>
+                              }
+                              @if (s.isCreator && (s.phase === 'vote' || s.phase === 'discuss')) {
+                                <button mat-icon-button class="group-btn" style="width:22px;height:22px;line-height:22px;flex-shrink:0"
+                                        title="Ungroup" (click)="$event.stopPropagation(); ungroupCard(card.id)">
+                                  <mat-icon style="font-size:13px;height:13px;width:13px">link_off</mat-icon>
+                                </button>
+                              }
+                            </div>
+                            <div class="card-text">{{ card.text }}</div>
+                            @if (s.phase === 'vote' || s.phase === 'discuss' || s.phase === 'done') {
+                              <div class="card-footer">
+                                @if (s.phase === 'discuss') {
+                                  <div class="card-reactions">
+                                    @for (emoji of reactionEmojis; track emoji) {
+                                      <button class="reaction-btn" [class.reacted]="getReaction(card, emoji)?.mine" (click)="toggleReaction(card, emoji)">
+                                        {{ emoji }} @if (getReactionCount(card, emoji) > 0) { <span>{{ getReactionCount(card, emoji) }}</span> }
+                                      </button>
+                                    }
+                                  </div>
+                                } @else { <span></span> }
+                                <div class="card-vote-row">
+                                  @if (s.phase === 'vote') { <button class="vote-dec-btn" [disabled]="card.myVoteCount === 0" (click)="toggleVote(card)">−</button> }
+                                  <span class="card-vote-count" [class.has-votes]="card.voteCount > 0">{{ card.voteCount }}</span>
+                                  @if (s.phase === 'vote') { <button class="vote-inc-btn" [disabled]="voteBudget() === 0 && card.myVoteCount === 0" (click)="toggleVote(card)">+</button> }
+                                </div>
+                              </div>
+                            }
+                          } @else { <div class="card-hidden-text">🔒 Hidden</div> }
+                          @if (card.text !== null && (card.isOwn || s.phase === 'vote' || s.phase === 'discuss')) {
+                            <div class="card-color-row">
+                              @for (swatch of stickyPalette; track swatch) {
+                                <div class="card-swatch" [style.background]="swatch" [class.active]="resolveCardColor(card) === swatch" (click)="changeCardColor(card, swatch)"></div>
+                              }
+                            </div>
+                          }
+                        </div>
                       }
+                    </div>
+                  }
+                  <!-- Ungrouped cards -->
+                  @for (card of ungroupedCardsForCol(col.key); track card.id) {
+                    <div class="retro-card" [class.hidden-card]="card.text === null" [class.own-card]="card.isOwn"
+                         [class.grouping-source]="groupingCardId() === card.id"
+                         [style.border-left]="card.text !== null ? '3px solid ' + resolveCardColor(card) : null"
+                         (click)="groupingCardId() !== null && groupingCardId() !== card.id ? mergeIntoGroup(card) : null">
+                      @if (card.isOwn && s.phase === 'add') { <button class="delete-card-btn" (click)="deleteCard(card)"><mat-icon>close</mat-icon></button> }
                       @if (card.text !== null) {
-                        @if (card.authorName && s.phase !== 'add') {
-                          <div class="card-header">
-                            <app-avatar-circle [memberId]="card.authorId" [name]="card.authorName" [size]="20" />
-                            <span class="card-author-name">{{ card.authorName }}</span>
-                          </div>
-                        }
-                        <div class="card-text" [style.padding-right]="card.isOwn && s.phase === 'add' ? '20px' : '0'">{{ card.text }}</div>
+                        <div style="display:flex;align-items:flex-start;justify-content:space-between">
+                          @if (card.authorName && s.phase !== 'add') {
+                            <div class="card-header">
+                              <app-avatar-circle [memberId]="card.authorId" [name]="card.authorName" [size]="20" />
+                              <span class="card-author-name">{{ card.authorName }}</span>
+                            </div>
+                          }
+                          @if (s.isCreator && (s.phase === 'vote' || s.phase === 'discuss')) {
+                            <button mat-icon-button class="group-btn" style="width:22px;height:22px;line-height:22px;flex-shrink:0"
+                                    [class.grouping-source]="groupingCardId() === card.id"
+                                    title="{{ groupingCardId() === card.id ? 'Cancel grouping' : 'Group with another card' }}"
+                                    (click)="$event.stopPropagation(); startGrouping(card.id)">
+                              <mat-icon style="font-size:13px;height:13px;width:13px">{{ groupingCardId() === card.id ? 'link_off' : 'link' }}</mat-icon>
+                            </button>
+                          }
+                        </div>
+                        <div class="card-text">{{ card.text }}</div>
                         @if (s.phase === 'vote' || s.phase === 'discuss' || s.phase === 'done') {
                           <div class="card-footer">
                             @if (s.phase === 'discuss') {
@@ -1049,21 +1150,11 @@ interface TimerState {
                                   </button>
                                 }
                               </div>
-                            } @else {
-                              <span></span>
-                            }
+                            } @else { <span></span> }
                             <div class="card-vote-row">
-                              @if (s.phase === 'vote') {
-                                <button class="vote-dec-btn"
-                                        [disabled]="card.myVoteCount === 0"
-                                        (click)="toggleVote(card)">−</button>
-                              }
+                              @if (s.phase === 'vote') { <button class="vote-dec-btn" [disabled]="card.myVoteCount === 0" (click)="toggleVote(card)">−</button> }
                               <span class="card-vote-count" [class.has-votes]="card.voteCount > 0">{{ card.voteCount }}</span>
-                              @if (s.phase === 'vote') {
-                                <button class="vote-inc-btn"
-                                        [disabled]="voteBudget() === 0 && card.myVoteCount === 0"
-                                        (click)="toggleVote(card)">+</button>
-                              }
+                              @if (s.phase === 'vote') { <button class="vote-inc-btn" [disabled]="voteBudget() === 0 && card.myVoteCount === 0" (click)="toggleVote(card)">+</button> }
                             </div>
                           </div>
                         }
@@ -1071,9 +1162,7 @@ interface TimerState {
                       @if (card.text !== null && (card.isOwn || s.phase === 'vote' || s.phase === 'discuss')) {
                         <div class="card-color-row">
                           @for (swatch of stickyPalette; track swatch) {
-                            <div class="card-swatch" [style.background]="swatch"
-                                 [class.active]="resolveCardColor(card) === swatch"
-                                 (click)="changeCardColor(card, swatch)"></div>
+                            <div class="card-swatch" [style.background]="swatch" [class.active]="resolveCardColor(card) === swatch" (click)="changeCardColor(card, swatch)"></div>
                           }
                         </div>
                       }
@@ -1357,6 +1446,7 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
   presence = signal<{ memberId: string; memberName: string }[]>([]);
   retroPolls = signal<PollDetail[]>([]);
   showPollsPanel = signal(false);
+  groupingCardId = signal<string | null>(null);
   localPositions = signal<Record<string, { x: number; y: number }>>({});
   draggingId = signal<string | null>(null);
   private dragState: { id: string; col: string; startMouseX: number; startMouseY: number; startX: number; startY: number } | null = null;
@@ -1556,6 +1646,16 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
             });
           }
           break;
+        case 'fun_retro_card_grouped':
+          if (msg.data['sessionId'] === s.id) {
+            const cardId = msg.data['cardId'] as string;
+            const groupId = msg.data['groupId'] as string | null;
+            this.session.update(cur => {
+              if (!cur) return cur;
+              return { ...cur, cards: cur.cards.map(c => c.id === cardId ? { ...c, groupId } : c) };
+            });
+          }
+          break;
         case 'fun_retro_revealed':
           if (msg.data['sessionId'] === s.id) {
             this.revealing.set(true);
@@ -1658,6 +1758,88 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
       next: () => this.retroPolls.update(list => list.filter(p => p.id !== poll.id)),
       error: () => {}
     });
+  }
+
+  startGrouping(cardId: string): void {
+    const current = this.groupingCardId();
+    if (current === cardId) {
+      this.groupingCardId.set(null);
+      return;
+    }
+    this.groupingCardId.set(cardId);
+  }
+
+  mergeIntoGroup(targetCard: FunRetroCard): void {
+    const sourceId = this.groupingCardId();
+    const s = this.session();
+    if (!sourceId || !s || sourceId === targetCard.id) {
+      this.groupingCardId.set(null);
+      return;
+    }
+    // Assign the same groupId (use targetCard's existing groupId or its id as the group anchor)
+    const groupId = targetCard.groupId ?? targetCard.id;
+    this.groupingCardId.set(null);
+    this.svc.setCardGroup(s.id, sourceId, groupId).subscribe({
+      next: () => {
+        this.session.update(cur => {
+          if (!cur) return cur;
+          return { ...cur, cards: cur.cards.map(c => c.id === sourceId ? { ...c, groupId } : c) };
+        });
+      }
+    });
+    // Also assign sourceCard to the group if targetCard has no group yet
+    if (!targetCard.groupId) {
+      this.svc.setCardGroup(s.id, targetCard.id, groupId).subscribe({
+        next: () => {
+          this.session.update(cur => {
+            if (!cur) return cur;
+            return { ...cur, cards: cur.cards.map(c => c.id === targetCard.id ? { ...c, groupId } : c) };
+          });
+        }
+      });
+    }
+  }
+
+  ungroupCard(cardId: string): void {
+    const s = this.session();
+    if (!s) return;
+    this.svc.setCardGroup(s.id, cardId, null).subscribe({
+      next: () => {
+        this.session.update(cur => {
+          if (!cur) return cur;
+          return { ...cur, cards: cur.cards.map(c => c.id === cardId ? { ...c, groupId: null } : c) };
+        });
+      }
+    });
+  }
+
+  getGroupedCards(cards: { id: string; groupId: string | null }[]): Map<string, typeof cards> {
+    const groups = new Map<string, typeof cards>();
+    for (const card of cards) {
+      if (card.groupId) {
+        const list = groups.get(card.groupId) ?? [];
+        list.push(card);
+        groups.set(card.groupId, list);
+      }
+    }
+    return groups;
+  }
+
+  groupsForCol(colKey: string): { groupId: string; cards: FunRetroCard[] }[] {
+    const cards = this.cardsForCol(colKey);
+    const map = new Map<string, typeof cards>();
+    for (const c of cards) {
+      if (c.groupId) {
+        const list = map.get(c.groupId) ?? [];
+        list.push(c);
+        map.set(c.groupId, list);
+      }
+    }
+    return Array.from(map.entries()).map(([groupId, cards]) => ({ groupId, cards }));
+  }
+
+  ungroupedCardsForCol(colKey: string) {
+    return this.cardsForCol(colKey).filter(c => !c.groupId);
   }
 
   silentRefresh(): void {

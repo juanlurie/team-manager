@@ -48,6 +48,10 @@ export class FunRetroService {
     return this.http.patch<void>(`${this.base}/${sessionId}/cards/${cardId}/color`, { color });
   }
 
+  setCardGroup(sessionId: string, cardId: string, groupId: string | null): Observable<void> {
+    return this.http.patch<void>(`${this.base}/${sessionId}/cards/${cardId}/group`, { groupId });
+  }
+
   analyse(sessionId: string): Observable<FunRetroAnalysis> {
     return this.http.post<FunRetroAnalysis>(`${this.base}/${sessionId}/analyse`, {});
   }

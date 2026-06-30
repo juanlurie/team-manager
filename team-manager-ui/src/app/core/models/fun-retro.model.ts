@@ -19,6 +19,7 @@ export interface FunRetroCard {
   positionX: number | null;
   positionY: number | null;
   color: string | null;
+  groupId: string | null;
 }
 
 export interface FunRetroAnalysis {

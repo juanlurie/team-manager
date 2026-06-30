@@ -84,6 +84,7 @@ public class FunRetroService(AppDbContext db, AiPromptExecutorService aiExecutor
                     PositionX = c.PositionX,
                     PositionY = c.PositionY,
                     Color = c.Color,
+                    GroupId = c.GroupId,
                 };
             })
             .ToList();
@@ -382,6 +383,19 @@ public class FunRetroService(AppDbContext db, AiPromptExecutorService aiExecutor
         await db.SaveChangesAsync();
 
         _ = WebSocketMiddleware.BroadcastAsync("fun_retro_card_moved", new { sessionId, cardId, x, y });
+        return true;
+    }
+
+    public async Task<bool> SetCardGroupAsync(Guid sessionId, Guid cardId, Guid? groupId)
+    {
+        var card = await db.FunRetroCards
+            .FirstOrDefaultAsync(c => c.Id == cardId && c.SessionId == sessionId);
+        if (card is null) return false;
+
+        card.GroupId = groupId;
+        await db.SaveChangesAsync();
+
+        _ = WebSocketMiddleware.BroadcastAsync("fun_retro_card_grouped", new { sessionId, cardId, groupId });
         return true;
     }
 

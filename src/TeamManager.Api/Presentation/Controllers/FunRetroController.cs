@@ -101,6 +101,14 @@ public class FunRetroController(FunRetroService service, PollService pollService
         return NoContent();
     }
 
+    [HttpPatch("{id:guid}/cards/{cardId:guid}/group")]
+    public async Task<IActionResult> SetCardGroup(Guid id, Guid cardId, [FromBody] CardGroupRequest request)
+    {
+        var success = await service.SetCardGroupAsync(id, cardId, request.GroupId);
+        if (!success) return NotFound();
+        return NoContent();
+    }
+
     [HttpPatch("{id:guid}/cards/{cardId:guid}/position")]
     public async Task<IActionResult> UpdateCardPosition(Guid id, Guid cardId, [FromBody] CardPositionRequest request)
     {
@@ -176,3 +184,4 @@ public record CardPositionRequest(double X, double Y);
 public record CardColorRequest(string? Color);
 public record TimerRequest(int TotalSeconds, DateTimeOffset? StartedAt, DateTimeOffset? PausedAt, double ElapsedBeforePause);
 public record IcebreakerAnswerRequest(string Answer);
+public record CardGroupRequest(Guid? GroupId);
