@@ -273,7 +273,18 @@ interface TimerState {
       display:inline-flex;align-items:center;gap:5px;
       background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);
       border-radius:20px;padding:2px 8px 2px 3px;font-size:0.7rem;
-      color:rgba(255,255,255,0.6);
+      color:rgba(255,255,255,0.6);position:relative;transition:border-color .2s;
+    }
+    .presence-avatar-wrap.has-cards { border-color:rgba(76,175,80,0.4);background:rgba(76,175,80,0.06); }
+    .presence-avatar-wrap.no-cards { border-color:rgba(255,152,0,0.3);background:rgba(255,152,0,0.04); }
+    .presence-check {
+      font-size:11px;height:11px;width:11px;color:#66bb6a;
+    }
+    .presence-pending {
+      width:6px;height:6px;border-radius:50%;background:rgba(255,152,0,0.7);flex-shrink:0;
+    }
+    .participation-summary {
+      font-size:0.7rem;color:rgba(255,255,255,0.3);margin-left:4px;white-space:nowrap;
     }
     .votes-left-badge {
       padding:4px 10px;border-radius:20px;font-size:0.72rem;font-weight:600;
@@ -813,12 +824,23 @@ interface TimerState {
         <!-- Presence bar -->
         @if (presence().length > 0) {
           <div class="presence-bar">
-            <span class="presence-label">In session</span>
+            <span class="presence-label">Participants</span>
             @for (p of presence(); track p.memberId) {
-              <div class="presence-avatar-wrap">
+              @let hasCard = membersWithCards().has(p.memberId);
+              <div class="presence-avatar-wrap" [class.has-cards]="hasCard" [class.no-cards]="!hasCard && s.phase === 'add'">
                 <app-avatar-circle [memberId]="p.memberId" [name]="p.memberName" [size]="18" />
                 <span>{{ p.memberName }}</span>
+                @if (hasCard) {
+                  <mat-icon class="presence-check">check_circle</mat-icon>
+                } @else if (s.phase === 'add') {
+                  <div class="presence-pending" title="No cards yet"></div>
+                }
               </div>
+            }
+            @if (s.phase === 'add') {
+              @let doneCount = membersWithCards().size;
+              @let totalCount = presence().length;
+              <span class="participation-summary">{{ doneCount }}/{{ totalCount }} added cards</span>
             }
           </div>
         }
@@ -1503,6 +1525,7 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
   retroPolls = signal<PollDetail[]>([]);
   showPollsPanel = signal(false);
   groupingCardId = signal<string | null>(null);
+  membersWithCards = computed(() => new Set(this.session()?.cards.map(c => c.authorId) ?? []));
   editingCardId = signal<string | null>(null);
   editingText = signal('');
   localPositions = signal<Record<string, { x: number; y: number }>>({});
