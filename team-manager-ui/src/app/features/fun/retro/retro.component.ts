@@ -1,6 +1,6 @@
 import {
-  Component, OnInit, OnDestroy, HostListener,
-  inject, signal, computed, ChangeDetectionStrategy
+  Component, OnInit, OnDestroy, AfterViewInit, HostListener,
+  inject, signal, computed, ChangeDetectionStrategy, ElementRef
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -312,9 +312,9 @@ interface TimerState {
     /* ── desktop canvas ─────────────────────────────────── */
     .canvases-row {
       display:flex;gap:8px;align-items:flex-start;
-      /* break out of the 900px hub container */
-      margin-left:calc(50% - 50vw + 8px);
-      margin-right:calc(50% - 50vw + 8px);
+      /* margins set dynamically via --canvas-ml / --canvas-mr (see updateCanvasMargins) */
+      margin-left:var(--canvas-ml, 0px);
+      margin-right:var(--canvas-mr, 0px);
     }
     .canvas-col-wrap {
       flex:1;min-width:0;display:flex;flex-direction:column;gap:6px;
@@ -1033,12 +1033,13 @@ interface TimerState {
     }
   `
 })
-export class FunRetroComponent implements OnInit, OnDestroy {
+export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
   private svc = inject(FunRetroService);
   private wsSvc = inject(WebSocketService);
   private snackBar = inject(MatSnackBar);
   private router = inject(Router);
   private route = inject(ActivatedRoute);
+  private elRef = inject(ElementRef);
 
   cols = COLS;
   reactionEmojis = REACTION_EMOJIS;
@@ -1135,8 +1136,21 @@ export class FunRetroComponent implements OnInit, OnDestroy {
     return Math.max(400, maxY + 20);
   }
 
+  ngAfterViewInit(): void { this.updateCanvasMargins(); }
+
   @HostListener('window:resize')
-  onResize(): void { this.isDesktop.set(window.innerWidth >= 800); }
+  onResize(): void {
+    this.isDesktop.set(window.innerWidth >= 800);
+    this.updateCanvasMargins();
+  }
+
+  private updateCanvasMargins(): void {
+    const el = this.elRef.nativeElement as HTMLElement;
+    const rect = el.getBoundingClientRect();
+    const gutter = 8;
+    el.style.setProperty('--canvas-ml', `-${rect.left - gutter}px`);
+    el.style.setProperty('--canvas-mr', `-${window.innerWidth - rect.right - gutter}px`);
+  }
 
   @HostListener('document:mousemove', ['$event'])
   onMouseMove(e: MouseEvent): void {
