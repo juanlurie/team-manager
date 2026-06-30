@@ -1236,7 +1236,14 @@ interface TimerState {
                            [style.top.px]="item.y"
                            [style.background]="resolveCardColor(item.card)"
                            (mousedown)="startDrag($event, item.card, item.x, item.y, col.key)">
-                          <!-- Header: avatar + name + delete -->
+                          @if (item.card.text === null) {
+                          <!-- Hidden card from another member during add phase -->
+                          <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:4px;opacity:0.45">
+                            <mat-icon style="font-size:20px;height:20px;width:20px">lock</mat-icon>
+                            <span style="font-size:0.68rem;color:rgba(0,0,0,0.6)">Hidden</span>
+                          </div>
+                        } @else {
+                        <!-- Header: avatar + name + delete -->
                         @if (item.card.authorName) {
                           <div class="sticky-header">
                             <app-avatar-circle [memberId]="item.card.authorId" [name]="item.card.authorName" [size]="18" />
@@ -1302,6 +1309,7 @@ interface TimerState {
                             }
                           </div>
                         }
+                        } <!-- end @else hidden -->
                       </div>
                     }
                   </div>
@@ -1500,7 +1508,7 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
     const localPos = this.localPositions();
     let idx = 0;
     return s.cards
-      .filter(c => c.column === colKey && c.text !== null)
+      .filter(c => c.column === colKey)
       .map(card => {
         const local = localPos[card.id];
         if (local) return { card, x: local.x, y: local.y };
