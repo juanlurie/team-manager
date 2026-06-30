@@ -651,6 +651,7 @@ interface TimerState {
                     <mat-icon class="timer-icon">{{ timerRunning() ? 'pause' : 'play_arrow' }}</mat-icon>
                     {{ timerRunning() ? 'Pause' : 'Resume' }}
                   </button>
+                  <button class="timer-btn" (click)="addTimerMinutes(-2)">-2 min</button>
                   <button class="timer-btn" (click)="addTimerMinutes(2)">+2 min</button>
                   <button class="timer-btn" (click)="resetTimer()">
                     <mat-icon class="timer-icon">restart_alt</mat-icon>
@@ -1356,7 +1357,7 @@ export class FunRetroComponent implements OnInit, OnDestroy {
 
   addTimerMinutes(mins: number): void {
     const t = this.timer() ?? { totalSeconds: 300, startedAt: null, pausedAt: null, elapsedBeforePause: 0 };
-    this.saveTimer({ ...t, totalSeconds: t.totalSeconds + mins * 60 });
+    this.saveTimer({ ...t, totalSeconds: Math.max(60, t.totalSeconds + mins * 60) });
   }
 
   resetTimer(): void {
