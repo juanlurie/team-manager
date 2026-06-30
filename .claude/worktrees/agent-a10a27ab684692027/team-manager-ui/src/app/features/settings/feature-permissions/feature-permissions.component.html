@@ -1,0 +1,91 @@
+<div style="max-width:900px;margin:0 auto;padding:0 8px;overflow-x:hidden">
+  <!-- Header -->
+  <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">
+    <button class="icon-btn" routerLink="/settings" matTooltip="Back to Settings">
+      <mat-icon style="font-size:20px;height:20px;width:20px">arrow_back</mat-icon>
+    </button>
+    <mat-icon style="font-size:1.6rem;width:1.6rem;height:1.6rem;color:#64b5f6">shield</mat-icon>
+    <h2 style="margin:0;font-size:1.3rem;font-weight:700">Feature Permissions</h2>
+  </div>
+
+  <p style="font-size:0.82rem;opacity:0.5;margin-bottom:16px">
+    Control which features are available to each role. Toggle switches off to disable a feature for that role.
+  </p>
+
+  <!-- Search -->
+  <div style="position:relative;margin-bottom:20px">
+    <mat-icon style="position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:18px;width:18px;height:18px;opacity:0.4">search</mat-icon>
+    <input (input)="searchQuery.set($any($event.target).value)"
+           placeholder="Search features…"
+           style="width:100%;box-sizing:border-box;padding:9px 12px 9px 36px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:#e0e0e0;font-size:0.85rem;outline:none;font-family:inherit"
+           (focus)="$any($event.target).style.borderColor='rgba(100,181,246,0.5)'"
+           (blur)="$any($event.target).style.borderColor='rgba(255,255,255,0.1)'" />
+  </div>
+
+  @if (loading()) {
+    <div style="display:flex;justify-content:center;padding:40px">
+      <mat-spinner diameter="32"></mat-spinner>
+    </div>
+  } @else if (filteredGroups().length === 0) {
+    <div style="text-align:center;padding:40px;opacity:0.35;font-size:0.9rem">No features match "{{ searchQuery() }}"</div>
+  } @else {
+    @for (group of filteredGroups(); track group.category) {
+      <div style="margin-bottom:8px;border:1px solid rgba(255,255,255,0.07);border-radius:10px;overflow:hidden">
+
+        <!-- Expandable header -->
+        <button (click)="toggleCategory(group.category)"
+                style="width:100%;display:flex;align-items:center;gap:10px;padding:12px 14px;background:rgba(255,255,255,0.04);border:none;cursor:pointer;font-family:inherit;text-align:left;color:inherit;transition:background 0.15s"
+                (mouseenter)="$any($event.target).style.background='rgba(255,255,255,0.07)'"
+                (mouseleave)="$any($event.target).style.background='rgba(255,255,255,0.04)'">
+          <mat-icon style="font-size:18px;width:18px;height:18px;opacity:0.5;transition:transform 0.2s;flex-shrink:0"
+                    [style.transform]="isExpanded(group.category) ? 'rotate(0deg)' : 'rotate(-90deg)'">
+            expand_more
+          </mat-icon>
+          <span style="font-size:0.88rem;font-weight:600;flex:1">{{ group.category }}</span>
+          <span style="font-size:0.72rem;opacity:0.35;font-weight:500">{{ group.rows.length }} feature{{ group.rows.length !== 1 ? 's' : '' }}</span>
+        </button>
+
+        @if (isExpanded(group.category)) {
+          <div style="overflow-x:auto">
+            <table style="width:100%;border-collapse:collapse;font-size:0.82rem;table-layout:fixed">
+              <colgroup>
+                <col style="width:auto">
+                <col style="width:90px">
+                <col style="width:90px">
+                <col style="width:90px">
+              </colgroup>
+              <thead>
+                <tr style="border-bottom:1px solid rgba(255,255,255,0.06)">
+                  <th style="text-align:left;padding:8px 12px;font-weight:600;opacity:0.4;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.05em">Feature</th>
+                  <th style="text-align:center;padding:8px 12px;font-weight:600;opacity:0.4;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.05em">Member</th>
+                  <th style="text-align:center;padding:8px 12px;font-weight:600;opacity:0.4;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.05em">TeamLead</th>
+                  <th style="text-align:center;padding:8px 12px;font-weight:600;opacity:0.4;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.05em">TechLead</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (row of group.rows; track row.featureKey) {
+                  <tr style="border-bottom:1px solid rgba(255,255,255,0.03)">
+                    <td style="padding:8px 12px;font-weight:500">{{ row.label }}</td>
+                    @for (role of roles; track role) {
+                      <td style="text-align:center;padding:8px 12px">
+                        @if (isSaving(row.featureKey, role)) {
+                          <mat-spinner diameter="18" style="display:inline-block"></mat-spinner>
+                        } @else {
+                          <mat-slide-toggle
+                            [checked]="row.roleEnabled[role] ?? true"
+                            (change)="togglePermission(row.featureKey, role, row.roleEnabled[role] ?? true)"
+                            color="primary">
+                          </mat-slide-toggle>
+                        }
+                      </td>
+                    }
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
+      </div>
+    }
+  }
+</div>

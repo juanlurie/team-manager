@@ -1,0 +1,16 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: team-manager-beta
+
+resources:
+  - namespace.yaml
+  - ../../base
+
+images:
+  - name: ghcr.io/juanlurie/team-manager-api
+    newTag: "75808d79fe30abfdcbf00eb836d289dc2230d31d"
+  - name: ghcr.io/juanlurie/team-manager-ui
+    newTag: "75808d79fe30abfdcbf00eb836d289dc2230d31d"
+  - name: ghcr.io/juanlurie/team-manager-mcp
+    newTag: "75808d79fe30abfdcbf00eb836d289dc2230d31d"

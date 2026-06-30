@@ -1,0 +1,74 @@
+<div class="profile-page">
+  <h1 class="page-title">Profile</h1>
+
+  <!-- ── User Info Card ── -->
+  <mat-card class="info-card">
+    <mat-card-content>
+      <div class="user-info">
+        <div class="avatar-wrap">
+          @if (member()?.avatarSeed) {
+            <div class="avatar-img" [innerHTML]="currentAvatarSvg()"></div>
+          } @else {
+            <div class="avatar">{{ userName.charAt(0) }}</div>
+          }
+          <button mat-icon-button class="avatar-edit-btn" (click)="openAvatarPicker()" matTooltip="Change avatar">
+            <mat-icon>edit</mat-icon>
+          </button>
+        </div>
+        <div class="details">
+          <h2 class="display-name">{{ userName }}</h2>
+          <p class="email">{{ userEmail }}</p>
+          <span class="role-badge">{{ userRole }}</span>
+        </div>
+      </div>
+    </mat-card-content>
+  </mat-card>
+
+  <!-- ── Avatar Picker ── -->
+  @if (showPicker()) {
+    <mat-card class="picker-card">
+      <mat-card-header>
+        <mat-card-title style="font-size:1rem">Choose your avatar</mat-card-title>
+        <mat-card-subtitle style="font-size:0.8rem;margin-top:4px">
+          Type any word or phrase to generate a unique avatar
+        </mat-card-subtitle>
+      </mat-card-header>
+      <mat-card-content>
+
+        <!-- Input + live preview -->
+        <div class="seed-row">
+          <div class="preview-avatar" [innerHTML]="previewSvg()"></div>
+          <mat-form-field appearance="outline" style="flex:1">
+            <mat-label>Avatar seed</mat-label>
+            <input matInput [value]="seedInput()" (input)="onSeedInput($event)" placeholder="e.g. your name, a word…">
+            <mat-hint>Any text generates a unique avatar</mat-hint>
+          </mat-form-field>
+        </div>
+
+        <!-- Suggestions -->
+        <p class="suggestions-label">Or pick one of these:</p>
+        <div class="avatar-grid">
+          @for (seed of avatarSuggestions(); track seed) {
+            <button class="avatar-option" [class.selected]="seedInput() === seed"
+                    (click)="selectSeed(seed)" [matTooltip]="seed"
+                    [innerHTML]="suggestionSvg(seed)">
+            </button>
+          }
+        </div>
+
+        <p class="multiavatar-credit">
+          Avatars by <a href="https://multiavatar.com" target="_blank" rel="noopener">multiavatar.com</a>
+        </p>
+
+        <div class="picker-actions">
+          <button mat-stroked-button (click)="clearAvatar()" type="button">
+            <mat-icon>person_outline</mat-icon> Use initials
+          </button>
+          <button mat-flat-button color="primary" (click)="saveAvatar()" [disabled]="saving() || !seedInput()">
+            {{ saving() ? 'Saving…' : 'Save avatar' }}
+          </button>
+        </div>
+      </mat-card-content>
+    </mat-card>
+  }
+</div>

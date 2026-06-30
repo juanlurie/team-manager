@@ -1,0 +1,170 @@
+<div class="expense-claim-page">
+  <h1 class="page-title">Expense Claim Form</h1>
+
+  <mat-card class="form-card">
+    <mat-card-header>
+      <mat-card-title>Claim Details</mat-card-title>
+      <mat-card-subtitle>
+        <span class="info-row">
+          <span class="info-item"><strong>Employee:</strong> {{ employeeName }}</span>
+          <span class="info-item"><strong>Date:</strong> {{ currentDate }}</span>
+        </span>
+      </mat-card-subtitle>
+    </mat-card-header>
+
+    <mat-card-content>
+      <div class="logo-upload-row">
+        <label class="logo-upload-btn">
+          <mat-icon>add_photo_alternate</mat-icon>
+          {{ uploadedLogoBase64() ? 'Change Logo' : 'Upload Logo (optional)' }}
+          <input type="file" accept="image/*" (change)="onLogoUpload($event)" style="display:none">
+        </label>
+        @if (uploadedLogoBase64()) {
+          <img [src]="'data:image/' + uploadedLogoExt() + ';base64,' + uploadedLogoBase64()"
+               alt="Logo preview" class="logo-preview">
+          <button mat-icon-button (click)="clearLogo()" type="button" matTooltip="Remove logo">
+            <mat-icon style="font-size:18px;width:18px;height:18px">close</mat-icon>
+          </button>
+        }
+      </div>
+
+      <!-- Desktop table layout -->
+      <table class="expense-table desktop-table">
+        <thead>
+          <tr>
+            <th class="col-description">Description</th>
+            <th class="col-place">Place of Purchase</th>
+            <th class="col-amount">Amount</th>
+            <th class="col-actions"></th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (item of items(); let i = $index; track i) {
+            <tr>
+              <td class="col-description">{{ item.description }}</td>
+              <td class="col-place">{{ item.placeOfPurchase }}</td>
+              <td class="col-amount">{{ item.amount | number: '1.2-2' }}</td>
+              <td class="col-actions">
+                <button mat-icon-button (click)="openEditDialog(i)" type="button" matTooltip="Edit">
+                  <mat-icon style="font-size:18px;width:18px;height:18px">edit</mat-icon>
+                </button>
+                <button mat-icon-button color="warn" (click)="removeItem(i)" type="button" matTooltip="Delete">
+                  <mat-icon style="font-size:18px;width:18px;height:18px">delete</mat-icon>
+                </button>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+
+      <!-- Mobile card layout -->
+      <div class="mobile-items">
+        @for (item of items(); let i = $index; track i) {
+          <div class="mobile-item-card">
+            <div class="mobile-item-header">
+              <span class="mobile-item-number">Item {{ i + 1 }}</span>
+              <div class="mobile-item-actions">
+                <button mat-icon-button (click)="openEditDialog(i)" type="button">
+                  <mat-icon style="font-size:18px;width:18px;height:18px">edit</mat-icon>
+                </button>
+                <button mat-icon-button color="warn" (click)="removeItem(i)" type="button">
+                  <mat-icon style="font-size:18px;width:18px;height:18px">delete</mat-icon>
+                </button>
+              </div>
+            </div>
+            <div class="mobile-item-row">
+              <span class="mobile-label">Description:</span>
+              <span class="mobile-value">{{ item.description }}</span>
+            </div>
+            <div class="mobile-item-row">
+              <span class="mobile-label">Place of Purchase:</span>
+              <span class="mobile-value">{{ item.placeOfPurchase }}</span>
+            </div>
+            <div class="mobile-item-row">
+              <span class="mobile-label">Amount:</span>
+              <span class="mobile-value amount">{{ item.amount | number: '1.2-2' }}</span>
+            </div>
+          </div>
+        }
+      </div>
+
+      @if (items().length === 0) {
+        <div class="empty-state">
+          <mat-icon style="font-size:3rem;width:3rem;height:3rem;opacity:0.3">receipt_long</mat-icon>
+          <p>No expense items added yet</p>
+        </div>
+      }
+
+      <div class="actions-row">
+        <button mat-stroked-button color="primary" (click)="openAddDialog()" type="button">
+          <mat-icon>add</mat-icon>
+          Add Item
+        </button>
+      </div>
+
+      <div class="total-row">
+        <span class="total-label">TOTAL CLAIM</span>
+        <span class="total-value">{{ getTotal() | number: '1.2-2' }}</span>
+      </div>
+
+      <div class="signature-row">
+        <span class="signature-text">Employee Sign: {{ employeeName }}</span>
+      </div>
+
+      <div class="download-row">
+        <button mat-flat-button color="primary" (click)="generateAndDownload()" type="button">
+          <mat-icon>download</mat-icon>
+          Download Expense Claim
+        </button>
+      </div>
+    </mat-card-content>
+  </mat-card>
+
+  <!-- Add/Edit Item Dialog -->
+  @if (showItemDialog()) {
+    <div class="dialog-overlay" (click)="closeDialog()">
+      <div class="dialog-content" (click)="$event.stopPropagation()">
+        <h3>{{ editingIndex() !== null ? 'Edit Item' : 'Add Expense Item' }}</h3>
+
+        <form [formGroup]="itemForm">
+          <mat-form-field appearance="outline" class="full-width dialog-field">
+            <mat-label>Description</mat-label>
+            <input matInput formControlName="description" placeholder="Enter description" #descInput />
+            @if (itemForm.get('description')?.invalid && itemForm.get('description')?.touched) {
+              <mat-error>
+                Description is required
+              </mat-error>
+            }
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="full-width dialog-field">
+            <mat-label>Place of Purchase</mat-label>
+            <input matInput formControlName="placeOfPurchase" placeholder="Enter place of purchase" />
+            @if (itemForm.get('placeOfPurchase')?.invalid && itemForm.get('placeOfPurchase')?.touched) {
+              <mat-error>
+                Place of purchase is required
+              </mat-error>
+            }
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="full-width dialog-field">
+            <mat-label>Amount</mat-label>
+            <input matInput type="number" formControlName="amount" placeholder="0.00" min="0" step="0.01" />
+            @if (itemForm.get('amount')?.invalid && itemForm.get('amount')?.touched) {
+              <mat-error>
+                Valid amount is required
+              </mat-error>
+            }
+          </mat-form-field>
+        </form>
+
+        <div class="dialog-actions">
+          <button mat-stroked-button (click)="closeDialog()" type="button">Cancel</button>
+          <button mat-flat-button color="primary" (click)="saveItem()" type="button">
+            {{ editingIndex() !== null ? 'Save' : 'Add' }}
+          </button>
+        </div>
+      </div>
+    </div>
+  }
+</div>

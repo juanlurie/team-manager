@@ -1,0 +1,18 @@
+namespace TeamManager.Api.Domain.Enums;
+
+public enum WorkItemEventType
+{
+    TASK_CREATED,
+    STATUS_CHANGED,
+    ASSIGNEE_CHANGED,
+    BLOCKER_ADDED,
+    BLOCKER_REMOVED,
+    CARRIED_OVER,
+    REOPENED,
+    TITLE_CHANGED,
+    DESCRIPTION_CHANGED,
+    FEATURE_CHANGED,
+    ESTIMATE_CHANGED,
+    ACTUALS_CHANGED,
+    COMPLETED,
+}

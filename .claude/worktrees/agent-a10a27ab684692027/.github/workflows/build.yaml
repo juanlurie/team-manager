@@ -1,0 +1,114 @@
+name: Build & Push
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - 'k8s/**'
+
+env:
+  REGISTRY: ghcr.io
+  OWNER: juanlurie
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+      security-events: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Audit .NET dependencies
+        run: dotnet list package --vulnerable --include-transitive
+        working-directory: ./src/TeamManager.Api
+        continue-on-error: false
+
+      - name: Build and push API
+        uses: docker/build-push-action@v5
+        with:
+          context: ./src/TeamManager.Api
+          file: ./src/TeamManager.Api/Dockerfile
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.OWNER }}/team-manager-api:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Scan API image
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ env.REGISTRY }}/${{ env.OWNER }}/team-manager-api:${{ github.sha }}
+          severity: HIGH,CRITICAL
+          exit-code: '1'
+          ignore-unfixed: true
+          format: table
+
+      - name: Audit UI dependencies (production only)
+        run: npm audit --omit=dev --audit-level=high
+        working-directory: ./team-manager-ui
+        continue-on-error: true
+
+      - name: Build and push UI
+        uses: docker/build-push-action@v5
+        with:
+          context: ./team-manager-ui
+          file: ./team-manager-ui/Dockerfile
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.OWNER }}/team-manager-ui:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Scan UI image
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ env.REGISTRY }}/${{ env.OWNER }}/team-manager-ui:${{ github.sha }}
+          severity: HIGH,CRITICAL
+          exit-code: '1'
+          ignore-unfixed: true
+          format: table
+
+      - name: Build and push MCP gateway
+        uses: docker/build-push-action@v5
+        with:
+          context: ./mcp-server
+          file: ./mcp-server/Dockerfile
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.OWNER }}/team-manager-mcp:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Scan MCP image
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ env.REGISTRY }}/${{ env.OWNER }}/team-manager-mcp:${{ github.sha }}
+          severity: HIGH,CRITICAL
+          exit-code: '1'
+          ignore-unfixed: true
+          format: table
+
+      - name: Update beta overlay image tags
+        run: |
+          sed -i "s|newTag: .*|newTag: \"${{ github.sha }}\"|g" k8s/overlays/beta/kustomization.yaml
+
+      - name: Commit and push beta manifest
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add k8s/overlays/beta/kustomization.yaml
+          git diff --staged --quiet || git commit -m "chore: deploy ${{ github.sha }} to beta [skip ci]"
+          git push

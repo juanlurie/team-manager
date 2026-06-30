@@ -1,0 +1,141 @@
+@use '@angular/material' as mat;
+
+$theme: mat.define-theme((
+  color: (
+    theme-type: dark,
+    primary: mat.$azure-palette,
+    tertiary: mat.$blue-palette,
+  ),
+  typography: (
+    brand-family: 'Geist, Roboto, "Helvetica Neue", sans-serif',
+  ),
+));
+
+html {
+  @include mat.all-component-themes($theme);
+  color-scheme: dark;
+}
+
+html, body { height: 100%; margin: 0; }
+body { font-family: 'Geist', Roboto, "Helvetica Neue", sans-serif; background: #0f1117; color: #e0e0e0; }
+
+/* ── Self-hosted fonts ── */
+@import '@fontsource/geist/400.css';
+@import '@fontsource/geist/500.css';
+@import '@fontsource/geist/600.css';
+@import '@fontsource/geist/700.css';
+@import 'material-icons/iconfont/material-icons.css';
+
+/* Let mat-sidenav-content scroll naturally */
+mat-sidenav-content {
+  overflow-y: auto !important;
+}
+
+.page-container {
+  padding: 24px;
+  max-width: 1400px;
+  margin: 0 auto;
+  box-sizing: border-box;
+}
+
+@media (max-width: 599px) {
+  .page-container {
+    padding: 8px 4px;
+  }
+}
+
+.mat-elevation-z2 { box-shadow: 0 2px 4px rgba(0,0,0,.12); }
+.spacer { flex: 1 1 auto; }
+
+.error-snackbar .mdc-snackbar__surface { background: #c62828 !important; }
+.error-snackbar .mdc-snackbar__label { color: #fff !important; }
+
+/* Prevent iOS Safari auto-zoom on input focus (triggers when font-size < 16px) */
+@media (max-width: 767px) {
+  input, select, textarea {
+    font-size: 16px !important;
+  }
+}
+
+.dark-dialog .mat-mdc-dialog-container .mdc-dialog__surface { background: #131e2b !important; }
+
+/* Dialogs full-width on mobile -- scoped to dialog panes only (:has(.mat-mdc-dialog-container)),
+   not every .cdk-overlay-pane, since that selector is shared with mat-select/menu/autocomplete
+   overlays too. An unscoped rule here stripped the margin/width those need to stay positioned
+   and scrollable within the viewport, clipping things like a mat-select's option list on mobile. */
+@media (max-width: 599px) {
+  .mat-mdc-dialog-container {
+    max-width: 100vw !important;
+  }
+  .cdk-overlay-pane:has(.mat-mdc-dialog-container) {
+    width: 100vw !important;
+    max-width: 100vw !important;
+    margin: 0 !important;
+  }
+}
+
+/* Small icon button hover for danger buttons */
+.danger-btn .mat-mdc-button-persistent-ripple::before {
+  background: #ef5350 !important;
+}
+.danger-btn:hover mat-icon {
+  opacity: 1 !important;
+}
+.danger-btn mat-icon {
+  transition: opacity 0.15s ease;
+}
+
+/* ═══════════════════════════════════════════
+   K Picker — Global Dialog / Backdrop Styles
+   ═══════════════════════════════════════════ */
+
+/* Remove MatDialog default surface styling for K picker */
+.k-picker-panel .mat-mdc-dialog-container .mdc-dialog__surface {
+  background: transparent !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  overflow: visible !important;
+  border-radius: 16px !important;
+}
+
+.k-picker-panel .mat-mdc-dialog-container .mdc-dialog__content {
+  padding: 0 !important;
+}
+
+/* Semi-transparent backdrop with blur */
+.k-picker-backdrop {
+  background: rgba(0, 0, 0, 0.6) !important;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+/* Responsive: mobile full-screen */
+@media (max-width: 767px) {
+  .k-picker-panel {
+    max-width: 100vw !important;
+    width: 100vw !important;
+    height: 100vh !important;
+  }
+  .k-picker-panel .mat-mdc-dialog-container .mdc-dialog__surface {
+    border-radius: 0 !important;
+  }
+  .k-picker-panel .cdk-overlay-pane {
+    width: 100vw !important;
+    max-width: 100vw !important;
+    margin: 0 !important;
+  }
+}
+
+/* Geist font applied to k-picker content */
+.k-picker-panel, .k-picker-panel * {
+  font-family: 'Geist', -apple-system, system-ui, 'Segoe UI', sans-serif;
+}
+
+/* WoW series bottom sheet */
+.wow-series-sheet .mat-bottom-sheet-container {
+  background: #1a2636;
+  border-radius: 16px 16px 0 0;
+  padding: 0;
+  min-width: 100vw;
+}
+
