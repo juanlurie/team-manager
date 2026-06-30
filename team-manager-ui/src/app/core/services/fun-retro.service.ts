@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { FunRetroAnalysis, FunRetroSession, FunRetroSessionSummary } from '../models/fun-retro.model';
+import { FunRetroAnalysis, FunRetroSession, FunRetroSessionSummary, RetroColumn } from '../models/fun-retro.model';
 
 @Injectable({ providedIn: 'root' })
 export class FunRetroService {
@@ -16,7 +16,7 @@ export class FunRetroService {
     return this.http.get<FunRetroSession>(`${this.base}/${id}`);
   }
 
-  createSession(req: { title?: string; sprintId?: string }): Observable<FunRetroSession> {
+  createSession(req: { title?: string; sprintId?: string; columns?: RetroColumn[] }): Observable<FunRetroSession> {
     return this.http.post<FunRetroSession>(this.base, req);
   }
 

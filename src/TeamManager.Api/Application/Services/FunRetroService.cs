@@ -16,11 +16,16 @@ public class FunRetroService(AppDbContext db, AiPromptExecutorService aiExecutor
 
         _ = member; // existence check; name not needed on session
 
+        var columnsJson = req.Columns is { Count: > 0 }
+            ? JsonSerializer.Serialize(req.Columns, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase })
+            : null;
+
         var session = new FunRetroSession
         {
             Title = req.Title,
             CreatedByMemberId = memberId,
             SprintId = req.SprintId,
+            ColumnsJson = columnsJson,
         };
 
         db.FunRetroSessions.Add(session);
@@ -105,6 +110,17 @@ public class FunRetroService(AppDbContext db, AiPromptExecutorService aiExecutor
             catch { /* ignore malformed */ }
         }
 
+        var columns = new List<RetroColumnDto>();
+        if (session.ColumnsJson is not null)
+        {
+            try
+            {
+                columns = JsonSerializer.Deserialize<List<RetroColumnDto>>(session.ColumnsJson,
+                    new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? [];
+            }
+            catch { /* ignore malformed */ }
+        }
+
         return new FunRetroSessionDto
         {
             Id = session.Id,
@@ -120,6 +136,7 @@ public class FunRetroService(AppDbContext db, AiPromptExecutorService aiExecutor
             AiAnalysis = analysis,
             TimerJson = session.TimerJson,
             IcebreakerAnswers = icebreakerAnswers,
+            Columns = columns,
         };
     }
 

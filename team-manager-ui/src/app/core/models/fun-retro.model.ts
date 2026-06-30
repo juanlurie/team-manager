@@ -29,6 +29,12 @@ export interface FunRetroAnalysis {
   suggestedActions: string[];
 }
 
+export interface RetroColumn {
+  key: string;
+  label: string;
+  color: string;
+}
+
 export interface FunRetroSession {
   id: string;
   title: string | null;
@@ -44,6 +50,7 @@ export interface FunRetroSession {
   aiAnalysis: FunRetroAnalysis | null;
   timerJson: string | null;
   icebreakerAnswers: { memberId: string; memberName: string; answer: string }[];
+  columns: RetroColumn[];
 }
 
 export interface FunRetroSessionSummary {

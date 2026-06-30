@@ -12,18 +12,85 @@ import { Subject, Subscription } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
 import { Router, ActivatedRoute } from '@angular/router';
 import { FunRetroService } from '../../../core/services/fun-retro.service';
-import { FunRetroAnalysis, FunRetroSession, FunRetroSessionSummary, FunRetroCard } from '../../../core/models/fun-retro.model';
+import { FunRetroAnalysis, FunRetroSession, FunRetroSessionSummary, FunRetroCard, RetroColumn } from '../../../core/models/fun-retro.model';
 import { WebSocketService } from '../../../core/websocket/websocket.service';
 import { AvatarCircleComponent } from '../../../core/components/k-picker/avatar-circle.component';
 import { AuthService } from '../../../core/auth/auth.service';
 
-const COLS = [
-  { key: 'well',   label: '✅ Went Well',       color: '#4caf50' },
-  { key: 'better', label: "⚠️ Didn't Go Well",  color: '#ff9800' },
-  { key: 'action', label: '🎯 Action Items',     color: '#e91e8c' },
-] as const;
+const DEFAULT_COLS: RetroColumn[] = [
+  { key: 'well',   label: '✅ Went Well',      color: '#4caf50' },
+  { key: 'better', label: "⚠️ Didn't Go Well", color: '#ff9800' },
+  { key: 'action', label: '🎯 Action Items',    color: '#e91e8c' },
+];
 
-type ColKey = typeof COLS[number]['key'];
+interface RetroTemplate {
+  id: string;
+  name: string;
+  description: string;
+  columns: RetroColumn[];
+}
+
+const RETRO_TEMPLATES: RetroTemplate[] = [
+  {
+    id: 'well-better-action',
+    name: 'Well / Better / Action',
+    description: 'Classic format',
+    columns: DEFAULT_COLS,
+  },
+  {
+    id: 'start-stop-continue',
+    name: 'Start / Stop / Continue',
+    description: 'Focus on behaviours',
+    columns: [
+      { key: 'start',    label: '🚀 Start',    color: '#4caf50' },
+      { key: 'stop',     label: '🛑 Stop',     color: '#ef5350' },
+      { key: 'continue', label: '✅ Continue', color: '#64b5f6' },
+    ],
+  },
+  {
+    id: '4ls',
+    name: '4Ls',
+    description: 'Liked / Learned / Lacked / Longed for',
+    columns: [
+      { key: 'liked',   label: '❤️ Liked',    color: '#e91e63' },
+      { key: 'learned', label: '📚 Learned',  color: '#64b5f6' },
+      { key: 'lacked',  label: '😕 Lacked',   color: '#ff9800' },
+      { key: 'longed',  label: '🌟 Longed for', color: '#ab47bc' },
+    ],
+  },
+  {
+    id: 'mad-sad-glad',
+    name: 'Mad / Sad / Glad',
+    description: 'Emotion-driven reflection',
+    columns: [
+      { key: 'mad',  label: '😠 Mad',  color: '#ef5350' },
+      { key: 'sad',  label: '😢 Sad',  color: '#64b5f6' },
+      { key: 'glad', label: '😊 Glad', color: '#4caf50' },
+    ],
+  },
+  {
+    id: 'daki',
+    name: 'DAKI',
+    description: 'Drop / Add / Keep / Improve',
+    columns: [
+      { key: 'drop',    label: '🗑️ Drop',    color: '#ef5350' },
+      { key: 'add',     label: '➕ Add',     color: '#4caf50' },
+      { key: 'keep',    label: '🔒 Keep',    color: '#64b5f6' },
+      { key: 'improve', label: '⬆️ Improve', color: '#ff9800' },
+    ],
+  },
+  {
+    id: 'sailboat',
+    name: 'Sailboat',
+    description: 'Wind / Anchor / Island / Rocks',
+    columns: [
+      { key: 'wind',   label: '💨 Wind (helps)',   color: '#4caf50' },
+      { key: 'anchor', label: '⚓ Anchor (slows)', color: '#ef5350' },
+      { key: 'island', label: '🏝️ Goal',           color: '#64b5f6' },
+      { key: 'rocks',  label: '🪨 Risks',          color: '#ff9800' },
+    ],
+  },
+];
 
 const PHASE_META: Record<string, { label: string; color: string }> = {
   lobby:   { label: 'Lobby',         color: '#64b5f6' },
@@ -116,6 +183,17 @@ interface TimerState {
     }
     .field:focus { border-color:#64b5f6; }
     .form-actions { display:flex;gap:8px;justify-content:flex-end; }
+    .template-grid { display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px;margin-bottom:4px; }
+    .template-card {
+      border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:10px 12px;
+      cursor:pointer;transition:border-color 0.15s,background 0.15s;
+    }
+    .template-card:hover { background:rgba(255,255,255,0.04); }
+    .template-card.selected { border-color:#64b5f6;background:rgba(100,181,246,0.06); }
+    .template-name { font-size:0.82rem;font-weight:600;color:rgba(255,255,255,0.85);margin-bottom:2px; }
+    .template-desc { font-size:0.7rem;color:rgba(255,255,255,0.35);margin-bottom:6px; }
+    .template-cols { display:flex;flex-wrap:wrap;gap:4px; }
+    .template-col-chip { font-size:0.65rem;padding:2px 6px;border-radius:10px;font-weight:500; }
 
     /* ── session view ────────────────────────────────────── */
     .session-wrap { padding:4px 0; }
@@ -609,6 +687,21 @@ interface TimerState {
               <h3>New Retro</h3>
               <label class="field-label">Title (optional)</label>
               <input class="field" [(ngModel)]="newTitle" placeholder="e.g. Sprint 42 Retro" />
+              <label class="field-label" style="margin-top:14px">Board template</label>
+              <div class="template-grid">
+                @for (t of templates; track t.id) {
+                  <div class="template-card" [class.selected]="selectedTemplateId() === t.id"
+                       (click)="selectTemplate(t.id)">
+                    <div class="template-name">{{ t.name }}</div>
+                    <div class="template-desc">{{ t.description }}</div>
+                    <div class="template-cols">
+                      @for (c of t.columns; track c.key) {
+                        <span class="template-col-chip" [style.background]="c.color + '22'" [style.color]="c.color">{{ c.label }}</span>
+                      }
+                    </div>
+                  </div>
+                }
+              </div>
               <div class="form-actions">
                 <button mat-button (click)="cancelNewForm()">Cancel</button>
                 <button mat-flat-button color="primary" (click)="createSession()" [disabled]="creating()">
@@ -807,7 +900,7 @@ interface TimerState {
         @if (!isDesktop()) {
           @if (s.phase === 'add' || s.phase === 'vote' || s.phase === 'discuss' || s.phase === 'done') {
             <div class="board">
-              @for (col of cols; track col.key) {
+              @for (col of cols(); track col.key) {
                 <div class="col">
                   <div class="col-header">
                     <span class="col-label" [style.color]="col.color">{{ col.label }}</span>
@@ -898,7 +991,7 @@ interface TimerState {
         <!-- Desktop: 3 separate sticky canvases side by side -->
         @if (isDesktop() && (s.phase === 'add' || s.phase === 'vote' || s.phase === 'discuss' || s.phase === 'done')) {
           <div class="canvases-row">
-            @for (col of cols; track col.key; let ci = $index) {
+            @for (col of cols(); track col.key; let ci = $index) {
               <div class="canvas-col-wrap">
                 <div class="canvas-col-header">
                   <span class="canvas-col-title" [style.color]="col.color">{{ col.label }}</span>
@@ -1087,7 +1180,12 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
   private route = inject(ActivatedRoute);
   private elRef = inject(ElementRef);
 
-  cols = COLS;
+  readonly templates = RETRO_TEMPLATES;
+  cols = computed(() => {
+    const s = this.session();
+    if (s?.columns?.length) return s.columns;
+    return DEFAULT_COLS;
+  });
   reactionEmojis = REACTION_EMOJIS;
 
   sessions = signal<FunRetroSessionSummary[]>([]);
@@ -1097,8 +1195,9 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
   showNewForm = signal(false);
   newTitle = '';
   creating = signal(false);
+  selectedTemplateId = signal<string>(RETRO_TEMPLATES[0].id);
 
-  newCardText = signal<Record<string, string>>({ well: '', better: '', action: '' });
+  newCardText = signal<Record<string, string>>({});
   submittingCard = signal<string | null>(null);
 
   advancingPhase = signal(false);
@@ -1420,6 +1519,10 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
     this.icebreakerAnswers.set(s.icebreakerAnswers ?? []);
     if (syncTimer) {
       this.timer.set(s.timerJson ? JSON.parse(s.timerJson) : null);
+      const cols = s.columns?.length ? s.columns : DEFAULT_COLS;
+      const blank: Record<string, string> = {};
+      cols.forEach(c => blank[c.key] = '');
+      this.newCardText.set(blank);
     }
     if (s.phase === 'lobby') {
       this.loadPrevActions(s.id);
@@ -1547,9 +1650,16 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
     this.newTitle = '';
   }
 
+  selectTemplate(id: string): void {
+    this.selectedTemplateId.set(id);
+  }
+
   createSession(): void {
     this.creating.set(true);
-    const req: { title?: string } = {};
+    const template = RETRO_TEMPLATES.find(t => t.id === this.selectedTemplateId());
+    const req: { title?: string; columns?: RetroColumn[] } = {
+      columns: template?.columns ?? DEFAULT_COLS,
+    };
     if (this.newTitle.trim()) req.title = this.newTitle.trim();
     this.svc.createSession(req).subscribe({
       next: s => {
