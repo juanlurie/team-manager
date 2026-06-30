@@ -26,6 +26,7 @@ export class AuthService {
 
   private _me$ = new BehaviorSubject<MeResponse | null>(null);
   me$ = this._me$.asObservable();
+  get me(): MeResponse | null { return this._me$.getValue(); }
 
   // Populated when authenticated via Google but not a team member
   pendingClaims = signal<{ name: string; email: string; picture: string; sub: string } | null>(null);
