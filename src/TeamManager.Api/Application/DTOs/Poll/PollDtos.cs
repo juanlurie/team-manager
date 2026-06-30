@@ -38,7 +38,7 @@ public record PollDetailDto
     public List<PollOptionResultDto> Options { get; init; } = [];
 }
 
-public record CreatePollRequest(string Question, List<string> Options, bool HideResultsUntilClosed = false, DateTimeOffset? ScheduledCloseAt = null);
+public record CreatePollRequest(string Question, List<string> Options, bool HideResultsUntilClosed = false, DateTimeOffset? ScheduledCloseAt = null, Guid? RetroSessionId = null);
 
 public record CastPollVoteRequest(Guid OptionId);
 

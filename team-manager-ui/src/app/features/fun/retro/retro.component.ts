@@ -16,6 +16,10 @@ import { FunRetroAnalysis, FunRetroSession, FunRetroSessionSummary, FunRetroCard
 import { WebSocketService } from '../../../core/websocket/websocket.service';
 import { AvatarCircleComponent } from '../../../core/components/k-picker/avatar-circle.component';
 import { AuthService } from '../../../core/auth/auth.service';
+import { PollService } from '../../../core/services/poll.service';
+import { PollDetail } from '../../../core/models/poll.model';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
+import { CreatePollDialogComponent } from '../../polls/poll.component';
 
 const DEFAULT_COLS: RetroColumn[] = [
   { key: 'well',   label: '✅ Went Well',      color: '#4caf50' },
@@ -148,6 +152,7 @@ interface TimerState {
     MatIconModule,
     MatProgressSpinnerModule,
     MatSnackBarModule,
+    MatDialogModule,
     AvatarCircleComponent,
   ],
   changeDetection: ChangeDetectionStrategy.Default,
@@ -210,6 +215,33 @@ interface TimerState {
       border:1px solid;
     }
     .host-controls { display:flex;align-items:center;gap:8px;flex-wrap:wrap; }
+    /* polls panel */
+    .polls-panel {
+      border:1px solid rgba(255,255,255,0.08);border-radius:10px;
+      padding:12px 14px;margin-bottom:12px;background:rgba(255,255,255,0.02);
+    }
+    .polls-panel-header { display:flex;align-items:center;justify-content:space-between;margin-bottom:10px; }
+    .polls-panel-title { font-size:0.78rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:rgba(255,255,255,0.4); }
+    .poll-item { border:1px solid rgba(255,255,255,0.07);border-radius:8px;padding:10px 12px;margin-bottom:8px;background:rgba(255,255,255,0.03); }
+    .poll-item:last-child { margin-bottom:0; }
+    .poll-question { font-size:0.85rem;font-weight:600;color:rgba(255,255,255,0.85);margin-bottom:8px; }
+    .poll-options { display:flex;flex-direction:column;gap:5px; }
+    .poll-option-btn {
+      display:flex;align-items:center;gap:8px;width:100%;text-align:left;
+      background:transparent;border:1px solid rgba(255,255,255,0.1);border-radius:6px;
+      padding:6px 10px;color:rgba(255,255,255,0.7);cursor:pointer;transition:all 0.15s;
+      font-size:0.78rem;font-family:inherit;
+    }
+    .poll-option-btn:hover:not(:disabled) { background:rgba(255,255,255,0.06);border-color:rgba(255,255,255,0.2); }
+    .poll-option-btn.selected { border-color:#64b5f6;background:rgba(100,181,246,0.1);color:#64b5f6; }
+    .poll-option-btn:disabled { cursor:default; }
+    .poll-option-label { flex:1; }
+    .poll-option-bar-wrap { flex:1;height:4px;background:rgba(255,255,255,0.08);border-radius:2px;overflow:hidden; }
+    .poll-option-bar { height:100%;border-radius:2px;background:#64b5f6;transition:width 0.4s ease; }
+    .poll-option-pct { font-size:0.7rem;color:rgba(255,255,255,0.4);min-width:30px;text-align:right; }
+    .poll-meta { display:flex;align-items:center;justify-content:space-between;margin-top:8px;font-size:0.7rem;color:rgba(255,255,255,0.3); }
+    .poll-closed-badge { font-size:0.65rem;padding:1px 6px;border-radius:8px;background:rgba(239,83,80,0.15);color:#ef5350;border:1px solid rgba(239,83,80,0.3); }
+
     .presence-bar {
       display:flex;align-items:center;gap:6px;margin-bottom:10px;flex-wrap:wrap;
     }
@@ -749,6 +781,79 @@ interface TimerState {
           </div>
         }
 
+        <!-- Polls toggle -->
+        <div style="display:flex;justify-content:flex-end;margin-bottom:8px">
+          <button mat-button style="font-size:0.75rem;color:#64b5f6;border:1px solid rgba(100,181,246,0.3);border-radius:20px;padding:2px 12px;height:28px;line-height:28px"
+                  (click)="showPollsPanel.update(v => !v)">
+            <mat-icon style="font-size:14px;height:14px;width:14px;vertical-align:middle;margin-right:4px">poll</mat-icon>
+            Polls @if (retroPolls().length > 0) { ({{ retroPolls().length }}) }
+          </button>
+        </div>
+
+        <!-- Polls panel -->
+        @if (showPollsPanel()) {
+          <div class="polls-panel">
+            <div class="polls-panel-header">
+              <span class="polls-panel-title">Polls ({{ retroPolls().length }})</span>
+              <div style="display:flex;gap:6px;align-items:center">
+                @if (s.isCreator) {
+                  <button mat-icon-button style="width:28px;height:28px;line-height:28px" title="New poll" (click)="openPollDialog()">
+                    <mat-icon style="font-size:18px;height:18px;width:18px">add</mat-icon>
+                  </button>
+                }
+                <button mat-icon-button style="width:28px;height:28px;line-height:28px" (click)="showPollsPanel.set(false)" title="Hide polls">
+                  <mat-icon style="font-size:18px;height:18px;width:18px">close</mat-icon>
+                </button>
+              </div>
+            </div>
+            @if (retroPolls().length === 0) {
+              <div style="font-size:0.78rem;color:rgba(255,255,255,0.3);text-align:center;padding:12px 0">
+                No polls yet. @if (s.isCreator) { Click + to create one. }
+              </div>
+            }
+            @for (poll of retroPolls(); track poll.id) {
+              <div class="poll-item">
+                <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
+                  <div class="poll-question">{{ poll.question }}</div>
+                  @if (poll.isCreator) {
+                    <div style="display:flex;gap:2px;flex-shrink:0">
+                      @if (!poll.isClosed) {
+                        <button mat-icon-button style="width:24px;height:24px;line-height:24px" title="Close poll" (click)="closePoll(poll)">
+                          <mat-icon style="font-size:14px;height:14px;width:14px">lock</mat-icon>
+                        </button>
+                      }
+                      <button mat-icon-button style="width:24px;height:24px;line-height:24px" title="Delete" (click)="deletePoll(poll)">
+                        <mat-icon style="font-size:14px;height:14px;width:14px">delete</mat-icon>
+                      </button>
+                    </div>
+                  }
+                </div>
+                <div class="poll-options">
+                  @for (opt of poll.options; track opt.id) {
+                    <button class="poll-option-btn"
+                            [class.selected]="poll.myOptionId === opt.id"
+                            [disabled]="poll.isClosed"
+                            (click)="votePoll(poll, opt.id)">
+                      <span class="poll-option-label">{{ opt.text }}</span>
+                      @if (poll.resultsVisible) {
+                        <div class="poll-option-bar-wrap">
+                          <div class="poll-option-bar" [style.width.%]="opt.percentage"></div>
+                        </div>
+                        <span class="poll-option-pct">{{ opt.percentage }}%</span>
+                      }
+                    </button>
+                  }
+                </div>
+                <div class="poll-meta">
+                  <span>{{ poll.totalVotes }} vote{{ poll.totalVotes !== 1 ? 's' : '' }}</span>
+                  @if (poll.isClosed) { <span class="poll-closed-badge">Closed</span> }
+                  @else if (poll.hideResultsUntilClosed) { <span>Results hidden</span> }
+                </div>
+              </div>
+            }
+          </div>
+        }
+
         <!-- Timer row (non-lobby phases) -->
         @if (s.phase !== 'lobby') {
           <div class="timer-row"
@@ -1175,6 +1280,8 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
   private svc = inject(FunRetroService);
   private wsSvc = inject(WebSocketService);
   private authSvc = inject(AuthService);
+  private pollSvc = inject(PollService);
+  private dialog = inject(MatDialog);
   private snackBar = inject(MatSnackBar);
   private router = inject(Router);
   private route = inject(ActivatedRoute);
@@ -1248,6 +1355,8 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
 
   isDesktop = signal(typeof window !== 'undefined' ? window.innerWidth >= 800 : false);
   presence = signal<{ memberId: string; memberName: string }[]>([]);
+  retroPolls = signal<PollDetail[]>([]);
+  showPollsPanel = signal(false);
   localPositions = signal<Record<string, { x: number; y: number }>>({});
   draggingId = signal<string | null>(null);
   private dragState: { id: string; col: string; startMouseX: number; startMouseY: number; startX: number; startY: number } | null = null;
@@ -1458,6 +1567,14 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
             this.presence.set(msg.data['members'] as { memberId: string; memberName: string }[]);
           }
           break;
+        case 'poll_created':
+        case 'poll_vote_cast':
+        case 'poll_closed':
+        case 'poll_deleted':
+          if (msg.data['retroSessionId'] === s.id) {
+            this.loadRetroPolls(s.id);
+          }
+          break;
       }
     });
   }
@@ -1486,6 +1603,7 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
         this.loading.set(false);
         this.router.navigate(['/pulse/retro', id], { replaceUrl: true });
         this.joinRetroPresence(id);
+        this.loadRetroPolls(id);
       },
       error: () => {
         this.loading.set(false);
@@ -1499,6 +1617,47 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
     const me = this.authSvc.me;
     const memberName = me ? `${me.firstName} ${me.lastName}`.trim() : null;
     this.wsSvc.send({ type: 'join_retro', sessionId, memberName });
+  }
+
+  loadRetroPolls(sessionId: string): void {
+    this.pollSvc.getRetroPolls(sessionId).subscribe({
+      next: polls => this.retroPolls.set(polls),
+      error: () => {}
+    });
+  }
+
+  openPollDialog(): void {
+    const s = this.session();
+    if (!s) return;
+    const ref = this.dialog.open(CreatePollDialogComponent, { width: '460px', panelClass: 'dark-dialog' });
+    ref.afterClosed().subscribe(result => {
+      if (!result) return;
+      this.pollSvc.create({ ...result, retroSessionId: s.id }).subscribe({
+        next: poll => this.retroPolls.update(list => [poll, ...list]),
+        error: () => this.snackBar.open('Failed to create poll', 'OK', { duration: 3000 })
+      });
+    });
+  }
+
+  votePoll(poll: PollDetail, optionId: string): void {
+    this.pollSvc.vote(poll.id, optionId).subscribe({
+      next: updated => this.retroPolls.update(list => list.map(p => p.id === updated.id ? updated : p)),
+      error: () => {}
+    });
+  }
+
+  closePoll(poll: PollDetail): void {
+    this.pollSvc.close(poll.id).subscribe({
+      next: updated => this.retroPolls.update(list => list.map(p => p.id === updated.id ? updated : p)),
+      error: () => {}
+    });
+  }
+
+  deletePoll(poll: PollDetail): void {
+    this.pollSvc.delete(poll.id).subscribe({
+      next: () => this.retroPolls.update(list => list.filter(p => p.id !== poll.id)),
+      error: () => {}
+    });
   }
 
   silentRefresh(): void {

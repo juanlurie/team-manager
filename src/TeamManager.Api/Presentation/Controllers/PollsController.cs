@@ -25,7 +25,7 @@ public class PollsController(PollService service, AppDbContext db) : ControllerB
         var memberId = GetCurrentMemberId();
         try
         {
-            var result = await service.CreateAsync(memberId, request.Question, request.Options, request.HideResultsUntilClosed, request.ScheduledCloseAt);
+            var result = await service.CreateAsync(memberId, request.Question, request.Options, request.HideResultsUntilClosed, request.ScheduledCloseAt, request.RetroSessionId);
             return Ok(result);
         }
         catch (InvalidOperationException ex) { return BadRequest(new { error = ex.Message }); }

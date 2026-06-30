@@ -19,7 +19,7 @@ public class PollService(AppDbContext db)
             .Include(p => p.CreatedByMember)
             .Include(p => p.Options)
             .Include(p => p.Votes)
-            .Where(p => !p.IsClosed)
+            .Where(p => !p.IsClosed && p.RetroSessionId == null)
             .OrderByDescending(p => p.CreatedAt)
             .ToListAsync();
 
@@ -37,7 +37,7 @@ public class PollService(AppDbContext db)
         }).ToList();
     }
 
-    public async Task<PollDetailDto> CreateAsync(Guid memberId, string question, List<string> options, bool hideResultsUntilClosed, DateTimeOffset? scheduledCloseAt)
+    public async Task<PollDetailDto> CreateAsync(Guid memberId, string question, List<string> options, bool hideResultsUntilClosed, DateTimeOffset? scheduledCloseAt, Guid? retroSessionId = null)
     {
         var trimmed = options.Select(o => o.Trim()).Where(o => o.Length > 0).Distinct().ToList();
         if (string.IsNullOrWhiteSpace(question))
@@ -55,6 +55,7 @@ public class PollService(AppDbContext db)
             CreatedByMemberId = memberId,
             HideResultsUntilClosed = hideResultsUntilClosed,
             ScheduledCloseAt = scheduledCloseAt,
+            RetroSessionId = retroSessionId,
         };
         // PollId gets wired up automatically by EF via the navigation relationship on save.
         poll.Options = trimmed.Select((text, i) => new PollOption { Text = text, DisplayOrder = i }).ToList();
@@ -62,7 +63,7 @@ public class PollService(AppDbContext db)
         db.Polls.Add(poll);
         await db.SaveChangesAsync();
 
-        _ = WebSocketMiddleware.BroadcastAsync("poll_created", new { pollId = poll.Id });
+        _ = WebSocketMiddleware.BroadcastAsync("poll_created", new { pollId = poll.Id, retroSessionId = poll.RetroSessionId });
 
         return await GetDetailAsync(poll.Id, memberId);
     }
@@ -87,7 +88,7 @@ public class PollService(AppDbContext db)
         }
         await db.SaveChangesAsync();
 
-        _ = WebSocketMiddleware.BroadcastAsync("poll_vote_cast", new { pollId });
+        _ = WebSocketMiddleware.BroadcastAsync("poll_vote_cast", new { pollId, retroSessionId = poll.RetroSessionId });
 
         return await GetDetailAsync(pollId, memberId);
     }
@@ -101,7 +102,7 @@ public class PollService(AppDbContext db)
         poll.ClosedAt = DateTimeOffset.UtcNow;
         await db.SaveChangesAsync();
 
-        _ = WebSocketMiddleware.BroadcastAsync("poll_closed", new { pollId });
+        _ = WebSocketMiddleware.BroadcastAsync("poll_closed", new { pollId, retroSessionId = poll.RetroSessionId });
 
         return await GetDetailAsync(pollId, memberId);
     }
@@ -131,7 +132,21 @@ public class PollService(AppDbContext db)
         db.Polls.Remove(poll);
         await db.SaveChangesAsync();
 
-        _ = WebSocketMiddleware.BroadcastAsync("poll_deleted", new { pollId });
+        _ = WebSocketMiddleware.BroadcastAsync("poll_deleted", new { pollId, retroSessionId = poll.RetroSessionId });
+    }
+
+    public async Task<List<PollDetailDto>> GetRetroSessionPollsAsync(Guid retroSessionId, Guid memberId)
+    {
+        var pollIds = await db.Polls
+            .Where(p => p.RetroSessionId == retroSessionId)
+            .OrderByDescending(p => p.CreatedAt)
+            .Select(p => p.Id)
+            .ToListAsync();
+
+        var results = new List<PollDetailDto>();
+        foreach (var id in pollIds)
+            results.Add(await GetDetailAsync(id, memberId));
+        return results;
     }
 
     // Mirrors the QuizGameProgressWorker pattern: closing happens lazily here on every fetch,

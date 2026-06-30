@@ -38,4 +38,5 @@ export interface CreatePollRequest {
   options: string[];
   hideResultsUntilClosed?: boolean;
   scheduledCloseAt?: string | null;
+  retroSessionId?: string | null;
 }
