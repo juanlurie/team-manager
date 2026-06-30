@@ -1,7 +1,8 @@
 FROM node:22-alpine AS build
+ENV NODE_OPTIONS="--max-old-space-size=4096"
 WORKDIR /app
 COPY package*.json ./
-RUN npm install --legacy-peer-deps
+RUN npm install --legacy-peer-deps --prefer-offline
 COPY . .
 ARG GOOGLE_CLIENT_ID=YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com
 RUN sed -i "s|YOUR_GOOGLE_CLIENT_ID\.apps\.googleusercontent\.com|${GOOGLE_CLIENT_ID}|g" \
