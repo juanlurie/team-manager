@@ -9,8 +9,8 @@ resources:
 
 images:
   - name: ghcr.io/juanlurie/team-manager-api
-    newTag: "9ce59985d917359d18e88d6811c1c835f3e9ed4d"
+    newTag: "94377cf353785d81c929c157f164869295dd4794"
   - name: ghcr.io/juanlurie/team-manager-ui
-    newTag: "9ce59985d917359d18e88d6811c1c835f3e9ed4d"
+    newTag: "94377cf353785d81c929c157f164869295dd4794"
   - name: ghcr.io/juanlurie/team-manager-mcp
-    newTag: "9ce59985d917359d18e88d6811c1c835f3e9ed4d"
+    newTag: "94377cf353785d81c929c157f164869295dd4794"
