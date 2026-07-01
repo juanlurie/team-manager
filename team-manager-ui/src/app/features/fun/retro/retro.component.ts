@@ -213,8 +213,34 @@ interface TimerState {
     /* ── session view ────────────────────────────────────── */
     .session-wrap { padding:4px 0; }
     .session-header {
-      display:flex;align-items:flex-start;justify-content:space-between;
-      gap:8px;margin-bottom:8px;flex-wrap:wrap;
+      display:flex;align-items:center;
+      gap:8px;padding:10px 20px;margin-bottom:8px;flex-wrap:wrap;
+      background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.07);
+      border-radius:10px;
+    }
+    .header-spacer { flex:1; }
+    .polls-toggle-btn {
+      font-size:0.75rem;color:#64b5f6;border:1px solid rgba(100,181,246,0.3);
+      border-radius:20px;padding:2px 12px;height:28px;line-height:28px;
+    }
+    .timer-trigger-wrap { position:relative; }
+    .timer-trigger {
+      display:flex;align-items:center;gap:6px;
+      padding:6px 12px;border-radius:8px;
+      border:1px solid rgba(255,255,255,0.15);background:rgba(255,255,255,0.04);
+      color:rgba(255,255,255,0.7);cursor:pointer;font-family:inherit;
+      font-size:0.8rem;font-variant-numeric:tabular-nums;transition:all 0.15s;
+    }
+    .timer-trigger:hover { background:rgba(255,255,255,0.08); }
+    .timer-trigger.timer-danger { border-color:rgba(239,83,80,0.4); }
+    .timer-trigger.timer-expired { border-color:rgba(100,181,246,0.4); }
+    .timer-trigger-icon { font-size:16px;height:16px;width:16px; }
+    .timer-popover {
+      position:absolute;top:38px;right:0;z-index:250;
+      background:#2a2a2a;border:1px solid rgba(255,255,255,0.12);
+      border-radius:10px;padding:14px;
+      display:flex;flex-direction:column;align-items:center;gap:10px;
+      width:220px;box-shadow:0 4px 16px rgba(0,0,0,0.5);
     }
     .session-title-row { display:flex;flex-direction:column;gap:6px; }
     .session-name { font-size:1rem;font-weight:600;color:rgba(255,255,255,0.9); }
@@ -690,16 +716,7 @@ interface TimerState {
       content:'•';position:absolute;left:0;color:rgba(100,181,246,0.6);
     }
 
-    /* Timer row */
-    .timer-row {
-      display:flex; align-items:center; flex-wrap:wrap;
-      padding:10px 20px; margin-bottom:8px;
-      background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.07);
-      border-radius:10px; gap:12px;
-    }
-    .timer-row.timer-danger { border-color:rgba(239,83,80,0.25); animation:row-glow 0.9s ease-in-out infinite alternate; }
-    .timer-row.timer-expired { border-color:rgba(100,181,246,0.3); }
-    @keyframes row-glow { from { box-shadow:none; } to { box-shadow:0 0 12px rgba(239,83,80,0.2); } }
+    /* Timer popover */
     .timer-ring-wrap { position:relative; width:80px; height:80px; flex-shrink:0; }
     .timer-svg { width:80px; height:80px; }
     .timer-track { fill:none; stroke:rgba(255,255,255,0.08); stroke-width:5; }
@@ -721,7 +738,6 @@ interface TimerState {
     }
     .timer-btn:hover { background:rgba(255,255,255,0.08); color:rgba(255,255,255,0.95); border-color:rgba(255,255,255,0.25); }
     .timer-icon { font-size:18px; height:18px; width:18px; }
-    .timer-spacer { flex:1; }
 
     /* Icebreaker */
     .icebreaker-box { background:rgba(100,181,246,0.05); border:1px solid rgba(100,181,246,0.18); border-radius:10px; padding:14px 16px; margin:14px 0 0; }
@@ -833,14 +849,83 @@ interface TimerState {
     <!-- ══════════════════════════════════════════════════════ -->
     @if (session(); as s) {
       <div class="session-wrap">
-        <!-- Compact header: title + back -->
-        <div class="session-header">
+        <!-- Compact header: title, timer, polls, settings, share, back, phase actions — all in one row -->
+        <div class="session-header" [class.full-bleed]="isDesktop()">
           <div class="session-title-row">
             <span class="session-name">{{ s.title || 'Untitled Retro' }}</span>
             <span class="session-sub">{{ s.cards.length }} card{{ s.cards.length !== 1 ? 's' : '' }}</span>
           </div>
+          <div class="header-spacer"></div>
+          @if (s.phase !== 'lobby') {
+            <div class="timer-trigger-wrap" (mousedown)="$event.stopPropagation()">
+              <button class="timer-trigger"
+                      [class.timer-danger]="timerRemaining() <= 30 && !timerExpired() && timerRunning()"
+                      [class.timer-expired]="timerExpired()"
+                      (click)="toggleTimerPopover($event)" title="Timer">
+                @if (timerExpired()) {
+                  <mat-icon class="timer-trigger-icon">alarm</mat-icon>
+                } @else {
+                  <mat-icon class="timer-trigger-icon" [style.color]="timer() ? timerColor() : null">timer</mat-icon>
+                  <span class="timer-trigger-time" [style.color]="timer() ? timerColor() : null">{{ timerDisplay() }}</span>
+                }
+              </button>
+              @if (timerPopoverOpen()) {
+                <div class="timer-popover" (mousedown)="$event.stopPropagation()">
+                  <div class="timer-ring-wrap"
+                       [class.timer-danger-anim]="timerRemaining() <= 30 && !timerExpired() && timerRunning()"
+                       [class.timer-expired-anim]="timerExpired()">
+                    <svg class="timer-svg" viewBox="0 0 80 80">
+                      <circle class="timer-track" cx="40" cy="40" r="32"/>
+                      @if (timer()) {
+                        <circle class="timer-arc"
+                                cx="40" cy="40" r="32"
+                                transform="rotate(-90 40 40)"
+                                [style.stroke]="timerColor()"
+                                [attr.stroke-dasharray]="201.06"
+                                [attr.stroke-dashoffset]="201.06 * timerProgress()"/>
+                      }
+                    </svg>
+                    <div class="timer-center">
+                      @if (timerExpired()) {
+                        <mat-icon class="timer-expired-icon">alarm</mat-icon>
+                      } @else {
+                        <span class="timer-time" [style.color]="timer() ? timerColor() : 'rgba(255,255,255,0.25)'">
+                          {{ timerDisplay() }}
+                        </span>
+                        <span class="timer-label">{{ timerRunning() ? 'running' : timer() ? 'paused' : 'timer' }}</span>
+                      }
+                    </div>
+                  </div>
+                  @if (s.isCreator) {
+                    <div class="timer-controls">
+                      @if (!timer()) {
+                        <button class="timer-btn" (click)="setTimerPreset(300)">5 min</button>
+                        <button class="timer-btn" (click)="setTimerPreset(480)">8 min</button>
+                        <button class="timer-btn" (click)="setTimerPreset(600)">10 min</button>
+                      } @else {
+                        <button class="timer-btn" (click)="toggleTimer()">
+                          <mat-icon class="timer-icon">{{ timerRunning() ? 'pause' : 'play_arrow' }}</mat-icon>
+                          {{ timerRunning() ? 'Pause' : 'Resume' }}
+                        </button>
+                        <button class="timer-btn" (click)="addTimerMinutes(-2)">-2 min</button>
+                        <button class="timer-btn" (click)="addTimerMinutes(2)">+2 min</button>
+                        <button class="timer-btn" (click)="resetTimer()">
+                          <mat-icon class="timer-icon">restart_alt</mat-icon>
+                          Reset
+                        </button>
+                      }
+                    </div>
+                  }
+                </div>
+              }
+            </div>
+          }
+          <button mat-button class="polls-toggle-btn" (click)="showPollsPanel.update(v => !v)">
+            <mat-icon style="font-size:14px;height:14px;width:14px;vertical-align:middle;margin-right:4px">poll</mat-icon>
+            Polls @if (retroPolls().length > 0) { ({{ retroPolls().length }}) }
+          </button>
           <div class="host-controls">
-            @if (s.isCreator && s.phase === 'lobby') {
+            @if (s.isCreator) {
               <button mat-icon-button (click)="showSettings.set(!showSettings())" title="Session settings"
                       [style.color]="showSettings() ? '#64b5f6' : null">
                 <mat-icon>settings</mat-icon>
@@ -853,6 +938,23 @@ interface TimerState {
               <mat-icon>arrow_back</mat-icon>
             </button>
           </div>
+          @if (s.phase === 'vote') {
+            <span class="votes-left-badge">{{ voteBudget() }} vote{{ voteBudget() !== 1 ? 's' : '' }} left</span>
+          }
+          @if (s.isCreator && (s.phase === 'discuss' || s.phase === 'done')) {
+            <button mat-stroked-button (click)="runAnalysis()" [disabled]="analysing()">
+              @if (analysing()) { <mat-spinner diameter="16" style="display:inline-block;margin-right:4px" /> }
+              @else { <mat-icon>auto_awesome</mat-icon> }
+              Analyse with AI
+            </button>
+          }
+          @if (s.isCreator && nextPhase()) {
+            <button mat-flat-button color="accent" (click)="advancePhase()" [disabled]="advancingPhase()">
+              @if (advancingPhase()) { <mat-spinner diameter="16" style="display:inline-block;margin-right:4px" /> }
+              Next: {{ phaseLabel(nextPhase()!) }}
+              <mat-icon>arrow_forward</mat-icon>
+            </button>
+          }
         </div>
 
         <!-- Settings panel (creator only) -->
@@ -918,14 +1020,6 @@ interface TimerState {
           </div>
         }
 
-        <!-- Polls toggle -->
-        <div style="display:flex;justify-content:flex-end;margin-bottom:8px">
-          <button mat-button style="font-size:0.75rem;color:#64b5f6;border:1px solid rgba(100,181,246,0.3);border-radius:20px;padding:2px 12px;height:28px;line-height:28px"
-                  (click)="showPollsPanel.update(v => !v)">
-            <mat-icon style="font-size:14px;height:14px;width:14px;vertical-align:middle;margin-right:4px">poll</mat-icon>
-            Polls @if (retroPolls().length > 0) { ({{ retroPolls().length }}) }
-          </button>
-        </div>
 
         <!-- Polls panel -->
         @if (showPollsPanel()) {
@@ -987,83 +1081,6 @@ interface TimerState {
                   @else if (poll.hideResultsUntilClosed) { <span>Results hidden</span> }
                 </div>
               </div>
-            }
-          </div>
-        }
-
-        <!-- Top control bar: timer + settings + phase actions, all in one row (non-lobby phases) -->
-        @if (s.phase !== 'lobby') {
-          <div class="timer-row" [class.full-bleed]="isDesktop()"
-               [class.timer-danger]="timerRemaining() <= 30 && !timerExpired() && timerRunning()"
-               [class.timer-expired]="timerExpired()">
-            <div class="timer-ring-wrap"
-                 [class.timer-danger-anim]="timerRemaining() <= 30 && !timerExpired() && timerRunning()"
-                 [class.timer-expired-anim]="timerExpired()">
-              <svg class="timer-svg" viewBox="0 0 80 80">
-                <circle class="timer-track" cx="40" cy="40" r="32"/>
-                @if (timer()) {
-                  <circle class="timer-arc"
-                          cx="40" cy="40" r="32"
-                          transform="rotate(-90 40 40)"
-                          [style.stroke]="timerColor()"
-                          [attr.stroke-dasharray]="201.06"
-                          [attr.stroke-dashoffset]="201.06 * timerProgress()"/>
-                }
-              </svg>
-              <div class="timer-center">
-                @if (timerExpired()) {
-                  <mat-icon class="timer-expired-icon">alarm</mat-icon>
-                } @else {
-                  <span class="timer-time" [style.color]="timer() ? timerColor() : 'rgba(255,255,255,0.25)'">
-                    {{ timerDisplay() }}
-                  </span>
-                  <span class="timer-label">{{ timerRunning() ? 'running' : timer() ? 'paused' : 'timer' }}</span>
-                }
-              </div>
-            </div>
-            @if (s.isCreator) {
-              <div class="timer-controls">
-                @if (!timer()) {
-                  <button class="timer-btn" (click)="setTimerPreset(300)">5 min</button>
-                  <button class="timer-btn" (click)="setTimerPreset(480)">8 min</button>
-                  <button class="timer-btn" (click)="setTimerPreset(600)">10 min</button>
-                } @else {
-                  <button class="timer-btn" (click)="toggleTimer()">
-                    <mat-icon class="timer-icon">{{ timerRunning() ? 'pause' : 'play_arrow' }}</mat-icon>
-                    {{ timerRunning() ? 'Pause' : 'Resume' }}
-                  </button>
-                  <button class="timer-btn" (click)="addTimerMinutes(-2)">-2 min</button>
-                  <button class="timer-btn" (click)="addTimerMinutes(2)">+2 min</button>
-                  <button class="timer-btn" (click)="resetTimer()">
-                    <mat-icon class="timer-icon">restart_alt</mat-icon>
-                    Reset
-                  </button>
-                }
-              </div>
-            }
-            <div class="timer-spacer"></div>
-            @if (s.isCreator) {
-              <button mat-icon-button (click)="showSettings.set(!showSettings())" title="Session settings"
-                      [style.color]="showSettings() ? '#64b5f6' : null">
-                <mat-icon>settings</mat-icon>
-              </button>
-            }
-            @if (s.phase === 'vote') {
-              <span class="votes-left-badge">{{ voteBudget() }} vote{{ voteBudget() !== 1 ? 's' : '' }} left</span>
-            }
-            @if (s.isCreator && (s.phase === 'discuss' || s.phase === 'done')) {
-              <button mat-stroked-button (click)="runAnalysis()" [disabled]="analysing()">
-                @if (analysing()) { <mat-spinner diameter="16" style="display:inline-block;margin-right:4px" /> }
-                @else { <mat-icon>auto_awesome</mat-icon> }
-                Analyse with AI
-              </button>
-            }
-            @if (s.isCreator && nextPhase()) {
-              <button mat-flat-button color="accent" (click)="advancePhase()" [disabled]="advancingPhase()">
-                @if (advancingPhase()) { <mat-spinner diameter="16" style="display:inline-block;margin-right:4px" /> }
-                Next: {{ phaseLabel(nextPhase()!) }}
-                <mat-icon>arrow_forward</mat-icon>
-              </button>
             }
           </div>
         }
@@ -1690,6 +1707,14 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
   @HostListener('document:click')
   onDocClick(): void {
     if (this.colorPickerOpenFor()) this.colorPickerOpenFor.set(null);
+    if (this.timerPopoverOpen()) this.timerPopoverOpen.set(false);
+  }
+
+  timerPopoverOpen = signal(false);
+
+  toggleTimerPopover(e: MouseEvent): void {
+    e.stopPropagation();
+    this.timerPopoverOpen.update(v => !v);
   }
 
   readonly stickyPalette = [
