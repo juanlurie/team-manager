@@ -568,8 +568,8 @@ interface TimerState {
         linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
         linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
       background-size:40px 40px;
-      height:calc(100vh - 380px);
-      min-height:380px;
+      height:var(--canvas-height, calc(100vh - 260px));
+      min-height:320px;
       cursor:default;
     }
     .canvas-inner {
@@ -1656,7 +1656,19 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
     return Math.max(400, maxY + 20);
   }
 
-  ngAfterViewInit(): void { this.updateCanvasMargins(); }
+  private canvasResizeObserver?: ResizeObserver;
+
+  ngAfterViewInit(): void {
+    this.updateCanvasMargins();
+    // Any reflow above the canvas (settings/polls panels, phase banners, etc.) changes
+    // how much vertical space is left for it — recompute instead of leaving dead space.
+    if (typeof ResizeObserver !== 'undefined') {
+      this.canvasResizeObserver = new ResizeObserver(() => {
+        requestAnimationFrame(() => this.updateCanvasMargins());
+      });
+      this.canvasResizeObserver.observe(this.elRef.nativeElement);
+    }
+  }
 
   @HostListener('window:resize')
   onResize(): void {
@@ -1673,6 +1685,17 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
     const contentRight = contentEl ? contentEl.getBoundingClientRect().right : window.innerWidth;
     el.style.setProperty('--canvas-ml', `-${rect.left - contentLeft - gutter}px`);
     el.style.setProperty('--canvas-mr', `-${contentRight - rect.right - gutter}px`);
+
+    // Let the canvas fill whatever vertical space is actually left below it, instead of
+    // a fixed height guess that leaves dead space once the chrome above it shrinks/grows.
+    // Measured from .canvas-outer itself (not .canvases-row) since each column's own
+    // header + add-card input sit above it within the row.
+    const canvasOuter = el.querySelector('.canvas-outer') as HTMLElement | null;
+    if (canvasOuter) {
+      const bottomGutter = 16;
+      const availHeight = window.innerHeight - canvasOuter.getBoundingClientRect().top - bottomGutter;
+      el.style.setProperty('--canvas-height', `${Math.max(availHeight, 320)}px`);
+    }
   }
 
   @HostListener('document:mousemove', ['$event'])
@@ -1887,6 +1910,7 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
     if (this.timerInterval) clearInterval(this.timerInterval);
     this.wsSvc.send({ type: 'leave_retro' });
     this.navSvc.hideSubNav.set(false);
+    this.canvasResizeObserver?.disconnect();
   }
 
   loadSessions(): void {
