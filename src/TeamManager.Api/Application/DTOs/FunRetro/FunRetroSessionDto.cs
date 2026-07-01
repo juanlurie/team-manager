@@ -74,6 +74,7 @@ public record FunRetroSessionSummaryDto
     public Guid Id { get; init; }
     public string? Title { get; init; }
     public string Phase { get; init; } = "lobby";
+    public Guid CreatedByMemberId { get; init; }
     public string CreatedByName { get; init; } = "";
     public string? SprintName { get; init; }
     public int CardCount { get; init; }
