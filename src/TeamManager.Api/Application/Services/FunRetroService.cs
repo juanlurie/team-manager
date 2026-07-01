@@ -30,6 +30,7 @@ public class FunRetroService(AppDbContext db, AiPromptExecutorService aiExecutor
             CreatedByMemberId = memberId,
             SprintId = req.SprintId,
             ColumnsJson = columnsJson,
+            IcebreakerQuestion = string.IsNullOrWhiteSpace(req.IcebreakerQuestion) ? null : req.IcebreakerQuestion.Trim(),
         };
 
         db.FunRetroSessions.Add(session);
@@ -160,6 +161,7 @@ public class FunRetroService(AppDbContext db, AiPromptExecutorService aiExecutor
             AiAnalysis = analysis,
             TimerJson = session.TimerJson,
             IcebreakerAnswers = icebreakerAnswers,
+            IcebreakerQuestion = session.IcebreakerQuestion,
             Columns = columns,
             HideCardsOnAdd = session.HideCardsOnAdd,
             ParticipationTracking = session.ParticipationTracking,
