@@ -25,8 +25,8 @@ const FUN_TABS: FunTab[] = [
   standalone: true,
   imports: [RouterLink, RouterLinkActive, RouterOutlet],
   template: `
-    <div class="hub" [class.immersive]="nav.hideNav()">
-      @if (!nav.hideNav()) {
+    <div class="hub" [class.immersive]="nav.hideNav() || nav.hideSubNav()">
+      @if (!nav.hideNav() && !nav.hideSubNav()) {
         <nav class="hub-tabs" role="tablist">
           @for (tab of visibleTabs(); track tab.route) {
             <a class="hub-tab" [routerLink]="tab.route" routerLinkActive="active" role="tab">{{ tab.label }}</a>

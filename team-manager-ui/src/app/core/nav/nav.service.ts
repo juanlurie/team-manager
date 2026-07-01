@@ -45,6 +45,8 @@ export class NavService {
   currentUrl = signal(this.router.url);
   expanded = signal(localStorage.getItem('nav-expanded') === 'true');
   hideNav = signal(false);
+  /** Hides just a hub's own sub-nav tabs (e.g. Pulse's tab row) to save space, unlike hideNav which hides the whole app shell. */
+  hideSubNav = signal(false);
 
   isLoginPage = computed(() => this.currentUrl() === '/login');
   isMoreActive = computed(() => ALL_MORE_NAV.some(item => this.currentUrl().startsWith(item.path)));
