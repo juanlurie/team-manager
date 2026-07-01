@@ -167,6 +167,7 @@ interface TimerState {
     .lobby-title { font-size:1.1rem;font-weight:600;color:rgba(255,255,255,0.9); }
     .session-list { display:flex;flex-direction:column;gap:10px;margin-bottom:20px; }
     .session-card {
+      display:flex;align-items:flex-start;justify-content:space-between;gap:8px;
       background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);
       border-radius:10px;padding:14px 16px;cursor:pointer;
       transition:background 0.15s,border-color 0.15s;
@@ -174,6 +175,8 @@ interface TimerState {
     .session-card:hover { background:rgba(255,255,255,0.08);border-color:rgba(255,255,255,0.16); }
     .session-card-title { font-size:0.9rem;font-weight:600;color:rgba(255,255,255,0.9);margin-bottom:6px; }
     .session-card-meta { display:flex;gap:12px;flex-wrap:wrap;align-items:center;font-size:0.75rem;color:rgba(255,255,255,0.45); }
+    .session-card-delete { color:rgba(255,255,255,0.3); flex-shrink:0; }
+    .session-card-delete:hover { color:#ef5350; }
     .empty-state { text-align:center;padding:40px 16px;color:rgba(255,255,255,0.35);font-size:0.9rem; }
 
     /* new retro inline form */
@@ -192,11 +195,15 @@ interface TimerState {
     .form-actions { display:flex;gap:8px;justify-content:flex-end; }
     .template-grid { display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px;margin-bottom:4px; }
     .template-card {
-      border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:10px 12px;
+      border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:10px 12px 10px 13px;
+      border-left:3px solid var(--tpl-accent, rgba(255,255,255,0.1));
       cursor:pointer;transition:border-color 0.15s,background 0.15s;
     }
-    .template-card:hover { background:rgba(255,255,255,0.04); }
-    .template-card.selected { border-color:#64b5f6;background:rgba(100,181,246,0.06); }
+    .template-card:hover { background:color-mix(in srgb, var(--tpl-accent, #fff) 6%, transparent); }
+    .template-card.selected {
+      border-color:var(--tpl-accent);
+      background:color-mix(in srgb, var(--tpl-accent) 10%, transparent);
+    }
     .template-name { font-size:0.82rem;font-weight:600;color:rgba(255,255,255,0.85);margin-bottom:2px; }
     .template-desc { font-size:0.7rem;color:rgba(255,255,255,0.35);margin-bottom:6px; }
     .template-cols { display:flex;flex-wrap:wrap;gap:4px; }
@@ -336,8 +343,10 @@ interface TimerState {
       .session-wrap { max-width:100%; }
     }
     .col {
-      background:rgba(255,255,255,0.03);border-radius:10px;
-      border:1px solid rgba(255,255,255,0.07);padding:12px;
+      background:color-mix(in srgb, var(--col-accent, #fff) 4%, rgba(255,255,255,0.03));
+      border-radius:10px;
+      border:1px solid rgba(255,255,255,0.07);border-top:3px solid var(--col-accent, rgba(255,255,255,0.07));
+      padding:12px;
       display:flex;flex-direction:column;gap:8px;min-height:180px;
     }
     .col-header {
@@ -356,6 +365,7 @@ interface TimerState {
       flex:1;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);
       border-radius:6px;color:inherit;font-size:0.82rem;padding:7px 9px;
       outline:none;transition:border-color 0.2s;font-family:inherit;
+      resize:none;line-height:1.4;max-height:160px;
     }
     .card-input:focus { border-color:#64b5f6; }
 
@@ -485,11 +495,15 @@ interface TimerState {
     }
     .phase-guide mat-icon { font-size:15px;height:15px;width:15px;flex-shrink:0;opacity:0.7; }
 
+    /* top control bar: timer + phase actions grouped together */
+    .top-control-bar { display:flex; flex-direction:column; gap:8px; margin-bottom:8px; }
+
     /* advance button */
     .advance-wrap {
       display:flex;align-items:center;justify-content:flex-end;
-      gap:10px;margin-top:16px;padding-top:14px;
-      border-top:1px solid rgba(255,255,255,0.06);
+      gap:10px;padding:12px 20px;
+      background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.07);
+      border-radius:10px;
     }
     .advance-wrap .votes-left-badge { margin-right:auto; }
 
@@ -511,12 +525,13 @@ interface TimerState {
       font-size:0.82rem;font-weight:700;
     }
     .canvas-add-row {
-      display:flex;gap:6px;
+      display:flex;gap:6px;align-items:flex-end;
     }
     .canvas-add-input {
       flex:1;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);
       border-radius:6px;color:inherit;font-size:0.82rem;padding:6px 9px;
       outline:none;font-family:inherit;
+      resize:none;line-height:1.4;max-height:160px;
     }
     .canvas-add-input:focus { border-color:#64b5f6; }
     .canvas-add-btn {
@@ -526,7 +541,8 @@ interface TimerState {
     .canvas-add-btn:disabled { opacity:0.4;cursor:not-allowed; }
     .canvas-outer {
       overflow:auto;border:1px solid rgba(255,255,255,0.07);
-      border-radius:10px;background:rgba(0,0,0,0.15);
+      border-top:3px solid var(--col-accent, rgba(255,255,255,0.07));
+      border-radius:10px;background:color-mix(in srgb, var(--col-accent, #000) 6%, rgba(0,0,0,0.15));
       background-image:
         linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
         linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
@@ -617,28 +633,14 @@ interface TimerState {
     }
     .sticky-text-editable { cursor:text; }
     .sticky-text-editable:hover { background:rgba(0,0,0,0.04);border-radius:4px; }
-    .sticky-color-row {
-      display:flex;gap:4px;flex-wrap:wrap;margin-top:6px;padding-top:6px;
-      border-top:1px solid rgba(0,0,0,0.08);
-      opacity:0;transition:opacity .15s;
+    .sticky-color-trigger { position:relative; margin-left:auto; }
+    .sticky-color-dot {
+      width:14px;height:14px;border-radius:50%;cursor:pointer;
+      border:1.5px solid rgba(0,0,0,0.25);padding:0;transition:transform .1s;
     }
-    .sticky:hover .sticky-color-row { opacity:1; }
-    .sticky-color-swatch {
-      width:14px;height:14px;border-radius:50%;cursor:pointer;border:1.5px solid transparent;
-      transition:transform .1s;flex-shrink:0;
-    }
-    .sticky-color-swatch:hover { transform:scale(1.3); }
-    .sticky-color-swatch.active { border-color:rgba(0,0,0,0.4); }
-    .sticky-color-btn {
-      position:absolute;top:6px;left:6px;
-      width:14px;height:14px;border-radius:50%;
-      border:1.5px solid rgba(0,0,0,0.25);
-      cursor:pointer;background:transparent;padding:0;
-      opacity:0;transition:opacity 0.15s;flex-shrink:0;
-    }
-    .sticky:hover .sticky-color-btn { opacity:1; }
+    .sticky-color-dot:hover { transform:scale(1.2); }
     .color-picker-popover {
-      position:absolute;top:24px;left:0;z-index:200;
+      position:absolute;bottom:20px;right:0;z-index:200;
       background:#2a2a2a;border:1px solid rgba(255,255,255,0.12);
       border-radius:8px;padding:8px;display:flex;gap:6px;flex-wrap:wrap;
       width:116px;box-shadow:0 4px 16px rgba(0,0,0,0.5);
@@ -696,7 +698,7 @@ interface TimerState {
     /* Timer row */
     .timer-row {
       display:flex; align-items:center; justify-content:space-between;
-      padding:12px 20px; margin-bottom:8px;
+      padding:12px 20px;
       background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.07);
       border-radius:10px; gap:16px;
     }
@@ -778,13 +780,21 @@ interface TimerState {
           <div class="session-list">
             @for (s of sessions(); track s.id) {
               <div class="session-card" (click)="openSession(s.id)">
-                <div class="session-card-title">{{ s.title || 'Untitled Retro' }}</div>
-                <div class="session-card-meta">
-                  <span [style.color]="phaseColor(s.phase)">{{ phaseLabel(s.phase) }}</span>
-                  @if (s.sprintName) { <span>{{ s.sprintName }}</span> }
-                  <span>by {{ s.createdByName }}</span>
-                  <span>{{ s.cardCount }} card{{ s.cardCount !== 1 ? 's' : '' }}</span>
+                <div>
+                  <div class="session-card-title">{{ s.title || 'Untitled Retro' }}</div>
+                  <div class="session-card-meta">
+                    <span [style.color]="phaseColor(s.phase)">{{ phaseLabel(s.phase) }}</span>
+                    @if (s.sprintName) { <span>{{ s.sprintName }}</span> }
+                    <span>by {{ s.createdByName }}</span>
+                    <span>{{ s.cardCount }} card{{ s.cardCount !== 1 ? 's' : '' }}</span>
+                  </div>
                 </div>
+                @if (s.createdByMemberId === authSvc.me?.id) {
+                  <button mat-icon-button class="session-card-delete" title="Delete retro"
+                          (click)="deleteSession($event, s)">
+                    <mat-icon>delete_outline</mat-icon>
+                  </button>
+                }
               </div>
             }
           </div>
@@ -798,6 +808,7 @@ interface TimerState {
               <div class="template-grid">
                 @for (t of templates; track t.id) {
                   <div class="template-card" [class.selected]="selectedTemplateId() === t.id"
+                       [style.--tpl-accent]="templateAccent(t)"
                        (click)="selectTemplate(t.id)">
                     <div class="template-name">{{ t.name }}</div>
                     <div class="template-desc">{{ t.description }}</div>
@@ -985,8 +996,9 @@ interface TimerState {
           </div>
         }
 
-        <!-- Timer row (non-lobby phases) -->
+        <!-- Top control bar: timer + phase actions (non-lobby phases) -->
         @if (s.phase !== 'lobby') {
+          <div class="top-control-bar">
           <div class="timer-row"
                [class.timer-danger]="timerRemaining() <= 30 && !timerExpired() && timerRunning()"
                [class.timer-expired]="timerExpired()">
@@ -1036,6 +1048,28 @@ interface TimerState {
                 }
               </div>
             }
+          </div>
+          @if (s.isCreator && (nextPhase() || s.phase === 'done')) {
+            <div class="advance-wrap">
+              @if (s.phase === 'vote') {
+                <span class="votes-left-badge" style="margin-right:auto">{{ voteBudget() }} vote{{ voteBudget() !== 1 ? 's' : '' }} left</span>
+              }
+              @if (s.phase === 'discuss' || s.phase === 'done') {
+                <button mat-stroked-button (click)="runAnalysis()" [disabled]="analysing()">
+                  @if (analysing()) { <mat-spinner diameter="16" style="display:inline-block;margin-right:4px" /> }
+                  @else { <mat-icon>auto_awesome</mat-icon> }
+                  Analyse with AI
+                </button>
+              }
+              @if (nextPhase()) {
+                <button mat-flat-button color="accent" (click)="advancePhase()" [disabled]="advancingPhase()">
+                  @if (advancingPhase()) { <mat-spinner diameter="16" style="display:inline-block;margin-right:4px" /> }
+                  Next: {{ phaseLabel(nextPhase()!) }}
+                  <mat-icon>arrow_forward</mat-icon>
+                </button>
+              }
+            </div>
+          }
           </div>
         }
 
@@ -1137,17 +1171,18 @@ interface TimerState {
           @if (s.phase === 'add' || s.phase === 'vote' || s.phase === 'discuss' || s.phase === 'done') {
             <div class="board">
               @for (col of cols(); track col.key) {
-                <div class="col">
+                <div class="col" [style.--col-accent]="col.color">
                   <div class="col-header">
                     <span class="col-label" [style.color]="col.color">{{ col.label }}</span>
                     <span class="col-count">{{ cardsForCol(col.key).length }}</span>
                   </div>
                   @if (s.phase === 'add') {
                     <div class="add-input-row">
-                      <input class="card-input" placeholder="Add a card…"
-                             [(ngModel)]="newCardText()[col.key]"
-                             (keyup.enter)="submitCard(col.key)"
-                             [disabled]="submittingCard() === col.key" />
+                      <textarea class="card-input" placeholder="Add a card…" rows="1"
+                                [(ngModel)]="newCardText()[col.key]"
+                                (keydown.enter)="$event.preventDefault(); submitCard(col.key)"
+                                [disabled]="submittingCard() === col.key"
+                                cdkTextareaAutosize cdkAutosizeMaxRows="6"></textarea>
                       <button mat-icon-button [style.color]="col.color"
                               (click)="submitCard(col.key)"
                               [disabled]="!newCardText()[col.key]?.trim() || submittingCard() === col.key">
@@ -1299,10 +1334,11 @@ interface TimerState {
                 </div>
                 @if (s.phase === 'add') {
                   <div class="canvas-add-row">
-                    <input class="canvas-add-input" placeholder="Add a card…"
-                           [(ngModel)]="newCardText()[col.key]"
-                           (keyup.enter)="submitCard(col.key)"
-                           [disabled]="submittingCard() === col.key" />
+                    <textarea class="canvas-add-input" placeholder="Add a card…" rows="1"
+                              [(ngModel)]="newCardText()[col.key]"
+                              (keydown.enter)="$event.preventDefault(); submitCard(col.key)"
+                              [disabled]="submittingCard() === col.key"
+                              cdkTextareaAutosize cdkAutosizeMaxRows="6"></textarea>
                     <button class="canvas-add-btn" [style.color]="col.color"
                             [disabled]="!newCardText()[col.key]?.trim() || submittingCard() === col.key"
                             (click)="submitCard(col.key)">
@@ -1310,7 +1346,7 @@ interface TimerState {
                     </button>
                   </div>
                 }
-                <div class="canvas-outer" [attr.data-col]="col.key">
+                <div class="canvas-outer" [attr.data-col]="col.key" [style.--col-accent]="col.color">
                   <div class="canvas-inner" [style.height.px]="canvasHeight(col.key)">
                     @for (item of canvasCardsForCol(col.key); track item.card.id) {
                       <div class="sticky"
@@ -1359,7 +1395,7 @@ interface TimerState {
                             {{ item.card.text }}
                           </div>
                         }
-                        <!-- Footer: votes -->
+                        <!-- Footer: votes + color picker -->
                         <div class="sticky-footer">
                           @if (s.phase === 'vote' || s.phase === 'discuss' || s.phase === 'done') {
                             <div class="sticky-vote-row">
@@ -1376,6 +1412,21 @@ interface TimerState {
                               }
                             </div>
                           }
+                          @if (s.phase === 'add' || s.phase === 'vote' || s.phase === 'discuss') {
+                            <div class="sticky-color-trigger" (mousedown)="$event.stopPropagation()">
+                              <button class="sticky-color-dot" [style.background]="resolveCardColor(item.card)"
+                                      title="Change color" (click)="toggleColorPicker($event, item.card.id)"></button>
+                              @if (colorPickerOpenFor() === item.card.id) {
+                                <div class="color-picker-popover">
+                                  @for (swatch of stickyPalette; track swatch) {
+                                    <div class="color-swatch" [style.background]="swatch"
+                                         [class.active]="resolveCardColor(item.card) === swatch"
+                                         (click)="changeCardColor(item.card, swatch)"></div>
+                                  }
+                                </div>
+                              }
+                            </div>
+                          }
                         </div>
                         @if (s.phase === 'discuss') {
                           <div class="sticky-reactions">
@@ -1384,16 +1435,6 @@ interface TimerState {
                                       (mousedown)="$event.stopPropagation()" (click)="toggleReaction(item.card, emoji)">
                                 {{ emoji }} @if (getReactionCount(item.card, emoji) > 0) { <span>{{ getReactionCount(item.card, emoji) }}</span> }
                               </button>
-                            }
-                          </div>
-                        }
-                        <!-- Color row at bottom (hover-revealed) -->
-                        @if (s.phase === 'add' || s.phase === 'vote' || s.phase === 'discuss') {
-                          <div class="sticky-color-row" (mousedown)="$event.stopPropagation()">
-                            @for (swatch of stickyPalette; track swatch) {
-                              <div class="sticky-color-swatch" [style.background]="swatch"
-                                   [class.active]="resolveCardColor(item.card) === swatch"
-                                   (click)="changeCardColor(item.card, swatch)"></div>
                             }
                           </div>
                         }
@@ -1412,36 +1453,6 @@ interface TimerState {
             <div class="done-icon">🎉</div>
             <h2>Retro Complete</h2>
             <p>Great work team!</p>
-          </div>
-        }
-
-        <!-- Bottom advance bar (host only, non-done phases) -->
-        @if (s.isCreator && s.phase !== 'lobby' && nextPhase()) {
-          <div class="advance-wrap">
-            @if (s.phase === 'vote') {
-              <span class="votes-left-badge" style="margin-right:auto">{{ voteBudget() }} vote{{ voteBudget() !== 1 ? 's' : '' }} left</span>
-            }
-            @if (s.phase === 'discuss' || s.phase === 'done') {
-              <button mat-stroked-button (click)="runAnalysis()" [disabled]="analysing()">
-                @if (analysing()) { <mat-spinner diameter="16" style="display:inline-block;margin-right:4px" /> }
-                @else { <mat-icon>auto_awesome</mat-icon> }
-                Analyse with AI
-              </button>
-            }
-            <button mat-flat-button color="accent" (click)="advancePhase()" [disabled]="advancingPhase()">
-              @if (advancingPhase()) { <mat-spinner diameter="16" style="display:inline-block;margin-right:4px" /> }
-              Next: {{ phaseLabel(nextPhase()!) }}
-              <mat-icon>arrow_forward</mat-icon>
-            </button>
-          </div>
-        }
-        @if (s.isCreator && s.phase === 'done') {
-          <div class="advance-wrap">
-            <button mat-stroked-button (click)="runAnalysis()" [disabled]="analysing()">
-              @if (analysing()) { <mat-spinner diameter="16" style="display:inline-block;margin-right:4px" /> }
-              @else { <mat-icon>auto_awesome</mat-icon> }
-              Analyse with AI
-            </button>
           </div>
         }
 
@@ -1502,7 +1513,7 @@ interface TimerState {
 export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
   private svc = inject(FunRetroService);
   private wsSvc = inject(WebSocketService);
-  private authSvc = inject(AuthService);
+  authSvc = inject(AuthService);
   private pollSvc = inject(PollService);
   private dialog = inject(MatDialog);
   private snackBar = inject(MatSnackBar);
@@ -1511,6 +1522,11 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
   private elRef = inject(ElementRef);
 
   readonly templates = RETRO_TEMPLATES;
+
+  templateAccent(t: RetroTemplate): string {
+    return t.columns[0]?.color ?? '#64b5f6';
+  }
+
   cols = computed(() => {
     const s = this.session();
     if (s?.columns?.length) return s.columns;
@@ -1848,6 +1864,19 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
     this.svc.getSessions().subscribe({
       next: list => { this.sessions.set(list); this.loading.set(false); },
       error: () => { this.loading.set(false); this.snackBar.open('Failed to load sessions', 'OK', { duration: 3000 }); }
+    });
+  }
+
+  deleteSession(event: Event, s: FunRetroSessionSummary): void {
+    event.stopPropagation();
+    if (!confirm(`Delete "${s.title || 'Untitled Retro'}"? This can't be undone.`)) return;
+
+    this.svc.deleteSession(s.id).subscribe({
+      next: () => {
+        this.sessions.update(list => list.filter(x => x.id !== s.id));
+        this.snackBar.open('Retro deleted', 'OK', { duration: 2000 });
+      },
+      error: () => this.snackBar.open('Failed to delete retro', 'OK', { duration: 3000 })
     });
   }
 

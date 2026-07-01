@@ -60,6 +60,7 @@ export interface FunRetroSessionSummary {
   id: string;
   title: string | null;
   phase: string;
+  createdByMemberId: string;
   createdByName: string;
   sprintName: string | null;
   cardCount: number;

@@ -38,6 +38,17 @@ public class FunRetroController(FunRetroService service, PollService pollService
         return Ok(session);
     }
 
+    [HttpDelete("{id:guid}")]
+    public async Task<IActionResult> DeleteSession(Guid id)
+    {
+        var memberId = GetCurrentMemberId();
+        if (!memberId.HasValue) return Unauthorized();
+
+        var success = await service.DeleteSessionAsync(id, memberId.Value);
+        if (!success) return NotFound();
+        return NoContent();
+    }
+
     [HttpPost("{id:guid}/cards")]
     public async Task<IActionResult> AddCard(Guid id, [FromBody] AddFunRetroCardRequest request)
     {

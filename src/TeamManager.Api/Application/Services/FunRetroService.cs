@@ -20,9 +20,13 @@ public class FunRetroService(AppDbContext db, AiPromptExecutorService aiExecutor
             ? JsonSerializer.Serialize(req.Columns, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase })
             : null;
 
+        var title = string.IsNullOrWhiteSpace(req.Title)
+            ? $"Retro — {DateTimeOffset.Now:MMM d, yyyy}"
+            : req.Title.Trim();
+
         var session = new FunRetroSession
         {
-            Title = req.Title,
+            Title = title,
             CreatedByMemberId = memberId,
             SprintId = req.SprintId,
             ColumnsJson = columnsJson,
@@ -32,6 +36,22 @@ public class FunRetroService(AppDbContext db, AiPromptExecutorService aiExecutor
         await db.SaveChangesAsync();
 
         return (await GetSessionAsync(session.Id, memberId))!;
+    }
+
+    public async Task<bool> DeleteSessionAsync(Guid sessionId, Guid memberId)
+    {
+        var session = await db.FunRetroSessions.FindAsync(sessionId);
+        if (session is null) return false;
+        if (session.CreatedByMemberId != memberId) return false;
+
+        var polls = await db.Set<Poll>().Where(p => p.RetroSessionId == sessionId).ToListAsync();
+        db.RemoveRange(polls);
+
+        db.FunRetroSessions.Remove(session);
+        await db.SaveChangesAsync();
+
+        _ = WebSocketMiddleware.BroadcastAsync("fun_retro_session_deleted", new { sessionId }, guestAllowed: true);
+        return true;
     }
 
     public async Task<FunRetroSessionDto?> GetSessionAsync(Guid sessionId, Guid memberId)
@@ -239,6 +259,7 @@ public class FunRetroService(AppDbContext db, AiPromptExecutorService aiExecutor
                 Id = s.Id,
                 Title = s.Title,
                 Phase = s.Phase,
+                CreatedByMemberId = s.CreatedByMemberId,
                 CreatedByName = s.CreatedBy != null ? $"{s.CreatedBy.FirstName} {s.CreatedBy.LastName}".Trim() : "",
                 SprintName = s.Sprint != null ? s.Sprint.Name : null,
                 CardCount = s.Cards.Count,

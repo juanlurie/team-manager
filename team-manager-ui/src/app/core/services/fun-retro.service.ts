@@ -20,6 +20,10 @@ export class FunRetroService {
     return this.http.post<FunRetroSession>(this.base, req);
   }
 
+  deleteSession(id: string): Observable<void> {
+    return this.http.delete<void>(`${this.base}/${id}`);
+  }
+
   addCard(sessionId: string, column: string, text: string): Observable<FunRetroSession> {
     return this.http.post<FunRetroSession>(`${this.base}/${sessionId}/cards`, { column, text });
   }
