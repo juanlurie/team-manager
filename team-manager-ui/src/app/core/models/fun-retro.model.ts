@@ -11,6 +11,7 @@ export interface FunRetroCard {
   text: string | null;       // null = hidden (other person's card during add)
   authorName: string | null; // null = hidden
   authorId: string;
+  authorAvatarSeed: string | null;
   isOwn: boolean;
   createdAt: string;
   voteCount: number;

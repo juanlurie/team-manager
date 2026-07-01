@@ -63,6 +63,8 @@ public class FunRetroService(AppDbContext db, AiPromptExecutorService aiExecutor
                 .ThenInclude(c => c.Votes)
             .Include(s => s.Cards)
                 .ThenInclude(c => c.Reactions)
+            .Include(s => s.Cards)
+                .ThenInclude(c => c.Author)
             .FirstOrDefaultAsync(s => s.Id == sessionId);
 
         if (session is null) return null;
@@ -96,6 +98,7 @@ public class FunRetroService(AppDbContext db, AiPromptExecutorService aiExecutor
                     Text = hideContent ? null : c.Text,
                     AuthorName = c.AuthorName, // always returned so participation is visible
                     AuthorId = c.AuthorId,
+                    AuthorAvatarSeed = c.Author?.AvatarSeed,
                     IsOwn = isOwn,
                     CreatedAt = c.CreatedAt,
                     VoteCount = c.Votes.Count,

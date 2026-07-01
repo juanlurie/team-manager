@@ -51,6 +51,7 @@ public record FunRetroCardDto
     public string? Text { get; init; } // null when hidden (other people's cards during add)
     public string? AuthorName { get; init; } // null when hidden
     public Guid AuthorId { get; init; }
+    public string? AuthorAvatarSeed { get; init; }
     public bool IsOwn { get; init; }
     public DateTimeOffset CreatedAt { get; init; }
     public int VoteCount { get; init; }

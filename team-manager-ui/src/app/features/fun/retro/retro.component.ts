@@ -19,8 +19,9 @@ import { AuthService } from '../../../core/auth/auth.service';
 import { TextFieldModule } from '@angular/cdk/text-field';
 import { PollService } from '../../../core/services/poll.service';
 import { PollDetail } from '../../../core/models/poll.model';
-import { MatDialog, MatDialogModule } from '@angular/material/dialog';
+import { MatDialog, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { CreatePollDialogComponent } from '../../polls/poll.component';
+import { ConfirmDialogComponent } from '../../../shared/components/confirm-dialog/confirm-dialog.component';
 import { NavService } from '../../../core/nav/nav.service';
 
 const DEFAULT_COLS: RetroColumn[] = [
@@ -97,6 +98,84 @@ const RETRO_TEMPLATES: RetroTemplate[] = [
     ],
   },
 ];
+
+export interface NewRetroDialogResult {
+  title: string;
+  templateId: string;
+}
+
+@Component({
+  selector: 'app-new-retro-dialog',
+  standalone: true,
+  imports: [FormsModule, MatButtonModule, MatDialogModule],
+  changeDetection: ChangeDetectionStrategy.Default,
+  styles: [`
+    .field-label { font-size:0.75rem;opacity:0.55;display:block;margin-bottom:4px; }
+    .field {
+      background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.12);border-radius:6px;
+      color:inherit;font-size:0.85rem;padding:8px 10px;outline:none;width:100%;
+      box-sizing:border-box;margin-bottom:12px;transition:border-color 0.2s;font-family:inherit;
+    }
+    .field:focus { border-color:#64b5f6; }
+    .template-grid { display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px;margin-bottom:4px; }
+    .template-card {
+      border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:10px 12px 10px 13px;
+      border-left:3px solid var(--tpl-accent, rgba(255,255,255,0.1));
+      cursor:pointer;transition:border-color 0.15s,background 0.15s;
+    }
+    .template-card:hover { background:color-mix(in srgb, var(--tpl-accent, #fff) 6%, transparent); }
+    .template-card.selected {
+      border-color:var(--tpl-accent);
+      background:color-mix(in srgb, var(--tpl-accent) 10%, transparent);
+    }
+    .template-name { font-size:0.82rem;font-weight:600;color:rgba(255,255,255,0.85);margin-bottom:2px; }
+    .template-desc { font-size:0.7rem;color:rgba(255,255,255,0.35);margin-bottom:6px; }
+    .template-cols { display:flex;flex-wrap:wrap;gap:4px; }
+    .template-col-chip { font-size:0.65rem;padding:2px 6px;border-radius:10px;font-weight:500; }
+  `],
+  template: `
+    <h2 mat-dialog-title style="font-size:1rem;margin:0 0 4px">New Retro</h2>
+    <mat-dialog-content style="padding-top:12px;min-width:340px">
+      <label class="field-label">Title (optional)</label>
+      <input class="field" [(ngModel)]="title" placeholder="e.g. Sprint 42 Retro" (keyup.enter)="submit()" />
+
+      <label class="field-label" style="margin-top:4px">Board template</label>
+      <div class="template-grid">
+        @for (t of templates; track t.id) {
+          <div class="template-card" [class.selected]="selectedTemplateId === t.id"
+               [style.--tpl-accent]="templateAccent(t)"
+               (click)="selectedTemplateId = t.id">
+            <div class="template-name">{{ t.name }}</div>
+            <div class="template-desc">{{ t.description }}</div>
+            <div class="template-cols">
+              @for (c of t.columns; track c.key) {
+                <span class="template-col-chip" [style.background]="c.color + '22'" [style.color]="c.color">{{ c.label }}</span>
+              }
+            </div>
+          </div>
+        }
+      </div>
+    </mat-dialog-content>
+    <mat-dialog-actions align="end" style="margin-top:8px">
+      <button mat-button mat-dialog-close>Cancel</button>
+      <button mat-flat-button color="primary" (click)="submit()">Create</button>
+    </mat-dialog-actions>
+  `
+})
+export class NewRetroDialogComponent {
+  dialogRef = inject(MatDialogRef<NewRetroDialogComponent, NewRetroDialogResult>);
+  readonly templates = RETRO_TEMPLATES;
+  title = '';
+  selectedTemplateId = RETRO_TEMPLATES[0].id;
+
+  templateAccent(t: RetroTemplate): string {
+    return t.columns[0]?.color ?? '#64b5f6';
+  }
+
+  submit(): void {
+    this.dialogRef.close({ title: this.title.trim(), templateId: this.selectedTemplateId });
+  }
+}
 
 const PHASE_META: Record<string, { label: string; color: string }> = {
   lobby:   { label: 'Lobby',         color: '#64b5f6' },
@@ -179,36 +258,6 @@ interface TimerState {
     .session-card-delete { color:rgba(255,255,255,0.3); flex-shrink:0; }
     .session-card-delete:hover { color:#ef5350; }
     .empty-state { text-align:center;padding:40px 16px;color:rgba(255,255,255,0.35);font-size:0.9rem; }
-
-    /* new retro inline form */
-    .new-retro-form {
-      background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.12);
-      border-radius:10px;padding:16px;margin-top:16px;
-    }
-    .new-retro-form h3 { font-size:0.9rem;font-weight:600;margin:0 0 14px;color:rgba(255,255,255,0.85); }
-    .field-label { font-size:0.75rem;opacity:0.55;display:block;margin-bottom:4px; }
-    .field {
-      background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.12);border-radius:6px;
-      color:inherit;font-size:0.85rem;padding:8px 10px;outline:none;width:100%;
-      box-sizing:border-box;margin-bottom:12px;transition:border-color 0.2s;font-family:inherit;
-    }
-    .field:focus { border-color:#64b5f6; }
-    .form-actions { display:flex;gap:8px;justify-content:flex-end; }
-    .template-grid { display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px;margin-bottom:4px; }
-    .template-card {
-      border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:10px 12px 10px 13px;
-      border-left:3px solid var(--tpl-accent, rgba(255,255,255,0.1));
-      cursor:pointer;transition:border-color 0.15s,background 0.15s;
-    }
-    .template-card:hover { background:color-mix(in srgb, var(--tpl-accent, #fff) 6%, transparent); }
-    .template-card.selected {
-      border-color:var(--tpl-accent);
-      background:color-mix(in srgb, var(--tpl-accent) 10%, transparent);
-    }
-    .template-name { font-size:0.82rem;font-weight:600;color:rgba(255,255,255,0.85);margin-bottom:2px; }
-    .template-desc { font-size:0.7rem;color:rgba(255,255,255,0.35);margin-bottom:6px; }
-    .template-cols { display:flex;flex-wrap:wrap;gap:4px; }
-    .template-col-chip { font-size:0.65rem;padding:2px 6px;border-radius:10px;font-weight:500; }
 
     /* ── session view ────────────────────────────────────── */
     .session-wrap { padding:4px 0; }
@@ -661,13 +710,17 @@ interface TimerState {
     }
     .sticky-color-dot:hover { transform:scale(1.2); }
     .color-picker-popover {
-      position:absolute;bottom:20px;right:0;z-index:200;
+      /* fixed (not absolute) so it can't be clipped by the canvas's overflow:auto
+         when the card sits near the top/edge of the scrollable canvas */
+      position:fixed;z-index:1000;
       background:#2a2a2a;border:1px solid rgba(255,255,255,0.12);
-      border-radius:8px;padding:8px;display:flex;gap:6px;flex-wrap:wrap;
-      width:116px;box-shadow:0 4px 16px rgba(0,0,0,0.5);
+      border-radius:8px;padding:8px;
+      display:grid;grid-template-columns:repeat(3, 22px);gap:6px;
+      width:max-content;box-shadow:0 4px 16px rgba(0,0,0,0.5);
     }
     .color-swatch {
       width:22px;height:22px;border-radius:50%;cursor:pointer;
+      box-sizing:border-box;
       border:2px solid transparent;transition:border-color 0.1s, transform 0.1s;
     }
     .color-swatch:hover, .color-swatch.active { border-color:rgba(255,255,255,0.7);transform:scale(1.15); }
@@ -774,7 +827,7 @@ interface TimerState {
       <div class="lobby-wrap">
         <div class="lobby-header">
           <span class="lobby-title">Fun Retro</span>
-          <button mat-flat-button color="primary" (click)="toggleNewForm()" [disabled]="loading()">
+          <button mat-flat-button color="primary" (click)="openNewRetroDialog()" [disabled]="loading()">
             <mat-icon>add</mat-icon> New Retro
           </button>
         </div>
@@ -784,7 +837,7 @@ interface TimerState {
             <mat-spinner diameter="32" style="margin:0 auto" />
           </div>
         } @else {
-          @if (sessions().length === 0 && !showNewForm()) {
+          @if (sessions().length === 0) {
             <div class="empty-state">No retro sessions yet. Start one!</div>
           }
 
@@ -809,37 +862,6 @@ interface TimerState {
               </div>
             }
           </div>
-
-          @if (showNewForm()) {
-            <div class="new-retro-form">
-              <h3>New Retro</h3>
-              <label class="field-label">Title (optional)</label>
-              <input class="field" [(ngModel)]="newTitle" placeholder="e.g. Sprint 42 Retro" />
-              <label class="field-label" style="margin-top:14px">Board template</label>
-              <div class="template-grid">
-                @for (t of templates; track t.id) {
-                  <div class="template-card" [class.selected]="selectedTemplateId() === t.id"
-                       [style.--tpl-accent]="templateAccent(t)"
-                       (click)="selectTemplate(t.id)">
-                    <div class="template-name">{{ t.name }}</div>
-                    <div class="template-desc">{{ t.description }}</div>
-                    <div class="template-cols">
-                      @for (c of t.columns; track c.key) {
-                        <span class="template-col-chip" [style.background]="c.color + '22'" [style.color]="c.color">{{ c.label }}</span>
-                      }
-                    </div>
-                  </div>
-                }
-              </div>
-              <div class="form-actions">
-                <button mat-button (click)="cancelNewForm()">Cancel</button>
-                <button mat-flat-button color="primary" (click)="createSession()" [disabled]="creating()">
-                  @if (creating()) { <mat-spinner diameter="16" style="display:inline-block;margin-right:6px" /> }
-                  Create
-                </button>
-              </div>
-            </div>
-          }
         }
       </div>
     }
@@ -851,6 +873,9 @@ interface TimerState {
       <div class="session-wrap">
         <!-- Compact header: title, timer, polls, settings, share, back, phase actions — all in one row -->
         <div class="session-header" [class.full-bleed]="isDesktop()">
+          <button mat-icon-button (click)="backToList()" title="Back to list">
+            <mat-icon>arrow_back</mat-icon>
+          </button>
           <div class="session-title-row">
             <span class="session-name">{{ s.title || 'Untitled Retro' }}</span>
             <span class="session-sub">{{ s.cards.length }} card{{ s.cards.length !== 1 ? 's' : '' }}</span>
@@ -934,9 +959,6 @@ interface TimerState {
             <button mat-icon-button (click)="shareSession(s)" title="Share">
               <mat-icon>share</mat-icon>
             </button>
-            <button mat-icon-button (click)="backToList()" title="Back to list">
-              <mat-icon>arrow_back</mat-icon>
-            </button>
           </div>
           @if (s.phase === 'vote') {
             <span class="votes-left-badge">{{ voteBudget() }} vote{{ voteBudget() !== 1 ? 's' : '' }} left</span>
@@ -948,7 +970,7 @@ interface TimerState {
               Analyse with AI
             </button>
           }
-          @if (s.isCreator && nextPhase()) {
+          @if (s.isCreator && s.phase !== 'lobby' && nextPhase()) {
             <button mat-flat-button color="accent" (click)="advancePhase()" [disabled]="advancingPhase()">
               @if (advancingPhase()) { <mat-spinner diameter="16" style="display:inline-block;margin-right:4px" /> }
               Next: {{ phaseLabel(nextPhase()!) }}
@@ -1220,7 +1242,7 @@ interface TimerState {
                             <div style="display:flex;align-items:flex-start;justify-content:space-between">
                               @if (card.authorName && s.phase !== 'add') {
                                 <div class="card-header">
-                                  <app-avatar-circle [memberId]="card.authorId" [name]="card.authorName" [size]="20" />
+                                  <app-avatar-circle [memberId]="card.authorId" [name]="card.authorName" [avatarSeed]="card.authorAvatarSeed" [size]="20" />
                                   <span class="card-author-name">{{ card.authorName }}</span>
                                 </div>
                               }
@@ -1252,7 +1274,7 @@ interface TimerState {
                             }
                           } @else {
                             <div class="card-header">
-                              <app-avatar-circle [memberId]="card.authorId" [name]="card.authorName ?? ''" [size]="20" />
+                              <app-avatar-circle [memberId]="card.authorId" [name]="card.authorName ?? ''" [avatarSeed]="card.authorAvatarSeed" [size]="20" />
                               <span class="card-author-name">{{ card.authorName }}</span>
                             </div>
                             <div class="card-hidden-text">🔒 Hidden until reveal</div>
@@ -1279,7 +1301,7 @@ interface TimerState {
                         <div style="display:flex;align-items:flex-start;justify-content:space-between">
                           @if (card.authorName && s.phase !== 'add') {
                             <div class="card-header">
-                              <app-avatar-circle [memberId]="card.authorId" [name]="card.authorName" [size]="20" />
+                              <app-avatar-circle [memberId]="card.authorId" [name]="card.authorName" [avatarSeed]="card.authorAvatarSeed" [size]="20" />
                               <span class="card-author-name">{{ card.authorName }}</span>
                             </div>
                           }
@@ -1371,7 +1393,7 @@ interface TimerState {
                           @if (item.card.text === null) {
                           <!-- Hidden card: show who wrote it, not what -->
                           <div class="sticky-header">
-                            <app-avatar-circle [memberId]="item.card.authorId" [name]="item.card.authorName ?? ''" [size]="18" />
+                            <app-avatar-circle [memberId]="item.card.authorId" [name]="item.card.authorName ?? ''" [avatarSeed]="item.card.authorAvatarSeed" [size]="18" />
                             <span class="sticky-author" style="flex:1">{{ item.card.authorName }}</span>
                           </div>
                           <div style="display:flex;align-items:center;gap:5px;opacity:0.4;margin-top:6px">
@@ -1382,7 +1404,7 @@ interface TimerState {
                         <!-- Header: avatar + name + delete -->
                         @if (item.card.authorName) {
                           <div class="sticky-header">
-                            <app-avatar-circle [memberId]="item.card.authorId" [name]="item.card.authorName" [size]="18" />
+                            <app-avatar-circle [memberId]="item.card.authorId" [name]="item.card.authorName" [avatarSeed]="item.card.authorAvatarSeed" [size]="18" />
                             <span class="sticky-author" style="flex:1">{{ item.card.authorName }}</span>
                             @if (s.phase === 'add' && item.card.isOwn) {
                               <button class="sticky-del-btn" (mousedown)="$event.stopPropagation()" (click)="deleteCard(item.card)">×</button>
@@ -1428,8 +1450,9 @@ interface TimerState {
                             <div class="sticky-color-trigger" (mousedown)="$event.stopPropagation()">
                               <button class="sticky-color-dot" [style.background]="resolveCardColor(item.card)"
                                       title="Change color" (click)="toggleColorPicker($event, item.card.id)"></button>
-                              @if (colorPickerOpenFor() === item.card.id) {
-                                <div class="color-picker-popover">
+                              @if (colorPickerOpenFor() === item.card.id && colorPickerPos(); as pos) {
+                                <div class="color-picker-popover" [style.top.px]="pos.top" [style.left.px]="pos.left"
+                                     (mousedown)="$event.stopPropagation()">
                                   @for (swatch of stickyPalette; track swatch) {
                                     <div class="color-swatch" [style.background]="swatch"
                                          [class.active]="resolveCardColor(item.card) === swatch"
@@ -1534,12 +1557,6 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
   private elRef = inject(ElementRef);
   private navSvc = inject(NavService);
 
-  readonly templates = RETRO_TEMPLATES;
-
-  templateAccent(t: RetroTemplate): string {
-    return t.columns[0]?.color ?? '#64b5f6';
-  }
-
   cols = computed(() => {
     const s = this.session();
     if (s?.columns?.length) return s.columns;
@@ -1559,10 +1576,7 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
     requestAnimationFrame(() => this.updateCanvasMargins());
   });
 
-  showNewForm = signal(false);
-  newTitle = '';
   creating = signal(false);
-  selectedTemplateId = signal<string>(RETRO_TEMPLATES[0].id);
 
   newCardText = signal<Record<string, string>>({});
   submittingCard = signal<string | null>(null);
@@ -1729,7 +1743,7 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
 
   @HostListener('document:click')
   onDocClick(): void {
-    if (this.colorPickerOpenFor()) this.colorPickerOpenFor.set(null);
+    if (this.colorPickerOpenFor()) { this.colorPickerOpenFor.set(null); this.colorPickerPos.set(null); }
     if (this.timerPopoverOpen()) this.timerPopoverOpen.set(false);
   }
 
@@ -1756,15 +1770,27 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
     return card.color ?? this.colDefaultColor[card.column] ?? '#fff9c4';
   }
 
+  colorPickerPos = signal<{ top: number; left: number } | null>(null);
+
   toggleColorPicker(e: MouseEvent, cardId: string): void {
     e.stopPropagation();
-    this.colorPickerOpenFor.update(cur => cur === cardId ? null : cardId);
+    const opening = this.colorPickerOpenFor() !== cardId;
+    this.colorPickerOpenFor.set(opening ? cardId : null);
+    if (opening) {
+      // Position via the viewport (not the scrollable canvas) so the popover can't be
+      // clipped by the canvas's overflow:auto when the card sits near its top edge.
+      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+      this.colorPickerPos.set({ top: rect.bottom + 6, left: Math.max(8, rect.right - 94) });
+    } else {
+      this.colorPickerPos.set(null);
+    }
   }
 
   changeCardColor(card: FunRetroCard, color: string): void {
     const s = this.session();
     if (!s) return;
     this.colorPickerOpenFor.set(null);
+    this.colorPickerPos.set(null);
     // Optimistic local update
     this.session.update(cur => {
       if (!cur) return cur;
@@ -1923,14 +1949,18 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
 
   deleteSession(event: Event, s: FunRetroSessionSummary): void {
     event.stopPropagation();
-    if (!confirm(`Delete "${s.title || 'Untitled Retro'}"? This can't be undone.`)) return;
-
-    this.svc.deleteSession(s.id).subscribe({
-      next: () => {
-        this.sessions.update(list => list.filter(x => x.id !== s.id));
-        this.snackBar.open('Retro deleted', 'OK', { duration: 2000 });
-      },
-      error: () => this.snackBar.open('Failed to delete retro', 'OK', { duration: 3000 })
+    this.dialog.open(ConfirmDialogComponent, {
+      width: '360px',
+      data: { title: `Delete "${s.title || 'Untitled Retro'}"?`, message: "This can't be undone.", danger: true }
+    }).afterClosed().subscribe(ok => {
+      if (!ok) return;
+      this.svc.deleteSession(s.id).subscribe({
+        next: () => {
+          this.sessions.update(list => list.filter(x => x.id !== s.id));
+          this.snackBar.open('Retro deleted', 'OK', { duration: 2000 });
+        },
+        error: () => this.snackBar.open('Failed to delete retro', 'OK', { duration: 3000 })
+      });
     });
   }
 
@@ -2253,36 +2283,26 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
     this.router.navigate(['/pulse/retro'], { replaceUrl: true });
   }
 
-  toggleNewForm(): void {
-    this.showNewForm.set(!this.showNewForm());
-    if (!this.showNewForm()) {
-      this.newTitle = '';
-      }
+  openNewRetroDialog(): void {
+    this.dialog.open(NewRetroDialogComponent, { width: '640px' })
+      .afterClosed().subscribe((result?: NewRetroDialogResult) => {
+        if (!result) return;
+        this.createSession(result);
+      });
   }
 
-  cancelNewForm(): void {
-    this.showNewForm.set(false);
-    this.newTitle = '';
-  }
-
-  selectTemplate(id: string): void {
-    this.selectedTemplateId.set(id);
-  }
-
-  createSession(): void {
+  private createSession(result: NewRetroDialogResult): void {
     this.creating.set(true);
-    const template = RETRO_TEMPLATES.find(t => t.id === this.selectedTemplateId());
+    const template = RETRO_TEMPLATES.find(t => t.id === result.templateId);
     const req: { title?: string; columns?: RetroColumn[] } = {
       columns: template?.columns ?? DEFAULT_COLS,
     };
-    if (this.newTitle.trim()) req.title = this.newTitle.trim();
+    if (result.title) req.title = result.title;
     this.svc.createSession(req).subscribe({
       next: s => {
         this.creating.set(false);
-        this.showNewForm.set(false);
-        this.newTitle = '';
-            this.session.set(s);
-            this.applyExtras(s, true);
+        this.session.set(s);
+        this.applyExtras(s, true);
       },
       error: () => {
         this.creating.set(false);
