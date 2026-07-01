@@ -16,6 +16,8 @@ public record FunRetroSessionDto
     public string? TimerJson { get; init; }
     public List<IcebreakerAnswerDto> IcebreakerAnswers { get; init; } = [];
     public List<RetroColumnDto> Columns { get; init; } = [];
+    public bool HideCardsOnAdd { get; init; }
+    public bool ParticipationTracking { get; init; }
 }
 
 public record IcebreakerAnswerDto
@@ -96,4 +98,10 @@ public record AddFunRetroCardRequest
 {
     public string Column { get; init; } = "well";
     public string Text { get; init; } = "";
+}
+
+public record UpdateRetroSettingsRequest
+{
+    public bool HideCardsOnAdd { get; init; }
+    public bool ParticipationTracking { get; init; }
 }

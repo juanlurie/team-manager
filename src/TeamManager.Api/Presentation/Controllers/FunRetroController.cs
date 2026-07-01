@@ -139,6 +139,17 @@ public class FunRetroController(FunRetroService service, PollService pollService
         return Ok(analysis);
     }
 
+    [HttpPatch("{id:guid}/settings")]
+    public async Task<IActionResult> UpdateSettings(Guid id, [FromBody] UpdateRetroSettingsRequest request)
+    {
+        var memberId = GetCurrentMemberId();
+        if (!memberId.HasValue) return Unauthorized();
+
+        var success = await service.UpdateSettingsAsync(id, memberId.Value, request.HideCardsOnAdd, request.ParticipationTracking);
+        if (!success) return NotFound();
+        return NoContent();
+    }
+
     [HttpPost("{id:guid}/timer")]
     public async Task<IActionResult> SetTimer(Guid id, [FromBody] TimerRequest request)
     {

@@ -56,7 +56,7 @@ public class FunRetroService(AppDbContext db, AiPromptExecutorService aiExecutor
             .Select(c =>
             {
                 var isOwn = c.AuthorId == memberId;
-                var hideContent = isAddPhase && !isOwn;
+                var hideContent = isAddPhase && !isOwn && session.HideCardsOnAdd;
 
                 var reactionDtos = c.Reactions
                     .GroupBy(r => r.Emoji)
@@ -138,7 +138,23 @@ public class FunRetroService(AppDbContext db, AiPromptExecutorService aiExecutor
             TimerJson = session.TimerJson,
             IcebreakerAnswers = icebreakerAnswers,
             Columns = columns,
+            HideCardsOnAdd = session.HideCardsOnAdd,
+            ParticipationTracking = session.ParticipationTracking,
         };
+    }
+
+    public async Task<bool> UpdateSettingsAsync(Guid sessionId, Guid memberId, bool hideCardsOnAdd, bool participationTracking)
+    {
+        var session = await db.FunRetroSessions.FindAsync(sessionId);
+        if (session is null || session.CreatedByMemberId != memberId) return false;
+
+        session.HideCardsOnAdd = hideCardsOnAdd;
+        session.ParticipationTracking = participationTracking;
+        await db.SaveChangesAsync();
+
+        _ = WebSocketMiddleware.BroadcastAsync("fun_retro_settings_updated",
+            new { sessionId, hideCardsOnAdd, participationTracking }, guestAllowed: true);
+        return true;
     }
 
     public async Task<bool> SetTimerAsync(Guid sessionId, Guid memberId, string timerJson)

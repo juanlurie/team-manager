@@ -52,6 +52,8 @@ export interface FunRetroSession {
   timerJson: string | null;
   icebreakerAnswers: { memberId: string; memberName: string; answer: string }[];
   columns: RetroColumn[];
+  hideCardsOnAdd: boolean;
+  participationTracking: boolean;
 }
 
 export interface FunRetroSessionSummary {

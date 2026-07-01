@@ -217,6 +217,28 @@ interface TimerState {
       border:1px solid;
     }
     .host-controls { display:flex;align-items:center;gap:8px;flex-wrap:wrap; }
+    /* settings panel */
+    .settings-panel {
+      border:1px solid rgba(255,255,255,0.08);border-radius:10px;
+      padding:12px 14px;margin-bottom:12px;background:rgba(255,255,255,0.02);
+    }
+    .settings-panel-header { display:flex;align-items:center;justify-content:space-between;margin-bottom:10px; }
+    .settings-panel-title { font-size:0.78rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:rgba(255,255,255,0.4); }
+    .settings-row { display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.05); }
+    .settings-row:last-child { border-bottom:none;padding-bottom:0; }
+    .settings-row-label { font-size:0.82rem;color:rgba(255,255,255,0.75); }
+    .settings-row-desc { font-size:0.7rem;color:rgba(255,255,255,0.35);margin-top:1px; }
+    .toggle-track {
+      width:36px;height:20px;border-radius:10px;background:rgba(255,255,255,0.12);
+      position:relative;cursor:pointer;transition:background .2s;flex-shrink:0;
+    }
+    .toggle-track.on { background:#64b5f6; }
+    .toggle-thumb {
+      position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;
+      background:#fff;transition:left .2s;box-shadow:0 1px 3px rgba(0,0,0,0.3);
+    }
+    .toggle-track.on .toggle-thumb { left:18px; }
+
     /* card grouping */
     .card-group-cluster {
       border:1.5px dashed rgba(100,181,246,0.35);border-radius:12px;
@@ -812,6 +834,12 @@ interface TimerState {
             <span class="session-sub">{{ s.cards.length }} card{{ s.cards.length !== 1 ? 's' : '' }}</span>
           </div>
           <div class="host-controls">
+            @if (s.isCreator) {
+              <button mat-icon-button (click)="showSettings.set(!showSettings())" title="Session settings"
+                      [style.color]="showSettings() ? '#64b5f6' : null">
+                <mat-icon>settings</mat-icon>
+              </button>
+            }
             <button mat-icon-button (click)="shareSession(s)" title="Share">
               <mat-icon>share</mat-icon>
             </button>
@@ -821,23 +849,51 @@ interface TimerState {
           </div>
         </div>
 
+        <!-- Settings panel (creator only) -->
+        @if (showSettings() && s.isCreator) {
+          <div class="settings-panel">
+            <div class="settings-panel-header">
+              <span class="settings-panel-title">Session Settings</span>
+            </div>
+            <div class="settings-row">
+              <div>
+                <div class="settings-row-label">Hide cards during add phase</div>
+                <div class="settings-row-desc">Participants can only see their own cards until you reveal</div>
+              </div>
+              <div class="toggle-track" [class.on]="s.hideCardsOnAdd" (click)="toggleSetting('hideCardsOnAdd')">
+                <div class="toggle-thumb"></div>
+              </div>
+            </div>
+            <div class="settings-row">
+              <div>
+                <div class="settings-row-label">Participation tracking</div>
+                <div class="settings-row-desc">Show who has added cards in the presence bar</div>
+              </div>
+              <div class="toggle-track" [class.on]="s.participationTracking" (click)="toggleSetting('participationTracking')">
+                <div class="toggle-thumb"></div>
+              </div>
+            </div>
+          </div>
+        }
+
         <!-- Presence bar -->
         @if (presence().length > 0) {
           <div class="presence-bar">
             <span class="presence-label">Participants</span>
             @for (p of presence(); track p.memberId) {
-              @let hasCard = membersWithCards().has(p.memberId);
-              <div class="presence-avatar-wrap" [class.has-cards]="hasCard" [class.no-cards]="!hasCard && s.phase === 'add'">
+              @let hasCard = s.participationTracking && membersWithCards().has(p.memberId);
+              @let showPending = s.participationTracking && !hasCard && s.phase === 'add';
+              <div class="presence-avatar-wrap" [class.has-cards]="hasCard" [class.no-cards]="showPending">
                 <app-avatar-circle [memberId]="p.memberId" [name]="p.memberName" [size]="18" />
                 <span>{{ p.memberName }}</span>
                 @if (hasCard) {
                   <mat-icon class="presence-check">check_circle</mat-icon>
-                } @else if (s.phase === 'add') {
+                } @else if (showPending) {
                   <div class="presence-pending" title="No cards yet"></div>
                 }
               </div>
             }
-            @if (s.phase === 'add') {
+            @if (s.participationTracking && s.phase === 'add') {
               @let doneCount = membersWithCards().size;
               @let totalCount = presence().length;
               <span class="participation-summary">{{ doneCount }}/{{ totalCount }} added cards</span>
@@ -1524,6 +1580,7 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
   presence = signal<{ memberId: string; memberName: string }[]>([]);
   retroPolls = signal<PollDetail[]>([]);
   showPollsPanel = signal(false);
+  showSettings = signal(false);
   groupingCardId = signal<string | null>(null);
   membersWithCards = computed(() => new Set(this.session()?.cards.map(c => c.authorId) ?? []));
   editingCardId = signal<string | null>(null);
@@ -1727,6 +1784,15 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
             });
           }
           break;
+        case 'fun_retro_settings_updated':
+          if (msg.data['sessionId'] === s.id) {
+            this.session.update(cur => cur ? {
+              ...cur,
+              hideCardsOnAdd: msg.data['hideCardsOnAdd'] as boolean,
+              participationTracking: msg.data['participationTracking'] as boolean,
+            } : cur);
+          }
+          break;
         case 'fun_retro_card_text_updated':
           if (msg.data['sessionId'] === s.id) {
             const cardId = msg.data['cardId'] as string;
@@ -1914,6 +1980,14 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
       }
     }
     return groups;
+  }
+
+  toggleSetting(key: 'hideCardsOnAdd' | 'participationTracking'): void {
+    const s = this.session();
+    if (!s || !s.isCreator) return;
+    const updated = { hideCardsOnAdd: s.hideCardsOnAdd, participationTracking: s.participationTracking, [key]: !s[key] };
+    this.session.update(cur => cur ? { ...cur, ...updated } : cur);
+    this.svc.updateSettings(s.id, updated).subscribe({ error: () => this.silentRefresh() });
   }
 
   startEditCard(card: FunRetroCard): void {
