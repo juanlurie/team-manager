@@ -15,4 +15,6 @@ public class FunRetroSession
     public string? TimerJson { get; set; }
     public string? IcebreakerAnswersJson { get; set; }
     public string? ColumnsJson { get; set; }
+    public bool HideCardsOnAdd { get; set; } = true;
+    public bool ParticipationTracking { get; set; } = true;
 }

@@ -52,6 +52,14 @@ export class FunRetroService {
     return this.http.patch<void>(`${this.base}/${sessionId}/cards/${cardId}/group`, { groupId });
   }
 
+  updateCardText(sessionId: string, cardId: string, text: string): Observable<void> {
+    return this.http.patch<void>(`${this.base}/${sessionId}/cards/${cardId}/text`, { text });
+  }
+
+  updateSettings(sessionId: string, settings: { hideCardsOnAdd: boolean; participationTracking: boolean }): Observable<void> {
+    return this.http.patch<void>(`${this.base}/${sessionId}/settings`, settings);
+  }
+
   analyse(sessionId: string): Observable<FunRetroAnalysis> {
     return this.http.post<FunRetroAnalysis>(`${this.base}/${sessionId}/analyse`, {});
   }

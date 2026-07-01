@@ -16,6 +16,7 @@ import { FunRetroAnalysis, FunRetroSession, FunRetroSessionSummary, FunRetroCard
 import { WebSocketService } from '../../../core/websocket/websocket.service';
 import { AvatarCircleComponent } from '../../../core/components/k-picker/avatar-circle.component';
 import { AuthService } from '../../../core/auth/auth.service';
+import { TextFieldModule } from '@angular/cdk/text-field';
 import { PollService } from '../../../core/services/poll.service';
 import { PollDetail } from '../../../core/models/poll.model';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
@@ -153,6 +154,7 @@ interface TimerState {
     MatProgressSpinnerModule,
     MatSnackBarModule,
     MatDialogModule,
+    TextFieldModule,
     AvatarCircleComponent,
   ],
   changeDetection: ChangeDetectionStrategy.Default,
@@ -215,6 +217,28 @@ interface TimerState {
       border:1px solid;
     }
     .host-controls { display:flex;align-items:center;gap:8px;flex-wrap:wrap; }
+    /* settings panel */
+    .settings-panel {
+      border:1px solid rgba(255,255,255,0.08);border-radius:10px;
+      padding:12px 14px;margin-bottom:12px;background:rgba(255,255,255,0.02);
+    }
+    .settings-panel-header { display:flex;align-items:center;justify-content:space-between;margin-bottom:10px; }
+    .settings-panel-title { font-size:0.78rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:rgba(255,255,255,0.4); }
+    .settings-row { display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.05); }
+    .settings-row:last-child { border-bottom:none;padding-bottom:0; }
+    .settings-row-label { font-size:0.82rem;color:rgba(255,255,255,0.75); }
+    .settings-row-desc { font-size:0.7rem;color:rgba(255,255,255,0.35);margin-top:1px; }
+    .toggle-track {
+      width:36px;height:20px;border-radius:10px;background:rgba(255,255,255,0.12);
+      position:relative;cursor:pointer;transition:background .2s;flex-shrink:0;
+    }
+    .toggle-track.on { background:#64b5f6; }
+    .toggle-thumb {
+      position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;
+      background:#fff;transition:left .2s;box-shadow:0 1px 3px rgba(0,0,0,0.3);
+    }
+    .toggle-track.on .toggle-thumb { left:18px; }
+
     /* card grouping */
     .card-group-cluster {
       border:1.5px dashed rgba(100,181,246,0.35);border-radius:12px;
@@ -271,7 +295,18 @@ interface TimerState {
       display:inline-flex;align-items:center;gap:5px;
       background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);
       border-radius:20px;padding:2px 8px 2px 3px;font-size:0.7rem;
-      color:rgba(255,255,255,0.6);
+      color:rgba(255,255,255,0.6);position:relative;transition:border-color .2s;
+    }
+    .presence-avatar-wrap.has-cards { border-color:rgba(76,175,80,0.4);background:rgba(76,175,80,0.06); }
+    .presence-avatar-wrap.no-cards { border-color:rgba(255,152,0,0.3);background:rgba(255,152,0,0.04); }
+    .presence-check {
+      font-size:11px;height:11px;width:11px;color:#66bb6a;
+    }
+    .presence-pending {
+      width:6px;height:6px;border-radius:50%;background:rgba(255,152,0,0.7);flex-shrink:0;
+    }
+    .participation-summary {
+      font-size:0.7rem;color:rgba(255,255,255,0.3);margin-left:4px;white-space:nowrap;
     }
     .votes-left-badge {
       padding:4px 10px;border-radius:20px;font-size:0.72rem;font-weight:600;
@@ -516,7 +551,7 @@ interface TimerState {
     .sticky:active, .sticky.dragging { cursor:grabbing;box-shadow:4px 8px 24px rgba(0,0,0,0.5);z-index:100; }
     .sticky.no-drag { cursor:default; }
     .sticky-text { font-size:0.8rem;color:rgba(0,0,0,0.82);line-height:1.4;flex:1; }
-    .sticky-author { font-size:0.65rem;color:rgba(0,0,0,0.45);margin-top:2px; }
+    .sticky-author { font-size:0.65rem;color:rgba(0,0,0,0.45); }
     .sticky-footer { display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:4px; }
     .sticky-vote-row { display:flex;align-items:center;gap:0;margin-top:4px; }
     .sticky-vote-count { min-width:22px;text-align:center;font-size:0.7rem;font-weight:700;color:rgba(0,0,0,0.45);font-variant-numeric:tabular-nums; }
@@ -574,6 +609,26 @@ interface TimerState {
       border-radius:4px;transition:color 0.15s;
     }
     .sticky-del-btn:hover { color:rgba(200,0,0,0.7); }
+    .sticky-header { display:flex;align-items:center;gap:5px;margin-bottom:6px; }
+    .sticky-edit-area {
+      width:100%;box-sizing:border-box;border:none;outline:none;resize:none;
+      background:transparent;font-size:0.8rem;color:rgba(0,0,0,0.82);line-height:1.4;
+      font-family:inherit;padding:0;margin:0;flex:1;min-height:48px;
+    }
+    .sticky-text-editable { cursor:text; }
+    .sticky-text-editable:hover { background:rgba(0,0,0,0.04);border-radius:4px; }
+    .sticky-color-row {
+      display:flex;gap:4px;flex-wrap:wrap;margin-top:6px;padding-top:6px;
+      border-top:1px solid rgba(0,0,0,0.08);
+      opacity:0;transition:opacity .15s;
+    }
+    .sticky:hover .sticky-color-row { opacity:1; }
+    .sticky-color-swatch {
+      width:14px;height:14px;border-radius:50%;cursor:pointer;border:1.5px solid transparent;
+      transition:transform .1s;flex-shrink:0;
+    }
+    .sticky-color-swatch:hover { transform:scale(1.3); }
+    .sticky-color-swatch.active { border-color:rgba(0,0,0,0.4); }
     .sticky-color-btn {
       position:absolute;top:6px;left:6px;
       width:14px;height:14px;border-radius:50%;
@@ -779,6 +834,12 @@ interface TimerState {
             <span class="session-sub">{{ s.cards.length }} card{{ s.cards.length !== 1 ? 's' : '' }}</span>
           </div>
           <div class="host-controls">
+            @if (s.isCreator) {
+              <button mat-icon-button (click)="showSettings.set(!showSettings())" title="Session settings"
+                      [style.color]="showSettings() ? '#64b5f6' : null">
+                <mat-icon>settings</mat-icon>
+              </button>
+            }
             <button mat-icon-button (click)="shareSession(s)" title="Share">
               <mat-icon>share</mat-icon>
             </button>
@@ -788,15 +849,54 @@ interface TimerState {
           </div>
         </div>
 
+        <!-- Settings panel (creator only) -->
+        @if (showSettings() && s.isCreator) {
+          <div class="settings-panel">
+            <div class="settings-panel-header">
+              <span class="settings-panel-title">Session Settings</span>
+            </div>
+            <div class="settings-row">
+              <div>
+                <div class="settings-row-label">Hide cards during add phase</div>
+                <div class="settings-row-desc">Participants can only see their own cards until you reveal</div>
+              </div>
+              <div class="toggle-track" [class.on]="s.hideCardsOnAdd" (click)="toggleSetting('hideCardsOnAdd')">
+                <div class="toggle-thumb"></div>
+              </div>
+            </div>
+            <div class="settings-row">
+              <div>
+                <div class="settings-row-label">Participation tracking</div>
+                <div class="settings-row-desc">Show who has added cards in the presence bar</div>
+              </div>
+              <div class="toggle-track" [class.on]="s.participationTracking" (click)="toggleSetting('participationTracking')">
+                <div class="toggle-thumb"></div>
+              </div>
+            </div>
+          </div>
+        }
+
         <!-- Presence bar -->
         @if (presence().length > 0) {
           <div class="presence-bar">
-            <span class="presence-label">In session</span>
+            <span class="presence-label">Participants</span>
             @for (p of presence(); track p.memberId) {
-              <div class="presence-avatar-wrap">
+              @let hasCard = s.participationTracking && membersWithCards().has(p.memberId);
+              @let showPending = s.participationTracking && !hasCard && s.phase === 'add';
+              <div class="presence-avatar-wrap" [class.has-cards]="hasCard" [class.no-cards]="showPending">
                 <app-avatar-circle [memberId]="p.memberId" [name]="p.memberName" [size]="18" />
                 <span>{{ p.memberName }}</span>
+                @if (hasCard) {
+                  <mat-icon class="presence-check">check_circle</mat-icon>
+                } @else if (showPending) {
+                  <div class="presence-pending" title="No cards yet"></div>
+                }
               </div>
+            }
+            @if (s.participationTracking && s.phase === 'add') {
+              @let doneCount = membersWithCards().size;
+              @let totalCount = presence().length;
+              <span class="participation-summary">{{ doneCount }}/{{ totalCount }} added cards</span>
             }
           </div>
         }
@@ -1103,7 +1203,13 @@ interface TimerState {
                                 </div>
                               </div>
                             }
-                          } @else { <div class="card-hidden-text">🔒 Hidden</div> }
+                          } @else {
+                            <div class="card-header">
+                              <app-avatar-circle [memberId]="card.authorId" [name]="card.authorName ?? ''" [size]="20" />
+                              <span class="card-author-name">{{ card.authorName }}</span>
+                            </div>
+                            <div class="card-hidden-text">🔒 Hidden until reveal</div>
+                          }
                           @if (card.text !== null && (card.isOwn || s.phase === 'vote' || s.phase === 'discuss')) {
                             <div class="card-color-row">
                               @for (swatch of stickyPalette; track swatch) {
@@ -1214,29 +1320,46 @@ interface TimerState {
                            [style.top.px]="item.y"
                            [style.background]="resolveCardColor(item.card)"
                            (mousedown)="startDrag($event, item.card, item.x, item.y, col.key)">
-                        @if (s.phase === 'add' && item.card.isOwn) {
-                          <button class="sticky-del-btn" (mousedown)="$event.stopPropagation()" (click)="deleteCard(item.card)">×</button>
-                        }
-                        @if (s.phase === 'add' || s.phase === 'vote' || s.phase === 'discuss') {
-                          <button class="sticky-color-btn" [style.background]="resolveCardColor(item.card)"
-                                  (mousedown)="$event.stopPropagation()" (click)="toggleColorPicker($event, item.card.id)"></button>
-                          @if (colorPickerOpenFor() === item.card.id) {
-                            <div class="color-picker-popover" (mousedown)="$event.stopPropagation()">
-                              @for (swatch of stickyPalette; track swatch) {
-                                <div class="color-swatch" [style.background]="swatch"
-                                     [class.active]="resolveCardColor(item.card) === swatch"
-                                     (click)="changeCardColor(item.card, swatch)"></div>
-                              }
-                            </div>
-                          }
-                        }
-                        <div class="sticky-text">{{ item.card.text }}</div>
-                        @if (item.card.authorName && s.phase !== 'vote') {
-                          <div class="sticky-author-row">
-                            <app-avatar-circle [memberId]="item.card.authorId" [name]="item.card.authorName" [size]="14" />
-                            <span class="sticky-author">{{ item.card.authorName }}</span>
+                          @if (item.card.text === null) {
+                          <!-- Hidden card: show who wrote it, not what -->
+                          <div class="sticky-header">
+                            <app-avatar-circle [memberId]="item.card.authorId" [name]="item.card.authorName ?? ''" [size]="18" />
+                            <span class="sticky-author" style="flex:1">{{ item.card.authorName }}</span>
+                          </div>
+                          <div style="display:flex;align-items:center;gap:5px;opacity:0.4;margin-top:6px">
+                            <mat-icon style="font-size:14px;height:14px;width:14px">lock</mat-icon>
+                            <span style="font-size:0.7rem;color:rgba(0,0,0,0.6)">Hidden until reveal</span>
+                          </div>
+                        } @else {
+                        <!-- Header: avatar + name + delete -->
+                        @if (item.card.authorName) {
+                          <div class="sticky-header">
+                            <app-avatar-circle [memberId]="item.card.authorId" [name]="item.card.authorName" [size]="18" />
+                            <span class="sticky-author" style="flex:1">{{ item.card.authorName }}</span>
+                            @if (s.phase === 'add' && item.card.isOwn) {
+                              <button class="sticky-del-btn" (mousedown)="$event.stopPropagation()" (click)="deleteCard(item.card)">×</button>
+                            }
                           </div>
                         }
+                        <!-- Card text / inline edit -->
+                        @if (editingCardId() === item.card.id) {
+                          <textarea class="sticky-edit-area"
+                                    [value]="editingText()"
+                                    (input)="editingText.set($any($event.target).value)"
+                                    (blur)="saveCardText(item.card)"
+                                    (keydown.enter)="$event.preventDefault(); saveCardText(item.card)"
+                                    (keydown.escape)="cancelEditCard()"
+                                    (mousedown)="$event.stopPropagation()"
+                                    cdkTextareaAutosize></textarea>
+                        } @else {
+                          <div class="sticky-text"
+                               [class.sticky-text-editable]="item.card.isOwn || s.isCreator"
+                               (mousedown)="$event.stopPropagation()"
+                               (click)="(item.card.isOwn || s.isCreator) && item.card.text !== null ? startEditCard(item.card) : null">
+                            {{ item.card.text }}
+                          </div>
+                        }
+                        <!-- Footer: votes -->
                         <div class="sticky-footer">
                           @if (s.phase === 'vote' || s.phase === 'discuss' || s.phase === 'done') {
                             <div class="sticky-vote-row">
@@ -1264,6 +1387,17 @@ interface TimerState {
                             }
                           </div>
                         }
+                        <!-- Color row at bottom (hover-revealed) -->
+                        @if (s.phase === 'add' || s.phase === 'vote' || s.phase === 'discuss') {
+                          <div class="sticky-color-row" (mousedown)="$event.stopPropagation()">
+                            @for (swatch of stickyPalette; track swatch) {
+                              <div class="sticky-color-swatch" [style.background]="swatch"
+                                   [class.active]="resolveCardColor(item.card) === swatch"
+                                   (click)="changeCardColor(item.card, swatch)"></div>
+                            }
+                          </div>
+                        }
+                        } <!-- end @else hidden -->
                       </div>
                     }
                   </div>
@@ -1446,7 +1580,11 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
   presence = signal<{ memberId: string; memberName: string }[]>([]);
   retroPolls = signal<PollDetail[]>([]);
   showPollsPanel = signal(false);
+  showSettings = signal(false);
   groupingCardId = signal<string | null>(null);
+  membersWithCards = computed(() => new Set(this.session()?.cards.map(c => c.authorId) ?? []));
+  editingCardId = signal<string | null>(null);
+  editingText = signal('');
   localPositions = signal<Record<string, { x: number; y: number }>>({});
   draggingId = signal<string | null>(null);
   private dragState: { id: string; col: string; startMouseX: number; startMouseY: number; startX: number; startY: number } | null = null;
@@ -1460,7 +1598,7 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
     const localPos = this.localPositions();
     let idx = 0;
     return s.cards
-      .filter(c => c.column === colKey && c.text !== null)
+      .filter(c => c.column === colKey)
       .map(card => {
         const local = localPos[card.id];
         if (local) return { card, x: local.x, y: local.y };
@@ -1646,6 +1784,25 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
             });
           }
           break;
+        case 'fun_retro_settings_updated':
+          if (msg.data['sessionId'] === s.id) {
+            this.session.update(cur => cur ? {
+              ...cur,
+              hideCardsOnAdd: msg.data['hideCardsOnAdd'] as boolean,
+              participationTracking: msg.data['participationTracking'] as boolean,
+            } : cur);
+          }
+          break;
+        case 'fun_retro_card_text_updated':
+          if (msg.data['sessionId'] === s.id) {
+            const cardId = msg.data['cardId'] as string;
+            const text = msg.data['text'] as string;
+            this.session.update(cur => {
+              if (!cur) return cur;
+              return { ...cur, cards: cur.cards.map(c => c.id === cardId ? { ...c, text } : c) };
+            });
+          }
+          break;
         case 'fun_retro_card_grouped':
           if (msg.data['sessionId'] === s.id) {
             const cardId = msg.data['cardId'] as string;
@@ -1823,6 +1980,40 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
       }
     }
     return groups;
+  }
+
+  toggleSetting(key: 'hideCardsOnAdd' | 'participationTracking'): void {
+    const s = this.session();
+    if (!s || !s.isCreator) return;
+    const updated = { hideCardsOnAdd: s.hideCardsOnAdd, participationTracking: s.participationTracking, [key]: !s[key] };
+    this.session.update(cur => cur ? { ...cur, ...updated } : cur);
+    this.svc.updateSettings(s.id, updated).subscribe({ error: () => this.silentRefresh() });
+  }
+
+  startEditCard(card: FunRetroCard): void {
+    this.editingCardId.set(card.id);
+    this.editingText.set(card.text ?? '');
+  }
+
+  saveCardText(card: FunRetroCard): void {
+    const s = this.session();
+    if (!s) return;
+    const text = this.editingText().trim();
+    this.editingCardId.set(null);
+    if (!text || text === card.text) return;
+    this.svc.updateCardText(s.id, card.id, text).subscribe({
+      next: () => {
+        this.session.update(cur => {
+          if (!cur) return cur;
+          return { ...cur, cards: cur.cards.map(c => c.id === card.id ? { ...c, text } : c) };
+        });
+      }
+    });
+  }
+
+  cancelEditCard(): void {
+    this.editingCardId.set(null);
+    this.editingText.set('');
   }
 
   groupsForCol(colKey: string): { groupId: string; cards: FunRetroCard[] }[] {
