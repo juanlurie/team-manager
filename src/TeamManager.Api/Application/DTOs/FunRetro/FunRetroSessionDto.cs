@@ -15,6 +15,7 @@ public record FunRetroSessionDto
     public FunRetroAnalysisDto? AiAnalysis { get; init; }
     public string? TimerJson { get; init; }
     public List<IcebreakerAnswerDto> IcebreakerAnswers { get; init; } = [];
+    public string? IcebreakerQuestion { get; init; }
     public List<RetroColumnDto> Columns { get; init; } = [];
     public bool HideCardsOnAdd { get; init; }
     public bool ParticipationTracking { get; init; }
@@ -94,6 +95,7 @@ public record CreateFunRetroSessionRequest
     public string? Title { get; init; }
     public Guid? SprintId { get; init; }
     public List<RetroColumnDto>? Columns { get; init; }
+    public string? IcebreakerQuestion { get; init; }
 }
 
 public record AddFunRetroCardRequest

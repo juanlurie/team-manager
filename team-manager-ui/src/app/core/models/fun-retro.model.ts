@@ -52,6 +52,7 @@ export interface FunRetroSession {
   aiAnalysis: FunRetroAnalysis | null;
   timerJson: string | null;
   icebreakerAnswers: { memberId: string; memberName: string; answer: string }[];
+  icebreakerQuestion: string | null;
   columns: RetroColumn[];
   hideCardsOnAdd: boolean;
   participationTracking: boolean;

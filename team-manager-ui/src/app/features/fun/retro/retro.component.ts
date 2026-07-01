@@ -102,6 +102,7 @@ const RETRO_TEMPLATES: RetroTemplate[] = [
 export interface NewRetroDialogResult {
   title: string;
   templateId: string;
+  icebreakerQuestion?: string;
 }
 
 @Component({
@@ -132,6 +133,7 @@ export interface NewRetroDialogResult {
     .template-desc { font-size:0.7rem;color:rgba(255,255,255,0.35);margin-bottom:6px; }
     .template-cols { display:flex;flex-wrap:wrap;gap:4px; }
     .template-col-chip { font-size:0.65rem;padding:2px 6px;border-radius:10px;font-weight:500; }
+    select.field { appearance:auto; }
   `],
   template: `
     <h2 mat-dialog-title style="font-size:1rem;margin:0 0 4px">New Retro</h2>
@@ -155,6 +157,18 @@ export interface NewRetroDialogResult {
           </div>
         }
       </div>
+
+      <label class="field-label" style="margin-top:4px">Icebreaker question</label>
+      <select class="field" [(ngModel)]="icebreakerMode">
+        <option value="random">Random (default)</option>
+        @for (q of icebreakerQuestions; track q) {
+          <option [value]="q">{{ q }}</option>
+        }
+        <option value="__custom__">Write my own…</option>
+      </select>
+      @if (icebreakerMode === '__custom__') {
+        <input class="field" [(ngModel)]="customIcebreaker" placeholder="Type your own icebreaker question" (keyup.enter)="submit()" />
+      }
     </mat-dialog-content>
     <mat-dialog-actions align="end" style="margin-top:8px">
       <button mat-button mat-dialog-close>Cancel</button>
@@ -165,15 +179,24 @@ export interface NewRetroDialogResult {
 export class NewRetroDialogComponent {
   dialogRef = inject(MatDialogRef<NewRetroDialogComponent, NewRetroDialogResult>);
   readonly templates = RETRO_TEMPLATES;
+  readonly icebreakerQuestions = ICEBREAKER_QUESTIONS;
   title = '';
   selectedTemplateId = RETRO_TEMPLATES[0].id;
+  icebreakerMode = 'random';
+  customIcebreaker = '';
 
   templateAccent(t: RetroTemplate): string {
     return t.columns[0]?.color ?? '#64b5f6';
   }
 
   submit(): void {
-    this.dialogRef.close({ title: this.title.trim(), templateId: this.selectedTemplateId });
+    let icebreakerQuestion: string | undefined;
+    if (this.icebreakerMode === '__custom__') {
+      icebreakerQuestion = this.customIcebreaker.trim() || undefined;
+    } else if (this.icebreakerMode !== 'random') {
+      icebreakerQuestion = this.icebreakerMode;
+    }
+    this.dialogRef.close({ title: this.title.trim(), templateId: this.selectedTemplateId, icebreakerQuestion });
   }
 }
 
@@ -438,12 +461,13 @@ interface TimerState {
     /* add-phase input */
     .add-input-row { display:flex;gap:6px;margin-bottom:4px; }
     .card-input {
-      flex:1;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);
-      border-radius:6px;color:inherit;font-size:0.82rem;padding:7px 9px;
-      outline:none;transition:border-color 0.2s;font-family:inherit;
+      flex:1;background:rgba(100,181,246,0.08);border:1.5px solid rgba(100,181,246,0.35);
+      border-radius:8px;color:inherit;font-size:0.85rem;padding:9px 11px;
+      outline:none;transition:border-color 0.2s,background 0.2s;font-family:inherit;
       resize:none;line-height:1.4;max-height:160px;
     }
-    .card-input:focus { border-color:#64b5f6; }
+    .card-input::placeholder { color:rgba(255,255,255,0.45); }
+    .card-input:focus { border-color:#64b5f6;background:rgba(100,181,246,0.14); }
 
     /* cards */
     .retro-card {
@@ -458,7 +482,7 @@ interface TimerState {
     .retro-card.own-card { border-color:rgba(100,181,246,0.25); }
     .card-header { display:flex;align-items:center;gap:7px;margin-bottom:7px; }
     .card-author-name { font-size:0.72rem;font-weight:600;color:rgba(255,255,255,0.55); }
-    .card-text { font-size:0.85rem;color:rgba(255,255,255,0.9);line-height:1.5; }
+    .card-text { font-size:0.85rem;color:rgba(255,255,255,0.9);line-height:1.5;overflow-wrap:anywhere;word-break:break-word; }
     .card-hidden-text { font-size:0.78rem;color:rgba(255,255,255,0.3);font-style:italic; }
     .card-author { font-size:0.68rem;color:rgba(255,255,255,0.35);margin-top:4px; }
     .card-footer { display:flex;align-items:center;justify-content:space-between;margin-top:10px;gap:6px; }
@@ -598,15 +622,16 @@ interface TimerState {
       display:flex;gap:6px;align-items:flex-end;
     }
     .canvas-add-input {
-      flex:1;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);
-      border-radius:6px;color:inherit;font-size:0.82rem;padding:6px 9px;
-      outline:none;font-family:inherit;
+      flex:1;background:rgba(100,181,246,0.08);border:1.5px solid rgba(100,181,246,0.35);
+      border-radius:8px;color:inherit;font-size:0.85rem;padding:8px 11px;
+      outline:none;font-family:inherit;transition:border-color 0.2s,background 0.2s;
       resize:none;line-height:1.4;max-height:160px;
     }
-    .canvas-add-input:focus { border-color:#64b5f6; }
+    .canvas-add-input::placeholder { color:rgba(255,255,255,0.45); }
+    .canvas-add-input:focus { border-color:#64b5f6;background:rgba(100,181,246,0.14); }
     .canvas-add-btn {
-      padding:5px 12px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);
-      border-radius:6px;color:inherit;font-size:0.8rem;font-family:inherit;cursor:pointer;
+      padding:7px 14px;background:rgba(100,181,246,0.18);border:1.5px solid rgba(100,181,246,0.4);
+      border-radius:8px;color:#64b5f6;font-size:0.82rem;font-weight:600;font-family:inherit;cursor:pointer;
     }
     .canvas-add-btn:disabled { opacity:0.4;cursor:not-allowed; }
     .canvas-outer {
@@ -636,7 +661,7 @@ interface TimerState {
     }
     .sticky:active, .sticky.dragging { cursor:grabbing;box-shadow:4px 8px 24px rgba(0,0,0,0.5);z-index:100; }
     .sticky.no-drag { cursor:default; }
-    .sticky-text { font-size:0.8rem;color:rgba(0,0,0,0.82);line-height:1.4;flex:1; }
+    .sticky-text { font-size:0.8rem;color:rgba(0,0,0,0.82);line-height:1.4;flex:1;overflow-wrap:anywhere;word-break:break-word; }
     .sticky-author { font-size:0.65rem;color:rgba(0,0,0,0.45); }
     .sticky-footer { display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:4px; }
     .sticky-vote-row { display:flex;align-items:center;gap:0;margin-top:4px; }
@@ -665,12 +690,6 @@ interface TimerState {
       font-size:0.65rem;color:rgba(0,0,0,0.45);
     }
     .sticky-vote-chip mat-icon { font-size:11px;height:11px;width:11px; }
-    .canvas-add-btn {
-      position:absolute;bottom:8px;right:8px;
-      background:rgba(100,181,246,0.15);border:1px solid rgba(100,181,246,0.3);
-      color:#64b5f6;border-radius:6px;padding:4px 10px;
-      font-size:0.72rem;cursor:pointer;
-    }
     .canvas-col-add {
       position:absolute;display:flex;gap:6px;align-items:center;
       top:40px;padding:0 10px 0 0;box-sizing:border-box;width:540px;
@@ -1620,7 +1639,9 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
   icebreakerInput = '';
   submittingIcebreaker = signal(false);
   icebreakerQuestion = computed(() => {
-    const id = this.session()?.id ?? '';
+    const s = this.session();
+    if (s?.icebreakerQuestion) return s.icebreakerQuestion;
+    const id = s?.id ?? '';
     return ICEBREAKER_QUESTIONS[hashStr(id) % ICEBREAKER_QUESTIONS.length];
   });
 
@@ -1760,7 +1781,7 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
     '#f5f5f5', '#ffe082', '#a5d6a7', '#90caf9',
   ];
 
-  private readonly colDefaultColor: Record<string, string> = {
+  private colDefaultColor: Record<string, string> = {
     well: '#c8e6c9', better: '#ffe0b2', action: '#fce4ec',
   };
 
@@ -1791,6 +1812,8 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
     if (!s) return;
     this.colorPickerOpenFor.set(null);
     this.colorPickerPos.set(null);
+    // Remember this as the default for the column so new cards inherit it.
+    this.colDefaultColor = { ...this.colDefaultColor, [card.column]: color };
     // Optimistic local update
     this.session.update(cur => {
       if (!cur) return cur;
@@ -2221,7 +2244,7 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   setTimerPreset(seconds: number): void {
-    this.saveTimer({ totalSeconds: seconds, startedAt: null, pausedAt: null, elapsedBeforePause: 0 });
+    this.saveTimer({ totalSeconds: seconds, startedAt: new Date().toISOString(), pausedAt: null, elapsedBeforePause: 0 });
   }
 
   formatTime(totalSecs: number): string {
@@ -2294,10 +2317,11 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
   private createSession(result: NewRetroDialogResult): void {
     this.creating.set(true);
     const template = RETRO_TEMPLATES.find(t => t.id === result.templateId);
-    const req: { title?: string; columns?: RetroColumn[] } = {
+    const req: { title?: string; columns?: RetroColumn[]; icebreakerQuestion?: string } = {
       columns: template?.columns ?? DEFAULT_COLS,
     };
     if (result.title) req.title = result.title;
+    if (result.icebreakerQuestion) req.icebreakerQuestion = result.icebreakerQuestion;
     this.svc.createSession(req).subscribe({
       next: s => {
         this.creating.set(false);
