@@ -1,6 +1,6 @@
 import {
   Component, OnInit, OnDestroy, AfterViewInit, HostListener,
-  inject, signal, computed, ChangeDetectionStrategy, ElementRef
+  inject, signal, computed, effect, ChangeDetectionStrategy, ElementRef
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -21,6 +21,7 @@ import { PollService } from '../../../core/services/poll.service';
 import { PollDetail } from '../../../core/models/poll.model';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { CreatePollDialogComponent } from '../../polls/poll.component';
+import { NavService } from '../../../core/nav/nav.service';
 
 const DEFAULT_COLS: RetroColumn[] = [
   { key: 'well',   label: '✅ Went Well',      color: '#4caf50' },
@@ -495,18 +496,6 @@ interface TimerState {
     }
     .phase-guide mat-icon { font-size:15px;height:15px;width:15px;flex-shrink:0;opacity:0.7; }
 
-    /* top control bar: timer + phase actions grouped together */
-    .top-control-bar { display:flex; flex-direction:column; gap:8px; margin-bottom:8px; }
-
-    /* advance button */
-    .advance-wrap {
-      display:flex;align-items:center;justify-content:flex-end;
-      gap:10px;padding:12px 20px;
-      background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.07);
-      border-radius:10px;
-    }
-    .advance-wrap .votes-left-badge { margin-right:auto; }
-
     /* Breaks an element out of the page-wrap max-width to match the canvases below it on desktop */
     .full-bleed {
       margin-left:var(--canvas-ml, 0px);
@@ -703,10 +692,10 @@ interface TimerState {
 
     /* Timer row */
     .timer-row {
-      display:flex; align-items:center; justify-content:space-between;
-      padding:12px 20px;
+      display:flex; align-items:center; flex-wrap:wrap;
+      padding:10px 20px; margin-bottom:8px;
       background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.07);
-      border-radius:10px; gap:16px;
+      border-radius:10px; gap:12px;
     }
     .timer-row.timer-danger { border-color:rgba(239,83,80,0.25); animation:row-glow 0.9s ease-in-out infinite alternate; }
     .timer-row.timer-expired { border-color:rgba(100,181,246,0.3); }
@@ -851,7 +840,7 @@ interface TimerState {
             <span class="session-sub">{{ s.cards.length }} card{{ s.cards.length !== 1 ? 's' : '' }}</span>
           </div>
           <div class="host-controls">
-            @if (s.isCreator) {
+            @if (s.isCreator && s.phase === 'lobby') {
               <button mat-icon-button (click)="showSettings.set(!showSettings())" title="Session settings"
                       [style.color]="showSettings() ? '#64b5f6' : null">
                 <mat-icon>settings</mat-icon>
@@ -1002,10 +991,9 @@ interface TimerState {
           </div>
         }
 
-        <!-- Top control bar: timer + phase actions (non-lobby phases) -->
+        <!-- Top control bar: timer + settings + phase actions, all in one row (non-lobby phases) -->
         @if (s.phase !== 'lobby') {
-          <div class="top-control-bar" [class.full-bleed]="isDesktop()">
-          <div class="timer-row"
+          <div class="timer-row" [class.full-bleed]="isDesktop()"
                [class.timer-danger]="timerRemaining() <= 30 && !timerExpired() && timerRunning()"
                [class.timer-expired]="timerExpired()">
             <div class="timer-ring-wrap"
@@ -1033,7 +1021,6 @@ interface TimerState {
                 }
               </div>
             </div>
-            <div class="timer-spacer"></div>
             @if (s.isCreator) {
               <div class="timer-controls">
                 @if (!timer()) {
@@ -1054,28 +1041,30 @@ interface TimerState {
                 }
               </div>
             }
-          </div>
-          @if (s.isCreator && (nextPhase() || s.phase === 'done')) {
-            <div class="advance-wrap">
-              @if (s.phase === 'vote') {
-                <span class="votes-left-badge" style="margin-right:auto">{{ voteBudget() }} vote{{ voteBudget() !== 1 ? 's' : '' }} left</span>
-              }
-              @if (s.phase === 'discuss' || s.phase === 'done') {
-                <button mat-stroked-button (click)="runAnalysis()" [disabled]="analysing()">
-                  @if (analysing()) { <mat-spinner diameter="16" style="display:inline-block;margin-right:4px" /> }
-                  @else { <mat-icon>auto_awesome</mat-icon> }
-                  Analyse with AI
-                </button>
-              }
-              @if (nextPhase()) {
-                <button mat-flat-button color="accent" (click)="advancePhase()" [disabled]="advancingPhase()">
-                  @if (advancingPhase()) { <mat-spinner diameter="16" style="display:inline-block;margin-right:4px" /> }
-                  Next: {{ phaseLabel(nextPhase()!) }}
-                  <mat-icon>arrow_forward</mat-icon>
-                </button>
-              }
-            </div>
-          }
+            <div class="timer-spacer"></div>
+            @if (s.isCreator) {
+              <button mat-icon-button (click)="showSettings.set(!showSettings())" title="Session settings"
+                      [style.color]="showSettings() ? '#64b5f6' : null">
+                <mat-icon>settings</mat-icon>
+              </button>
+            }
+            @if (s.phase === 'vote') {
+              <span class="votes-left-badge">{{ voteBudget() }} vote{{ voteBudget() !== 1 ? 's' : '' }} left</span>
+            }
+            @if (s.isCreator && (s.phase === 'discuss' || s.phase === 'done')) {
+              <button mat-stroked-button (click)="runAnalysis()" [disabled]="analysing()">
+                @if (analysing()) { <mat-spinner diameter="16" style="display:inline-block;margin-right:4px" /> }
+                @else { <mat-icon>auto_awesome</mat-icon> }
+                Analyse with AI
+              </button>
+            }
+            @if (s.isCreator && nextPhase()) {
+              <button mat-flat-button color="accent" (click)="advancePhase()" [disabled]="advancingPhase()">
+                @if (advancingPhase()) { <mat-spinner diameter="16" style="display:inline-block;margin-right:4px" /> }
+                Next: {{ phaseLabel(nextPhase()!) }}
+                <mat-icon>arrow_forward</mat-icon>
+              </button>
+            }
           </div>
         }
 
@@ -1526,6 +1515,7 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
   private router = inject(Router);
   private route = inject(ActivatedRoute);
   private elRef = inject(ElementRef);
+  private navSvc = inject(NavService);
 
   readonly templates = RETRO_TEMPLATES;
 
@@ -1543,6 +1533,14 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
   sessions = signal<FunRetroSessionSummary[]>([]);
   session = signal<FunRetroSession | null>(null);
   loading = signal(false);
+
+  /** Hide the Pulse hub's tab row while a retro session is open, to save vertical space. */
+  private hideSubNavEffect = effect(() => {
+    this.navSvc.hideSubNav.set(!!this.session());
+    // Hiding/showing the hub's tab row changes the available width without firing a
+    // window resize event, so the full-bleed canvas margins need a manual recompute.
+    requestAnimationFrame(() => this.updateCanvasMargins());
+  });
 
   showNewForm = signal(false);
   newTitle = '';
@@ -1863,6 +1861,7 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
     this.destroy$.complete();
     if (this.timerInterval) clearInterval(this.timerInterval);
     this.wsSvc.send({ type: 'leave_retro' });
+    this.navSvc.hideSubNav.set(false);
   }
 
   loadSessions(): void {
