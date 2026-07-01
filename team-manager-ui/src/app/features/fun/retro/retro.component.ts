@@ -507,6 +507,12 @@ interface TimerState {
     }
     .advance-wrap .votes-left-badge { margin-right:auto; }
 
+    /* Breaks an element out of the page-wrap max-width to match the canvases below it on desktop */
+    .full-bleed {
+      margin-left:var(--canvas-ml, 0px);
+      margin-right:var(--canvas-mr, 0px);
+    }
+
     /* ── desktop canvas ─────────────────────────────────── */
     .canvases-row {
       display:flex;gap:8px;align-items:flex-start;
@@ -998,7 +1004,7 @@ interface TimerState {
 
         <!-- Top control bar: timer + phase actions (non-lobby phases) -->
         @if (s.phase !== 'lobby') {
-          <div class="top-control-bar">
+          <div class="top-control-bar" [class.full-bleed]="isDesktop()">
           <div class="timer-row"
                [class.timer-danger]="timerRemaining() <= 30 && !timerExpired() && timerRunning()"
                [class.timer-expired]="timerExpired()">
@@ -1075,7 +1081,7 @@ interface TimerState {
 
         <!-- Step bar (all phases except lobby) -->
         @if (s.phase !== 'lobby') {
-          <div class="step-bar">
+          <div class="step-bar" [class.full-bleed]="isDesktop()">
             @for (step of retroSteps; track step.phase; let i = $index) {
               @let stepState = stepStateFor(s.phase, step.phase);
               <div class="step-item">
@@ -1160,7 +1166,7 @@ interface TimerState {
           }
         }
         @if (s.phase !== 'lobby') {
-          <div class="phase-guide" [style.border-color]="phaseColor(s.phase) + '30'" [style.color]="phaseColor(s.phase)">
+          <div class="phase-guide" [class.full-bleed]="isDesktop()" [style.border-color]="phaseColor(s.phase) + '30'" [style.color]="phaseColor(s.phase)">
             <mat-icon>{{ phaseGuide(s.phase).icon }}</mat-icon>
             <span style="color:rgba(255,255,255,0.7)">{{ phaseGuide(s.phase).text }}</span>
           </div>
