@@ -1668,20 +1668,36 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
     const s = this.session();
     if (!s) return [];
     const localPos = this.localPositions();
+    const occupied: { x: number; y: number }[] = [];
+    const result: { card: FunRetroCard; x: number; y: number }[] = [];
     let idx = 0;
-    return s.cards
-      .filter(c => c.column === colKey)
-      .map(card => {
-        const local = localPos[card.id];
-        if (local) return { card, x: local.x, y: local.y };
-        if (card.positionX != null && card.positionY != null)
-          return { card, x: card.positionX, y: card.positionY };
+    for (const card of s.cards.filter(c => c.column === colKey)) {
+      const local = localPos[card.id];
+      if (local) {
+        result.push({ card, x: local.x, y: local.y });
+        occupied.push(local);
+        continue;
+      }
+      if (card.positionX != null && card.positionY != null) {
+        const pos = { x: card.positionX, y: card.positionY };
+        result.push({ card, x: pos.x, y: pos.y });
+        occupied.push(pos);
+        continue;
+      }
+      // Skip any grid slot already taken by a dragged/persisted card so new
+      // cards never land directly on top of one.
+      let x: number, y: number;
+      do {
         const col = idx % 2;
         const row = Math.floor(idx / 2);
-        const yStart = s.phase === 'add' ? 10 : 10;
+        x = col * (this.STICKY_W + 20) + this.STICKY_MARGIN;
+        y = 10 + row * 190;
         idx++;
-        return { card, x: col * (this.STICKY_W + 20) + this.STICKY_MARGIN, y: yStart + row * 190 };
-      });
+      } while (occupied.some(p => Math.abs(p.x - x) < this.STICKY_W && Math.abs(p.y - y) < 190));
+      result.push({ card, x, y });
+      occupied.push({ x, y });
+    }
+    return result;
   }
 
   canvasHeight(colKey: string): number {
