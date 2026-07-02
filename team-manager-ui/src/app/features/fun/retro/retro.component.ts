@@ -210,6 +210,14 @@ const PHASE_META: Record<string, { label: string; color: string }> = {
 
 const REACTION_EMOJIS = ['👍', '😅', '🔥', '😬', '💯'];
 
+const EMOJI_PICKER_SET = [
+  '😀', '😂', '😅', '😊', '🙂', '😉', '😍', '🤔',
+  '😬', '😭', '😢', '😡', '😱', '🥳', '😴', '🤯',
+  '👍', '👎', '👏', '🙌', '🙏', '💪', '🤝', '👀',
+  '❤️', '🔥', '💯', '⭐', '✅', '❌', '⚠️', '🎉',
+  '🚀', '💡', '🐛', '🎯', '⏰', '📌', '☕', '🎈',
+];
+
 const ICEBREAKER_QUESTIONS = [
   "What's one word that describes this session?",
   "If this retro were a weather forecast, what would it be?",
@@ -628,6 +636,16 @@ interface TimerState {
     }
     .canvas-tidy-btn:hover { background:rgba(255,255,255,0.12);color:#fff;border-color:rgba(255,255,255,0.25); }
     .canvas-tidy-btn mat-icon { font-size:14px;width:14px;height:14px;line-height:14px; }
+    .canvas-expand-btn {
+      display:inline-flex;align-items:center;justify-content:center;
+      width:22px;height:22px;flex-shrink:0;
+      background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);
+      border-radius:6px;color:rgba(255,255,255,0.6);cursor:pointer;
+      transition:background .15s,color .15s,border-color .15s;
+    }
+    .canvas-expand-btn:hover { background:rgba(255,255,255,0.12);color:#fff;border-color:rgba(255,255,255,0.25); }
+    .canvas-expand-btn mat-icon { font-size:14px;width:14px;height:14px;line-height:14px; }
+    .canvas-col-wrap.expanded { flex:1 1 100%; }
     .canvas-add-row {
       display:flex;gap:6px;align-items:flex-end;
     }
@@ -773,6 +791,28 @@ interface TimerState {
       border:2px solid transparent;transition:border-color 0.1s, transform 0.1s;
     }
     .color-swatch:hover, .color-swatch.active { border-color:rgba(255,255,255,0.7);transform:scale(1.15); }
+
+    .emoji-picker-btn {
+      display:inline-flex;align-items:center;justify-content:center;
+      width:30px;height:30px;flex-shrink:0;
+      background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.12);
+      border-radius:6px;cursor:pointer;font-size:0.95rem;font-family:inherit;
+      transition:background .12s;
+    }
+    .emoji-picker-btn:hover { background:rgba(255,255,255,0.12); }
+    .emoji-picker-popover {
+      /* fixed so it isn't clipped by a scrollable/zoomed canvas ancestor */
+      position:fixed;z-index:1000;
+      background:#2a2a2a;border:1px solid rgba(255,255,255,0.12);
+      border-radius:8px;padding:8px;
+      display:grid;grid-template-columns:repeat(8, 26px);gap:2px;
+      width:max-content;max-width:246px;box-shadow:0 4px 16px rgba(0,0,0,0.5);
+    }
+    .emoji-picker-option {
+      width:26px;height:26px;display:flex;align-items:center;justify-content:center;
+      border-radius:5px;cursor:pointer;font-size:1.05rem;transition:background .1s;
+    }
+    .emoji-picker-option:hover { background:rgba(255,255,255,0.12); }
 
     /* AI analysis panel */
     .ai-panel {
@@ -1200,6 +1240,8 @@ interface TimerState {
                      [(ngModel)]="icebreakerInput"
                      (keyup.enter)="submitIcebreaker()"
                      [disabled]="submittingIcebreaker()" />
+              <button class="emoji-picker-btn" title="Insert emoji" type="button"
+                      (click)="toggleEmojiPicker($event, 'icebreaker')">😊</button>
               <button class="icebreaker-send" (click)="submitIcebreaker()"
                       [disabled]="!icebreakerInput.trim() || submittingIcebreaker()">Send</button>
             </div>
@@ -1266,6 +1308,8 @@ interface TimerState {
                                 (keydown.enter)="$event.preventDefault(); submitCard(col.key)"
                                 [disabled]="submittingCard() === col.key"
                                 cdkTextareaAutosize cdkAutosizeMaxRows="6"></textarea>
+                      <button class="emoji-picker-btn" title="Insert emoji" type="button"
+                              (click)="toggleEmojiPicker($event, 'card:' + col.key)">😊</button>
                       <button mat-icon-button [style.color]="col.color"
                               (click)="submitCard(col.key)"
                               [disabled]="!newCardText()[col.key]?.trim() || submittingCard() === col.key">
@@ -1408,9 +1452,10 @@ interface TimerState {
 
         <!-- Desktop: 3 separate sticky canvases side by side -->
         @if (isDesktop() && (s.phase === 'add' || s.phase === 'vote' || s.phase === 'discuss' || s.phase === 'done')) {
-          <div class="canvases-row">
+          <div class="canvases-row" [class.has-expanded]="expandedCol()">
             @for (col of cols(); track col.key; let ci = $index) {
-              <div class="canvas-col-wrap">
+              @if (!expandedCol() || expandedCol() === col.key) {
+              <div class="canvas-col-wrap" [class.expanded]="expandedCol() === col.key">
                 <div class="canvas-col-header">
                   <span class="canvas-col-title" [style.color]="col.color">{{ col.label }}</span>
                   <span class="canvas-col-header-right">
@@ -1420,6 +1465,10 @@ interface TimerState {
                         <mat-icon>grid_view</mat-icon>Tidy
                       </button>
                     }
+                    <button class="canvas-expand-btn" [title]="expandedCol() === col.key ? 'Show all columns' : 'Expand this column'"
+                            (click)="toggleExpandColumn(col.key)">
+                      <mat-icon>{{ expandedCol() === col.key ? 'close_fullscreen' : 'open_in_full' }}</mat-icon>
+                    </button>
                     <span class="col-count">{{ cardsForCol(col.key).length }}</span>
                   </span>
                 </div>
@@ -1430,6 +1479,8 @@ interface TimerState {
                               (keydown.enter)="$event.preventDefault(); submitCard(col.key)"
                               [disabled]="submittingCard() === col.key"
                               cdkTextareaAutosize cdkAutosizeMaxRows="6"></textarea>
+                    <button class="emoji-picker-btn" title="Insert emoji" type="button"
+                            (click)="toggleEmojiPicker($event, 'card:' + col.key)">😊</button>
                     <button class="canvas-add-btn" [style.color]="col.color"
                             [disabled]="!newCardText()[col.key]?.trim() || submittingCard() === col.key"
                             (click)="submitCard(col.key)">
@@ -1552,6 +1603,7 @@ interface TimerState {
                   </div>
                 </div>
               </div>
+              }
             }
           </div>
         }
@@ -1611,6 +1663,14 @@ interface TimerState {
                   }
                 </div>
               </div>
+            }
+          </div>
+        }
+        @if (emojiPickerFor() && emojiPickerPos(); as pos) {
+          <div class="emoji-picker-popover" [style.top.px]="pos.top" [style.left.px]="pos.left"
+               (mousedown)="$event.stopPropagation()" (click)="$event.stopPropagation()">
+            @for (emoji of emojiPalette; track emoji) {
+              <div class="emoji-picker-option" (click)="pickEmoji(emoji)">{{ emoji }}</div>
             }
           </div>
         }
@@ -1993,6 +2053,7 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
   onDocClick(): void {
     if (this.colorPickerOpenFor()) { this.colorPickerOpenFor.set(null); this.colorPickerPos.set(null); }
     if (this.timerPopoverOpen()) this.timerPopoverOpen.set(false);
+    if (this.emojiPickerFor()) { this.emojiPickerFor.set(null); this.emojiPickerPos.set(null); }
   }
 
   timerPopoverOpen = signal(false);
@@ -2049,6 +2110,46 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
     this.svc.updateCardColor(s.id, card.id, color).subscribe();
   }
 
+  // When set, only this column's canvas renders in the desktop 3-up row -- the
+  // other two are hidden so the visible one gets the full width for a closer look.
+  expandedCol = signal<string | null>(null);
+
+  toggleExpandColumn(colKey: string): void {
+    this.expandedCol.update(cur => (cur === colKey ? null : colKey));
+    // Give the DOM a tick to reflow to the new width before recomputing canvas height.
+    requestAnimationFrame(() => this.updateCanvasMargins());
+  }
+
+  readonly emojiPalette = EMOJI_PICKER_SET;
+  // 'icebreaker' or `card:${colKey}` -- identifies which text field the next pick inserts into.
+  emojiPickerFor = signal<string | null>(null);
+  emojiPickerPos = signal<{ top: number; left: number } | null>(null);
+
+  toggleEmojiPicker(e: MouseEvent, target: string): void {
+    e.stopPropagation();
+    const opening = this.emojiPickerFor() !== target;
+    this.emojiPickerFor.set(opening ? target : null);
+    if (opening) {
+      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+      this.emojiPickerPos.set({ top: rect.bottom + 6, left: Math.max(8, rect.right - 246) });
+    } else {
+      this.emojiPickerPos.set(null);
+    }
+  }
+
+  pickEmoji(emoji: string): void {
+    const target = this.emojiPickerFor();
+    if (!target) return;
+    if (target === 'icebreaker') {
+      this.icebreakerInput = (this.icebreakerInput ?? '') + emoji;
+    } else if (target.startsWith('card:')) {
+      const colKey = target.slice('card:'.length);
+      this.newCardText.update(m => ({ ...m, [colKey]: (m[colKey] ?? '') + emoji }));
+    }
+    this.emojiPickerFor.set(null);
+    this.emojiPickerPos.set(null);
+  }
+
   myCards = computed(() => this.session()?.cards.filter(c => c.isOwn) ?? []);
   voteBudget = computed(() => {
     const s = this.session();
@@ -2076,6 +2177,11 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
       this.loadSessions();
     }
     this.timerInterval = setInterval(() => this.nowTick.set(Date.now()), 1000);
+    // Every other WS-consuming feature calls connect() on init (e.g. sprint-dashboard).
+    // Retro never did -- it only worked when some other page had already opened the
+    // singleton socket first. Anyone landing here directly (shared link, fresh tab,
+    // page refresh) never got real-time updates.
+    this.wsSvc.connect();
     this.wsSub = this.wsSvc.messages$.pipe(takeUntil(this.destroy$)).subscribe(msg => {
       if (!msg) return;
       const s = this.session();
