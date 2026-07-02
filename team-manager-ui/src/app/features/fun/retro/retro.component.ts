@@ -24,7 +24,7 @@ import { CreatePollDialogComponent } from '../../polls/poll.component';
 import { ConfirmDialogComponent } from '../../../shared/components/confirm-dialog/confirm-dialog.component';
 import { NavService } from '../../../core/nav/nav.service';
 import { NewRetroDialogComponent, NewRetroDialogResult } from './new-retro-dialog.component';
-import { DEFAULT_COLS, RETRO_TEMPLATES, ICEBREAKER_QUESTIONS } from './retro-constants';
+import { DEFAULT_COLS, RETRO_TEMPLATES, ICEBREAKER_QUESTIONS, RETRO_THEMES, RetroThemeDef } from './retro-constants';
 
 const PHASE_META: Record<string, { label: string; color: string }> = {
   lobby:   { label: 'Lobby',         color: '#64b5f6' },
@@ -36,97 +36,12 @@ const PHASE_META: Record<string, { label: string; color: string }> = {
 
 const REACTION_EMOJIS = ['👍', '😅', '🔥', '😬', '💯'];
 
-// ── Retro board themes: a subtle pixel-art watermark behind each canvas ──
-function row(y: number, x0: number, x1: number): [number, number][] {
-  const out: [number, number][] = [];
-  for (let x = x0; x <= x1; x++) out.push([x, y]);
-  return out;
-}
-
-function pixelSvgDataUrl(cells: [number, number][], gridSize = 16, color = '#ffffff'): string {
-  const rects = cells.map(([x, y]) => `<rect x="${x}" y="${y}" width="1" height="1" fill="${color}"/>`).join('');
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${gridSize} ${gridSize}" shape-rendering="crispEdges">${rects}</svg>`;
-  return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
-}
-
-const SPACE_PIXELS: [number, number][] = [
-  ...row(7, 7, 8),
-  ...row(8, 6, 9),
-  ...row(9, 6, 9),
-  ...row(10, 6, 9),
-  ...row(11, 5, 10),
-  ...row(12, 5, 10),
-  [5, 13], [10, 13],
-  [5, 14], [10, 14],
-  ...row(15, 3, 12),
-  ...row(16, 4, 11),
-  ...row(17, 4, 11),
-  ...row(18, 6, 9),
-  ...row(19, 7, 8),
-  // stars scattered around
-  [2, 2], [3, 2], [2, 3],
-  [21, 6],
-  [3, 20], [4, 20],
-  [20, 18], [21, 18], [20, 19],
-];
-
-const F1_PIXELS: [number, number][] = (() => {
-  const cells: [number, number][] = [];
-  for (let y = 0; y < 12; y++) {
-    for (let x = 0; x < 12; x++) {
-      if ((x + y) % 2 === 0) cells.push([x + 5, y + 5]);
-    }
-  }
-  return cells;
-})();
-
-const OCEAN_PIXELS: [number, number][] = [
-  ...row(4, 10, 11),
-  [9, 5], [12, 5],
-  ...row(6, 10, 11),
-  ...row(7, 10, 11),
-  ...row(8, 10, 11),
-  ...row(9, 5, 16),
-  ...row(10, 10, 11),
-  ...row(11, 10, 11),
-  ...row(12, 10, 11),
-  [6, 13], [7, 13], [14, 13], [15, 13],
-  [5, 14], [16, 14],
-  ...row(15, 7, 14),
-  [8, 16], [13, 16],
-];
-
-const RETRO_GAMING_PIXELS: [number, number][] = [
-  ...row(9, 6, 15),
-  ...row(10, 4, 17),
-  ...row(11, 3, 17).filter(([x]) => !(x >= 6 && x <= 8)),
-  ...row(12, 3, 17).filter(([x]) => !(x === 7)),
-  ...row(13, 3, 17).filter(([x]) => !(x >= 6 && x <= 8) && !(x >= 13 && x <= 14)),
-  ...row(14, 4, 17),
-  ...row(15, 6, 15),
-  [7, 11], [7, 13],
-  [14, 11], [17, 11],
-];
-
-export interface RetroThemeDef {
-  id: NonNullable<RetroTheme>;
-  label: string;
-  bgUrl: string;
-}
-
 /** A card laid out on the desktop pan/zoom canvas, at its resolved (dragged/persisted/grid) position. */
 interface CanvasCardItem {
   card: FunRetroCard;
   x: number;
   y: number;
 }
-
-const RETRO_THEMES: RetroThemeDef[] = [
-  { id: 'space', label: 'Space', bgUrl: pixelSvgDataUrl(SPACE_PIXELS, 24) },
-  { id: 'f1', label: 'F1', bgUrl: pixelSvgDataUrl(F1_PIXELS, 22) },
-  { id: 'ocean', label: 'Ocean', bgUrl: pixelSvgDataUrl(OCEAN_PIXELS, 22) },
-  { id: 'retro-gaming', label: 'Retro Gaming', bgUrl: pixelSvgDataUrl(RETRO_GAMING_PIXELS, 22) },
-];
 
 const EMOJI_PICKER_SET = [
   '😀', '😂', '😅', '😊', '🙂', '😉', '😍', '🤔',
@@ -580,9 +495,13 @@ interface TimerState {
     .canvas-outer.panning { cursor:grabbing; }
     .canvas-theme-bg {
       /* Sibling of .canvas-inner (not a child) so it never inherits the pan/zoom
-         transform -- it's meant to sit still behind the cards, not move with them. */
+         transform -- it's meant to sit still behind the cards, not move with them.
+         background-size is gridSize (24) * 10px: each pixel-art "pixel" is a quarter of
+         one of the canvas's own 40px dot-grid blocks (4 art-pixels per real block), so it
+         still reads as built from the same square grid instead of an arbitrary scale --
+         a literal 1 art-pixel = 1 real block (960px) is far bigger than a column is wide. */
       position:absolute;inset:0;pointer-events:none;
-      background-repeat:no-repeat;background-position:center;background-size:60%;
+      background-repeat:no-repeat;background-position:center;background-size:240px 240px;
       opacity:0.16;image-rendering:pixelated;
     }
     .canvas-inner {
@@ -850,9 +769,10 @@ interface TimerState {
     <!-- ══════════════════════════════════════════════════════ -->
     @if (session(); as s) {
       <div class="session-wrap">
-        @if (!isDesktop() && themeBgUrl(); as bg) {
+        @if (!isDesktop() && themeBgUrl(0); as bg) {
           <!-- Mobile has no per-column canvas viewport to pin a background to (columns are
                just stacked, page-scrolling sections) -- one watermark fixed to the screen
+               (using the "positive" variant, since there's no single column it belongs to)
                instead of the column, so it stays put as you scroll through columns rather
                than scrolling away or repeating per-section. -->
           <div class="mobile-theme-bg" [style.background-image]="bg"></div>
@@ -1001,7 +921,7 @@ interface TimerState {
                 @for (t of retroThemes; track t.id) {
                   <button class="theme-swatch" [class.active]="s.theme === t.id" [title]="t.label"
                           (click)="setTheme(t.id)">
-                    <span class="theme-swatch-preview" [style.background-image]="t.bgUrl"></span>
+                    <span class="theme-swatch-preview" [style.background-image]="themeSwatchUrl(t)"></span>
                   </button>
                 }
               </div>
@@ -1406,7 +1326,7 @@ interface TimerState {
                      [style.background-size]="(40 * view.zoom) + 'px ' + (40 * view.zoom) + 'px'"
                      (wheel)="onCanvasWheel($event, col.key)"
                      (mousedown)="startPan($event, col.key)">
-                  @if (themeBgUrl(); as bg) {
+                  @if (themeBgUrl(ci); as bg) {
                     <div class="canvas-theme-bg" [style.background-image]="bg"></div>
                   }
                   <div class="canvas-inner"
@@ -1741,7 +1661,11 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
   /**
    * The canvas background/grid is visually endless, but there's nothing to see past the
    * cards -- without a bound, panning or zooming out lets you drift into empty space
-   * indefinitely. Keep the content within `margin` px of the viewport edge instead.
+   * indefinitely. Keep at least `margin` px of the content's bounding box within the
+   * viewport, in each direction, instead of a fixed pan window: bounds that don't scale
+   * with viewport/content size gave columns whose content is shorter than the viewport
+   * almost no room to pan (e.g. ~20px of vertical slack in a 600px-tall canvas) even
+   * though there's plenty of space to comfortably move around in.
    */
   private clampPan(col: string, zoom: number, panX: number, panY: number): { panX: number; panY: number } {
     const outer = this.outerEl(col);
@@ -1750,15 +1674,15 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
     const outerH = outer.clientHeight || 400;
     const items = this.canvasCardsForCol(col);
     const cardW = this.STICKY_W;
-    const margin = 200; // pan/zoom slack, not the card-grid margin (STICKY_MARGIN) -- deliberately separate
+    const margin = 200; // px of content that must stay visible on each side
     const contentMaxX = items.length ? Math.max(...items.map(i => i.x + cardW)) + 20 : 400;
     const contentMaxY = this.canvasHeight(items);
     const scaledW = contentMaxX * zoom;
     const scaledH = contentMaxY * zoom;
-    const maxPanX = margin;
-    const minPanX = Math.min(margin, outerW - scaledW - margin);
-    const maxPanY = margin;
-    const minPanY = Math.min(margin, outerH - scaledH - margin);
+    const maxPanX = outerW - margin;
+    const minPanX = margin - scaledW;
+    const maxPanY = outerH - margin;
+    const minPanY = margin - scaledH;
     return {
       panX: Math.min(maxPanX, Math.max(minPanX, panX)),
       panY: Math.min(maxPanY, Math.max(minPanY, panY)),
@@ -1847,6 +1771,11 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
   private readonly STICKY_W = 200;
   private readonly STICKY_GAP = 16;
   private readonly STICKY_MARGIN = 10;
+  // CSS min-height for .sticky -- used as the fallback grid's row-pitch estimate below.
+  // Real cards are often taller (more text/votes/reactions), but this is far closer to
+  // Tidy's actual masonry packing than the old flat 190px guess was, which made new cards
+  // land much further down than necessary once Tidy had packed the column tightly.
+  private readonly STICKY_MIN_H = 90;
 
   canvasCardsForCol(colKey: string): CanvasCardItem[] {
     const s = this.session();
@@ -1870,14 +1799,15 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
       }
       // Skip any grid slot already taken by a dragged/persisted card so new
       // cards never land directly on top of one.
+      const rowH = this.STICKY_MIN_H + this.STICKY_GAP;
       let x: number, y: number;
       do {
         const col = idx % 2;
         const row = Math.floor(idx / 2);
         x = col * (this.STICKY_W + this.STICKY_GAP) + this.STICKY_MARGIN;
-        y = 10 + row * 190;
+        y = 10 + row * rowH;
         idx++;
-      } while (occupied.some(p => Math.abs(p.x - x) < (this.STICKY_W + this.STICKY_GAP) && Math.abs(p.y - y) < 190));
+      } while (occupied.some(p => Math.abs(p.x - x) < (this.STICKY_W + this.STICKY_GAP) && Math.abs(p.y - y) < rowH));
       result.push({ card, x, y });
       occupied.push({ x, y });
     }
@@ -2124,8 +2054,16 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
   toggleExpandColumn(colKey: string): void {
     this.closeAllPickers();
     this.expandedCol.update(cur => (cur === colKey ? null : colKey));
-    // Give the DOM a tick to reflow to the new width before recomputing canvas height.
-    requestAnimationFrame(() => this.updateCanvasMargins());
+    // Give the DOM a tick to reflow to the new width before recomputing canvas height and
+    // re-validating this column's pan bounds -- expand/collapse changes the canvas's width
+    // drastically, and the pan clamp is based on that width, so a pan offset that was valid
+    // while expanded can end up out of range once collapsed back (and vice versa) until
+    // something re-triggers clampPan. Do that immediately instead of waiting on the next
+    // pan/zoom interaction.
+    requestAnimationFrame(() => {
+      this.updateCanvasMargins();
+      this.setView(colKey, this.viewFor(colKey));
+    });
   }
 
   readonly emojiPalette = EMOJI_PICKER_SET;
@@ -2490,9 +2428,18 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
 
   readonly retroThemes = RETRO_THEMES;
 
-  themeBgUrl(): string | null {
+  /** The pixel-art background for the column at `colIndex` -- each column shows a
+   *  different tone within the theme (1st = positive, 2nd = negative, 3rd+ = action). */
+  themeBgUrl(colIndex: number): string | null {
     const theme = this.session()?.theme;
-    return theme ? (RETRO_THEMES.find(t => t.id === theme)?.bgUrl ?? null) : null;
+    if (!theme) return null;
+    const def = RETRO_THEMES.find(t => t.id === theme);
+    return def ? def.variantUrls[Math.min(colIndex, 2)] : null;
+  }
+
+  /** Representative icon for the theme picker swatch -- the "positive" variant. */
+  themeSwatchUrl(theme: RetroThemeDef): string {
+    return theme.variantUrls[0];
   }
 
   setTheme(theme: RetroTheme): void {
@@ -2700,11 +2647,12 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
   private createSession(result: NewRetroDialogResult): void {
     this.creating.set(true);
     const template = RETRO_TEMPLATES.find(t => t.id === result.templateId);
-    const req: { title?: string; columns?: RetroColumn[]; icebreakerQuestion?: string } = {
+    const req: { title?: string; columns?: RetroColumn[]; icebreakerQuestion?: string; theme?: RetroTheme } = {
       columns: template?.columns ?? DEFAULT_COLS,
     };
     if (result.title) req.title = result.title;
     if (result.icebreakerQuestion) req.icebreakerQuestion = result.icebreakerQuestion;
+    if (result.theme) req.theme = result.theme;
     this.svc.createSession(req).subscribe({
       next: s => {
         this.creating.set(false);

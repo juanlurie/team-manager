@@ -16,7 +16,7 @@ export class FunRetroService {
     return this.http.get<FunRetroSession>(`${this.base}/${id}`);
   }
 
-  createSession(req: { title?: string; sprintId?: string; columns?: RetroColumn[]; icebreakerQuestion?: string }): Observable<FunRetroSession> {
+  createSession(req: { title?: string; sprintId?: string; columns?: RetroColumn[]; icebreakerQuestion?: string; theme?: RetroTheme }): Observable<FunRetroSession> {
     return this.http.post<FunRetroSession>(this.base, req);
   }
 

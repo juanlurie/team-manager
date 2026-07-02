@@ -31,6 +31,7 @@ public class FunRetroService(AppDbContext db, AiPromptExecutorService aiExecutor
             SprintId = req.SprintId,
             ColumnsJson = columnsJson,
             IcebreakerQuestion = string.IsNullOrWhiteSpace(req.IcebreakerQuestion) ? null : req.IcebreakerQuestion.Trim(),
+            Theme = ValidTheme(req.Theme),
         };
 
         db.FunRetroSessions.Add(session);
@@ -174,15 +175,24 @@ public class FunRetroService(AppDbContext db, AiPromptExecutorService aiExecutor
         var session = await db.FunRetroSessions.FindAsync(sessionId);
         if (session is null || session.CreatedByMemberId != memberId) return false;
 
+        var validTheme = ValidTheme(theme);
         session.HideCardsOnAdd = hideCardsOnAdd;
         session.ParticipationTracking = participationTracking;
-        session.Theme = theme;
+        session.Theme = validTheme;
         await db.SaveChangesAsync();
 
         _ = WebSocketMiddleware.BroadcastAsync("fun_retro_settings_updated",
-            new { sessionId, hideCardsOnAdd, participationTracking, theme }, guestAllowed: true);
+            new { sessionId, hideCardsOnAdd, participationTracking, theme = validTheme }, guestAllowed: true);
         return true;
     }
+
+    private static readonly HashSet<string> ValidThemes = ["space", "f1", "ocean", "retro-gaming"];
+
+    /// <summary>Rejects unrecognized theme values (typo, stale client) instead of silently
+    /// persisting a string that will never match anything the frontend's theme picker knows
+    /// how to render.</summary>
+    private static string? ValidTheme(string? theme) =>
+        theme is not null && ValidThemes.Contains(theme) ? theme : null;
 
     public async Task<bool> SetTimerAsync(Guid sessionId, Guid memberId, string timerJson)
     {
