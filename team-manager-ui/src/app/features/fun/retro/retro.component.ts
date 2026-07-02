@@ -1009,10 +1009,14 @@ interface TimerState {
     .answer-chips { display:flex; flex-wrap:wrap; gap:5px; margin-top:8px; }
     .answer-chip { font-size:0.72rem; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); border-radius:100px; padding:3px 10px; }
 
-    /* Mobile card color swatches */
-    .card-color-row { display:flex; gap:5px; flex-wrap:wrap; margin-top:8px; padding-top:8px; border-top:1px solid rgba(255,255,255,0.06); }
-    .card-swatch { width:20px; height:20px; border-radius:50%; cursor:pointer; border:2px solid transparent; flex-shrink:0; transition:border-color 0.1s, transform 0.1s; }
-    .card-swatch:hover, .card-swatch.active { border-color:rgba(255,255,255,0.7); transform:scale(1.15); }
+    /* Mobile card color trigger -- a small dot that opens the shared color-picker-popover,
+       instead of an always-expanded row of swatches eating vertical space on every card. */
+    .card-color-trigger { display:flex;justify-content:flex-end;margin-top:6px; }
+    .card-color-dot {
+      width:18px;height:18px;border-radius:50%;cursor:pointer;
+      border:1.5px solid rgba(0,0,0,0.25);padding:0;transition:transform .1s;
+    }
+    .card-color-dot:hover { transform:scale(1.15); }
 
     /* Author row with avatar */
     .card-author-row { display:flex; align-items:center; gap:5px; margin-top:4px; font-size:0.68rem; color:rgba(255,255,255,0.35); }
@@ -1523,10 +1527,9 @@ interface TimerState {
                             <div class="card-hidden-text">🔒 Hidden until reveal</div>
                           }
                           @if (card.text !== null && (card.isOwn || s.phase === 'vote' || s.phase === 'discuss')) {
-                            <div class="card-color-row">
-                              @for (swatch of stickyPalette; track swatch) {
-                                <div class="card-swatch" [style.background]="swatch" [class.active]="resolveCardColor(card) === swatch" (click)="changeCardColor(card, swatch)"></div>
-                              }
+                            <div class="card-color-trigger">
+                              <button class="card-color-dot" [style.background]="resolveCardColor(card)"
+                                      title="Change color" (click)="toggleColorPicker($event, card.id)"></button>
                             </div>
                           }
                         </div>
@@ -1578,10 +1581,9 @@ interface TimerState {
                         }
                       } @else { <div class="card-hidden-text">🔒 Hidden</div> }
                       @if (card.text !== null && (card.isOwn || s.phase === 'vote' || s.phase === 'discuss')) {
-                        <div class="card-color-row">
-                          @for (swatch of stickyPalette; track swatch) {
-                            <div class="card-swatch" [style.background]="swatch" [class.active]="resolveCardColor(card) === swatch" (click)="changeCardColor(card, swatch)"></div>
-                          }
+                        <div class="card-color-trigger">
+                          <button class="card-color-dot" [style.background]="resolveCardColor(card)"
+                                  title="Change color" (click)="toggleColorPicker($event, card.id)"></button>
                         </div>
                       }
                     </div>
