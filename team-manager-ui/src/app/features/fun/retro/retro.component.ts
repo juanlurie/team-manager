@@ -626,26 +626,25 @@ interface TimerState {
     .canvas-col-title {
       font-size:0.82rem;font-weight:700;
     }
-    .canvas-col-header-right { display:flex;align-items:center;gap:8px; }
+    .canvas-col-wrap.expanded { flex:1 1 100%; }
     .canvas-tidy-btn {
       display:inline-flex;align-items:center;gap:3px;
-      background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);
-      border-radius:6px;color:rgba(255,255,255,0.6);cursor:pointer;
-      font-size:0.7rem;font-family:inherit;font-weight:600;padding:2px 7px 2px 5px;
-      transition:background .15s,color .15s,border-color .15s;
+      background:transparent;border:none;
+      border-radius:6px;color:rgba(255,255,255,0.7);cursor:pointer;
+      font-size:0.7rem;font-family:inherit;font-weight:600;padding:0 7px 0 5px;
+      height:26px;transition:background .12s,color .12s;
     }
-    .canvas-tidy-btn:hover { background:rgba(255,255,255,0.12);color:#fff;border-color:rgba(255,255,255,0.25); }
+    .canvas-tidy-btn:hover { background:rgba(255,255,255,0.12);color:#fff; }
     .canvas-tidy-btn mat-icon { font-size:14px;width:14px;height:14px;line-height:14px; }
     .canvas-expand-btn {
       display:inline-flex;align-items:center;justify-content:center;
-      width:22px;height:22px;flex-shrink:0;
-      background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);
-      border-radius:6px;color:rgba(255,255,255,0.6);cursor:pointer;
-      transition:background .15s,color .15s,border-color .15s;
+      min-width:26px;height:26px;flex-shrink:0;
+      background:transparent;border:none;
+      border-radius:6px;color:rgba(255,255,255,0.7);cursor:pointer;
+      transition:background .12s,color .12s;
     }
-    .canvas-expand-btn:hover { background:rgba(255,255,255,0.12);color:#fff;border-color:rgba(255,255,255,0.25); }
+    .canvas-expand-btn:hover { background:rgba(255,255,255,0.12);color:#fff; }
     .canvas-expand-btn mat-icon { font-size:14px;width:14px;height:14px;line-height:14px; }
-    .canvas-col-wrap.expanded { flex:1 1 100%; }
     .canvas-add-row {
       display:flex;gap:6px;align-items:flex-end;
     }
@@ -698,6 +697,7 @@ interface TimerState {
     .cz-btn:hover { background:rgba(255,255,255,0.12);color:#fff; }
     .cz-pct { font-size:0.72rem;font-weight:600;min-width:42px;font-variant-numeric:tabular-nums; }
     .cz-fit mat-icon { font-size:16px;width:16px;height:16px;line-height:16px; }
+    .cz-divider { width:1px;height:16px;background:rgba(255,255,255,0.15);margin:0 2px;flex-shrink:0; }
     .sticky {
       position:absolute;box-sizing:border-box;
       width:200px;min-height:90px;
@@ -1469,19 +1469,7 @@ interface TimerState {
               <div class="canvas-col-wrap" [class.expanded]="expandedCol() === col.key">
                 <div class="canvas-col-header">
                   <span class="canvas-col-title" [style.color]="col.color">{{ col.label }}</span>
-                  <span class="canvas-col-header-right">
-                    @if (cardsForCol(col.key).length > 1) {
-                      <button class="canvas-tidy-btn" title="Arrange cards neatly"
-                              (click)="arrangeColumn(col.key)">
-                        <mat-icon>grid_view</mat-icon>Tidy
-                      </button>
-                    }
-                    <button class="canvas-expand-btn" [title]="expandedCol() === col.key ? 'Show all columns' : 'Expand this column'"
-                            (click)="toggleExpandColumn(col.key)">
-                      <mat-icon>{{ expandedCol() === col.key ? 'close_fullscreen' : 'open_in_full' }}</mat-icon>
-                    </button>
-                    <span class="col-count">{{ cardsForCol(col.key).length }}</span>
-                  </span>
+                  <span class="col-count">{{ cardsForCol(col.key).length }}</span>
                 </div>
                 @if (s.phase === 'add') {
                   <div class="canvas-add-row">
@@ -1576,16 +1564,6 @@ interface TimerState {
                             <div class="sticky-color-trigger" (mousedown)="$event.stopPropagation()">
                               <button class="sticky-color-dot" [style.background]="resolveCardColor(item.card)"
                                       title="Change color" (click)="toggleColorPicker($event, item.card.id)"></button>
-                              @if (colorPickerOpenFor() === item.card.id && colorPickerPos(); as pos) {
-                                <div class="color-picker-popover" [style.top.px]="pos.top" [style.left.px]="pos.left"
-                                     (mousedown)="$event.stopPropagation()">
-                                  @for (swatch of stickyPalette; track swatch) {
-                                    <div class="color-swatch" [style.background]="swatch"
-                                         [class.active]="resolveCardColor(item.card) === swatch"
-                                         (click)="changeCardColor(item.card, swatch)"></div>
-                                  }
-                                </div>
-                              }
                             </div>
                           }
                         </div>
@@ -1605,6 +1583,17 @@ interface TimerState {
                   </div>
                   <div class="canvas-zoom-controls"
                        (mousedown)="$event.stopPropagation()" (wheel)="$event.stopPropagation()">
+                    @if (cardsForCol(col.key).length > 1) {
+                      <button class="canvas-tidy-btn" title="Arrange cards neatly"
+                              (click)="arrangeColumn(col.key)">
+                        <mat-icon>grid_view</mat-icon>Tidy
+                      </button>
+                    }
+                    <button class="canvas-expand-btn" [title]="expandedCol() === col.key ? 'Show all columns' : 'Expand this column'"
+                            (click)="toggleExpandColumn(col.key)">
+                      <mat-icon>{{ expandedCol() === col.key ? 'close_fullscreen' : 'open_in_full' }}</mat-icon>
+                    </button>
+                    <span class="cz-divider"></span>
                     <button class="cz-btn" title="Zoom out" (click)="zoomBy(col.key, 0.8)">−</button>
                     <button class="cz-btn cz-pct" title="Reset zoom" (click)="resetView(col.key)">{{ zoomPercent(col.key) }}%</button>
                     <button class="cz-btn" title="Zoom in" (click)="zoomBy(col.key, 1.25)">+</button>
@@ -1684,6 +1673,18 @@ interface TimerState {
               <div class="emoji-picker-option" (click)="pickEmoji(emoji)">{{ emoji }}</div>
             }
           </div>
+        }
+        @if (colorPickerCard(); as card) {
+          @if (colorPickerPos(); as pos) {
+            <div class="color-picker-popover" [style.top.px]="pos.top" [style.left.px]="pos.left"
+                 (mousedown)="$event.stopPropagation()" (click)="$event.stopPropagation()">
+              @for (swatch of stickyPalette; track swatch) {
+                <div class="color-swatch" [style.background]="swatch"
+                     [class.active]="resolveCardColor(card) === swatch"
+                     (click)="changeCardColor(card, swatch)"></div>
+              }
+            </div>
+          }
         }
       </div>
     }
@@ -2150,6 +2151,13 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
   };
 
   colorPickerOpenFor = signal<string | null>(null);
+  // The popover renders once at the top level (see template) instead of once per card --
+  // resolve which card it's editing from the open id so it isn't nested inside the
+  // pan/zoom-transformed canvas (a transformed ancestor breaks position:fixed).
+  colorPickerCard = computed(() => {
+    const id = this.colorPickerOpenFor();
+    return id ? (this.session()?.cards.find(c => c.id === id) ?? null) : null;
+  });
 
   resolveCardColor(card: FunRetroCard): string {
     return card.color ?? this.colDefaultColor[card.column] ?? '#fff9c4';
