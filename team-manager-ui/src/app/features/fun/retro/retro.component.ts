@@ -140,6 +140,27 @@ interface TimerState {
       display:flex;flex-direction:column;align-items:center;gap:10px;
       width:220px;box-shadow:0 4px 16px rgba(0,0,0,0.5);
     }
+    .phase-pill-wrap { position:relative; }
+    .phase-pill {
+      display:flex;align-items:center;gap:6px;
+      padding:6px 10px 6px 8px;border-radius:8px;
+      border:1px solid rgba(255,255,255,0.15);background:rgba(255,255,255,0.04);
+      cursor:pointer;font-family:inherit;font-size:0.8rem;font-weight:600;
+      transition:background 0.15s;
+    }
+    .phase-pill:hover { background:rgba(255,255,255,0.08); }
+    .phase-pill-dot { width:7px;height:7px;border-radius:50%;flex-shrink:0; }
+    .phase-pill-caret { font-size:16px;height:16px;width:16px;opacity:0.5; }
+    .phase-panel {
+      position:absolute;top:38px;left:0;z-index:250;
+      background:#2a2a2a;border:1px solid rgba(255,255,255,0.12);
+      border-radius:10px;padding:14px;
+      display:flex;flex-direction:column;gap:12px;
+      width:320px;box-shadow:0 4px 16px rgba(0,0,0,0.5);
+    }
+    .phase-panel-steps { display:flex;align-items:center;gap:0; }
+    .phase-panel-guide { display:flex;align-items:flex-start;gap:8px;font-size:0.78rem;line-height:1.4;color:rgba(255,255,255,0.7); }
+    .phase-panel-guide mat-icon { font-size:16px;height:16px;width:16px;flex-shrink:0;margin-top:1px;opacity:0.8; }
     .session-title-row { display:flex;flex-direction:column;gap:6px; }
     .session-name { font-size:1rem;font-weight:600;color:rgba(255,255,255,0.9); }
     .session-sub { font-size:0.75rem;color:rgba(255,255,255,0.4); }
@@ -786,6 +807,49 @@ interface TimerState {
             <span class="session-name">{{ s.title || 'Untitled Retro' }}</span>
             <span class="session-sub">{{ s.cards.length }} card{{ s.cards.length !== 1 ? 's' : '' }}</span>
           </div>
+          @if (s.phase !== 'lobby') {
+            <div class="phase-pill-wrap" (mousedown)="$event.stopPropagation()">
+              <button class="phase-pill" (click)="togglePhasePanel($event)" [style.color]="phaseColor(s.phase)">
+                <span class="phase-pill-dot" [style.background]="phaseColor(s.phase)"></span>
+                {{ phaseLabel(s.phase) }}
+                <mat-icon class="phase-pill-caret">{{ phasePanelOpen() ? 'expand_less' : 'expand_more' }}</mat-icon>
+              </button>
+              @if (phasePanelOpen()) {
+                <div class="phase-panel" (mousedown)="$event.stopPropagation()">
+                  <div class="phase-panel-steps">
+                    @for (step of retroSteps; track step.phase; let i = $index) {
+                      @let stepState = stepStateFor(s.phase, step.phase);
+                      <div class="step-item">
+                        <div class="step-circle"
+                             [class.done-step]="stepState === 'done'"
+                             [class.active-step]="stepState === 'active'"
+                             [style.color]="stepState === 'active' ? phaseColor(step.phase) : null">
+                          @if (stepState === 'done') {
+                            <mat-icon>check</mat-icon>
+                          } @else {
+                            {{ i + 1 }}
+                          }
+                        </div>
+                        <span class="step-label"
+                              [class.active-label]="stepState === 'active'"
+                              [class.done-label]="stepState === 'done'"
+                              [style.color]="stepState === 'active' ? phaseColor(step.phase) : null">
+                          {{ step.label }}
+                        </span>
+                      </div>
+                      @if (i < retroSteps.length - 1) {
+                        <div class="step-connector" [class.done-conn]="stepState === 'done'"></div>
+                      }
+                    }
+                  </div>
+                  <div class="phase-panel-guide">
+                    <mat-icon [style.color]="phaseColor(s.phase)">{{ phaseGuide(s.phase).icon }}</mat-icon>
+                    <span>{{ phaseGuide(s.phase).text }}</span>
+                  </div>
+                </div>
+              }
+            </div>
+          }
           <div class="header-spacer"></div>
           @if (s.phase !== 'lobby') {
             <div class="timer-trigger-wrap" (mousedown)="$event.stopPropagation()">
@@ -1030,36 +1094,6 @@ interface TimerState {
           </div>
         }
 
-        <!-- Step bar (all phases except lobby) -->
-        @if (s.phase !== 'lobby') {
-          <div class="step-bar" [class.full-bleed]="isDesktop()">
-            @for (step of retroSteps; track step.phase; let i = $index) {
-              @let stepState = stepStateFor(s.phase, step.phase);
-              <div class="step-item">
-                <div class="step-circle"
-                     [class.done-step]="stepState === 'done'"
-                     [class.active-step]="stepState === 'active'"
-                     [style.color]="stepState === 'active' ? phaseColor(step.phase) : null">
-                  @if (stepState === 'done') {
-                    <mat-icon>check</mat-icon>
-                  } @else {
-                    {{ i + 1 }}
-                  }
-                </div>
-                <span class="step-label"
-                      [class.active-label]="stepState === 'active'"
-                      [class.done-label]="stepState === 'done'"
-                      [style.color]="stepState === 'active' ? phaseColor(step.phase) : null">
-                  {{ step.label }}
-                </span>
-              </div>
-              @if (i < retroSteps.length - 1) {
-                <div class="step-connector" [class.done-conn]="stepState === 'done'"></div>
-              }
-            }
-          </div>
-        }
-
         <!-- Reveal banner -->
         @if (revealing()) {
           <div class="reveal-banner">🎉 Revealing cards…</div>
@@ -1126,12 +1160,6 @@ interface TimerState {
               }
             </div>
           }
-        }
-        @if (s.phase !== 'lobby') {
-          <div class="phase-guide" [class.full-bleed]="isDesktop()" [style.border-color]="phaseColor(s.phase) + '30'" [style.color]="phaseColor(s.phase)">
-            <mat-icon>{{ phaseGuide(s.phase).icon }}</mat-icon>
-            <span style="color:rgba(255,255,255,0.7)">{{ phaseGuide(s.phase).text }}</span>
-          </div>
         }
 
         <!-- Mobile: card list columns -->
@@ -1977,6 +2005,7 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
     if (this.colorPickerOpenFor()) { this.colorPickerOpenFor.set(null); this.colorPickerPos.set(null); }
     if (this.timerPopoverOpen()) this.timerPopoverOpen.set(false);
     if (this.emojiPickerFor()) { this.emojiPickerFor.set(null); this.emojiPickerPos.set(null); }
+    if (this.phasePanelOpen()) this.phasePanelOpen.set(false);
   }
 
   timerPopoverOpen = signal(false);
@@ -1984,6 +2013,16 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
   toggleTimerPopover(e: MouseEvent): void {
     e.stopPropagation();
     this.timerPopoverOpen.update(v => !v);
+  }
+
+  // Phase stepper + guidance text used to be two always-visible full-width rows, eating a
+  // lot of vertical space above the canvas before it even starts. Folded into one compact
+  // pill in the header that reveals both on demand, mirroring the "status ▾" pattern.
+  phasePanelOpen = signal(false);
+
+  togglePhasePanel(e: MouseEvent): void {
+    e.stopPropagation();
+    this.phasePanelOpen.update(v => !v);
   }
 
   readonly stickyPalette = [
