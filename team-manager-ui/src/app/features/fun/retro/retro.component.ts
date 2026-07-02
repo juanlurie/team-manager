@@ -1564,16 +1564,6 @@ interface TimerState {
                             <div class="sticky-color-trigger" (mousedown)="$event.stopPropagation()">
                               <button class="sticky-color-dot" [style.background]="resolveCardColor(item.card)"
                                       title="Change color" (click)="toggleColorPicker($event, item.card.id)"></button>
-                              @if (colorPickerOpenFor() === item.card.id && colorPickerPos(); as pos) {
-                                <div class="color-picker-popover" [style.top.px]="pos.top" [style.left.px]="pos.left"
-                                     (mousedown)="$event.stopPropagation()">
-                                  @for (swatch of stickyPalette; track swatch) {
-                                    <div class="color-swatch" [style.background]="swatch"
-                                         [class.active]="resolveCardColor(item.card) === swatch"
-                                         (click)="changeCardColor(item.card, swatch)"></div>
-                                  }
-                                </div>
-                              }
                             </div>
                           }
                         </div>
@@ -1683,6 +1673,18 @@ interface TimerState {
               <div class="emoji-picker-option" (click)="pickEmoji(emoji)">{{ emoji }}</div>
             }
           </div>
+        }
+        @if (colorPickerCard(); as card) {
+          @if (colorPickerPos(); as pos) {
+            <div class="color-picker-popover" [style.top.px]="pos.top" [style.left.px]="pos.left"
+                 (mousedown)="$event.stopPropagation()" (click)="$event.stopPropagation()">
+              @for (swatch of stickyPalette; track swatch) {
+                <div class="color-swatch" [style.background]="swatch"
+                     [class.active]="resolveCardColor(card) === swatch"
+                     (click)="changeCardColor(card, swatch)"></div>
+              }
+            </div>
+          }
         }
       </div>
     }
@@ -2149,6 +2151,13 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
   };
 
   colorPickerOpenFor = signal<string | null>(null);
+  // The popover renders once at the top level (see template) instead of once per card --
+  // resolve which card it's editing from the open id so it isn't nested inside the
+  // pan/zoom-transformed canvas (a transformed ancestor breaks position:fixed).
+  colorPickerCard = computed(() => {
+    const id = this.colorPickerOpenFor();
+    return id ? (this.session()?.cards.find(c => c.id === id) ?? null) : null;
+  });
 
   resolveCardColor(card: FunRetroCard): string {
     return card.color ?? this.colDefaultColor[card.column] ?? '#fff9c4';
