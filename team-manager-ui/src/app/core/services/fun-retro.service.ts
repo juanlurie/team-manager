@@ -16,7 +16,7 @@ export class FunRetroService {
     return this.http.get<FunRetroSession>(`${this.base}/${id}`);
   }
 
-  createSession(req: { title?: string; sprintId?: string; columns?: RetroColumn[]; icebreakerQuestion?: string }): Observable<FunRetroSession> {
+  createSession(req: { title?: string; sprintId?: string; columns?: RetroColumn[]; icebreakerQuestion?: string; theme?: RetroTheme }): Observable<FunRetroSession> {
     return this.http.post<FunRetroSession>(this.base, req);
   }
 
@@ -24,8 +24,8 @@ export class FunRetroService {
     return this.http.delete<void>(`${this.base}/${id}`);
   }
 
-  addCard(sessionId: string, column: string, text: string): Observable<FunRetroSession> {
-    return this.http.post<FunRetroSession>(`${this.base}/${sessionId}/cards`, { column, text });
+  addCard(sessionId: string, column: string, text: string, color?: string | null): Observable<FunRetroSession> {
+    return this.http.post<FunRetroSession>(`${this.base}/${sessionId}/cards`, { column, text, color });
   }
 
   deleteCard(sessionId: string, cardId: string): Observable<void> {

@@ -24,7 +24,7 @@ import { CreatePollDialogComponent } from '../../polls/poll.component';
 import { ConfirmDialogComponent } from '../../../shared/components/confirm-dialog/confirm-dialog.component';
 import { NavService } from '../../../core/nav/nav.service';
 import { NewRetroDialogComponent, NewRetroDialogResult } from './new-retro-dialog.component';
-import { DEFAULT_COLS, RETRO_TEMPLATES, ICEBREAKER_QUESTIONS } from './retro-constants';
+import { DEFAULT_COLS, RETRO_TEMPLATES, ICEBREAKER_QUESTIONS, RETRO_THEMES, RetroThemeDef } from './retro-constants';
 
 const PHASE_META: Record<string, { label: string; color: string }> = {
   lobby:   { label: 'Lobby',         color: '#64b5f6' },
@@ -36,97 +36,12 @@ const PHASE_META: Record<string, { label: string; color: string }> = {
 
 const REACTION_EMOJIS = ['👍', '😅', '🔥', '😬', '💯'];
 
-// ── Retro board themes: a subtle pixel-art watermark behind each canvas ──
-function row(y: number, x0: number, x1: number): [number, number][] {
-  const out: [number, number][] = [];
-  for (let x = x0; x <= x1; x++) out.push([x, y]);
-  return out;
-}
-
-function pixelSvgDataUrl(cells: [number, number][], gridSize = 16, color = '#ffffff'): string {
-  const rects = cells.map(([x, y]) => `<rect x="${x}" y="${y}" width="1" height="1" fill="${color}"/>`).join('');
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${gridSize} ${gridSize}" shape-rendering="crispEdges">${rects}</svg>`;
-  return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
-}
-
-const SPACE_PIXELS: [number, number][] = [
-  ...row(7, 7, 8),
-  ...row(8, 6, 9),
-  ...row(9, 6, 9),
-  ...row(10, 6, 9),
-  ...row(11, 5, 10),
-  ...row(12, 5, 10),
-  [5, 13], [10, 13],
-  [5, 14], [10, 14],
-  ...row(15, 3, 12),
-  ...row(16, 4, 11),
-  ...row(17, 4, 11),
-  ...row(18, 6, 9),
-  ...row(19, 7, 8),
-  // stars scattered around
-  [2, 2], [3, 2], [2, 3],
-  [21, 6],
-  [3, 20], [4, 20],
-  [20, 18], [21, 18], [20, 19],
-];
-
-const F1_PIXELS: [number, number][] = (() => {
-  const cells: [number, number][] = [];
-  for (let y = 0; y < 12; y++) {
-    for (let x = 0; x < 12; x++) {
-      if ((x + y) % 2 === 0) cells.push([x + 5, y + 5]);
-    }
-  }
-  return cells;
-})();
-
-const OCEAN_PIXELS: [number, number][] = [
-  ...row(4, 10, 11),
-  [9, 5], [12, 5],
-  ...row(6, 10, 11),
-  ...row(7, 10, 11),
-  ...row(8, 10, 11),
-  ...row(9, 5, 16),
-  ...row(10, 10, 11),
-  ...row(11, 10, 11),
-  ...row(12, 10, 11),
-  [6, 13], [7, 13], [14, 13], [15, 13],
-  [5, 14], [16, 14],
-  ...row(15, 7, 14),
-  [8, 16], [13, 16],
-];
-
-const RETRO_GAMING_PIXELS: [number, number][] = [
-  ...row(9, 6, 15),
-  ...row(10, 4, 17),
-  ...row(11, 3, 17).filter(([x]) => !(x >= 6 && x <= 8)),
-  ...row(12, 3, 17).filter(([x]) => !(x === 7)),
-  ...row(13, 3, 17).filter(([x]) => !(x >= 6 && x <= 8) && !(x >= 13 && x <= 14)),
-  ...row(14, 4, 17),
-  ...row(15, 6, 15),
-  [7, 11], [7, 13],
-  [14, 11], [17, 11],
-];
-
-export interface RetroThemeDef {
-  id: NonNullable<RetroTheme>;
-  label: string;
-  bgUrl: string;
-}
-
 /** A card laid out on the desktop pan/zoom canvas, at its resolved (dragged/persisted/grid) position. */
 interface CanvasCardItem {
   card: FunRetroCard;
   x: number;
   y: number;
 }
-
-const RETRO_THEMES: RetroThemeDef[] = [
-  { id: 'space', label: 'Space', bgUrl: pixelSvgDataUrl(SPACE_PIXELS, 24) },
-  { id: 'f1', label: 'F1', bgUrl: pixelSvgDataUrl(F1_PIXELS, 22) },
-  { id: 'ocean', label: 'Ocean', bgUrl: pixelSvgDataUrl(OCEAN_PIXELS, 22) },
-  { id: 'retro-gaming', label: 'Retro Gaming', bgUrl: pixelSvgDataUrl(RETRO_GAMING_PIXELS, 22) },
-];
 
 const EMOJI_PICKER_SET = [
   '😀', '😂', '😅', '😊', '🙂', '😉', '😍', '🤔',
@@ -225,6 +140,27 @@ interface TimerState {
       display:flex;flex-direction:column;align-items:center;gap:10px;
       width:220px;box-shadow:0 4px 16px rgba(0,0,0,0.5);
     }
+    .phase-pill-wrap { position:relative; }
+    .phase-pill {
+      display:flex;align-items:center;gap:6px;
+      padding:6px 10px 6px 8px;border-radius:8px;
+      border:1px solid rgba(255,255,255,0.15);background:rgba(255,255,255,0.04);
+      cursor:pointer;font-family:inherit;font-size:0.8rem;font-weight:600;
+      transition:background 0.15s;
+    }
+    .phase-pill:hover { background:rgba(255,255,255,0.08); }
+    .phase-pill-dot { width:7px;height:7px;border-radius:50%;flex-shrink:0; }
+    .phase-pill-caret { font-size:16px;height:16px;width:16px;opacity:0.5; }
+    .phase-panel {
+      position:absolute;top:38px;left:0;z-index:250;
+      background:#2a2a2a;border:1px solid rgba(255,255,255,0.12);
+      border-radius:10px;padding:14px;
+      display:flex;flex-direction:column;gap:12px;
+      width:320px;box-shadow:0 4px 16px rgba(0,0,0,0.5);
+    }
+    .phase-panel-steps { display:flex;align-items:center;gap:0; }
+    .phase-panel-guide { display:flex;align-items:flex-start;gap:8px;font-size:0.78rem;line-height:1.4;color:rgba(255,255,255,0.7); }
+    .phase-panel-guide mat-icon { font-size:16px;height:16px;width:16px;flex-shrink:0;margin-top:1px;opacity:0.8; }
     .session-title-row { display:flex;flex-direction:column;gap:6px; }
     .session-name { font-size:1rem;font-weight:600;color:rgba(255,255,255,0.9); }
     .session-sub { font-size:0.75rem;color:rgba(255,255,255,0.4); }
@@ -580,9 +516,13 @@ interface TimerState {
     .canvas-outer.panning { cursor:grabbing; }
     .canvas-theme-bg {
       /* Sibling of .canvas-inner (not a child) so it never inherits the pan/zoom
-         transform -- it's meant to sit still behind the cards, not move with them. */
+         transform -- it's meant to sit still behind the cards, not move with them.
+         background-size is gridSize (24) * 10px: each pixel-art "pixel" is a quarter of
+         one of the canvas's own 40px dot-grid blocks (4 art-pixels per real block), so it
+         still reads as built from the same square grid instead of an arbitrary scale --
+         a literal 1 art-pixel = 1 real block (960px) is far bigger than a column is wide. */
       position:absolute;inset:0;pointer-events:none;
-      background-repeat:no-repeat;background-position:center;background-size:60%;
+      background-repeat:no-repeat;background-position:center;background-size:240px 240px;
       opacity:0.16;image-rendering:pixelated;
     }
     .canvas-inner {
@@ -850,9 +790,10 @@ interface TimerState {
     <!-- ══════════════════════════════════════════════════════ -->
     @if (session(); as s) {
       <div class="session-wrap">
-        @if (!isDesktop() && themeBgUrl(); as bg) {
+        @if (!isDesktop() && themeBgUrl(0); as bg) {
           <!-- Mobile has no per-column canvas viewport to pin a background to (columns are
                just stacked, page-scrolling sections) -- one watermark fixed to the screen
+               (using the "positive" variant, since there's no single column it belongs to)
                instead of the column, so it stays put as you scroll through columns rather
                than scrolling away or repeating per-section. -->
           <div class="mobile-theme-bg" [style.background-image]="bg"></div>
@@ -866,6 +807,49 @@ interface TimerState {
             <span class="session-name">{{ s.title || 'Untitled Retro' }}</span>
             <span class="session-sub">{{ s.cards.length }} card{{ s.cards.length !== 1 ? 's' : '' }}</span>
           </div>
+          @if (s.phase !== 'lobby') {
+            <div class="phase-pill-wrap" (mousedown)="$event.stopPropagation()">
+              <button class="phase-pill" (click)="togglePhasePanel($event)" [style.color]="phaseColor(s.phase)">
+                <span class="phase-pill-dot" [style.background]="phaseColor(s.phase)"></span>
+                {{ phaseLabel(s.phase) }}
+                <mat-icon class="phase-pill-caret">{{ phasePanelOpen() ? 'expand_less' : 'expand_more' }}</mat-icon>
+              </button>
+              @if (phasePanelOpen()) {
+                <div class="phase-panel" (mousedown)="$event.stopPropagation()">
+                  <div class="phase-panel-steps">
+                    @for (step of retroSteps; track step.phase; let i = $index) {
+                      @let stepState = stepStateFor(s.phase, step.phase);
+                      <div class="step-item">
+                        <div class="step-circle"
+                             [class.done-step]="stepState === 'done'"
+                             [class.active-step]="stepState === 'active'"
+                             [style.color]="stepState === 'active' ? phaseColor(step.phase) : null">
+                          @if (stepState === 'done') {
+                            <mat-icon>check</mat-icon>
+                          } @else {
+                            {{ i + 1 }}
+                          }
+                        </div>
+                        <span class="step-label"
+                              [class.active-label]="stepState === 'active'"
+                              [class.done-label]="stepState === 'done'"
+                              [style.color]="stepState === 'active' ? phaseColor(step.phase) : null">
+                          {{ step.label }}
+                        </span>
+                      </div>
+                      @if (i < retroSteps.length - 1) {
+                        <div class="step-connector" [class.done-conn]="stepState === 'done'"></div>
+                      }
+                    }
+                  </div>
+                  <div class="phase-panel-guide">
+                    <mat-icon [style.color]="phaseColor(s.phase)">{{ phaseGuide(s.phase).icon }}</mat-icon>
+                    <span>{{ phaseGuide(s.phase).text }}</span>
+                  </div>
+                </div>
+              }
+            </div>
+          }
           <div class="header-spacer"></div>
           @if (s.phase !== 'lobby') {
             <div class="timer-trigger-wrap" (mousedown)="$event.stopPropagation()">
@@ -1001,7 +985,7 @@ interface TimerState {
                 @for (t of retroThemes; track t.id) {
                   <button class="theme-swatch" [class.active]="s.theme === t.id" [title]="t.label"
                           (click)="setTheme(t.id)">
-                    <span class="theme-swatch-preview" [style.background-image]="t.bgUrl"></span>
+                    <span class="theme-swatch-preview" [style.background-image]="themeSwatchUrl(t)"></span>
                   </button>
                 }
               </div>
@@ -1110,36 +1094,6 @@ interface TimerState {
           </div>
         }
 
-        <!-- Step bar (all phases except lobby) -->
-        @if (s.phase !== 'lobby') {
-          <div class="step-bar" [class.full-bleed]="isDesktop()">
-            @for (step of retroSteps; track step.phase; let i = $index) {
-              @let stepState = stepStateFor(s.phase, step.phase);
-              <div class="step-item">
-                <div class="step-circle"
-                     [class.done-step]="stepState === 'done'"
-                     [class.active-step]="stepState === 'active'"
-                     [style.color]="stepState === 'active' ? phaseColor(step.phase) : null">
-                  @if (stepState === 'done') {
-                    <mat-icon>check</mat-icon>
-                  } @else {
-                    {{ i + 1 }}
-                  }
-                </div>
-                <span class="step-label"
-                      [class.active-label]="stepState === 'active'"
-                      [class.done-label]="stepState === 'done'"
-                      [style.color]="stepState === 'active' ? phaseColor(step.phase) : null">
-                  {{ step.label }}
-                </span>
-              </div>
-              @if (i < retroSteps.length - 1) {
-                <div class="step-connector" [class.done-conn]="stepState === 'done'"></div>
-              }
-            }
-          </div>
-        }
-
         <!-- Reveal banner -->
         @if (revealing()) {
           <div class="reveal-banner">🎉 Revealing cards…</div>
@@ -1206,12 +1160,6 @@ interface TimerState {
               }
             </div>
           }
-        }
-        @if (s.phase !== 'lobby') {
-          <div class="phase-guide" [class.full-bleed]="isDesktop()" [style.border-color]="phaseColor(s.phase) + '30'" [style.color]="phaseColor(s.phase)">
-            <mat-icon>{{ phaseGuide(s.phase).icon }}</mat-icon>
-            <span style="color:rgba(255,255,255,0.7)">{{ phaseGuide(s.phase).text }}</span>
-          </div>
         }
 
         <!-- Mobile: card list columns -->
@@ -1406,7 +1354,7 @@ interface TimerState {
                      [style.background-size]="(40 * view.zoom) + 'px ' + (40 * view.zoom) + 'px'"
                      (wheel)="onCanvasWheel($event, col.key)"
                      (mousedown)="startPan($event, col.key)">
-                  @if (themeBgUrl(); as bg) {
+                  @if (themeBgUrl(ci); as bg) {
                     <div class="canvas-theme-bg" [style.background-image]="bg"></div>
                   }
                   <div class="canvas-inner"
@@ -1741,7 +1689,11 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
   /**
    * The canvas background/grid is visually endless, but there's nothing to see past the
    * cards -- without a bound, panning or zooming out lets you drift into empty space
-   * indefinitely. Keep the content within `margin` px of the viewport edge instead.
+   * indefinitely. Keep at least `margin` px of the content's bounding box within the
+   * viewport, in each direction, instead of a fixed pan window: bounds that don't scale
+   * with viewport/content size gave columns whose content is shorter than the viewport
+   * almost no room to pan (e.g. ~20px of vertical slack in a 600px-tall canvas) even
+   * though there's plenty of space to comfortably move around in.
    */
   private clampPan(col: string, zoom: number, panX: number, panY: number): { panX: number; panY: number } {
     const outer = this.outerEl(col);
@@ -1750,15 +1702,15 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
     const outerH = outer.clientHeight || 400;
     const items = this.canvasCardsForCol(col);
     const cardW = this.STICKY_W;
-    const margin = 200; // pan/zoom slack, not the card-grid margin (STICKY_MARGIN) -- deliberately separate
+    const margin = 200; // px of content that must stay visible on each side
     const contentMaxX = items.length ? Math.max(...items.map(i => i.x + cardW)) + 20 : 400;
     const contentMaxY = this.canvasHeight(items);
     const scaledW = contentMaxX * zoom;
     const scaledH = contentMaxY * zoom;
-    const maxPanX = margin;
-    const minPanX = Math.min(margin, outerW - scaledW - margin);
-    const maxPanY = margin;
-    const minPanY = Math.min(margin, outerH - scaledH - margin);
+    const maxPanX = outerW - margin;
+    const minPanX = margin - scaledW;
+    const maxPanY = outerH - margin;
+    const minPanY = margin - scaledH;
     return {
       panX: Math.min(maxPanX, Math.max(minPanX, panX)),
       panY: Math.min(maxPanY, Math.max(minPanY, panY)),
@@ -1847,6 +1799,11 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
   private readonly STICKY_W = 200;
   private readonly STICKY_GAP = 16;
   private readonly STICKY_MARGIN = 10;
+  // CSS min-height for .sticky -- used as the fallback grid's row-pitch estimate below.
+  // Real cards are often taller (more text/votes/reactions), but this is far closer to
+  // Tidy's actual masonry packing than the old flat 190px guess was, which made new cards
+  // land much further down than necessary once Tidy had packed the column tightly.
+  private readonly STICKY_MIN_H = 90;
 
   canvasCardsForCol(colKey: string): CanvasCardItem[] {
     const s = this.session();
@@ -1870,14 +1827,15 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
       }
       // Skip any grid slot already taken by a dragged/persisted card so new
       // cards never land directly on top of one.
+      const rowH = this.STICKY_MIN_H + this.STICKY_GAP;
       let x: number, y: number;
       do {
         const col = idx % 2;
         const row = Math.floor(idx / 2);
         x = col * (this.STICKY_W + this.STICKY_GAP) + this.STICKY_MARGIN;
-        y = 10 + row * 190;
+        y = 10 + row * rowH;
         idx++;
-      } while (occupied.some(p => Math.abs(p.x - x) < (this.STICKY_W + this.STICKY_GAP) && Math.abs(p.y - y) < 190));
+      } while (occupied.some(p => Math.abs(p.x - x) < (this.STICKY_W + this.STICKY_GAP) && Math.abs(p.y - y) < rowH));
       result.push({ card, x, y });
       occupied.push({ x, y });
     }
@@ -2047,6 +2005,7 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
     if (this.colorPickerOpenFor()) { this.colorPickerOpenFor.set(null); this.colorPickerPos.set(null); }
     if (this.timerPopoverOpen()) this.timerPopoverOpen.set(false);
     if (this.emojiPickerFor()) { this.emojiPickerFor.set(null); this.emojiPickerPos.set(null); }
+    if (this.phasePanelOpen()) this.phasePanelOpen.set(false);
   }
 
   timerPopoverOpen = signal(false);
@@ -2056,15 +2015,36 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
     this.timerPopoverOpen.update(v => !v);
   }
 
+  // Phase stepper + guidance text used to be two always-visible full-width rows, eating a
+  // lot of vertical space above the canvas before it even starts. Folded into one compact
+  // pill in the header that reveals both on demand, mirroring the "status ▾" pattern.
+  phasePanelOpen = signal(false);
+
+  togglePhasePanel(e: MouseEvent): void {
+    e.stopPropagation();
+    this.phasePanelOpen.update(v => !v);
+  }
+
   readonly stickyPalette = [
     '#fff9c4', '#ffe0b2', '#fce4ec', '#c8e6c9',
     '#bbdefb', '#e1bee7', '#ffcdd2', '#b2dfdb',
     '#f5f5f5', '#ffe082', '#a5d6a7', '#90caf9',
   ];
 
-  private colDefaultColor: Record<string, string> = {
+  // Static, never mutated -- only used as a last-resort render fallback for a card that
+  // somehow has no color at all (e.g. one created before colors were baked in at creation).
+  // Deliberately NOT read/written by changeCardColor: that used to double as "the column's
+  // shared default", so changing one card's color retroactively repainted every other
+  // uncolored card in the column. nextCardColor below is the correct place for "future new
+  // cards should use this" -- it only gets read once, at the moment a new card is created.
+  private readonly baseColDefaultColor: Record<string, string> = {
     well: '#c8e6c9', better: '#ffe0b2', action: '#fce4ec',
   };
+
+  // What color a newly-created card in each column should be baked with. Starts at the same
+  // values as baseColDefaultColor; changeCardColor updates this so *future* cards pick up the
+  // change, but it never affects cards that already exist.
+  private nextCardColor: Record<string, string> = { ...this.baseColDefaultColor };
 
   colorPickerOpenFor = signal<string | null>(null);
   // The popover renders once at the top level (see template) instead of once per card --
@@ -2076,7 +2056,12 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
   });
 
   resolveCardColor(card: FunRetroCard): string {
-    return card.color ?? this.colDefaultColor[card.column] ?? '#fff9c4';
+    return card.color ?? this.baseColDefaultColor[card.column] ?? '#fff9c4';
+  }
+
+  /** The color a card added to this column right now would be created with. */
+  nextCardColorFor(colKey: string): string {
+    return this.nextCardColor[colKey] ?? this.baseColDefaultColor[colKey] ?? '#fff9c4';
   }
 
   colorPickerPos = signal<{ top: number; left: number } | null>(null);
@@ -2090,8 +2075,9 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
     if (!s) return;
     this.colorPickerOpenFor.set(null);
     this.colorPickerPos.set(null);
-    // Remember this as the default for the column so new cards inherit it.
-    this.colDefaultColor = { ...this.colDefaultColor, [card.column]: color };
+    // Only future new cards in this column pick up the change -- existing cards (this one
+    // aside) are untouched.
+    this.nextCardColor = { ...this.nextCardColor, [card.column]: color };
     // Optimistic local update
     this.session.update(cur => {
       if (!cur) return cur;
@@ -2107,8 +2093,16 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
   toggleExpandColumn(colKey: string): void {
     this.closeAllPickers();
     this.expandedCol.update(cur => (cur === colKey ? null : colKey));
-    // Give the DOM a tick to reflow to the new width before recomputing canvas height.
-    requestAnimationFrame(() => this.updateCanvasMargins());
+    // Give the DOM a tick to reflow to the new width before recomputing canvas height and
+    // re-validating this column's pan bounds -- expand/collapse changes the canvas's width
+    // drastically, and the pan clamp is based on that width, so a pan offset that was valid
+    // while expanded can end up out of range once collapsed back (and vice versa) until
+    // something re-triggers clampPan. Do that immediately instead of waiting on the next
+    // pan/zoom interaction.
+    requestAnimationFrame(() => {
+      this.updateCanvasMargins();
+      this.setView(colKey, this.viewFor(colKey));
+    });
   }
 
   readonly emojiPalette = EMOJI_PICKER_SET;
@@ -2473,9 +2467,18 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
 
   readonly retroThemes = RETRO_THEMES;
 
-  themeBgUrl(): string | null {
+  /** The pixel-art background for the column at `colIndex` -- each column shows a
+   *  different tone within the theme (1st = positive, 2nd = negative, 3rd+ = action). */
+  themeBgUrl(colIndex: number): string | null {
     const theme = this.session()?.theme;
-    return theme ? (RETRO_THEMES.find(t => t.id === theme)?.bgUrl ?? null) : null;
+    if (!theme) return null;
+    const def = RETRO_THEMES.find(t => t.id === theme);
+    return def ? def.variantUrls[Math.min(colIndex, 2)] : null;
+  }
+
+  /** Representative icon for the theme picker swatch -- the "positive" variant. */
+  themeSwatchUrl(theme: RetroThemeDef): string {
+    return theme.variantUrls[0];
   }
 
   setTheme(theme: RetroTheme): void {
@@ -2683,11 +2686,12 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
   private createSession(result: NewRetroDialogResult): void {
     this.creating.set(true);
     const template = RETRO_TEMPLATES.find(t => t.id === result.templateId);
-    const req: { title?: string; columns?: RetroColumn[]; icebreakerQuestion?: string } = {
+    const req: { title?: string; columns?: RetroColumn[]; icebreakerQuestion?: string; theme?: RetroTheme } = {
       columns: template?.columns ?? DEFAULT_COLS,
     };
     if (result.title) req.title = result.title;
     if (result.icebreakerQuestion) req.icebreakerQuestion = result.icebreakerQuestion;
+    if (result.theme) req.theme = result.theme;
     this.svc.createSession(req).subscribe({
       next: s => {
         this.creating.set(false);
@@ -2723,7 +2727,7 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
     const text = this.newCardText()[colKey]?.trim();
     if (!text) return;
     this.submittingCard.set(colKey);
-    this.svc.addCard(s.id, colKey, text).subscribe({
+    this.svc.addCard(s.id, colKey, text, this.nextCardColorFor(colKey)).subscribe({
       next: updated => {
         this.session.set(updated);
         this.newCardText.update(m => ({ ...m, [colKey]: '' }));

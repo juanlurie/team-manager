@@ -1,19 +1,22 @@
 import { Component, ChangeDetectionStrategy, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
+import { MatIconModule } from '@angular/material/icon';
 import { MatDialogModule, MatDialogRef } from '@angular/material/dialog';
-import { RetroTemplate, RETRO_TEMPLATES, ICEBREAKER_QUESTIONS } from './retro-constants';
+import { RetroTemplate, RETRO_TEMPLATES, ICEBREAKER_QUESTIONS, RETRO_THEMES } from './retro-constants';
+import { RetroTheme } from '../../../core/models/fun-retro.model';
 
 export interface NewRetroDialogResult {
   title: string;
   templateId: string;
   icebreakerQuestion?: string;
+  theme: RetroTheme;
 }
 
 @Component({
   selector: 'app-new-retro-dialog',
   standalone: true,
-  imports: [FormsModule, MatButtonModule, MatDialogModule],
+  imports: [FormsModule, MatButtonModule, MatIconModule, MatDialogModule],
   changeDetection: ChangeDetectionStrategy.Default,
   styles: [`
     .field-label { font-size:0.75rem;opacity:0.55;display:block;margin-bottom:4px; }
@@ -39,6 +42,35 @@ export interface NewRetroDialogResult {
     .template-cols { display:flex;flex-wrap:wrap;gap:4px; }
     .template-col-chip { font-size:0.65rem;padding:2px 6px;border-radius:10px;font-weight:500; }
     select.field { appearance:auto; }
+    .theme-picker { display:flex;gap:6px;flex-wrap:wrap;margin-bottom:4px; }
+    .theme-swatch {
+      width:34px;height:34px;flex-shrink:0;
+      background:rgba(255,255,255,0.05);border:1.5px solid rgba(255,255,255,0.12);
+      border-radius:8px;cursor:pointer;color:rgba(255,255,255,0.5);
+      display:flex;align-items:center;justify-content:center;
+      transition:border-color .15s,background .15s;
+    }
+    .theme-swatch:hover { background:rgba(255,255,255,0.1); }
+    .theme-swatch.selected { border-color:#64b5f6;background:rgba(100,181,246,0.12); }
+    .theme-swatch-preview {
+      width:22px;height:22px;background-repeat:no-repeat;background-position:center;
+      background-size:contain;image-rendering:pixelated;opacity:0.85;
+    }
+    .layout-picker { display:flex;gap:8px;margin-bottom:4px; }
+    .layout-option {
+      flex:1;display:flex;flex-direction:column;gap:2px;
+      border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:9px 11px;
+      cursor:pointer;transition:border-color 0.15s,background 0.15s;
+    }
+    .layout-option.selected { border-color:#64b5f6;background:rgba(100,181,246,0.08); }
+    .layout-option.disabled { cursor:default;opacity:0.5; }
+    .layout-option-name { font-size:0.8rem;font-weight:600;color:rgba(255,255,255,0.85);display:flex;align-items:center;gap:6px; }
+    .layout-option-desc { font-size:0.68rem;color:rgba(255,255,255,0.35); }
+    .layout-soon-badge {
+      font-size:0.6rem;font-weight:700;text-transform:uppercase;letter-spacing:.03em;
+      background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.5);
+      border-radius:10px;padding:1px 6px;
+    }
   `],
   template: `
     <h2 mat-dialog-title style="font-size:1rem;margin:0 0 4px">New Retro</h2>
@@ -63,6 +95,18 @@ export interface NewRetroDialogResult {
         }
       </div>
 
+      <label class="field-label" style="margin-top:4px">Canvas layout</label>
+      <div class="layout-picker">
+        <div class="layout-option selected">
+          <span class="layout-option-name">Separate columns</span>
+          <span class="layout-option-desc">Each column is its own pan/zoom canvas</span>
+        </div>
+        <div class="layout-option disabled" title="Not available yet -- coming in a future update">
+          <span class="layout-option-name">Single canvas <span class="layout-soon-badge">Soon</span></span>
+          <span class="layout-option-desc">One freeform board for the whole retro</span>
+        </div>
+      </div>
+
       <label class="field-label" style="margin-top:4px">Icebreaker question</label>
       <select class="field" [(ngModel)]="icebreakerMode">
         <option value="random">Random (default)</option>
@@ -74,6 +118,19 @@ export interface NewRetroDialogResult {
       @if (icebreakerMode === '__custom__') {
         <input class="field" [(ngModel)]="customIcebreaker" placeholder="Type your own icebreaker question" (keyup.enter)="submit()" />
       }
+
+      <label class="field-label" style="margin-top:4px">Board theme (optional)</label>
+      <div class="theme-picker">
+        <button type="button" class="theme-swatch" [class.selected]="!selectedTheme" title="None" (click)="selectedTheme = null">
+          <mat-icon style="font-size:16px;height:16px;width:16px">block</mat-icon>
+        </button>
+        @for (t of themes; track t.id) {
+          <button type="button" class="theme-swatch" [class.selected]="selectedTheme === t.id" [title]="t.label"
+                  (click)="selectedTheme = t.id">
+            <span class="theme-swatch-preview" [style.background-image]="t.variantUrls[0]"></span>
+          </button>
+        }
+      </div>
     </mat-dialog-content>
     <mat-dialog-actions align="end" style="margin-top:8px">
       <button mat-button mat-dialog-close>Cancel</button>
@@ -85,10 +142,12 @@ export class NewRetroDialogComponent {
   dialogRef = inject(MatDialogRef<NewRetroDialogComponent, NewRetroDialogResult>);
   readonly templates = RETRO_TEMPLATES;
   readonly icebreakerQuestions = ICEBREAKER_QUESTIONS;
+  readonly themes = RETRO_THEMES;
   title = '';
   selectedTemplateId = RETRO_TEMPLATES[0].id;
   icebreakerMode = 'random';
   customIcebreaker = '';
+  selectedTheme: RetroTheme = null;
 
   templateAccent(t: RetroTemplate): string {
     return t.columns[0]?.color ?? '#64b5f6';
@@ -101,6 +160,11 @@ export class NewRetroDialogComponent {
     } else if (this.icebreakerMode !== 'random') {
       icebreakerQuestion = this.icebreakerMode;
     }
-    this.dialogRef.close({ title: this.title.trim(), templateId: this.selectedTemplateId, icebreakerQuestion });
+    this.dialogRef.close({
+      title: this.title.trim(),
+      templateId: this.selectedTemplateId,
+      icebreakerQuestion,
+      theme: this.selectedTheme,
+    });
   }
 }

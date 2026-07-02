@@ -97,12 +97,14 @@ public record CreateFunRetroSessionRequest
     public Guid? SprintId { get; init; }
     public List<RetroColumnDto>? Columns { get; init; }
     public string? IcebreakerQuestion { get; init; }
+    public string? Theme { get; init; }
 }
 
 public record AddFunRetroCardRequest
 {
     public string Column { get; init; } = "well";
     public string Text { get; init; } = "";
+    public string? Color { get; init; }
 }
 
 public record UpdateRetroSettingsRequest
