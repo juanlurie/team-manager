@@ -376,7 +376,15 @@ interface TimerState {
     .empty-state { text-align:center;padding:40px 16px;color:rgba(255,255,255,0.35);font-size:0.9rem; }
 
     /* ── session view ────────────────────────────────────── */
-    .session-wrap { padding:4px 0; }
+    /* position+z-index makes this a stacking-context root so .mobile-theme-bg's negative
+       z-index keeps it visible behind this container's own content without falling all the
+       way behind the app shell's own background (which would make it invisible). */
+    .session-wrap { padding:4px 0;position:relative;z-index:0; }
+    .mobile-theme-bg {
+      position:fixed;inset:0;z-index:-1;pointer-events:none;
+      background-repeat:no-repeat;background-position:center 45%;background-size:48vw;
+      opacity:0.1;image-rendering:pixelated;
+    }
     .session-header {
       display:flex;align-items:center;
       gap:8px;padding:10px 20px;margin-bottom:8px;flex-wrap:wrap;
@@ -1069,6 +1077,13 @@ interface TimerState {
     <!-- ══════════════════════════════════════════════════════ -->
     @if (session(); as s) {
       <div class="session-wrap">
+        @if (!isDesktop() && themeBgUrl(); as bg) {
+          <!-- Mobile has no per-column canvas viewport to pin a background to (columns are
+               just stacked, page-scrolling sections) -- one watermark fixed to the screen
+               instead of the column, so it stays put as you scroll through columns rather
+               than scrolling away or repeating per-section. -->
+          <div class="mobile-theme-bg" [style.background-image]="bg"></div>
+        }
         <!-- Compact header: title, timer, polls, settings, share, back, phase actions — all in one row -->
         <div class="session-header" [class.full-bleed]="isDesktop()">
           <button mat-icon-button (click)="backToList()" title="Back to list">
