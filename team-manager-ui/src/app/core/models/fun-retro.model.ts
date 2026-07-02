@@ -56,7 +56,10 @@ export interface FunRetroSession {
   columns: RetroColumn[];
   hideCardsOnAdd: boolean;
   participationTracking: boolean;
+  theme: RetroTheme;
 }
+
+export type RetroTheme = 'space' | 'f1' | 'ocean' | 'retro-gaming' | null;
 
 export interface FunRetroSessionSummary {
   id: string;

@@ -18,4 +18,5 @@ public class FunRetroSession
     public string? ColumnsJson { get; set; }
     public bool HideCardsOnAdd { get; set; } = true;
     public bool ParticipationTracking { get; set; } = true;
+    public string? Theme { get; set; } // null|space|f1|ocean|retro-gaming
 }

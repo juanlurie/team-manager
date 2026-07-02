@@ -12,7 +12,7 @@ import { Subject, Subscription } from 'rxjs';
 import { takeUntil, filter, take } from 'rxjs/operators';
 import { Router, ActivatedRoute } from '@angular/router';
 import { FunRetroService } from '../../../core/services/fun-retro.service';
-import { FunRetroAnalysis, FunRetroSession, FunRetroSessionSummary, FunRetroCard, RetroColumn } from '../../../core/models/fun-retro.model';
+import { FunRetroAnalysis, FunRetroSession, FunRetroSessionSummary, FunRetroCard, RetroColumn, RetroTheme } from '../../../core/models/fun-retro.model';
 import { WebSocketService } from '../../../core/websocket/websocket.service';
 import { AvatarCircleComponent } from '../../../core/components/k-picker/avatar-circle.component';
 import { AuthService } from '../../../core/auth/auth.service';
@@ -210,6 +210,91 @@ const PHASE_META: Record<string, { label: string; color: string }> = {
 
 const REACTION_EMOJIS = ['👍', '😅', '🔥', '😬', '💯'];
 
+// ── Retro board themes: a subtle pixel-art watermark behind each canvas ──
+function row(y: number, x0: number, x1: number): [number, number][] {
+  const out: [number, number][] = [];
+  for (let x = x0; x <= x1; x++) out.push([x, y]);
+  return out;
+}
+
+function pixelSvgDataUrl(cells: [number, number][], gridSize = 16, color = '#ffffff'): string {
+  const rects = cells.map(([x, y]) => `<rect x="${x}" y="${y}" width="1" height="1" fill="${color}"/>`).join('');
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${gridSize} ${gridSize}" shape-rendering="crispEdges">${rects}</svg>`;
+  return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
+}
+
+const SPACE_PIXELS: [number, number][] = [
+  ...row(7, 7, 8),
+  ...row(8, 6, 9),
+  ...row(9, 6, 9),
+  ...row(10, 6, 9),
+  ...row(11, 5, 10),
+  ...row(12, 5, 10),
+  [5, 13], [10, 13],
+  [5, 14], [10, 14],
+  ...row(15, 3, 12),
+  ...row(16, 4, 11),
+  ...row(17, 4, 11),
+  ...row(18, 6, 9),
+  ...row(19, 7, 8),
+  // stars scattered around
+  [2, 2], [3, 2], [2, 3],
+  [21, 6],
+  [3, 20], [4, 20],
+  [20, 18], [21, 18], [20, 19],
+];
+
+const F1_PIXELS: [number, number][] = (() => {
+  const cells: [number, number][] = [];
+  for (let y = 0; y < 12; y++) {
+    for (let x = 0; x < 12; x++) {
+      if ((x + y) % 2 === 0) cells.push([x + 5, y + 5]);
+    }
+  }
+  return cells;
+})();
+
+const OCEAN_PIXELS: [number, number][] = [
+  ...row(4, 10, 11),
+  [9, 5], [12, 5],
+  ...row(6, 10, 11),
+  ...row(7, 10, 11),
+  ...row(8, 10, 11),
+  ...row(9, 5, 16),
+  ...row(10, 10, 11),
+  ...row(11, 10, 11),
+  ...row(12, 10, 11),
+  [6, 13], [7, 13], [14, 13], [15, 13],
+  [5, 14], [16, 14],
+  ...row(15, 7, 14),
+  [8, 16], [13, 16],
+];
+
+const RETRO_GAMING_PIXELS: [number, number][] = [
+  ...row(9, 6, 15),
+  ...row(10, 4, 17),
+  ...row(11, 3, 17).filter(([x]) => !(x >= 6 && x <= 8)),
+  ...row(12, 3, 17).filter(([x]) => !(x === 7)),
+  ...row(13, 3, 17).filter(([x]) => !(x >= 6 && x <= 8) && !(x >= 13 && x <= 14)),
+  ...row(14, 4, 17),
+  ...row(15, 6, 15),
+  [7, 11], [7, 13],
+  [14, 11], [17, 11],
+];
+
+export interface RetroThemeDef {
+  id: NonNullable<RetroTheme>;
+  label: string;
+  bgUrl: string;
+}
+
+const RETRO_THEMES: RetroThemeDef[] = [
+  { id: 'space', label: 'Space', bgUrl: pixelSvgDataUrl(SPACE_PIXELS, 24) },
+  { id: 'f1', label: 'F1', bgUrl: pixelSvgDataUrl(F1_PIXELS, 22) },
+  { id: 'ocean', label: 'Ocean', bgUrl: pixelSvgDataUrl(OCEAN_PIXELS, 22) },
+  { id: 'retro-gaming', label: 'Retro Gaming', bgUrl: pixelSvgDataUrl(RETRO_GAMING_PIXELS, 22) },
+];
+
 const EMOJI_PICKER_SET = [
   '😀', '😂', '😅', '😊', '🙂', '😉', '😍', '🤔',
   '😬', '😭', '😢', '😡', '😱', '🥳', '😴', '🤯',
@@ -342,6 +427,21 @@ interface TimerState {
     .settings-row:last-child { border-bottom:none;padding-bottom:0; }
     .settings-row-label { font-size:0.82rem;color:rgba(255,255,255,0.75); }
     .settings-row-desc { font-size:0.7rem;color:rgba(255,255,255,0.35);margin-top:1px; }
+    .settings-row-column { flex-direction:column;align-items:stretch;gap:8px; }
+    .theme-picker { display:flex;gap:6px;flex-wrap:wrap; }
+    .theme-swatch {
+      width:34px;height:34px;flex-shrink:0;
+      background:rgba(255,255,255,0.05);border:1.5px solid rgba(255,255,255,0.12);
+      border-radius:8px;cursor:pointer;color:rgba(255,255,255,0.5);
+      display:flex;align-items:center;justify-content:center;
+      transition:border-color .15s,background .15s;
+    }
+    .theme-swatch:hover { background:rgba(255,255,255,0.1); }
+    .theme-swatch.active { border-color:#64b5f6;background:rgba(100,181,246,0.12); }
+    .theme-swatch-preview {
+      width:22px;height:22px;background-repeat:no-repeat;background-position:center;
+      background-size:contain;image-rendering:pixelated;opacity:0.85;
+    }
     .toggle-track {
       width:36px;height:20px;border-radius:10px;background:rgba(255,255,255,0.12);
       position:relative;cursor:pointer;transition:background .2s;flex-shrink:0;
@@ -675,6 +775,13 @@ interface TimerState {
       cursor:grab;
     }
     .canvas-outer.panning { cursor:grabbing; }
+    .canvas-theme-bg {
+      /* Sibling of .canvas-inner (not a child) so it never inherits the pan/zoom
+         transform -- it's meant to sit still behind the cards, not move with them. */
+      position:absolute;inset:0;pointer-events:none;
+      background-repeat:no-repeat;background-position:center;background-size:60%;
+      opacity:0.16;image-rendering:pixelated;
+    }
     .canvas-inner {
       position:absolute;top:0;left:0;
       transform-origin:0 0;will-change:transform;
@@ -1094,6 +1201,23 @@ interface TimerState {
                 <div class="toggle-thumb"></div>
               </div>
             </div>
+            <div class="settings-row settings-row-column">
+              <div>
+                <div class="settings-row-label">Board theme</div>
+                <div class="settings-row-desc">A subtle background on each canvas</div>
+              </div>
+              <div class="theme-picker">
+                <button class="theme-swatch" [class.active]="!s.theme" title="None" (click)="setTheme(null)">
+                  <mat-icon style="font-size:16px;height:16px;width:16px">block</mat-icon>
+                </button>
+                @for (t of retroThemes; track t.id) {
+                  <button class="theme-swatch" [class.active]="s.theme === t.id" [title]="t.label"
+                          (click)="setTheme(t.id)">
+                    <span class="theme-swatch-preview" [style.background-image]="t.bgUrl"></span>
+                  </button>
+                }
+              </div>
+            </div>
           </div>
         }
 
@@ -1493,6 +1617,9 @@ interface TimerState {
                      [style.background-size]="(40 * viewFor(col.key).zoom) + 'px ' + (40 * viewFor(col.key).zoom) + 'px'"
                      (wheel)="onCanvasWheel($event, col.key)"
                      (mousedown)="startPan($event, col.key)">
+                  @if (themeBgUrl(); as bg) {
+                    <div class="canvas-theme-bg" [style.background-image]="bg"></div>
+                  }
                   <div class="canvas-inner"
                        [style.height.px]="canvasHeight(col.key)"
                        [style.transform]="'translate(' + viewFor(col.key).panX + 'px,' + viewFor(col.key).panY + 'px) scale(' + viewFor(col.key).zoom + ')'">
@@ -2325,6 +2452,7 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
               ...cur,
               hideCardsOnAdd: msg.data['hideCardsOnAdd'] as boolean,
               participationTracking: msg.data['participationTracking'] as boolean,
+              theme: msg.data['theme'] as RetroTheme,
             } : cur);
           }
           break;
@@ -2544,8 +2672,23 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
   toggleSetting(key: 'hideCardsOnAdd' | 'participationTracking'): void {
     const s = this.session();
     if (!s || !s.isCreator) return;
-    const updated = { hideCardsOnAdd: s.hideCardsOnAdd, participationTracking: s.participationTracking, [key]: !s[key] };
+    const updated = { hideCardsOnAdd: s.hideCardsOnAdd, participationTracking: s.participationTracking, theme: s.theme, [key]: !s[key] };
     this.session.update(cur => cur ? { ...cur, ...updated } : cur);
+    this.svc.updateSettings(s.id, updated).subscribe({ error: () => this.silentRefresh() });
+  }
+
+  readonly retroThemes = RETRO_THEMES;
+
+  themeBgUrl(): string | null {
+    const theme = this.session()?.theme;
+    return theme ? (RETRO_THEMES.find(t => t.id === theme)?.bgUrl ?? null) : null;
+  }
+
+  setTheme(theme: RetroTheme): void {
+    const s = this.session();
+    if (!s || !s.isCreator) return;
+    const updated = { hideCardsOnAdd: s.hideCardsOnAdd, participationTracking: s.participationTracking, theme };
+    this.session.update(cur => cur ? { ...cur, theme } : cur);
     this.svc.updateSettings(s.id, updated).subscribe({ error: () => this.silentRefresh() });
   }
 

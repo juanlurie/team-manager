@@ -165,20 +165,22 @@ public class FunRetroService(AppDbContext db, AiPromptExecutorService aiExecutor
             Columns = columns,
             HideCardsOnAdd = session.HideCardsOnAdd,
             ParticipationTracking = session.ParticipationTracking,
+            Theme = session.Theme,
         };
     }
 
-    public async Task<bool> UpdateSettingsAsync(Guid sessionId, Guid memberId, bool hideCardsOnAdd, bool participationTracking)
+    public async Task<bool> UpdateSettingsAsync(Guid sessionId, Guid memberId, bool hideCardsOnAdd, bool participationTracking, string? theme)
     {
         var session = await db.FunRetroSessions.FindAsync(sessionId);
         if (session is null || session.CreatedByMemberId != memberId) return false;
 
         session.HideCardsOnAdd = hideCardsOnAdd;
         session.ParticipationTracking = participationTracking;
+        session.Theme = theme;
         await db.SaveChangesAsync();
 
         _ = WebSocketMiddleware.BroadcastAsync("fun_retro_settings_updated",
-            new { sessionId, hideCardsOnAdd, participationTracking }, guestAllowed: true);
+            new { sessionId, hideCardsOnAdd, participationTracking, theme }, guestAllowed: true);
         return true;
     }
 
