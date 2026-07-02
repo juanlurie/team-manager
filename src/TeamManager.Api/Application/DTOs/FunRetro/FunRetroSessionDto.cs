@@ -20,6 +20,7 @@ public record FunRetroSessionDto
     public bool HideCardsOnAdd { get; init; }
     public bool ParticipationTracking { get; init; }
     public string? Theme { get; init; }
+    public string? CanvasLayout { get; init; }
 }
 
 public record IcebreakerAnswerDto
@@ -98,6 +99,7 @@ public record CreateFunRetroSessionRequest
     public List<RetroColumnDto>? Columns { get; init; }
     public string? IcebreakerQuestion { get; init; }
     public string? Theme { get; init; }
+    public string? CanvasLayout { get; init; }
 }
 
 public record AddFunRetroCardRequest

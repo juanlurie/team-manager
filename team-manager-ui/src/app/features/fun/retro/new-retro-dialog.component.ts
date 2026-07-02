@@ -4,13 +4,14 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { RetroTemplate, RETRO_TEMPLATES, ICEBREAKER_QUESTIONS, RETRO_THEMES } from './retro-constants';
-import { RetroTheme } from '../../../core/models/fun-retro.model';
+import { RetroTheme, RetroCanvasLayout } from '../../../core/models/fun-retro.model';
 
 export interface NewRetroDialogResult {
   title: string;
   templateId: string;
   icebreakerQuestion?: string;
   theme: RetroTheme;
+  canvasLayout: RetroCanvasLayout;
 }
 
 @Component({
@@ -63,14 +64,8 @@ export interface NewRetroDialogResult {
       cursor:pointer;transition:border-color 0.15s,background 0.15s;
     }
     .layout-option.selected { border-color:#64b5f6;background:rgba(100,181,246,0.08); }
-    .layout-option.disabled { cursor:default;opacity:0.5; }
     .layout-option-name { font-size:0.8rem;font-weight:600;color:rgba(255,255,255,0.85);display:flex;align-items:center;gap:6px; }
     .layout-option-desc { font-size:0.68rem;color:rgba(255,255,255,0.35); }
-    .layout-soon-badge {
-      font-size:0.6rem;font-weight:700;text-transform:uppercase;letter-spacing:.03em;
-      background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.5);
-      border-radius:10px;padding:1px 6px;
-    }
   `],
   template: `
     <h2 mat-dialog-title style="font-size:1rem;margin:0 0 4px">New Retro</h2>
@@ -97,12 +92,12 @@ export interface NewRetroDialogResult {
 
       <label class="field-label" style="margin-top:4px">Canvas layout</label>
       <div class="layout-picker">
-        <div class="layout-option selected">
+        <div class="layout-option" [class.selected]="canvasLayout === 'columns'" (click)="canvasLayout = 'columns'">
           <span class="layout-option-name">Separate columns</span>
           <span class="layout-option-desc">Each column is its own pan/zoom canvas</span>
         </div>
-        <div class="layout-option disabled" title="Not available yet -- coming in a future update">
-          <span class="layout-option-name">Single canvas <span class="layout-soon-badge">Soon</span></span>
+        <div class="layout-option" [class.selected]="canvasLayout === 'single'" (click)="canvasLayout = 'single'">
+          <span class="layout-option-name">Single canvas</span>
           <span class="layout-option-desc">One freeform board for the whole retro</span>
         </div>
       </div>
@@ -148,6 +143,7 @@ export class NewRetroDialogComponent {
   icebreakerMode = 'random';
   customIcebreaker = '';
   selectedTheme: RetroTheme = null;
+  canvasLayout: RetroCanvasLayout = 'columns';
 
   templateAccent(t: RetroTemplate): string {
     return t.columns[0]?.color ?? '#64b5f6';
@@ -165,6 +161,7 @@ export class NewRetroDialogComponent {
       templateId: this.selectedTemplateId,
       icebreakerQuestion,
       theme: this.selectedTheme,
+      canvasLayout: this.canvasLayout,
     });
   }
 }
