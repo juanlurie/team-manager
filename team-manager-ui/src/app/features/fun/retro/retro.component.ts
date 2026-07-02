@@ -2062,9 +2062,20 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
     '#f5f5f5', '#ffe082', '#a5d6a7', '#90caf9',
   ];
 
-  private colDefaultColor: Record<string, string> = {
+  // Static, never mutated -- only used as a last-resort render fallback for a card that
+  // somehow has no color at all (e.g. one created before colors were baked in at creation).
+  // Deliberately NOT read/written by changeCardColor: that used to double as "the column's
+  // shared default", so changing one card's color retroactively repainted every other
+  // uncolored card in the column. nextCardColor below is the correct place for "future new
+  // cards should use this" -- it only gets read once, at the moment a new card is created.
+  private readonly baseColDefaultColor: Record<string, string> = {
     well: '#c8e6c9', better: '#ffe0b2', action: '#fce4ec',
   };
+
+  // What color a newly-created card in each column should be baked with. Starts at the same
+  // values as baseColDefaultColor; changeCardColor updates this so *future* cards pick up the
+  // change, but it never affects cards that already exist.
+  private nextCardColor: Record<string, string> = { ...this.baseColDefaultColor };
 
   colorPickerOpenFor = signal<string | null>(null);
   // The popover renders once at the top level (see template) instead of once per card --
@@ -2076,7 +2087,12 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
   });
 
   resolveCardColor(card: FunRetroCard): string {
-    return card.color ?? this.colDefaultColor[card.column] ?? '#fff9c4';
+    return card.color ?? this.baseColDefaultColor[card.column] ?? '#fff9c4';
+  }
+
+  /** The color a card added to this column right now would be created with. */
+  nextCardColorFor(colKey: string): string {
+    return this.nextCardColor[colKey] ?? this.baseColDefaultColor[colKey] ?? '#fff9c4';
   }
 
   colorPickerPos = signal<{ top: number; left: number } | null>(null);
@@ -2090,8 +2106,9 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
     if (!s) return;
     this.colorPickerOpenFor.set(null);
     this.colorPickerPos.set(null);
-    // Remember this as the default for the column so new cards inherit it.
-    this.colDefaultColor = { ...this.colDefaultColor, [card.column]: color };
+    // Only future new cards in this column pick up the change -- existing cards (this one
+    // aside) are untouched.
+    this.nextCardColor = { ...this.nextCardColor, [card.column]: color };
     // Optimistic local update
     this.session.update(cur => {
       if (!cur) return cur;
@@ -2723,7 +2740,7 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
     const text = this.newCardText()[colKey]?.trim();
     if (!text) return;
     this.submittingCard.set(colKey);
-    this.svc.addCard(s.id, colKey, text).subscribe({
+    this.svc.addCard(s.id, colKey, text, this.nextCardColorFor(colKey)).subscribe({
       next: updated => {
         this.session.set(updated);
         this.newCardText.update(m => ({ ...m, [colKey]: '' }));

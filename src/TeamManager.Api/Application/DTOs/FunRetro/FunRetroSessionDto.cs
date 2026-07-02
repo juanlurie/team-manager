@@ -103,6 +103,7 @@ public record AddFunRetroCardRequest
 {
     public string Column { get; init; } = "well";
     public string Text { get; init; } = "";
+    public string? Color { get; init; }
 }
 
 public record UpdateRetroSettingsRequest

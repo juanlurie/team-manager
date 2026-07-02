@@ -290,6 +290,7 @@ public class FunRetroService(AppDbContext db, AiPromptExecutorService aiExecutor
             Text = req.Text,
             AuthorId = memberId,
             AuthorName = $"{member.FirstName} {member.LastName}".Trim(),
+            Color = req.Color,
         };
 
         db.FunRetroCards.Add(card);
