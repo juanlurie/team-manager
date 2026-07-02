@@ -12,7 +12,7 @@ import { Subject, Subscription } from 'rxjs';
 import { takeUntil, filter, take } from 'rxjs/operators';
 import { Router, ActivatedRoute } from '@angular/router';
 import { FunRetroService } from '../../../core/services/fun-retro.service';
-import { FunRetroAnalysis, FunRetroSession, FunRetroSessionSummary, FunRetroCard, RetroColumn, RetroTheme } from '../../../core/models/fun-retro.model';
+import { FunRetroAnalysis, FunRetroSession, FunRetroSessionSummary, FunRetroCard, RetroColumn, RetroTheme, RetroCanvasLayout } from '../../../core/models/fun-retro.model';
 import { WebSocketService } from '../../../core/websocket/websocket.service';
 import { AvatarCircleComponent } from '../../../core/components/k-picker/avatar-circle.component';
 import { AuthService } from '../../../core/auth/auth.service';
@@ -25,6 +25,7 @@ import { ConfirmDialogComponent } from '../../../shared/components/confirm-dialo
 import { NavService } from '../../../core/nav/nav.service';
 import { NewRetroDialogComponent, NewRetroDialogResult } from './new-retro-dialog.component';
 import { DEFAULT_COLS, RETRO_TEMPLATES, ICEBREAKER_QUESTIONS, RETRO_THEMES, RetroThemeDef } from './retro-constants';
+import { RetroSingleCanvasComponent } from './retro-single-canvas.component';
 
 const PHASE_META: Record<string, { label: string; color: string }> = {
   lobby:   { label: 'Lobby',         color: '#64b5f6' },
@@ -77,6 +78,7 @@ interface TimerState {
     MatDialogModule,
     TextFieldModule,
     AvatarCircleComponent,
+    RetroSingleCanvasComponent,
   ],
   changeDetection: ChangeDetectionStrategy.Default,
   styles: [`
@@ -1320,8 +1322,30 @@ interface TimerState {
           }
         }
 
+        <!-- Desktop: single shared freeform canvas (opt-in at creation) -->
+        @if (isDesktop() && s.canvasLayout === 'single' && (s.phase === 'add' || s.phase === 'vote' || s.phase === 'discuss' || s.phase === 'done')) {
+          <app-retro-single-canvas
+            class="full-bleed"
+            [session]="s"
+            [cols]="cols()"
+            [voteBudget]="voteBudget()"
+            [editingCardId]="editingCardId()"
+            [editingText]="editingText()"
+            [resolveCardColor]="resolveCardColorFn"
+            (voteToggled)="toggleVote($event)"
+            (reactionToggled)="toggleReaction($event.card, $event.emoji)"
+            (cardDeleted)="deleteCard($event)"
+            (colorPickerRequested)="toggleColorPicker($event.event, $event.cardId)"
+            (editStarted)="startEditCard($event)"
+            (editTextChanged)="editingText.set($event)"
+            (editSaved)="saveCardText($event)"
+            (editCancelled)="cancelEditCard()"
+            (addCardRequested)="onSingleCanvasAddCard($event)"
+            (positionCommitted)="onSingleCanvasPositionCommitted($event)" />
+        }
+
         <!-- Desktop: 3 separate sticky canvases side by side -->
-        @if (isDesktop() && (s.phase === 'add' || s.phase === 'vote' || s.phase === 'discuss' || s.phase === 'done')) {
+        @if (isDesktop() && s.canvasLayout !== 'single' && (s.phase === 'add' || s.phase === 'vote' || s.phase === 'discuss' || s.phase === 'done')) {
           <div class="canvases-row" [class.has-expanded]="expandedCol()">
             @for (col of cols(); track col.key; let ci = $index) {
               @if (!expandedCol() || expandedCol() === col.key) {
@@ -2059,6 +2083,10 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
     return card.color ?? this.baseColDefaultColor[card.column] ?? '#fff9c4';
   }
 
+  // Bound reference so RetroSingleCanvasComponent can call this as a plain function input
+  // without losing `this` (an unbound method reference would break on `this.baseColDefaultColor`).
+  readonly resolveCardColorFn = (card: FunRetroCard): string => this.resolveCardColor(card);
+
   /** The color a card added to this column right now would be created with. */
   nextCardColorFor(colKey: string): string {
     return this.nextCardColor[colKey] ?? this.baseColDefaultColor[colKey] ?? '#fff9c4';
@@ -2686,12 +2714,13 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
   private createSession(result: NewRetroDialogResult): void {
     this.creating.set(true);
     const template = RETRO_TEMPLATES.find(t => t.id === result.templateId);
-    const req: { title?: string; columns?: RetroColumn[]; icebreakerQuestion?: string; theme?: RetroTheme } = {
+    const req: { title?: string; columns?: RetroColumn[]; icebreakerQuestion?: string; theme?: RetroTheme; canvasLayout?: RetroCanvasLayout } = {
       columns: template?.columns ?? DEFAULT_COLS,
     };
     if (result.title) req.title = result.title;
     if (result.icebreakerQuestion) req.icebreakerQuestion = result.icebreakerQuestion;
     if (result.theme) req.theme = result.theme;
+    if (result.canvasLayout) req.canvasLayout = result.canvasLayout;
     this.svc.createSession(req).subscribe({
       next: s => {
         this.creating.set(false);
@@ -2747,6 +2776,39 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
       next: () => this.silentRefresh(),
       error: () => this.snackBar.open('Failed to delete card', 'OK', { duration: 3000 })
     });
+  }
+
+  /** Click-to-place card creation on the single shared canvas. Reuses the same addCard
+   *  endpoint as submitCard, then persists the clicked position -- but bakes that position
+   *  into the session update optimistically first so the new card never flashes at a
+   *  fallback grid slot before jumping to where it was actually placed. */
+  onSingleCanvasAddCard(req: { column: string; text: string; x: number; y: number }): void {
+    const s = this.session();
+    if (!s) return;
+    const beforeIds = new Set(s.cards.map(c => c.id));
+    this.svc.addCard(s.id, req.column, req.text, this.nextCardColorFor(req.column)).subscribe({
+      next: updated => {
+        const newCard = updated.cards.find(c => !beforeIds.has(c.id));
+        if (newCard) {
+          this.session.set({
+            ...updated,
+            cards: updated.cards.map(c => c.id === newCard.id ? { ...c, positionX: req.x, positionY: req.y } : c),
+          });
+          this.svc.updateCardPosition(s.id, newCard.id, req.x, req.y).subscribe();
+        } else {
+          this.session.set(updated);
+        }
+      },
+      error: () => this.snackBar.open('Failed to add card', 'OK', { duration: 3000 }),
+    });
+  }
+
+  /** Drag-end / Tidy commits from the single canvas -- the child already applied the new
+   *  position optimistically to its own local UI state, so this only needs to persist it. */
+  onSingleCanvasPositionCommitted(req: { cardId: string; x: number; y: number }): void {
+    const s = this.session();
+    if (!s) return;
+    this.svc.updateCardPosition(s.id, req.cardId, req.x, req.y).subscribe();
   }
 
   runAnalysis(): void {

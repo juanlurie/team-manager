@@ -32,6 +32,7 @@ public class FunRetroService(AppDbContext db, AiPromptExecutorService aiExecutor
             ColumnsJson = columnsJson,
             IcebreakerQuestion = string.IsNullOrWhiteSpace(req.IcebreakerQuestion) ? null : req.IcebreakerQuestion.Trim(),
             Theme = ValidTheme(req.Theme),
+            CanvasLayout = ValidLayout(req.CanvasLayout),
         };
 
         db.FunRetroSessions.Add(session);
@@ -167,6 +168,7 @@ public class FunRetroService(AppDbContext db, AiPromptExecutorService aiExecutor
             HideCardsOnAdd = session.HideCardsOnAdd,
             ParticipationTracking = session.ParticipationTracking,
             Theme = session.Theme,
+            CanvasLayout = session.CanvasLayout,
         };
     }
 
@@ -193,6 +195,11 @@ public class FunRetroService(AppDbContext db, AiPromptExecutorService aiExecutor
     /// how to render.</summary>
     private static string? ValidTheme(string? theme) =>
         theme is not null && ValidThemes.Contains(theme) ? theme : null;
+
+    private static readonly HashSet<string> ValidLayouts = ["columns", "single"];
+
+    private static string? ValidLayout(string? layout) =>
+        layout is not null && ValidLayouts.Contains(layout) ? layout : null;
 
     public async Task<bool> SetTimerAsync(Guid sessionId, Guid memberId, string timerJson)
     {

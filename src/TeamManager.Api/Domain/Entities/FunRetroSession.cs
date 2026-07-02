@@ -19,4 +19,5 @@ public class FunRetroSession
     public bool HideCardsOnAdd { get; set; } = true;
     public bool ParticipationTracking { get; set; } = true;
     public string? Theme { get; set; } // null|space|f1|ocean|retro-gaming
+    public string? CanvasLayout { get; set; } // null|columns|single -- null/"columns" = today's per-column canvases
 }
