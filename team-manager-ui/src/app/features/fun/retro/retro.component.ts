@@ -618,6 +618,16 @@ interface TimerState {
     .canvas-col-title {
       font-size:0.82rem;font-weight:700;
     }
+    .canvas-col-header-right { display:flex;align-items:center;gap:8px; }
+    .canvas-tidy-btn {
+      display:inline-flex;align-items:center;gap:3px;
+      background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);
+      border-radius:6px;color:rgba(255,255,255,0.6);cursor:pointer;
+      font-size:0.7rem;font-family:inherit;font-weight:600;padding:2px 7px 2px 5px;
+      transition:background .15s,color .15s,border-color .15s;
+    }
+    .canvas-tidy-btn:hover { background:rgba(255,255,255,0.12);color:#fff;border-color:rgba(255,255,255,0.25); }
+    .canvas-tidy-btn mat-icon { font-size:14px;width:14px;height:14px;line-height:14px; }
     .canvas-add-row {
       display:flex;gap:6px;align-items:flex-end;
     }
@@ -1383,7 +1393,15 @@ interface TimerState {
               <div class="canvas-col-wrap">
                 <div class="canvas-col-header">
                   <span class="canvas-col-title" [style.color]="col.color">{{ col.label }}</span>
-                  <span class="col-count">{{ cardsForCol(col.key).length }}</span>
+                  <span class="canvas-col-header-right">
+                    @if (cardsForCol(col.key).length > 1) {
+                      <button class="canvas-tidy-btn" title="Arrange cards neatly"
+                              (click)="arrangeColumn(col.key)">
+                        <mat-icon>grid_view</mat-icon>Tidy
+                      </button>
+                    }
+                    <span class="col-count">{{ cardsForCol(col.key).length }}</span>
+                  </span>
                 </div>
                 @if (s.phase === 'add') {
                   <div class="canvas-add-row">
@@ -1768,6 +1786,61 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
     if (s && pos) this.svc.updateCardPosition(s.id, id, pos.x, pos.y).subscribe();
     this.dragState = null;
     this.draggingId.set(null);
+  }
+
+  /**
+   * Re-pack a column's cards into a tidy, non-overlapping masonry grid.
+   * Uses each card's real rendered height (cards vary in height with text /
+   * votes / reactions), placing each into the currently shortest grid column
+   * so nothing overlaps and vertical gaps stay minimal. New positions are
+   * applied optimistically and persisted.
+   */
+  arrangeColumn(colKey: string): void {
+    const s = this.session();
+    if (!s) return;
+    const items = this.canvasCardsForCol(colKey);
+    if (items.length === 0) return;
+
+    const el = this.elRef.nativeElement as HTMLElement;
+    const inner = el.querySelector(
+      `.canvas-outer[data-col="${colKey}"] .canvas-inner`,
+    ) as HTMLElement | null;
+    const stickies = inner
+      ? (Array.from(inner.querySelectorAll(':scope > .sticky')) as HTMLElement[])
+      : [];
+
+    const cardW = 200;
+    const gap = 16;
+    const margin = this.STICKY_MARGIN;
+    const innerW = inner?.clientWidth ?? cardW * 2 + gap + margin * 2;
+    const numCols = Math.max(1, Math.floor((innerW - margin * 2 + gap) / (cardW + gap)));
+
+    // Bottom Y of the content already placed in each grid column.
+    const colBottom = new Array(numCols).fill(margin);
+    const updates: { id: string; x: number; y: number }[] = [];
+
+    items.forEach((item, i) => {
+      // Prefer the real measured height; fall back to the CSS min-height.
+      const h = stickies[i]?.offsetHeight || 90;
+      let target = 0;
+      for (let c = 1; c < numCols; c++) {
+        if (colBottom[c] < colBottom[target]) target = c;
+      }
+      const x = margin + target * (cardW + gap);
+      const y = colBottom[target];
+      colBottom[target] = y + h + gap;
+      updates.push({ id: item.card.id, x, y });
+    });
+
+    // Apply optimistically so the layout snaps immediately, then persist.
+    this.localPositions.update(p => {
+      const next = { ...p };
+      for (const u of updates) next[u.id] = { x: u.x, y: u.y };
+      return next;
+    });
+    for (const u of updates) {
+      this.svc.updateCardPosition(s.id, u.id, u.x, u.y).subscribe();
+    }
   }
 
   startDrag(e: MouseEvent, card: FunRetroCard, x: number, y: number, col: string): void {
