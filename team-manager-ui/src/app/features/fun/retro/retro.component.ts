@@ -645,7 +645,8 @@ interface TimerState {
     }
     .canvas-add-btn:disabled { opacity:0.4;cursor:not-allowed; }
     .canvas-outer {
-      overflow:auto;border:1px solid rgba(255,255,255,0.07);
+      position:relative;
+      overflow:hidden;border:1px solid rgba(255,255,255,0.07);
       border-top:3px solid var(--col-accent, rgba(255,255,255,0.07));
       border-radius:10px;background:color-mix(in srgb, var(--col-accent, #000) 6%, rgba(0,0,0,0.15));
       background-image:
@@ -654,12 +655,31 @@ interface TimerState {
       background-size:40px 40px;
       height:var(--canvas-height, calc(100vh - 260px));
       min-height:320px;
-      cursor:default;
+      cursor:grab;
     }
+    .canvas-outer.panning { cursor:grabbing; }
     .canvas-inner {
-      position:relative;
+      position:absolute;top:0;left:0;
+      transform-origin:0 0;will-change:transform;
       width:100%;min-height:100%;
     }
+    .canvas-zoom-controls {
+      position:absolute;bottom:10px;right:10px;z-index:200;
+      display:flex;align-items:center;gap:2px;
+      background:rgba(20,20,24,0.85);border:1px solid rgba(255,255,255,0.12);
+      border-radius:8px;padding:2px;backdrop-filter:blur(4px);
+      box-shadow:0 2px 8px rgba(0,0,0,0.4);
+    }
+    .cz-btn {
+      display:inline-flex;align-items:center;justify-content:center;
+      min-width:26px;height:26px;padding:0 6px;
+      background:transparent;border:none;border-radius:6px;cursor:pointer;
+      color:rgba(255,255,255,0.7);font-size:1rem;font-family:inherit;line-height:1;
+      transition:background .12s,color .12s;
+    }
+    .cz-btn:hover { background:rgba(255,255,255,0.12);color:#fff; }
+    .cz-pct { font-size:0.72rem;font-weight:600;min-width:42px;font-variant-numeric:tabular-nums; }
+    .cz-fit mat-icon { font-size:16px;width:16px;height:16px;line-height:16px; }
     .sticky {
       position:absolute;
       width:200px;min-height:90px;
@@ -1417,8 +1437,15 @@ interface TimerState {
                     </button>
                   </div>
                 }
-                <div class="canvas-outer" [attr.data-col]="col.key" [style.--col-accent]="col.color">
-                  <div class="canvas-inner" [style.height.px]="canvasHeight(col.key)">
+                <div class="canvas-outer" [attr.data-col]="col.key" [style.--col-accent]="col.color"
+                     [class.panning]="panningCol() === col.key"
+                     [style.background-position]="viewFor(col.key).panX + 'px ' + viewFor(col.key).panY + 'px'"
+                     [style.background-size]="(40 * viewFor(col.key).zoom) + 'px ' + (40 * viewFor(col.key).zoom) + 'px'"
+                     (wheel)="onCanvasWheel($event, col.key)"
+                     (mousedown)="startPan($event, col.key)">
+                  <div class="canvas-inner"
+                       [style.height.px]="canvasHeight(col.key)"
+                       [style.transform]="'translate(' + viewFor(col.key).panX + 'px,' + viewFor(col.key).panY + 'px) scale(' + viewFor(col.key).zoom + ')'">
                     @for (item of canvasCardsForCol(col.key); track item.card.id) {
                       <div class="sticky"
                            [class.dragging]="draggingId() === item.card.id"
@@ -1513,6 +1540,15 @@ interface TimerState {
                         } <!-- end @else hidden -->
                       </div>
                     }
+                  </div>
+                  <div class="canvas-zoom-controls"
+                       (mousedown)="$event.stopPropagation()" (wheel)="$event.stopPropagation()">
+                    <button class="cz-btn" title="Zoom out" (click)="zoomBy(col.key, 0.8)">−</button>
+                    <button class="cz-btn cz-pct" title="Reset zoom" (click)="resetView(col.key)">{{ zoomPercent(col.key) }}%</button>
+                    <button class="cz-btn" title="Zoom in" (click)="zoomBy(col.key, 1.25)">+</button>
+                    <button class="cz-btn cz-fit" title="Fit to cards" (click)="fitCanvas(col.key)">
+                      <mat-icon>fit_screen</mat-icon>
+                    </button>
                   </div>
                 </div>
               </div>
@@ -1679,6 +1715,91 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
   draggingId = signal<string | null>(null);
   private dragState: { id: string; col: string; startMouseX: number; startMouseY: number; startX: number; startY: number } | null = null;
 
+  // ── Per-column Miro-style pan/zoom viewport ──
+  canvasView = signal<Record<string, { zoom: number; panX: number; panY: number }>>({});
+  panningCol = signal<string | null>(null);
+  private panState: { col: string; startMouseX: number; startMouseY: number; startPanX: number; startPanY: number } | null = null;
+  private readonly MIN_ZOOM = 0.3;
+  private readonly MAX_ZOOM = 2;
+
+  viewFor(col: string): { zoom: number; panX: number; panY: number } {
+    return this.canvasView()[col] ?? { zoom: 1, panX: 0, panY: 0 };
+  }
+  private setView(col: string, v: { zoom: number; panX: number; panY: number }): void {
+    this.canvasView.update(m => ({ ...m, [col]: v }));
+  }
+  private clampZoom(z: number): number {
+    return Math.min(this.MAX_ZOOM, Math.max(this.MIN_ZOOM, z));
+  }
+  private outerEl(col: string): HTMLElement | null {
+    return (this.elRef.nativeElement as HTMLElement)
+      .querySelector(`.canvas-outer[data-col="${col}"]`) as HTMLElement | null;
+  }
+  zoomPercent(col: string): number {
+    return Math.round(this.viewFor(col).zoom * 100);
+  }
+  resetView(col: string): void {
+    this.setView(col, { zoom: 1, panX: 0, panY: 0 });
+  }
+
+  /** Zoom keeping the world point under (cx,cy) — viewport-local px — fixed. */
+  private zoomAt(col: string, factor: number, cx: number, cy: number): void {
+    const v = this.viewFor(col);
+    const z = this.clampZoom(v.zoom * factor);
+    const wx = (cx - v.panX) / v.zoom;
+    const wy = (cy - v.panY) / v.zoom;
+    this.setView(col, { zoom: z, panX: cx - wx * z, panY: cy - wy * z });
+  }
+
+  onCanvasWheel(e: WheelEvent, col: string): void {
+    e.preventDefault();
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    this.zoomAt(col, e.deltaY < 0 ? 1.1 : 0.9, e.clientX - rect.left, e.clientY - rect.top);
+  }
+
+  zoomBy(col: string, factor: number): void {
+    const outer = this.outerEl(col);
+    this.zoomAt(col, factor, (outer?.clientWidth ?? 0) / 2, (outer?.clientHeight ?? 0) / 2);
+  }
+
+  startPan(e: MouseEvent, col: string): void {
+    if (e.button !== 0) return;
+    const t = e.target as HTMLElement;
+    if (t.closest('.sticky') || t.closest('.canvas-zoom-controls')) return;
+    const v = this.viewFor(col);
+    this.panState = { col, startMouseX: e.clientX, startMouseY: e.clientY, startPanX: v.panX, startPanY: v.panY };
+    this.panningCol.set(col);
+  }
+
+  /** Reset zoom/pan and frame all of a column's cards within its viewport. */
+  fitCanvas(col: string): void {
+    const outer = this.outerEl(col);
+    const items = this.canvasCardsForCol(col);
+    if (!outer || items.length === 0) { this.resetView(col); return; }
+    const inner = outer.querySelector('.canvas-inner') as HTMLElement | null;
+    const stickies = inner
+      ? (Array.from(inner.querySelectorAll(':scope > .sticky')) as HTMLElement[])
+      : [];
+    const cardW = 200;
+    const pad = 20;
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    items.forEach((item, i) => {
+      const h = stickies[i]?.offsetHeight || 90;
+      minX = Math.min(minX, item.x);
+      minY = Math.min(minY, item.y);
+      maxX = Math.max(maxX, item.x + cardW);
+      maxY = Math.max(maxY, item.y + h);
+    });
+    const contentW = (maxX - minX) + pad * 2;
+    const contentH = (maxY - minY) + pad * 2;
+    const zoom = this.clampZoom(Math.min(outer.clientWidth / contentW, outer.clientHeight / contentH, 1));
+    const slackX = outer.clientWidth - contentW * zoom;
+    const slackY = outer.clientHeight - contentH * zoom;
+    const offX = slackX > 0 ? slackX / 2 : 0;
+    const offY = slackY > 0 ? slackY / 2 : 8;
+    this.setView(col, { zoom, panX: offX - (minX - pad) * zoom, panY: offY - (minY - pad) * zoom });
+  }
+
   private readonly STICKY_W = 180;
   private readonly STICKY_MARGIN = 10;
 
@@ -1769,9 +1890,21 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
 
   @HostListener('document:mousemove', ['$event'])
   onMouseMove(e: MouseEvent): void {
+    if (this.panState) {
+      const p = this.panState;
+      const v = this.viewFor(p.col);
+      this.setView(p.col, {
+        zoom: v.zoom,
+        panX: p.startPanX + (e.clientX - p.startMouseX),
+        panY: p.startPanY + (e.clientY - p.startMouseY),
+      });
+      return;
+    }
     if (!this.dragState) return;
-    const dx = e.clientX - this.dragState.startMouseX;
-    const dy = e.clientY - this.dragState.startMouseY;
+    // Mouse deltas are in screen px; convert to canvas px by the column's zoom.
+    const zoom = this.viewFor(this.dragState.col).zoom;
+    const dx = (e.clientX - this.dragState.startMouseX) / zoom;
+    const dy = (e.clientY - this.dragState.startMouseY) / zoom;
     const x = Math.max(0, this.dragState.startX + dx);
     const y = Math.max(0, this.dragState.startY + dy);
     this.localPositions.update(p => ({ ...p, [this.dragState!.id]: { x, y } }));
@@ -1779,6 +1912,11 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
 
   @HostListener('document:mouseup')
   onMouseUp(): void {
+    if (this.panState) {
+      this.panState = null;
+      this.panningCol.set(null);
+      return;
+    }
     if (!this.dragState) return;
     const { id } = this.dragState;
     const s = this.session();
