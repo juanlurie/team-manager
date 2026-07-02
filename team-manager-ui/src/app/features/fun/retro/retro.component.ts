@@ -9,7 +9,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { Subject, Subscription } from 'rxjs';
-import { takeUntil } from 'rxjs/operators';
+import { takeUntil, filter, take } from 'rxjs/operators';
 import { Router, ActivatedRoute } from '@angular/router';
 import { FunRetroService } from '../../../core/services/fun-retro.service';
 import { FunRetroAnalysis, FunRetroSession, FunRetroSessionSummary, FunRetroCard, RetroColumn } from '../../../core/models/fun-retro.model';
@@ -699,7 +699,7 @@ interface TimerState {
     .cz-pct { font-size:0.72rem;font-weight:600;min-width:42px;font-variant-numeric:tabular-nums; }
     .cz-fit mat-icon { font-size:16px;width:16px;height:16px;line-height:16px; }
     .sticky {
-      position:absolute;
+      position:absolute;box-sizing:border-box;
       width:200px;min-height:90px;
       border-radius:4px;padding:10px 12px;
       box-shadow:2px 4px 12px rgba(0,0,0,0.35);
@@ -884,6 +884,8 @@ interface TimerState {
     /* Icebreaker */
     .icebreaker-box { background:rgba(100,181,246,0.05); border:1px solid rgba(100,181,246,0.18); border-radius:10px; padding:14px 16px; margin:14px 0 0; }
     .icebreaker-q { font-size:0.88rem; font-weight:600; margin-bottom:10px; }
+    .q-emoji { cursor:pointer;border-radius:5px;padding:0 2px;transition:background .12s; }
+    .q-emoji:hover { background:rgba(100,181,246,0.22); }
     .icebreaker-input-row { display:flex; gap:6px; }
     .icebreaker-input { flex:1; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.12); border-radius:6px; color:inherit; font-size:0.82rem; padding:7px 9px; outline:none; font-family:inherit; }
     .icebreaker-input:focus { border-color:#64b5f6; }
@@ -1234,7 +1236,16 @@ interface TimerState {
         <!-- Phase guidance -->
         @if (s.phase === 'lobby') {
           <div class="icebreaker-box">
-            <div class="icebreaker-q">Icebreaker — {{ icebreakerQuestion() }}</div>
+            <div class="icebreaker-q">
+              Icebreaker —
+              @for (part of icebreakerQuestionParts(); track $index) {
+                @if (part.emoji) {
+                  <span class="q-emoji" title="Use this emoji as your answer" (click)="pickIcebreakerEmoji(part.text)">{{ part.text }}</span>
+                } @else {
+                  <span>{{ part.text }}</span>
+                }
+              }
+            </div>
             <div class="icebreaker-input-row">
               <input class="icebreaker-input" placeholder="Your answer…"
                      [(ngModel)]="icebreakerInput"
@@ -1333,7 +1344,7 @@ interface TimerState {
                           @if (card.isOwn && s.phase === 'add') { <button class="delete-card-btn" (click)="deleteCard(card)"><mat-icon>close</mat-icon></button> }
                           @if (card.text !== null) {
                             <div style="display:flex;align-items:flex-start;justify-content:space-between">
-                              @if (card.authorName && s.phase !== 'add') {
+                              @if (card.authorName) {
                                 <div class="card-header">
                                   <app-avatar-circle [memberId]="card.authorId" [name]="card.authorName" [avatarSeed]="card.authorAvatarSeed" [size]="20" />
                                   <span class="card-author-name">{{ card.authorName }}</span>
@@ -1392,7 +1403,7 @@ interface TimerState {
                       @if (card.isOwn && s.phase === 'add') { <button class="delete-card-btn" (click)="deleteCard(card)"><mat-icon>close</mat-icon></button> }
                       @if (card.text !== null) {
                         <div style="display:flex;align-items:flex-start;justify-content:space-between">
-                          @if (card.authorName && s.phase !== 'add') {
+                          @if (card.authorName) {
                             <div class="card-header">
                               <app-avatar-circle [memberId]="card.authorId" [name]="card.authorName" [avatarSeed]="card.authorAvatarSeed" [size]="20" />
                               <span class="card-author-name">{{ card.authorName }}</span>
@@ -1759,6 +1770,26 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
     return ICEBREAKER_QUESTIONS[hashStr(id) % ICEBREAKER_QUESTIONS.length];
   });
 
+  // Some icebreaker questions embed a scale/prompt as emoji (e.g. "🐢 to 🚀", "🪫 🔋 ⚡ 🚀") --
+  // split the question into text/emoji runs so the emoji can be rendered as clickable answer
+  // shortcuts instead of just decorating the question.
+  private static readonly EMOJI_RE = /\p{Extended_Pictographic}/u;
+  icebreakerQuestionParts = computed(() => {
+    const q = this.icebreakerQuestion();
+    const parts: { text: string; emoji: boolean }[] = [];
+    for (const ch of q) {
+      const isEmoji = FunRetroComponent.EMOJI_RE.test(ch);
+      const last = parts[parts.length - 1];
+      if (last && last.emoji === isEmoji) last.text += ch;
+      else parts.push({ text: ch, emoji: isEmoji });
+    }
+    return parts;
+  });
+
+  pickIcebreakerEmoji(emoji: string): void {
+    this.icebreakerInput = (this.icebreakerInput ?? '') + emoji;
+  }
+
   // ── Previous actions ──
   prevActions = signal<{ id: string; text: string; authorName: string | null }[]>([]);
 
@@ -1786,7 +1817,35 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
     return this.canvasView()[col] ?? { zoom: 1, panX: 0, panY: 0 };
   }
   private setView(col: string, v: { zoom: number; panX: number; panY: number }): void {
-    this.canvasView.update(m => ({ ...m, [col]: v }));
+    const { panX, panY } = this.clampPan(col, v.zoom, v.panX, v.panY);
+    this.canvasView.update(m => ({ ...m, [col]: { zoom: v.zoom, panX, panY } }));
+  }
+
+  /**
+   * The canvas background/grid is visually endless, but there's nothing to see past the
+   * cards -- without a bound, panning or zooming out lets you drift into empty space
+   * indefinitely. Keep the content within `margin` px of the viewport edge instead.
+   */
+  private clampPan(col: string, zoom: number, panX: number, panY: number): { panX: number; panY: number } {
+    const outer = this.outerEl(col);
+    if (!outer) return { panX, panY };
+    const outerW = outer.clientWidth || 400;
+    const outerH = outer.clientHeight || 400;
+    const items = this.canvasCardsForCol(col);
+    const cardW = 200;
+    const margin = 200;
+    const contentMaxX = items.length ? Math.max(...items.map(i => i.x + cardW)) + 20 : 400;
+    const contentMaxY = this.canvasHeight(col);
+    const scaledW = contentMaxX * zoom;
+    const scaledH = contentMaxY * zoom;
+    const maxPanX = margin;
+    const minPanX = Math.min(margin, outerW - scaledW - margin);
+    const maxPanY = margin;
+    const minPanY = Math.min(margin, outerH - scaledH - margin);
+    return {
+      panX: Math.min(maxPanX, Math.max(minPanX, panX)),
+      panY: Math.min(maxPanY, Math.max(minPanY, panY)),
+    };
   }
   private clampZoom(z: number): number {
     return Math.min(this.MAX_ZOOM, Math.max(this.MIN_ZOOM, z));
@@ -1799,6 +1858,7 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
     return Math.round(this.viewFor(col).zoom * 100);
   }
   resetView(col: string): void {
+    this.closeAllPickers();
     this.setView(col, { zoom: 1, panX: 0, panY: 0 });
   }
 
@@ -1813,11 +1873,13 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
 
   onCanvasWheel(e: WheelEvent, col: string): void {
     e.preventDefault();
+    this.closeAllPickers();
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
     this.zoomAt(col, e.deltaY < 0 ? 1.1 : 0.9, e.clientX - rect.left, e.clientY - rect.top);
   }
 
   zoomBy(col: string, factor: number): void {
+    this.closeAllPickers();
     const outer = this.outerEl(col);
     this.zoomAt(col, factor, (outer?.clientWidth ?? 0) / 2, (outer?.clientHeight ?? 0) / 2);
   }
@@ -1826,6 +1888,7 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
     if (e.button !== 0) return;
     const t = e.target as HTMLElement;
     if (t.closest('.sticky') || t.closest('.canvas-zoom-controls')) return;
+    this.closeAllPickers();
     const v = this.viewFor(col);
     this.panState = { col, startMouseX: e.clientX, startMouseY: e.clientY, startPanX: v.panX, startPanY: v.panY };
     this.panningCol.set(col);
@@ -1833,9 +1896,10 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
 
   /** Reset zoom/pan and frame all of a column's cards within its viewport. */
   fitCanvas(col: string): void {
+    this.closeAllPickers();
     const outer = this.outerEl(col);
     const items = this.canvasCardsForCol(col);
-    if (!outer || items.length === 0) { this.resetView(col); return; }
+    if (!outer || items.length === 0) { this.setView(col, { zoom: 1, panX: 0, panY: 0 }); return; }
     const inner = outer.querySelector('.canvas-inner') as HTMLElement | null;
     const stickies = inner
       ? (Array.from(inner.querySelectorAll(':scope > .sticky')) as HTMLElement[])
@@ -1860,7 +1924,10 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
     this.setView(col, { zoom, panX: offX - (minX - pad) * zoom, panY: offY - (minY - pad) * zoom });
   }
 
-  private readonly STICKY_W = 180;
+  // Real rendered .sticky width is 200px (see CSS) -- also used by arrangeColumn/fitCanvas.
+  // STICKY_GAP mirrors arrangeColumn's card spacing so the fallback grid and Tidy agree.
+  private readonly STICKY_W = 200;
+  private readonly STICKY_GAP = 16;
   private readonly STICKY_MARGIN = 10;
 
   canvasCardsForCol(colKey: string) {
@@ -1889,10 +1956,10 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
       do {
         const col = idx % 2;
         const row = Math.floor(idx / 2);
-        x = col * (this.STICKY_W + 20) + this.STICKY_MARGIN;
+        x = col * (this.STICKY_W + this.STICKY_GAP) + this.STICKY_MARGIN;
         y = 10 + row * 190;
         idx++;
-      } while (occupied.some(p => Math.abs(p.x - x) < this.STICKY_W && Math.abs(p.y - y) < 190));
+      } while (occupied.some(p => Math.abs(p.x - x) < (this.STICKY_W + this.STICKY_GAP) && Math.abs(p.y - y) < 190));
       result.push({ card, x, y });
       occupied.push({ x, y });
     }
@@ -1998,6 +2065,7 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
     if (!s) return;
     const items = this.canvasCardsForCol(colKey);
     if (items.length === 0) return;
+    this.closeAllPickers();
 
     const el = this.elRef.nativeElement as HTMLElement;
     const inner = el.querySelector(
@@ -2051,6 +2119,14 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
 
   @HostListener('document:click')
   onDocClick(): void {
+    this.closeAllPickers();
+  }
+
+  // Color/emoji popovers are position:fixed, anchored to a button's screen position at the
+  // moment they open. Panning or zooming the canvas underneath moves the card but not the
+  // popover, so it visually detaches from what it's supposed to be editing. Close them
+  // whenever the canvas view is about to move instead of leaving them stranded.
+  private closeAllPickers(): void {
     if (this.colorPickerOpenFor()) { this.colorPickerOpenFor.set(null); this.colorPickerPos.set(null); }
     if (this.timerPopoverOpen()) this.timerPopoverOpen.set(false);
     if (this.emojiPickerFor()) { this.emojiPickerFor.set(null); this.emojiPickerPos.set(null); }
@@ -2115,6 +2191,7 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
   expandedCol = signal<string | null>(null);
 
   toggleExpandColumn(colKey: string): void {
+    this.closeAllPickers();
     this.expandedCol.update(cur => (cur === colKey ? null : colKey));
     // Give the DOM a tick to reflow to the new width before recomputing canvas height.
     requestAnimationFrame(() => this.updateCanvasMargins());
@@ -2342,7 +2419,12 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
   private joinRetroPresence(sessionId: string): void {
     const me = this.authSvc.me;
     const memberName = me ? `${me.firstName} ${me.lastName}`.trim() : null;
-    this.wsSvc.send({ type: 'join_retro', sessionId, memberName });
+    // send() silently drops the message if the socket isn't OPEN yet -- a real risk right
+    // after ngOnInit's own connect() call, since the HTTP session fetch above often resolves
+    // before the WS handshake finishes. Wait for an actual open connection instead of racing it.
+    this.wsSvc.connected$.pipe(filter(c => c), take(1), takeUntil(this.destroy$)).subscribe(() => {
+      this.wsSvc.send({ type: 'join_retro', sessionId, memberName });
+    });
   }
 
   loadRetroPolls(sessionId: string): void {
