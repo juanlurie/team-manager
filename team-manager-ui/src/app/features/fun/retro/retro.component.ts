@@ -1,6 +1,6 @@
 import {
   Component, OnInit, OnDestroy, AfterViewInit, HostListener,
-  inject, signal, computed, effect, ChangeDetectionStrategy, ElementRef
+  inject, signal, computed, effect, ChangeDetectionStrategy, ElementRef, WritableSignal
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -19,186 +19,12 @@ import { AuthService } from '../../../core/auth/auth.service';
 import { TextFieldModule } from '@angular/cdk/text-field';
 import { PollService } from '../../../core/services/poll.service';
 import { PollDetail } from '../../../core/models/poll.model';
-import { MatDialog, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { CreatePollDialogComponent } from '../../polls/poll.component';
 import { ConfirmDialogComponent } from '../../../shared/components/confirm-dialog/confirm-dialog.component';
 import { NavService } from '../../../core/nav/nav.service';
-
-const DEFAULT_COLS: RetroColumn[] = [
-  { key: 'well',   label: '✅ Went Well',      color: '#4caf50' },
-  { key: 'better', label: "⚠️ Didn't Go Well", color: '#ff9800' },
-  { key: 'action', label: '🎯 Action Items',    color: '#e91e8c' },
-];
-
-interface RetroTemplate {
-  id: string;
-  name: string;
-  description: string;
-  columns: RetroColumn[];
-}
-
-const RETRO_TEMPLATES: RetroTemplate[] = [
-  {
-    id: 'well-better-action',
-    name: 'Well / Better / Action',
-    description: 'Classic format',
-    columns: DEFAULT_COLS,
-  },
-  {
-    id: 'start-stop-continue',
-    name: 'Start / Stop / Continue',
-    description: 'Focus on behaviours',
-    columns: [
-      { key: 'start',    label: '🚀 Start',    color: '#4caf50' },
-      { key: 'stop',     label: '🛑 Stop',     color: '#ef5350' },
-      { key: 'continue', label: '✅ Continue', color: '#64b5f6' },
-    ],
-  },
-  {
-    id: '4ls',
-    name: '4Ls',
-    description: 'Liked / Learned / Lacked / Longed for',
-    columns: [
-      { key: 'liked',   label: '❤️ Liked',    color: '#e91e63' },
-      { key: 'learned', label: '📚 Learned',  color: '#64b5f6' },
-      { key: 'lacked',  label: '😕 Lacked',   color: '#ff9800' },
-      { key: 'longed',  label: '🌟 Longed for', color: '#ab47bc' },
-    ],
-  },
-  {
-    id: 'mad-sad-glad',
-    name: 'Mad / Sad / Glad',
-    description: 'Emotion-driven reflection',
-    columns: [
-      { key: 'mad',  label: '😠 Mad',  color: '#ef5350' },
-      { key: 'sad',  label: '😢 Sad',  color: '#64b5f6' },
-      { key: 'glad', label: '😊 Glad', color: '#4caf50' },
-    ],
-  },
-  {
-    id: 'daki',
-    name: 'DAKI',
-    description: 'Drop / Add / Keep / Improve',
-    columns: [
-      { key: 'drop',    label: '🗑️ Drop',    color: '#ef5350' },
-      { key: 'add',     label: '➕ Add',     color: '#4caf50' },
-      { key: 'keep',    label: '🔒 Keep',    color: '#64b5f6' },
-      { key: 'improve', label: '⬆️ Improve', color: '#ff9800' },
-    ],
-  },
-  {
-    id: 'sailboat',
-    name: 'Sailboat',
-    description: 'Wind / Anchor / Island / Rocks',
-    columns: [
-      { key: 'wind',   label: '💨 Wind (helps)',   color: '#4caf50' },
-      { key: 'anchor', label: '⚓ Anchor (slows)', color: '#ef5350' },
-      { key: 'island', label: '🏝️ Goal',           color: '#64b5f6' },
-      { key: 'rocks',  label: '🪨 Risks',          color: '#ff9800' },
-    ],
-  },
-];
-
-export interface NewRetroDialogResult {
-  title: string;
-  templateId: string;
-  icebreakerQuestion?: string;
-}
-
-@Component({
-  selector: 'app-new-retro-dialog',
-  standalone: true,
-  imports: [FormsModule, MatButtonModule, MatDialogModule],
-  changeDetection: ChangeDetectionStrategy.Default,
-  styles: [`
-    .field-label { font-size:0.75rem;opacity:0.55;display:block;margin-bottom:4px; }
-    .field {
-      background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.12);border-radius:6px;
-      color:inherit;font-size:0.85rem;padding:8px 10px;outline:none;width:100%;
-      box-sizing:border-box;margin-bottom:12px;transition:border-color 0.2s;font-family:inherit;
-    }
-    .field:focus { border-color:#64b5f6; }
-    .template-grid { display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px;margin-bottom:4px; }
-    .template-card {
-      border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:10px 12px 10px 13px;
-      border-left:3px solid var(--tpl-accent, rgba(255,255,255,0.1));
-      cursor:pointer;transition:border-color 0.15s,background 0.15s;
-    }
-    .template-card:hover { background:color-mix(in srgb, var(--tpl-accent, #fff) 6%, transparent); }
-    .template-card.selected {
-      border-color:var(--tpl-accent);
-      background:color-mix(in srgb, var(--tpl-accent) 10%, transparent);
-    }
-    .template-name { font-size:0.82rem;font-weight:600;color:rgba(255,255,255,0.85);margin-bottom:2px; }
-    .template-desc { font-size:0.7rem;color:rgba(255,255,255,0.35);margin-bottom:6px; }
-    .template-cols { display:flex;flex-wrap:wrap;gap:4px; }
-    .template-col-chip { font-size:0.65rem;padding:2px 6px;border-radius:10px;font-weight:500; }
-    select.field { appearance:auto; }
-  `],
-  template: `
-    <h2 mat-dialog-title style="font-size:1rem;margin:0 0 4px">New Retro</h2>
-    <mat-dialog-content style="padding-top:12px;min-width:340px">
-      <label class="field-label">Title (optional)</label>
-      <input class="field" [(ngModel)]="title" placeholder="e.g. Sprint 42 Retro" (keyup.enter)="submit()" />
-
-      <label class="field-label" style="margin-top:4px">Board template</label>
-      <div class="template-grid">
-        @for (t of templates; track t.id) {
-          <div class="template-card" [class.selected]="selectedTemplateId === t.id"
-               [style.--tpl-accent]="templateAccent(t)"
-               (click)="selectedTemplateId = t.id">
-            <div class="template-name">{{ t.name }}</div>
-            <div class="template-desc">{{ t.description }}</div>
-            <div class="template-cols">
-              @for (c of t.columns; track c.key) {
-                <span class="template-col-chip" [style.background]="c.color + '22'" [style.color]="c.color">{{ c.label }}</span>
-              }
-            </div>
-          </div>
-        }
-      </div>
-
-      <label class="field-label" style="margin-top:4px">Icebreaker question</label>
-      <select class="field" [(ngModel)]="icebreakerMode">
-        <option value="random">Random (default)</option>
-        @for (q of icebreakerQuestions; track q) {
-          <option [value]="q">{{ q }}</option>
-        }
-        <option value="__custom__">Write my own…</option>
-      </select>
-      @if (icebreakerMode === '__custom__') {
-        <input class="field" [(ngModel)]="customIcebreaker" placeholder="Type your own icebreaker question" (keyup.enter)="submit()" />
-      }
-    </mat-dialog-content>
-    <mat-dialog-actions align="end" style="margin-top:8px">
-      <button mat-button mat-dialog-close>Cancel</button>
-      <button mat-flat-button color="primary" (click)="submit()">Create</button>
-    </mat-dialog-actions>
-  `
-})
-export class NewRetroDialogComponent {
-  dialogRef = inject(MatDialogRef<NewRetroDialogComponent, NewRetroDialogResult>);
-  readonly templates = RETRO_TEMPLATES;
-  readonly icebreakerQuestions = ICEBREAKER_QUESTIONS;
-  title = '';
-  selectedTemplateId = RETRO_TEMPLATES[0].id;
-  icebreakerMode = 'random';
-  customIcebreaker = '';
-
-  templateAccent(t: RetroTemplate): string {
-    return t.columns[0]?.color ?? '#64b5f6';
-  }
-
-  submit(): void {
-    let icebreakerQuestion: string | undefined;
-    if (this.icebreakerMode === '__custom__') {
-      icebreakerQuestion = this.customIcebreaker.trim() || undefined;
-    } else if (this.icebreakerMode !== 'random') {
-      icebreakerQuestion = this.icebreakerMode;
-    }
-    this.dialogRef.close({ title: this.title.trim(), templateId: this.selectedTemplateId, icebreakerQuestion });
-  }
-}
+import { NewRetroDialogComponent, NewRetroDialogResult } from './new-retro-dialog.component';
+import { DEFAULT_COLS, RETRO_TEMPLATES, ICEBREAKER_QUESTIONS } from './retro-constants';
 
 const PHASE_META: Record<string, { label: string; color: string }> = {
   lobby:   { label: 'Lobby',         color: '#64b5f6' },
@@ -288,6 +114,13 @@ export interface RetroThemeDef {
   bgUrl: string;
 }
 
+/** A card laid out on the desktop pan/zoom canvas, at its resolved (dragged/persisted/grid) position. */
+interface CanvasCardItem {
+  card: FunRetroCard;
+  x: number;
+  y: number;
+}
+
 const RETRO_THEMES: RetroThemeDef[] = [
   { id: 'space', label: 'Space', bgUrl: pixelSvgDataUrl(SPACE_PIXELS, 24) },
   { id: 'f1', label: 'F1', bgUrl: pixelSvgDataUrl(F1_PIXELS, 22) },
@@ -301,29 +134,6 @@ const EMOJI_PICKER_SET = [
   '👍', '👎', '👏', '🙌', '🙏', '💪', '🤝', '👀',
   '❤️', '🔥', '💯', '⭐', '✅', '❌', '⚠️', '🎉',
   '🚀', '💡', '🐛', '🎯', '⏰', '📌', '☕', '🎈',
-];
-
-const ICEBREAKER_QUESTIONS = [
-  "What's one word that describes this session?",
-  "If this retro were a weather forecast, what would it be?",
-  "What's one thing you wish you'd known at the start?",
-  "On a scale of 🐢 to 🚀 how was your productivity?",
-  "What's the best thing that happened outside of work this sprint?",
-  "What song best describes your last two weeks?",
-  "If this sprint were a movie, what genre would it be?",
-  "What's one habit you want to build next sprint?",
-  "Rate your energy this sprint: 🪫 🔋 ⚡ 🚀",
-  "What's a superpower you wish you had this sprint?",
-  "One emoji that sums up your sprint:",
-  "What's something the team did that you're proud of?",
-  "What would you do differently if you started over?",
-  "What's your biggest win (personal or team)?",
-  "Name a challenge you overcame this sprint:",
-  "What's one thing that surprised you?",
-  "If you could add one hour to your day next sprint, how would you use it?",
-  "What's one thing you learned?",
-  "How full is your motivation tank right now? 0–10",
-  "What's one thing you want to celebrate from this sprint?",
 ];
 
 function hashStr(s: string): number {
@@ -418,11 +228,6 @@ interface TimerState {
     .session-title-row { display:flex;flex-direction:column;gap:6px; }
     .session-name { font-size:1rem;font-weight:600;color:rgba(255,255,255,0.9); }
     .session-sub { font-size:0.75rem;color:rgba(255,255,255,0.4); }
-    .phase-badge {
-      display:inline-flex;align-items:center;gap:5px;
-      padding:4px 10px;border-radius:20px;font-size:0.72rem;font-weight:600;
-      border:1px solid;
-    }
     .host-controls { display:flex;align-items:center;gap:8px;flex-wrap:wrap; }
     /* settings panel */
     .settings-panel {
@@ -475,8 +280,6 @@ interface TimerState {
     .card-group-label button { color:rgba(255,255,255,0.3);padding:0;margin:0; }
     .card-group-cluster .sticky { margin-bottom:6px; }
     .card-group-cluster .sticky:last-child { margin-bottom:0; }
-    .grouping-active .sticky:not(.grouping-source) { cursor:pointer;outline:2px dashed rgba(100,181,246,0.5);border-radius:10px; }
-    .grouping-active .sticky:not(.grouping-source):hover { outline-color:#64b5f6;background:rgba(100,181,246,0.08) !important; }
     .grouping-source { outline:2px solid #64b5f6 !important;border-radius:10px; }
     .group-btn { opacity:0;transition:opacity .15s; }
     .sticky:hover .group-btn { opacity:1; }
@@ -512,7 +315,6 @@ interface TimerState {
       display:flex;align-items:center;gap:6px;margin-bottom:10px;flex-wrap:wrap;
     }
     .presence-label { font-size:0.68rem;color:rgba(255,255,255,0.3);text-transform:uppercase;letter-spacing:.05em;margin-right:2px; }
-    .presence-avatars { display:flex;align-items:center;gap:-4px; }
     .presence-avatar-wrap {
       display:inline-flex;align-items:center;gap:5px;
       background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);
@@ -636,13 +438,6 @@ interface TimerState {
     }
     .delete-card-btn:hover { color:rgba(255,80,80,0.8); }
     .delete-card-btn mat-icon { font-size:14px;height:14px;width:14px; }
-
-    /* vote count on cards */
-    .vote-count-chip {
-      display:inline-flex;align-items:center;gap:3px;
-      font-size:0.7rem;color:rgba(255,255,255,0.45);
-    }
-    .vote-count-chip mat-icon { font-size:13px;height:13px;width:13px; }
 
     /* done phase */
     .done-banner {
@@ -848,28 +643,6 @@ interface TimerState {
       color:rgba(0,0,0,0.55);cursor:pointer;
     }
     .sticky-reaction-btn.reacted { border-color:rgba(0,0,0,0.3);background:rgba(0,0,0,0.1); }
-    .sticky-vote-chip {
-      display:inline-flex;align-items:center;gap:2px;
-      font-size:0.65rem;color:rgba(0,0,0,0.45);
-    }
-    .sticky-vote-chip mat-icon { font-size:11px;height:11px;width:11px; }
-    .canvas-col-add {
-      position:absolute;display:flex;gap:6px;align-items:center;
-      top:40px;padding:0 10px 0 0;box-sizing:border-box;width:540px;
-    }
-    .canvas-col-input {
-      flex:1;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);
-      border-radius:6px;color:#fff;font-size:0.78rem;padding:6px 9px;
-      outline:none;font-family:inherit;transition:border-color 0.2s;
-    }
-    .canvas-col-input:focus { border-color:rgba(100,181,246,0.6); }
-    .canvas-col-input::placeholder { color:rgba(255,255,255,0.3); }
-    .canvas-col-add-btn {
-      background:rgba(100,181,246,0.15);border:1px solid rgba(100,181,246,0.3);
-      border-radius:6px;color:#64b5f6;padding:5px 10px;
-      font-size:0.75rem;font-family:inherit;cursor:pointer;white-space:nowrap;
-    }
-    .canvas-col-add-btn:disabled { opacity:0.35;cursor:default; }
     .sticky-del-btn {
       position:absolute;top:6px;right:6px;
       background:transparent;border:none;color:rgba(0,0,0,0.35);
@@ -1017,10 +790,6 @@ interface TimerState {
       border:1.5px solid rgba(0,0,0,0.25);padding:0;transition:transform .1s;
     }
     .card-color-dot:hover { transform:scale(1.15); }
-
-    /* Author row with avatar */
-    .card-author-row { display:flex; align-items:center; gap:5px; margin-top:4px; font-size:0.68rem; color:rgba(255,255,255,0.35); }
-    .sticky-author-row { display:flex; align-items:center; gap:4px; margin-top:2px; }
 
     /* Prev actions */
     .prev-actions-box { border:1px solid rgba(255,255,255,0.07); border-radius:10px; padding:12px 14px; margin-top:14px; }
@@ -1451,9 +1220,10 @@ interface TimerState {
             <div class="board">
               @for (col of cols(); track col.key) {
                 <div class="col" [style.--col-accent]="col.color">
+                  @let cards = cardsForCol(col.key);
                   <div class="col-header">
                     <span class="col-label" [style.color]="col.color">{{ col.label }}</span>
-                    <span class="col-count">{{ cardsForCol(col.key).length }}</span>
+                    <span class="col-count">{{ cards.length }}</span>
                   </div>
                   @if (s.phase === 'add') {
                     <div class="add-input-row">
@@ -1473,7 +1243,7 @@ interface TimerState {
                     </div>
                   }
                   <!-- Grouped card clusters -->
-                  @for (group of groupsForCol(col.key); track group.groupId) {
+                  @for (group of groupsForCol(cards); track group.groupId) {
                     <div class="card-group-cluster">
                       <div class="card-group-label">
                         <mat-icon style="font-size:12px;height:12px;width:12px">link</mat-icon>
@@ -1537,7 +1307,7 @@ interface TimerState {
                     </div>
                   }
                   <!-- Ungrouped cards -->
-                  @for (card of ungroupedCardsForCol(col.key); track card.id) {
+                  @for (card of ungroupedCardsForCol(cards); track card.id) {
                     <div class="retro-card" [class.hidden-card]="card.text === null" [class.own-card]="card.isOwn"
                          [class.grouping-source]="groupingCardId() === card.id"
                          [style.border-left]="card.text !== null ? '3px solid ' + resolveCardColor(card) : null"
@@ -1608,9 +1378,11 @@ interface TimerState {
             @for (col of cols(); track col.key; let ci = $index) {
               @if (!expandedCol() || expandedCol() === col.key) {
               <div class="canvas-col-wrap" [class.expanded]="expandedCol() === col.key">
+                @let view = viewFor(col.key);
+                @let items = canvasCardsForCol(col.key);
                 <div class="canvas-col-header">
                   <span class="canvas-col-title" [style.color]="col.color">{{ col.label }}</span>
-                  <span class="col-count">{{ cardsForCol(col.key).length }}</span>
+                  <span class="col-count">{{ items.length }}</span>
                 </div>
                 @if (s.phase === 'add') {
                   <div class="canvas-add-row">
@@ -1630,17 +1402,17 @@ interface TimerState {
                 }
                 <div class="canvas-outer" [attr.data-col]="col.key" [style.--col-accent]="col.color"
                      [class.panning]="panningCol() === col.key"
-                     [style.background-position]="viewFor(col.key).panX + 'px ' + viewFor(col.key).panY + 'px'"
-                     [style.background-size]="(40 * viewFor(col.key).zoom) + 'px ' + (40 * viewFor(col.key).zoom) + 'px'"
+                     [style.background-position]="view.panX + 'px ' + view.panY + 'px'"
+                     [style.background-size]="(40 * view.zoom) + 'px ' + (40 * view.zoom) + 'px'"
                      (wheel)="onCanvasWheel($event, col.key)"
                      (mousedown)="startPan($event, col.key)">
                   @if (themeBgUrl(); as bg) {
                     <div class="canvas-theme-bg" [style.background-image]="bg"></div>
                   }
                   <div class="canvas-inner"
-                       [style.height.px]="canvasHeight(col.key)"
-                       [style.transform]="'translate(' + viewFor(col.key).panX + 'px,' + viewFor(col.key).panY + 'px) scale(' + viewFor(col.key).zoom + ')'">
-                    @for (item of canvasCardsForCol(col.key); track item.card.id) {
+                       [style.height.px]="canvasHeight(items)"
+                       [style.transform]="'translate(' + view.panX + 'px,' + view.panY + 'px) scale(' + view.zoom + ')'">
+                    @for (item of items; track item.card.id) {
                       <div class="sticky"
                            [class.dragging]="draggingId() === item.card.id"
                            [class.no-drag]="s.phase === 'done'"
@@ -1727,7 +1499,7 @@ interface TimerState {
                   </div>
                   <div class="canvas-zoom-controls"
                        (mousedown)="$event.stopPropagation()" (wheel)="$event.stopPropagation()">
-                    @if (cardsForCol(col.key).length > 1) {
+                    @if (items.length > 1) {
                       <button class="canvas-tidy-btn" title="Arrange cards neatly"
                               (click)="arrangeColumn(col.key)">
                         <mat-icon>grid_view</mat-icon>Tidy
@@ -1977,10 +1749,10 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
     const outerW = outer.clientWidth || 400;
     const outerH = outer.clientHeight || 400;
     const items = this.canvasCardsForCol(col);
-    const cardW = 200;
-    const margin = 200;
+    const cardW = this.STICKY_W;
+    const margin = 200; // pan/zoom slack, not the card-grid margin (STICKY_MARGIN) -- deliberately separate
     const contentMaxX = items.length ? Math.max(...items.map(i => i.x + cardW)) + 20 : 400;
-    const contentMaxY = this.canvasHeight(col);
+    const contentMaxY = this.canvasHeight(items);
     const scaledW = contentMaxX * zoom;
     const scaledH = contentMaxY * zoom;
     const maxPanX = margin;
@@ -2049,7 +1821,7 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
     const stickies = inner
       ? (Array.from(inner.querySelectorAll(':scope > .sticky')) as HTMLElement[])
       : [];
-    const cardW = 200;
+    const cardW = this.STICKY_W;
     const pad = 20;
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
     items.forEach((item, i) => {
@@ -2069,13 +1841,14 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
     this.setView(col, { zoom, panX: offX - (minX - pad) * zoom, panY: offY - (minY - pad) * zoom });
   }
 
-  // Real rendered .sticky width is 200px (see CSS) -- also used by arrangeColumn/fitCanvas.
-  // STICKY_GAP mirrors arrangeColumn's card spacing so the fallback grid and Tidy agree.
+  // Single source of truth for the real rendered .sticky width (see CSS) and its layout
+  // spacing/margin -- clampPan, fitCanvas, arrangeColumn, and the fallback grid below all
+  // read these instead of redeclaring their own copies, so they can't drift out of sync.
   private readonly STICKY_W = 200;
   private readonly STICKY_GAP = 16;
   private readonly STICKY_MARGIN = 10;
 
-  canvasCardsForCol(colKey: string) {
+  canvasCardsForCol(colKey: string): CanvasCardItem[] {
     const s = this.session();
     if (!s) return [];
     const localPos = this.localPositions();
@@ -2111,8 +1884,7 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
     return result;
   }
 
-  canvasHeight(colKey: string): number {
-    const cards = this.canvasCardsForCol(colKey);
+  canvasHeight(cards: CanvasCardItem[]): number {
     if (cards.length === 0) return 400;
     const maxY = Math.max(...cards.map(c => c.y + 200));
     return Math.max(400, maxY + 20);
@@ -2220,8 +1992,8 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
       ? (Array.from(inner.querySelectorAll(':scope > .sticky')) as HTMLElement[])
       : [];
 
-    const cardW = 200;
-    const gap = 16;
+    const cardW = this.STICKY_W;
+    const gap = this.STICKY_GAP;
     const margin = this.STICKY_MARGIN;
     const innerW = inner?.clientWidth ?? cardW * 2 + gap + margin * 2;
     const numCols = Math.max(1, Math.floor((innerW - margin * 2 + gap) / (cardW + gap)));
@@ -2310,17 +2082,7 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
   colorPickerPos = signal<{ top: number; left: number } | null>(null);
 
   toggleColorPicker(e: MouseEvent, cardId: string): void {
-    e.stopPropagation();
-    const opening = this.colorPickerOpenFor() !== cardId;
-    this.colorPickerOpenFor.set(opening ? cardId : null);
-    if (opening) {
-      // Position via the viewport (not the scrollable canvas) so the popover can't be
-      // clipped by the canvas's overflow:auto when the card sits near its top edge.
-      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-      this.colorPickerPos.set({ top: rect.bottom + 6, left: Math.max(8, rect.right - 94) });
-    } else {
-      this.colorPickerPos.set(null);
-    }
+    this.togglePopover(this.colorPickerOpenFor, this.colorPickerPos, e, cardId, 94);
   }
 
   changeCardColor(card: FunRetroCard, color: string): void {
@@ -2355,14 +2117,31 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
   emojiPickerPos = signal<{ top: number; left: number } | null>(null);
 
   toggleEmojiPicker(e: MouseEvent, target: string): void {
+    this.togglePopover(this.emojiPickerFor, this.emojiPickerPos, e, target, 246);
+  }
+
+  /**
+   * Shared toggle for a position:fixed popover anchored under a trigger button (used by
+   * the color and emoji pickers). Positions via the viewport rect of the trigger, not the
+   * scrollable canvas, so the popover can't be clipped by overflow:auto when the trigger
+   * sits near the canvas's edge. widthPx should roughly match the popover's rendered width
+   * so it doesn't overflow the right edge of the viewport.
+   */
+  private togglePopover(
+    openSig: WritableSignal<string | null>,
+    posSig: WritableSignal<{ top: number; left: number } | null>,
+    e: MouseEvent,
+    key: string,
+    widthPx: number,
+  ): void {
     e.stopPropagation();
-    const opening = this.emojiPickerFor() !== target;
-    this.emojiPickerFor.set(opening ? target : null);
+    const opening = openSig() !== key;
+    openSig.set(opening ? key : null);
     if (opening) {
       const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-      this.emojiPickerPos.set({ top: rect.bottom + 6, left: Math.max(8, rect.right - 246) });
+      posSig.set({ top: rect.bottom + 6, left: Math.max(8, rect.right - widthPx) });
     } else {
-      this.emojiPickerPos.set(null);
+      posSig.set(null);
     }
   }
 
@@ -2688,10 +2467,8 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
 
   toggleSetting(key: 'hideCardsOnAdd' | 'participationTracking'): void {
     const s = this.session();
-    if (!s || !s.isCreator) return;
-    const updated = { hideCardsOnAdd: s.hideCardsOnAdd, participationTracking: s.participationTracking, theme: s.theme, [key]: !s[key] };
-    this.session.update(cur => cur ? { ...cur, ...updated } : cur);
-    this.svc.updateSettings(s.id, updated).subscribe({ error: () => this.silentRefresh() });
+    if (!s) return;
+    this.patchSettings({ [key]: !s[key] });
   }
 
   readonly retroThemes = RETRO_THEMES;
@@ -2702,10 +2479,17 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   setTheme(theme: RetroTheme): void {
+    this.patchSettings({ theme });
+  }
+
+  /** Shared settings PATCH: merges `patch` onto the session's current settings, applies it
+   *  optimistically, and persists it. Keeps every settings mutation sending the full
+   *  {hideCardsOnAdd, participationTracking, theme} shape the backend expects, in one place. */
+  private patchSettings(patch: Partial<{ hideCardsOnAdd: boolean; participationTracking: boolean; theme: RetroTheme }>): void {
     const s = this.session();
     if (!s || !s.isCreator) return;
-    const updated = { hideCardsOnAdd: s.hideCardsOnAdd, participationTracking: s.participationTracking, theme };
-    this.session.update(cur => cur ? { ...cur, theme } : cur);
+    const updated = { hideCardsOnAdd: s.hideCardsOnAdd, participationTracking: s.participationTracking, theme: s.theme, ...patch };
+    this.session.update(cur => cur ? { ...cur, ...updated } : cur);
     this.svc.updateSettings(s.id, updated).subscribe({ error: () => this.silentRefresh() });
   }
 
@@ -2735,9 +2519,8 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
     this.editingText.set('');
   }
 
-  groupsForCol(colKey: string): { groupId: string; cards: FunRetroCard[] }[] {
-    const cards = this.cardsForCol(colKey);
-    const map = new Map<string, typeof cards>();
+  groupsForCol(cards: FunRetroCard[]): { groupId: string; cards: FunRetroCard[] }[] {
+    const map = new Map<string, FunRetroCard[]>();
     for (const c of cards) {
       if (c.groupId) {
         const list = map.get(c.groupId) ?? [];
@@ -2748,8 +2531,8 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
     return Array.from(map.entries()).map(([groupId, cards]) => ({ groupId, cards }));
   }
 
-  ungroupedCardsForCol(colKey: string) {
-    return this.cardsForCol(colKey).filter(c => !c.groupId);
+  ungroupedCardsForCol(cards: FunRetroCard[]): FunRetroCard[] {
+    return cards.filter(c => !c.groupId);
   }
 
   silentRefresh(): void {

@@ -33,3 +33,19 @@ git pull origin main
 4. Push branch: `git push origin <branch>`
 5. Open PR to main: `gh pr create --base main`
 6. Stop — the user merges
+
+# Frontend Component Architecture
+
+As a feature grows across multiple changes, break it into components as you go —
+don't let one component absorb everything just because that's where the feature
+started. A single Angular component file mixing unrelated concerns (e.g. a list
+view, a dialog, a canvas/rendering surface, popovers, settings) is a sign it
+should already have been split.
+
+When adding to an existing component and you notice it doing several genuinely
+separable jobs (its own list/detail views, a self-contained interactive surface
+like a canvas or editor, a reusable popover/picker pattern, etc.), extract the
+new piece into its own component with clear `@Input`/`@Output` boundaries rather
+than appending more state and template to the existing file. Don't wait for a
+dedicated cleanup pass to do this — do it as part of the change that would
+otherwise make the file worse.
