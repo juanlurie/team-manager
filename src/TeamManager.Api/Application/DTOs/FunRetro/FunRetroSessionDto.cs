@@ -19,6 +19,7 @@ public record FunRetroSessionDto
     public List<RetroColumnDto> Columns { get; init; } = [];
     public bool HideCardsOnAdd { get; init; }
     public bool ParticipationTracking { get; init; }
+    public string? Theme { get; init; }
 }
 
 public record IcebreakerAnswerDto
@@ -108,4 +109,5 @@ public record UpdateRetroSettingsRequest
 {
     public bool HideCardsOnAdd { get; init; }
     public bool ParticipationTracking { get; init; }
+    public string? Theme { get; init; }
 }

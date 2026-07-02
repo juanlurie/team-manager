@@ -156,7 +156,7 @@ public class FunRetroController(FunRetroService service, PollService pollService
         var memberId = GetCurrentMemberId();
         if (!memberId.HasValue) return Unauthorized();
 
-        var success = await service.UpdateSettingsAsync(id, memberId.Value, request.HideCardsOnAdd, request.ParticipationTracking);
+        var success = await service.UpdateSettingsAsync(id, memberId.Value, request.HideCardsOnAdd, request.ParticipationTracking, request.Theme);
         if (!success) return NotFound();
         return NoContent();
     }
