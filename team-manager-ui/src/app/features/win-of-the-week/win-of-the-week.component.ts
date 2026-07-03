@@ -135,6 +135,7 @@ export class WowSeriesSheetComponent {
             [tokenBalance]="tokenBalance()"
             [powerUpsEnabled]="powerUpsEnabled()"
             [hideVoteCounts]="hideVoteCounts()"
+            [votingEndRequested]="votingEndRequested()"
             [connectedCount]="connectedCount()"
             [activeTimerEndsAt]="activeTimerEndsAt()"
             [hypeBattleEndsAt]="hypeBattleEndsAt()"
@@ -349,6 +350,12 @@ export class WinOfTheWeekComponent implements OnInit, OnDestroy {
     return sorted[0].voteCount > 0 && sorted[0].voteCount === sorted[1].voteCount;
   });
 
+  // While votes are hidden, ending voting shouldn't silently declare an arbitrary "winner"
+  // out of a tie nobody could see coming -- it should surface the tie (highlighting + the
+  // host's tie-break options) instead of closing. Flips back whenever a fresh voting phase
+  // starts so it doesn't leak into the next week.
+  readonly votingEndRequested = signal(false);
+
   nominateForm: CreateNominationRequest = { nomineeMemberId: '', title: '', description: '' };
 
   ngOnInit() {
@@ -513,6 +520,7 @@ export class WinOfTheWeekComponent implements OnInit, OnDestroy {
   // moment a fresh (non-revealed) quiz question actually arrives via polling.
   private applyWeek(week: WinWeek | null) {
     if (week && !week.quizRevealed) this.loadingNextQuizQuestion.set(false);
+    if (week?.status !== 'Voting') this.votingEndRequested.set(false);
     this.currentWeek.set(week);
     if (week) {
       this.currentUserId = week.currentMemberId;
@@ -794,6 +802,12 @@ export class WinOfTheWeekComponent implements OnInit, OnDestroy {
   }
 
   endVoting() {
+    if (this.hideVoteCounts() && this.hasTie()) {
+      // Reveal the tie instead of closing -- the host now sees the highlight and the
+      // tie-break options (Sudden Death / Hype Battle / Quiz Duel) to resolve it.
+      this.votingEndRequested.set(true);
+      return;
+    }
     this.closeWeek();
   }
 

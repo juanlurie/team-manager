@@ -138,7 +138,7 @@ import { AiBadgeComponent } from '../../shared/components/ai-badge/ai-badge.comp
             <div class="ctrl-sep"></div>
 
             <!-- Tie Detected: Sudden Death + Hype Battle, both tiebreaker options for the same tie -->
-            @if (tiedNomIds().size > 0) {
+            @if (revealTieUI() && tiedNomIds().size > 0) {
               <div class="ctrl-section">
                 <span class="ctrl-label" style="color:#ff7043;opacity:1">🔥 Tie Detected</span>
 
@@ -511,7 +511,7 @@ import { AiBadgeComponent } from '../../shared/components/ai-badge/ai-badge.comp
                   [weekStatus]="w.status"
                   [canEdit]="nom.teamMemberId === currentUserId()"
                   [votesRemaining]="w.userVotesRemaining"
-                  [isTied]="tiedNomIds().has(nom.id)"
+                  [isTied]="displayTiedNomIds().has(nom.id)"
                   [canApplyCards]="tokenBalance() > 0 && powerUpsEnabled()"
                   [isHost]="isHost()"
                   [hypeBattleActive]="!!hypeBattleEndsAt()"
@@ -563,6 +563,7 @@ export class WowCurrentWeekComponent {
   tokenBalance     = input(0);
   powerUpsEnabled  = input(true);
   hideVoteCounts   = input(false);
+  votingEndRequested = input(false);
   connectedCount   = input(0);
   activeTimerEndsAt   = input<string | null>(null);
   hypeBattleEndsAt    = input<string | null>(null);
@@ -679,6 +680,18 @@ export class WowCurrentWeekComponent {
     }
     return new Set();
   });
+
+  // While votes are hidden and voting is still open, a tie shouldn't be visible to anyone
+  // (the highlight alone would leak who's ahead) or offer the host tie-break options early --
+  // both wait until the host ends voting, at which point votingEndRequested flips true.
+  readonly revealTieUI = computed(() =>
+    !this.hideVoteCounts() || this.week()?.status !== 'Voting' || this.votingEndRequested()
+  );
+
+  // Card-highlight-safe view of tiedNomIds -- empty while revealTieUI() is false.
+  readonly displayTiedNomIds = computed((): Set<string> =>
+    this.revealTieUI() ? this.tiedNomIds() : new Set<string>()
+  );
 
   readonly voteProgressPct = computed(() => {
     const w = this.week();
