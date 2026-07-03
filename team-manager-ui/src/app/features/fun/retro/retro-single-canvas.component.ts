@@ -279,6 +279,7 @@ const REACTION_EMOJIS = ['👍', '❤️', '😂', '🎉', '🤔'];
               }
               @if (editingCardId() === item.card.id) {
                 <textarea class="sticky-edit-area" #editArea
+                          [style.font-size.rem]="cardFontSizeRem(editingText())"
                           [value]="editingText()"
                           (input)="editTextChanged.emit($any($event.target).value)"
                           (blur)="editSaved.emit(item.card)"
@@ -288,6 +289,7 @@ const REACTION_EMOJIS = ['👍', '❤️', '😂', '🎉', '🤔'];
                           cdkTextareaAutosize></textarea>
               } @else {
                 <div class="sticky-text"
+                     [style.font-size.rem]="cardFontSizeRem(item.card.text)"
                      [class.sticky-text-editable]="item.card.isOwn || s?.isCreator"
                      (dblclick)="(item.card.isOwn || s?.isCreator) && item.card.text !== null ? editStarted.emit(item.card) : null">
                   {{ item.card.text }}
@@ -325,6 +327,7 @@ const REACTION_EMOJIS = ['👍', '❤️', '😂', '🎉', '🤔'];
           <div class="sticky pending-sticky" [style.left.px]="p.x" [style.top.px]="p.y" [style.background]="pendingCardColor()">
             <textarea class="sticky-edit-area" #pendingInput
                       autofocus
+                      [style.font-size.rem]="cardFontSizeRem(p.text)"
                       [value]="p.text"
                       (input)="pendingCard.set({ ...p, text: $any($event.target).value })"
                       (blur)="confirmPendingCard()"
@@ -767,6 +770,22 @@ export class RetroSingleCanvasComponent implements AfterViewInit {
     let hash = 0;
     for (let i = 0; i < cardId.length; i++) hash = (hash * 31 + cardId.charCodeAt(i)) | 0;
     return ((Math.abs(hash) % 300) / 100) - 1.5;
+  }
+
+  // Mirrors FunRetroComponent.cardFontSizeRem -- starts big for a short card and linearly
+  // shrinks as text grows, down to a floor that's still comfortably readable. Used while
+  // typing (both a fresh card and editing an existing one) and on the saved, read-only text.
+  private static readonly CARD_FONT_MAX_REM = 1.3;
+  private static readonly CARD_FONT_MIN_REM = 0.7;
+  private static readonly CARD_FONT_SHRINK_START = 40; // chars
+  private static readonly CARD_FONT_SHRINK_END = 220; // chars
+  cardFontSizeRem(text: string | null | undefined): number {
+    const len = text?.length ?? 0;
+    const { CARD_FONT_MAX_REM: max, CARD_FONT_MIN_REM: min, CARD_FONT_SHRINK_START: start, CARD_FONT_SHRINK_END: end } = RetroSingleCanvasComponent;
+    if (len <= start) return max;
+    if (len >= end) return min;
+    const t = (len - start) / (end - start);
+    return max - t * (max - min);
   }
 
   @HostListener('document:mousemove', ['$event'])
