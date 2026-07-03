@@ -1533,6 +1533,7 @@ interface TimerState {
                         <!-- Card text / inline edit -->
                         @if (editingCardId() === item.card.id) {
                           <textarea class="sticky-edit-area" #editArea
+                                    [style.font-size.rem]="cardFontSizeRem(editingText())"
                                     [value]="editingText()"
                                     (input)="editingText.set($any($event.target).value)"
                                     (blur)="saveCardText(item.card)"
@@ -1542,6 +1543,7 @@ interface TimerState {
                                     cdkTextareaAutosize></textarea>
                         } @else {
                           <div class="sticky-text"
+                               [style.font-size.rem]="cardFontSizeRem(item.card.text)"
                                [class.sticky-text-editable]="item.card.isOwn || s.isCreator"
                                (dblclick)="(item.card.isOwn || s.isCreator) && item.card.text !== null ? startEditCard(item.card) : null">
                             {{ item.card.text }}
@@ -3315,6 +3317,23 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
     let hash = 0;
     for (let i = 0; i < cardId.length; i++) hash = (hash * 31 + cardId.charCodeAt(i)) | 0;
     return ((Math.abs(hash) % 300) / 100) - 1.5;
+  }
+
+  // Starts big for a short card (reads like a bold headline) and linearly shrinks as text
+  // grows, down to a floor that's still comfortably readable rather than shrinking forever.
+  // Used both while typing (so it never overflows the card as you go) and on the saved,
+  // read-only text (so it doesn't visually jump in size the moment you stop editing).
+  private static readonly CARD_FONT_MAX_REM = 1.3;
+  private static readonly CARD_FONT_MIN_REM = 0.7;
+  private static readonly CARD_FONT_SHRINK_START = 40; // chars
+  private static readonly CARD_FONT_SHRINK_END = 220; // chars
+  cardFontSizeRem(text: string | null | undefined): number {
+    const len = text?.length ?? 0;
+    const { CARD_FONT_MAX_REM: max, CARD_FONT_MIN_REM: min, CARD_FONT_SHRINK_START: start, CARD_FONT_SHRINK_END: end } = FunRetroComponent;
+    if (len <= start) return max;
+    if (len >= end) return min;
+    const t = (len - start) / (end - start);
+    return max - t * (max - min);
   }
 
   readonly retroSteps = [
