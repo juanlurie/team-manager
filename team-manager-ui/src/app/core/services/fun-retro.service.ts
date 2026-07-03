@@ -88,6 +88,10 @@ export class FunRetroService {
     return this.http.patch<void>(`${this.base}/${sessionId}/settings`, settings);
   }
 
+  revealAllNow(sessionId: string): Observable<void> {
+    return this.http.post<void>(`${this.base}/${sessionId}/reveal-now`, {});
+  }
+
   analyse(sessionId: string): Observable<FunRetroAnalysis> {
     return this.http.post<FunRetroAnalysis>(`${this.base}/${sessionId}/analyse`, {});
   }

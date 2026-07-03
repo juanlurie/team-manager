@@ -19,6 +19,7 @@ public record FunRetroSessionDto
     public string? IcebreakerQuestion { get; init; }
     public List<RetroColumnDto> Columns { get; init; } = [];
     public bool HideCardsOnAdd { get; init; }
+    public bool ManuallyRevealed { get; init; }
     public bool ParticipationTracking { get; init; }
     public string? Theme { get; init; }
     public string? CanvasLayout { get; init; }

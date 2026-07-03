@@ -141,6 +141,18 @@ const REACTION_EMOJIS = ['👍', '❤️', '😂', '🎉', '🤔'];
       overflow-wrap:anywhere;word-break:break-word;
       font-family:'Kalam','Segoe UI',system-ui,sans-serif;
     }
+    /* Redacted-looking stand-in for hidden text -- occupies the same space real text would,
+       so a hidden card still reads as "a card with writing on it" rather than a different,
+       emptier-looking placeholder box. Each line is a tiled squiggle (a repeating wave, like
+       the scribble you'd draw over illegible handwriting) instead of a solid bar. */
+    .sticky-text-hidden {
+      display:flex;flex-direction:column;gap:10px;flex:1;padding-top:5px;cursor:default;
+    }
+    .hidden-line {
+      height:13px;
+      background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 12'%3E%3Cpath d='M0,6 C3,0 9,0 12,6 C15,12 21,12 24,6' stroke='rgba(0,0,0,0.32)' stroke-width='2.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+      background-repeat:repeat-x;background-size:24px 13px;background-position:left center;
+    }
     .sticky-author { font-size:0.65rem;color:rgba(0,0,0,0.45); }
     .sticky-header app-avatar-circle {
       display:inline-flex;border-radius:50%;
@@ -201,7 +213,9 @@ const REACTION_EMOJIS = ['👍', '❤️', '😂', '🎉', '🤔'];
       background:transparent;font-size:0.8rem;color:rgba(0,0,0,0.82);line-height:1.4;
       font-family:inherit;padding:0;margin:0;flex:1;min-height:48px;
     }
-    .sticky-text-editable { cursor:text; }
+    /* Single click selects the whole card (same as everywhere else on it); only a
+       double-click edits, so this shouldn't look like a plain text input on hover. */
+    .sticky-text-editable { cursor:grab; }
     .sticky-text-editable:hover { background:rgba(0,0,0,0.04);border-radius:4px; }
     .sticky.pending-sticky { box-shadow:4px 8px 24px rgba(0,0,0,0.5);z-index:150; }
   `],
@@ -266,9 +280,10 @@ const REACTION_EMOJIS = ['👍', '❤️', '😂', '🎉', '🤔'];
                 <app-avatar-circle [memberId]="item.card.authorId" [name]="item.card.authorName ?? ''" [avatarSeed]="item.card.authorAvatarSeed" [size]="18" />
                 <span class="sticky-author" style="flex:1">{{ item.card.authorName }}</span>
               </div>
-              <div style="display:flex;align-items:center;gap:5px;opacity:0.4;margin-top:6px">
-                <mat-icon style="font-size:14px;height:14px;width:14px">lock</mat-icon>
-                <span style="font-size:0.7rem;color:rgba(0,0,0,0.6)">Hidden until reveal</span>
+              <div class="sticky-text-hidden" [title]="'Hidden until reveal'">
+                <span class="hidden-line" style="width:88%"></span>
+                <span class="hidden-line" style="width:64%"></span>
+                <span class="hidden-line" style="width:76%"></span>
               </div>
             } @else {
               @if (item.card.authorName) {
