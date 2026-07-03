@@ -604,8 +604,8 @@ interface TimerState {
       position:absolute;box-sizing:border-box;
       width:240px;min-height:220px;
       border-radius:11px;padding:13px 15px;
-      border:2px solid rgba(100,181,246,0.55);
-      box-shadow:0 0 0 1px rgba(100,181,246,0.18),0 3px 8px rgba(0,0,0,0.28),0 1px 3px rgba(0,0,0,0.22);
+      border:4px solid rgba(100,181,246,0.65);
+      box-shadow:0 0 0 1px rgba(100,181,246,0.25),0 3px 8px rgba(0,0,0,0.28),0 1px 3px rgba(0,0,0,0.22);
       cursor:grab;user-select:none;
       display:flex;flex-direction:column;gap:6px;
       transition:box-shadow 0.15s,transform 0.15s,border-color 0.15s;
@@ -616,10 +616,12 @@ interface TimerState {
     .sticky:hover, .sticky:active, .sticky.dragging { transform:rotate(0deg) !important; }
     .sticky:active, .sticky.dragging { cursor:grabbing;box-shadow:0 8px 20px rgba(0,0,0,0.4),0 2px 6px rgba(0,0,0,0.3);z-index:100; }
     .sticky.no-drag { cursor:default; }
-    /* Selected: full neon glow so the active card reads clearly above the rest of the board. */
+    /* Selected: even thicker border plus a full neon glow so the active card reads clearly
+       above the rest of the board. */
     .sticky.selected {
+      border-width:6px;
       border-color:#64b5f6;
-      box-shadow:0 0 0 2px rgba(100,181,246,0.9),0 0 18px 4px rgba(100,181,246,0.55),0 6px 16px rgba(0,0,0,0.35);
+      box-shadow:0 0 0 3px rgba(100,181,246,0.9),0 0 22px 6px rgba(100,181,246,0.6),0 6px 16px rgba(0,0,0,0.35);
       z-index:150;
     }
     .sticky-text {
@@ -750,7 +752,6 @@ interface TimerState {
     /* Single click selects the whole card (same as everywhere else on it); only a
        double-click edits, so this shouldn't look like a plain text input on hover. */
     .sticky-text-editable { cursor:grab; }
-    .sticky-text-editable:hover { background:rgba(0,0,0,0.04);border-radius:4px; }
     .color-picker-popover {
       /* fixed (not absolute) so it can't be clipped by the canvas's overflow:auto
          when the card sits near the top/edge of the scrollable canvas */
@@ -943,7 +944,9 @@ interface TimerState {
                (using the "positive" variant, since there's no single column it belongs to)
                instead of the column, so it stays put as you scroll through columns rather
                than scrolling away or repeating per-section. -->
-          <div class="mobile-theme-bg" [style.background-image]="bg"></div>
+          <div class="mobile-theme-bg" [style.background-image]="bg"
+               [style.opacity]="themeBgStyle()?.opacity ?? null" [style.mix-blend-mode]="themeBgStyle()?.blend ?? null"
+               [style.background-size]="themeBgStyle()?.size ?? null" [style.image-rendering]="themeBgStyle() ? 'auto' : null"></div>
         }
         <!-- Compact header: title, timer, polls, settings, share, back, phase actions — all in one row -->
         <div class="session-header" [class.full-bleed]="isDesktop()">
@@ -998,7 +1001,7 @@ interface TimerState {
             </div>
           }
           <div class="header-spacer"></div>
-          @if (s.phase !== 'lobby' && !(isDesktop() && s.canvasLayout === 'single')) {
+          @if (s.phase !== 'lobby') {
             <div class="timer-trigger-wrap" (mousedown)="$event.stopPropagation()">
               <button class="timer-trigger"
                       [class.timer-danger]="timerRemaining() <= 30 && !timerExpired() && timerRunning()"
@@ -1495,6 +1498,8 @@ interface TimerState {
             [timerLabel]="timer() ? timerDisplay() : null"
             [timerDanger]="timerRemaining() <= 30 && !timerExpired() && timerRunning()"
             [timerActive]="timerPopoverOpen() || timerRunning()"
+            [placingStickerEmoji]="singleCanvasPlacingStickerEmoji()"
+            [selectedCardId]="selectedCardId()"
             (voteToggled)="toggleVote($event)"
             (reactionToggled)="toggleReaction($event.card, $event.emoji)"
             (editStarted)="startEditCard($event)"
@@ -1509,7 +1514,9 @@ interface TimerState {
             (tokenPositionCommitted)="onSingleCanvasTokenPositionCommitted($event)"
             (tokenDeleteRequested)="deleteToken($event)"
             (revealRequested)="revealAllNow()"
-            (timerToggleRequested)="toggleTimerPopover($event)" />
+            (timerToggleRequested)="toggleTimerPopover($event)"
+            (stickerPlaceRequested)="onSingleCanvasStickerPlaced($event)"
+            (stickerPlacementCancelled)="singleCanvasPlacingStickerEmoji.set(null)" />
         }
 
         <!-- Desktop: 3 separate sticky canvases side by side -->
@@ -1547,7 +1554,9 @@ interface TimerState {
                      (wheel)="onCanvasWheel($event, col.key)"
                      (mousedown)="startPan($event, col.key)">
                   @if (themeBgUrl(ci); as bg) {
-                    <div class="canvas-theme-bg" [style.background-image]="bg"></div>
+                    <div class="canvas-theme-bg" [style.background-image]="bg"
+                         [style.opacity]="themeBgStyle()?.opacity ?? null" [style.mix-blend-mode]="themeBgStyle()?.blend ?? null"
+                         [style.background-size]="themeBgStyle()?.size ?? null" [style.image-rendering]="themeBgStyle() ? 'auto' : null"></div>
                   }
                   <div class="canvas-inner"
                        [style.height.px]="canvasHeight(items)"
@@ -2156,14 +2165,14 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
     this.togglePopover(this.stickerPaletteOpenFor, this.stickerPalettePos, e, colKey, 190);
   }
 
-  // Set only when the palette was opened from the single-canvas layout, which already
-  // computes its own drop point (it owns the only pan/zoom viewport there is, and knows
-  // which zone the viewport center currently falls in) -- pickSticker uses this instead of
-  // re-deriving a position from a per-column canvas element that doesn't exist in that layout.
-  private singleCanvasStickerTarget: { column: string; x: number; y: number } | null = null;
+  // Set only when the palette was opened from the single-canvas layout -- pickSticker uses
+  // this to switch into "stuck to the cursor" placement there instead of dropping the sticker
+  // immediately, since that layout owns the only pan/zoom viewport there is.
+  private singleCanvasStickerRequested = false;
+  singleCanvasPlacingStickerEmoji = signal<string | null>(null);
 
   onSingleCanvasStickerPaletteRequested(payload: { event: MouseEvent; column: string; x: number; y: number }): void {
-    this.singleCanvasStickerTarget = { column: payload.column, x: payload.x, y: payload.y };
+    this.singleCanvasStickerRequested = true;
     this.togglePopover(this.stickerPaletteOpenFor, this.stickerPalettePos, payload.event, payload.column, 190);
   }
 
@@ -2173,22 +2182,29 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
     const s = this.session();
     if (!s) return;
 
-    const pending = this.singleCanvasStickerTarget;
-    this.singleCanvasStickerTarget = null;
-    let x: number, y: number;
-    if (pending && pending.column === colKey) {
-      x = pending.x;
-      y = pending.y;
-    } else {
-      const outer = this.outerEl(colKey);
-      const v = this.viewFor(colKey);
-      const outerW = outer?.clientWidth ?? 400;
-      const outerH = outer?.clientHeight ?? 400;
-      x = (outerW / 2 - v.panX) / v.zoom;
-      y = (outerH / 2 - v.panY) / v.zoom;
+    if (this.singleCanvasStickerRequested) {
+      this.singleCanvasStickerRequested = false;
+      this.singleCanvasPlacingStickerEmoji.set(emoji);
+      return;
     }
 
+    const outer = this.outerEl(colKey);
+    const v = this.viewFor(colKey);
+    const outerW = outer?.clientWidth ?? 400;
+    const outerH = outer?.clientHeight ?? 400;
+    const x = (outerW / 2 - v.panX) / v.zoom;
+    const y = (outerH / 2 - v.panY) / v.zoom;
+
     this.svc.addToken(s.id, colKey, emoji, x, y).subscribe(token => {
+      this.session.update(cur => cur ? { ...cur, tokens: [...cur.tokens, token] } : cur);
+    });
+  }
+
+  onSingleCanvasStickerPlaced(payload: { emoji: string; column: string; x: number; y: number }): void {
+    this.singleCanvasPlacingStickerEmoji.set(null);
+    const s = this.session();
+    if (!s) return;
+    this.svc.addToken(s.id, payload.column, payload.emoji, payload.x, payload.y).subscribe(token => {
       this.session.update(cur => cur ? { ...cur, tokens: [...cur.tokens, token] } : cur);
     });
   }
@@ -3049,6 +3065,15 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
     if (!theme) return null;
     const def = RETRO_THEMES.find(t => t.id === theme);
     return def ? def.variantUrls[Math.min(colIndex, 2)] : null;
+  }
+
+  /** Photo/render-backed themes need a different opacity/blend/sizing than the hand-authored
+   *  pixel SVGs' CSS defaults -- see RetroThemeDef.bgStyle. Null (nothing to override) for
+   *  the vector themes, which keep using their existing per-element CSS untouched. */
+  themeBgStyle(): { opacity: number; blend: string; size: string } | null {
+    const theme = this.session()?.theme;
+    const def = theme ? RETRO_THEMES.find(t => t.id === theme) : undefined;
+    return def?.bgStyle ?? null;
   }
 
   /** Representative icon for the theme picker swatch -- the "positive" variant. */

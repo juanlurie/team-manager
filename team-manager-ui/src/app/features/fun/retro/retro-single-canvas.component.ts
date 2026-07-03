@@ -103,14 +103,15 @@ const REACTION_EMOJIS = ['👍', '❤️', '😂', '🎉', '🤔'];
     .cz-fit mat-icon { font-size:16px;width:16px;height:16px;line-height:16px; }
     .cz-divider { width:1px;height:16px;background:rgba(255,255,255,0.15);margin:0 2px;flex-shrink:0; }
     .retro-token {
-      position:absolute;width:40px;height:40px;
+      position:absolute;width:64px;height:64px;
       display:flex;align-items:center;justify-content:center;
-      font-size:26px;line-height:1;cursor:grab;user-select:none;
+      font-size:42px;line-height:1;cursor:grab;user-select:none;
       filter:drop-shadow(0 2px 3px rgba(0,0,0,0.4));
       transition:transform .1s;
     }
     .retro-token:hover { transform:scale(1.1); }
     .retro-token.dragging { cursor:grabbing;z-index:50;transition:none; }
+    .retro-token.placing-ghost { pointer-events:none;opacity:0.85;z-index:200; }
     .retro-token-del {
       position:absolute;top:-6px;right:-6px;width:16px;height:16px;
       display:flex;align-items:center;justify-content:center;
@@ -123,21 +124,22 @@ const REACTION_EMOJIS = ['👍', '❤️', '😂', '🎉', '🤔'];
     /* Draggable clock so the timer can be parked wherever's convenient on the board instead
        of only living in a header popover -- position is local to this viewer, not persisted. */
     .timer-widget {
-      position:absolute;display:flex;align-items:center;gap:6px;
-      padding:6px 12px;border-radius:20px;cursor:grab;user-select:none;
+      position:absolute;display:flex;align-items:center;gap:10px;
+      padding:12px 22px;border-radius:32px;cursor:grab;user-select:none;
       background:rgba(20,20,24,0.9);border:1px solid rgba(255,255,255,0.15);
-      color:rgba(255,255,255,0.85);font-size:0.85rem;font-variant-numeric:tabular-nums;
+      color:rgba(255,255,255,0.85);font-size:1.4rem;font-weight:700;font-variant-numeric:tabular-nums;
       box-shadow:0 3px 10px rgba(0,0,0,0.35);z-index:20;
     }
     .timer-widget:active { cursor:grabbing; }
+    .timer-widget.placing-ghost { pointer-events:none;opacity:0.85;z-index:200; }
     .timer-widget-danger { border-color:rgba(239,83,80,0.5);color:#ef5350; }
-    .timer-widget-icon { font-size:16px;width:16px;height:16px;line-height:16px; }
+    .timer-widget-icon { font-size:26px;width:26px;height:26px;line-height:26px; }
     .sticky {
       position:absolute;box-sizing:border-box;
       width:240px;min-height:220px;
       border-radius:11px;padding:13px 15px;
-      border:2px solid rgba(100,181,246,0.55);
-      box-shadow:0 0 0 1px rgba(100,181,246,0.18),0 3px 8px rgba(0,0,0,0.28),0 1px 3px rgba(0,0,0,0.22);
+      border:4px solid rgba(100,181,246,0.65);
+      box-shadow:0 0 0 1px rgba(100,181,246,0.25),0 3px 8px rgba(0,0,0,0.28),0 1px 3px rgba(0,0,0,0.22);
       cursor:grab;user-select:none;
       display:flex;flex-direction:column;gap:6px;
       transition:box-shadow 0.15s,transform 0.15s,border-color 0.15s;
@@ -147,6 +149,14 @@ const REACTION_EMOJIS = ['👍', '❤️', '😂', '🎉', '🤔'];
        card you're interacting with feels settled and easy to read. */
     .sticky:hover, .sticky:active, .sticky.dragging { transform:rotate(0deg) !important; }
     .sticky:active, .sticky.dragging { cursor:grabbing;box-shadow:0 8px 20px rgba(0,0,0,0.4),0 2px 6px rgba(0,0,0,0.3);z-index:100; }
+    /* Selected: even thicker border plus a full neon glow so the active card reads clearly
+       above the rest of the board. */
+    .sticky.selected {
+      border-width:6px;
+      border-color:#64b5f6;
+      box-shadow:0 0 0 3px rgba(100,181,246,0.9),0 0 22px 6px rgba(100,181,246,0.6),0 6px 16px rgba(0,0,0,0.35);
+      z-index:150;
+    }
     .sticky.no-drag { cursor:default; }
     .sticky-text {
       font-size:1.05rem;font-weight:700;color:rgba(0,0,0,0.87);line-height:1.4;flex:1;
@@ -229,7 +239,6 @@ const REACTION_EMOJIS = ['👍', '❤️', '😂', '🎉', '🤔'];
     /* Single click selects the whole card (same as everywhere else on it); only a
        double-click edits, so this shouldn't look like a plain text input on hover. */
     .sticky-text-editable { cursor:grab; }
-    .sticky-text-editable:hover { background:rgba(0,0,0,0.04);border-radius:4px; }
     .sticky.pending-sticky { box-shadow:4px 8px 24px rgba(0,0,0,0.5);z-index:150; }
   `],
   template: `
@@ -257,7 +266,9 @@ const REACTION_EMOJIS = ['👍', '❤️', '😂', '🎉', '🤔'];
         }
         @for (col of cs; track col.key; let zi = $index) {
           @if (themeUrl(zi); as bg) {
-            <div class="zone-theme-bg" [style.left.px]="zoneOriginX(zi)" [style.width.px]="ZONE_WIDTH" [style.background-image]="bg"></div>
+            <div class="zone-theme-bg" [style.left.px]="zoneOriginX(zi)" [style.width.px]="ZONE_WIDTH" [style.background-image]="bg"
+                 [style.opacity]="themeBgStyle()?.opacity ?? null" [style.mix-blend-mode]="themeBgStyle()?.blend ?? null"
+                 [style.background-size]="themeBgStyle()?.size ?? null" [style.image-rendering]="themeBgStyle() ? 'auto' : null"></div>
           }
         }
         @for (col of cs; track col.key; let zi = $index) {
@@ -279,6 +290,7 @@ const REACTION_EMOJIS = ['👍', '❤️', '😂', '🎉', '🤔'];
           <div class="sticky"
                [attr.data-card-id]="item.card.id"
                [class.dragging]="draggingId() === item.card.id"
+               [class.selected]="selectedCardId() === item.card.id"
                [class.no-drag]="s?.phase === 'done'"
                [style.left.px]="item.x"
                [style.top.px]="item.y"
@@ -379,11 +391,25 @@ const REACTION_EMOJIS = ['👍', '❤️', '😂', '🎉', '🤔'];
           </div>
         }
         @if (timerLabel(); as label) {
-          <div class="timer-widget" [class.timer-widget-danger]="timerDanger()"
-               [style.left.px]="timerWidgetPos().x" [style.top.px]="timerWidgetPos().y"
-               (mousedown)="startTimerWidgetDrag($event)">
-            <mat-icon class="timer-widget-icon">timer</mat-icon>{{ label }}
-          </div>
+          @if (timerNeedsPlacement()) {
+            @if (placingWorld(); as p) {
+              <div class="timer-widget placing-ghost" [class.timer-widget-danger]="timerDanger()"
+                   [style.left.px]="p.x" [style.top.px]="p.y">
+                <mat-icon class="timer-widget-icon">timer</mat-icon>{{ label }}
+              </div>
+            }
+          } @else {
+            <div class="timer-widget" [class.timer-widget-danger]="timerDanger()"
+                 [style.left.px]="timerWidgetPos().x" [style.top.px]="timerWidgetPos().y"
+                 (mousedown)="startTimerWidgetDrag($event)">
+              <mat-icon class="timer-widget-icon">timer</mat-icon>{{ label }}
+            </div>
+          }
+        }
+        @if (placingStickerEmoji(); as emoji) {
+          @if (placingWorld(); as p) {
+            <div class="retro-token placing-ghost" [style.left.px]="p.x" [style.top.px]="p.y">{{ emoji }}</div>
+          }
         }
       </div>
       <div class="canvas-zoom-controls" (mousedown)="$event.stopPropagation()" (wheel)="$event.stopPropagation()">
@@ -423,6 +449,19 @@ export class RetroSingleCanvasComponent implements AfterViewInit {
       const el = this.editAreaEl();
       if (id && el) el.nativeElement.focus();
     });
+    // A freshly-started timer should stick to the cursor for one placement click, same as a
+    // sticker -- fires once per timer "session" (tracked via timerPlacementSeen so re-renders
+    // while it's already running don't re-trigger it), and resets once the timer goes away.
+    effect(() => {
+      const label = this.timerLabel();
+      if (label && !this.timerPlacementSeen) {
+        this.timerPlacementSeen = true;
+        this.timerNeedsPlacement.set(true);
+      } else if (!label) {
+        this.timerPlacementSeen = false;
+        this.timerNeedsPlacement.set(false);
+      }
+    });
   }
 
   session = input.required<FunRetroSession | null>();
@@ -435,6 +474,8 @@ export class RetroSingleCanvasComponent implements AfterViewInit {
   timerLabel = input<string | null>(null);
   timerDanger = input<boolean>(false);
   timerActive = input<boolean>(false);
+  placingStickerEmoji = input<string | null>(null);
+  selectedCardId = input<string | null>(null);
 
   voteToggled = output<FunRetroCard>();
   reactionToggled = output<{ card: FunRetroCard; emoji: string }>();
@@ -451,12 +492,14 @@ export class RetroSingleCanvasComponent implements AfterViewInit {
   tokenDeleteRequested = output<FunRetroToken>();
   revealRequested = output<void>();
   timerToggleRequested = output<MouseEvent>();
+  stickerPlaceRequested = output<{ emoji: string; column: string; x: number; y: number }>();
+  stickerPlacementCancelled = output<void>();
 
   readonly reactionEmojis = REACTION_EMOJIS;
   // Wide enough for 3 sticky-columns per zone (200px cards) instead of 2 -- panning/zooming
   // is how the whole board gets navigated anyway, so there's no reason to cram zones as
   // tight as if they had to fit a fixed viewport like the old per-column canvases did.
-  readonly ZONE_WIDTH = 680;
+  readonly ZONE_WIDTH = 2040;
   readonly ZONE_GAP = 48;
   private readonly STICKY_W = 240;
   private readonly STICKY_GAP = 16;
@@ -467,7 +510,7 @@ export class RetroSingleCanvasComponent implements AfterViewInit {
   // header which lived in its own DOM row outside a clipped .canvas-outer), so cards must
   // start below it or they'd overlap.
   private readonly ZONE_TOP_PAD = 40;
-  private readonly MIN_ZOOM = 0.3;
+  private readonly MIN_ZOOM = 0.15;
   private readonly MAX_ZOOM = 2;
 
   activeTool = signal<RetroCanvasTool>('select');
@@ -478,7 +521,10 @@ export class RetroSingleCanvasComponent implements AfterViewInit {
   pendingCard = signal<{ x: number; y: number; text: string } | null>(null);
 
   private panState: { startMouseX: number; startMouseY: number; startPanX: number; startPanY: number } | null = null;
-  private dragState: { id: string; startMouseX: number; startMouseY: number; startX: number; startY: number; moved: boolean } | null = null;
+  private dragState: {
+    id: string; startMouseX: number; startMouseY: number; startX: number; startY: number; moved: boolean;
+    pinnedTokens: { id: string; startX: number; startY: number }[];
+  } | null = null;
   private static readonly CLICK_MOVE_THRESHOLD = 4; // px
 
   localTokenPositions = signal<Record<string, { x: number; y: number }>>({});
@@ -489,6 +535,12 @@ export class RetroSingleCanvasComponent implements AfterViewInit {
   // convenience for placing the clock out of the way on the board, not shared session state.
   timerWidgetPos = signal<{ x: number; y: number }>({ x: 20, y: 20 });
   private timerDragState: { startMouseX: number; startMouseY: number; startX: number; startY: number } | null = null;
+
+  // World-space cursor position while a sticker or a freshly-started timer is "stuck to the
+  // cursor" waiting for a click to drop it -- see onMouseMove/onCanvasClick.
+  placingWorld = signal<{ x: number; y: number } | null>(null);
+  timerNeedsPlacement = signal(false);
+  private timerPlacementSeen = false;
 
   startTimerWidgetDrag(e: MouseEvent): void {
     if (e.button !== 0) return;
@@ -515,6 +567,15 @@ export class RetroSingleCanvasComponent implements AfterViewInit {
     if (!theme) return null;
     const def = RETRO_THEMES.find(t => t.id === theme);
     return def ? def.variantUrls[Math.min(zoneIndex, 2)] : null;
+  }
+
+  /** Photo/render-backed themes need a different opacity/blend/sizing than the hand-authored
+   *  pixel SVGs' CSS defaults -- see RetroThemeDef.bgStyle. Null (nothing to override) for
+   *  the vector themes, which keep using their existing CSS untouched. */
+  themeBgStyle(): { opacity: number; blend: string; size: string } | null {
+    const theme = this.session()?.theme;
+    const def = theme ? RETRO_THEMES.find(t => t.id === theme) : undefined;
+    return def?.bgStyle ?? null;
   }
 
   /** How many sticky-columns fit across one zone's width -- shared by the fallback grid
@@ -666,6 +727,7 @@ export class RetroSingleCanvasComponent implements AfterViewInit {
 
   startPan(e: MouseEvent): void {
     if (e.button !== 0) return;
+    if (this.placingStickerEmoji() || this.timerNeedsPlacement()) return;
     const t = e.target as HTMLElement;
     if (t.closest('.sticky') || t.closest('.canvas-zoom-controls') || t.closest('app-retro-canvas-sidebar')) return;
     const v = this.view();
@@ -749,11 +811,24 @@ export class RetroSingleCanvasComponent implements AfterViewInit {
   startDrag(e: MouseEvent, card: FunRetroCard, x: number, y: number): void {
     if (e.button !== 0) return;
     e.preventDefault();
-    this.dragState = { id: card.id, startMouseX: e.clientX, startMouseY: e.clientY, startX: x, startY: y, moved: false };
+    // Stickers sitting on top of the card at the moment the drag starts ride along with it --
+    // reads as "pinned to the card" -- rather than staying put while the card slides out from
+    // under them. Only a loose bounding-box check (plus a little slack), not true parenting:
+    // this is just a one-off carry for the duration of this drag.
+    const el = (this.elRef.nativeElement as HTMLElement).querySelector(`[data-card-id="${card.id}"]`) as HTMLElement | null;
+    const width = el?.offsetWidth ?? this.STICKY_W;
+    const height = el?.offsetHeight ?? this.STICKY_MIN_H;
+    const slack = 24;
+    const pinnedTokens = this.allTokenItems()
+      .filter(t => t.x >= x - slack && t.x <= x + width + slack && t.y >= y - slack && t.y <= y + height + slack)
+      .map(t => ({ id: t.token.id, startX: t.x, startY: t.y }));
+    this.dragState = { id: card.id, startMouseX: e.clientX, startMouseY: e.clientY, startX: x, startY: y, moved: false, pinnedTokens };
     this.draggingId.set(card.id);
   }
 
   onCanvasClick(e: MouseEvent): void {
+    if (this.placingStickerEmoji()) { this.confirmStickerPlacement(); return; }
+    if (this.timerNeedsPlacement()) { this.confirmTimerPlacement(); return; }
     if (this.activeTool() !== 'add-card') return;
     if ((e.target as HTMLElement).closest('.sticky')) return;
     this.placeCardAt(e);
@@ -765,16 +840,49 @@ export class RetroSingleCanvasComponent implements AfterViewInit {
    *  this common, and double-click doesn't collide with panning (a plain drag) or dragging
    *  an existing card (guarded by the .sticky check, same as onCanvasClick). */
   onCanvasDoubleClick(e: MouseEvent): void {
+    if (this.placingStickerEmoji() || this.timerNeedsPlacement()) return;
     if ((e.target as HTMLElement).closest('.sticky')) return;
     this.placeCardAt(e);
   }
 
-  private placeCardAt(e: MouseEvent): void {
+  private worldPointFromEvent(e: MouseEvent): { x: number; y: number } {
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
     const v = this.view();
-    const worldX = (e.clientX - rect.left - v.panX) / v.zoom;
-    const worldY = (e.clientY - rect.top - v.panY) / v.zoom;
+    return { x: (e.clientX - rect.left - v.panX) / v.zoom, y: (e.clientY - rect.top - v.panY) / v.zoom };
+  }
+
+  private placeCardAt(e: MouseEvent): void {
+    const { x: worldX, y: worldY } = this.worldPointFromEvent(e);
+    // Outside every zone's actual strip (the blank margin past the last column, or before the
+    // first) -- zoneIndexForX would silently clamp this into whichever zone is nearest, which
+    // reads as "the card I placed way over here jumped into some other column." Just no-op
+    // instead of creating a card wherever the pointer happened to land.
+    const stripWidth = this.cols().length * (this.ZONE_WIDTH + this.ZONE_GAP) - this.ZONE_GAP;
+    if (worldX < 0 || worldX > stripWidth) return;
     this.pendingCard.set({ x: worldX, y: worldY, text: '' });
+  }
+
+  private confirmStickerPlacement(): void {
+    const p = this.placingWorld();
+    const emoji = this.placingStickerEmoji();
+    this.placingWorld.set(null);
+    if (!p || !emoji) return;
+    const col = this.cols()[this.zoneIndexForX(p.x)];
+    if (!col) return;
+    this.stickerPlaceRequested.emit({ emoji, column: col.key, x: p.x, y: p.y });
+  }
+
+  private confirmTimerPlacement(): void {
+    const p = this.placingWorld();
+    this.placingWorld.set(null);
+    this.timerNeedsPlacement.set(false);
+    if (p) this.timerWidgetPos.set(p);
+  }
+
+  @HostListener('document:keydown.escape')
+  onEscapeKey(): void {
+    if (this.timerNeedsPlacement()) { this.timerNeedsPlacement.set(false); this.placingWorld.set(null); }
+    if (this.placingStickerEmoji()) { this.placingWorld.set(null); this.stickerPlacementCancelled.emit(); }
   }
 
   pendingCardColor(): string {
@@ -847,6 +955,15 @@ export class RetroSingleCanvasComponent implements AfterViewInit {
 
   @HostListener('document:mousemove', ['$event'])
   onMouseMove(e: MouseEvent): void {
+    if (this.placingStickerEmoji() || this.timerNeedsPlacement()) {
+      const outer = this.outerEl();
+      if (outer) {
+        const rect = outer.getBoundingClientRect();
+        const v = this.view();
+        this.placingWorld.set({ x: (e.clientX - rect.left - v.panX) / v.zoom, y: (e.clientY - rect.top - v.panY) / v.zoom });
+      }
+      return;
+    }
     if (this.panState) {
       const p = this.panState;
       const v = this.view();
@@ -889,6 +1006,13 @@ export class RetroSingleCanvasComponent implements AfterViewInit {
     const x = Math.max(0, this.dragState.startX + dx);
     const y = Math.max(0, this.dragState.startY + dy);
     this.localPositions.update(p => ({ ...p, [this.dragState!.id]: { x, y } }));
+    if (this.dragState.pinnedTokens.length) {
+      this.localTokenPositions.update(p => {
+        const next = { ...p };
+        for (const t of this.dragState!.pinnedTokens) next[t.id] = { x: Math.max(0, t.startX + dx), y: Math.max(0, t.startY + dy) };
+        return next;
+      });
+    }
   }
 
   @HostListener('document:mouseup')
@@ -911,10 +1035,15 @@ export class RetroSingleCanvasComponent implements AfterViewInit {
       return;
     }
     if (!this.dragState) return;
-    const { id, moved } = this.dragState;
+    const { id, moved, pinnedTokens } = this.dragState;
     if (moved) {
       const pos = this.localPositions()[id];
       if (pos) this.positionCommitted.emit({ cardId: id, x: pos.x, y: pos.y });
+      const tokenPositions = this.localTokenPositions();
+      for (const t of pinnedTokens) {
+        const tPos = tokenPositions[t.id];
+        if (tPos) this.tokenPositionCommitted.emit({ tokenId: t.id, x: tPos.x, y: tPos.y });
+      }
     } else {
       const card = this.session()?.cards.find(c => c.id === id);
       if (card) this.cardSelected.emit(card);
