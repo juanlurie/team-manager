@@ -29,7 +29,6 @@ export type RetroCanvasTool = 'select' | 'add-card';
     .tool-btn:hover { background:rgba(255,255,255,0.1);color:#fff; }
     .tool-btn.active { background:rgba(100,181,246,0.18);color:#64b5f6; }
     .tool-btn mat-icon { font-size:18px;width:18px;height:18px;line-height:18px; }
-    .tool-btn .emoji-icon { font-size:16px;line-height:1; }
     .tool-divider { height:1px;background:rgba(255,255,255,0.1);margin:2px 4px; }
   `],
   template: `
@@ -44,7 +43,7 @@ export type RetroCanvasTool = 'select' | 'add-card';
       </button>
       <span class="tool-divider"></span>
       <button class="tool-btn" title="Add a sticker" (click)="stickerRequested.emit($event)">
-        <span class="emoji-icon">🏷️</span>
+        <mat-icon>sell</mat-icon>
       </button>
       @if (showRevealAction()) {
         <button class="tool-btn" title="Reveal all cards now" (click)="revealRequested.emit()">
