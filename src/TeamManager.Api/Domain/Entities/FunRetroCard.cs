@@ -17,4 +17,5 @@ public class FunRetroCard
     public TeamMember Author { get; set; } = null!;
     public ICollection<FunRetroVote> Votes { get; set; } = [];
     public ICollection<FunRetroReaction> Reactions { get; set; } = [];
+    public ICollection<FunRetroCardComment> Comments { get; set; } = [];
 }

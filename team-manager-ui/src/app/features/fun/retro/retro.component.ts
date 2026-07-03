@@ -12,7 +12,7 @@ import { Subject, Subscription } from 'rxjs';
 import { takeUntil, filter, take } from 'rxjs/operators';
 import { Router, ActivatedRoute } from '@angular/router';
 import { FunRetroService } from '../../../core/services/fun-retro.service';
-import { FunRetroAnalysis, FunRetroSession, FunRetroSessionSummary, FunRetroCard, RetroColumn, RetroTheme, RetroCanvasLayout } from '../../../core/models/fun-retro.model';
+import { FunRetroAnalysis, FunRetroSession, FunRetroSessionSummary, FunRetroCard, RetroColumn, RetroTheme, RetroCanvasLayout, FunRetroCardComment } from '../../../core/models/fun-retro.model';
 import { WebSocketService } from '../../../core/websocket/websocket.service';
 import { AvatarCircleComponent } from '../../../core/components/k-picker/avatar-circle.component';
 import { AuthService } from '../../../core/auth/auth.service';
@@ -584,6 +584,62 @@ interface TimerState {
       background:#ef9a9a;
     }
     .sticky-lock-badge.unlocked { background:#a5d6a7; }
+    .sticky-comment-badge {
+      position:absolute;bottom:-10px;right:8px;
+      display:flex;align-items:center;gap:2px;
+      font-size:0.68rem;font-weight:700;color:#fff;font-family:inherit;
+      background:#9c27b0;border:2px solid rgba(255,255,255,0.9);
+      border-radius:12px;padding:2px 8px;cursor:pointer;
+      box-shadow:0 2px 4px rgba(0,0,0,0.3);
+    }
+    .card-toolbar {
+      position:fixed;z-index:250;
+      display:flex;align-items:center;gap:2px;
+      background:#2a2a2a;border:1px solid rgba(255,255,255,0.15);
+      border-radius:10px;padding:4px;box-shadow:0 4px 16px rgba(0,0,0,0.5);
+    }
+    .toolbar-btn {
+      position:relative;display:inline-flex;align-items:center;justify-content:center;
+      width:32px;height:32px;border-radius:7px;
+      background:transparent;border:none;color:rgba(255,255,255,0.75);cursor:pointer;
+      transition:background .12s,color .12s;
+    }
+    .toolbar-btn:hover { background:rgba(255,255,255,0.1);color:#fff; }
+    .toolbar-btn-danger:hover { background:rgba(239,83,80,0.15);color:#ef5350; }
+    .toolbar-btn mat-icon { font-size:18px;width:18px;height:18px; }
+    .toolbar-badge {
+      position:absolute;top:-4px;right:-4px;min-width:14px;height:14px;padding:0 3px;
+      border-radius:8px;background:#9c27b0;color:#fff;font-size:0.6rem;font-weight:700;
+      display:flex;align-items:center;justify-content:center;
+    }
+    .comment-thread-popover {
+      position:fixed;z-index:250;width:260px;max-height:340px;
+      display:flex;flex-direction:column;
+      background:#2a2a2a;border:1px solid rgba(255,255,255,0.15);
+      border-radius:10px;box-shadow:0 4px 16px rgba(0,0,0,0.5);overflow:hidden;
+    }
+    .comment-thread-list { flex:1;overflow-y:auto;padding:10px 12px;display:flex;flex-direction:column;gap:10px;max-height:220px; }
+    .comment-thread-loading, .comment-thread-empty { font-size:0.78rem;color:rgba(255,255,255,0.35);text-align:center;padding:8px 0; }
+    .comment-item-head { display:flex;align-items:center;gap:6px; }
+    .comment-author { font-size:0.75rem;font-weight:700;color:rgba(255,255,255,0.85); }
+    .comment-time { font-size:0.68rem;color:rgba(255,255,255,0.35);flex:1; }
+    .comment-delete-btn { background:transparent;border:none;color:rgba(255,255,255,0.3);cursor:pointer;font-size:15px;line-height:1;padding:0 2px; }
+    .comment-delete-btn:hover { color:rgba(239,83,80,0.8); }
+    .comment-text { font-size:0.8rem;color:rgba(255,255,255,0.75);line-height:1.4;margin-top:2px;overflow-wrap:anywhere; }
+    .comment-thread-input { border-top:1px solid rgba(255,255,255,0.1);padding:8px 10px;display:flex;flex-direction:column;gap:6px; }
+    .comment-thread-input textarea {
+      width:100%;box-sizing:border-box;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);
+      border-radius:6px;color:inherit;font-size:0.8rem;padding:6px 8px;outline:none;resize:none;
+      font-family:inherit;min-height:32px;
+    }
+    .comment-thread-input textarea:focus { border-color:#64b5f6; }
+    .comment-thread-actions { display:flex;justify-content:flex-end;gap:6px; }
+    .comment-thread-actions button {
+      font-size:0.75rem;padding:4px 12px;border-radius:6px;font-family:inherit;cursor:pointer;
+      background:transparent;border:1px solid rgba(255,255,255,0.15);color:rgba(255,255,255,0.6);
+    }
+    .comment-thread-actions button:last-child { background:rgba(100,181,246,0.18);border-color:rgba(100,181,246,0.4);color:#64b5f6;font-weight:600; }
+    .comment-thread-actions button:disabled { opacity:0.4;cursor:default; }
     .sticky-footer { display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:4px; }
     .sticky-vote-row { display:flex;align-items:center;gap:0;margin-top:4px; }
     .sticky-vote-count { min-width:22px;text-align:center;font-size:0.7rem;font-weight:700;color:rgba(0,0,0,0.45);font-variant-numeric:tabular-nums; }
@@ -1355,14 +1411,15 @@ interface TimerState {
             [resolveCardColor]="resolveCardColorFn"
             (voteToggled)="toggleVote($event)"
             (reactionToggled)="toggleReaction($event.card, $event.emoji)"
-            (cardDeleted)="deleteCard($event)"
             (colorPickerRequested)="toggleColorPicker($event.event, $event.cardId)"
             (editStarted)="startEditCard($event)"
             (editTextChanged)="editingText.set($event)"
             (editSaved)="saveCardText($event)"
             (editCancelled)="cancelEditCard()"
             (addCardRequested)="onSingleCanvasAddCard($event)"
-            (positionCommitted)="onSingleCanvasPositionCommitted($event)" />
+            (positionCommitted)="onSingleCanvasPositionCommitted($event)"
+            (cardSelected)="selectCard($event.id)"
+            (commentThreadRequested)="openCommentThread($event.event, $event.card)" />
         }
 
         <!-- Desktop: 3 separate sticky canvases side by side -->
@@ -1407,6 +1464,7 @@ interface TimerState {
                        [style.transform]="'translate(' + view.panX + 'px,' + view.panY + 'px) scale(' + view.zoom + ')'">
                     @for (item of items; track item.card.id) {
                       <div class="sticky"
+                           [attr.data-card-id]="item.card.id"
                            [class.dragging]="draggingId() === item.card.id"
                            [class.no-drag]="s.phase === 'done'"
                            [style.left.px]="item.x"
@@ -1417,6 +1475,10 @@ interface TimerState {
                           <div class="sticky-lock-badge" [class.unlocked]="item.card.text !== null" [title]="item.card.text === null ? 'Hidden until reveal' : 'Visible to everyone'">
                             {{ item.card.text === null ? '🙈' : '📝' }}
                           </div>
+                          @if (item.card.commentCount > 0) {
+                            <button class="sticky-comment-badge" (mousedown)="$event.stopPropagation()"
+                                    (click)="openCommentThread($event, item.card)">💬{{ item.card.commentCount }}</button>
+                          }
                           @if (item.card.text === null) {
                           <!-- Hidden card: show who wrote it, not what -->
                           <div class="sticky-header">
@@ -1433,9 +1495,6 @@ interface TimerState {
                           <div class="sticky-header">
                             <app-avatar-circle [memberId]="item.card.authorId" [name]="item.card.authorName" [avatarSeed]="item.card.authorAvatarSeed" [size]="18" />
                             <span class="sticky-author" style="flex:1">{{ item.card.authorName }}</span>
-                            @if (s.phase === 'add' && item.card.isOwn) {
-                              <button class="sticky-del-btn" (mousedown)="$event.stopPropagation()" (click)="deleteCard(item.card)">×</button>
-                            }
                           </div>
                         }
                         <!-- Card text / inline edit -->
@@ -1599,6 +1658,62 @@ interface TimerState {
             </div>
           }
         }
+        @if (selectedCard(); as card) {
+          @if (selectedCardToolbarPos(); as pos) {
+            <div class="card-toolbar" [style.top.px]="pos.top" [style.left.px]="pos.left"
+                 (mousedown)="$event.stopPropagation()" (click)="$event.stopPropagation()">
+              <button class="toolbar-btn" title="Comments" (click)="openCommentThread($event, card)">
+                <mat-icon>chat_bubble_outline</mat-icon>
+                @if (card.commentCount > 0) { <span class="toolbar-badge">{{ card.commentCount }}</span> }
+              </button>
+              <button class="toolbar-btn" title="Change color" (click)="toggleColorPicker($event, card.id)">
+                <mat-icon>palette</mat-icon>
+              </button>
+              @if ((card.isOwn || s.isCreator) && s.phase === 'add') {
+                <button class="toolbar-btn toolbar-btn-danger" title="Delete" (click)="deleteCard(card)">
+                  <mat-icon>delete_outline</mat-icon>
+                </button>
+              }
+            </div>
+          }
+        }
+        @if (commentThreadFor(); as cardId) {
+          @if (commentThreadPos(); as pos) {
+            <div class="comment-thread-popover" [style.top.px]="pos.top" [style.left.px]="pos.left"
+                 (mousedown)="$event.stopPropagation()" (click)="$event.stopPropagation()">
+              <div class="comment-thread-list">
+                @if (commentThreadLoading()) {
+                  <div class="comment-thread-loading">Loading…</div>
+                } @else {
+                  @for (c of commentThreadItems(); track c.id) {
+                    <div class="comment-item">
+                      <div class="comment-item-head">
+                        <span class="comment-author">{{ c.authorName }}</span>
+                        <span class="comment-time">{{ relativeTime(c.createdAt) }}</span>
+                        @if (c.authorId === authSvc.me?.id || s.isCreator) {
+                          <button class="comment-delete-btn" (click)="deleteComment(cardId, c.id)">×</button>
+                        }
+                      </div>
+                      <div class="comment-text">{{ c.text }}</div>
+                    </div>
+                  }
+                  @if (!commentThreadItems().length) {
+                    <div class="comment-thread-empty">No comments yet.</div>
+                  }
+                }
+              </div>
+              <div class="comment-thread-input">
+                <textarea [value]="newCommentText()" (input)="newCommentText.set($any($event.target).value)"
+                          placeholder="Add a comment…" cdkTextareaAutosize
+                          (keydown.enter)="$event.preventDefault(); postComment(cardId)"></textarea>
+                <div class="comment-thread-actions">
+                  <button (click)="commentThreadFor.set(null); commentThreadPos.set(null)">Cancel</button>
+                  <button [disabled]="postingComment() || !newCommentText().trim()" (click)="postComment(cardId)">Save</button>
+                </div>
+              </div>
+            </div>
+          }
+        }
       </div>
     }
   `
@@ -1718,7 +1833,8 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
   editingText = signal('');
   localPositions = signal<Record<string, { x: number; y: number }>>({});
   draggingId = signal<string | null>(null);
-  private dragState: { id: string; col: string; startMouseX: number; startMouseY: number; startX: number; startY: number } | null = null;
+  private dragState: { id: string; col: string; startMouseX: number; startMouseY: number; startX: number; startY: number; moved: boolean } | null = null;
+  private static readonly CLICK_MOVE_THRESHOLD = 4; // px
 
   // ── Per-column Miro-style pan/zoom viewport ──
   canvasView = signal<Record<string, { zoom: number; panX: number; panY: number }>>({});
@@ -1952,6 +2068,15 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
     if (!this.dragState) return;
+    if (!this.dragState.moved) {
+      const totalDx = e.clientX - this.dragState.startMouseX;
+      const totalDy = e.clientY - this.dragState.startMouseY;
+      if (Math.hypot(totalDx, totalDy) > FunRetroComponent.CLICK_MOVE_THRESHOLD) this.dragState.moved = true;
+    }
+    // Cards don't reposition once the retro is done -- still track movement above so a
+    // click (for selection) is distinguishable from a drag attempt, just don't visually
+    // drag the card since that move would never persist anyway.
+    if (this.session()?.phase === 'done') return;
     // Mouse deltas are in screen px; convert to canvas px by the column's zoom.
     const zoom = this.viewFor(this.dragState.col).zoom;
     const dx = (e.clientX - this.dragState.startMouseX) / zoom;
@@ -1969,10 +2094,14 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
     if (!this.dragState) return;
-    const { id } = this.dragState;
-    const s = this.session();
-    const pos = this.localPositions()[id];
-    if (s && pos) this.svc.updateCardPosition(s.id, id, pos.x, pos.y).subscribe();
+    const { id, moved } = this.dragState;
+    if (moved) {
+      const s = this.session();
+      const pos = this.localPositions()[id];
+      if (s && pos) this.svc.updateCardPosition(s.id, id, pos.x, pos.y).subscribe();
+    } else {
+      this.selectCard(id);
+    }
     this.dragState = null;
     this.draggingId.set(null);
   }
@@ -2034,15 +2163,23 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   startDrag(e: MouseEvent, card: FunRetroCard, x: number, y: number, col: string): void {
-    const s = this.session();
-    if (e.button !== 0 || s?.phase === 'done') return;
+    if (e.button !== 0) return;
     e.preventDefault();
-    this.dragState = { id: card.id, col, startMouseX: e.clientX, startMouseY: e.clientY, startX: x, startY: y };
+    this.dragState = { id: card.id, col, startMouseX: e.clientX, startMouseY: e.clientY, startX: x, startY: y, moved: false };
     this.draggingId.set(card.id);
   }
 
+  // A card-selecting click is detected on `mouseup` (see onMouseUp), but the same gesture
+  // still produces a following native `click` that bubbles to document right after --
+  // without this, that click would immediately hit onDocClick and close the toolbar we
+  // just opened. Sibling popover triggers avoid this by calling e.stopPropagation() inside
+  // their own (click) handler; selectCard() has no such click event to stop (it runs from
+  // mouseup), so it sets this instead for the next doc click to consume once and skip.
+  private suppressNextDocClick = false;
+
   @HostListener('document:click')
   onDocClick(): void {
+    if (this.suppressNextDocClick) { this.suppressNextDocClick = false; return; }
     this.closeAllPickers();
   }
 
@@ -2055,6 +2192,110 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
     if (this.timerPopoverOpen()) this.timerPopoverOpen.set(false);
     if (this.emojiPickerFor()) { this.emojiPickerFor.set(null); this.emojiPickerPos.set(null); }
     if (this.phasePanelOpen()) this.phasePanelOpen.set(false);
+    if (this.selectedCardId()) { this.selectedCardId.set(null); this.selectedCardToolbarPos.set(null); }
+    if (this.commentThreadFor()) { this.commentThreadFor.set(null); this.commentThreadPos.set(null); }
+  }
+
+  // ── Card selection + floating toolbar ──
+  selectedCardId = signal<string | null>(null);
+  selectedCardToolbarPos = signal<{ top: number; left: number } | null>(null);
+  selectedCard = computed(() => {
+    const id = this.selectedCardId();
+    return id ? (this.session()?.cards.find(c => c.id === id) ?? null) : null;
+  });
+
+  selectCard(cardId: string): void {
+    this.suppressNextDocClick = true;
+    const wasSelected = this.selectedCardId() === cardId;
+    this.closeAllPickers();
+    if (wasSelected) return; // clicking the already-selected card again just deselects it
+
+    const el = (this.elRef.nativeElement as HTMLElement).querySelector(`[data-card-id="${cardId}"]`);
+    const rect = el?.getBoundingClientRect();
+    const toolbarWidth = 116;
+    this.selectedCardId.set(cardId);
+    this.selectedCardToolbarPos.set(rect
+      ? { top: rect.top - 46, left: Math.max(8, rect.left + rect.width / 2 - toolbarWidth / 2) }
+      : null);
+  }
+
+  // ── Comment thread popover ──
+  commentThreadFor = signal<string | null>(null);
+  commentThreadPos = signal<{ top: number; left: number } | null>(null);
+  commentThreadItems = signal<FunRetroCardComment[]>([]);
+  commentThreadLoading = signal(false);
+  newCommentText = signal('');
+  postingComment = signal(false);
+
+  openCommentThread(e: MouseEvent, card: FunRetroCard): void {
+    e.stopPropagation();
+    const opening = this.commentThreadFor() !== card.id;
+    this.commentThreadFor.set(opening ? card.id : null);
+    if (!opening) { this.commentThreadPos.set(null); return; }
+
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    this.commentThreadPos.set({ top: rect.bottom + 8, left: Math.max(8, rect.left - 140) });
+    this.commentThreadItems.set([]);
+    this.newCommentText.set('');
+    this.commentThreadLoading.set(true);
+
+    const s = this.session();
+    if (!s) return;
+    this.svc.getCardComments(s.id, card.id).subscribe({
+      next: list => { this.commentThreadItems.set(list); this.commentThreadLoading.set(false); },
+      error: () => { this.commentThreadLoading.set(false); },
+    });
+  }
+
+  postComment(cardId: string): void {
+    const s = this.session();
+    const text = this.newCommentText().trim();
+    if (!s || !text || this.postingComment()) return;
+    this.postingComment.set(true);
+    this.svc.addCardComment(s.id, cardId, text).subscribe({
+      next: comment => {
+        this.commentThreadItems.update(list => [...list, comment]);
+        this.newCommentText.set('');
+        this.postingComment.set(false);
+        // Optimistic local bump so the badge updates instantly for the poster without
+        // waiting on the broadcast round-trip.
+        this.session.update(cur => cur ? {
+          ...cur,
+          cards: cur.cards.map(c => c.id === cardId ? { ...c, commentCount: c.commentCount + 1 } : c),
+        } : cur);
+      },
+      error: () => { this.postingComment.set(false); this.snackBar.open('Failed to post comment', 'OK', { duration: 3000 }); },
+    });
+  }
+
+  deleteComment(cardId: string, commentId: string): void {
+    const s = this.session();
+    if (!s) return;
+    this.commentThreadItems.update(list => list.filter(c => c.id !== commentId));
+    this.session.update(cur => cur ? {
+      ...cur,
+      cards: cur.cards.map(c => c.id === cardId ? { ...c, commentCount: Math.max(0, c.commentCount - 1) } : c),
+    } : cur);
+    this.svc.deleteCardComment(s.id, cardId, commentId).subscribe({
+      error: () => this.snackBar.open('Failed to delete comment', 'OK', { duration: 3000 }),
+    });
+  }
+
+  private static readonly RELATIVE_TIME_UNITS: [number, string][] = [
+    [60, 'second'], [60, 'minute'], [24, 'hour'], [7, 'day'], [4.345, 'week'], [12, 'month'], [Infinity, 'year'],
+  ];
+
+  relativeTime(iso: string): string {
+    let diff = (Date.now() - new Date(iso).getTime()) / 1000;
+    if (diff < 5) return 'just now';
+    for (const [amount, unit] of FunRetroComponent.RELATIVE_TIME_UNITS) {
+      if (diff < amount) {
+        const n = Math.floor(diff);
+        return `${n} ${unit}${n !== 1 ? 's' : ''} ago`;
+      }
+      diff /= amount;
+    }
+    return 'a while ago';
   }
 
   timerPopoverOpen = signal(false);
@@ -2245,6 +2486,23 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
         case 'fun_retro_card_added':
         case 'fun_retro_voted':
         case 'fun_retro_reacted':
+          if (msg.data['sessionId'] === s.id) this.silentRefresh();
+          break;
+        case 'fun_retro_comment_added':
+          if (msg.data['sessionId'] === s.id) {
+            this.silentRefresh();
+            // If this card's thread is already open (for either the poster -- whose own
+            // optimistic append in postComment() already covers their own comment -- or
+            // another participant viewing the same card), refetch its list instead of
+            // trying to splice the broadcast payload in directly. Simpler and avoids any
+            // dependency on the WS payload's exact shape matching the model 1:1.
+            const cardId = this.commentThreadFor();
+            if (cardId && cardId === msg.data['cardId']) {
+              this.svc.getCardComments(s.id, cardId).subscribe(list => this.commentThreadItems.set(list));
+            }
+          }
+          break;
+        case 'fun_retro_comment_deleted':
           if (msg.data['sessionId'] === s.id) this.silentRefresh();
           break;
         case 'fun_retro_phase_changed':

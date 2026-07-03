@@ -134,6 +134,14 @@ const REACTION_EMOJIS = ['👍', '❤️', '😂', '🎉', '🤔'];
       background:#ef9a9a;
     }
     .sticky-lock-badge.unlocked { background:#a5d6a7; }
+    .sticky-comment-badge {
+      position:absolute;bottom:-10px;right:8px;
+      display:flex;align-items:center;gap:2px;
+      font-size:0.68rem;font-weight:700;color:#fff;font-family:inherit;
+      background:#9c27b0;border:2px solid rgba(255,255,255,0.9);
+      border-radius:12px;padding:2px 8px;cursor:pointer;
+      box-shadow:0 2px 4px rgba(0,0,0,0.3);
+    }
     .sticky-footer { display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:4px; }
     .sticky-vote-row { display:flex;align-items:center;gap:0;margin-top:4px; }
     .sticky-vote-count { min-width:22px;text-align:center;font-size:0.7rem;font-weight:700;color:rgba(0,0,0,0.45);font-variant-numeric:tabular-nums; }
@@ -220,6 +228,7 @@ const REACTION_EMOJIS = ['👍', '❤️', '😂', '🎉', '🤔'];
         }
         @for (item of allItems(); track item.card.id) {
           <div class="sticky"
+               [attr.data-card-id]="item.card.id"
                [class.dragging]="draggingId() === item.card.id"
                [class.no-drag]="s?.phase === 'done'"
                [style.left.px]="item.x"
@@ -230,6 +239,10 @@ const REACTION_EMOJIS = ['👍', '❤️', '😂', '🎉', '🤔'];
             <div class="sticky-lock-badge" [class.unlocked]="item.card.text !== null" [title]="item.card.text === null ? 'Hidden until reveal' : 'Visible to everyone'">
               {{ item.card.text === null ? '🙈' : '📝' }}
             </div>
+            @if (item.card.commentCount > 0) {
+              <button class="sticky-comment-badge" (mousedown)="$event.stopPropagation()"
+                      (click)="commentThreadRequested.emit({ event: $event, card: item.card })">💬{{ item.card.commentCount }}</button>
+            }
             @if (item.card.text === null) {
               <div class="sticky-header">
                 <app-avatar-circle [memberId]="item.card.authorId" [name]="item.card.authorName ?? ''" [avatarSeed]="item.card.authorAvatarSeed" [size]="18" />
@@ -244,9 +257,6 @@ const REACTION_EMOJIS = ['👍', '❤️', '😂', '🎉', '🤔'];
                 <div class="sticky-header">
                   <app-avatar-circle [memberId]="item.card.authorId" [name]="item.card.authorName" [avatarSeed]="item.card.authorAvatarSeed" [size]="18" />
                   <span class="sticky-author" style="flex:1">{{ item.card.authorName }}</span>
-                  @if (s?.phase === 'add' && item.card.isOwn) {
-                    <button class="sticky-del-btn" (mousedown)="$event.stopPropagation()" (click)="cardDeleted.emit(item.card)">×</button>
-                  }
                 </div>
               }
               @if (editingCardId() === item.card.id) {
@@ -354,7 +364,6 @@ export class RetroSingleCanvasComponent implements AfterViewInit {
 
   voteToggled = output<FunRetroCard>();
   reactionToggled = output<{ card: FunRetroCard; emoji: string }>();
-  cardDeleted = output<FunRetroCard>();
   colorPickerRequested = output<{ event: MouseEvent; cardId: string }>();
   editStarted = output<FunRetroCard>();
   editTextChanged = output<string>();
@@ -362,6 +371,8 @@ export class RetroSingleCanvasComponent implements AfterViewInit {
   editCancelled = output<void>();
   addCardRequested = output<{ column: string; text: string; x: number; y: number }>();
   positionCommitted = output<{ cardId: string; x: number; y: number }>();
+  cardSelected = output<FunRetroCard>();
+  commentThreadRequested = output<{ event: MouseEvent; card: FunRetroCard }>();
 
   readonly reactionEmojis = REACTION_EMOJIS;
   // Wide enough for 3 sticky-columns per zone (200px cards) instead of 2 -- panning/zooming
@@ -389,7 +400,8 @@ export class RetroSingleCanvasComponent implements AfterViewInit {
   pendingCard = signal<{ x: number; y: number; text: string } | null>(null);
 
   private panState: { startMouseX: number; startMouseY: number; startPanX: number; startPanY: number } | null = null;
-  private dragState: { id: string; startMouseX: number; startMouseY: number; startX: number; startY: number } | null = null;
+  private dragState: { id: string; startMouseX: number; startMouseY: number; startX: number; startY: number; moved: boolean } | null = null;
+  private static readonly CLICK_MOVE_THRESHOLD = 4; // px
 
   zoneOriginX(zoneIndex: number): number {
     return zoneIndex * (this.ZONE_WIDTH + this.ZONE_GAP);
@@ -630,10 +642,9 @@ export class RetroSingleCanvasComponent implements AfterViewInit {
   }
 
   startDrag(e: MouseEvent, card: FunRetroCard, x: number, y: number): void {
-    const s = this.session();
-    if (e.button !== 0 || s?.phase === 'done') return;
+    if (e.button !== 0) return;
     e.preventDefault();
-    this.dragState = { id: card.id, startMouseX: e.clientX, startMouseY: e.clientY, startX: x, startY: y };
+    this.dragState = { id: card.id, startMouseX: e.clientX, startMouseY: e.clientY, startX: x, startY: y, moved: false };
     this.draggingId.set(card.id);
   }
 
@@ -708,6 +719,12 @@ export class RetroSingleCanvasComponent implements AfterViewInit {
       return;
     }
     if (!this.dragState) return;
+    if (!this.dragState.moved) {
+      const totalDx = e.clientX - this.dragState.startMouseX;
+      const totalDy = e.clientY - this.dragState.startMouseY;
+      if (Math.hypot(totalDx, totalDy) > RetroSingleCanvasComponent.CLICK_MOVE_THRESHOLD) this.dragState.moved = true;
+    }
+    if (this.session()?.phase === 'done') return;
     const zoom = this.view().zoom;
     const dx = (e.clientX - this.dragState.startMouseX) / zoom;
     const dy = (e.clientY - this.dragState.startMouseY) / zoom;
@@ -724,9 +741,14 @@ export class RetroSingleCanvasComponent implements AfterViewInit {
       return;
     }
     if (!this.dragState) return;
-    const { id } = this.dragState;
-    const pos = this.localPositions()[id];
-    if (pos) this.positionCommitted.emit({ cardId: id, x: pos.x, y: pos.y });
+    const { id, moved } = this.dragState;
+    if (moved) {
+      const pos = this.localPositions()[id];
+      if (pos) this.positionCommitted.emit({ cardId: id, x: pos.x, y: pos.y });
+    } else {
+      const card = this.session()?.cards.find(c => c.id === id);
+      if (card) this.cardSelected.emit(card);
+    }
     this.dragState = null;
     this.draggingId.set(null);
   }

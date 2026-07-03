@@ -104,6 +104,34 @@ public class FunRetroController(FunRetroService service, PollService pollService
         return Ok();
     }
 
+    [HttpGet("{id:guid}/cards/{cardId:guid}/comments")]
+    public async Task<IActionResult> GetCardComments(Guid id, Guid cardId)
+    {
+        var memberId = GetCurrentMemberId();
+        if (!memberId.HasValue) return Unauthorized();
+        return Ok(await service.GetCardCommentsAsync(id, cardId));
+    }
+
+    [HttpPost("{id:guid}/cards/{cardId:guid}/comments")]
+    public async Task<IActionResult> AddCardComment(Guid id, Guid cardId, [FromBody] AddFunRetroCardCommentRequest request)
+    {
+        var memberId = GetCurrentMemberId();
+        if (!memberId.HasValue) return Unauthorized();
+        var comment = await service.AddCardCommentAsync(id, cardId, memberId.Value, request.Text);
+        if (comment is null) return BadRequest();
+        return Ok(comment);
+    }
+
+    [HttpDelete("{id:guid}/cards/{cardId:guid}/comments/{commentId:guid}")]
+    public async Task<IActionResult> DeleteCardComment(Guid id, Guid cardId, Guid commentId)
+    {
+        var memberId = GetCurrentMemberId();
+        if (!memberId.HasValue) return Unauthorized();
+        var success = await service.DeleteCardCommentAsync(id, cardId, commentId, memberId.Value);
+        if (!success) return NotFound();
+        return NoContent();
+    }
+
     [HttpPatch("{id:guid}/cards/{cardId:guid}/text")]
     public async Task<IActionResult> UpdateCardText(Guid id, Guid cardId, [FromBody] CardTextRequest request)
     {

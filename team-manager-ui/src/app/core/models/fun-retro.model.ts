@@ -21,6 +21,16 @@ export interface FunRetroCard {
   positionY: number | null;
   color: string | null;
   groupId: string | null;
+  commentCount: number;
+}
+
+export interface FunRetroCardComment {
+  id: string;
+  cardId: string;
+  authorId: string;
+  authorName: string;
+  text: string;
+  createdAt: string;
 }
 
 export interface FunRetroAnalysis {

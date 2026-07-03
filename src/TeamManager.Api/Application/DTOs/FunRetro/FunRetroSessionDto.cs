@@ -64,6 +64,22 @@ public record FunRetroCardDto
     public double? PositionY { get; init; }
     public string? Color { get; init; }
     public Guid? GroupId { get; init; }
+    public int CommentCount { get; init; }
+}
+
+public record FunRetroCardCommentDto
+{
+    public Guid Id { get; init; }
+    public Guid CardId { get; init; }
+    public Guid AuthorId { get; init; }
+    public string AuthorName { get; init; } = "";
+    public string Text { get; init; } = "";
+    public DateTimeOffset CreatedAt { get; init; }
+}
+
+public record AddFunRetroCardCommentRequest
+{
+    public string Text { get; init; } = "";
 }
 
 public record FunRetroReactionDto

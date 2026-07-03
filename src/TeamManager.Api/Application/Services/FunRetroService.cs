@@ -68,6 +68,8 @@ public class FunRetroService(AppDbContext db, AiPromptExecutorService aiExecutor
                 .ThenInclude(c => c.Reactions)
             .Include(s => s.Cards)
                 .ThenInclude(c => c.Author)
+            .Include(s => s.Cards)
+                .ThenInclude(c => c.Comments)
             .FirstOrDefaultAsync(s => s.Id == sessionId);
 
         if (session is null) return null;
@@ -111,6 +113,7 @@ public class FunRetroService(AppDbContext db, AiPromptExecutorService aiExecutor
                     PositionY = c.PositionY,
                     Color = c.Color,
                     GroupId = c.GroupId,
+                    CommentCount = c.Comments.Count,
                 };
             })
             .ToList();
@@ -420,6 +423,84 @@ public class FunRetroService(AppDbContext db, AiPromptExecutorService aiExecutor
 
         _ = WebSocketMiddleware.BroadcastAsync("fun_retro_reacted", new { sessionId, cardId }, guestAllowed: true);
 
+        return true;
+    }
+
+    public async Task<List<FunRetroCardCommentDto>> GetCardCommentsAsync(Guid sessionId, Guid cardId)
+    {
+        var exists = await db.FunRetroCards.AnyAsync(c => c.Id == cardId && c.SessionId == sessionId);
+        if (!exists) return [];
+
+        return await db.FunRetroCardComments
+            .Where(c => c.CardId == cardId)
+            .OrderBy(c => c.CreatedAt)
+            .Select(c => new FunRetroCardCommentDto
+            {
+                Id = c.Id,
+                CardId = c.CardId,
+                AuthorId = c.AuthorId,
+                AuthorName = c.AuthorName,
+                Text = c.Text,
+                CreatedAt = c.CreatedAt,
+            })
+            .ToListAsync();
+    }
+
+    public async Task<FunRetroCardCommentDto?> AddCardCommentAsync(Guid sessionId, Guid cardId, Guid memberId, string text)
+    {
+        var trimmed = text.Trim();
+        if (string.IsNullOrEmpty(trimmed)) return null;
+
+        var card = await db.FunRetroCards.FirstOrDefaultAsync(c => c.Id == cardId && c.SessionId == sessionId);
+        if (card is null) return null;
+
+        var member = await db.TeamMembers.FindAsync(memberId);
+        if (member is null) return null;
+
+        var comment = new FunRetroCardComment
+        {
+            CardId = cardId,
+            AuthorId = memberId,
+            AuthorName = $"{member.FirstName} {member.LastName}".Trim(),
+            Text = trimmed,
+        };
+        db.FunRetroCardComments.Add(comment);
+        await db.SaveChangesAsync();
+
+        var count = await db.FunRetroCardComments.CountAsync(c => c.CardId == cardId);
+        var dto = new FunRetroCardCommentDto
+        {
+            Id = comment.Id,
+            CardId = cardId,
+            AuthorId = memberId,
+            AuthorName = comment.AuthorName,
+            Text = comment.Text,
+            CreatedAt = comment.CreatedAt,
+        };
+
+        _ = WebSocketMiddleware.BroadcastAsync("fun_retro_comment_added",
+            new { sessionId, cardId, commentCount = count, comment = dto }, guestAllowed: true);
+
+        return dto;
+    }
+
+    public async Task<bool> DeleteCardCommentAsync(Guid sessionId, Guid cardId, Guid commentId, Guid memberId)
+    {
+        var comment = await db.FunRetroCardComments
+            .Include(c => c.Card).ThenInclude(card => card.Session)
+            .FirstOrDefaultAsync(c => c.Id == commentId && c.CardId == cardId && c.Card.SessionId == sessionId);
+        if (comment is null) return false;
+
+        var isAuthor = comment.AuthorId == memberId;
+        var isHost = comment.Card.Session.CreatedByMemberId == memberId;
+        if (!isAuthor && !isHost) return false;
+
+        db.FunRetroCardComments.Remove(comment);
+        await db.SaveChangesAsync();
+
+        var count = await db.FunRetroCardComments.CountAsync(c => c.CardId == cardId);
+        _ = WebSocketMiddleware.BroadcastAsync("fun_retro_comment_deleted",
+            new { sessionId, cardId, commentId, commentCount = count }, guestAllowed: true);
         return true;
     }
 
