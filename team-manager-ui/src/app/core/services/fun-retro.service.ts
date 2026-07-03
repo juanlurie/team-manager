@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { FunRetroAnalysis, FunRetroSession, FunRetroSessionSummary, RetroColumn, RetroTheme, RetroCanvasLayout } from '../models/fun-retro.model';
+import { FunRetroAnalysis, FunRetroSession, FunRetroSessionSummary, RetroColumn, RetroTheme, RetroCanvasLayout, FunRetroCardComment } from '../models/fun-retro.model';
 
 @Injectable({ providedIn: 'root' })
 export class FunRetroService {
@@ -58,6 +58,18 @@ export class FunRetroService {
 
   updateCardText(sessionId: string, cardId: string, text: string): Observable<void> {
     return this.http.patch<void>(`${this.base}/${sessionId}/cards/${cardId}/text`, { text });
+  }
+
+  getCardComments(sessionId: string, cardId: string): Observable<FunRetroCardComment[]> {
+    return this.http.get<FunRetroCardComment[]>(`${this.base}/${sessionId}/cards/${cardId}/comments`);
+  }
+
+  addCardComment(sessionId: string, cardId: string, text: string): Observable<FunRetroCardComment> {
+    return this.http.post<FunRetroCardComment>(`${this.base}/${sessionId}/cards/${cardId}/comments`, { text });
+  }
+
+  deleteCardComment(sessionId: string, cardId: string, commentId: string): Observable<void> {
+    return this.http.delete<void>(`${this.base}/${sessionId}/cards/${cardId}/comments/${commentId}`);
   }
 
   updateSettings(sessionId: string, settings: { hideCardsOnAdd: boolean; participationTracking: boolean; theme: RetroTheme }): Observable<void> {
