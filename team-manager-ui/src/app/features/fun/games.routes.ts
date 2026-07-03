@@ -32,6 +32,10 @@ export const GAMES_ROUTES: Routes = [
         loadChildren: () => import('../game-ultimate-ttt/game-ultimate-ttt.routes').then(m => m.GAME_ULTIMATE_TTT_ROUTES)
       },
       {
+        path: 'connections',
+        loadChildren: () => import('../game-connections/game-connections.routes').then(m => m.GAME_CONNECTIONS_ROUTES)
+      },
+      {
         path: 'leaderboard',
         loadComponent: () => import('../leaderboard/leaderboard.component').then(m => m.LeaderboardComponent)
       }

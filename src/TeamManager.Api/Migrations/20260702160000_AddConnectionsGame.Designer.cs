@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using TeamManager.Api.Infrastructure.Data;
@@ -11,9 +12,11 @@ using TeamManager.Api.Infrastructure.Data;
 namespace TeamManager.Api.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260702160000_AddConnectionsGame")]
+    partial class AddConnectionsGame
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -968,38 +971,6 @@ namespace TeamManager.Api.Migrations
                         .HasDatabaseName("IX_FunRetroCard_SessionId");
 
                     b.ToTable("FunRetroCards");
-                });
-
-            modelBuilder.Entity("TeamManager.Api.Domain.Entities.FunRetroCardComment", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasDefaultValueSql("gen_random_uuid()");
-
-                    b.Property<Guid>("AuthorId")
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("AuthorName")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<Guid>("CardId")
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("Text")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("CardId")
-                        .HasDatabaseName("IX_FunRetroCardComment_CardId");
-
-                    b.ToTable("FunRetroCardComments");
                 });
 
             modelBuilder.Entity("TeamManager.Api.Domain.Entities.FunRetroReaction", b =>
@@ -4267,17 +4238,6 @@ namespace TeamManager.Api.Migrations
                     b.Navigation("Session");
                 });
 
-            modelBuilder.Entity("TeamManager.Api.Domain.Entities.FunRetroCardComment", b =>
-                {
-                    b.HasOne("TeamManager.Api.Domain.Entities.FunRetroCard", "Card")
-                        .WithMany("Comments")
-                        .HasForeignKey("CardId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Card");
-                });
-
             modelBuilder.Entity("TeamManager.Api.Domain.Entities.FunRetroReaction", b =>
                 {
                     b.HasOne("TeamManager.Api.Domain.Entities.FunRetroCard", "Card")
@@ -5405,8 +5365,6 @@ namespace TeamManager.Api.Migrations
 
             modelBuilder.Entity("TeamManager.Api.Domain.Entities.FunRetroCard", b =>
                 {
-                    b.Navigation("Comments");
-
                     b.Navigation("Reactions");
 
                     b.Navigation("Votes");
