@@ -57,15 +57,6 @@ export interface NewRetroDialogResult {
       width:22px;height:22px;background-repeat:no-repeat;background-position:center;
       background-size:contain;image-rendering:pixelated;opacity:0.85;
     }
-    .layout-picker { display:flex;gap:8px;margin-bottom:4px; }
-    .layout-option {
-      flex:1;display:flex;flex-direction:column;gap:2px;
-      border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:9px 11px;
-      cursor:pointer;transition:border-color 0.15s,background 0.15s;
-    }
-    .layout-option.selected { border-color:#64b5f6;background:rgba(100,181,246,0.08); }
-    .layout-option-name { font-size:0.8rem;font-weight:600;color:rgba(255,255,255,0.85);display:flex;align-items:center;gap:6px; }
-    .layout-option-desc { font-size:0.68rem;color:rgba(255,255,255,0.35); }
   `],
   template: `
     <h2 mat-dialog-title style="font-size:1rem;margin:0 0 4px">New Retro</h2>
@@ -88,18 +79,6 @@ export interface NewRetroDialogResult {
             </div>
           </div>
         }
-      </div>
-
-      <label class="field-label" style="margin-top:4px">Canvas layout</label>
-      <div class="layout-picker">
-        <div class="layout-option" [class.selected]="canvasLayout === 'columns'" (click)="canvasLayout = 'columns'">
-          <span class="layout-option-name">Separate columns</span>
-          <span class="layout-option-desc">Each column is its own pan/zoom canvas</span>
-        </div>
-        <div class="layout-option" [class.selected]="canvasLayout === 'single'" (click)="canvasLayout = 'single'">
-          <span class="layout-option-name">Single canvas</span>
-          <span class="layout-option-desc">One freeform board for the whole retro</span>
-        </div>
       </div>
 
       <label class="field-label" style="margin-top:4px">Icebreaker question</label>
@@ -143,7 +122,6 @@ export class NewRetroDialogComponent {
   icebreakerMode = 'random';
   customIcebreaker = '';
   selectedTheme: RetroTheme = null;
-  canvasLayout: RetroCanvasLayout = 'columns';
 
   templateAccent(t: RetroTemplate): string {
     return t.columns[0]?.color ?? '#64b5f6';
@@ -161,7 +139,7 @@ export class NewRetroDialogComponent {
       templateId: this.selectedTemplateId,
       icebreakerQuestion,
       theme: this.selectedTheme,
-      canvasLayout: this.canvasLayout,
+      canvasLayout: 'single',
     });
   }
 }
