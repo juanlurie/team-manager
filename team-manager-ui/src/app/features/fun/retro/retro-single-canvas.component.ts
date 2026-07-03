@@ -53,9 +53,10 @@ const REACTION_EMOJIS = ['👍', '❤️', '😂', '🎉', '🤔'];
       /* top+bottom (not top alone) so this empty div actually has a nonzero box to paint a
          background into -- it previously only set top:0, which collapses an empty
          absolutely-positioned element to zero height, making the art invisible regardless
-         of background-image. */
+         of background-image. The art itself is an SVG (vector pixel-grid rects), so scaling
+         it up this much costs nothing in quality -- it stays crisp/blocky at any size. */
       position:absolute;top:0;bottom:0;pointer-events:none;
-      background-repeat:no-repeat;background-position:center top 60px;background-size:240px 240px;
+      background-repeat:no-repeat;background-position:center top 60px;background-size:600px 600px;
       opacity:0.16;image-rendering:pixelated;
     }
     .zone-divider {
@@ -222,6 +223,7 @@ const REACTION_EMOJIS = ['👍', '❤️', '😂', '🎉', '🤔'];
               }
               @if (editingCardId() === item.card.id) {
                 <textarea class="sticky-edit-area"
+                          autofocus
                           [value]="editingText()"
                           (input)="editTextChanged.emit($any($event.target).value)"
                           (blur)="editSaved.emit(item.card)"
@@ -274,6 +276,7 @@ const REACTION_EMOJIS = ['👍', '❤️', '😂', '🎉', '🤔'];
         @if (pendingCard(); as p) {
           <div class="sticky pending-sticky" [style.left.px]="p.x" [style.top.px]="p.y" [style.background]="pendingCardColor()">
             <textarea class="sticky-edit-area" #pendingInput
+                      autofocus
                       [value]="p.text"
                       (input)="pendingCard.set({ ...p, text: $any($event.target).value })"
                       (blur)="confirmPendingCard()"
