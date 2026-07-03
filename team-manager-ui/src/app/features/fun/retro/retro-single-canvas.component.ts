@@ -47,7 +47,11 @@ const REACTION_EMOJIS = ['👍', '❤️', '😂', '🎉', '🤔'];
       width:100%;min-height:100%;
     }
     .zone-theme-bg {
-      position:absolute;top:0;pointer-events:none;
+      /* top+bottom (not top alone) so this empty div actually has a nonzero box to paint a
+         background into -- it previously only set top:0, which collapses an empty
+         absolutely-positioned element to zero height, making the art invisible regardless
+         of background-image. */
+      position:absolute;top:0;bottom:0;pointer-events:none;
       background-repeat:no-repeat;background-position:center top 60px;background-size:240px 240px;
       opacity:0.16;image-rendering:pixelated;
     }
@@ -157,7 +161,8 @@ const REACTION_EMOJIS = ['👍', '❤️', '😂', '🎉', '🤔'];
          [style.background-size]="(40 * view().zoom) + 'px ' + (40 * view().zoom) + 'px'"
          (wheel)="onCanvasWheel($event)"
          (mousedown)="startPan($event)"
-         (click)="onCanvasClick($event)">
+         (click)="onCanvasClick($event)"
+         (dblclick)="onCanvasDoubleClick($event)">
       <app-retro-canvas-sidebar [activeTool]="activeTool()" (toolSelected)="activeTool.set($event)" />
       <div class="canvas-inner"
            [style.height.px]="canvasHeight()"
@@ -306,8 +311,11 @@ export class RetroSingleCanvasComponent {
   positionCommitted = output<{ cardId: string; x: number; y: number }>();
 
   readonly reactionEmojis = REACTION_EMOJIS;
-  readonly ZONE_WIDTH = 480;
-  readonly ZONE_GAP = 24;
+  // Wide enough for 3 sticky-columns per zone (200px cards) instead of 2 -- panning/zooming
+  // is how the whole board gets navigated anyway, so there's no reason to cram zones as
+  // tight as if they had to fit a fixed viewport like the old per-column canvases did.
+  readonly ZONE_WIDTH = 680;
+  readonly ZONE_GAP = 48;
   private readonly STICKY_W = 200;
   private readonly STICKY_GAP = 16;
   private readonly STICKY_MARGIN = 10;
@@ -349,11 +357,18 @@ export class RetroSingleCanvasComponent {
     return def ? def.variantUrls[Math.min(zoneIndex, 2)] : null;
   }
 
+  /** How many sticky-columns fit across one zone's width -- shared by the fallback grid
+   *  below and arrangeZone() so they can't drift out of sync with ZONE_WIDTH. */
+  private zoneColumnCount(): number {
+    return Math.max(1, Math.floor((this.ZONE_WIDTH - this.STICKY_MARGIN * 2 + this.STICKY_GAP) / (this.STICKY_W + this.STICKY_GAP)));
+  }
+
   zoneItems = computed<ZoneCardItem[][]>(() => {
     const s = this.session();
     const cs = this.cols();
     if (!s) return [];
     const localPos = this.localPositions();
+    const numCols = this.zoneColumnCount();
     return cs.map((col, zi) => {
       const occupied: { x: number; y: number }[] = [];
       const result: ZoneCardItem[] = [];
@@ -369,8 +384,8 @@ export class RetroSingleCanvasComponent {
         const rowH = this.STICKY_MIN_H + this.STICKY_GAP;
         let x: number, y: number;
         do {
-          const c = idx % 2;
-          const row = Math.floor(idx / 2);
+          const c = idx % numCols;
+          const row = Math.floor(idx / numCols);
           x = zoneX0 + c * (this.STICKY_W + this.STICKY_GAP) + this.STICKY_MARGIN;
           y = this.ZONE_TOP_PAD + row * rowH;
           idx++;
@@ -509,7 +524,7 @@ export class RetroSingleCanvasComponent {
     const gap = this.STICKY_GAP;
     const margin = this.STICKY_MARGIN;
     const zoneX0 = this.zoneOriginX(zoneIndex);
-    const numCols = Math.max(1, Math.floor((this.ZONE_WIDTH - margin * 2 + gap) / (cardW + gap)));
+    const numCols = this.zoneColumnCount();
 
     const colBottom = new Array(numCols).fill(this.ZONE_TOP_PAD);
     const updates: { id: string; x: number; y: number }[] = [];
@@ -547,12 +562,25 @@ export class RetroSingleCanvasComponent {
   onCanvasClick(e: MouseEvent): void {
     if (this.activeTool() !== 'add-card') return;
     if ((e.target as HTMLElement).closest('.sticky')) return;
+    this.placeCardAt(e);
+    this.activeTool.set('select');
+  }
+
+  /** Double-click empty canvas always adds a card here, regardless of which sidebar tool is
+   *  active -- picking the Add-Card tool first was an unnecessary extra step for something
+   *  this common, and double-click doesn't collide with panning (a plain drag) or dragging
+   *  an existing card (guarded by the .sticky check, same as onCanvasClick). */
+  onCanvasDoubleClick(e: MouseEvent): void {
+    if ((e.target as HTMLElement).closest('.sticky')) return;
+    this.placeCardAt(e);
+  }
+
+  private placeCardAt(e: MouseEvent): void {
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
     const v = this.view();
     const worldX = (e.clientX - rect.left - v.panX) / v.zoom;
     const worldY = (e.clientY - rect.top - v.panY) / v.zoom;
     this.pendingCard.set({ x: worldX, y: worldY, text: '' });
-    this.activeTool.set('select');
   }
 
   pendingCardColor(): string {
