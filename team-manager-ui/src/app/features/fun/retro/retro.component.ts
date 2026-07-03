@@ -136,7 +136,7 @@ interface TimerState {
     .timer-trigger.timer-expired { border-color:rgba(100,181,246,0.4); }
     .timer-trigger-icon { font-size:16px;height:16px;width:16px; }
     .timer-popover {
-      position:absolute;top:38px;right:0;z-index:250;
+      position:fixed;z-index:250;
       background:#2a2a2a;border:1px solid rgba(255,255,255,0.12);
       border-radius:10px;padding:14px;
       display:flex;flex-direction:column;align-items:center;gap:10px;
@@ -465,9 +465,14 @@ interface TimerState {
       /* margins set dynamically via --canvas-ml / --canvas-mr (see updateCanvasMargins) */
       margin-left:var(--canvas-ml, 0px);
       margin-right:var(--canvas-mr, 0px);
+      /* Columns now have a wide fixed-ish basis (see .canvas-col-wrap) rather than splitting
+         100% three ways, so with more than ~2 columns the row needs to scroll horizontally. */
+      overflow-x:auto;
     }
+    /* Twice the old equal-thirds width so each column's canvas has real room to work in --
+       flex:1 with no basis used to squeeze 3+ columns into slivers of the viewport. */
     .canvas-col-wrap {
-      flex:1;min-width:0;display:flex;flex-direction:column;gap:6px;
+      flex:0 0 clamp(480px, 66vw, 1000px);min-width:0;display:flex;flex-direction:column;gap:6px;
     }
     .canvas-col-header {
       display:flex;align-items:center;justify-content:space-between;
@@ -599,11 +604,11 @@ interface TimerState {
       position:absolute;box-sizing:border-box;
       width:240px;min-height:220px;
       border-radius:11px;padding:13px 15px;
-      border:2px solid rgba(0,0,0,0.22);
-      box-shadow:0 3px 8px rgba(0,0,0,0.28),0 1px 3px rgba(0,0,0,0.22);
+      border:2px solid rgba(100,181,246,0.55);
+      box-shadow:0 0 0 1px rgba(100,181,246,0.18),0 3px 8px rgba(0,0,0,0.28),0 1px 3px rgba(0,0,0,0.22);
       cursor:grab;user-select:none;
       display:flex;flex-direction:column;gap:6px;
-      transition:box-shadow 0.15s,transform 0.15s;
+      transition:box-shadow 0.15s,transform 0.15s,border-color 0.15s;
     }
     /* A slight per-card tilt (applied inline via cardRotation()) reads as notes actually
        stuck on a board rather than a rigid grid -- straightens out on hover/drag so the
@@ -611,6 +616,12 @@ interface TimerState {
     .sticky:hover, .sticky:active, .sticky.dragging { transform:rotate(0deg) !important; }
     .sticky:active, .sticky.dragging { cursor:grabbing;box-shadow:0 8px 20px rgba(0,0,0,0.4),0 2px 6px rgba(0,0,0,0.3);z-index:100; }
     .sticky.no-drag { cursor:default; }
+    /* Selected: full neon glow so the active card reads clearly above the rest of the board. */
+    .sticky.selected {
+      border-color:#64b5f6;
+      box-shadow:0 0 0 2px rgba(100,181,246,0.9),0 0 18px 4px rgba(100,181,246,0.55),0 6px 16px rgba(0,0,0,0.35);
+      z-index:150;
+    }
     .sticky-text {
       font-size:1.05rem;font-weight:700;color:rgba(0,0,0,0.87);line-height:1.4;flex:1;
       overflow-wrap:anywhere;word-break:break-word;
@@ -633,15 +644,18 @@ interface TimerState {
       display:inline-flex;border-radius:50%;
       box-shadow:0 0 0 2px rgba(0,0,0,0.16),0 1px 2px rgba(0,0,0,0.2);
     }
+    /* Sits inside the card's top-right corner (not overlapping the top edge) so it never gets
+       clipped by .canvas-outer's overflow:hidden when a card sits near the top of the board. */
     .sticky-lock-badge {
-      position:absolute;top:-18px;left:50%;transform:translateX(-50%);
-      width:34px;height:34px;border-radius:50%;
+      position:absolute;top:8px;right:8px;
+      width:26px;height:26px;border-radius:50%;
       display:flex;align-items:center;justify-content:center;
-      border:2px solid rgba(255,255,255,0.9);box-shadow:0 2px 4px rgba(0,0,0,0.3);
-      background:#c62828;color:#fff;
+      border:2px solid rgba(255,255,255,0.9);box-shadow:0 2px 5px rgba(0,0,0,0.35);
+      background:#e53935;color:#fff;
+      z-index:1;
     }
-    .sticky-lock-badge.unlocked { background:#2e7d32; }
-    .sticky-lock-badge mat-icon { font-size:18px;width:18px;height:18px;line-height:18px; }
+    .sticky-lock-badge.unlocked { background:#43a047; }
+    .sticky-lock-badge mat-icon { font-size:16px;width:16px;height:16px;line-height:16px; }
     .sticky-comment-badge {
       position:absolute;bottom:-10px;right:8px;
       display:flex;align-items:center;gap:2px;
@@ -727,7 +741,7 @@ interface TimerState {
       border-radius:4px;transition:color 0.15s;
     }
     .sticky-del-btn:hover { color:rgba(200,0,0,0.7); }
-    .sticky-header { display:flex;align-items:center;gap:5px;margin-bottom:6px; }
+    .sticky-header { display:flex;align-items:center;gap:5px;margin-bottom:6px;padding-right:28px; }
     .sticky-edit-area {
       width:100%;box-sizing:border-box;border:none;outline:none;resize:none;
       background:transparent;font-size:0.8rem;color:rgba(0,0,0,0.82);line-height:1.4;
@@ -984,7 +998,7 @@ interface TimerState {
             </div>
           }
           <div class="header-spacer"></div>
-          @if (s.phase !== 'lobby') {
+          @if (s.phase !== 'lobby' && !(isDesktop() && s.canvasLayout === 'single')) {
             <div class="timer-trigger-wrap" (mousedown)="$event.stopPropagation()">
               <button class="timer-trigger"
                       [class.timer-danger]="timerRemaining() <= 30 && !timerExpired() && timerRunning()"
@@ -997,8 +1011,10 @@ interface TimerState {
                   <span class="timer-trigger-time" [style.color]="timer() ? timerColor() : null">{{ timerDisplay() }}</span>
                 }
               </button>
-              @if (timerPopoverOpen()) {
-                <div class="timer-popover" (mousedown)="$event.stopPropagation()">
+            </div>
+          }
+          @if (timerPopoverOpen() && timerPopoverPos(); as pos) {
+                <div class="timer-popover" [style.top.px]="pos.top" [style.left.px]="pos.left" (mousedown)="$event.stopPropagation()">
                   <div class="timer-ring-wrap"
                        [class.timer-danger-anim]="timerRemaining() <= 30 && !timerExpired() && timerRunning()"
                        [class.timer-expired-anim]="timerExpired()">
@@ -1045,8 +1061,6 @@ interface TimerState {
                     </div>
                   }
                 </div>
-              }
-            </div>
           }
           <button mat-button class="polls-toggle-btn" (click)="showPollsPanel.update(v => !v)">
             <mat-icon style="font-size:14px;height:14px;width:14px;vertical-align:middle;margin-right:4px">poll</mat-icon>
@@ -1477,6 +1491,10 @@ interface TimerState {
             [editingCardId]="editingCardId()"
             [editingText]="editingText()"
             [resolveCardColor]="resolveCardColorFn"
+            [showRevealAction]="showRevealAction()"
+            [timerLabel]="timer() ? timerDisplay() : null"
+            [timerDanger]="timerRemaining() <= 30 && !timerExpired() && timerRunning()"
+            [timerActive]="timerPopoverOpen() || timerRunning()"
             (voteToggled)="toggleVote($event)"
             (reactionToggled)="toggleReaction($event.card, $event.emoji)"
             (editStarted)="startEditCard($event)"
@@ -1489,7 +1507,9 @@ interface TimerState {
             (commentThreadRequested)="openCommentThread($event.event, $event.card)"
             (stickerPaletteRequested)="onSingleCanvasStickerPaletteRequested($event)"
             (tokenPositionCommitted)="onSingleCanvasTokenPositionCommitted($event)"
-            (tokenDeleteRequested)="deleteToken($event)" />
+            (tokenDeleteRequested)="deleteToken($event)"
+            (revealRequested)="revealAllNow()"
+            (timerToggleRequested)="toggleTimerPopover($event)" />
         }
 
         <!-- Desktop: 3 separate sticky canvases side by side -->
@@ -1536,6 +1556,7 @@ interface TimerState {
                       <div class="sticky"
                            [attr.data-card-id]="item.card.id"
                            [class.dragging]="draggingId() === item.card.id"
+                           [class.selected]="selectedCardId() === item.card.id"
                            [class.no-drag]="s.phase === 'done'"
                            [style.left.px]="item.x"
                            [style.top.px]="item.y"
@@ -2396,7 +2417,7 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
   // whenever the canvas view is about to move instead of leaving them stranded.
   private closeAllPickers(): void {
     if (this.colorPickerOpenFor()) { this.colorPickerOpenFor.set(null); this.colorPickerPos.set(null); }
-    if (this.timerPopoverOpen()) this.timerPopoverOpen.set(false);
+    if (this.timerPopoverOpen()) { this.timerPopoverOpen.set(false); this.timerPopoverPos.set(null); }
     if (this.emojiPickerFor()) { this.emojiPickerFor.set(null); this.emojiPickerPos.set(null); }
     if (this.phasePanelOpen()) this.phasePanelOpen.set(false);
     if (this.selectedCardId()) { this.selectedCardId.set(null); this.selectedCardToolbarPos.set(null); }
@@ -2507,10 +2528,20 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   timerPopoverOpen = signal(false);
+  // Anchored via the clicked trigger's own rect (not CSS relative-to-parent) so the same
+  // popover can be opened from either the header trigger or the canvas sidebar's timer icon.
+  timerPopoverPos = signal<{ top: number; left: number } | null>(null);
 
   toggleTimerPopover(e: MouseEvent): void {
     e.stopPropagation();
-    this.timerPopoverOpen.update(v => !v);
+    const opening = !this.timerPopoverOpen();
+    this.timerPopoverOpen.set(opening);
+    if (opening) {
+      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+      this.timerPopoverPos.set({ top: rect.bottom + 6, left: Math.max(8, rect.right - 220) });
+    } else {
+      this.timerPopoverPos.set(null);
+    }
   }
 
   // Phase stepper + guidance text used to be two always-visible full-width rows, eating a
@@ -2988,6 +3019,13 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
     if (!s) return;
     this.patchSettings({ [key]: !s[key] });
   }
+
+  // Drives the canvas sidebar's quick-access "reveal" icon -- only worth showing while cards
+  // are actually hidden and revealable, mirroring the settings-panel row's own guard.
+  showRevealAction = computed(() => {
+    const s = this.session();
+    return !!s && s.isCreator && s.phase === 'add' && s.hideCardsOnAdd && !s.manuallyRevealed;
+  });
 
   revealAllNow(): void {
     const s = this.session();

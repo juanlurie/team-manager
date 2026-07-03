@@ -3,10 +3,11 @@ import { MatIconModule } from '@angular/material/icon';
 
 export type RetroCanvasTool = 'select' | 'add-card';
 
-/** Minimal icon-only tool sidebar for the single-canvas retro board -- Select/Pan (default)
- *  and Add-Card (click-to-place). Deliberately does not replicate a full whiteboard tool
- *  palette (shapes/frames/connectors/etc.) -- zoom controls stay in their existing
- *  bottom-right cluster rather than moving here. */
+/** Icon-only tool sidebar for the single-canvas retro board -- Select/Pan (default),
+ *  Add-Card (click-to-place), plus quick-access actions (sticker, reveal, timer) that used
+ *  to live scattered across the header/zoom-controls. Deliberately does not replicate a full
+ *  whiteboard tool palette (shapes/frames/connectors/etc.) -- zoom controls stay in their
+ *  existing bottom-right cluster rather than moving here. */
 @Component({
   selector: 'app-retro-canvas-sidebar',
   standalone: true,
@@ -28,6 +29,8 @@ export type RetroCanvasTool = 'select' | 'add-card';
     .tool-btn:hover { background:rgba(255,255,255,0.1);color:#fff; }
     .tool-btn.active { background:rgba(100,181,246,0.18);color:#64b5f6; }
     .tool-btn mat-icon { font-size:18px;width:18px;height:18px;line-height:18px; }
+    .tool-btn .emoji-icon { font-size:16px;line-height:1; }
+    .tool-divider { height:1px;background:rgba(255,255,255,0.1);margin:2px 4px; }
   `],
   template: `
     <div class="sidebar" (mousedown)="$event.stopPropagation()">
@@ -39,10 +42,27 @@ export type RetroCanvasTool = 'select' | 'add-card';
               (click)="toolSelected.emit('add-card')">
         <mat-icon>note_add</mat-icon>
       </button>
+      <span class="tool-divider"></span>
+      <button class="tool-btn" title="Add a sticker" (click)="stickerRequested.emit($event)">
+        <span class="emoji-icon">🏷️</span>
+      </button>
+      @if (showRevealAction()) {
+        <button class="tool-btn" title="Reveal all cards now" (click)="revealRequested.emit()">
+          <mat-icon>visibility</mat-icon>
+        </button>
+      }
+      <button class="tool-btn" [class.active]="timerActive()" title="Timer" (click)="timerRequested.emit($event)">
+        <mat-icon>timer</mat-icon>
+      </button>
     </div>
   `,
 })
 export class RetroCanvasSidebarComponent {
   activeTool = input<RetroCanvasTool>('select');
+  showRevealAction = input<boolean>(false);
+  timerActive = input<boolean>(false);
   toolSelected = output<RetroCanvasTool>();
+  stickerRequested = output<MouseEvent>();
+  revealRequested = output<void>();
+  timerRequested = output<MouseEvent>();
 }
