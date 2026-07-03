@@ -1,4 +1,4 @@
-import { Component, ChangeDetectionStrategy, ElementRef, HostListener, inject, input, output, signal, computed } from '@angular/core';
+import { Component, ChangeDetectionStrategy, ElementRef, HostListener, AfterViewInit, inject, input, output, signal, computed } from '@angular/core';
 import { MatIconModule } from '@angular/material/icon';
 import { CdkTextareaAutosize } from '@angular/cdk/text-field';
 import { AvatarCircleComponent } from '../../../core/components/k-picker/avatar-circle.component';
@@ -289,7 +289,7 @@ const REACTION_EMOJIS = ['👍', '❤️', '😂', '🎉', '🤔'];
     </div>
   `,
 })
-export class RetroSingleCanvasComponent {
+export class RetroSingleCanvasComponent implements AfterViewInit {
   private elRef = inject(ElementRef);
 
   session = input.required<FunRetroSession | null>();
@@ -447,7 +447,27 @@ export class RetroSingleCanvasComponent {
   }
 
   resetView(): void {
-    this.setView({ zoom: 1, panX: 0, panY: 0 });
+    this.setView(this.overviewView());
+  }
+
+  /** Starting view: zoomed out enough to show every zone at once (an overview the host can
+   *  then zoom in from), rather than defaulting to 100% -- at 100% only one or two zones
+   *  are visible in a typical viewport, and there's no reason to start that cramped when
+   *  panning/zooming out is exactly what you'd otherwise have to do immediately anyway. */
+  private overviewView(): { zoom: number; panX: number; panY: number } {
+    const outer = this.outerEl();
+    const pad = 24;
+    const totalWidth = this.cols().length * (this.ZONE_WIDTH + this.ZONE_GAP) - this.ZONE_GAP;
+    if (!outer || totalWidth <= 0) return { zoom: 1, panX: pad, panY: pad };
+    const zoom = this.clampZoom(Math.min((outer.clientWidth - pad * 2) / totalWidth, 1));
+    return { zoom, panX: pad, panY: pad };
+  }
+
+  ngAfterViewInit(): void {
+    // The parent (RetroComponent) sets this canvas's full-bleed margins and height via its
+    // own requestAnimationFrame after *its* AfterViewInit -- wait a frame so this reads the
+    // settled width instead of the pre-full-bleed one.
+    requestAnimationFrame(() => this.setView(this.overviewView()));
   }
 
   private zoomAt(factor: number, cx: number, cy: number): void {
