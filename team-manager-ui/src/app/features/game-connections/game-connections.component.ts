@@ -273,13 +273,14 @@ const DIFFICULTY_COLORS: Record<number, string> = {
     .solved-label { font-size: 0.85rem; font-weight: 800; color: rgba(0,0,0,0.75); letter-spacing: 0.02em; }
     .solved-words { font-size: 0.75rem; font-weight: 600; color: rgba(0,0,0,0.6); }
 
-    .tile-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+    .tile-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
     .tile {
       aspect-ratio: 2.1; display: flex; align-items: center; justify-content: center;
       text-align: center; padding: 4px; border-radius: 8px; cursor: pointer;
       background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.1);
       color: rgba(255,255,255,0.85); font-size: 0.78rem; font-weight: 700; letter-spacing: 0.01em;
       font-family: inherit; text-transform: uppercase; transition: all 0.12s;
+      min-width: 0; overflow-wrap: anywhere; word-break: break-word;
     }
     .tile:hover:not(:disabled) { background: rgba(255,255,255,0.11); }
     .tile.selected { background: rgba(255,255,255,0.85); color: rgba(0,0,0,0.85); border-color: rgba(255,255,255,0.85); }
@@ -343,6 +344,30 @@ export class GameConnectionsComponent implements OnInit, OnDestroy {
     return words.map(w => s.words.indexOf(w)).filter(i => i >= 0);
   }
 
+  // The server always returns words in group order (all of group 0, then group 1, ...),
+  // which is also the answer -- shuffledOrder is what actually determines tile layout, and
+  // it must be randomized the first time each session's words become visible, or the grid
+  // just displays the solution. Re-shuffling on every websocket-triggered refetch would be
+  // disorienting mid-game, so only randomize once per session id.
+  private shuffledForSessionId: string | null = null;
+
+  private applySession(s: GameConnectionsSession): void {
+    this.session.set(s);
+    if (s.words.length > 0 && this.shuffledForSessionId !== s.id) {
+      this.shuffledForSessionId = s.id;
+      this.shuffledOrder.set(this.randomOrder(s.words.length));
+    }
+  }
+
+  private randomOrder(length: number): number[] {
+    const arr = Array.from({ length }, (_, i) => i);
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+  }
+
   ngOnInit() {
     this.loadSessions();
     this.ws.messages$.pipe(takeUntil(this.destroy$)).subscribe(msg => {
@@ -350,7 +375,7 @@ export class GameConnectionsComponent implements OnInit, OnDestroy {
       if (msg.type === 'connections_update') {
         const current = this.session();
         if (current) {
-          this.svc.getSession(current.id).subscribe(s => this.session.set(s));
+          this.svc.getSession(current.id).subscribe(s => this.applySession(s));
         } else {
           this.loadSessions();
         }
@@ -377,7 +402,7 @@ export class GameConnectionsComponent implements OnInit, OnDestroy {
   openSession(id: string) {
     this.loading.set(true);
     this.svc.getSession(id).subscribe({
-      next: s => { this.session.set(s); this.loading.set(false); this.nav.hideNav.set(true); },
+      next: s => { this.applySession(s); this.loading.set(false); this.nav.hideNav.set(true); },
       error: () => { this.loading.set(false); this.snackBar.open('Failed to load game', 'OK', { duration: 3000 }); },
     });
   }
@@ -396,7 +421,7 @@ export class GameConnectionsComponent implements OnInit, OnDestroy {
         this.creating.set(false);
         this.showCreate = false;
         this.newTitle = '';
-        this.session.set(s);
+        this.applySession(s);
         this.nav.hideNav.set(true);
       },
       error: () => { this.creating.set(false); this.snackBar.open('Failed to create game', 'OK', { duration: 3000 }); },
@@ -408,7 +433,7 @@ export class GameConnectionsComponent implements OnInit, OnDestroy {
     if (!s) return;
     this.joining.set(true);
     this.svc.joinSession(s.id).subscribe({
-      next: updated => { this.session.set(updated); this.joining.set(false); },
+      next: updated => { this.applySession(updated); this.joining.set(false); },
       error: err => { this.joining.set(false); this.snackBar.open(err?.error?.error ?? 'Failed to join game', 'OK', { duration: 3000 }); },
     });
   }
@@ -418,7 +443,7 @@ export class GameConnectionsComponent implements OnInit, OnDestroy {
     if (!s) return;
     this.starting.set(true);
     this.svc.startSession(s.id).subscribe({
-      next: updated => { this.session.set(updated); this.starting.set(false); },
+      next: updated => { this.applySession(updated); this.starting.set(false); },
       error: err => { this.starting.set(false); this.snackBar.open(err?.error?.error ?? 'Failed to start game', 'OK', { duration: 3000 }); },
     });
   }
@@ -439,15 +464,12 @@ export class GameConnectionsComponent implements OnInit, OnDestroy {
   }
 
   shuffle(): void {
-    const arr = [...this.remainingIndices()];
-    for (let i = arr.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [arr[i], arr[j]] = [arr[j], arr[i]];
-    }
-    // Keep already-solved indices in their existing relative order at the tail (they'll be
-    // filtered out of remainingIndices() anyway) -- simplest to just rebuild shuffledOrder
-    // as the shuffled remaining tiles, since solved tiles never render regardless of order.
-    this.shuffledOrder.set(arr);
+    // Reshuffle just the still-visible tiles -- solved ones are filtered out of
+    // remainingIndices() regardless of their position in shuffledOrder, so there's no need
+    // to preserve or reshuffle their slots.
+    const remaining = [...this.remainingIndices()];
+    const order = this.randomOrder(remaining.length).map(i => remaining[i]);
+    this.shuffledOrder.set(order);
   }
 
   submitGuess(): void {
@@ -466,7 +488,7 @@ export class GameConnectionsComponent implements OnInit, OnDestroy {
           }
         }
         this.selectedIndices.set(new Set());
-        this.session.set(updated);
+        this.applySession(updated);
       },
       error: err => {
         this.submitting.set(false);
