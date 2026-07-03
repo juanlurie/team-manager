@@ -60,6 +60,7 @@ export interface RetroColumn {
 
 export interface FunRetroSession {
   id: string;
+  slug: string | null;
   title: string | null;
   phase: 'lobby' | 'add' | 'vote' | 'discuss' | 'done';
   createdByMemberId: string;

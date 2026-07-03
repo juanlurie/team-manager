@@ -27,13 +27,16 @@ public class FunRetroController(FunRetroService service, PollService pollService
         return CreatedAtAction(nameof(GetSession), new { id = session.Id }, session);
     }
 
-    [HttpGet("{id:guid}")]
-    public async Task<IActionResult> GetSession(Guid id)
+    [HttpGet("{id}")]
+    public async Task<IActionResult> GetSession(string id)
     {
         var memberId = GetCurrentMemberId();
         if (!memberId.HasValue) return Unauthorized();
 
-        var session = await service.GetSessionAsync(id, memberId.Value);
+        var sessionId = await service.ResolveSessionIdAsync(id);
+        if (sessionId is null) return NotFound();
+
+        var session = await service.GetSessionAsync(sessionId.Value, memberId.Value);
         if (session is null) return NotFound();
         return Ok(session);
     }

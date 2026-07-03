@@ -19,6 +19,7 @@ export interface PollOptionResult {
 
 export interface PollDetail {
   id: string;
+  slug: string | null;
   question: string;
   createdByName: string;
   isClosed: boolean;

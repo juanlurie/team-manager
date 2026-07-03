@@ -15,6 +15,12 @@ public class PollConfiguration : IEntityTypeConfiguration<Poll>
         builder.HasIndex(p => p.CreatedByMemberId).HasDatabaseName("IX_Poll_CreatedByMemberId");
         builder.HasIndex(p => p.IsClosed).HasDatabaseName("IX_Poll_IsClosed");
 
+        // Partial index -- older polls have a null Slug (backfilled lazily on next fetch,
+        // not via a data migration), and only non-null slugs need to be unique.
+        builder.HasIndex(p => p.Slug).IsUnique()
+            .HasFilter("\"Slug\" IS NOT NULL")
+            .HasDatabaseName("IX_Poll_Slug");
+
         builder.HasOne(p => p.CreatedByMember)
             .WithMany()
             .HasForeignKey(p => p.CreatedByMemberId)

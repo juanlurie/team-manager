@@ -24,6 +24,7 @@ public record PollOptionResultDto
 public record PollDetailDto
 {
     public Guid Id { get; init; }
+    public string? Slug { get; init; }
     public string Question { get; init; } = string.Empty;
     public string CreatedByName { get; init; } = string.Empty;
     public bool IsClosed { get; init; }
