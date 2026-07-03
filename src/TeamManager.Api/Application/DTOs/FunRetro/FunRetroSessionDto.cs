@@ -21,6 +21,33 @@ public record FunRetroSessionDto
     public bool ParticipationTracking { get; init; }
     public string? Theme { get; init; }
     public string? CanvasLayout { get; init; }
+    public List<FunRetroTokenDto> Tokens { get; init; } = [];
+}
+
+public record FunRetroTokenDto
+{
+    public Guid Id { get; init; }
+    public Guid SessionId { get; init; }
+    public string Column { get; init; } = "well";
+    public string Emoji { get; init; } = "";
+    public double PositionX { get; init; }
+    public double PositionY { get; init; }
+    public Guid CreatedByMemberId { get; init; }
+    public DateTimeOffset CreatedAt { get; init; }
+}
+
+public record AddFunRetroTokenRequest
+{
+    public string Column { get; init; } = "well";
+    public string Emoji { get; init; } = "";
+    public double PositionX { get; init; }
+    public double PositionY { get; init; }
+}
+
+public record UpdateFunRetroTokenPositionRequest
+{
+    public double PositionX { get; init; }
+    public double PositionY { get; init; }
 }
 
 public record IcebreakerAnswerDto

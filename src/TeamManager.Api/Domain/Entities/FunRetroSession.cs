@@ -11,6 +11,7 @@ public class FunRetroSession
     public TeamMember? CreatedBy { get; set; }
     public Sprint? Sprint { get; set; }
     public ICollection<FunRetroCard> Cards { get; set; } = [];
+    public ICollection<FunRetroToken> Tokens { get; set; } = [];
     public string? AiAnalysisJson { get; set; }
     public string? TimerJson { get; set; }
     public string? IcebreakerAnswersJson { get; set; }

@@ -2,7 +2,7 @@ import { Component, ChangeDetectionStrategy, ElementRef, HostListener, AfterView
 import { MatIconModule } from '@angular/material/icon';
 import { CdkTextareaAutosize } from '@angular/cdk/text-field';
 import { AvatarCircleComponent } from '../../../core/components/k-picker/avatar-circle.component';
-import { FunRetroSession, FunRetroCard, RetroColumn } from '../../../core/models/fun-retro.model';
+import { FunRetroSession, FunRetroCard, RetroColumn, FunRetroToken } from '../../../core/models/fun-retro.model';
 import { RetroCanvasSidebarComponent, RetroCanvasTool } from './retro-canvas-sidebar.component';
 import { RETRO_THEMES } from './retro-constants';
 
@@ -97,6 +97,24 @@ const REACTION_EMOJIS = ['👍', '❤️', '😂', '🎉', '🤔'];
     .cz-pct { font-size:0.72rem;font-weight:600;min-width:42px;font-variant-numeric:tabular-nums; }
     .cz-fit mat-icon { font-size:16px;width:16px;height:16px;line-height:16px; }
     .cz-divider { width:1px;height:16px;background:rgba(255,255,255,0.15);margin:0 2px;flex-shrink:0; }
+    .retro-token {
+      position:absolute;width:40px;height:40px;
+      display:flex;align-items:center;justify-content:center;
+      font-size:26px;line-height:1;cursor:grab;user-select:none;
+      filter:drop-shadow(0 2px 3px rgba(0,0,0,0.4));
+      transition:transform .1s;
+    }
+    .retro-token:hover { transform:scale(1.1); }
+    .retro-token.dragging { cursor:grabbing;z-index:50;transition:none; }
+    .retro-token-del {
+      position:absolute;top:-6px;right:-6px;width:16px;height:16px;
+      display:flex;align-items:center;justify-content:center;
+      border-radius:50%;background:rgba(0,0,0,0.7);color:rgba(255,255,255,0.7);
+      border:none;font-size:12px;line-height:1;cursor:pointer;opacity:0;
+      transition:opacity .12s;
+    }
+    .retro-token:hover .retro-token-del { opacity:1; }
+    .retro-token-del:hover { color:#ef5350; }
     .sticky {
       position:absolute;box-sizing:border-box;
       width:240px;min-height:220px;
@@ -190,7 +208,7 @@ const REACTION_EMOJIS = ['👍', '❤️', '😂', '🎉', '🤔'];
   template: `
     @let s = session();
     @let cs = cols();
-    <div class="canvas-outer" data-single-canvas
+    <div class="canvas-outer" data-single-canvas #canvasOuterEl
          [class.panning]="panningView()"
          [class.tool-add-card]="activeTool() === 'add-card'"
          [style.background-position]="view().panX + 'px ' + view().panY + 'px'"
@@ -324,8 +342,18 @@ const REACTION_EMOJIS = ['👍', '❤️', '😂', '🎉', '🤔'];
                       cdkTextareaAutosize></textarea>
           </div>
         }
+        @for (t of allTokenItems(); track t.token.id) {
+          <div class="retro-token"
+               [class.dragging]="draggingTokenId() === t.token.id"
+               [style.left.px]="t.x" [style.top.px]="t.y"
+               (mousedown)="startTokenDrag($event, t.token, t.x, t.y)">
+            {{ t.token.emoji }}
+            <button class="retro-token-del" (mousedown)="$event.stopPropagation()" (click)="tokenDeleteRequested.emit(t.token)">×</button>
+          </div>
+        }
       </div>
       <div class="canvas-zoom-controls" (mousedown)="$event.stopPropagation()" (wheel)="$event.stopPropagation()">
+        <button class="cz-btn cz-sticker" title="Add a sticker" (click)="requestStickerPalette($event, canvasOuterEl)">🏷️</button>
         <button class="cz-btn" title="Zoom out" (click)="zoomBy(0.8)">−</button>
         <button class="cz-btn cz-pct" title="Reset zoom" (click)="resetView()">{{ zoomPercent() }}%</button>
         <button class="cz-btn" title="Zoom in" (click)="zoomBy(1.25)">+</button>
@@ -373,6 +401,9 @@ export class RetroSingleCanvasComponent implements AfterViewInit {
   positionCommitted = output<{ cardId: string; x: number; y: number }>();
   cardSelected = output<FunRetroCard>();
   commentThreadRequested = output<{ event: MouseEvent; card: FunRetroCard }>();
+  stickerPaletteRequested = output<{ event: MouseEvent; column: string; x: number; y: number }>();
+  tokenPositionCommitted = output<{ tokenId: string; x: number; y: number }>();
+  tokenDeleteRequested = output<FunRetroToken>();
 
   readonly reactionEmojis = REACTION_EMOJIS;
   // Wide enough for 3 sticky-columns per zone (200px cards) instead of 2 -- panning/zooming
@@ -402,6 +433,10 @@ export class RetroSingleCanvasComponent implements AfterViewInit {
   private panState: { startMouseX: number; startMouseY: number; startPanX: number; startPanY: number } | null = null;
   private dragState: { id: string; startMouseX: number; startMouseY: number; startX: number; startY: number; moved: boolean } | null = null;
   private static readonly CLICK_MOVE_THRESHOLD = 4; // px
+
+  localTokenPositions = signal<Record<string, { x: number; y: number }>>({});
+  draggingTokenId = signal<string | null>(null);
+  private tokenDragState: { id: string; startMouseX: number; startMouseY: number; startX: number; startY: number } | null = null;
 
   zoneOriginX(zoneIndex: number): number {
     return zoneIndex * (this.ZONE_WIDTH + this.ZONE_GAP);
@@ -463,6 +498,16 @@ export class RetroSingleCanvasComponent implements AfterViewInit {
   });
 
   allItems = computed<ZoneCardItem[]>(() => this.zoneItems().flat());
+
+  allTokenItems = computed<{ token: FunRetroToken; x: number; y: number }[]>(() => {
+    const s = this.session();
+    if (!s) return [];
+    const localPos = this.localTokenPositions();
+    return s.tokens.map(t => {
+      const local = localPos[t.id];
+      return { token: t, x: local?.x ?? t.positionX, y: local?.y ?? t.positionY };
+    });
+  });
 
   // Minimum height for the zone strip (and its background/theme-art fill) even when mostly
   // empty -- 400 felt cramped once zones got wider, especially with a colored background
@@ -689,6 +734,24 @@ export class RetroSingleCanvasComponent implements AfterViewInit {
     this.addCardRequested.emit({ column: col.key, text, x: p.x, y: p.y });
   }
 
+  requestStickerPalette(e: MouseEvent, canvasOuter: HTMLElement): void {
+    const rect = canvasOuter.getBoundingClientRect();
+    const v = this.view();
+    const worldX = (rect.width / 2 - v.panX) / v.zoom;
+    const worldY = (rect.height / 2 - v.panY) / v.zoom;
+    const col = this.cols()[this.zoneIndexForX(worldX)];
+    if (!col) return;
+    this.stickerPaletteRequested.emit({ event: e, column: col.key, x: worldX, y: worldY });
+  }
+
+  startTokenDrag(e: MouseEvent, token: FunRetroToken, x: number, y: number): void {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    e.stopPropagation();
+    this.tokenDragState = { id: token.id, startMouseX: e.clientX, startMouseY: e.clientY, startX: x, startY: y };
+    this.draggingTokenId.set(token.id);
+  }
+
   getReaction(card: FunRetroCard, emoji: string) {
     return card.reactions?.find(r => r.emoji === emoji);
   }
@@ -718,6 +781,15 @@ export class RetroSingleCanvasComponent implements AfterViewInit {
       });
       return;
     }
+    if (this.tokenDragState) {
+      const zoom = this.view().zoom;
+      const dx = (e.clientX - this.tokenDragState.startMouseX) / zoom;
+      const dy = (e.clientY - this.tokenDragState.startMouseY) / zoom;
+      const x = Math.max(0, this.tokenDragState.startX + dx);
+      const y = Math.max(0, this.tokenDragState.startY + dy);
+      this.localTokenPositions.update(p => ({ ...p, [this.tokenDragState!.id]: { x, y } }));
+      return;
+    }
     if (!this.dragState) return;
     if (!this.dragState.moved) {
       const totalDx = e.clientX - this.dragState.startMouseX;
@@ -738,6 +810,14 @@ export class RetroSingleCanvasComponent implements AfterViewInit {
     if (this.panState) {
       this.panState = null;
       this.panningView.set(false);
+      return;
+    }
+    if (this.tokenDragState) {
+      const { id } = this.tokenDragState;
+      const pos = this.localTokenPositions()[id];
+      if (pos) this.tokenPositionCommitted.emit({ tokenId: id, x: pos.x, y: pos.y });
+      this.tokenDragState = null;
+      this.draggingTokenId.set(null);
       return;
     }
     if (!this.dragState) return;

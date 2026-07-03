@@ -12,7 +12,7 @@ import { Subject, Subscription } from 'rxjs';
 import { takeUntil, filter, take } from 'rxjs/operators';
 import { Router, ActivatedRoute } from '@angular/router';
 import { FunRetroService } from '../../../core/services/fun-retro.service';
-import { FunRetroAnalysis, FunRetroSession, FunRetroSessionSummary, FunRetroCard, RetroColumn, RetroTheme, RetroCanvasLayout, FunRetroCardComment } from '../../../core/models/fun-retro.model';
+import { FunRetroAnalysis, FunRetroSession, FunRetroSessionSummary, FunRetroCard, RetroColumn, RetroTheme, RetroCanvasLayout, FunRetroCardComment, FunRetroToken } from '../../../core/models/fun-retro.model';
 import { WebSocketService } from '../../../core/websocket/websocket.service';
 import { AvatarCircleComponent } from '../../../core/components/k-picker/avatar-circle.component';
 import { AuthService } from '../../../core/auth/auth.service';
@@ -486,6 +486,43 @@ interface TimerState {
     }
     .canvas-expand-btn:hover { background:rgba(255,255,255,0.12);color:#fff; }
     .canvas-expand-btn mat-icon { font-size:14px;width:14px;height:14px;line-height:14px; }
+    .canvas-sticker-btn {
+      display:inline-flex;align-items:center;justify-content:center;
+      min-width:26px;height:26px;flex-shrink:0;
+      background:transparent;border:none;border-radius:6px;
+      font-size:14px;cursor:pointer;transition:background .12s;
+    }
+    .canvas-sticker-btn:hover { background:rgba(255,255,255,0.12); }
+    .retro-token {
+      position:absolute;width:40px;height:40px;
+      display:flex;align-items:center;justify-content:center;
+      font-size:26px;line-height:1;cursor:grab;user-select:none;
+      filter:drop-shadow(0 2px 3px rgba(0,0,0,0.4));
+      transition:transform .1s;
+    }
+    .retro-token:hover { transform:scale(1.1); }
+    .retro-token.dragging { cursor:grabbing;z-index:50;transition:none; }
+    .retro-token-del {
+      position:absolute;top:-6px;right:-6px;width:16px;height:16px;
+      display:flex;align-items:center;justify-content:center;
+      border-radius:50%;background:rgba(0,0,0,0.7);color:rgba(255,255,255,0.7);
+      border:none;font-size:12px;line-height:1;cursor:pointer;opacity:0;
+      transition:opacity .12s;
+    }
+    .retro-token:hover .retro-token-del { opacity:1; }
+    .retro-token-del:hover { color:#ef5350; }
+    .sticker-palette-popover {
+      position:fixed;z-index:250;width:176px;
+      display:grid;grid-template-columns:repeat(4, 1fr);gap:2px;padding:8px;
+      background:#2a2a2a;border:1px solid rgba(255,255,255,0.15);
+      border-radius:10px;box-shadow:0 4px 16px rgba(0,0,0,0.5);
+    }
+    .sticker-palette-option {
+      display:flex;align-items:center;justify-content:center;
+      width:36px;height:36px;border-radius:7px;font-size:19px;cursor:pointer;
+      transition:background .12s;
+    }
+    .sticker-palette-option:hover { background:rgba(255,255,255,0.12); }
     .canvas-add-row {
       display:flex;gap:6px;align-items:flex-end;
     }
@@ -1419,7 +1456,10 @@ interface TimerState {
             (addCardRequested)="onSingleCanvasAddCard($event)"
             (positionCommitted)="onSingleCanvasPositionCommitted($event)"
             (cardSelected)="selectCard($event.id)"
-            (commentThreadRequested)="openCommentThread($event.event, $event.card)" />
+            (commentThreadRequested)="openCommentThread($event.event, $event.card)"
+            (stickerPaletteRequested)="onSingleCanvasStickerPaletteRequested($event)"
+            (tokenPositionCommitted)="onSingleCanvasTokenPositionCommitted($event)"
+            (tokenDeleteRequested)="deleteToken($event)" />
         }
 
         <!-- Desktop: 3 separate sticky canvases side by side -->
@@ -1552,9 +1592,19 @@ interface TimerState {
                         } <!-- end @else hidden -->
                       </div>
                     }
+                    @for (t of tokensForCol(col.key); track t.token.id) {
+                      <div class="retro-token"
+                           [class.dragging]="draggingTokenId() === t.token.id"
+                           [style.left.px]="t.x" [style.top.px]="t.y"
+                           (mousedown)="startTokenDrag($event, t.token, t.x, t.y, col.key)">
+                        {{ t.token.emoji }}
+                        <button class="retro-token-del" (mousedown)="$event.stopPropagation()" (click)="deleteToken(t.token)">×</button>
+                      </div>
+                    }
                   </div>
                   <div class="canvas-zoom-controls"
                        (mousedown)="$event.stopPropagation()" (wheel)="$event.stopPropagation()">
+                    <button class="canvas-sticker-btn" title="Add a sticker" (click)="toggleStickerPalette($event, col.key)">🏷️</button>
                     @if (items.length > 1) {
                       <button class="canvas-tidy-btn" title="Arrange cards neatly"
                               (click)="arrangeColumn(col.key)">
@@ -1714,6 +1764,16 @@ interface TimerState {
             </div>
           }
         }
+        @if (stickerPaletteOpenFor(); as colKey) {
+          @if (stickerPalettePos(); as pos) {
+            <div class="sticker-palette-popover" [style.top.px]="pos.top" [style.left.px]="pos.left"
+                 (mousedown)="$event.stopPropagation()" (click)="$event.stopPropagation()">
+              @for (emoji of stickerPalette; track emoji) {
+                <div class="sticker-palette-option" (click)="pickSticker(colKey, emoji)">{{ emoji }}</div>
+              }
+            </div>
+          }
+        }
       </div>
     }
   `
@@ -1835,6 +1895,14 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
   draggingId = signal<string | null>(null);
   private dragState: { id: string; col: string; startMouseX: number; startMouseY: number; startX: number; startY: number; moved: boolean } | null = null;
   private static readonly CLICK_MOVE_THRESHOLD = 4; // px
+
+  // ── Sticker tokens ──
+  readonly stickerPalette = ['⭐', '🔥', '💯', '👍', '👎', '❤️', '✅', '❌', '🚩', '🎯', '💡', '🤔', '😂', '🎉', '⚠️', '🏆'];
+  localTokenPositions = signal<Record<string, { x: number; y: number }>>({});
+  draggingTokenId = signal<string | null>(null);
+  stickerPaletteOpenFor = signal<string | null>(null);
+  stickerPalettePos = signal<{ top: number; left: number } | null>(null);
+  private tokenDragState: { id: string; col: string; startMouseX: number; startMouseY: number; startX: number; startY: number } | null = null;
 
   // ── Per-column Miro-style pan/zoom viewport ──
   canvasView = signal<Record<string, { zoom: number; panX: number; panY: number }>>({});
@@ -2007,6 +2075,83 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
     return result;
   }
 
+  tokensForCol(colKey: string): { token: FunRetroToken; x: number; y: number }[] {
+    const s = this.session();
+    if (!s) return [];
+    const localPos = this.localTokenPositions();
+    return s.tokens
+      .filter(t => t.column === colKey)
+      .map(t => {
+        const local = localPos[t.id];
+        return { token: t, x: local?.x ?? t.positionX, y: local?.y ?? t.positionY };
+      });
+  }
+
+  toggleStickerPalette(e: MouseEvent, colKey: string): void {
+    this.togglePopover(this.stickerPaletteOpenFor, this.stickerPalettePos, e, colKey, 190);
+  }
+
+  // Set only when the palette was opened from the single-canvas layout, which already
+  // computes its own drop point (it owns the only pan/zoom viewport there is, and knows
+  // which zone the viewport center currently falls in) -- pickSticker uses this instead of
+  // re-deriving a position from a per-column canvas element that doesn't exist in that layout.
+  private singleCanvasStickerTarget: { column: string; x: number; y: number } | null = null;
+
+  onSingleCanvasStickerPaletteRequested(payload: { event: MouseEvent; column: string; x: number; y: number }): void {
+    this.singleCanvasStickerTarget = { column: payload.column, x: payload.x, y: payload.y };
+    this.togglePopover(this.stickerPaletteOpenFor, this.stickerPalettePos, payload.event, payload.column, 190);
+  }
+
+  pickSticker(colKey: string, emoji: string): void {
+    this.stickerPaletteOpenFor.set(null);
+    this.stickerPalettePos.set(null);
+    const s = this.session();
+    if (!s) return;
+
+    const pending = this.singleCanvasStickerTarget;
+    this.singleCanvasStickerTarget = null;
+    let x: number, y: number;
+    if (pending && pending.column === colKey) {
+      x = pending.x;
+      y = pending.y;
+    } else {
+      const outer = this.outerEl(colKey);
+      const v = this.viewFor(colKey);
+      const outerW = outer?.clientWidth ?? 400;
+      const outerH = outer?.clientHeight ?? 400;
+      x = (outerW / 2 - v.panX) / v.zoom;
+      y = (outerH / 2 - v.panY) / v.zoom;
+    }
+
+    this.svc.addToken(s.id, colKey, emoji, x, y).subscribe(token => {
+      this.session.update(cur => cur ? { ...cur, tokens: [...cur.tokens, token] } : cur);
+    });
+  }
+
+  startTokenDrag(e: MouseEvent, token: FunRetroToken, x: number, y: number, col: string): void {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    e.stopPropagation();
+    this.closeAllPickers();
+    this.tokenDragState = { id: token.id, col, startMouseX: e.clientX, startMouseY: e.clientY, startX: x, startY: y };
+    this.draggingTokenId.set(token.id);
+  }
+
+  // The single-canvas layout drags tokens fully within its own component (it owns the only
+  // pan/zoom viewport there is) and only reports the final position here to persist --
+  // unlike the per-column layout above, where this component owns the drag itself.
+  onSingleCanvasTokenPositionCommitted(payload: { tokenId: string; x: number; y: number }): void {
+    const s = this.session();
+    if (s) this.svc.updateTokenPosition(s.id, payload.tokenId, payload.x, payload.y).subscribe();
+  }
+
+  deleteToken(token: FunRetroToken): void {
+    const s = this.session();
+    if (!s) return;
+    this.session.update(cur => cur ? { ...cur, tokens: cur.tokens.filter(t => t.id !== token.id) } : cur);
+    this.svc.deleteToken(s.id, token.id).subscribe();
+  }
+
   canvasHeight(cards: CanvasCardItem[]): number {
     if (cards.length === 0) return 400;
     const maxY = Math.max(...cards.map(c => c.y + 200));
@@ -2067,6 +2212,15 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
       });
       return;
     }
+    if (this.tokenDragState) {
+      const zoom = this.viewFor(this.tokenDragState.col).zoom;
+      const dx = (e.clientX - this.tokenDragState.startMouseX) / zoom;
+      const dy = (e.clientY - this.tokenDragState.startMouseY) / zoom;
+      const x = Math.max(0, this.tokenDragState.startX + dx);
+      const y = Math.max(0, this.tokenDragState.startY + dy);
+      this.localTokenPositions.update(p => ({ ...p, [this.tokenDragState!.id]: { x, y } }));
+      return;
+    }
     if (!this.dragState) return;
     if (!this.dragState.moved) {
       const totalDx = e.clientX - this.dragState.startMouseX;
@@ -2091,6 +2245,15 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
     if (this.panState) {
       this.panState = null;
       this.panningCol.set(null);
+      return;
+    }
+    if (this.tokenDragState) {
+      const { id } = this.tokenDragState;
+      const s = this.session();
+      const pos = this.localTokenPositions()[id];
+      if (s && pos) this.svc.updateTokenPosition(s.id, id, pos.x, pos.y).subscribe();
+      this.tokenDragState = null;
+      this.draggingTokenId.set(null);
       return;
     }
     if (!this.dragState) return;
@@ -2194,6 +2357,7 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
     if (this.phasePanelOpen()) this.phasePanelOpen.set(false);
     if (this.selectedCardId()) { this.selectedCardId.set(null); this.selectedCardToolbarPos.set(null); }
     if (this.commentThreadFor()) { this.commentThreadFor.set(null); this.commentThreadPos.set(null); }
+    if (this.stickerPaletteOpenFor()) { this.stickerPaletteOpenFor.set(null); this.stickerPalettePos.set(null); }
   }
 
   // ── Card selection + floating toolbar ──
@@ -2503,6 +2667,11 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
           }
           break;
         case 'fun_retro_comment_deleted':
+          if (msg.data['sessionId'] === s.id) this.silentRefresh();
+          break;
+        case 'fun_retro_token_added':
+        case 'fun_retro_token_moved':
+        case 'fun_retro_token_deleted':
           if (msg.data['sessionId'] === s.id) this.silentRefresh();
           break;
         case 'fun_retro_phase_changed':

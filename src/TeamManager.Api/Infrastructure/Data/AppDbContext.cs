@@ -98,6 +98,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<FunRetroVote> FunRetroVotes => Set<FunRetroVote>();
     public DbSet<FunRetroReaction> FunRetroReactions => Set<FunRetroReaction>();
     public DbSet<FunRetroCardComment> FunRetroCardComments => Set<FunRetroCardComment>();
+    public DbSet<FunRetroToken> FunRetroTokens => Set<FunRetroToken>();
     public DbSet<DotsAndBoxesSession> DotsAndBoxesSessions => Set<DotsAndBoxesSession>();
     public DbSet<DotsAndBoxesParticipant> DotsAndBoxesParticipants => Set<DotsAndBoxesParticipant>();
     public DbSet<Game2048Session> Game2048Sessions => Set<Game2048Session>();
@@ -190,6 +191,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         modelBuilder.ApplyConfiguration(new FunRetroVoteConfiguration());
         modelBuilder.ApplyConfiguration(new FunRetroReactionConfiguration());
         modelBuilder.ApplyConfiguration(new FunRetroCardCommentConfiguration());
+        modelBuilder.ApplyConfiguration(new FunRetroTokenConfiguration());
         modelBuilder.ApplyConfiguration(new DotsAndBoxesSessionConfiguration());
         modelBuilder.ApplyConfiguration(new DotsAndBoxesParticipantConfiguration());
         modelBuilder.ApplyConfiguration(new Game2048SessionConfiguration());
