@@ -99,17 +99,41 @@ const REACTION_EMOJIS = ['👍', '❤️', '😂', '🎉', '🤔'];
     .cz-divider { width:1px;height:16px;background:rgba(255,255,255,0.15);margin:0 2px;flex-shrink:0; }
     .sticky {
       position:absolute;box-sizing:border-box;
-      width:200px;min-height:90px;
-      border-radius:4px;padding:10px 12px;
-      box-shadow:2px 4px 12px rgba(0,0,0,0.35);
+      width:240px;min-height:220px;
+      border-radius:11px;padding:13px 15px;
+      border:2px solid rgba(0,0,0,0.22);
+      box-shadow:0 3px 8px rgba(0,0,0,0.28),0 1px 3px rgba(0,0,0,0.22);
       cursor:grab;user-select:none;
       display:flex;flex-direction:column;gap:6px;
-      transition:box-shadow 0.1s;
+      transition:box-shadow 0.15s,transform 0.15s;
     }
-    .sticky:active, .sticky.dragging { cursor:grabbing;box-shadow:4px 8px 24px rgba(0,0,0,0.5);z-index:100; }
+    /* A slight per-card tilt (applied inline via cardRotation()) reads as notes actually
+       stuck on a board rather than a rigid grid -- straightens out on hover/drag so the
+       card you're interacting with feels settled and easy to read. */
+    .sticky:hover, .sticky:active, .sticky.dragging { transform:rotate(0deg) !important; }
+    .sticky:active, .sticky.dragging { cursor:grabbing;box-shadow:0 8px 20px rgba(0,0,0,0.4),0 2px 6px rgba(0,0,0,0.3);z-index:100; }
     .sticky.no-drag { cursor:default; }
-    .sticky-text { font-size:0.8rem;color:rgba(0,0,0,0.82);line-height:1.4;flex:1;overflow-wrap:anywhere;word-break:break-word; }
+    .sticky-text {
+      font-size:1.05rem;font-weight:700;color:rgba(0,0,0,0.87);line-height:1.4;flex:1;
+      overflow-wrap:anywhere;word-break:break-word;
+      font-family:'Kalam','Segoe UI',system-ui,sans-serif;
+    }
     .sticky-author { font-size:0.65rem;color:rgba(0,0,0,0.45); }
+    .sticky-header app-avatar-circle {
+      display:inline-flex;border-radius:50%;
+      box-shadow:0 0 0 2px rgba(0,0,0,0.16),0 1px 2px rgba(0,0,0,0.2);
+    }
+    /* Cute circular badge overlapping the top edge, showing whether this card's author is
+       still hidden ("locked", pre-reveal) or visible ("unlocked") -- mirrors the same idea
+       as Spreo's private-writing lock/unlock indicator. */
+    .sticky-lock-badge {
+      position:absolute;top:-18px;left:50%;transform:translateX(-50%);
+      width:34px;height:34px;border-radius:50%;
+      display:flex;align-items:center;justify-content:center;font-size:17px;
+      border:2px solid rgba(255,255,255,0.9);box-shadow:0 2px 4px rgba(0,0,0,0.3);
+      background:#ef9a9a;
+    }
+    .sticky-lock-badge.unlocked { background:#a5d6a7; }
     .sticky-footer { display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:4px; }
     .sticky-vote-row { display:flex;align-items:center;gap:0;margin-top:4px; }
     .sticky-vote-count { min-width:22px;text-align:center;font-size:0.7rem;font-weight:700;color:rgba(0,0,0,0.45);font-variant-numeric:tabular-nums; }
@@ -201,7 +225,11 @@ const REACTION_EMOJIS = ['👍', '❤️', '😂', '🎉', '🤔'];
                [style.left.px]="item.x"
                [style.top.px]="item.y"
                [style.background]="resolveCardColor()(item.card)"
+               [style.transform]="'rotate(' + cardRotation(item.card.id) + 'deg)'"
                (mousedown)="startDrag($event, item.card, item.x, item.y)">
+            <div class="sticky-lock-badge" [class.unlocked]="item.card.text !== null" [title]="item.card.text === null ? 'Hidden until reveal' : 'Visible to everyone'">
+              {{ item.card.text === null ? '🙈' : '📝' }}
+            </div>
             @if (item.card.text === null) {
               <div class="sticky-header">
                 <app-avatar-circle [memberId]="item.card.authorId" [name]="item.card.authorName ?? ''" [avatarSeed]="item.card.authorAvatarSeed" [size]="18" />
@@ -341,10 +369,10 @@ export class RetroSingleCanvasComponent implements AfterViewInit {
   // tight as if they had to fit a fixed viewport like the old per-column canvases did.
   readonly ZONE_WIDTH = 680;
   readonly ZONE_GAP = 48;
-  private readonly STICKY_W = 200;
+  private readonly STICKY_W = 240;
   private readonly STICKY_GAP = 16;
   private readonly STICKY_MARGIN = 10;
-  private readonly STICKY_MIN_H = 90;
+  private readonly STICKY_MIN_H = 220;
   // Vertical space reserved at the top of every zone for its header (label/count/Tidy) --
   // rendered inside the pannable canvas content (not above it, unlike the old per-column
   // header which lived in its own DOM row outside a clipped .canvas-outer), so cards must
@@ -656,6 +684,15 @@ export class RetroSingleCanvasComponent implements AfterViewInit {
 
   getReactionCount(card: FunRetroCard, emoji: string): number {
     return card.reactions?.find(r => r.emoji === emoji)?.count ?? 0;
+  }
+
+  /** Small deterministic tilt per card (-1.5deg to 1.5deg, stable across re-renders since
+   *  it's derived from the card's own id) so cards read as notes stuck on a board instead
+   *  of a rigid grid. */
+  cardRotation(cardId: string): number {
+    let hash = 0;
+    for (let i = 0; i < cardId.length; i++) hash = (hash * 31 + cardId.charCodeAt(i)) | 0;
+    return ((Math.abs(hash) % 300) / 100) - 1.5;
   }
 
   @HostListener('document:mousemove', ['$event'])
