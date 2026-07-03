@@ -214,110 +214,6 @@ function pixelSvgDataUrl(layers: PixelLayer[], gridSize = GRID): string {
   return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
 }
 
-// ── Space: rocket (positive/launch) / asteroid (negative/impact) / satellite (action/control) ──
-const SPACE_POSITIVE_FILL: [number, number][] = scale([
-  // nose cone, tapering to a point
-  ...row(4, 19, 20), ...row(5, 18, 21), ...row(6, 18, 21), ...row(7, 17, 22), ...row(8, 17, 22),
-  // body
-  ...row(9, 16, 23), ...row(10, 16, 23), ...row(11, 16, 23), ...row(12, 16, 23), ...row(13, 16, 23),
-  ...row(14, 16, 23), ...row(15, 16, 23), ...row(16, 16, 23), ...row(17, 16, 23), ...row(18, 16, 23),
-  ...row(19, 16, 23), ...row(20, 16, 23), ...row(21, 16, 23), ...row(22, 16, 23), ...row(23, 16, 23),
-  ...row(24, 16, 23), ...row(25, 16, 23), ...row(26, 16, 23),
-  // flared fins at the base
-  ...row(23, 12, 15), ...row(24, 12, 16), ...row(25, 13, 16), ...row(26, 14, 16),
-  ...row(23, 24, 27), ...row(24, 23, 27), ...row(25, 23, 26), ...row(26, 23, 25),
-  // flame, tapering below the base
-  ...row(27, 17, 22), ...row(28, 18, 21), ...row(29, 18, 21), ...row(30, 19, 20), ...row(31, 19, 20),
-]);
-const SPACE_POSITIVE_DETAIL: [number, number][] = [
-  ...scale([[19, 5], [20, 5], [19, 6], [20, 6]]), // nose cone tip highlight
-  ...scale(col(19, 12, 22)), ...scale(col(20, 12, 22)), // body centerline seam
-  ...scale([[19, 28], [20, 28], [19, 29], [20, 29]]), // inner flame flicker
-  ...circleRing(19.5, 15, 2, 1), // window ring
-  // stars + sparkles scattered around
-  ...circleRing(4, 5, 0.7), ...circleRing(35, 9, 0.7), ...circleRing(6, 33, 0.6), ...circleRing(33, 30, 0.8),
-  ...sparkle(30, 4, 2), ...sparkle(3, 20, 1.5), ...sparkle(36, 22, 1.5),
-];
-const SPACE_NEGATIVE_FILL: [number, number][] = [
-  ...circleRing(20, 20, 9),
-  // impact cracks radiating outward
-  ...diagLine(20, 20, 30, 10), ...diagLine(20, 20, 9, 11), ...diagLine(20, 20, 26, 30), ...diagLine(20, 20, 12, 28),
-  // motion streak trailing behind
-  ...scale(row(20, 2, 8)), ...scale(row(18, 4, 9)), ...scale(row(22, 4, 9)),
-];
-const SPACE_NEGATIVE_DETAIL: [number, number][] = [
-  ...circleRing(16, 17, 2), ...circleRing(23, 22, 1.6), ...circleRing(19, 24, 1.2), // craters
-  ...circleRing(20, 20, 12, 10.5), // shockwave ring
-];
-const SPACE_ACTION_FILL: [number, number][] = [
-  ...scale([
-    // body
-    ...row(19, 18, 21), ...row(20, 18, 21), ...row(21, 18, 21), ...row(22, 18, 21),
-    // solar panels
-    ...row(19, 6, 16), ...row(20, 6, 16), ...row(21, 6, 16),
-    ...row(19, 23, 33), ...row(20, 23, 33), ...row(21, 23, 33),
-    // dish arm
-    ...row(17, 20, 20), ...row(15, 20, 20),
-  ]),
-  ...circleRing(19.5, 12, 4), // dish
-];
-const SPACE_ACTION_DETAIL: [number, number][] = [
-  ...circleRing(19.5, 12, 4, 2.5), // dish rim (hollow ring look)
-  // solar panel hatching
-  ...scale(col(9, 19, 21)), ...scale(col(12, 19, 21)), ...scale(col(30, 19, 21)), ...scale(col(27, 19, 21)),
-  // signal waves
-  ...circleRing(19.5, 4, 5, 4.3), ...circleRing(19.5, 4, 8, 7.3), ...circleRing(19.5, 4, 11, 10.3),
-  ...circleRing(31, 32, 1), // blinking light
-];
-
-// ── F1: checkered flag (positive/finish) / warning triangle (negative/hazard) / steering wheel (action) ──
-function checkerLayers(): { fill: [number, number][]; detail: [number, number][] } {
-  const fill: [number, number][] = [];
-  const detail: [number, number][] = [];
-  for (let y = 0; y < 16; y++) {
-    for (let x = 0; x < 16; x++) {
-      ((x + y) % 2 === 0 ? fill : detail).push([x + 10, y + 4]);
-    }
-  }
-  return { fill, detail };
-}
-const f1CheckerLayers = checkerLayers();
-const F1_POSITIVE_FILL: [number, number][] = [
-  ...scale(col(9, 3, 37)), // pole
-  ...scale(f1CheckerLayers.fill),
-];
-const F1_POSITIVE_DETAIL: [number, number][] = [
-  ...circleRing(9.5, 3, 1.5), // finial
-  ...scale(f1CheckerLayers.detail),
-];
-const F1_NEGATIVE_FILL: [number, number][] = scale([
-  // triangle, hollowed to a ~2px border so it reads as an outline rather than a solid wedge
-  ...row(6, 19, 20), ...row(7, 18, 21), ...row(8, 17, 22), ...row(9, 16, 23), ...row(10, 15, 24),
-  ...row(11, 14, 25), ...row(12, 13, 26), ...row(13, 12, 27), ...row(14, 11, 28), ...row(15, 10, 29),
-  ...row(16, 9, 30), ...row(17, 8, 31),
-].filter(([x, y]) => {
-  const left = 19 - (y - 6), right = 20 + (y - 6);
-  return y <= 8 || x <= left + 1 || x >= right - 1;
-}));
-const F1_NEGATIVE_DETAIL: [number, number][] = [
-  ...scale(col(19, 11, 21)), ...scale(col(20, 11, 21)), // exclamation stem
-  ...scale([[19, 24], [20, 24], [19, 25], [20, 25]]), // exclamation dot
-];
-const F1_ACTION_FILL: [number, number][] = [
-  ...circleRing(20, 20, 12, 10),
-  ...circleRing(20, 20, 3),
-  ...diagLine(20, 10, 20, 17, 1.4), ...diagLine(11, 26, 17, 21, 1.4), ...diagLine(29, 26, 23, 21, 1.4),
-];
-const F1_ACTION_DETAIL: [number, number][] = [
-  ...circleRing(20, 20, 3, 1.6), // hub highlight ring
-  // grip texture tick marks around the rim
-  ...Array.from({ length: 12 }, (_, i) => {
-    const a = (i / 12) * Math.PI * 2;
-    const cx = 20 + Math.cos(a) * 11, cy = 20 + Math.sin(a) * 11;
-    return diagLine(cx, cy, 20 + Math.cos(a) * 13, 20 + Math.sin(a) * 13);
-  }).flat(),
-];
-
 // ── Ocean: sailboat (positive/moving) / anchor (negative/stuck) / compass (action/direction) ──
 const OCEAN_POSITIVE_FILL: [number, number][] = scale([
   // mast
@@ -400,6 +296,12 @@ export interface RetroThemeDef {
   label: string;
   /** [positive, negative, action] -- shown on a column by its position (index % 3). */
   variantUrls: [string, string, string];
+  /** Overrides for themes backed by real photo/render assets (not the hand-authored,
+   *  mostly-transparent pixel SVGs above) -- those need a much higher opacity plus a
+   *  screen blend to read at all instead of just tinting the column a flat color, and
+   *  `contain` sizing so the subject isn't stretched. Omitted for the vector themes, which
+   *  keep the CSS defaults (0.16 opacity, no blend, stretched to fill). */
+  bgStyle?: { opacity: number; blend: string; size: string };
 }
 
 function twoTone(fill: [number, number][], detail: [number, number][]): string {
@@ -409,19 +311,25 @@ function twoTone(fill: [number, number][], detail: [number, number][]): string {
 export const RETRO_THEMES: RetroThemeDef[] = [
   {
     id: 'space', label: 'Space',
+    // Real renders instead of the hand-authored pixel SVGs above -- the rocket (launch/
+    // positive), the UFO (unknown/negative), the astronaut (doing the work/action).
     variantUrls: [
-      twoTone(SPACE_POSITIVE_FILL, SPACE_POSITIVE_DETAIL),
-      twoTone(SPACE_NEGATIVE_FILL, SPACE_NEGATIVE_DETAIL),
-      twoTone(SPACE_ACTION_FILL, SPACE_ACTION_DETAIL),
+      'url("/assets/pixel-art/space_rocket.png")',
+      'url("/assets/pixel-art/space_ufo.png")',
+      'url("/assets/pixel-art/space_astronaut.png")',
     ],
+    bgStyle: { opacity: 0.4, blend: 'screen', size: 'contain' },
   },
   {
     id: 'f1', label: 'F1',
+    // Real renders instead of the hand-authored pixel SVGs above -- checkered flag (finish/
+    // positive), the car (still racing/negative), the podium (the goal/action).
     variantUrls: [
-      twoTone(F1_POSITIVE_FILL, F1_POSITIVE_DETAIL),
-      twoTone(F1_NEGATIVE_FILL, F1_NEGATIVE_DETAIL),
-      twoTone(F1_ACTION_FILL, F1_ACTION_DETAIL),
+      'url("/assets/pixel-art/formula_1_flag.png")',
+      'url("/assets/pixel-art/formula_1_race_car.png")',
+      'url("/assets/pixel-art/formula_1_podium.png")',
     ],
+    bgStyle: { opacity: 0.4, blend: 'screen', size: 'contain' },
   },
   {
     id: 'ocean', label: 'Ocean',
