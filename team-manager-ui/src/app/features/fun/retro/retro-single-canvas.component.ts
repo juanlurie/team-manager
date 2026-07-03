@@ -120,15 +120,27 @@ const REACTION_EMOJIS = ['👍', '❤️', '😂', '🎉', '🤔'];
     }
     .retro-token:hover .retro-token-del { opacity:1; }
     .retro-token-del:hover { color:#ef5350; }
+    /* Draggable clock so the timer can be parked wherever's convenient on the board instead
+       of only living in a header popover -- position is local to this viewer, not persisted. */
+    .timer-widget {
+      position:absolute;display:flex;align-items:center;gap:6px;
+      padding:6px 12px;border-radius:20px;cursor:grab;user-select:none;
+      background:rgba(20,20,24,0.9);border:1px solid rgba(255,255,255,0.15);
+      color:rgba(255,255,255,0.85);font-size:0.85rem;font-variant-numeric:tabular-nums;
+      box-shadow:0 3px 10px rgba(0,0,0,0.35);z-index:20;
+    }
+    .timer-widget:active { cursor:grabbing; }
+    .timer-widget-danger { border-color:rgba(239,83,80,0.5);color:#ef5350; }
+    .timer-widget-icon { font-size:16px;width:16px;height:16px;line-height:16px; }
     .sticky {
       position:absolute;box-sizing:border-box;
       width:240px;min-height:220px;
       border-radius:11px;padding:13px 15px;
-      border:2px solid rgba(0,0,0,0.22);
-      box-shadow:0 3px 8px rgba(0,0,0,0.28),0 1px 3px rgba(0,0,0,0.22);
+      border:2px solid rgba(100,181,246,0.55);
+      box-shadow:0 0 0 1px rgba(100,181,246,0.18),0 3px 8px rgba(0,0,0,0.28),0 1px 3px rgba(0,0,0,0.22);
       cursor:grab;user-select:none;
       display:flex;flex-direction:column;gap:6px;
-      transition:box-shadow 0.15s,transform 0.15s;
+      transition:box-shadow 0.15s,transform 0.15s,border-color 0.15s;
     }
     /* A slight per-card tilt (applied inline via cardRotation()) reads as notes actually
        stuck on a board rather than a rigid grid -- straightens out on hover/drag so the
@@ -162,14 +174,15 @@ const REACTION_EMOJIS = ['👍', '❤️', '😂', '🎉', '🤔'];
        still hidden ("locked", pre-reveal) or visible ("unlocked") -- mirrors the same idea
        as Spreo's private-writing lock/unlock indicator. */
     .sticky-lock-badge {
-      position:absolute;top:-18px;left:50%;transform:translateX(-50%);
-      width:34px;height:34px;border-radius:50%;
+      position:absolute;top:8px;right:8px;
+      width:26px;height:26px;border-radius:50%;
       display:flex;align-items:center;justify-content:center;
-      border:2px solid rgba(255,255,255,0.9);box-shadow:0 2px 4px rgba(0,0,0,0.3);
-      background:#c62828;color:#fff;
+      border:2px solid rgba(255,255,255,0.9);box-shadow:0 2px 5px rgba(0,0,0,0.35);
+      background:#e53935;color:#fff;
+      z-index:1;
     }
-    .sticky-lock-badge.unlocked { background:#2e7d32; }
-    .sticky-lock-badge mat-icon { font-size:18px;width:18px;height:18px;line-height:18px; }
+    .sticky-lock-badge.unlocked { background:#43a047; }
+    .sticky-lock-badge mat-icon { font-size:16px;width:16px;height:16px;line-height:16px; }
     .sticky-comment-badge {
       position:absolute;bottom:-10px;right:8px;
       display:flex;align-items:center;gap:2px;
@@ -207,7 +220,7 @@ const REACTION_EMOJIS = ['👍', '❤️', '😂', '🎉', '🤔'];
       border-radius:4px;transition:color 0.15s;
     }
     .sticky-del-btn:hover { color:rgba(200,0,0,0.7); }
-    .sticky-header { display:flex;align-items:center;gap:5px;margin-bottom:6px; }
+    .sticky-header { display:flex;align-items:center;gap:5px;margin-bottom:6px;padding-right:28px; }
     .sticky-edit-area {
       width:100%;box-sizing:border-box;border:none;outline:none;resize:none;
       background:transparent;font-size:0.8rem;color:rgba(0,0,0,0.82);line-height:1.4;
@@ -231,7 +244,11 @@ const REACTION_EMOJIS = ['👍', '❤️', '😂', '🎉', '🤔'];
          (mousedown)="startPan($event)"
          (click)="onCanvasClick($event)"
          (dblclick)="onCanvasDoubleClick($event)">
-      <app-retro-canvas-sidebar [activeTool]="activeTool()" (toolSelected)="activeTool.set($event)" />
+      <app-retro-canvas-sidebar [activeTool]="activeTool()" [showRevealAction]="showRevealAction()" [timerActive]="timerActive()"
+                                (toolSelected)="activeTool.set($event)"
+                                (stickerRequested)="requestStickerPalette($event, canvasOuterEl)"
+                                (revealRequested)="revealRequested.emit()"
+                                (timerRequested)="timerToggleRequested.emit($event)" />
       <div class="canvas-inner"
            [style.height.px]="canvasHeight()"
            [style.transform]="'translate(' + view().panX + 'px,' + view().panY + 'px) scale(' + view().zoom + ')'">
@@ -361,9 +378,15 @@ const REACTION_EMOJIS = ['👍', '❤️', '😂', '🎉', '🤔'];
             <button class="retro-token-del" (mousedown)="$event.stopPropagation()" (click)="tokenDeleteRequested.emit(t.token)">×</button>
           </div>
         }
+        @if (timerLabel(); as label) {
+          <div class="timer-widget" [class.timer-widget-danger]="timerDanger()"
+               [style.left.px]="timerWidgetPos().x" [style.top.px]="timerWidgetPos().y"
+               (mousedown)="startTimerWidgetDrag($event)">
+            <mat-icon class="timer-widget-icon">timer</mat-icon>{{ label }}
+          </div>
+        }
       </div>
       <div class="canvas-zoom-controls" (mousedown)="$event.stopPropagation()" (wheel)="$event.stopPropagation()">
-        <button class="cz-btn cz-sticker" title="Add a sticker" (click)="requestStickerPalette($event, canvasOuterEl)">🏷️</button>
         <button class="cz-btn" title="Zoom out" (click)="zoomBy(0.8)">−</button>
         <button class="cz-btn cz-pct" title="Reset zoom" (click)="resetView()">{{ zoomPercent() }}%</button>
         <button class="cz-btn" title="Zoom in" (click)="zoomBy(1.25)">+</button>
@@ -408,6 +431,10 @@ export class RetroSingleCanvasComponent implements AfterViewInit {
   editingCardId = input.required<string | null>();
   editingText = input.required<string>();
   resolveCardColor = input.required<(card: FunRetroCard) => string>();
+  showRevealAction = input<boolean>(false);
+  timerLabel = input<string | null>(null);
+  timerDanger = input<boolean>(false);
+  timerActive = input<boolean>(false);
 
   voteToggled = output<FunRetroCard>();
   reactionToggled = output<{ card: FunRetroCard; emoji: string }>();
@@ -422,6 +449,8 @@ export class RetroSingleCanvasComponent implements AfterViewInit {
   stickerPaletteRequested = output<{ event: MouseEvent; column: string; x: number; y: number }>();
   tokenPositionCommitted = output<{ tokenId: string; x: number; y: number }>();
   tokenDeleteRequested = output<FunRetroToken>();
+  revealRequested = output<void>();
+  timerToggleRequested = output<MouseEvent>();
 
   readonly reactionEmojis = REACTION_EMOJIS;
   // Wide enough for 3 sticky-columns per zone (200px cards) instead of 2 -- panning/zooming
@@ -455,6 +484,19 @@ export class RetroSingleCanvasComponent implements AfterViewInit {
   localTokenPositions = signal<Record<string, { x: number; y: number }>>({});
   draggingTokenId = signal<string | null>(null);
   private tokenDragState: { id: string; startMouseX: number; startMouseY: number; startX: number; startY: number } | null = null;
+
+  // Local-only (not persisted) position for the draggable timer widget -- it's a per-viewer
+  // convenience for placing the clock out of the way on the board, not shared session state.
+  timerWidgetPos = signal<{ x: number; y: number }>({ x: 20, y: 20 });
+  private timerDragState: { startMouseX: number; startMouseY: number; startX: number; startY: number } | null = null;
+
+  startTimerWidgetDrag(e: MouseEvent): void {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const p = this.timerWidgetPos();
+    this.timerDragState = { startMouseX: e.clientX, startMouseY: e.clientY, startX: p.x, startY: p.y };
+  }
 
   zoneOriginX(zoneIndex: number): number {
     return zoneIndex * (this.ZONE_WIDTH + this.ZONE_GAP);
@@ -824,6 +866,16 @@ export class RetroSingleCanvasComponent implements AfterViewInit {
       this.localTokenPositions.update(p => ({ ...p, [this.tokenDragState!.id]: { x, y } }));
       return;
     }
+    if (this.timerDragState) {
+      const zoom = this.view().zoom;
+      const dx = (e.clientX - this.timerDragState.startMouseX) / zoom;
+      const dy = (e.clientY - this.timerDragState.startMouseY) / zoom;
+      this.timerWidgetPos.set({
+        x: Math.max(0, this.timerDragState.startX + dx),
+        y: Math.max(0, this.timerDragState.startY + dy),
+      });
+      return;
+    }
     if (!this.dragState) return;
     if (!this.dragState.moved) {
       const totalDx = e.clientX - this.dragState.startMouseX;
@@ -852,6 +904,10 @@ export class RetroSingleCanvasComponent implements AfterViewInit {
       if (pos) this.tokenPositionCommitted.emit({ tokenId: id, x: pos.x, y: pos.y });
       this.tokenDragState = null;
       this.draggingTokenId.set(null);
+      return;
+    }
+    if (this.timerDragState) {
+      this.timerDragState = null;
       return;
     }
     if (!this.dragState) return;
