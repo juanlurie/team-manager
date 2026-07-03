@@ -1,4 +1,4 @@
-import { Component, ChangeDetectionStrategy, ElementRef, HostListener, AfterViewInit, inject, input, output, signal, computed } from '@angular/core';
+import { Component, ChangeDetectionStrategy, ElementRef, HostListener, AfterViewInit, inject, input, output, signal, computed, viewChild, effect } from '@angular/core';
 import { MatIconModule } from '@angular/material/icon';
 import { CdkTextareaAutosize } from '@angular/cdk/text-field';
 import { AvatarCircleComponent } from '../../../core/components/k-picker/avatar-circle.component';
@@ -300,6 +300,22 @@ const REACTION_EMOJIS = ['👍', '❤️', '😂', '🎉', '🤔'];
 })
 export class RetroSingleCanvasComponent implements AfterViewInit {
   private elRef = inject(ElementRef);
+
+  // The `autofocus` attribute on the pending-card textarea only reliably fires the first
+  // time a card is placed -- browsers only honor autofocus for a dynamically-inserted
+  // element within a short window after page load (to prevent focus-stealing abuse), so
+  // every card after the first silently doesn't get it. Focus it explicitly instead,
+  // re-running whenever a new pending card appears (viewChild's signal updates to the
+  // freshly-created textarea each time the @if block recreates it).
+  private pendingInputEl = viewChild<ElementRef<HTMLTextAreaElement>>('pendingInput');
+
+  constructor() {
+    effect(() => {
+      const p = this.pendingCard();
+      const el = this.pendingInputEl();
+      if (p && el) el.nativeElement.focus();
+    });
+  }
 
   session = input.required<FunRetroSession | null>();
   cols = input.required<RetroColumn[]>();
