@@ -31,13 +31,15 @@ public class PollsController(PollService service, AppDbContext db) : ControllerB
         catch (InvalidOperationException ex) { return BadRequest(new { error = ex.Message }); }
     }
 
-    [HttpGet("{id:guid}")]
-    public async Task<IActionResult> GetDetail(Guid id, [FromQuery] bool reveal = false)
+    [HttpGet("{id}")]
+    public async Task<IActionResult> GetDetail(string id, [FromQuery] bool reveal = false)
     {
         var memberId = GetCurrentMemberId();
+        var pollId = await service.ResolvePollIdAsync(id);
+        if (pollId is null) return NotFound();
         try
         {
-            var result = await service.GetDetailAsync(id, memberId, reveal);
+            var result = await service.GetDetailAsync(pollId.Value, memberId, reveal);
             return Ok(result);
         }
         catch (KeyNotFoundException ex) { return NotFound(new { error = ex.Message }); }

@@ -3,6 +3,7 @@ namespace TeamManager.Api.Domain.Entities;
 public class FunRetroSession
 {
     public Guid Id { get; set; }
+    public string? Slug { get; set; } // friendly "adjective-noun" share URL, null for sessions created before this existed
     public string? Title { get; set; }
     public string Phase { get; set; } = "lobby"; // lobby|add|vote|discuss|done
     public Guid CreatedByMemberId { get; set; }

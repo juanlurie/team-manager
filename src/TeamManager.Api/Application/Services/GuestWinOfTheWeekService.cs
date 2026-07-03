@@ -1,10 +1,10 @@
-using System.Security.Cryptography;
 using Microsoft.EntityFrameworkCore;
 using TeamManager.Api.Application.DTOs.WinOfTheWeek;
 using TeamManager.Api.Application.Services.Interfaces;
 using TeamManager.Api.Domain.Entities;
 using TeamManager.Api.Domain.Enums;
 using TeamManager.Api.Infrastructure.Data;
+using TeamManager.Api.Infrastructure.Slugs;
 using TeamManager.Api.Middleware;
 
 namespace TeamManager.Api.Application.Services;
@@ -20,16 +20,28 @@ public class GuestWinOfTheWeekService(AppDbContext db, IHttpContextAccessor http
 
         if (string.IsNullOrEmpty(week.GuestToken))
         {
-            var bytes = RandomNumberGenerator.GetBytes(32);
-            week.GuestToken = Convert.ToBase64String(bytes)
-                .TrimEnd('=')
-                .Replace('+', '-')
-                .Replace('/', '_');
+            // A friendly "adjective-noun" slug instead of the previous 256-bit random
+            // token -- a deliberate, explicitly-requested tradeoff: this token is the sole
+            // credential for anonymous guest access (no login), so it's far more guessable
+            // than before (~4,700 combinations vs. astronomically many). Acceptable here
+            // because guest access is low-stakes (voting/nominating in a team fun feature),
+            // not because the entropy loss doesn't matter.
+            week.GuestToken = await GenerateUniqueGuestTokenAsync();
             await db.SaveChangesAsync();
         }
 
         var baseUrl = GetBaseUrl();
         return new GuestTokenDto(week.GuestToken, $"{baseUrl}/guest/wow/{week.GuestToken}");
+    }
+
+    private async Task<string> GenerateUniqueGuestTokenAsync()
+    {
+        for (var attempt = 0; attempt < 5; attempt++)
+        {
+            var candidate = SlugGenerator.Generate();
+            if (!await db.WinWeeks.AnyAsync(w => w.GuestToken == candidate)) return candidate;
+        }
+        return $"{SlugGenerator.Generate()}-{Guid.NewGuid().ToString()[..4]}";
     }
 
     public async Task<GuestWinWeekDto> GetWeekByTokenAsync(string token, string guestSessionId)

@@ -232,7 +232,7 @@ export class EditPollSettingsDialogComponent {
               <div class="question-text">{{ p.question }}</div>
               <div style="display:flex;align-items:center;gap:4px;flex-shrink:0">
                 @if (p.isClosed) { <span class="closed-chip">Closed</span> }
-                <button mat-icon-button (click)="sharePoll(p.id)" title="Copy share link" aria-label="Copy share link">
+                <button mat-icon-button (click)="sharePoll(p.slug ?? p.id)" title="Copy share link" aria-label="Copy share link">
                   <mat-icon>share</mat-icon>
                 </button>
                 @if (p.isCreator) {

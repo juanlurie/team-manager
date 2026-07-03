@@ -3,6 +3,7 @@ namespace TeamManager.Api.Domain.Entities;
 public class Poll
 {
     public Guid Id { get; set; }
+    public string? Slug { get; set; } // friendly "adjective-noun" share URL, null for polls created before this existed
     public string Question { get; set; } = string.Empty;
     public Guid CreatedByMemberId { get; set; }
     public bool IsClosed { get; set; }

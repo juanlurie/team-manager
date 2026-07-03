@@ -56,7 +56,12 @@ const REACTION_EMOJIS = ['👍', '❤️', '😂', '🎉', '🤔'];
          of background-image. The art itself is an SVG (vector pixel-grid rects), so scaling
          it up this much costs nothing in quality -- it stays crisp/blocky at any size. */
       position:absolute;top:0;bottom:0;pointer-events:none;
-      background-repeat:no-repeat;background-position:center top 60px;background-size:600px 600px;
+      /* The art is authored at 3x its original grid density (see retro-constants.ts), so a
+         much bigger background-size here reads as a bigger, more detailed watermark instead
+         of the same coarse art just stretched blurrier. Percentage-based (not a literal px
+         value) so it scales with this zone's own width (ZONE_WIDTH) instead of drifting out
+         of proportion with it. */
+      background-repeat:no-repeat;background-position:center top 60px;background-size:115% 115%;
       opacity:0.16;image-rendering:pixelated;
     }
     .zone-divider {
@@ -147,11 +152,12 @@ const REACTION_EMOJIS = ['👍', '❤️', '😂', '🎉', '🤔'];
     .sticky-lock-badge {
       position:absolute;top:-18px;left:50%;transform:translateX(-50%);
       width:34px;height:34px;border-radius:50%;
-      display:flex;align-items:center;justify-content:center;font-size:17px;
+      display:flex;align-items:center;justify-content:center;
       border:2px solid rgba(255,255,255,0.9);box-shadow:0 2px 4px rgba(0,0,0,0.3);
-      background:#ef9a9a;
+      background:#c62828;color:#fff;
     }
-    .sticky-lock-badge.unlocked { background:#a5d6a7; }
+    .sticky-lock-badge.unlocked { background:#2e7d32; }
+    .sticky-lock-badge mat-icon { font-size:18px;width:18px;height:18px;line-height:18px; }
     .sticky-comment-badge {
       position:absolute;bottom:-10px;right:8px;
       display:flex;align-items:center;gap:2px;
@@ -197,12 +203,6 @@ const REACTION_EMOJIS = ['👍', '❤️', '😂', '🎉', '🤔'];
     }
     .sticky-text-editable { cursor:text; }
     .sticky-text-editable:hover { background:rgba(0,0,0,0.04);border-radius:4px; }
-    .sticky-color-trigger { position:relative; margin-left:auto; }
-    .sticky-color-dot {
-      width:14px;height:14px;border-radius:50%;cursor:pointer;
-      border:1.5px solid rgba(0,0,0,0.25);padding:0;transition:transform .1s;
-    }
-    .sticky-color-dot:hover { transform:scale(1.2); }
     .sticky.pending-sticky { box-shadow:4px 8px 24px rgba(0,0,0,0.5);z-index:150; }
   `],
   template: `
@@ -255,7 +255,7 @@ const REACTION_EMOJIS = ['👍', '❤️', '😂', '🎉', '🤔'];
                [style.transform]="'rotate(' + cardRotation(item.card.id) + 'deg)'"
                (mousedown)="startDrag($event, item.card, item.x, item.y)">
             <div class="sticky-lock-badge" [class.unlocked]="item.card.text !== null" [title]="item.card.text === null ? 'Hidden until reveal' : 'Visible to everyone'">
-              {{ item.card.text === null ? '🙈' : '📝' }}
+              <mat-icon>{{ item.card.text === null ? 'lock' : 'lock_open' }}</mat-icon>
             </div>
             @if (item.card.commentCount > 0) {
               <button class="sticky-comment-badge" (mousedown)="$event.stopPropagation()"
@@ -278,8 +278,7 @@ const REACTION_EMOJIS = ['👍', '❤️', '😂', '🎉', '🤔'];
                 </div>
               }
               @if (editingCardId() === item.card.id) {
-                <textarea class="sticky-edit-area"
-                          autofocus
+                <textarea class="sticky-edit-area" #editArea
                           [value]="editingText()"
                           (input)="editTextChanged.emit($any($event.target).value)"
                           (blur)="editSaved.emit(item.card)"
@@ -290,13 +289,12 @@ const REACTION_EMOJIS = ['👍', '❤️', '😂', '🎉', '🤔'];
               } @else {
                 <div class="sticky-text"
                      [class.sticky-text-editable]="item.card.isOwn || s?.isCreator"
-                     (mousedown)="$event.stopPropagation()"
-                     (click)="(item.card.isOwn || s?.isCreator) && item.card.text !== null ? editStarted.emit(item.card) : null">
+                     (dblclick)="(item.card.isOwn || s?.isCreator) && item.card.text !== null ? editStarted.emit(item.card) : null">
                   {{ item.card.text }}
                 </div>
               }
-              <div class="sticky-footer">
-                @if (s?.phase === 'vote' || s?.phase === 'discuss' || s?.phase === 'done') {
+              @if (s?.phase === 'vote' || s?.phase === 'discuss' || s?.phase === 'done') {
+                <div class="sticky-footer">
                   <div class="sticky-vote-row">
                     @if (s?.phase === 'vote') {
                       <button class="sticky-vdec-btn" [disabled]="item.card.myVoteCount === 0"
@@ -308,14 +306,8 @@ const REACTION_EMOJIS = ['👍', '❤️', '😂', '🎉', '🤔'];
                               (mousedown)="$event.stopPropagation()" (click)="voteToggled.emit(item.card)">+</button>
                     }
                   </div>
-                }
-                @if (s?.phase === 'add' || s?.phase === 'vote' || s?.phase === 'discuss') {
-                  <div class="sticky-color-trigger" (mousedown)="$event.stopPropagation()">
-                    <button class="sticky-color-dot" [style.background]="resolveCardColor()(item.card)"
-                            title="Change color" (click)="colorPickerRequested.emit({ event: $event, cardId: item.card.id })"></button>
-                  </div>
-                }
-              </div>
+                </div>
+              }
               @if (s?.phase === 'discuss') {
                 <div class="sticky-reactions">
                   @for (emoji of reactionEmojis; track emoji) {
@@ -374,12 +366,21 @@ export class RetroSingleCanvasComponent implements AfterViewInit {
   // re-running whenever a new pending card appears (viewChild's signal updates to the
   // freshly-created textarea each time the @if block recreates it).
   private pendingInputEl = viewChild<ElementRef<HTMLTextAreaElement>>('pendingInput');
+  // Same fix as pendingInputEl above, for double-clicking an existing card's text into edit
+  // mode -- a bare `autofocus` attribute only reliably fires once per page load, not on
+  // every dynamically-inserted textarea.
+  private editAreaEl = viewChild<ElementRef<HTMLTextAreaElement>>('editArea');
 
   constructor() {
     effect(() => {
       const p = this.pendingCard();
       const el = this.pendingInputEl();
       if (p && el) el.nativeElement.focus();
+    });
+    effect(() => {
+      const id = this.editingCardId();
+      const el = this.editAreaEl();
+      if (id && el) el.nativeElement.focus();
     });
   }
 
@@ -392,7 +393,6 @@ export class RetroSingleCanvasComponent implements AfterViewInit {
 
   voteToggled = output<FunRetroCard>();
   reactionToggled = output<{ card: FunRetroCard; emoji: string }>();
-  colorPickerRequested = output<{ event: MouseEvent; cardId: string }>();
   editStarted = output<FunRetroCard>();
   editTextChanged = output<string>();
   editSaved = output<FunRetroCard>();

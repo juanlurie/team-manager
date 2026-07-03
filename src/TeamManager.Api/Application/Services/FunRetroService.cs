@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using TeamManager.Api.Application.DTOs.FunRetro;
 using TeamManager.Api.Domain.Entities;
 using TeamManager.Api.Infrastructure.Data;
+using TeamManager.Api.Infrastructure.Slugs;
 using TeamManager.Api.Middleware;
 
 namespace TeamManager.Api.Application.Services;
@@ -33,12 +34,39 @@ public class FunRetroService(AppDbContext db, AiPromptExecutorService aiExecutor
             IcebreakerQuestion = string.IsNullOrWhiteSpace(req.IcebreakerQuestion) ? null : req.IcebreakerQuestion.Trim(),
             Theme = ValidTheme(req.Theme),
             CanvasLayout = ValidLayout(req.CanvasLayout),
+            Slug = await GenerateUniqueSlugAsync(),
         };
 
         db.FunRetroSessions.Add(session);
         await db.SaveChangesAsync();
 
         return (await GetSessionAsync(session.Id, memberId))!;
+    }
+
+    /// <summary>Retries a handful of times on a rare collision instead of failing the
+    /// create outright -- the wordlist is large enough that a retry essentially never
+    /// happens in practice, but a session should never fail to create over a naming clash.</summary>
+    private async Task<string> GenerateUniqueSlugAsync()
+    {
+        for (var attempt = 0; attempt < 5; attempt++)
+        {
+            var candidate = SlugGenerator.Generate();
+            if (!await db.FunRetroSessions.AnyAsync(s => s.Slug == candidate)) return candidate;
+        }
+        // Vanishingly unlikely to be reached given the wordlist size, but a session must
+        // still get *some* slug rather than fail outright -- fall back to a guaranteed-unique one.
+        return $"{SlugGenerator.Generate()}-{Guid.NewGuid().ToString()[..4]}";
+    }
+
+    /// <summary>Resolves a share-URL path segment to the session's real id -- either a raw
+    /// GUID (older links, or an API caller that already has the id) or a friendly slug.</summary>
+    public async Task<Guid?> ResolveSessionIdAsync(string idOrSlug)
+    {
+        if (Guid.TryParse(idOrSlug, out var guid)) return guid;
+        return await db.FunRetroSessions
+            .Where(s => s.Slug == idOrSlug)
+            .Select(s => (Guid?)s.Id)
+            .FirstOrDefaultAsync();
     }
 
     public async Task<bool> DeleteSessionAsync(Guid sessionId, Guid memberId)
@@ -74,6 +102,15 @@ public class FunRetroService(AppDbContext db, AiPromptExecutorService aiExecutor
             .FirstOrDefaultAsync(s => s.Id == sessionId);
 
         if (session is null) return null;
+
+        // Sessions created before slugs existed have a null Slug -- assign one lazily here
+        // instead of a data migration, so re-sharing an old session's link still upgrades
+        // it to a friendly URL going forward.
+        if (session.Slug is null)
+        {
+            session.Slug = await GenerateUniqueSlugAsync();
+            await db.SaveChangesAsync();
+        }
 
         var isAddPhase = session.Phase == "add";
         var isCreator = session.CreatedByMemberId == memberId;
@@ -155,6 +192,7 @@ public class FunRetroService(AppDbContext db, AiPromptExecutorService aiExecutor
         return new FunRetroSessionDto
         {
             Id = session.Id,
+            Slug = session.Slug,
             Title = session.Title,
             Phase = session.Phase,
             CreatedByMemberId = session.CreatedByMemberId,

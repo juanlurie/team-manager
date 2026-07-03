@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using TeamManager.Api.Application.DTOs.Poll;
 using TeamManager.Api.Domain.Entities;
 using TeamManager.Api.Infrastructure.Data;
+using TeamManager.Api.Infrastructure.Slugs;
 using TeamManager.Api.Middleware;
 
 namespace TeamManager.Api.Application.Services;
@@ -56,6 +57,7 @@ public class PollService(AppDbContext db)
             HideResultsUntilClosed = hideResultsUntilClosed,
             ScheduledCloseAt = scheduledCloseAt,
             RetroSessionId = retroSessionId,
+            Slug = await GenerateUniqueSlugAsync(),
         };
         // PollId gets wired up automatically by EF via the navigation relationship on save.
         poll.Options = trimmed.Select((text, i) => new PollOption { Text = text, DisplayOrder = i }).ToList();
@@ -66,6 +68,27 @@ public class PollService(AppDbContext db)
         _ = WebSocketMiddleware.BroadcastAsync("poll_created", new { pollId = poll.Id, retroSessionId = poll.RetroSessionId });
 
         return await GetDetailAsync(poll.Id, memberId);
+    }
+
+    private async Task<string> GenerateUniqueSlugAsync()
+    {
+        for (var attempt = 0; attempt < 5; attempt++)
+        {
+            var candidate = SlugGenerator.Generate();
+            if (!await db.Polls.AnyAsync(p => p.Slug == candidate)) return candidate;
+        }
+        return $"{SlugGenerator.Generate()}-{Guid.NewGuid().ToString()[..4]}";
+    }
+
+    /// <summary>Resolves a share-URL path segment to the poll's real id -- either a raw
+    /// GUID (older links) or a friendly slug.</summary>
+    public async Task<Guid?> ResolvePollIdAsync(string idOrSlug)
+    {
+        if (Guid.TryParse(idOrSlug, out var guid)) return guid;
+        return await db.Polls
+            .Where(p => p.Slug == idOrSlug)
+            .Select(p => (Guid?)p.Id)
+            .FirstOrDefaultAsync();
     }
 
     public async Task<PollDetailDto> VoteAsync(Guid memberId, Guid pollId, Guid optionId)
@@ -185,6 +208,14 @@ public class PollService(AppDbContext db)
             .FirstOrDefaultAsync(p => p.Id == pollId)
             ?? throw new KeyNotFoundException("Poll not found.");
 
+        // Polls created before slugs existed have a null Slug -- assign one lazily here
+        // instead of a data migration.
+        if (poll.Slug is null)
+        {
+            poll.Slug = await GenerateUniqueSlugAsync();
+            await db.SaveChangesAsync();
+        }
+
         var votes = await db.PollVotes.Where(v => v.PollId == pollId).ToListAsync();
         var totalVotes = votes.Count;
         var myVote = votes.FirstOrDefault(v => v.MemberId == memberId);
@@ -211,6 +242,7 @@ public class PollService(AppDbContext db)
         return new PollDetailDto
         {
             Id = poll.Id,
+            Slug = poll.Slug,
             Question = poll.Question,
             CreatedByName = poll.CreatedByMember != null ? $"{poll.CreatedByMember.FirstName} {poll.CreatedByMember.LastName}" : "Someone",
             IsClosed = poll.IsClosed,

@@ -3,6 +3,7 @@ namespace TeamManager.Api.Application.DTOs.FunRetro;
 public record FunRetroSessionDto
 {
     public Guid Id { get; init; }
+    public string? Slug { get; init; }
     public string? Title { get; init; }
     public string Phase { get; init; } = "lobby";
     public Guid CreatedByMemberId { get; init; }

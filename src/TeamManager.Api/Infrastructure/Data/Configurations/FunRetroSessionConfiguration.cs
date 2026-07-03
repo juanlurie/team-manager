@@ -22,5 +22,11 @@ public class FunRetroSessionConfiguration : IEntityTypeConfiguration<FunRetroSes
             .OnDelete(DeleteBehavior.SetNull);
 
         builder.HasIndex(s => s.CreatedByMemberId).HasDatabaseName("IX_FunRetroSession_CreatedByMemberId");
+
+        // Partial index -- older sessions have a null Slug (backfilled lazily on next fetch,
+        // not via a data migration), and only non-null slugs need to be unique.
+        builder.HasIndex(s => s.Slug).IsUnique()
+            .HasFilter("\"Slug\" IS NOT NULL")
+            .HasDatabaseName("IX_FunRetroSession_Slug");
     }
 }
