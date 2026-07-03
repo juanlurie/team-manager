@@ -599,7 +599,13 @@ export class RetroSingleCanvasComponent implements AfterViewInit {
         const local = localPos[card.id];
         if (local) { result.push({ card, x: local.x, y: local.y }); occupied.push(local); continue; }
         if (card.positionX != null && card.positionY != null) {
-          const pos = { x: card.positionX, y: card.positionY };
+          // Sessions created back when this column had its own separate small canvas stored
+          // positions local to it (0..~800ish), not in this shared board's coordinate space --
+          // any such value is well short of where this zone actually starts, so it'd otherwise
+          // render inside zone 0 regardless of its real column. Shift it into this zone's
+          // strip once; dragging the card afterward commits a proper absolute position.
+          const x = card.positionX < zoneX0 ? card.positionX + zoneX0 : card.positionX;
+          const pos = { x, y: card.positionY };
           result.push({ card, x: pos.x, y: pos.y }); occupied.push(pos); continue;
         }
         const rowH = this.STICKY_MIN_H + this.STICKY_GAP;
@@ -624,9 +630,16 @@ export class RetroSingleCanvasComponent implements AfterViewInit {
     const s = this.session();
     if (!s) return [];
     const localPos = this.localTokenPositions();
+    const cs = this.cols();
     return s.tokens.map(t => {
       const local = localPos[t.id];
-      return { token: t, x: local?.x ?? t.positionX, y: local?.y ?? t.positionY };
+      if (local) return { token: t, x: local.x, y: local.y };
+      // Same legacy-position fixup as zoneItems() above, for stickers placed back when this
+      // column had its own separate small canvas.
+      const zi = cs.findIndex(c => c.key === t.column);
+      const zoneX0 = zi >= 0 ? this.zoneOriginX(zi) : 0;
+      const x = t.positionX < zoneX0 ? t.positionX + zoneX0 : t.positionX;
+      return { token: t, x, y: t.positionY };
     });
   });
 

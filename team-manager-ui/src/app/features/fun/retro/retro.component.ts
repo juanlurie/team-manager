@@ -37,13 +37,6 @@ const PHASE_META: Record<string, { label: string; color: string }> = {
 
 const REACTION_EMOJIS = ['👍', '😅', '🔥', '😬', '💯'];
 
-/** A card laid out on the desktop pan/zoom canvas, at its resolved (dragged/persisted/grid) position. */
-interface CanvasCardItem {
-  card: FunRetroCard;
-  x: number;
-  y: number;
-}
-
 const EMOJI_PICKER_SET = [
   '😀', '😂', '😅', '😊', '🙂', '😉', '😍', '🤔',
   '😬', '😭', '😢', '😡', '😱', '🥳', '😴', '🤯',
@@ -459,72 +452,7 @@ interface TimerState {
       margin-right:var(--canvas-mr, 0px);
     }
 
-    /* ── desktop canvas ─────────────────────────────────── */
-    .canvases-row {
-      display:flex;gap:8px;align-items:flex-start;
-      /* margins set dynamically via --canvas-ml / --canvas-mr (see updateCanvasMargins) */
-      margin-left:var(--canvas-ml, 0px);
-      margin-right:var(--canvas-mr, 0px);
-      /* Columns now have a wide fixed-ish basis (see .canvas-col-wrap) rather than splitting
-         100% three ways, so with more than ~2 columns the row needs to scroll horizontally. */
-      overflow-x:auto;
-    }
-    /* Twice the old equal-thirds width so each column's canvas has real room to work in --
-       flex:1 with no basis used to squeeze 3+ columns into slivers of the viewport. */
-    .canvas-col-wrap {
-      flex:0 0 clamp(480px, 66vw, 1000px);min-width:0;display:flex;flex-direction:column;gap:6px;
-    }
-    .canvas-col-header {
-      display:flex;align-items:center;justify-content:space-between;
-      padding:0 4px;
-    }
-    .canvas-col-title {
-      font-size:0.82rem;font-weight:700;
-    }
-    .canvas-col-wrap.expanded { flex:1 1 100%; }
-    .canvas-tidy-btn {
-      display:inline-flex;align-items:center;gap:3px;
-      background:transparent;border:none;
-      border-radius:6px;color:rgba(255,255,255,0.7);cursor:pointer;
-      font-size:0.7rem;font-family:inherit;font-weight:600;padding:0 7px 0 5px;
-      height:26px;transition:background .12s,color .12s;
-    }
-    .canvas-tidy-btn:hover { background:rgba(255,255,255,0.12);color:#fff; }
-    .canvas-tidy-btn mat-icon { font-size:14px;width:14px;height:14px;line-height:14px; }
-    .canvas-expand-btn {
-      display:inline-flex;align-items:center;justify-content:center;
-      min-width:26px;height:26px;flex-shrink:0;
-      background:transparent;border:none;
-      border-radius:6px;color:rgba(255,255,255,0.7);cursor:pointer;
-      transition:background .12s,color .12s;
-    }
-    .canvas-expand-btn:hover { background:rgba(255,255,255,0.12);color:#fff; }
-    .canvas-expand-btn mat-icon { font-size:14px;width:14px;height:14px;line-height:14px; }
-    .canvas-sticker-btn {
-      display:inline-flex;align-items:center;justify-content:center;
-      min-width:26px;height:26px;flex-shrink:0;
-      background:transparent;border:none;border-radius:6px;
-      font-size:14px;cursor:pointer;transition:background .12s;
-    }
-    .canvas-sticker-btn:hover { background:rgba(255,255,255,0.12); }
-    .retro-token {
-      position:absolute;width:40px;height:40px;
-      display:flex;align-items:center;justify-content:center;
-      font-size:26px;line-height:1;cursor:grab;user-select:none;
-      filter:drop-shadow(0 2px 3px rgba(0,0,0,0.4));
-      transition:transform .1s;
-    }
-    .retro-token:hover { transform:scale(1.1); }
-    .retro-token.dragging { cursor:grabbing;z-index:50;transition:none; }
-    .retro-token-del {
-      position:absolute;top:-6px;right:-6px;width:16px;height:16px;
-      display:flex;align-items:center;justify-content:center;
-      border-radius:50%;background:rgba(0,0,0,0.7);color:rgba(255,255,255,0.7);
-      border:none;font-size:12px;line-height:1;cursor:pointer;opacity:0;
-      transition:opacity .12s;
-    }
-    .retro-token:hover .retro-token-del { opacity:1; }
-    .retro-token-del:hover { color:#ef5350; }
+    /* ── shared popovers ────────────────────────────────── */
     .sticker-palette-popover {
       position:fixed;z-index:250;width:176px;
       display:grid;grid-template-columns:repeat(4, 1fr);gap:2px;padding:8px;
@@ -537,135 +465,6 @@ interface TimerState {
       transition:background .12s;
     }
     .sticker-palette-option:hover { background:rgba(255,255,255,0.12); }
-    .canvas-add-row {
-      display:flex;gap:6px;align-items:flex-end;
-    }
-    .canvas-add-input {
-      flex:1;background:rgba(100,181,246,0.08);border:1.5px solid rgba(100,181,246,0.35);
-      border-radius:8px;color:inherit;font-size:0.85rem;padding:8px 11px;
-      outline:none;font-family:inherit;transition:border-color 0.2s,background 0.2s;
-      resize:none;line-height:1.4;max-height:160px;
-    }
-    .canvas-add-input::placeholder { color:rgba(255,255,255,0.45); }
-    .canvas-add-input:focus { border-color:#64b5f6;background:rgba(100,181,246,0.14); }
-    .canvas-add-btn {
-      padding:7px 14px;background:rgba(100,181,246,0.18);border:1.5px solid rgba(100,181,246,0.4);
-      border-radius:8px;color:#64b5f6;font-size:0.82rem;font-weight:600;font-family:inherit;cursor:pointer;
-    }
-    .canvas-add-btn:disabled { opacity:0.4;cursor:not-allowed; }
-    .canvas-outer {
-      position:relative;
-      overflow:hidden;border:1px solid rgba(255,255,255,0.07);
-      border-top:3px solid var(--col-accent, rgba(255,255,255,0.07));
-      border-radius:10px;background:color-mix(in srgb, var(--col-accent, #000) 6%, rgba(0,0,0,0.15));
-      background-image:
-        linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
-      background-size:40px 40px;
-      height:var(--canvas-height, calc(100vh - 260px));
-      min-height:320px;
-      cursor:grab;
-    }
-    .canvas-outer.panning { cursor:grabbing; }
-    .canvas-theme-bg {
-      /* Sibling of .canvas-inner (not a child) so it never inherits the pan/zoom
-         transform -- it's meant to sit still behind the cards, not move with them.
-         The art itself is authored at 3x its original grid density (see retro-constants.ts),
-         so a much bigger background-size here reads as a bigger, more detailed watermark
-         instead of the same coarse art just stretched blurrier. */
-      position:absolute;inset:0;pointer-events:none;
-      background-repeat:no-repeat;background-position:center;background-size:min(85%, 640px) min(85%, 640px);
-      opacity:0.18;image-rendering:pixelated;
-    }
-    .canvas-inner {
-      position:absolute;top:0;left:0;
-      transform-origin:0 0;will-change:transform;
-      width:100%;min-height:100%;
-    }
-    .canvas-zoom-controls {
-      position:absolute;bottom:10px;right:10px;z-index:200;
-      display:flex;align-items:center;gap:2px;
-      background:rgba(20,20,24,0.85);border:1px solid rgba(255,255,255,0.12);
-      border-radius:8px;padding:2px;backdrop-filter:blur(4px);
-      box-shadow:0 2px 8px rgba(0,0,0,0.4);
-    }
-    .cz-btn {
-      display:inline-flex;align-items:center;justify-content:center;
-      min-width:26px;height:26px;padding:0 6px;
-      background:transparent;border:none;border-radius:6px;cursor:pointer;
-      color:rgba(255,255,255,0.7);font-size:1rem;font-family:inherit;line-height:1;
-      transition:background .12s,color .12s;
-    }
-    .cz-btn:hover { background:rgba(255,255,255,0.12);color:#fff; }
-    .cz-pct { font-size:0.72rem;font-weight:600;min-width:42px;font-variant-numeric:tabular-nums; }
-    .cz-fit mat-icon { font-size:16px;width:16px;height:16px;line-height:16px; }
-    .cz-divider { width:1px;height:16px;background:rgba(255,255,255,0.15);margin:0 2px;flex-shrink:0; }
-    .sticky {
-      position:absolute;box-sizing:border-box;
-      width:240px;min-height:220px;
-      border-radius:11px;padding:13px 15px;
-      border:4px solid rgba(100,181,246,0.65);
-      box-shadow:0 0 0 1px rgba(100,181,246,0.25),0 3px 8px rgba(0,0,0,0.28),0 1px 3px rgba(0,0,0,0.22);
-      cursor:grab;user-select:none;
-      display:flex;flex-direction:column;gap:6px;
-      transition:box-shadow 0.15s,transform 0.15s,border-color 0.15s;
-    }
-    /* A slight per-card tilt (applied inline via cardRotation()) reads as notes actually
-       stuck on a board rather than a rigid grid -- straightens out on hover/drag so the
-       card you're interacting with feels settled and easy to read. */
-    .sticky:hover, .sticky:active, .sticky.dragging { transform:rotate(0deg) !important; }
-    .sticky:active, .sticky.dragging { cursor:grabbing;box-shadow:0 8px 20px rgba(0,0,0,0.4),0 2px 6px rgba(0,0,0,0.3);z-index:100; }
-    .sticky.no-drag { cursor:default; }
-    /* Selected: even thicker border plus a full neon glow so the active card reads clearly
-       above the rest of the board. */
-    .sticky.selected {
-      border-width:6px;
-      border-color:#64b5f6;
-      box-shadow:0 0 0 3px rgba(100,181,246,0.9),0 0 22px 6px rgba(100,181,246,0.6),0 6px 16px rgba(0,0,0,0.35);
-      z-index:150;
-    }
-    .sticky-text {
-      font-size:1.05rem;font-weight:700;color:rgba(0,0,0,0.87);line-height:1.4;flex:1;
-      overflow-wrap:anywhere;word-break:break-word;
-      font-family:'Kalam','Segoe UI',system-ui,sans-serif;
-    }
-    /* Redacted-looking stand-in for hidden text -- occupies the same space real text would,
-       so a hidden card still reads as "a card with writing on it" rather than a different,
-       emptier-looking placeholder box. Each line is a tiled squiggle (a repeating wave, like
-       the scribble you'd draw over illegible handwriting) instead of a solid bar. */
-    .sticky-text-hidden {
-      display:flex;flex-direction:column;gap:10px;flex:1;padding-top:5px;cursor:default;
-    }
-    .hidden-line {
-      height:13px;
-      background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 12'%3E%3Cpath d='M0,6 C3,0 9,0 12,6 C15,12 21,12 24,6' stroke='rgba(0,0,0,0.32)' stroke-width='2.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
-      background-repeat:repeat-x;background-size:24px 13px;background-position:left center;
-    }
-    .sticky-author { font-size:0.65rem;color:rgba(0,0,0,0.45); }
-    .sticky-header app-avatar-circle {
-      display:inline-flex;border-radius:50%;
-      box-shadow:0 0 0 2px rgba(0,0,0,0.16),0 1px 2px rgba(0,0,0,0.2);
-    }
-    /* Sits inside the card's top-right corner (not overlapping the top edge) so it never gets
-       clipped by .canvas-outer's overflow:hidden when a card sits near the top of the board. */
-    .sticky-lock-badge {
-      position:absolute;top:8px;right:8px;
-      width:26px;height:26px;border-radius:50%;
-      display:flex;align-items:center;justify-content:center;
-      border:2px solid rgba(255,255,255,0.9);box-shadow:0 2px 5px rgba(0,0,0,0.35);
-      background:#e53935;color:#fff;
-      z-index:1;
-    }
-    .sticky-lock-badge.unlocked { background:#43a047; }
-    .sticky-lock-badge mat-icon { font-size:16px;width:16px;height:16px;line-height:16px; }
-    .sticky-comment-badge {
-      position:absolute;bottom:-10px;right:8px;
-      display:flex;align-items:center;gap:2px;
-      font-size:0.68rem;font-weight:700;color:#fff;font-family:inherit;
-      background:#9c27b0;border:2px solid rgba(255,255,255,0.9);
-      border-radius:12px;padding:2px 8px;cursor:pointer;
-      box-shadow:0 2px 4px rgba(0,0,0,0.3);
-    }
     .card-toolbar {
       position:fixed;z-index:250;
       display:flex;align-items:center;gap:2px;
@@ -714,44 +513,6 @@ interface TimerState {
     }
     .comment-thread-actions button:last-child { background:rgba(100,181,246,0.18);border-color:rgba(100,181,246,0.4);color:#64b5f6;font-weight:600; }
     .comment-thread-actions button:disabled { opacity:0.4;cursor:default; }
-    .sticky-footer { display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:4px; }
-    .sticky-vote-row { display:flex;align-items:center;gap:0;margin-top:4px; }
-    .sticky-vote-count { min-width:22px;text-align:center;font-size:0.7rem;font-weight:700;color:rgba(0,0,0,0.45);font-variant-numeric:tabular-nums; }
-    .sticky-vote-count.has-votes { color:#e65100; }
-    .sticky-vinc-btn, .sticky-vdec-btn {
-      display:inline-flex;align-items:center;justify-content:center;
-      width:22px;height:22px;border-radius:50%;
-      border:1px solid rgba(0,0,0,0.18);background:transparent;
-      color:rgba(0,0,0,0.4);cursor:pointer;font-size:14px;line-height:1;
-      transition:all 0.15s;padding:0;
-    }
-    .sticky-vinc-btn:hover:not(:disabled) { background:rgba(230,81,0,0.12);border-color:rgba(230,81,0,0.4);color:#e65100; }
-    .sticky-vdec-btn:hover:not(:disabled) { background:rgba(0,0,0,0.06);color:rgba(0,0,0,0.65); }
-    .sticky-vinc-btn:disabled, .sticky-vdec-btn:disabled { opacity:0.25;cursor:default; }
-    .sticky-reactions { display:flex;gap:3px;flex-wrap:wrap;margin-top:4px; }
-    .sticky-reaction-btn {
-      display:inline-flex;align-items:center;gap:2px;
-      font-size:0.68rem;padding:2px 5px;border-radius:10px;
-      border:1px solid rgba(0,0,0,0.15);background:transparent;
-      color:rgba(0,0,0,0.55);cursor:pointer;
-    }
-    .sticky-reaction-btn.reacted { border-color:rgba(0,0,0,0.3);background:rgba(0,0,0,0.1); }
-    .sticky-del-btn {
-      position:absolute;top:6px;right:6px;
-      background:transparent;border:none;color:rgba(0,0,0,0.35);
-      cursor:pointer;font-size:16px;line-height:1;padding:2px;
-      border-radius:4px;transition:color 0.15s;
-    }
-    .sticky-del-btn:hover { color:rgba(200,0,0,0.7); }
-    .sticky-header { display:flex;align-items:center;gap:5px;margin-bottom:6px;padding-right:28px; }
-    .sticky-edit-area {
-      width:100%;box-sizing:border-box;border:none;outline:none;resize:none;
-      background:transparent;font-size:0.8rem;color:rgba(0,0,0,0.82);line-height:1.4;
-      font-family:inherit;padding:0;margin:0;flex:1;min-height:48px;
-    }
-    /* Single click selects the whole card (same as everywhere else on it); only a
-       double-click edits, so this shouldn't look like a plain text input on hover. */
-    .sticky-text-editable { cursor:grab; }
     .color-picker-popover {
       /* fixed (not absolute) so it can't be clipped by the canvas's overflow:auto
          when the card sits near the top/edge of the scrollable canvas */
@@ -1484,8 +1245,9 @@ interface TimerState {
           }
         }
 
-        <!-- Desktop: single shared freeform canvas (opt-in at creation) -->
-        @if (isDesktop() && s.canvasLayout === 'single' && (s.phase === 'add' || s.phase === 'vote' || s.phase === 'discuss' || s.phase === 'done')) {
+        <!-- Desktop: single shared freeform canvas (the only canvas layout now --
+             canvasLayout is a legacy field, kept only so older sessions still load). -->
+        @if (isDesktop() && (s.phase === 'add' || s.phase === 'vote' || s.phase === 'discuss' || s.phase === 'done')) {
           <app-retro-single-canvas
             class="full-bleed"
             [session]="s"
@@ -1519,178 +1281,6 @@ interface TimerState {
             (stickerPlacementCancelled)="singleCanvasPlacingStickerEmoji.set(null)" />
         }
 
-        <!-- Desktop: 3 separate sticky canvases side by side -->
-        @if (isDesktop() && s.canvasLayout !== 'single' && (s.phase === 'add' || s.phase === 'vote' || s.phase === 'discuss' || s.phase === 'done')) {
-          <div class="canvases-row" [class.has-expanded]="expandedCol()">
-            @for (col of cols(); track col.key; let ci = $index) {
-              @if (!expandedCol() || expandedCol() === col.key) {
-              <div class="canvas-col-wrap" [class.expanded]="expandedCol() === col.key">
-                @let view = viewFor(col.key);
-                @let items = canvasCardsForCol(col.key);
-                <div class="canvas-col-header">
-                  <span class="canvas-col-title" [style.color]="col.color">{{ col.label }}</span>
-                  <span class="col-count">{{ items.length }}</span>
-                </div>
-                @if (s.phase === 'add') {
-                  <div class="canvas-add-row">
-                    <textarea class="canvas-add-input" placeholder="Add a card…" rows="1"
-                              [(ngModel)]="newCardText()[col.key]"
-                              (keydown.enter)="$event.preventDefault(); submitCard(col.key)"
-                              [disabled]="submittingCard() === col.key"
-                              cdkTextareaAutosize cdkAutosizeMaxRows="6"></textarea>
-                    <button class="emoji-picker-btn" title="Insert emoji" type="button"
-                            (click)="toggleEmojiPicker($event, 'card:' + col.key)">😊</button>
-                    <button class="canvas-add-btn" [style.color]="col.color"
-                            [disabled]="!newCardText()[col.key]?.trim() || submittingCard() === col.key"
-                            (click)="submitCard(col.key)">
-                      @if (submittingCard() === col.key) { … } @else { Add }
-                    </button>
-                  </div>
-                }
-                <div class="canvas-outer" [attr.data-col]="col.key" [style.--col-accent]="col.color"
-                     [class.panning]="panningCol() === col.key"
-                     [style.background-position]="view.panX + 'px ' + view.panY + 'px'"
-                     [style.background-size]="(40 * view.zoom) + 'px ' + (40 * view.zoom) + 'px'"
-                     (wheel)="onCanvasWheel($event, col.key)"
-                     (mousedown)="startPan($event, col.key)">
-                  @if (themeBgUrl(ci); as bg) {
-                    <div class="canvas-theme-bg" [style.background-image]="bg"
-                         [style.opacity]="themeBgStyle()?.opacity ?? null" [style.mix-blend-mode]="themeBgStyle()?.blend ?? null"
-                         [style.background-size]="themeBgStyle()?.size ?? null" [style.image-rendering]="themeBgStyle() ? 'auto' : null"></div>
-                  }
-                  <div class="canvas-inner"
-                       [style.height.px]="canvasHeight(items)"
-                       [style.transform]="'translate(' + view.panX + 'px,' + view.panY + 'px) scale(' + view.zoom + ')'">
-                    @for (item of items; track item.card.id) {
-                      <div class="sticky"
-                           [attr.data-card-id]="item.card.id"
-                           [class.dragging]="draggingId() === item.card.id"
-                           [class.selected]="selectedCardId() === item.card.id"
-                           [class.no-drag]="s.phase === 'done'"
-                           [style.left.px]="item.x"
-                           [style.top.px]="item.y"
-                           [style.background]="resolveCardColor(item.card)"
-                           [style.transform]="'rotate(' + cardRotation(item.card.id) + 'deg)'"
-                           (mousedown)="startDrag($event, item.card, item.x, item.y, col.key)">
-                          <div class="sticky-lock-badge" [class.unlocked]="item.card.text !== null" [title]="item.card.text === null ? 'Hidden until reveal' : 'Visible to everyone'">
-                            <mat-icon>{{ item.card.text === null ? 'lock' : 'lock_open' }}</mat-icon>
-                          </div>
-                          @if (item.card.commentCount > 0) {
-                            <button class="sticky-comment-badge" (mousedown)="$event.stopPropagation()"
-                                    (click)="openCommentThread($event, item.card)">💬{{ item.card.commentCount }}</button>
-                          }
-                          @if (item.card.text === null) {
-                          <!-- Hidden card: the card itself, its author, and its shape all stay
-                               visible -- only the text is unreadable (redacted-looking bars
-                               standing in for it, not a "hidden until reveal" message that
-                               replaces the card's whole body). The server never sends the
-                               real text to a viewer it's hidden from in the first place, so
-                               there's nothing to blur -- this is a stand-in, not the real
-                               text obscured client-side. -->
-                          <div class="sticky-header">
-                            <app-avatar-circle [memberId]="item.card.authorId" [name]="item.card.authorName ?? ''" [avatarSeed]="item.card.authorAvatarSeed" [size]="18" />
-                            <span class="sticky-author" style="flex:1">{{ item.card.authorName }}</span>
-                          </div>
-                          <div class="sticky-text-hidden" [title]="'Hidden until reveal'">
-                            <span class="hidden-line" style="width:88%"></span>
-                            <span class="hidden-line" style="width:64%"></span>
-                            <span class="hidden-line" style="width:76%"></span>
-                          </div>
-                        } @else {
-                        <!-- Header: avatar + name + delete -->
-                        @if (item.card.authorName) {
-                          <div class="sticky-header">
-                            <app-avatar-circle [memberId]="item.card.authorId" [name]="item.card.authorName" [avatarSeed]="item.card.authorAvatarSeed" [size]="18" />
-                            <span class="sticky-author" style="flex:1">{{ item.card.authorName }}</span>
-                          </div>
-                        }
-                        <!-- Card text / inline edit -->
-                        @if (editingCardId() === item.card.id) {
-                          <textarea class="sticky-edit-area" #editArea
-                                    [style.font-size.rem]="cardFontSizeRem(editingText())"
-                                    [value]="editingText()"
-                                    (input)="editingText.set($any($event.target).value)"
-                                    (blur)="saveCardText(item.card)"
-                                    (keydown.enter)="$event.preventDefault(); saveCardText(item.card)"
-                                    (keydown.escape)="cancelEditCard()"
-                                    (mousedown)="$event.stopPropagation()"
-                                    cdkTextareaAutosize></textarea>
-                        } @else {
-                          <div class="sticky-text"
-                               [style.font-size.rem]="cardFontSizeRem(item.card.text)"
-                               [class.sticky-text-editable]="item.card.isOwn || s.isCreator"
-                               (dblclick)="(item.card.isOwn || s.isCreator) && item.card.text !== null ? startEditCard(item.card) : null">
-                            {{ item.card.text }}
-                          </div>
-                        }
-                        <!-- Footer: votes (color change now lives in the selection toolbar) -->
-                        @if (s.phase === 'vote' || s.phase === 'discuss' || s.phase === 'done') {
-                          <div class="sticky-footer">
-                            <div class="sticky-vote-row">
-                              @if (s.phase === 'vote') {
-                                <button class="sticky-vdec-btn"
-                                        [disabled]="item.card.myVoteCount === 0"
-                                        (mousedown)="$event.stopPropagation()" (click)="toggleVote(item.card)">−</button>
-                              }
-                              <span class="sticky-vote-count" [class.has-votes]="item.card.voteCount > 0">{{ item.card.voteCount }}</span>
-                              @if (s.phase === 'vote') {
-                                <button class="sticky-vinc-btn"
-                                        [disabled]="voteBudget() === 0 && item.card.myVoteCount === 0"
-                                        (mousedown)="$event.stopPropagation()" (click)="toggleVote(item.card)">+</button>
-                              }
-                            </div>
-                          </div>
-                        }
-                        @if (s.phase === 'discuss') {
-                          <div class="sticky-reactions">
-                            @for (emoji of reactionEmojis; track emoji) {
-                              <button class="sticky-reaction-btn" [class.reacted]="getReaction(item.card, emoji)?.mine"
-                                      (mousedown)="$event.stopPropagation()" (click)="toggleReaction(item.card, emoji)">
-                                {{ emoji }} @if (getReactionCount(item.card, emoji) > 0) { <span>{{ getReactionCount(item.card, emoji) }}</span> }
-                              </button>
-                            }
-                          </div>
-                        }
-                        } <!-- end @else hidden -->
-                      </div>
-                    }
-                    @for (t of tokensForCol(col.key); track t.token.id) {
-                      <div class="retro-token"
-                           [class.dragging]="draggingTokenId() === t.token.id"
-                           [style.left.px]="t.x" [style.top.px]="t.y"
-                           (mousedown)="startTokenDrag($event, t.token, t.x, t.y, col.key)">
-                        {{ t.token.emoji }}
-                        <button class="retro-token-del" (mousedown)="$event.stopPropagation()" (click)="deleteToken(t.token)">×</button>
-                      </div>
-                    }
-                  </div>
-                  <div class="canvas-zoom-controls"
-                       (mousedown)="$event.stopPropagation()" (wheel)="$event.stopPropagation()">
-                    <button class="canvas-sticker-btn" title="Add a sticker" (click)="toggleStickerPalette($event, col.key)">🏷️</button>
-                    @if (items.length > 1) {
-                      <button class="canvas-tidy-btn" title="Arrange cards neatly"
-                              (click)="arrangeColumn(col.key)">
-                        <mat-icon>grid_view</mat-icon>Tidy
-                      </button>
-                    }
-                    <button class="canvas-expand-btn" [title]="expandedCol() === col.key ? 'Show all columns' : 'Expand this column'"
-                            (click)="toggleExpandColumn(col.key)">
-                      <mat-icon>{{ expandedCol() === col.key ? 'close_fullscreen' : 'open_in_full' }}</mat-icon>
-                    </button>
-                    <span class="cz-divider"></span>
-                    <button class="cz-btn" title="Zoom out" (click)="zoomBy(col.key, 0.8)">−</button>
-                    <button class="cz-btn cz-pct" title="Reset zoom" (click)="resetView(col.key)">{{ zoomPercent(col.key) }}%</button>
-                    <button class="cz-btn" title="Zoom in" (click)="zoomBy(col.key, 1.25)">+</button>
-                    <button class="cz-btn cz-fit" title="Fit to cards" (click)="fitCanvas(col.key)">
-                      <mat-icon>fit_screen</mat-icon>
-                    </button>
-                  </div>
-                </div>
-              </div>
-              }
-            }
-          </div>
-        }
         <!-- Done banner -->
         @if (s.phase === 'done') {
           <div class="done-banner">
@@ -1826,12 +1416,12 @@ interface TimerState {
             </div>
           }
         }
-        @if (stickerPaletteOpenFor(); as colKey) {
+        @if (stickerPaletteOpenFor()) {
           @if (stickerPalettePos(); as pos) {
             <div class="sticker-palette-popover" [style.top.px]="pos.top" [style.left.px]="pos.left"
                  (mousedown)="$event.stopPropagation()" (click)="$event.stopPropagation()">
               @for (emoji of stickerPalette; track emoji) {
-                <div class="sticker-palette-option" (click)="pickSticker(colKey, emoji)">{{ emoji }}</div>
+                <div class="sticker-palette-option" (click)="pickSticker(emoji)">{{ emoji }}</div>
               }
             </div>
           }
@@ -1965,239 +1555,25 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
   membersWithCards = computed(() => new Set(this.session()?.cards.map(c => c.authorId) ?? []));
   editingCardId = signal<string | null>(null);
   editingText = signal('');
-  localPositions = signal<Record<string, { x: number; y: number }>>({});
-  draggingId = signal<string | null>(null);
-  private dragState: { id: string; col: string; startMouseX: number; startMouseY: number; startX: number; startY: number; moved: boolean } | null = null;
-  private static readonly CLICK_MOVE_THRESHOLD = 4; // px
 
   // ── Sticker tokens ──
   readonly stickerPalette = ['⭐', '🔥', '💯', '👍', '👎', '❤️', '✅', '❌', '🚩', '🎯', '💡', '🤔', '😂', '🎉', '⚠️', '🏆'];
-  localTokenPositions = signal<Record<string, { x: number; y: number }>>({});
-  draggingTokenId = signal<string | null>(null);
   stickerPaletteOpenFor = signal<string | null>(null);
   stickerPalettePos = signal<{ top: number; left: number } | null>(null);
-  private tokenDragState: { id: string; col: string; startMouseX: number; startMouseY: number; startX: number; startY: number } | null = null;
 
-  // ── Per-column Miro-style pan/zoom viewport ──
-  canvasView = signal<Record<string, { zoom: number; panX: number; panY: number }>>({});
-  panningCol = signal<string | null>(null);
-  private panState: { col: string; startMouseX: number; startMouseY: number; startPanX: number; startPanY: number } | null = null;
-  private readonly MIN_ZOOM = 0.3;
-  private readonly MAX_ZOOM = 2;
-
-  viewFor(col: string): { zoom: number; panX: number; panY: number } {
-    return this.canvasView()[col] ?? { zoom: 1, panX: 0, panY: 0 };
-  }
-  private setView(col: string, v: { zoom: number; panX: number; panY: number }): void {
-    const { panX, panY } = this.clampPan(col, v.zoom, v.panX, v.panY);
-    this.canvasView.update(m => ({ ...m, [col]: { zoom: v.zoom, panX, panY } }));
-  }
-
-  /**
-   * The canvas background/grid is visually endless, but there's nothing to see past the
-   * cards -- without a bound, panning or zooming out lets you drift into empty space
-   * indefinitely. Keep at least `margin` px of the content's bounding box within the
-   * viewport, in each direction, instead of a fixed pan window: bounds that don't scale
-   * with viewport/content size gave columns whose content is shorter than the viewport
-   * almost no room to pan (e.g. ~20px of vertical slack in a 600px-tall canvas) even
-   * though there's plenty of space to comfortably move around in.
-   */
-  private clampPan(col: string, zoom: number, panX: number, panY: number): { panX: number; panY: number } {
-    const outer = this.outerEl(col);
-    if (!outer) return { panX, panY };
-    const outerW = outer.clientWidth || 400;
-    const outerH = outer.clientHeight || 400;
-    const items = this.canvasCardsForCol(col);
-    const cardW = this.STICKY_W;
-    const margin = 200; // px of content that must stay visible on each side
-    const contentMaxX = items.length ? Math.max(...items.map(i => i.x + cardW)) + 20 : 400;
-    const contentMaxY = this.canvasHeight(items);
-    const scaledW = contentMaxX * zoom;
-    const scaledH = contentMaxY * zoom;
-    const maxPanX = outerW - margin;
-    const minPanX = margin - scaledW;
-    const maxPanY = outerH - margin;
-    const minPanY = margin - scaledH;
-    return {
-      panX: Math.min(maxPanX, Math.max(minPanX, panX)),
-      panY: Math.min(maxPanY, Math.max(minPanY, panY)),
-    };
-  }
-  private clampZoom(z: number): number {
-    return Math.min(this.MAX_ZOOM, Math.max(this.MIN_ZOOM, z));
-  }
-  private outerEl(col: string): HTMLElement | null {
-    return (this.elRef.nativeElement as HTMLElement)
-      .querySelector(`.canvas-outer[data-col="${col}"]`) as HTMLElement | null;
-  }
-  zoomPercent(col: string): number {
-    return Math.round(this.viewFor(col).zoom * 100);
-  }
-  resetView(col: string): void {
-    this.closeAllPickers();
-    this.setView(col, { zoom: 1, panX: 0, panY: 0 });
-  }
-
-  /** Zoom keeping the world point under (cx,cy) — viewport-local px — fixed. */
-  private zoomAt(col: string, factor: number, cx: number, cy: number): void {
-    const v = this.viewFor(col);
-    const z = this.clampZoom(v.zoom * factor);
-    const wx = (cx - v.panX) / v.zoom;
-    const wy = (cy - v.panY) / v.zoom;
-    this.setView(col, { zoom: z, panX: cx - wx * z, panY: cy - wy * z });
-  }
-
-  onCanvasWheel(e: WheelEvent, col: string): void {
-    e.preventDefault();
-    this.closeAllPickers();
-    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-    this.zoomAt(col, e.deltaY < 0 ? 1.1 : 0.9, e.clientX - rect.left, e.clientY - rect.top);
-  }
-
-  zoomBy(col: string, factor: number): void {
-    this.closeAllPickers();
-    const outer = this.outerEl(col);
-    this.zoomAt(col, factor, (outer?.clientWidth ?? 0) / 2, (outer?.clientHeight ?? 0) / 2);
-  }
-
-  startPan(e: MouseEvent, col: string): void {
-    if (e.button !== 0) return;
-    const t = e.target as HTMLElement;
-    if (t.closest('.sticky') || t.closest('.canvas-zoom-controls')) return;
-    this.closeAllPickers();
-    const v = this.viewFor(col);
-    this.panState = { col, startMouseX: e.clientX, startMouseY: e.clientY, startPanX: v.panX, startPanY: v.panY };
-    this.panningCol.set(col);
-  }
-
-  /** Reset zoom/pan and frame all of a column's cards within its viewport. */
-  fitCanvas(col: string): void {
-    this.closeAllPickers();
-    const outer = this.outerEl(col);
-    const items = this.canvasCardsForCol(col);
-    if (!outer || items.length === 0) { this.setView(col, { zoom: 1, panX: 0, panY: 0 }); return; }
-    const inner = outer.querySelector('.canvas-inner') as HTMLElement | null;
-    const stickies = inner
-      ? (Array.from(inner.querySelectorAll(':scope > .sticky')) as HTMLElement[])
-      : [];
-    const cardW = this.STICKY_W;
-    const pad = 20;
-    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-    items.forEach((item, i) => {
-      const h = stickies[i]?.offsetHeight || 90;
-      minX = Math.min(minX, item.x);
-      minY = Math.min(minY, item.y);
-      maxX = Math.max(maxX, item.x + cardW);
-      maxY = Math.max(maxY, item.y + h);
-    });
-    const contentW = (maxX - minX) + pad * 2;
-    const contentH = (maxY - minY) + pad * 2;
-    const zoom = this.clampZoom(Math.min(outer.clientWidth / contentW, outer.clientHeight / contentH, 1));
-    const slackX = outer.clientWidth - contentW * zoom;
-    const slackY = outer.clientHeight - contentH * zoom;
-    const offX = slackX > 0 ? slackX / 2 : 0;
-    const offY = slackY > 0 ? slackY / 2 : 8;
-    this.setView(col, { zoom, panX: offX - (minX - pad) * zoom, panY: offY - (minY - pad) * zoom });
-  }
-
-  // Single source of truth for the real rendered .sticky width (see CSS) and its layout
-  // spacing/margin -- clampPan, fitCanvas, arrangeColumn, and the fallback grid below all
-  // read these instead of redeclaring their own copies, so they can't drift out of sync.
-  private readonly STICKY_W = 240;
-  private readonly STICKY_GAP = 16;
-  private readonly STICKY_MARGIN = 10;
-  // CSS min-height for .sticky -- used as the fallback grid's row-pitch estimate below.
-  // Real cards are often taller (more text/votes/reactions), but this is far closer to
-  // Tidy's actual masonry packing than the old flat 190px guess was, which made new cards
-  // land much further down than necessary once Tidy had packed the column tightly.
-  private readonly STICKY_MIN_H = 220;
-
-  canvasCardsForCol(colKey: string): CanvasCardItem[] {
-    const s = this.session();
-    if (!s) return [];
-    const localPos = this.localPositions();
-    const occupied: { x: number; y: number }[] = [];
-    const result: { card: FunRetroCard; x: number; y: number }[] = [];
-    let idx = 0;
-    for (const card of s.cards.filter(c => c.column === colKey)) {
-      const local = localPos[card.id];
-      if (local) {
-        result.push({ card, x: local.x, y: local.y });
-        occupied.push(local);
-        continue;
-      }
-      if (card.positionX != null && card.positionY != null) {
-        const pos = { x: card.positionX, y: card.positionY };
-        result.push({ card, x: pos.x, y: pos.y });
-        occupied.push(pos);
-        continue;
-      }
-      // Skip any grid slot already taken by a dragged/persisted card so new
-      // cards never land directly on top of one.
-      const rowH = this.STICKY_MIN_H + this.STICKY_GAP;
-      let x: number, y: number;
-      do {
-        const col = idx % 2;
-        const row = Math.floor(idx / 2);
-        x = col * (this.STICKY_W + this.STICKY_GAP) + this.STICKY_MARGIN;
-        y = 10 + row * rowH;
-        idx++;
-      } while (occupied.some(p => Math.abs(p.x - x) < (this.STICKY_W + this.STICKY_GAP) && Math.abs(p.y - y) < rowH));
-      result.push({ card, x, y });
-      occupied.push({ x, y });
-    }
-    return result;
-  }
-
-  tokensForCol(colKey: string): { token: FunRetroToken; x: number; y: number }[] {
-    const s = this.session();
-    if (!s) return [];
-    const localPos = this.localTokenPositions();
-    return s.tokens
-      .filter(t => t.column === colKey)
-      .map(t => {
-        const local = localPos[t.id];
-        return { token: t, x: local?.x ?? t.positionX, y: local?.y ?? t.positionY };
-      });
-  }
-
-  toggleStickerPalette(e: MouseEvent, colKey: string): void {
-    this.togglePopover(this.stickerPaletteOpenFor, this.stickerPalettePos, e, colKey, 190);
-  }
-
-  // Set only when the palette was opened from the single-canvas layout -- pickSticker uses
-  // this to switch into "stuck to the cursor" placement there instead of dropping the sticker
-  // immediately, since that layout owns the only pan/zoom viewport there is.
-  private singleCanvasStickerRequested = false;
+  // Picking an emoji from the palette doesn't drop it immediately -- it switches into
+  // "stuck to the cursor" placement on the canvas, confirmed by a click there instead.
   singleCanvasPlacingStickerEmoji = signal<string | null>(null);
 
   onSingleCanvasStickerPaletteRequested(payload: { event: MouseEvent; column: string; x: number; y: number }): void {
-    this.singleCanvasStickerRequested = true;
     this.togglePopover(this.stickerPaletteOpenFor, this.stickerPalettePos, payload.event, payload.column, 190);
   }
 
-  pickSticker(colKey: string, emoji: string): void {
+  pickSticker(emoji: string): void {
     this.stickerPaletteOpenFor.set(null);
     this.stickerPalettePos.set(null);
-    const s = this.session();
-    if (!s) return;
-
-    if (this.singleCanvasStickerRequested) {
-      this.singleCanvasStickerRequested = false;
-      this.singleCanvasPlacingStickerEmoji.set(emoji);
-      return;
-    }
-
-    const outer = this.outerEl(colKey);
-    const v = this.viewFor(colKey);
-    const outerW = outer?.clientWidth ?? 400;
-    const outerH = outer?.clientHeight ?? 400;
-    const x = (outerW / 2 - v.panX) / v.zoom;
-    const y = (outerH / 2 - v.panY) / v.zoom;
-
-    this.svc.addToken(s.id, colKey, emoji, x, y).subscribe(token => {
-      this.session.update(cur => cur ? { ...cur, tokens: [...cur.tokens, token] } : cur);
-    });
+    if (!this.session()) return;
+    this.singleCanvasPlacingStickerEmoji.set(emoji);
   }
 
   onSingleCanvasStickerPlaced(payload: { emoji: string; column: string; x: number; y: number }): void {
@@ -2209,14 +1585,6 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
     });
   }
 
-  startTokenDrag(e: MouseEvent, token: FunRetroToken, x: number, y: number, col: string): void {
-    if (e.button !== 0) return;
-    e.preventDefault();
-    e.stopPropagation();
-    this.closeAllPickers();
-    this.tokenDragState = { id: token.id, col, startMouseX: e.clientX, startMouseY: e.clientY, startX: x, startY: y };
-    this.draggingTokenId.set(token.id);
-  }
 
   // The single-canvas layout drags tokens fully within its own component (it owns the only
   // pan/zoom viewport there is) and only reports the final position here to persist --
@@ -2231,12 +1599,6 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
     if (!s) return;
     this.session.update(cur => cur ? { ...cur, tokens: cur.tokens.filter(t => t.id !== token.id) } : cur);
     this.svc.deleteToken(s.id, token.id).subscribe();
-  }
-
-  canvasHeight(cards: CanvasCardItem[]): number {
-    if (cards.length === 0) return 400;
-    const maxY = Math.max(...cards.map(c => c.y + 200));
-    return Math.max(400, maxY + 20);
   }
 
   private canvasResizeObserver?: ResizeObserver;
@@ -2271,8 +1633,8 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
 
     // Let the canvas fill whatever vertical space is actually left below it, instead of
     // a fixed height guess that leaves dead space once the chrome above it shrinks/grows.
-    // Measured from .canvas-outer itself (not .canvases-row) since each column's own
-    // header + add-card input sit above it within the row.
+    // .canvas-outer lives inside the child <app-retro-single-canvas>, but querySelector
+    // reaches through component boundaries fine -- only style *scoping* is encapsulated.
     const canvasOuter = el.querySelector('.canvas-outer') as HTMLElement | null;
     if (canvasOuter) {
       const bottomGutter = 16;
@@ -2281,137 +1643,6 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
-  @HostListener('document:mousemove', ['$event'])
-  onMouseMove(e: MouseEvent): void {
-    if (this.panState) {
-      const p = this.panState;
-      const v = this.viewFor(p.col);
-      this.setView(p.col, {
-        zoom: v.zoom,
-        panX: p.startPanX + (e.clientX - p.startMouseX),
-        panY: p.startPanY + (e.clientY - p.startMouseY),
-      });
-      return;
-    }
-    if (this.tokenDragState) {
-      const zoom = this.viewFor(this.tokenDragState.col).zoom;
-      const dx = (e.clientX - this.tokenDragState.startMouseX) / zoom;
-      const dy = (e.clientY - this.tokenDragState.startMouseY) / zoom;
-      const x = Math.max(0, this.tokenDragState.startX + dx);
-      const y = Math.max(0, this.tokenDragState.startY + dy);
-      this.localTokenPositions.update(p => ({ ...p, [this.tokenDragState!.id]: { x, y } }));
-      return;
-    }
-    if (!this.dragState) return;
-    if (!this.dragState.moved) {
-      const totalDx = e.clientX - this.dragState.startMouseX;
-      const totalDy = e.clientY - this.dragState.startMouseY;
-      if (Math.hypot(totalDx, totalDy) > FunRetroComponent.CLICK_MOVE_THRESHOLD) this.dragState.moved = true;
-    }
-    // Cards don't reposition once the retro is done -- still track movement above so a
-    // click (for selection) is distinguishable from a drag attempt, just don't visually
-    // drag the card since that move would never persist anyway.
-    if (this.session()?.phase === 'done') return;
-    // Mouse deltas are in screen px; convert to canvas px by the column's zoom.
-    const zoom = this.viewFor(this.dragState.col).zoom;
-    const dx = (e.clientX - this.dragState.startMouseX) / zoom;
-    const dy = (e.clientY - this.dragState.startMouseY) / zoom;
-    const x = Math.max(0, this.dragState.startX + dx);
-    const y = Math.max(0, this.dragState.startY + dy);
-    this.localPositions.update(p => ({ ...p, [this.dragState!.id]: { x, y } }));
-  }
-
-  @HostListener('document:mouseup')
-  onMouseUp(): void {
-    if (this.panState) {
-      this.panState = null;
-      this.panningCol.set(null);
-      return;
-    }
-    if (this.tokenDragState) {
-      const { id } = this.tokenDragState;
-      const s = this.session();
-      const pos = this.localTokenPositions()[id];
-      if (s && pos) this.svc.updateTokenPosition(s.id, id, pos.x, pos.y).subscribe();
-      this.tokenDragState = null;
-      this.draggingTokenId.set(null);
-      return;
-    }
-    if (!this.dragState) return;
-    const { id, moved } = this.dragState;
-    if (moved) {
-      const s = this.session();
-      const pos = this.localPositions()[id];
-      if (s && pos) this.svc.updateCardPosition(s.id, id, pos.x, pos.y).subscribe();
-    } else {
-      this.selectCard(id);
-    }
-    this.dragState = null;
-    this.draggingId.set(null);
-  }
-
-  /**
-   * Re-pack a column's cards into a tidy, non-overlapping masonry grid.
-   * Uses each card's real rendered height (cards vary in height with text /
-   * votes / reactions), placing each into the currently shortest grid column
-   * so nothing overlaps and vertical gaps stay minimal. New positions are
-   * applied optimistically and persisted.
-   */
-  arrangeColumn(colKey: string): void {
-    const s = this.session();
-    if (!s) return;
-    const items = this.canvasCardsForCol(colKey);
-    if (items.length === 0) return;
-    this.closeAllPickers();
-
-    const el = this.elRef.nativeElement as HTMLElement;
-    const inner = el.querySelector(
-      `.canvas-outer[data-col="${colKey}"] .canvas-inner`,
-    ) as HTMLElement | null;
-    const stickies = inner
-      ? (Array.from(inner.querySelectorAll(':scope > .sticky')) as HTMLElement[])
-      : [];
-
-    const cardW = this.STICKY_W;
-    const gap = this.STICKY_GAP;
-    const margin = this.STICKY_MARGIN;
-    const innerW = inner?.clientWidth ?? cardW * 2 + gap + margin * 2;
-    const numCols = Math.max(1, Math.floor((innerW - margin * 2 + gap) / (cardW + gap)));
-
-    // Bottom Y of the content already placed in each grid column.
-    const colBottom = new Array(numCols).fill(margin);
-    const updates: { id: string; x: number; y: number }[] = [];
-
-    items.forEach((item, i) => {
-      // Prefer the real measured height; fall back to the CSS min-height.
-      const h = stickies[i]?.offsetHeight || 90;
-      let target = 0;
-      for (let c = 1; c < numCols; c++) {
-        if (colBottom[c] < colBottom[target]) target = c;
-      }
-      const x = margin + target * (cardW + gap);
-      const y = colBottom[target];
-      colBottom[target] = y + h + gap;
-      updates.push({ id: item.card.id, x, y });
-    });
-
-    // Apply optimistically so the layout snaps immediately, then persist.
-    this.localPositions.update(p => {
-      const next = { ...p };
-      for (const u of updates) next[u.id] = { x: u.x, y: u.y };
-      return next;
-    });
-    for (const u of updates) {
-      this.svc.updateCardPosition(s.id, u.id, u.x, u.y).subscribe();
-    }
-  }
-
-  startDrag(e: MouseEvent, card: FunRetroCard, x: number, y: number, col: string): void {
-    if (e.button !== 0) return;
-    e.preventDefault();
-    this.dragState = { id: card.id, col, startMouseX: e.clientX, startMouseY: e.clientY, startX: x, startY: y, moved: false };
-    this.draggingId.set(card.id);
-  }
 
   // A card-selecting click is detected on `mouseup` (see onMouseUp), but the same gesture
   // still produces a following native `click` that bubbles to document right after --
@@ -2635,25 +1866,6 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
     this.svc.updateCardColor(s.id, card.id, color).subscribe();
   }
 
-  // When set, only this column's canvas renders in the desktop 3-up row -- the
-  // other two are hidden so the visible one gets the full width for a closer look.
-  expandedCol = signal<string | null>(null);
-
-  toggleExpandColumn(colKey: string): void {
-    this.closeAllPickers();
-    this.expandedCol.update(cur => (cur === colKey ? null : colKey));
-    // Give the DOM a tick to reflow to the new width before recomputing canvas height and
-    // re-validating this column's pan bounds -- expand/collapse changes the canvas's width
-    // drastically, and the pan clamp is based on that width, so a pan offset that was valid
-    // while expanded can end up out of range once collapsed back (and vice versa) until
-    // something re-triggers clampPan. Do that immediately instead of waiting on the next
-    // pan/zoom interaction.
-    requestAnimationFrame(() => {
-      this.updateCanvasMargins();
-      this.setView(colKey, this.viewFor(colKey));
-    });
-  }
-
   readonly emojiPalette = EMOJI_PICKER_SET;
   // 'icebreaker' or `card:${colKey}` -- identifies which text field the next pick inserts into.
   emojiPickerFor = signal<string | null>(null);
@@ -2792,9 +2004,11 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
           if (msg.data['sessionId'] === s.id) this.silentRefresh();
           break;
         case 'fun_retro_card_moved':
-          if (msg.data['sessionId'] === s.id && this.dragState?.id !== msg.data['cardId']) {
+          if (msg.data['sessionId'] === s.id) {
             const { cardId, x, y } = msg.data as { cardId: string; x: number; y: number };
-            this.localPositions.update(p => ({ ...p, [cardId]: { x, y } }));
+            this.session.update(cur => cur
+              ? { ...cur, cards: cur.cards.map(c => c.id === cardId ? { ...c, positionX: x, positionY: y } : c) }
+              : cur);
           }
           break;
         case 'fun_retro_card_color_changed':
