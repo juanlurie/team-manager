@@ -104,16 +104,25 @@ export const ICEBREAKER_QUESTIONS = [
 // template has one, reuses the action variant). All themes share one grid so every
 // variant lines up with the canvas's own 40px grid blocks at the same background-size.
 //
-// The shapes below are still authored at the original 24x24 coordinate space (every
-// row()/circleRing()/diagLine() call below uses those coordinates) -- SCALE_FACTOR blows
-// each of those cells up into an NxN block at final render resolution. For straight-edged
-// shapes (built from row() rects) this is lossless, just literally more pixels describing
-// the same crisp edge. Curved/diagonal shapes (circleRing, diagLine) are instead
-// regenerated natively at the scaled-up radius/coordinates -- block-scaling a coarse
-// circle would just make its jagged stair-steps 3x bigger, not smoother; sampling the
-// same circle formula at a 3x bigger radius genuinely produces a rounder-looking curve.
-const SCALE_FACTOR = 3;
-const GRID = 24 * SCALE_FACTOR;
+// The shapes below are authored at a 40x40 coordinate space (every row()/circleRing()/
+// diagLine() call uses those coordinates) -- SCALE_FACTOR blows each cell up into an NxN
+// block at final render resolution. For straight-edged shapes (built from row()) this is
+// lossless, just literally more pixels describing the same crisp edge. Curved/diagonal
+// shapes (circleRing, diagLine) are instead regenerated natively at the scaled-up
+// radius/coordinates -- block-scaling a coarse circle would just make its jagged
+// stair-steps bigger, not smoother; sampling the same circle formula at a bigger radius
+// genuinely produces a rounder-looking curve.
+const SCALE_FACTOR = 2;
+const AUTH_GRID = 40;
+const GRID = AUTH_GRID * SCALE_FACTOR;
+
+// Two-tone shading: FILL is the shape's main silhouette, DETAIL is a dimmer accent used for
+// internal shading/highlights/texture (windows, craters, checker squares, spokes, waves...).
+// Both render in the same low-opacity watermark, but the value difference between them still
+// reads as depth instead of a single flat cutout -- this is the main lever for "more
+// interesting", since the watermark is always monochrome-on-dark by design.
+const FILL = '#ffffff';
+const DETAIL = 'rgba(255,255,255,0.5)';
 
 function row(y: number, x0: number, x1: number): [number, number][] {
   const out: [number, number][] = [];
@@ -121,8 +130,14 @@ function row(y: number, x0: number, x1: number): [number, number][] {
   return out;
 }
 
+function col(x: number, y0: number, y1: number): [number, number][] {
+  const out: [number, number][] = [];
+  for (let y = y0; y <= y1; y++) out.push([x, y]);
+  return out;
+}
+
 /** Expands each authored-resolution cell into an NxN block at final render resolution.
- *  Only valid for straight-edged shapes (built from row()) -- see note above. */
+ *  Only valid for straight-edged shapes (built from row()/col()) -- see note above. */
 function scale(cells: [number, number][], factor = SCALE_FACTOR): [number, number][] {
   const out: [number, number][] = [];
   for (const [x, y] of cells) {
@@ -150,14 +165,27 @@ function circleRing(cx: number, cy: number, rOuter: number, rInner = 0): [number
   return cells;
 }
 
+/** Filled circle clipped to a half-plane (side='left'|'right'|'top'|'bottom' of cx/cy) --
+ *  used for two-tone circles like a compass needle (red north half / white south half in
+ *  spirit, though here it's just FILL vs DETAIL). */
+function circleHalf(cx: number, cy: number, rOuter: number, side: 'left' | 'right' | 'top' | 'bottom'): [number, number][] {
+  return circleRing(cx, cy, rOuter).filter(([x, y]) => {
+    const s = SCALE_FACTOR;
+    if (side === 'left') return x < cx * s;
+    if (side === 'right') return x >= cx * s;
+    if (side === 'top') return y < cy * s;
+    return y >= cy * s;
+  });
+}
+
 /** Thick diagonal line from (x0,y0) to (x1,y1) (authored-resolution units, scaled up here),
  *  proportionally thicker at higher resolution so it doesn't thin out relatively. */
-function diagLine(x0: number, y0: number, x1: number, y1: number): [number, number][] {
+function diagLine(x0: number, y0: number, x1: number, y1: number, thickness = 1): [number, number][] {
   const s = SCALE_FACTOR;
   const [x0S, y0S, x1S, y1S] = [x0 * s, y0 * s, x1 * s, y1 * s];
   const cells: [number, number][] = [];
   const steps = Math.max(Math.abs(x1S - x0S), Math.abs(y1S - y0S));
-  const half = Math.floor(s / 2) + 1;
+  const half = Math.floor((s * thickness) / 2) + 1;
   for (let i = 0; i <= steps; i++) {
     const x = Math.round(x0S + (x1S - x0S) * (i / steps));
     const y = Math.round(y0S + (y1S - y0S) * (i / steps));
@@ -166,105 +194,206 @@ function diagLine(x0: number, y0: number, x1: number, y1: number): [number, numb
   return cells;
 }
 
-function pixelSvgDataUrl(cells: [number, number][], gridSize = GRID, color = '#ffffff'): string {
-  const rects = cells.map(([x, y]) => `<rect x="${x}" y="${y}" width="1" height="1" fill="${color}"/>`).join('');
+/** A small 4-point sparkle/star (plus-shape with tapered arms) -- background texture (extra
+ *  stars, sparks, motion accents) that reads as more than a single dot. */
+function sparkle(cx: number, cy: number, r: number): [number, number][] {
+  return [
+    ...diagLine(cx - r, cy, cx + r, cy),
+    ...diagLine(cx, cy - r, cx, cy + r),
+    [cx, cy],
+  ];
+}
+
+interface PixelLayer { cells: [number, number][]; color: string; }
+
+function pixelSvgDataUrl(layers: PixelLayer[], gridSize = GRID): string {
+  const rects = layers
+    .map(({ cells, color }) => cells.map(([x, y]) => `<rect x="${x}" y="${y}" width="1" height="1" fill="${color}"/>`).join(''))
+    .join('');
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${gridSize} ${gridSize}" shape-rendering="crispEdges">${rects}</svg>`;
   return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
 }
 
-// Space: rocket (positive/launch) / asteroid (negative/impact) / satellite (action/control)
-const SPACE_POSITIVE: [number, number][] = scale([
-  ...row(7, 7, 8), ...row(8, 6, 9), ...row(9, 6, 9), ...row(10, 6, 9),
-  ...row(11, 5, 10), ...row(12, 5, 10),
-  [5, 13], [10, 13], [5, 14], [10, 14],
-  ...row(15, 3, 12), ...row(16, 4, 11), ...row(17, 4, 11),
-  ...row(18, 6, 9), ...row(19, 7, 8),
-  [2, 2], [3, 2], [2, 3], [21, 6], [3, 20], [4, 20], [20, 18], [21, 18], [20, 19],
+// ── Space: rocket (positive/launch) / asteroid (negative/impact) / satellite (action/control) ──
+const SPACE_POSITIVE_FILL: [number, number][] = scale([
+  // nose cone, tapering to a point
+  ...row(4, 19, 20), ...row(5, 18, 21), ...row(6, 18, 21), ...row(7, 17, 22), ...row(8, 17, 22),
+  // body
+  ...row(9, 16, 23), ...row(10, 16, 23), ...row(11, 16, 23), ...row(12, 16, 23), ...row(13, 16, 23),
+  ...row(14, 16, 23), ...row(15, 16, 23), ...row(16, 16, 23), ...row(17, 16, 23), ...row(18, 16, 23),
+  ...row(19, 16, 23), ...row(20, 16, 23), ...row(21, 16, 23), ...row(22, 16, 23), ...row(23, 16, 23),
+  ...row(24, 16, 23), ...row(25, 16, 23), ...row(26, 16, 23),
+  // flared fins at the base
+  ...row(23, 12, 15), ...row(24, 12, 16), ...row(25, 13, 16), ...row(26, 14, 16),
+  ...row(23, 24, 27), ...row(24, 23, 27), ...row(25, 23, 26), ...row(26, 23, 25),
+  // flame, tapering below the base
+  ...row(27, 17, 22), ...row(28, 18, 21), ...row(29, 18, 21), ...row(30, 19, 20), ...row(31, 19, 20),
 ]);
-const SPACE_NEGATIVE: [number, number][] = scale([
-  ...row(7, 10, 13), ...row(8, 8, 15), ...row(9, 7, 16), ...row(10, 6, 17),
-  ...row(11, 6, 17), ...row(12, 5, 17), ...row(13, 6, 16), ...row(14, 6, 15),
-  ...row(15, 7, 14), ...row(16, 9, 13),
-  // motion streak trailing behind the impact
-  [4, 17], [3, 18], [5, 18], [2, 19],
-]);
-const SPACE_ACTION: [number, number][] = [
+const SPACE_POSITIVE_DETAIL: [number, number][] = [
+  ...scale([[19, 5], [20, 5], [19, 6], [20, 6]]), // nose cone tip highlight
+  ...scale(col(19, 12, 22)), ...scale(col(20, 12, 22)), // body centerline seam
+  ...scale([[19, 28], [20, 28], [19, 29], [20, 29]]), // inner flame flicker
+  ...circleRing(19.5, 15, 2, 1), // window ring
+  // stars + sparkles scattered around
+  ...circleRing(4, 5, 0.7), ...circleRing(35, 9, 0.7), ...circleRing(6, 33, 0.6), ...circleRing(33, 30, 0.8),
+  ...sparkle(30, 4, 2), ...sparkle(3, 20, 1.5), ...sparkle(36, 22, 1.5),
+];
+const SPACE_NEGATIVE_FILL: [number, number][] = [
+  ...circleRing(20, 20, 9),
+  // impact cracks radiating outward
+  ...diagLine(20, 20, 30, 10), ...diagLine(20, 20, 9, 11), ...diagLine(20, 20, 26, 30), ...diagLine(20, 20, 12, 28),
+  // motion streak trailing behind
+  ...scale(row(20, 2, 8)), ...scale(row(18, 4, 9)), ...scale(row(22, 4, 9)),
+];
+const SPACE_NEGATIVE_DETAIL: [number, number][] = [
+  ...circleRing(16, 17, 2), ...circleRing(23, 22, 1.6), ...circleRing(19, 24, 1.2), // craters
+  ...circleRing(20, 20, 12, 10.5), // shockwave ring
+];
+const SPACE_ACTION_FILL: [number, number][] = [
   ...scale([
-    ...row(10, 11, 13), ...row(11, 10, 14), ...row(12, 11, 13),
-    ...row(10, 4, 9), ...row(11, 3, 9), ...row(12, 4, 9),
-    ...row(10, 15, 20), ...row(11, 15, 21), ...row(12, 15, 20),
-    [15, 9], [16, 7], [15, 8],
+    // body
+    ...row(19, 18, 21), ...row(20, 18, 21), ...row(21, 18, 21), ...row(22, 18, 21),
+    // solar panels
+    ...row(19, 6, 16), ...row(20, 6, 16), ...row(21, 6, 16),
+    ...row(19, 23, 33), ...row(20, 23, 33), ...row(21, 23, 33),
+    // dish arm
+    ...row(17, 20, 20), ...row(15, 20, 20),
   ]),
-  ...circleRing(17, 6, 1.5),
+  ...circleRing(19.5, 12, 4), // dish
+];
+const SPACE_ACTION_DETAIL: [number, number][] = [
+  ...circleRing(19.5, 12, 4, 2.5), // dish rim (hollow ring look)
+  // solar panel hatching
+  ...scale(col(9, 19, 21)), ...scale(col(12, 19, 21)), ...scale(col(30, 19, 21)), ...scale(col(27, 19, 21)),
+  // signal waves
+  ...circleRing(19.5, 4, 5, 4.3), ...circleRing(19.5, 4, 8, 7.3), ...circleRing(19.5, 4, 11, 10.3),
+  ...circleRing(31, 32, 1), // blinking light
 ];
 
-// F1: checkered flag (positive/finish) / warning triangle (negative/hazard) / steering wheel (action)
-const F1_POSITIVE: [number, number][] = scale((() => {
-  const cells: [number, number][] = [];
-  for (let y = 0; y < 12; y++) {
-    for (let x = 0; x < 12; x++) {
-      if ((x + y) % 2 === 0) cells.push([x + 6, y + 6]);
+// ── F1: checkered flag (positive/finish) / warning triangle (negative/hazard) / steering wheel (action) ──
+function checkerLayers(): { fill: [number, number][]; detail: [number, number][] } {
+  const fill: [number, number][] = [];
+  const detail: [number, number][] = [];
+  for (let y = 0; y < 16; y++) {
+    for (let x = 0; x < 16; x++) {
+      ((x + y) % 2 === 0 ? fill : detail).push([x + 10, y + 4]);
     }
   }
-  return cells;
-})());
-const F1_NEGATIVE: [number, number][] = scale([
-  ...row(4, 11, 12), ...row(5, 10, 13), ...row(6, 10, 13), ...row(7, 9, 14),
-  ...row(8, 9, 14), ...row(9, 8, 15), ...row(10, 8, 15), ...row(11, 7, 16),
-  ...row(12, 7, 16), ...row(13, 6, 17), ...row(14, 6, 17),
-].filter(([x, y]) => !(x >= 11 && x <= 12 && y >= 7 && y <= 10))); // hollow out the "!" stem
-const F1_ACTION: [number, number][] = [
-  ...circleRing(12, 12, 7, 5),
-  ...circleRing(12, 12, 2),
-  ...diagLine(12, 5, 12, 9), ...diagLine(6, 15, 10, 13), ...diagLine(18, 15, 14, 13),
+  return { fill, detail };
+}
+const f1CheckerLayers = checkerLayers();
+const F1_POSITIVE_FILL: [number, number][] = [
+  ...scale(col(9, 3, 37)), // pole
+  ...scale(f1CheckerLayers.fill),
+];
+const F1_POSITIVE_DETAIL: [number, number][] = [
+  ...circleRing(9.5, 3, 1.5), // finial
+  ...scale(f1CheckerLayers.detail),
+];
+const F1_NEGATIVE_FILL: [number, number][] = scale([
+  // triangle, hollowed to a ~2px border so it reads as an outline rather than a solid wedge
+  ...row(6, 19, 20), ...row(7, 18, 21), ...row(8, 17, 22), ...row(9, 16, 23), ...row(10, 15, 24),
+  ...row(11, 14, 25), ...row(12, 13, 26), ...row(13, 12, 27), ...row(14, 11, 28), ...row(15, 10, 29),
+  ...row(16, 9, 30), ...row(17, 8, 31),
+].filter(([x, y]) => {
+  const left = 19 - (y - 6), right = 20 + (y - 6);
+  return y <= 8 || x <= left + 1 || x >= right - 1;
+}));
+const F1_NEGATIVE_DETAIL: [number, number][] = [
+  ...scale(col(19, 11, 21)), ...scale(col(20, 11, 21)), // exclamation stem
+  ...scale([[19, 24], [20, 24], [19, 25], [20, 25]]), // exclamation dot
+];
+const F1_ACTION_FILL: [number, number][] = [
+  ...circleRing(20, 20, 12, 10),
+  ...circleRing(20, 20, 3),
+  ...diagLine(20, 10, 20, 17, 1.4), ...diagLine(11, 26, 17, 21, 1.4), ...diagLine(29, 26, 23, 21, 1.4),
+];
+const F1_ACTION_DETAIL: [number, number][] = [
+  ...circleRing(20, 20, 3, 1.6), // hub highlight ring
+  // grip texture tick marks around the rim
+  ...Array.from({ length: 12 }, (_, i) => {
+    const a = (i / 12) * Math.PI * 2;
+    const cx = 20 + Math.cos(a) * 11, cy = 20 + Math.sin(a) * 11;
+    return diagLine(cx, cy, 20 + Math.cos(a) * 13, 20 + Math.sin(a) * 13);
+  }).flat(),
 ];
 
-// Ocean: sailboat (positive/moving) / anchor (negative/stuck) / compass (action/direction)
-const OCEAN_POSITIVE: [number, number][] = scale([
+// ── Ocean: sailboat (positive/moving) / anchor (negative/stuck) / compass (action/direction) ──
+const OCEAN_POSITIVE_FILL: [number, number][] = scale([
   // mast
-  ...row(3, 12, 12), ...row(4, 12, 12), ...row(5, 12, 12), ...row(6, 12, 12),
-  ...row(7, 12, 12), ...row(8, 12, 12), ...row(9, 12, 12), ...row(10, 12, 12),
-  ...row(11, 12, 12), ...row(12, 12, 12),
-  // sail, widening away from the mast
-  ...row(4, 13, 13), ...row(5, 13, 14), ...row(6, 13, 15), ...row(7, 13, 16),
-  ...row(8, 13, 17), ...row(9, 13, 18), ...row(10, 13, 19), ...row(11, 13, 20),
+  ...col(19, 3, 24),
+  // main sail, widening away from the mast
+  ...row(5, 20, 20), ...row(6, 20, 21), ...row(7, 20, 22), ...row(8, 20, 23), ...row(9, 20, 24),
+  ...row(10, 20, 25), ...row(11, 20, 26), ...row(12, 20, 27), ...row(13, 20, 28), ...row(14, 20, 29),
+  ...row(15, 20, 30), ...row(16, 20, 31),
+  // jib sail, in front of the mast
+  ...row(9, 15, 18), ...row(10, 14, 18), ...row(11, 13, 18), ...row(12, 12, 18), ...row(13, 11, 18),
+  ...row(14, 10, 18), ...row(15, 9, 18), ...row(16, 8, 18),
   // hull
-  ...row(13, 4, 20), ...row(14, 5, 19), ...row(15, 7, 17),
+  ...row(25, 4, 34), ...row(26, 6, 32), ...row(27, 9, 29),
 ]);
-const OCEAN_NEGATIVE: [number, number][] = scale([
-  ...row(4, 11, 12), [9, 5], [12, 5],
-  ...row(6, 11, 12), ...row(7, 11, 12), ...row(8, 11, 12),
-  ...row(9, 6, 17), ...row(10, 11, 12), ...row(11, 11, 12), ...row(12, 11, 12),
-  [7, 13], [8, 13], [15, 13], [16, 13],
-  [6, 14], [17, 14],
-  ...row(15, 8, 15),
-  [9, 16], [14, 16],
-]);
-const OCEAN_ACTION: [number, number][] = [
-  ...circleRing(12, 12, 7, 6),
-  ...circleRing(12, 12, 1.5),
-  ...diagLine(12, 6, 12, 11), // north needle
-  ...scale([[11, 5], [13, 5]]),
+const OCEAN_POSITIVE_DETAIL: [number, number][] = [
+  ...scale([[19, 3], [20, 3], [19, 4], [20, 4], [19, 5], [20, 5], [18, 4], [17, 4]]), // pennant flag
+  ...diagLine(20, 6, 27, 15), ...diagLine(20, 16, 26, 15), // main sail seam
+  ...diagLine(18, 10, 13, 16), // jib seam
+  ...scale(row(29, 5, 8)), ...scale(row(29, 14, 17)), ...scale(row(29, 22, 25)), ...scale(row(29, 30, 33)), // waves
+  ...scale(row(31, 2, 5)), ...scale(row(31, 10, 13)), ...scale(row(31, 20, 23)), ...scale(row(31, 28, 33)),
+];
+const OCEAN_NEGATIVE_FILL: [number, number][] = [
+  ...scale(col(19, 12, 27)), ...scale(col(20, 12, 27)), // shank
+  ...scale(row(16, 15, 24)), // crossbar
+  ...circleRing(19.5, 9, 3, 1.8), // ring at top
+  // curved flukes at the bottom
+  ...circleRing(13, 27, 5, 3.5), ...circleRing(26, 27, 5, 3.5),
+];
+const OCEAN_NEGATIVE_DETAIL: [number, number][] = [
+  // chain links above the ring
+  ...circleRing(19.5, 4, 1.6, 0.6), ...circleRing(19.5, 6.5, 1.6, 0.6),
+  ...scale([[14, 15], [15, 15], [24, 15], [25, 15]]), // crossbar end caps
+];
+const OCEAN_ACTION_FILL: [number, number][] = [
+  ...circleRing(20, 20, 12, 10.5),
+  ...circleHalf(20, 20, 8, 'top'), // north half of the needle disc
+];
+const OCEAN_ACTION_DETAIL: [number, number][] = [
+  ...circleHalf(20, 20, 8, 'bottom'), // south half, dimmer -- reads as a two-tone needle
+  ...circleRing(20, 20, 2), // center hub
+  // N/E/S/W tick marks poking out past the ring
+  ...diagLine(20, 8, 20, 5, 1.2), ...diagLine(20, 32, 20, 35, 1.2),
+  ...diagLine(8, 20, 5, 20, 1.2), ...diagLine(32, 20, 35, 20, 1.2),
 ];
 
-// Retro gaming: up-arrow (positive/power-up) / X mark (negative/game over) / controller (action)
-const RETRO_GAMING_POSITIVE: [number, number][] = scale([
-  ...row(4, 11, 12), ...row(5, 10, 13), ...row(6, 9, 14), ...row(7, 8, 15),
-  ...row(8, 11, 12), ...row(9, 11, 12), ...row(10, 11, 12),
-  ...row(11, 11, 12), ...row(12, 11, 12), ...row(13, 11, 12), ...row(14, 11, 12),
+// ── Retro gaming: up-arrow (positive/power-up) / X mark (negative/game over) / controller (action) ──
+const RETRO_GAMING_POSITIVE_FILL: [number, number][] = scale([
+  ...row(4, 17, 22), ...row(5, 15, 24), ...row(6, 13, 26), ...row(7, 11, 28), ...row(8, 9, 30),
+  ...row(9, 17, 22), ...row(10, 17, 22), ...row(11, 17, 22), ...row(12, 17, 22), ...row(13, 17, 22),
+  ...row(14, 17, 22), ...row(15, 17, 22), ...row(16, 17, 22), ...row(17, 17, 22), ...row(18, 17, 22),
+  ...row(19, 17, 22), ...row(20, 17, 22), ...row(21, 17, 22), ...row(22, 17, 22), ...row(23, 17, 22),
 ]);
-const RETRO_GAMING_NEGATIVE: [number, number][] = [
-  ...diagLine(6, 6, 17, 17),
-  ...diagLine(17, 6, 6, 17),
+const RETRO_GAMING_POSITIVE_DETAIL: [number, number][] = [
+  ...sparkle(31, 8, 2.5), ...sparkle(9, 14, 1.8), // sparkle beside the arrow
+  ...scale(row(27, 17, 22)), ...scale(row(29, 18, 21)), ...scale(row(31, 19, 20)), // motion lines below
 ];
-const RETRO_GAMING_ACTION: [number, number][] = scale([
-  ...row(9, 6, 15), ...row(10, 4, 17),
-  ...row(11, 3, 17).filter(([x]) => !(x >= 6 && x <= 8)),
-  ...row(12, 3, 17).filter(([x]) => !(x === 7)),
-  ...row(13, 3, 17).filter(([x]) => !(x >= 6 && x <= 8) && !(x >= 13 && x <= 14)),
-  ...row(14, 4, 17), ...row(15, 6, 15),
-  [7, 11], [7, 13], [14, 11], [17, 11],
+const RETRO_GAMING_NEGATIVE_FILL: [number, number][] = [
+  ...diagLine(9, 9, 31, 31, 1.6),
+  ...diagLine(31, 9, 9, 31, 1.6),
+];
+const RETRO_GAMING_NEGATIVE_DETAIL: [number, number][] = [
+  ...sparkle(9, 9, 2.5), ...sparkle(31, 9, 2.5), ...sparkle(9, 31, 2.5), ...sparkle(31, 31, 2.5),
+];
+const RETRO_GAMING_ACTION_FILL: [number, number][] = scale([
+  // rounded body
+  ...row(14, 9, 30), ...row(15, 7, 32), ...row(16, 6, 33), ...row(17, 6, 33), ...row(18, 6, 33),
+  ...row(19, 6, 33), ...row(20, 6, 33), ...row(21, 6, 33), ...row(22, 6, 33), ...row(23, 7, 32),
+  ...row(24, 9, 30),
+  // D-pad cross
+  ...row(17, 10, 12), ...row(18, 10, 12), ...row(19, 9, 13), ...row(20, 10, 12), ...row(21, 10, 12),
 ]);
+const RETRO_GAMING_ACTION_DETAIL: [number, number][] = [
+  ...circleRing(27, 17, 2), ...circleRing(31, 19, 2), // action buttons
+  ...circleRing(18, 23, 2.5, 1.4), ...circleRing(25, 23, 2.5, 1.4), // joysticks (hollow center)
+  ...scale([[8, 12], [9, 12], [30, 12], [31, 12]]), // shoulder button hints
+];
 
 export interface RetroThemeDef {
   id: NonNullable<RetroTheme>;
@@ -273,21 +402,41 @@ export interface RetroThemeDef {
   variantUrls: [string, string, string];
 }
 
+function twoTone(fill: [number, number][], detail: [number, number][]): string {
+  return pixelSvgDataUrl([{ cells: fill, color: FILL }, { cells: detail, color: DETAIL }]);
+}
+
 export const RETRO_THEMES: RetroThemeDef[] = [
   {
     id: 'space', label: 'Space',
-    variantUrls: [pixelSvgDataUrl(SPACE_POSITIVE), pixelSvgDataUrl(SPACE_NEGATIVE), pixelSvgDataUrl(SPACE_ACTION)],
+    variantUrls: [
+      twoTone(SPACE_POSITIVE_FILL, SPACE_POSITIVE_DETAIL),
+      twoTone(SPACE_NEGATIVE_FILL, SPACE_NEGATIVE_DETAIL),
+      twoTone(SPACE_ACTION_FILL, SPACE_ACTION_DETAIL),
+    ],
   },
   {
     id: 'f1', label: 'F1',
-    variantUrls: [pixelSvgDataUrl(F1_POSITIVE), pixelSvgDataUrl(F1_NEGATIVE), pixelSvgDataUrl(F1_ACTION)],
+    variantUrls: [
+      twoTone(F1_POSITIVE_FILL, F1_POSITIVE_DETAIL),
+      twoTone(F1_NEGATIVE_FILL, F1_NEGATIVE_DETAIL),
+      twoTone(F1_ACTION_FILL, F1_ACTION_DETAIL),
+    ],
   },
   {
     id: 'ocean', label: 'Ocean',
-    variantUrls: [pixelSvgDataUrl(OCEAN_POSITIVE), pixelSvgDataUrl(OCEAN_NEGATIVE), pixelSvgDataUrl(OCEAN_ACTION)],
+    variantUrls: [
+      twoTone(OCEAN_POSITIVE_FILL, OCEAN_POSITIVE_DETAIL),
+      twoTone(OCEAN_NEGATIVE_FILL, OCEAN_NEGATIVE_DETAIL),
+      twoTone(OCEAN_ACTION_FILL, OCEAN_ACTION_DETAIL),
+    ],
   },
   {
     id: 'retro-gaming', label: 'Retro Gaming',
-    variantUrls: [pixelSvgDataUrl(RETRO_GAMING_POSITIVE), pixelSvgDataUrl(RETRO_GAMING_NEGATIVE), pixelSvgDataUrl(RETRO_GAMING_ACTION)],
+    variantUrls: [
+      twoTone(RETRO_GAMING_POSITIVE_FILL, RETRO_GAMING_POSITIVE_DETAIL),
+      twoTone(RETRO_GAMING_NEGATIVE_FILL, RETRO_GAMING_NEGATIVE_DETAIL),
+      twoTone(RETRO_GAMING_ACTION_FILL, RETRO_GAMING_ACTION_DETAIL),
+    ],
   },
 ];
