@@ -46,6 +46,9 @@ const REACTION_EMOJIS = ['👍', '❤️', '😂', '🎉', '🤔'];
       transform-origin:0 0;will-change:transform;
       width:100%;min-height:100%;
     }
+    .zone-color-bg {
+      position:absolute;top:0;bottom:0;pointer-events:none;
+    }
     .zone-theme-bg {
       /* top+bottom (not top alone) so this empty div actually has a nonzero box to paint a
          background into -- it previously only set top:0, which collapses an empty
@@ -167,6 +170,9 @@ const REACTION_EMOJIS = ['👍', '❤️', '😂', '🎉', '🤔'];
       <div class="canvas-inner"
            [style.height.px]="canvasHeight()"
            [style.transform]="'translate(' + view().panX + 'px,' + view().panY + 'px) scale(' + view().zoom + ')'">
+        @for (col of cs; track col.key; let zi = $index) {
+          <div class="zone-color-bg" [style.left.px]="zoneOriginX(zi)" [style.width.px]="ZONE_WIDTH" [style.background]="col.color + '12'"></div>
+        }
         @for (col of cs; track col.key; let zi = $index) {
           @if (themeUrl(zi); as bg) {
             <div class="zone-theme-bg" [style.left.px]="zoneOriginX(zi)" [style.width.px]="ZONE_WIDTH" [style.background-image]="bg"></div>
@@ -399,11 +405,16 @@ export class RetroSingleCanvasComponent implements AfterViewInit {
 
   allItems = computed<ZoneCardItem[]>(() => this.zoneItems().flat());
 
+  // Minimum height for the zone strip (and its background/theme-art fill) even when mostly
+  // empty -- 400 felt cramped once zones got wider, especially with a colored background
+  // making the short fill obvious.
+  private readonly MIN_CANVAS_HEIGHT = 1200;
+
   canvasHeight(): number {
     const items = this.allItems();
-    if (items.length === 0) return 400;
+    if (items.length === 0) return this.MIN_CANVAS_HEIGHT;
     const maxY = Math.max(...items.map(c => c.y + 200));
-    return Math.max(400, maxY + 20);
+    return Math.max(this.MIN_CANVAS_HEIGHT, maxY + 20);
   }
 
   private outerEl(): HTMLElement | null {

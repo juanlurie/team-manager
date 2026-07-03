@@ -2571,7 +2571,7 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
     if (!s) return;
     this.svc.getSession(s.id).subscribe({
       next: updated => {
-        this.session.set(updated);
+        this.session.set(this.withPendingPositions(updated));
         // WS owns the timer signal; only re-sync icebreaker answers here
         this.applyExtras(updated, false);
       },
@@ -2782,6 +2782,25 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
    *  endpoint as submitCard, then persists the clicked position -- but bakes that position
    *  into the session update optimistically first so the new card never flashes at a
    *  fallback grid slot before jumping to where it was actually placed. */
+  // Bridges the gap between "card created" and "position PATCH has actually landed on the
+  // server" -- during that window, the backend's own fun_retro_card_added broadcast can
+  // trigger silentRefresh() on this same client, which would otherwise overwrite the
+  // just-placed card with the server's still-null position and make it visibly jump to the
+  // zone's fallback top-left slot. Re-applied on top of every fetched session until the
+  // PATCH resolves, then cleared since the server is authoritative again from then on.
+  private pendingCardPositions = new Map<string, { x: number; y: number }>();
+
+  private withPendingPositions(s: FunRetroSession): FunRetroSession {
+    if (this.pendingCardPositions.size === 0) return s;
+    return {
+      ...s,
+      cards: s.cards.map(c => {
+        const pos = this.pendingCardPositions.get(c.id);
+        return pos ? { ...c, positionX: pos.x, positionY: pos.y } : c;
+      }),
+    };
+  }
+
   onSingleCanvasAddCard(req: { column: string; text: string; x: number; y: number }): void {
     const s = this.session();
     if (!s) return;
@@ -2790,11 +2809,12 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
       next: updated => {
         const newCard = updated.cards.find(c => !beforeIds.has(c.id));
         if (newCard) {
-          this.session.set({
-            ...updated,
-            cards: updated.cards.map(c => c.id === newCard.id ? { ...c, positionX: req.x, positionY: req.y } : c),
+          this.pendingCardPositions.set(newCard.id, { x: req.x, y: req.y });
+          this.session.set(this.withPendingPositions(updated));
+          this.svc.updateCardPosition(s.id, newCard.id, req.x, req.y).subscribe({
+            next: () => this.pendingCardPositions.delete(newCard.id),
+            error: () => this.pendingCardPositions.delete(newCard.id),
           });
-          this.svc.updateCardPosition(s.id, newCard.id, req.x, req.y).subscribe();
         } else {
           this.session.set(updated);
         }
