@@ -618,14 +618,15 @@ interface TimerState {
     }
     /* Redacted-looking stand-in for hidden text -- occupies the same space real text would,
        so a hidden card still reads as "a card with writing on it" rather than a different,
-       emptier-looking placeholder box. */
+       emptier-looking placeholder box. Each line is a tiled squiggle (a repeating wave, like
+       the scribble you'd draw over illegible handwriting) instead of a solid bar. */
     .sticky-text-hidden {
-      display:flex;flex-direction:column;gap:9px;flex:1;padding-top:3px;cursor:default;
+      display:flex;flex-direction:column;gap:10px;flex:1;padding-top:5px;cursor:default;
     }
     .hidden-line {
-      height:0.85em;border-radius:4px;
-      background:repeating-linear-gradient(45deg,
-        rgba(0,0,0,0.14), rgba(0,0,0,0.14) 5px, rgba(0,0,0,0.07) 5px, rgba(0,0,0,0.07) 10px);
+      height:13px;
+      background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 12'%3E%3Cpath d='M0,6 C3,0 9,0 12,6 C15,12 21,12 24,6' stroke='rgba(0,0,0,0.32)' stroke-width='2.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+      background-repeat:repeat-x;background-size:24px 13px;background-position:left center;
     }
     .sticky-author { font-size:0.65rem;color:rgba(0,0,0,0.45); }
     .sticky-header app-avatar-circle {
