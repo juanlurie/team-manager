@@ -308,6 +308,8 @@ public class FunRetroService(AppDbContext db, AiPromptExecutorService aiExecutor
             AuthorId = memberId,
             AuthorName = $"{member.FirstName} {member.LastName}".Trim(),
             Color = req.Color,
+            PositionX = req.PositionX,
+            PositionY = req.PositionY,
         };
 
         db.FunRetroCards.Add(card);

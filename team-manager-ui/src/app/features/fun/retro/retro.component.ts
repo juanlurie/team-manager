@@ -2571,7 +2571,7 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
     if (!s) return;
     this.svc.getSession(s.id).subscribe({
       next: updated => {
-        this.session.set(this.withPendingPositions(updated));
+        this.session.set(updated);
         // WS owns the timer signal; only re-sync icebreaker answers here
         this.applyExtras(updated, false);
       },
@@ -2782,43 +2782,17 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
    *  endpoint as submitCard, then persists the clicked position -- but bakes that position
    *  into the session update optimistically first so the new card never flashes at a
    *  fallback grid slot before jumping to where it was actually placed. */
-  // Bridges the gap between "card created" and "position PATCH has actually landed on the
-  // server" -- during that window, the backend's own fun_retro_card_added broadcast can
-  // trigger silentRefresh() on this same client, which would otherwise overwrite the
-  // just-placed card with the server's still-null position and make it visibly jump to the
-  // zone's fallback top-left slot. Re-applied on top of every fetched session until the
-  // PATCH resolves, then cleared since the server is authoritative again from then on.
-  private pendingCardPositions = new Map<string, { x: number; y: number }>();
-
-  private withPendingPositions(s: FunRetroSession): FunRetroSession {
-    if (this.pendingCardPositions.size === 0) return s;
-    return {
-      ...s,
-      cards: s.cards.map(c => {
-        const pos = this.pendingCardPositions.get(c.id);
-        return pos ? { ...c, positionX: pos.x, positionY: pos.y } : c;
-      }),
-    };
-  }
-
+  // Position is baked into the create request itself (AddFunRetroCardRequest.PositionX/Y)
+  // rather than a separate follow-up PATCH -- an earlier create-then-patch version of this
+  // relied on diffing card ids against a "before" snapshot to find "the new card" to patch,
+  // which broke under rapid successive adds (a second add's stale "before" snapshot could
+  // match the *first* add's card, or miss its own entirely, leaving a card's position null).
+  // One atomic request has no such race.
   onSingleCanvasAddCard(req: { column: string; text: string; x: number; y: number }): void {
     const s = this.session();
     if (!s) return;
-    const beforeIds = new Set(s.cards.map(c => c.id));
-    this.svc.addCard(s.id, req.column, req.text, this.nextCardColorFor(req.column)).subscribe({
-      next: updated => {
-        const newCard = updated.cards.find(c => !beforeIds.has(c.id));
-        if (newCard) {
-          this.pendingCardPositions.set(newCard.id, { x: req.x, y: req.y });
-          this.session.set(this.withPendingPositions(updated));
-          this.svc.updateCardPosition(s.id, newCard.id, req.x, req.y).subscribe({
-            next: () => this.pendingCardPositions.delete(newCard.id),
-            error: () => this.pendingCardPositions.delete(newCard.id),
-          });
-        } else {
-          this.session.set(updated);
-        }
-      },
+    this.svc.addCard(s.id, req.column, req.text, this.nextCardColorFor(req.column), req.x, req.y).subscribe({
+      next: updated => this.session.set(updated),
       error: () => this.snackBar.open('Failed to add card', 'OK', { duration: 3000 }),
     });
   }
