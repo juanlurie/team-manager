@@ -33,6 +33,17 @@ export interface FunRetroCardComment {
   createdAt: string;
 }
 
+export interface FunRetroToken {
+  id: string;
+  sessionId: string;
+  column: 'well' | 'better' | 'action';
+  emoji: string;
+  positionX: number;
+  positionY: number;
+  createdByMemberId: string;
+  createdAt: string;
+}
+
 export interface FunRetroAnalysis {
   wellThemes: string[];
   betterThemes: string[];
@@ -68,6 +79,7 @@ export interface FunRetroSession {
   participationTracking: boolean;
   theme: RetroTheme;
   canvasLayout: RetroCanvasLayout;
+  tokens: FunRetroToken[];
 }
 
 export type RetroTheme = 'space' | 'f1' | 'ocean' | 'retro-gaming' | null;

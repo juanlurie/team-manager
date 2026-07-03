@@ -70,6 +70,7 @@ public class FunRetroService(AppDbContext db, AiPromptExecutorService aiExecutor
                 .ThenInclude(c => c.Author)
             .Include(s => s.Cards)
                 .ThenInclude(c => c.Comments)
+            .Include(s => s.Tokens)
             .FirstOrDefaultAsync(s => s.Id == sessionId);
 
         if (session is null) return null;
@@ -172,6 +173,20 @@ public class FunRetroService(AppDbContext db, AiPromptExecutorService aiExecutor
             ParticipationTracking = session.ParticipationTracking,
             Theme = session.Theme,
             CanvasLayout = session.CanvasLayout,
+            Tokens = session.Tokens
+                .OrderBy(t => t.CreatedAt)
+                .Select(t => new FunRetroTokenDto
+                {
+                    Id = t.Id,
+                    SessionId = t.SessionId,
+                    Column = t.Column,
+                    Emoji = t.Emoji,
+                    PositionX = t.PositionX,
+                    PositionY = t.PositionY,
+                    CreatedByMemberId = t.CreatedByMemberId,
+                    CreatedAt = t.CreatedAt,
+                })
+                .ToList(),
         };
     }
 
@@ -547,6 +562,72 @@ public class FunRetroService(AppDbContext db, AiPromptExecutorService aiExecutor
         await db.SaveChangesAsync();
 
         _ = WebSocketMiddleware.BroadcastAsync("fun_retro_card_moved", new { sessionId, cardId, x, y }, guestAllowed: true);
+        return true;
+    }
+
+    public async Task<FunRetroTokenDto?> AddTokenAsync(Guid sessionId, Guid memberId, string column, string emoji, double x, double y)
+    {
+        if (string.IsNullOrWhiteSpace(emoji)) return null;
+        var session = await db.FunRetroSessions.FindAsync(sessionId);
+        if (session is null) return null;
+
+        var token = new FunRetroToken
+        {
+            SessionId = sessionId,
+            Column = column,
+            Emoji = emoji,
+            PositionX = x,
+            PositionY = y,
+            CreatedByMemberId = memberId,
+        };
+        db.FunRetroTokens.Add(token);
+        await db.SaveChangesAsync();
+
+        var dto = new FunRetroTokenDto
+        {
+            Id = token.Id,
+            SessionId = sessionId,
+            Column = column,
+            Emoji = emoji,
+            PositionX = x,
+            PositionY = y,
+            CreatedByMemberId = memberId,
+            CreatedAt = token.CreatedAt,
+        };
+
+        _ = WebSocketMiddleware.BroadcastAsync("fun_retro_token_added", new { sessionId, token = dto }, guestAllowed: true);
+        return dto;
+    }
+
+    public async Task<bool> UpdateTokenPositionAsync(Guid sessionId, Guid tokenId, double x, double y)
+    {
+        var token = await db.FunRetroTokens
+            .FirstOrDefaultAsync(t => t.Id == tokenId && t.SessionId == sessionId);
+        if (token is null) return false;
+
+        token.PositionX = x;
+        token.PositionY = y;
+        await db.SaveChangesAsync();
+
+        _ = WebSocketMiddleware.BroadcastAsync("fun_retro_token_moved", new { sessionId, tokenId, x, y }, guestAllowed: true);
+        return true;
+    }
+
+    public async Task<bool> DeleteTokenAsync(Guid sessionId, Guid tokenId, Guid memberId)
+    {
+        var token = await db.FunRetroTokens
+            .Include(t => t.Session)
+            .FirstOrDefaultAsync(t => t.Id == tokenId && t.SessionId == sessionId);
+        if (token is null) return false;
+
+        var isOwn = token.CreatedByMemberId == memberId;
+        var isCreator = token.Session.CreatedByMemberId == memberId;
+        if (!isOwn && !isCreator) return false;
+
+        db.FunRetroTokens.Remove(token);
+        await db.SaveChangesAsync();
+
+        _ = WebSocketMiddleware.BroadcastAsync("fun_retro_token_deleted", new { sessionId, tokenId }, guestAllowed: true);
         return true;
     }
 

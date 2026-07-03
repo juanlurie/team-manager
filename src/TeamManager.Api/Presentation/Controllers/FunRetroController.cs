@@ -167,6 +167,34 @@ public class FunRetroController(FunRetroService service, PollService pollService
         return NoContent();
     }
 
+    [HttpPost("{id:guid}/tokens")]
+    public async Task<IActionResult> AddToken(Guid id, [FromBody] AddFunRetroTokenRequest request)
+    {
+        var memberId = GetCurrentMemberId();
+        if (!memberId.HasValue) return Unauthorized();
+        var token = await service.AddTokenAsync(id, memberId.Value, request.Column, request.Emoji, request.PositionX, request.PositionY);
+        if (token is null) return BadRequest();
+        return Ok(token);
+    }
+
+    [HttpPatch("{id:guid}/tokens/{tokenId:guid}/position")]
+    public async Task<IActionResult> UpdateTokenPosition(Guid id, Guid tokenId, [FromBody] UpdateFunRetroTokenPositionRequest request)
+    {
+        var success = await service.UpdateTokenPositionAsync(id, tokenId, request.PositionX, request.PositionY);
+        if (!success) return NotFound();
+        return NoContent();
+    }
+
+    [HttpDelete("{id:guid}/tokens/{tokenId:guid}")]
+    public async Task<IActionResult> DeleteToken(Guid id, Guid tokenId)
+    {
+        var memberId = GetCurrentMemberId();
+        if (!memberId.HasValue) return Unauthorized();
+        var success = await service.DeleteTokenAsync(id, tokenId, memberId.Value);
+        if (!success) return NotFound();
+        return NoContent();
+    }
+
     [HttpPost("{id:guid}/analyse")]
     public async Task<IActionResult> Analyse(Guid id)
     {
