@@ -203,6 +203,15 @@ interface TimerState {
       background:#fff;transition:left .2s;box-shadow:0 1px 3px rgba(0,0,0,0.3);
     }
     .toggle-track.on .toggle-thumb { left:18px; }
+    .reveal-now-btn {
+      display:inline-flex;align-items:center;gap:5px;flex-shrink:0;
+      background:rgba(100,181,246,0.16);border:1px solid rgba(100,181,246,0.4);
+      border-radius:7px;color:#64b5f6;font-size:0.78rem;font-weight:600;font-family:inherit;
+      padding:5px 11px;cursor:pointer;transition:background .12s;
+    }
+    .reveal-now-btn:hover:not(:disabled) { background:rgba(100,181,246,0.26); }
+    .reveal-now-btn:disabled { opacity:0.6;cursor:default;color:rgba(255,255,255,0.5);border-color:rgba(255,255,255,0.15);background:transparent; }
+    .reveal-now-btn mat-icon { font-size:16px;width:16px;height:16px;line-height:16px; }
 
     /* card grouping */
     .card-group-cluster {
@@ -607,6 +616,17 @@ interface TimerState {
       overflow-wrap:anywhere;word-break:break-word;
       font-family:'Kalam','Segoe UI',system-ui,sans-serif;
     }
+    /* Redacted-looking stand-in for hidden text -- occupies the same space real text would,
+       so a hidden card still reads as "a card with writing on it" rather than a different,
+       emptier-looking placeholder box. */
+    .sticky-text-hidden {
+      display:flex;flex-direction:column;gap:9px;flex:1;padding-top:3px;cursor:default;
+    }
+    .hidden-line {
+      height:0.85em;border-radius:4px;
+      background:repeating-linear-gradient(45deg,
+        rgba(0,0,0,0.14), rgba(0,0,0,0.14) 5px, rgba(0,0,0,0.07) 5px, rgba(0,0,0,0.07) 10px);
+    }
     .sticky-author { font-size:0.65rem;color:rgba(0,0,0,0.45); }
     .sticky-header app-avatar-circle {
       display:inline-flex;border-radius:50%;
@@ -712,7 +732,9 @@ interface TimerState {
       background:transparent;font-size:0.8rem;color:rgba(0,0,0,0.82);line-height:1.4;
       font-family:inherit;padding:0;margin:0;flex:1;min-height:48px;
     }
-    .sticky-text-editable { cursor:text; }
+    /* Single click selects the whole card (same as everywhere else on it); only a
+       double-click edits, so this shouldn't look like a plain text input on hover. */
+    .sticky-text-editable { cursor:grab; }
     .sticky-text-editable:hover { background:rgba(0,0,0,0.04);border-radius:4px; }
     .color-picker-popover {
       /* fixed (not absolute) so it can't be clipped by the canvas's overflow:auto
@@ -1074,6 +1096,20 @@ interface TimerState {
                 <div class="toggle-thumb"></div>
               </div>
             </div>
+            @if (s.phase === 'add' && s.hideCardsOnAdd) {
+              <div class="settings-row">
+                <div>
+                  <div class="settings-row-label">Reveal all cards now</div>
+                  <div class="settings-row-desc">
+                    {{ s.manuallyRevealed ? 'Every card is visible for the rest of this add phase.' : "Show every card immediately -- doesn't change the setting above or move to voting." }}
+                  </div>
+                </div>
+                <button class="reveal-now-btn" [disabled]="s.manuallyRevealed" (click)="revealAllNow()">
+                  <mat-icon>{{ s.manuallyRevealed ? 'lock_open' : 'visibility' }}</mat-icon>
+                  {{ s.manuallyRevealed ? 'Revealed' : 'Reveal now' }}
+                </button>
+              </div>
+            }
             <div class="settings-row">
               <div>
                 <div class="settings-row-label">Participation tracking</div>
@@ -1513,14 +1549,21 @@ interface TimerState {
                                     (click)="openCommentThread($event, item.card)">💬{{ item.card.commentCount }}</button>
                           }
                           @if (item.card.text === null) {
-                          <!-- Hidden card: show who wrote it, not what -->
+                          <!-- Hidden card: the card itself, its author, and its shape all stay
+                               visible -- only the text is unreadable (redacted-looking bars
+                               standing in for it, not a "hidden until reveal" message that
+                               replaces the card's whole body). The server never sends the
+                               real text to a viewer it's hidden from in the first place, so
+                               there's nothing to blur -- this is a stand-in, not the real
+                               text obscured client-side. -->
                           <div class="sticky-header">
                             <app-avatar-circle [memberId]="item.card.authorId" [name]="item.card.authorName ?? ''" [avatarSeed]="item.card.authorAvatarSeed" [size]="18" />
                             <span class="sticky-author" style="flex:1">{{ item.card.authorName }}</span>
                           </div>
-                          <div style="display:flex;align-items:center;gap:5px;opacity:0.4;margin-top:6px">
-                            <mat-icon style="font-size:14px;height:14px;width:14px">lock</mat-icon>
-                            <span style="font-size:0.7rem;color:rgba(0,0,0,0.6)">Hidden until reveal</span>
+                          <div class="sticky-text-hidden" [title]="'Hidden until reveal'">
+                            <span class="hidden-line" style="width:88%"></span>
+                            <span class="hidden-line" style="width:64%"></span>
+                            <span class="hidden-line" style="width:76%"></span>
                           </div>
                         } @else {
                         <!-- Header: avatar + name + delete -->
@@ -2718,12 +2761,12 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
           break;
         case 'fun_retro_settings_updated':
           if (msg.data['sessionId'] === s.id) {
-            this.session.update(cur => cur ? {
-              ...cur,
-              hideCardsOnAdd: msg.data['hideCardsOnAdd'] as boolean,
-              participationTracking: msg.data['participationTracking'] as boolean,
-              theme: msg.data['theme'] as RetroTheme,
-            } : cur);
+            // A full refetch (not a local field patch) because hideCardsOnAdd doesn't just
+            // change a setting value -- it changes which cards' text the *server* is willing
+            // to send at all (hidden cards come back with text: null). Patching the setting
+            // field locally left every already-loaded card's lock badge stale until something
+            // else happened to trigger a refresh.
+            this.silentRefresh();
           }
           break;
         case 'fun_retro_card_text_updated':
@@ -2945,6 +2988,19 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
     this.patchSettings({ [key]: !s[key] });
   }
 
+  revealAllNow(): void {
+    const s = this.session();
+    if (!s || s.manuallyRevealed) return;
+    this.session.update(cur => cur ? { ...cur, manuallyRevealed: true } : cur);
+    this.svc.revealAllNow(s.id).subscribe({
+      next: () => this.silentRefresh(),
+      error: () => {
+        this.session.update(cur => cur ? { ...cur, manuallyRevealed: false } : cur);
+        this.snackBar.open('Failed to reveal cards', 'OK', { duration: 3000 });
+      },
+    });
+  }
+
   readonly retroThemes = RETRO_THEMES;
 
   /** The pixel-art background for the column at `colIndex` -- each column shows a
@@ -2973,7 +3029,15 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
     if (!s || !s.isCreator) return;
     const updated = { hideCardsOnAdd: s.hideCardsOnAdd, participationTracking: s.participationTracking, theme: s.theme, ...patch };
     this.session.update(cur => cur ? { ...cur, ...updated } : cur);
-    this.svc.updateSettings(s.id, updated).subscribe({ error: () => this.silentRefresh() });
+    // The optimistic patch above only covers the settings fields themselves, for instant
+    // toggle feedback -- hideCardsOnAdd also changes which cards' text the server is willing
+    // to send at all, so a full refetch on success is what actually updates each card's lock
+    // badge for the person who just flipped the toggle (not just other participants, who get
+    // this via the fun_retro_settings_updated broadcast).
+    this.svc.updateSettings(s.id, updated).subscribe({
+      next: () => this.silentRefresh(),
+      error: () => this.silentRefresh(),
+    });
   }
 
   startEditCard(card: FunRetroCard): void {

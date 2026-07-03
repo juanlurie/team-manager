@@ -19,6 +19,11 @@ public class FunRetroSession
     public string? IcebreakerQuestion { get; set; }
     public string? ColumnsJson { get; set; }
     public bool HideCardsOnAdd { get; set; } = true;
+    // One-shot manual override that reveals every card immediately -- including ones added
+    // afterward, for the rest of this "add" phase -- without flipping HideCardsOnAdd itself
+    // (a persistent setting the creator may still want on for a future session) or advancing
+    // the phase. Only meaningful during "add" -- hiding never applies outside it anyway.
+    public bool ManuallyRevealed { get; set; }
     public bool ParticipationTracking { get; set; } = true;
     public string? Theme { get; set; } // null|space|f1|ocean|retro-gaming
     public string? CanvasLayout { get; set; } // null|columns|single -- null/"columns" = today's per-column canvases

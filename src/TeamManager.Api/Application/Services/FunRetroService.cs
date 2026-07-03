@@ -121,7 +121,7 @@ public class FunRetroService(AppDbContext db, AiPromptExecutorService aiExecutor
             .Select(c =>
             {
                 var isOwn = c.AuthorId == memberId;
-                var hideContent = isAddPhase && !isOwn && session.HideCardsOnAdd;
+                var hideContent = isAddPhase && !isOwn && session.HideCardsOnAdd && !session.ManuallyRevealed;
 
                 var reactionDtos = c.Reactions
                     .GroupBy(r => r.Emoji)
@@ -208,6 +208,7 @@ public class FunRetroService(AppDbContext db, AiPromptExecutorService aiExecutor
             IcebreakerQuestion = session.IcebreakerQuestion,
             Columns = columns,
             HideCardsOnAdd = session.HideCardsOnAdd,
+            ManuallyRevealed = session.ManuallyRevealed,
             ParticipationTracking = session.ParticipationTracking,
             Theme = session.Theme,
             CanvasLayout = session.CanvasLayout,
@@ -241,6 +242,22 @@ public class FunRetroService(AppDbContext db, AiPromptExecutorService aiExecutor
 
         _ = WebSocketMiddleware.BroadcastAsync("fun_retro_settings_updated",
             new { sessionId, hideCardsOnAdd, participationTracking, theme = validTheme }, guestAllowed: true);
+        return true;
+    }
+
+    /// <summary>Creator-only one-shot override: reveals every card immediately (including
+    /// ones added afterward, for the rest of this "add" phase) without touching the
+    /// persistent HideCardsOnAdd setting or advancing the phase.</summary>
+    public async Task<bool> RevealAllNowAsync(Guid sessionId, Guid memberId)
+    {
+        var session = await db.FunRetroSessions.FindAsync(sessionId);
+        if (session is null || session.CreatedByMemberId != memberId) return false;
+        if (session.ManuallyRevealed) return true; // already revealed, nothing to do
+
+        session.ManuallyRevealed = true;
+        await db.SaveChangesAsync();
+
+        _ = WebSocketMiddleware.BroadcastAsync("fun_retro_revealed", new { sessionId }, guestAllowed: true);
         return true;
     }
 
