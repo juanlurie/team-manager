@@ -1,6 +1,6 @@
 import {
   Component, OnInit, OnDestroy, AfterViewInit, HostListener,
-  inject, signal, computed, effect, ChangeDetectionStrategy, ElementRef, WritableSignal
+  inject, signal, computed, effect, ChangeDetectionStrategy, ElementRef, WritableSignal, viewChild
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -109,8 +109,8 @@ interface TimerState {
     .session-wrap { padding:4px 0;position:relative;z-index:0; }
     .mobile-theme-bg {
       position:fixed;inset:0;z-index:-1;pointer-events:none;
-      background-repeat:no-repeat;background-position:center 45%;background-size:48vw;
-      opacity:0.1;image-rendering:pixelated;
+      background-repeat:no-repeat;background-position:center 45%;background-size:82vw;
+      opacity:0.12;image-rendering:pixelated;
     }
     .session-header {
       display:flex;align-items:center;
@@ -556,13 +556,12 @@ interface TimerState {
     .canvas-theme-bg {
       /* Sibling of .canvas-inner (not a child) so it never inherits the pan/zoom
          transform -- it's meant to sit still behind the cards, not move with them.
-         background-size is gridSize (24) * 10px: each pixel-art "pixel" is a quarter of
-         one of the canvas's own 40px dot-grid blocks (4 art-pixels per real block), so it
-         still reads as built from the same square grid instead of an arbitrary scale --
-         a literal 1 art-pixel = 1 real block (960px) is far bigger than a column is wide. */
+         The art itself is authored at 3x its original grid density (see retro-constants.ts),
+         so a much bigger background-size here reads as a bigger, more detailed watermark
+         instead of the same coarse art just stretched blurrier. */
       position:absolute;inset:0;pointer-events:none;
-      background-repeat:no-repeat;background-position:center;background-size:240px 240px;
-      opacity:0.16;image-rendering:pixelated;
+      background-repeat:no-repeat;background-position:center;background-size:min(85%, 640px) min(85%, 640px);
+      opacity:0.18;image-rendering:pixelated;
     }
     .canvas-inner {
       position:absolute;top:0;left:0;
@@ -616,11 +615,12 @@ interface TimerState {
     .sticky-lock-badge {
       position:absolute;top:-18px;left:50%;transform:translateX(-50%);
       width:34px;height:34px;border-radius:50%;
-      display:flex;align-items:center;justify-content:center;font-size:17px;
+      display:flex;align-items:center;justify-content:center;
       border:2px solid rgba(255,255,255,0.9);box-shadow:0 2px 4px rgba(0,0,0,0.3);
-      background:#ef9a9a;
+      background:#c62828;color:#fff;
     }
-    .sticky-lock-badge.unlocked { background:#a5d6a7; }
+    .sticky-lock-badge.unlocked { background:#2e7d32; }
+    .sticky-lock-badge mat-icon { font-size:18px;width:18px;height:18px;line-height:18px; }
     .sticky-comment-badge {
       position:absolute;bottom:-10px;right:8px;
       display:flex;align-items:center;gap:2px;
@@ -714,12 +714,6 @@ interface TimerState {
     }
     .sticky-text-editable { cursor:text; }
     .sticky-text-editable:hover { background:rgba(0,0,0,0.04);border-radius:4px; }
-    .sticky-color-trigger { position:relative; margin-left:auto; }
-    .sticky-color-dot {
-      width:14px;height:14px;border-radius:50%;cursor:pointer;
-      border:1.5px solid rgba(0,0,0,0.25);padding:0;transition:transform .1s;
-    }
-    .sticky-color-dot:hover { transform:scale(1.2); }
     .color-picker-popover {
       /* fixed (not absolute) so it can't be clipped by the canvas's overflow:auto
          when the card sits near the top/edge of the scrollable canvas */
@@ -1448,7 +1442,6 @@ interface TimerState {
             [resolveCardColor]="resolveCardColorFn"
             (voteToggled)="toggleVote($event)"
             (reactionToggled)="toggleReaction($event.card, $event.emoji)"
-            (colorPickerRequested)="toggleColorPicker($event.event, $event.cardId)"
             (editStarted)="startEditCard($event)"
             (editTextChanged)="editingText.set($event)"
             (editSaved)="saveCardText($event)"
@@ -1513,7 +1506,7 @@ interface TimerState {
                            [style.transform]="'rotate(' + cardRotation(item.card.id) + 'deg)'"
                            (mousedown)="startDrag($event, item.card, item.x, item.y, col.key)">
                           <div class="sticky-lock-badge" [class.unlocked]="item.card.text !== null" [title]="item.card.text === null ? 'Hidden until reveal' : 'Visible to everyone'">
-                            {{ item.card.text === null ? '🙈' : '📝' }}
+                            <mat-icon>{{ item.card.text === null ? 'lock' : 'lock_open' }}</mat-icon>
                           </div>
                           @if (item.card.commentCount > 0) {
                             <button class="sticky-comment-badge" (mousedown)="$event.stopPropagation()"
@@ -1539,7 +1532,7 @@ interface TimerState {
                         }
                         <!-- Card text / inline edit -->
                         @if (editingCardId() === item.card.id) {
-                          <textarea class="sticky-edit-area"
+                          <textarea class="sticky-edit-area" #editArea
                                     [value]="editingText()"
                                     (input)="editingText.set($any($event.target).value)"
                                     (blur)="saveCardText(item.card)"
@@ -1550,14 +1543,13 @@ interface TimerState {
                         } @else {
                           <div class="sticky-text"
                                [class.sticky-text-editable]="item.card.isOwn || s.isCreator"
-                               (mousedown)="$event.stopPropagation()"
-                               (click)="(item.card.isOwn || s.isCreator) && item.card.text !== null ? startEditCard(item.card) : null">
+                               (dblclick)="(item.card.isOwn || s.isCreator) && item.card.text !== null ? startEditCard(item.card) : null">
                             {{ item.card.text }}
                           </div>
                         }
-                        <!-- Footer: votes + color picker -->
-                        <div class="sticky-footer">
-                          @if (s.phase === 'vote' || s.phase === 'discuss' || s.phase === 'done') {
+                        <!-- Footer: votes (color change now lives in the selection toolbar) -->
+                        @if (s.phase === 'vote' || s.phase === 'discuss' || s.phase === 'done') {
+                          <div class="sticky-footer">
                             <div class="sticky-vote-row">
                               @if (s.phase === 'vote') {
                                 <button class="sticky-vdec-btn"
@@ -1571,14 +1563,8 @@ interface TimerState {
                                         (mousedown)="$event.stopPropagation()" (click)="toggleVote(item.card)">+</button>
                               }
                             </div>
-                          }
-                          @if (s.phase === 'add' || s.phase === 'vote' || s.phase === 'discuss') {
-                            <div class="sticky-color-trigger" (mousedown)="$event.stopPropagation()">
-                              <button class="sticky-color-dot" [style.background]="resolveCardColor(item.card)"
-                                      title="Change color" (click)="toggleColorPicker($event, item.card.id)"></button>
-                            </div>
-                          }
-                        </div>
+                          </div>
+                        }
                         @if (s.phase === 'discuss') {
                           <div class="sticky-reactions">
                             @for (emoji of reactionEmojis; track emoji) {
@@ -1800,6 +1786,18 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
   sessions = signal<FunRetroSessionSummary[]>([]);
   session = signal<FunRetroSession | null>(null);
   loading = signal(false);
+
+  // Entering edit mode (double-click a card's text) renders the edit textarea fresh each
+  // time -- clicking a div doesn't hand it keyboard focus, so without this the user has to
+  // click a second time before they can actually type. Mirrors the same fix already needed
+  // for the new-card textarea in the single-canvas component (native `autofocus` only
+  // reliably fires once per page load, not on every dynamically-inserted element).
+  private editAreaEl = viewChild<ElementRef<HTMLTextAreaElement>>('editArea');
+  private editAreaFocusEffect = effect(() => {
+    const id = this.editingCardId();
+    const el = this.editAreaEl();
+    if (id && el) el.nativeElement.focus();
+  });
 
   /** Hide the Pulse hub's tab row while a retro session is open, to save vertical space. */
   private hideSubNavEffect = effect(() => {
@@ -3137,7 +3135,7 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   shareSession(s: FunRetroSession): void {
-    const url = `${window.location.origin}/pulse/retro/${s.id}`;
+    const url = `${window.location.origin}/pulse/retro/${s.slug ?? s.id}`;
     const title = s.title || 'Retro Session';
     const text = `Join our retro — "${title}"`;
 

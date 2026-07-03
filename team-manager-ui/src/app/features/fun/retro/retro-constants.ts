@@ -101,9 +101,19 @@ export const ICEBREAKER_QUESTIONS = [
 // ── Retro board themes: a subtle pixel-art watermark behind each canvas ──
 // Each theme has 3 tone variants -- positive/negative/action -- shown per column by
 // position (1st column = positive, 2nd = negative, 3rd = action; a 4th column, where a
-// template has one, reuses the action variant). All themes share one 24x24 grid so every
+// template has one, reuses the action variant). All themes share one grid so every
 // variant lines up with the canvas's own 40px grid blocks at the same background-size.
-const GRID = 24;
+//
+// The shapes below are still authored at the original 24x24 coordinate space (every
+// row()/circleRing()/diagLine() call below uses those coordinates) -- SCALE_FACTOR blows
+// each of those cells up into an NxN block at final render resolution. For straight-edged
+// shapes (built from row() rects) this is lossless, just literally more pixels describing
+// the same crisp edge. Curved/diagonal shapes (circleRing, diagLine) are instead
+// regenerated natively at the scaled-up radius/coordinates -- block-scaling a coarse
+// circle would just make its jagged stair-steps 3x bigger, not smoother; sampling the
+// same circle formula at a 3x bigger radius genuinely produces a rounder-looking curve.
+const SCALE_FACTOR = 3;
+const GRID = 24 * SCALE_FACTOR;
 
 function row(y: number, x0: number, x1: number): [number, number][] {
   const out: [number, number][] = [];
@@ -111,27 +121,47 @@ function row(y: number, x0: number, x1: number): [number, number][] {
   return out;
 }
 
-/** Filled circle (rInner omitted/0) or ring, sampled on the pixel grid. */
+/** Expands each authored-resolution cell into an NxN block at final render resolution.
+ *  Only valid for straight-edged shapes (built from row()) -- see note above. */
+function scale(cells: [number, number][], factor = SCALE_FACTOR): [number, number][] {
+  const out: [number, number][] = [];
+  for (const [x, y] of cells) {
+    for (let dy = 0; dy < factor; dy++) {
+      for (let dx = 0; dx < factor; dx++) out.push([x * factor + dx, y * factor + dy]);
+    }
+  }
+  return out;
+}
+
+/** Filled circle (rInner omitted/0) or ring, sampled directly at final render resolution
+ *  (cx/cy/rOuter/rInner are given in authored-resolution units and scaled up here) so the
+ *  curve is genuinely smoother, not just a blown-up blocky one. */
 function circleRing(cx: number, cy: number, rOuter: number, rInner = 0): [number, number][] {
+  const s = SCALE_FACTOR;
+  const [cxS, cyS, rOuterS, rInnerS] = [cx * s, cy * s, rOuter * s, rInner * s];
   const cells: [number, number][] = [];
-  const rOuter2 = rOuter * rOuter, rInner2 = rInner * rInner;
-  for (let y = Math.floor(cy - rOuter); y <= Math.ceil(cy + rOuter); y++) {
-    for (let x = Math.floor(cx - rOuter); x <= Math.ceil(cx + rOuter); x++) {
-      const d2 = (x - cx + 0.5) ** 2 + (y - cy + 0.5) ** 2;
+  const rOuter2 = rOuterS * rOuterS, rInner2 = rInnerS * rInnerS;
+  for (let y = Math.floor(cyS - rOuterS); y <= Math.ceil(cyS + rOuterS); y++) {
+    for (let x = Math.floor(cxS - rOuterS); x <= Math.ceil(cxS + rOuterS); x++) {
+      const d2 = (x - cxS + 0.5) ** 2 + (y - cyS + 0.5) ** 2;
       if (d2 <= rOuter2 && d2 >= rInner2) cells.push([x, y]);
     }
   }
   return cells;
 }
 
-/** Thick diagonal line from (x0,y0) to (x1,y1), 2px wide. */
+/** Thick diagonal line from (x0,y0) to (x1,y1) (authored-resolution units, scaled up here),
+ *  proportionally thicker at higher resolution so it doesn't thin out relatively. */
 function diagLine(x0: number, y0: number, x1: number, y1: number): [number, number][] {
+  const s = SCALE_FACTOR;
+  const [x0S, y0S, x1S, y1S] = [x0 * s, y0 * s, x1 * s, y1 * s];
   const cells: [number, number][] = [];
-  const steps = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0));
+  const steps = Math.max(Math.abs(x1S - x0S), Math.abs(y1S - y0S));
+  const half = Math.floor(s / 2) + 1;
   for (let i = 0; i <= steps; i++) {
-    const x = Math.round(x0 + (x1 - x0) * (i / steps));
-    const y = Math.round(y0 + (y1 - y0) * (i / steps));
-    cells.push([x, y], [x + 1, y]);
+    const x = Math.round(x0S + (x1S - x0S) * (i / steps));
+    const y = Math.round(y0S + (y1S - y0S) * (i / steps));
+    for (let w = -half; w <= half; w++) cells.push([x + w, y]);
   }
   return cells;
 }
@@ -143,31 +173,33 @@ function pixelSvgDataUrl(cells: [number, number][], gridSize = GRID, color = '#f
 }
 
 // Space: rocket (positive/launch) / asteroid (negative/impact) / satellite (action/control)
-const SPACE_POSITIVE: [number, number][] = [
+const SPACE_POSITIVE: [number, number][] = scale([
   ...row(7, 7, 8), ...row(8, 6, 9), ...row(9, 6, 9), ...row(10, 6, 9),
   ...row(11, 5, 10), ...row(12, 5, 10),
   [5, 13], [10, 13], [5, 14], [10, 14],
   ...row(15, 3, 12), ...row(16, 4, 11), ...row(17, 4, 11),
   ...row(18, 6, 9), ...row(19, 7, 8),
   [2, 2], [3, 2], [2, 3], [21, 6], [3, 20], [4, 20], [20, 18], [21, 18], [20, 19],
-];
-const SPACE_NEGATIVE: [number, number][] = [
+]);
+const SPACE_NEGATIVE: [number, number][] = scale([
   ...row(7, 10, 13), ...row(8, 8, 15), ...row(9, 7, 16), ...row(10, 6, 17),
   ...row(11, 6, 17), ...row(12, 5, 17), ...row(13, 6, 16), ...row(14, 6, 15),
   ...row(15, 7, 14), ...row(16, 9, 13),
   // motion streak trailing behind the impact
   [4, 17], [3, 18], [5, 18], [2, 19],
-];
+]);
 const SPACE_ACTION: [number, number][] = [
-  ...row(10, 11, 13), ...row(11, 10, 14), ...row(12, 11, 13),
-  ...row(10, 4, 9), ...row(11, 3, 9), ...row(12, 4, 9),
-  ...row(10, 15, 20), ...row(11, 15, 21), ...row(12, 15, 20),
+  ...scale([
+    ...row(10, 11, 13), ...row(11, 10, 14), ...row(12, 11, 13),
+    ...row(10, 4, 9), ...row(11, 3, 9), ...row(12, 4, 9),
+    ...row(10, 15, 20), ...row(11, 15, 21), ...row(12, 15, 20),
+    [15, 9], [16, 7], [15, 8],
+  ]),
   ...circleRing(17, 6, 1.5),
-  [15, 9], [16, 7], [15, 8],
 ];
 
 // F1: checkered flag (positive/finish) / warning triangle (negative/hazard) / steering wheel (action)
-const F1_POSITIVE: [number, number][] = (() => {
+const F1_POSITIVE: [number, number][] = scale((() => {
   const cells: [number, number][] = [];
   for (let y = 0; y < 12; y++) {
     for (let x = 0; x < 12; x++) {
@@ -175,12 +207,12 @@ const F1_POSITIVE: [number, number][] = (() => {
     }
   }
   return cells;
-})();
-const F1_NEGATIVE: [number, number][] = [
+})());
+const F1_NEGATIVE: [number, number][] = scale([
   ...row(4, 11, 12), ...row(5, 10, 13), ...row(6, 10, 13), ...row(7, 9, 14),
   ...row(8, 9, 14), ...row(9, 8, 15), ...row(10, 8, 15), ...row(11, 7, 16),
   ...row(12, 7, 16), ...row(13, 6, 17), ...row(14, 6, 17),
-].filter(([x, y]) => !(x >= 11 && x <= 12 && y >= 7 && y <= 10)); // hollow out the "!" stem
+].filter(([x, y]) => !(x >= 11 && x <= 12 && y >= 7 && y <= 10))); // hollow out the "!" stem
 const F1_ACTION: [number, number][] = [
   ...circleRing(12, 12, 7, 5),
   ...circleRing(12, 12, 2),
@@ -188,7 +220,7 @@ const F1_ACTION: [number, number][] = [
 ];
 
 // Ocean: sailboat (positive/moving) / anchor (negative/stuck) / compass (action/direction)
-const OCEAN_POSITIVE: [number, number][] = [
+const OCEAN_POSITIVE: [number, number][] = scale([
   // mast
   ...row(3, 12, 12), ...row(4, 12, 12), ...row(5, 12, 12), ...row(6, 12, 12),
   ...row(7, 12, 12), ...row(8, 12, 12), ...row(9, 12, 12), ...row(10, 12, 12),
@@ -198,8 +230,8 @@ const OCEAN_POSITIVE: [number, number][] = [
   ...row(8, 13, 17), ...row(9, 13, 18), ...row(10, 13, 19), ...row(11, 13, 20),
   // hull
   ...row(13, 4, 20), ...row(14, 5, 19), ...row(15, 7, 17),
-];
-const OCEAN_NEGATIVE: [number, number][] = [
+]);
+const OCEAN_NEGATIVE: [number, number][] = scale([
   ...row(4, 11, 12), [9, 5], [12, 5],
   ...row(6, 11, 12), ...row(7, 11, 12), ...row(8, 11, 12),
   ...row(9, 6, 17), ...row(10, 11, 12), ...row(11, 11, 12), ...row(12, 11, 12),
@@ -207,32 +239,32 @@ const OCEAN_NEGATIVE: [number, number][] = [
   [6, 14], [17, 14],
   ...row(15, 8, 15),
   [9, 16], [14, 16],
-];
+]);
 const OCEAN_ACTION: [number, number][] = [
   ...circleRing(12, 12, 7, 6),
   ...circleRing(12, 12, 1.5),
   ...diagLine(12, 6, 12, 11), // north needle
-  [11, 5], [13, 5],
+  ...scale([[11, 5], [13, 5]]),
 ];
 
 // Retro gaming: up-arrow (positive/power-up) / X mark (negative/game over) / controller (action)
-const RETRO_GAMING_POSITIVE: [number, number][] = [
+const RETRO_GAMING_POSITIVE: [number, number][] = scale([
   ...row(4, 11, 12), ...row(5, 10, 13), ...row(6, 9, 14), ...row(7, 8, 15),
   ...row(8, 11, 12), ...row(9, 11, 12), ...row(10, 11, 12),
   ...row(11, 11, 12), ...row(12, 11, 12), ...row(13, 11, 12), ...row(14, 11, 12),
-];
+]);
 const RETRO_GAMING_NEGATIVE: [number, number][] = [
   ...diagLine(6, 6, 17, 17),
   ...diagLine(17, 6, 6, 17),
 ];
-const RETRO_GAMING_ACTION: [number, number][] = [
+const RETRO_GAMING_ACTION: [number, number][] = scale([
   ...row(9, 6, 15), ...row(10, 4, 17),
   ...row(11, 3, 17).filter(([x]) => !(x >= 6 && x <= 8)),
   ...row(12, 3, 17).filter(([x]) => !(x === 7)),
   ...row(13, 3, 17).filter(([x]) => !(x >= 6 && x <= 8) && !(x >= 13 && x <= 14)),
   ...row(14, 4, 17), ...row(15, 6, 15),
   [7, 11], [7, 13], [14, 11], [17, 11],
-];
+]);
 
 export interface RetroThemeDef {
   id: NonNullable<RetroTheme>;
