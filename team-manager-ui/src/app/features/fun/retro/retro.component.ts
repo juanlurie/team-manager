@@ -463,7 +463,15 @@ interface TimerState {
       color:rgba(255,255,255,0.4);margin:10px 2px 6px;
     }
     .sticker-palette-category-label:first-child { margin-top:2px; }
+    .sticker-palette-category-label { display:flex;align-items:center;gap:6px; }
+    .sticker-palette-back {
+      background:transparent;border:none;color:rgba(255,255,255,0.6);cursor:pointer;
+      font-size:1rem;line-height:1;padding:0 2px;font-family:inherit;
+    }
+    .sticker-palette-back:hover { color:#fff; }
     .sticker-palette-grid { display:grid;grid-template-columns:repeat(6, 1fr);gap:4px; }
+    .sticker-palette-swatch { border:2px solid rgba(255,255,255,0.2); }
+    .sticker-palette-swatch:hover { border-color:rgba(255,255,255,0.6); }
     .sticker-palette-option {
       display:flex;align-items:center;justify-content:center;
       width:36px;height:36px;border-radius:50%;font-size:19px;cursor:pointer;
@@ -1429,23 +1437,35 @@ interface TimerState {
           @if (stickerPalettePos(); as pos) {
             <div class="sticker-palette-popover" [style.top.px]="pos.top" [style.left.px]="pos.left"
                  (mousedown)="$event.stopPropagation()" (click)="$event.stopPropagation()">
-              @for (cat of stickerCategories; track cat.label) {
-                <div class="sticker-palette-category-label">{{ cat.label }}</div>
+              @if (pendingFaceIcon(); as icon) {
+                <div class="sticker-palette-category-label">
+                  <button class="sticker-palette-back" (click)="pendingFaceIcon.set(null)">‹</button>
+                  Pick a color
+                </div>
                 <div class="sticker-palette-grid">
-                  @for (item of cat.items; track item.value) {
-                    @if (faceColor(item.value); as fc) {
-                      <div class="sticker-palette-option" [style.background]="fc" (click)="pickSticker(item.value)">
-                        <mat-icon>face</mat-icon>
-                      </div>
-                    } @else {
-                      <div class="sticker-palette-option"
-                           [style.background]="item.color ? item.color + '2a' : null"
-                           [style.color]="item.color ?? null"
-                           [style.font-size]="item.value.length > 2 ? '0.6rem' : item.value.length > 1 ? '0.85rem' : '19px'"
-                           (click)="pickSticker(item.value)">{{ item.value }}</div>
-                    }
+                  @for (hex of faceColorPalette; track hex) {
+                    <div class="sticker-palette-option sticker-palette-swatch" [style.background]="hex" (click)="pickFaceColor(hex)"></div>
                   }
                 </div>
+              } @else {
+                @for (cat of stickerCategories; track cat.label) {
+                  <div class="sticker-palette-category-label">{{ cat.label }}</div>
+                  <div class="sticker-palette-grid">
+                    @for (item of cat.items; track item.value) {
+                      @if (cat.label === 'Faces') {
+                        <div class="sticker-palette-option" (click)="pendingFaceIcon.set(item.value)">
+                          <mat-icon>{{ item.value }}</mat-icon>
+                        </div>
+                      } @else {
+                        <div class="sticker-palette-option"
+                             [style.background]="item.color ? item.color + '2a' : null"
+                             [style.color]="item.color ?? null"
+                             [style.font-size]="item.value.length > 2 ? '0.6rem' : item.value.length > 1 ? '0.85rem' : '19px'"
+                             (click)="pickSticker(item.value)">{{ item.value }}</div>
+                      }
+                    }
+                  </div>
+                }
               }
             </div>
           }
@@ -1581,10 +1601,20 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
   editingText = signal('');
 
   // ── Sticker tokens ──
-  /** "face:#hex" values render as an actual face icon on a colored circle instead of literal
-   *  text -- returns the hex color to use, or null if this isn't one of those tokens. */
-  faceColor(value: string): string | null {
-    return value.startsWith('face:') ? value.slice(5) : null;
+  // Picking a Face is two steps: an expression, then a color for it (see pendingFaceIcon /
+  // pickFaceColor) -- the result is encoded as "face:<icon>:<hex>", parsed by faceIcon()/
+  // faceColor() in the single-canvas component that actually renders placed tokens.
+  pendingFaceIcon = signal<string | null>(null);
+  readonly faceColorPalette = [
+    '#e53935', '#fb8c00', '#fdd835', '#43a047', '#1e88e5',
+    '#8e24aa', '#00acc1', '#6d4c41', '#757575', '#d81b60',
+  ];
+
+  pickFaceColor(hex: string): void {
+    const icon = this.pendingFaceIcon();
+    this.pendingFaceIcon.set(null);
+    if (!icon) return;
+    this.pickSticker(`face:${icon}:${hex}`);
   }
 
   readonly stickerCategories: { label: string; items: { value: string; color?: string }[] }[] = [
@@ -1594,14 +1624,13 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
         .map(value => ({ value })),
     },
     {
-      // A plain "face:#hex" marker (rendered as an actual face icon on a colored circle,
-      // not literal text -- see isFaceToken()/faceColor()) so it's a genuine same-shape,
-      // different-color set of avatar-style tokens instead of just colored dots.
+      // Item values here are just a Material icon name (a facial expression) -- picking one
+      // opens the color-swatch step (pendingFaceIcon) instead of placing immediately.
       label: 'Faces',
       items: [
-        '#e53935', '#fb8c00', '#fdd835', '#43a047', '#1e88e5',
-        '#8e24aa', '#6d4c41', '#757575', '#00acc1',
-      ].map(hex => ({ value: `face:${hex}` })),
+        'sentiment_very_satisfied', 'sentiment_satisfied', 'sentiment_neutral',
+        'sentiment_dissatisfied', 'sentiment_very_dissatisfied', 'mood', 'mood_bad', 'sentiment_satisfied_alt',
+      ].map(value => ({ value })),
     },
     {
       label: 'Story Points',
@@ -1635,6 +1664,7 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
   singleCanvasPlacingStickerEmoji = signal<string | null>(null);
 
   onSingleCanvasStickerPaletteRequested(payload: { event: MouseEvent; column: string; x: number; y: number }): void {
+    this.pendingFaceIcon.set(null);
     this.togglePopover(this.stickerPaletteOpenFor, this.stickerPalettePos, payload.event, payload.column, 190);
   }
 
@@ -1747,7 +1777,7 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
     if (this.phasePanelOpen()) this.phasePanelOpen.set(false);
     if (this.selectedCardId()) { this.selectedCardId.set(null); this.selectedCardToolbarPos.set(null); }
     if (this.commentThreadFor()) { this.commentThreadFor.set(null); this.commentThreadPos.set(null); }
-    if (this.stickerPaletteOpenFor()) { this.stickerPaletteOpenFor.set(null); this.stickerPalettePos.set(null); }
+    if (this.stickerPaletteOpenFor()) { this.stickerPaletteOpenFor.set(null); this.stickerPalettePos.set(null); this.pendingFaceIcon.set(null); }
   }
 
   // ── Card selection + floating toolbar ──
