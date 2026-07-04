@@ -15,7 +15,7 @@ export type RetroCanvasTool = 'select' | 'add-card';
   changeDetection: ChangeDetectionStrategy.OnPush,
   styles: [`
     .sidebar {
-      position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+      position: absolute; left: 12px; top: 12px;
       display: flex; flex-direction: column; gap: 4px;
       background: rgba(20,20,24,0.85); border: 1px solid rgba(255,255,255,0.1);
       border-radius: 10px; padding: 6px; z-index: 5;

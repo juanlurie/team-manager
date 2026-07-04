@@ -471,6 +471,7 @@ interface TimerState {
       font-weight:700;line-height:1;transition:background .12s,transform .1s;
     }
     .sticker-palette-option:hover { background:rgba(255,255,255,0.16);transform:scale(1.08); }
+    .sticker-palette-option mat-icon { font-size:20px;width:20px;height:20px;color:rgba(255,255,255,0.95); }
     .card-toolbar {
       position:fixed;z-index:250;
       display:flex;align-items:center;gap:2px;
@@ -1284,6 +1285,7 @@ interface TimerState {
             (tokenResizeRequested)="onSingleCanvasTokenResize($event)"
             (revealRequested)="revealAllNow()"
             (timerToggleRequested)="toggleTimerPopover($event)"
+            (timerRemoveRequested)="clearTimer()"
             (stickerPlaceRequested)="onSingleCanvasStickerPlaced($event)"
             (stickerPlacementCancelled)="singleCanvasPlacingStickerEmoji.set(null)" />
         }
@@ -1431,11 +1433,17 @@ interface TimerState {
                 <div class="sticker-palette-category-label">{{ cat.label }}</div>
                 <div class="sticker-palette-grid">
                   @for (item of cat.items; track item.value) {
-                    <div class="sticker-palette-option"
-                         [style.background]="item.color ? item.color + '2a' : null"
-                         [style.color]="item.color ?? null"
-                         [style.font-size]="item.value.length > 2 ? '0.6rem' : item.value.length > 1 ? '0.85rem' : '19px'"
-                         (click)="pickSticker(item.value)">{{ item.value }}</div>
+                    @if (faceColor(item.value); as fc) {
+                      <div class="sticker-palette-option" [style.background]="fc" (click)="pickSticker(item.value)">
+                        <mat-icon>face</mat-icon>
+                      </div>
+                    } @else {
+                      <div class="sticker-palette-option"
+                           [style.background]="item.color ? item.color + '2a' : null"
+                           [style.color]="item.color ?? null"
+                           [style.font-size]="item.value.length > 2 ? '0.6rem' : item.value.length > 1 ? '0.85rem' : '19px'"
+                           (click)="pickSticker(item.value)">{{ item.value }}</div>
+                    }
                   }
                 </div>
               }
@@ -1573,6 +1581,12 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
   editingText = signal('');
 
   // ── Sticker tokens ──
+  /** "face:#hex" values render as an actual face icon on a colored circle instead of literal
+   *  text -- returns the hex color to use, or null if this isn't one of those tokens. */
+  faceColor(value: string): string | null {
+    return value.startsWith('face:') ? value.slice(5) : null;
+  }
+
   readonly stickerCategories: { label: string; items: { value: string; color?: string }[] }[] = [
     {
       label: 'Emoji',
@@ -1580,9 +1594,14 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
         .map(value => ({ value })),
     },
     {
-      // Same circle "face" shape throughout -- just a different color per item.
+      // A plain "face:#hex" marker (rendered as an actual face icon on a colored circle,
+      // not literal text -- see isFaceToken()/faceColor()) so it's a genuine same-shape,
+      // different-color set of avatar-style tokens instead of just colored dots.
       label: 'Faces',
-      items: ['🔴', '🟠', '🟡', '🟢', '🔵', '🟣', '⚫', '⚪', '🟤'].map(value => ({ value })),
+      items: [
+        '#e53935', '#fb8c00', '#fdd835', '#43a047', '#1e88e5',
+        '#8e24aa', '#6d4c41', '#757575', '#00acc1',
+      ].map(hex => ({ value: `face:${hex}` })),
     },
     {
       label: 'Story Points',
@@ -2492,6 +2511,17 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
 
   resetTimer(): void {
     this.saveTimer({ totalSeconds: this.timer()?.totalSeconds ?? 300, startedAt: null, pausedAt: null, elapsedBeforePause: 0 });
+  }
+
+  // Unlike resetTimer (pauses at full duration), this removes the timer entirely -- the
+  // canvas widget and header clock both disappear until someone starts a fresh one.
+  clearTimer(): void {
+    const s = this.session();
+    if (!s) return;
+    this.timer.set(null);
+    this.svc.clearTimer(s.id).subscribe({
+      error: () => this.snackBar.open('Failed to remove timer', 'OK', { duration: 3000 })
+    });
   }
 
   setTimerPreset(seconds: number): void {
