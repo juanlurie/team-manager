@@ -18,7 +18,27 @@ public class WebSocketMiddleware
 
     private static readonly ConcurrentDictionary<Guid, ConnectionEntry> _connections = new();
     private static readonly SemaphoreSlim _broadcastLock = new(1, 1);
+    private static readonly TimeSpan SendTimeout = TimeSpan.FromSeconds(5);
     private static ILogger? _logger;
+
+    // All three broadcast methods below serialize through the single _broadcastLock, so a send
+    // that never completes -- e.g. a phone whose screen locked or a laptop that slept, where the
+    // OS never told us the socket closed and WebSocketState still reads Open -- would hold that
+    // lock forever and silently freeze every real-time update for every user until the process
+    // restarted. Bounding each send lets a stale peer get pruned instead of wedging the lock.
+    private static async Task<bool> TrySendAsync(WebSocket socket, byte[] bytes)
+    {
+        using var cts = new CancellationTokenSource(SendTimeout);
+        try
+        {
+            await socket.SendAsync(new ArraySegment<byte>(bytes), WebSocketMessageType.Text, true, cts.Token);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
 
     private readonly RequestDelegate _next;
 
@@ -186,8 +206,7 @@ public class WebSocketMiddleware
             {
                 if (entry.RetroSessionId != sessionId) continue;
                 if (entry.Socket.State != WebSocketState.Open) { dead.Add(id); continue; }
-                try { await entry.Socket.SendAsync(new ArraySegment<byte>(bytes), WebSocketMessageType.Text, true, CancellationToken.None); }
-                catch { dead.Add(id); }
+                if (!await TrySendAsync(entry.Socket, bytes)) dead.Add(id);
             }
             foreach (var id in dead) _connections.TryRemove(id, out _);
         }
@@ -207,8 +226,7 @@ public class WebSocketMiddleware
             {
                 if (entry.WowSession != sessionKey) continue;
                 if (entry.Socket.State != WebSocketState.Open) { dead.Add(id); continue; }
-                try { await entry.Socket.SendAsync(new ArraySegment<byte>(bytes), WebSocketMessageType.Text, true, CancellationToken.None); }
-                catch { dead.Add(id); }
+                if (!await TrySendAsync(entry.Socket, bytes)) dead.Add(id);
             }
             foreach (var id in dead) _connections.TryRemove(id, out _);
         }
@@ -230,12 +248,8 @@ public class WebSocketMiddleware
             {
                 if (entry.Socket.State != WebSocketState.Open) { dead.Add(id); continue; }
                 if (entry.MemberId == null && !guestAllowed) { skipped++; continue; }
-                try
-                {
-                    await entry.Socket.SendAsync(new ArraySegment<byte>(bytes), WebSocketMessageType.Text, true, CancellationToken.None);
-                    sent++;
-                }
-                catch { dead.Add(id); }
+                if (await TrySendAsync(entry.Socket, bytes)) sent++;
+                else dead.Add(id);
             }
             foreach (var id in dead) _connections.TryRemove(id, out _);
             _logger?.LogInformation("WS broadcast [{Type}] guestAllowed={GuestAllowed} total={Total} sent={Sent} skipped={Skipped} dead={Dead}",

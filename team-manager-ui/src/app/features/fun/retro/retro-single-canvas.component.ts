@@ -75,15 +75,6 @@ const REACTION_EMOJIS = ['👍', '❤️', '😂', '🎉', '🤔'];
       font-size:0.7rem;padding:2px 7px;border-radius:12px;
       background:rgba(255,255,255,0.07);color:rgba(255,255,255,0.5);
     }
-    .zone-tidy-btn {
-      display:inline-flex;align-items:center;gap:3px;
-      background:transparent;border:none;
-      border-radius:6px;color:rgba(255,255,255,0.7);cursor:pointer;
-      font-size:0.7rem;font-family:inherit;font-weight:600;padding:0 7px 0 5px;
-      height:22px;transition:background .12s,color .12s;
-    }
-    .zone-tidy-btn:hover { background:rgba(255,255,255,0.12);color:#fff; }
-    .zone-tidy-btn mat-icon { font-size:13px;width:13px;height:13px;line-height:13px; }
     .canvas-zoom-controls {
       position:absolute;bottom:10px;right:10px;z-index:200;
       display:flex;align-items:center;gap:2px;
@@ -315,9 +306,11 @@ const REACTION_EMOJIS = ['👍', '❤️', '😂', '🎉', '🤔'];
          (mousedown)="startPan($event)"
          (click)="onCanvasClick($event)"
          (dblclick)="onCanvasDoubleClick($event)">
-      <app-retro-canvas-sidebar [activeTool]="activeTool()" [showRevealAction]="showRevealAction()" [timerActive]="timerActive()"
+      <app-retro-canvas-sidebar [activeTool]="activeTool()" [isHost]="s?.isCreator ?? false"
+                                [showRevealAction]="showRevealAction()" [timerActive]="timerActive()"
                                 (toolSelected)="activeTool.set($event)"
                                 (stickerRequested)="requestStickerPalette($event, canvasOuterEl)"
+                                (tidyRequested)="arrangeAllZones()"
                                 (revealRequested)="revealRequested.emit()"
                                 (timerRequested)="timerToggleRequested.emit($event)" />
       <div class="canvas-inner"
@@ -338,11 +331,6 @@ const REACTION_EMOJIS = ['👍', '❤️', '😂', '🎉', '🤔'];
           <div class="zone-header" [style.left.px]="zoneOriginX(zi)" [style.width.px]="ZONE_WIDTH">
             <span class="zone-title" [style.color]="col.color">{{ col.label }}</span>
             <span class="zone-count">{{ zItems.length }}</span>
-            @if (zItems.length > 1) {
-              <button class="zone-tidy-btn" title="Arrange this zone's cards neatly" (mousedown)="$event.stopPropagation()" (click)="arrangeZone(zi)">
-                <mat-icon>grid_view</mat-icon>Tidy
-              </button>
-            }
           </div>
           @if (zi > 0) {
             <div class="zone-divider" [style.left.px]="zoneOriginX(zi) - ZONE_GAP / 2" [style.height.px]="canvasHeight()"></div>
@@ -568,17 +556,21 @@ export class RetroSingleCanvasComponent implements AfterViewInit {
       if (id && el) el.nativeElement.focus();
     });
     // A freshly-started timer should stick to the cursor for one placement click, same as a
-    // sticker -- fires once per timer "session" (tracked via timerPlacementSeen so re-renders
-    // while it's already running don't re-trigger it), and resets once the timer goes away.
+    // sticker -- but only for the participant who actually clicked "start". timerLabel is
+    // shared session state broadcast to everyone over the websocket, so driving placement off
+    // *it* meant anyone already viewing the board (or joining an in-progress retro that already
+    // had a running timer) got the widget glued to their own cursor too. timerPlaceTrigger is a
+    // local-action counter the parent bumps only inside its own start-timer handler, so it only
+    // ever fires for the person who pressed the button.
     effect(() => {
-      const label = this.timerLabel();
-      if (label && !this.timerPlacementSeen) {
-        this.timerPlacementSeen = true;
-        this.timerNeedsPlacement.set(true);
-      } else if (!label) {
-        this.timerPlacementSeen = false;
-        this.timerNeedsPlacement.set(false);
+      const trigger = this.timerPlaceTrigger();
+      if (trigger !== this.lastTimerPlaceTrigger) {
+        this.lastTimerPlaceTrigger = trigger;
+        if (trigger > 0) this.timerNeedsPlacement.set(true);
       }
+    });
+    effect(() => {
+      if (!this.timerLabel()) this.timerNeedsPlacement.set(false);
     });
     // Each new sticker placement starts fresh at medium -- the size toolbar next to the
     // cursor-following ghost lets you change it before the placement click.
@@ -596,6 +588,7 @@ export class RetroSingleCanvasComponent implements AfterViewInit {
   showRevealAction = input<boolean>(false);
   timerLabel = input<string | null>(null);
   timerDanger = input<boolean>(false);
+  timerPlaceTrigger = input<number>(0);
   timerActive = input<boolean>(false);
   placingStickerEmoji = input<string | null>(null);
   selectedCardId = input<string | null>(null);
@@ -762,7 +755,7 @@ export class RetroSingleCanvasComponent implements AfterViewInit {
   placingWorld = signal<{ x: number; y: number } | null>(null);
   placingScreenPos = signal<{ x: number; y: number } | null>(null);
   timerNeedsPlacement = signal(false);
-  private timerPlacementSeen = false;
+  private lastTimerPlaceTrigger = 0;
 
   startTimerWidgetDrag(e: MouseEvent): void {
     if (e.button !== 0) return;
@@ -999,6 +992,12 @@ export class RetroSingleCanvasComponent implements AfterViewInit {
     const offX = slackX > 0 ? slackX / 2 : 0;
     const offY = slackY > 0 ? slackY / 2 : 8;
     this.setView({ zoom, panX: offX - (minX - pad) * zoom, panY: offY - (minY - pad) * zoom });
+  }
+
+  /** Sidebar's single Tidy button now covers every column at once, replacing the old
+   *  per-zone buttons that used to live in each zone header. */
+  arrangeAllZones(): void {
+    this.cols().forEach((_, zi) => this.arrangeZone(zi));
   }
 
   arrangeZone(zoneIndex: number): void {

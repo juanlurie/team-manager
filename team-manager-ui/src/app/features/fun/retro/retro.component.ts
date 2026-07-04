@@ -1274,6 +1274,7 @@ interface TimerState {
             [showRevealAction]="showRevealAction()"
             [timerLabel]="timer() ? timerDisplay() : null"
             [timerDanger]="timerRemaining() <= 30 && !timerExpired() && timerRunning()"
+            [timerPlaceTrigger]="timerJustStartedTick()"
             [timerActive]="timerPopoverOpen() || timerRunning()"
             [placingStickerEmoji]="singleCanvasPlacingStickerEmoji()"
             [selectedCardId]="selectedCardId()"
@@ -1528,6 +1529,10 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
 
   // ── Phase timer ──
   timer = signal<TimerState | null>(null);
+  // Bumped only inside toggleTimer()'s own "start" branch, never by the synced `timer` signal
+  // itself -- lets the canvas stick the widget to the cursor for just the person who started
+  // it, not every participant who receives the resulting fun_retro_timer_updated broadcast.
+  timerJustStartedTick = signal(0);
   private nowTick = signal(Date.now());
   private timerInterval?: ReturnType<typeof setInterval>;
 
@@ -2522,6 +2527,7 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
     if (!t || !t.startedAt) {
       // start (or first start)
       this.saveTimer({ totalSeconds: total, startedAt: new Date().toISOString(), pausedAt: null, elapsedBeforePause: t?.elapsedBeforePause ?? 0 });
+      this.timerJustStartedTick.update(n => n + 1);
     } else if (t.pausedAt) {
       // resume — accumulate the paused segment
       const start = new Date(t.startedAt).getTime();
@@ -2556,6 +2562,7 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
 
   setTimerPreset(seconds: number): void {
     this.saveTimer({ totalSeconds: seconds, startedAt: new Date().toISOString(), pausedAt: null, elapsedBeforePause: 0 });
+    this.timerJustStartedTick.update(n => n + 1);
   }
 
   formatTime(totalSecs: number): string {
