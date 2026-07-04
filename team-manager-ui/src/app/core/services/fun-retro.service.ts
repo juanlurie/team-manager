@@ -88,12 +88,8 @@ export class FunRetroService {
     return this.http.delete<void>(`${this.base}/${sessionId}/tokens/${tokenId}`);
   }
 
-  updateSettings(sessionId: string, settings: { hideCardsOnAdd: boolean; participationTracking: boolean; theme: RetroTheme }): Observable<void> {
+  updateSettings(sessionId: string, settings: { participationTracking: boolean; theme: RetroTheme }): Observable<void> {
     return this.http.patch<void>(`${this.base}/${sessionId}/settings`, settings);
-  }
-
-  revealAllNow(sessionId: string): Observable<void> {
-    return this.http.post<void>(`${this.base}/${sessionId}/reveal-now`, {});
   }
 
   analyse(sessionId: string): Observable<FunRetroAnalysis> {

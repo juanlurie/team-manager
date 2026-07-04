@@ -223,18 +223,7 @@ public class FunRetroController(FunRetroService service, PollService pollService
         var memberId = GetCurrentMemberId();
         if (!memberId.HasValue) return Unauthorized();
 
-        var success = await service.UpdateSettingsAsync(id, memberId.Value, request.HideCardsOnAdd, request.ParticipationTracking, request.Theme);
-        if (!success) return NotFound();
-        return NoContent();
-    }
-
-    [HttpPost("{id:guid}/reveal-now")]
-    public async Task<IActionResult> RevealAllNow(Guid id)
-    {
-        var memberId = GetCurrentMemberId();
-        if (!memberId.HasValue) return Unauthorized();
-
-        var success = await service.RevealAllNowAsync(id, memberId.Value);
+        var success = await service.UpdateSettingsAsync(id, memberId.Value, request.ParticipationTracking, request.Theme);
         if (!success) return NotFound();
         return NoContent();
     }

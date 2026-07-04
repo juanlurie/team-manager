@@ -54,11 +54,6 @@ export type RetroCanvasTool = 'select' | 'add-card';
       <button class="tool-btn" title="Tidy up all columns" (click)="tidyRequested.emit()">
         <mat-icon>grid_view</mat-icon>
       </button>
-      @if (isHost() && showRevealAction()) {
-        <button class="tool-btn" title="Reveal all cards now" (click)="revealRequested.emit()">
-          <mat-icon>visibility</mat-icon>
-        </button>
-      }
       @if (isHost()) {
         <button class="tool-btn" [class.active]="timerActive()" title="Timer" (click)="timerRequested.emit($event)">
           <mat-icon>timer</mat-icon>
@@ -70,11 +65,9 @@ export type RetroCanvasTool = 'select' | 'add-card';
 export class RetroCanvasSidebarComponent {
   activeTool = input<RetroCanvasTool>('select');
   isHost = input<boolean>(false);
-  showRevealAction = input<boolean>(false);
   timerActive = input<boolean>(false);
   toolSelected = output<RetroCanvasTool>();
   stickerRequested = output<MouseEvent>();
   tidyRequested = output<void>();
-  revealRequested = output<void>();
   timerRequested = output<MouseEvent>();
 }

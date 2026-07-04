@@ -885,29 +885,6 @@ interface TimerState {
             </div>
             <div class="settings-row">
               <div>
-                <div class="settings-row-label">Hide cards during add phase</div>
-                <div class="settings-row-desc">Participants can only see their own cards until you reveal</div>
-              </div>
-              <div class="toggle-track" [class.on]="s.hideCardsOnAdd" (click)="toggleSetting('hideCardsOnAdd')">
-                <div class="toggle-thumb"></div>
-              </div>
-            </div>
-            @if (s.phase === 'add' && s.hideCardsOnAdd) {
-              <div class="settings-row">
-                <div>
-                  <div class="settings-row-label">Reveal all cards now</div>
-                  <div class="settings-row-desc">
-                    {{ s.manuallyRevealed ? 'Every card is visible for the rest of this add phase.' : "Show every card immediately -- doesn't change the setting above or move to voting." }}
-                  </div>
-                </div>
-                <button class="reveal-now-btn" [disabled]="s.manuallyRevealed" (click)="revealAllNow()">
-                  <mat-icon>{{ s.manuallyRevealed ? 'lock_open' : 'visibility' }}</mat-icon>
-                  {{ s.manuallyRevealed ? 'Revealed' : 'Reveal now' }}
-                </button>
-              </div>
-            }
-            <div class="settings-row">
-              <div>
                 <div class="settings-row-label">Participation tracking</div>
                 <div class="settings-row-desc">Show who has added cards in the presence bar</div>
               </div>
@@ -1273,7 +1250,6 @@ interface TimerState {
             [editingCardId]="editingCardId()"
             [editingText]="editingText()"
             [resolveCardColor]="resolveCardColorFn"
-            [showRevealAction]="showRevealAction()"
             [timerLabel]="timer() ? timerDisplay() : null"
             [timerDanger]="timerRemaining() <= 30 && !timerExpired() && timerRunning()"
             [timerPlaceTrigger]="timerJustStartedTick()"
@@ -1296,7 +1272,6 @@ interface TimerState {
             (timerPositionCommitted)="onSingleCanvasTimerPositionCommitted($event)"
             (tokenDeleteRequested)="deleteToken($event)"
             (tokenResizeRequested)="onSingleCanvasTokenResize($event)"
-            (revealRequested)="revealAllNow()"
             (timerToggleRequested)="toggleTimerPopover($event)"
             (timerRemoveRequested)="clearTimer()"
             (stickerPlaceRequested)="onSingleCanvasStickerPlaced($event)"
@@ -2382,30 +2357,10 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
     return groups;
   }
 
-  toggleSetting(key: 'hideCardsOnAdd' | 'participationTracking'): void {
+  toggleSetting(key: 'participationTracking'): void {
     const s = this.session();
     if (!s) return;
     this.patchSettings({ [key]: !s[key] });
-  }
-
-  // Drives the canvas sidebar's quick-access "reveal" icon -- only worth showing while cards
-  // are actually hidden and revealable, mirroring the settings-panel row's own guard.
-  showRevealAction = computed(() => {
-    const s = this.session();
-    return !!s && s.isCreator && s.phase === 'add' && s.hideCardsOnAdd && !s.manuallyRevealed;
-  });
-
-  revealAllNow(): void {
-    const s = this.session();
-    if (!s || s.manuallyRevealed) return;
-    this.session.update(cur => cur ? { ...cur, manuallyRevealed: true } : cur);
-    this.svc.revealAllNow(s.id).subscribe({
-      next: () => this.silentRefresh(),
-      error: () => {
-        this.session.update(cur => cur ? { ...cur, manuallyRevealed: false } : cur);
-        this.snackBar.open('Failed to reveal cards', 'OK', { duration: 3000 });
-      },
-    });
   }
 
   readonly retroThemes = RETRO_THEMES;
@@ -2439,17 +2394,12 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
 
   /** Shared settings PATCH: merges `patch` onto the session's current settings, applies it
    *  optimistically, and persists it. Keeps every settings mutation sending the full
-   *  {hideCardsOnAdd, participationTracking, theme} shape the backend expects, in one place. */
-  private patchSettings(patch: Partial<{ hideCardsOnAdd: boolean; participationTracking: boolean; theme: RetroTheme }>): void {
+   *  {participationTracking, theme} shape the backend expects, in one place. */
+  private patchSettings(patch: Partial<{ participationTracking: boolean; theme: RetroTheme }>): void {
     const s = this.session();
     if (!s || !s.isCreator) return;
-    const updated = { hideCardsOnAdd: s.hideCardsOnAdd, participationTracking: s.participationTracking, theme: s.theme, ...patch };
+    const updated = { participationTracking: s.participationTracking, theme: s.theme, ...patch };
     this.session.update(cur => cur ? { ...cur, ...updated } : cur);
-    // The optimistic patch above only covers the settings fields themselves, for instant
-    // toggle feedback -- hideCardsOnAdd also changes which cards' text the server is willing
-    // to send at all, so a full refetch on success is what actually updates each card's lock
-    // badge for the person who just flipped the toggle (not just other participants, who get
-    // this via the fun_retro_settings_updated broadcast).
     this.svc.updateSettings(s.id, updated).subscribe({
       next: () => this.silentRefresh(),
       error: () => this.silentRefresh(),
