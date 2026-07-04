@@ -175,7 +175,7 @@ public class FunRetroController(FunRetroService service, PollService pollService
     {
         var memberId = GetCurrentMemberId();
         if (!memberId.HasValue) return Unauthorized();
-        var token = await service.AddTokenAsync(id, memberId.Value, request.Column, request.Emoji, request.PositionX, request.PositionY);
+        var token = await service.AddTokenAsync(id, memberId.Value, request.Column, request.Emoji, request.Size, request.PositionX, request.PositionY);
         if (token is null) return BadRequest();
         return Ok(token);
     }
@@ -184,6 +184,14 @@ public class FunRetroController(FunRetroService service, PollService pollService
     public async Task<IActionResult> UpdateTokenPosition(Guid id, Guid tokenId, [FromBody] UpdateFunRetroTokenPositionRequest request)
     {
         var success = await service.UpdateTokenPositionAsync(id, tokenId, request.PositionX, request.PositionY);
+        if (!success) return NotFound();
+        return NoContent();
+    }
+
+    [HttpPatch("{id:guid}/tokens/{tokenId:guid}/size")]
+    public async Task<IActionResult> UpdateTokenSize(Guid id, Guid tokenId, [FromBody] UpdateFunRetroTokenSizeRequest request)
+    {
+        var success = await service.UpdateTokenSizeAsync(id, tokenId, request.Size);
         if (!success) return NotFound();
         return NoContent();
     }

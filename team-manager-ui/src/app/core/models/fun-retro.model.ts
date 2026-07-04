@@ -33,11 +33,14 @@ export interface FunRetroCardComment {
   createdAt: string;
 }
 
+export type FunRetroTokenSize = 'small' | 'medium' | 'large';
+
 export interface FunRetroToken {
   id: string;
   sessionId: string;
   column: 'well' | 'better' | 'action';
   emoji: string;
+  size: FunRetroTokenSize;
   positionX: number;
   positionY: number;
   createdByMemberId: string;

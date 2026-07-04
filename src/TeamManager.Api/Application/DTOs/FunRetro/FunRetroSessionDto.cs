@@ -32,6 +32,7 @@ public record FunRetroTokenDto
     public Guid SessionId { get; init; }
     public string Column { get; init; } = "well";
     public string Emoji { get; init; } = "";
+    public string Size { get; init; } = "medium";
     public double PositionX { get; init; }
     public double PositionY { get; init; }
     public Guid CreatedByMemberId { get; init; }
@@ -42,6 +43,7 @@ public record AddFunRetroTokenRequest
 {
     public string Column { get; init; } = "well";
     public string Emoji { get; init; } = "";
+    public string Size { get; init; } = "medium";
     public double PositionX { get; init; }
     public double PositionY { get; init; }
 }
@@ -50,6 +52,11 @@ public record UpdateFunRetroTokenPositionRequest
 {
     public double PositionX { get; init; }
     public double PositionY { get; init; }
+}
+
+public record UpdateFunRetroTokenSizeRequest
+{
+    public string Size { get; init; } = "medium";
 }
 
 public record IcebreakerAnswerDto

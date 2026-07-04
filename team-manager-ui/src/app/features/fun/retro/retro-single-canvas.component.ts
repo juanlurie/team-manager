@@ -2,7 +2,7 @@ import { Component, ChangeDetectionStrategy, ElementRef, HostListener, AfterView
 import { MatIconModule } from '@angular/material/icon';
 import { CdkTextareaAutosize } from '@angular/cdk/text-field';
 import { AvatarCircleComponent } from '../../../core/components/k-picker/avatar-circle.component';
-import { FunRetroSession, FunRetroCard, RetroColumn, FunRetroToken } from '../../../core/models/fun-retro.model';
+import { FunRetroSession, FunRetroCard, RetroColumn, FunRetroToken, FunRetroTokenSize } from '../../../core/models/fun-retro.model';
 import { RetroCanvasSidebarComponent, RetroCanvasTool } from './retro-canvas-sidebar.component';
 import { RETRO_THEMES } from './retro-constants';
 
@@ -102,16 +102,29 @@ const REACTION_EMOJIS = ['👍', '❤️', '😂', '🎉', '🤔'];
     .cz-pct { font-size:0.72rem;font-weight:600;min-width:42px;font-variant-numeric:tabular-nums; }
     .cz-fit mat-icon { font-size:16px;width:16px;height:16px;line-height:16px; }
     .cz-divider { width:1px;height:16px;background:rgba(255,255,255,0.15);margin:0 2px;flex-shrink:0; }
+    /* Both scale via a CSS custom property (--tok-scale / --tw-scale, default 1 = medium) set
+       inline per element from sizeScale() -- keeps every dimension proportional from one
+       source of truth instead of a separate small/medium/large variant of each rule. */
+    /* Same neon-border language as the cards (.sticky) -- a thick colored ring + soft glow --
+       so tokens read as part of the same visual system instead of a separate, plainer thing. */
     .retro-token {
-      position:absolute;width:128px;height:128px;
+      position:absolute;width:calc(128px * var(--tok-scale, 1));height:calc(128px * var(--tok-scale, 1));
       display:flex;align-items:center;justify-content:center;
-      font-size:84px;line-height:1;cursor:grab;user-select:none;
-      filter:drop-shadow(0 2px 3px rgba(0,0,0,0.4));
-      transition:transform .1s;
+      font-size:calc(84px * var(--tok-scale, 1));line-height:1;cursor:grab;user-select:none;
+      font-family:inherit;font-weight:800;color:#fff;
+      background:rgba(30,30,34,0.92);border-radius:50%;
+      border:4px solid rgba(100,181,246,0.65);
+      box-shadow:0 0 0 1px rgba(100,181,246,0.25),0 3px 8px rgba(0,0,0,0.28);
+      transition:transform .1s,border-color .15s,box-shadow .15s;
     }
     .retro-token:hover { transform:scale(1.1); }
     .retro-token.dragging { cursor:grabbing;z-index:50;transition:none; }
     .retro-token.placing-ghost { pointer-events:none;opacity:0.85;z-index:200; }
+    .retro-token.selected {
+      border-width:6px;border-color:#64b5f6;
+      box-shadow:0 0 0 3px rgba(100,181,246,0.9),0 0 22px 6px rgba(100,181,246,0.6);
+      z-index:150;
+    }
     .retro-token-del {
       position:absolute;top:-12px;right:-12px;width:32px;height:32px;
       display:flex;align-items:center;justify-content:center;
@@ -124,16 +137,51 @@ const REACTION_EMOJIS = ['👍', '❤️', '😂', '🎉', '🤔'];
     /* Draggable clock so the timer can be parked wherever's convenient on the board instead
        of only living in a header popover -- position is local to this viewer, not persisted. */
     .timer-widget {
-      position:absolute;display:flex;align-items:center;gap:30px;
-      padding:36px 66px;border-radius:64px;cursor:grab;user-select:none;
+      position:absolute;display:flex;align-items:center;gap:calc(30px * var(--tw-scale, 1));
+      padding:calc(36px * var(--tw-scale, 1)) calc(66px * var(--tw-scale, 1));
+      border-radius:calc(64px * var(--tw-scale, 1));cursor:grab;user-select:none;
       background:rgba(20,20,24,0.9);border:3px solid rgba(255,255,255,0.15);
-      color:rgba(255,255,255,0.85);font-size:4.2rem;font-weight:700;font-variant-numeric:tabular-nums;
+      color:rgba(255,255,255,0.85);font-size:calc(4.2rem * var(--tw-scale, 1));font-weight:700;font-variant-numeric:tabular-nums;
       box-shadow:0 3px 10px rgba(0,0,0,0.35);z-index:20;
     }
     .timer-widget:active { cursor:grabbing; }
     .timer-widget.placing-ghost { pointer-events:none;opacity:0.85;z-index:200; }
     .timer-widget-danger { border-color:rgba(239,83,80,0.5);color:#ef5350; }
-    .timer-widget-icon { font-size:78px;width:78px;height:78px;line-height:78px; }
+    .timer-widget-icon {
+      font-size:calc(78px * var(--tw-scale, 1));width:calc(78px * var(--tw-scale, 1));
+      height:calc(78px * var(--tw-scale, 1));line-height:calc(78px * var(--tw-scale, 1));
+    }
+    /* position:fixed (not absolute) and positioned from getBoundingClientRect() -- same
+       convention as the color/sticker-palette popovers elsewhere in this file -- so the
+       coordinates are viewport-relative and land exactly next to the item regardless of
+       where .canvas-outer itself sits on the page. */
+    .size-toolbar {
+      position:fixed;display:flex;gap:4px;padding:4px;border-radius:8px;z-index:250;
+      background:rgba(20,20,24,0.95);border:1px solid rgba(255,255,255,0.15);
+      box-shadow:0 4px 12px rgba(0,0,0,0.4);
+    }
+    .size-toolbar button {
+      width:30px;height:26px;border-radius:6px;border:none;background:transparent;
+      color:rgba(255,255,255,0.7);cursor:pointer;font-size:0.72rem;font-weight:700;font-family:inherit;
+      transition:background .12s,color .12s;
+    }
+    .size-toolbar button:hover { background:rgba(255,255,255,0.1);color:#fff; }
+    .size-toolbar button.active { background:rgba(100,181,246,0.25);color:#64b5f6; }
+    /* position:fixed and anchored to placingScreenPos (viewport coordinates), offset up and
+       right of the cursor so it sits right next to the ghost without covering it. */
+    .size-toolbar-hint {
+      position:fixed;z-index:250;
+      background:rgba(20,20,24,0.9);border:1px solid rgba(255,255,255,0.15);border-radius:20px;
+      padding:6px 14px;font-size:0.75rem;color:rgba(255,255,255,0.7);
+      display:flex;align-items:center;gap:8px;box-shadow:0 4px 12px rgba(0,0,0,0.4);
+    }
+    .size-toolbar-hint button {
+      width:26px;height:22px;border-radius:6px;border:none;background:transparent;
+      color:rgba(255,255,255,0.7);cursor:pointer;font-size:0.72rem;font-weight:700;font-family:inherit;
+      transition:background .12s,color .12s;
+    }
+    .size-toolbar-hint button:hover { background:rgba(255,255,255,0.1);color:#fff; }
+    .size-toolbar-hint button.active { background:rgba(100,181,246,0.25);color:#64b5f6; }
     .sticky {
       position:absolute;box-sizing:border-box;
       width:240px;min-height:220px;
@@ -383,8 +431,12 @@ const REACTION_EMOJIS = ['👍', '❤️', '😂', '🎉', '🤔'];
         }
         @for (t of allTokenItems(); track t.token.id) {
           <div class="retro-token"
+               [class.selected]="selectedTokenId() === t.token.id"
+               [attr.data-token-id]="t.token.id"
                [class.dragging]="draggingTokenId() === t.token.id"
                [style.left.px]="t.x" [style.top.px]="t.y"
+               [style.--tok-scale]="sizeScale(t.token.size)"
+               [style.font-size.px]="128 * sizeScale(t.token.size) * tokenFontRatio(t.token.emoji)"
                (mousedown)="startTokenDrag($event, t.token, t.x, t.y)">
             {{ t.token.emoji }}
             <button class="retro-token-del" (mousedown)="$event.stopPropagation()" (click)="tokenDeleteRequested.emit(t.token)">×</button>
@@ -394,13 +446,13 @@ const REACTION_EMOJIS = ['👍', '❤️', '😂', '🎉', '🤔'];
           @if (timerNeedsPlacement()) {
             @if (placingWorld(); as p) {
               <div class="timer-widget placing-ghost" [class.timer-widget-danger]="timerDanger()"
-                   [style.left.px]="p.x" [style.top.px]="p.y">
+                   [style.left.px]="p.x" [style.top.px]="p.y" [style.--tw-scale]="sizeScale(timerSize())">
                 <mat-icon class="timer-widget-icon">timer</mat-icon>{{ label }}
               </div>
             }
           } @else {
             <div class="timer-widget" [class.timer-widget-danger]="timerDanger()"
-                 [style.left.px]="timerWidgetPos().x" [style.top.px]="timerWidgetPos().y"
+                 [style.left.px]="timerWidgetPos().x" [style.top.px]="timerWidgetPos().y" [style.--tw-scale]="sizeScale(timerSize())"
                  (mousedown)="startTimerWidgetDrag($event)">
               <mat-icon class="timer-widget-icon">timer</mat-icon>{{ label }}
             </div>
@@ -408,10 +460,49 @@ const REACTION_EMOJIS = ['👍', '❤️', '😂', '🎉', '🤔'];
         }
         @if (placingStickerEmoji(); as emoji) {
           @if (placingWorld(); as p) {
-            <div class="retro-token placing-ghost" [style.left.px]="p.x" [style.top.px]="p.y">{{ emoji }}</div>
+            <div class="retro-token placing-ghost" [style.left.px]="p.x" [style.top.px]="p.y"
+                 [style.--tok-scale]="sizeScale(placingStickerSize())"
+                 [style.font-size.px]="128 * sizeScale(placingStickerSize()) * tokenFontRatio(emoji)">{{ emoji }}</div>
           }
         }
       </div>
+      <!-- Size toolbar: shown while a sticker/timer is stuck to the cursor waiting for a
+           placement click (fixed near the top, since the cursor position isn't a stable
+           anchor), or after clicking an already-placed token/timer to resize it in place. -->
+      @if (placingScreenPos(); as sp) {
+        @if (placingStickerEmoji() || timerNeedsPlacement()) {
+          <div class="size-toolbar-hint" [style.top.px]="sp.y - 20" [style.left.px]="sp.x + 24"
+               (mousedown)="$event.stopPropagation()" (click)="$event.stopPropagation()">
+            Size:
+            @for (size of tokenSizes; track size) {
+              @if (placingStickerEmoji()) {
+                <button [class.active]="placingStickerSize() === size" (click)="placingStickerSize.set(size)">{{ size.charAt(0).toUpperCase() }}</button>
+              } @else {
+                <button [class.active]="timerSize() === size" (click)="chooseTimerSize(size)">{{ size.charAt(0).toUpperCase() }}</button>
+              }
+            }
+          </div>
+        }
+      }
+      @if (selectedTokenId(); as tokenId) {
+        @if (selectedTokenToolbarPos(); as pos) {
+          <div class="size-toolbar" [style.top.px]="pos.top" [style.left.px]="pos.left" (mousedown)="$event.stopPropagation()" (click)="$event.stopPropagation()">
+            @for (size of tokenSizes; track size) {
+              <button [class.active]="allTokenItems().find(t => t.token.id === tokenId)?.token?.size === size"
+                      (click)="chooseTokenSize(tokenId, size)">{{ size.charAt(0).toUpperCase() }}</button>
+            }
+          </div>
+        }
+      }
+      @if (timerToolbarOpen()) {
+        @if (timerToolbarPos(); as pos) {
+          <div class="size-toolbar" [style.top.px]="pos.top" [style.left.px]="pos.left" (mousedown)="$event.stopPropagation()" (click)="$event.stopPropagation()">
+            @for (size of tokenSizes; track size) {
+              <button [class.active]="timerSize() === size" (click)="chooseTimerSize(size)">{{ size.charAt(0).toUpperCase() }}</button>
+            }
+          </div>
+        }
+      }
       <div class="canvas-zoom-controls" (mousedown)="$event.stopPropagation()" (wheel)="$event.stopPropagation()">
         <button class="cz-btn" title="Zoom out" (click)="zoomBy(0.8)">−</button>
         <button class="cz-btn cz-pct" title="Reset zoom" (click)="resetView()">{{ zoomPercent() }}%</button>
@@ -462,6 +553,11 @@ export class RetroSingleCanvasComponent implements AfterViewInit {
         this.timerNeedsPlacement.set(false);
       }
     });
+    // Each new sticker placement starts fresh at medium -- the size toolbar next to the
+    // cursor-following ghost lets you change it before the placement click.
+    effect(() => {
+      if (this.placingStickerEmoji()) this.placingStickerSize.set('medium');
+    });
   }
 
   session = input.required<FunRetroSession | null>();
@@ -490,10 +586,97 @@ export class RetroSingleCanvasComponent implements AfterViewInit {
   stickerPaletteRequested = output<{ event: MouseEvent; column: string; x: number; y: number }>();
   tokenPositionCommitted = output<{ tokenId: string; x: number; y: number }>();
   tokenDeleteRequested = output<FunRetroToken>();
+  tokenResizeRequested = output<{ tokenId: string; size: FunRetroTokenSize }>();
   revealRequested = output<void>();
   timerToggleRequested = output<MouseEvent>();
-  stickerPlaceRequested = output<{ emoji: string; column: string; x: number; y: number }>();
+  stickerPlaceRequested = output<{ emoji: string; column: string; x: number; y: number; size: FunRetroTokenSize }>();
   stickerPlacementCancelled = output<void>();
+
+  readonly tokenSizes: FunRetroTokenSize[] = ['small', 'medium', 'large'];
+  private static readonly SIZE_SCALE: Record<FunRetroTokenSize, number> = { small: 0.5, medium: 1, large: 1.5 };
+  sizeScale(size: FunRetroTokenSize): number {
+    return RetroSingleCanvasComponent.SIZE_SCALE[size];
+  }
+
+  /** Story Points/Letters values are plain ASCII (numbers, words, punctuation) -- distinct
+   *  enough from every emoji/color-circle option (all non-ASCII) that this is a reliable way
+   *  to tell them apart without threading a separate "category" field through the token. */
+  isTextToken(value: string): boolean {
+    return /^[A-Za-z0-9?!*/=.-]+$/.test(value);
+  }
+
+  /** A single emoji glyph reads fine at the token's full size, but a word/number sticker
+   *  (Story Points, Letters) needs to shrink to actually fit inside the circle instead of
+   *  overflowing it -- scales down further the longer the text gets. */
+  tokenFontRatio(value: string): number {
+    if (!this.isTextToken(value)) return 0.656; // roughly the original single-emoji ratio (84/128)
+    const len = value.length;
+    if (len <= 1) return 0.5;
+    if (len <= 3) return 0.4;
+    return 0.28;
+  }
+
+  // Size chosen while a sticker is stuck to the cursor, waiting for a placement click.
+  placingStickerSize = signal<FunRetroTokenSize>('medium');
+  // The timer widget's size is a per-viewer preference, not synced -- same as its position.
+  timerSize = signal<FunRetroTokenSize>('medium');
+
+  // Clicking (not dragging) an existing token or the timer opens a small toolbar to resize it.
+  selectedTokenId = signal<string | null>(null);
+  selectedTokenToolbarPos = signal<{ top: number; left: number } | null>(null);
+  timerToolbarOpen = signal(false);
+  timerToolbarPos = signal<{ top: number; left: number } | null>(null);
+
+  private closeSizeToolbars(): void {
+    this.selectedTokenId.set(null);
+    this.selectedTokenToolbarPos.set(null);
+    this.timerToolbarOpen.set(false);
+    this.timerToolbarPos.set(null);
+  }
+
+  // Toolbar sits just above the item's own top edge -- 8px clearance plus its own ~34px
+  // height, so it reads as attached to what it's resizing rather than floating nearby.
+  private static readonly TOOLBAR_GAP = 42;
+  private static readonly TOOLBAR_HALF_WIDTH = 54;
+
+  selectToken(tokenId: string, el: HTMLElement): void {
+    this.closeSizeToolbars();
+    const rect = el.getBoundingClientRect();
+    this.selectedTokenId.set(tokenId);
+    this.selectedTokenToolbarPos.set({
+      top: rect.top - RetroSingleCanvasComponent.TOOLBAR_GAP,
+      left: rect.left + rect.width / 2 - RetroSingleCanvasComponent.TOOLBAR_HALF_WIDTH,
+    });
+  }
+
+  selectTimer(el: HTMLElement): void {
+    this.closeSizeToolbars();
+    const rect = el.getBoundingClientRect();
+    this.timerToolbarOpen.set(true);
+    this.timerToolbarPos.set({
+      top: rect.top - RetroSingleCanvasComponent.TOOLBAR_GAP,
+      left: rect.left + rect.width / 2 - RetroSingleCanvasComponent.TOOLBAR_HALF_WIDTH,
+    });
+  }
+
+  chooseTokenSize(tokenId: string, size: FunRetroTokenSize): void {
+    this.tokenResizeRequested.emit({ tokenId, size });
+    // The item's box changes size right away (optimistic update), which would leave the
+    // toolbar (positioned from the old box) looking off-center -- follow it once the new
+    // size has actually painted.
+    requestAnimationFrame(() => {
+      const el = (this.elRef.nativeElement as HTMLElement).querySelector(`[data-token-id="${tokenId}"]`) as HTMLElement | null;
+      if (el && this.selectedTokenId() === tokenId) this.selectToken(tokenId, el);
+    });
+  }
+
+  chooseTimerSize(size: FunRetroTokenSize): void {
+    this.timerSize.set(size);
+    requestAnimationFrame(() => {
+      const el = (this.elRef.nativeElement as HTMLElement).querySelector('.timer-widget:not(.placing-ghost)') as HTMLElement | null;
+      if (el && this.timerToolbarOpen()) this.selectTimer(el);
+    });
+  }
 
   readonly reactionEmojis = REACTION_EMOJIS;
   // Wide enough for 3 sticky-columns per zone (200px cards) instead of 2 -- panning/zooming
@@ -529,16 +712,17 @@ export class RetroSingleCanvasComponent implements AfterViewInit {
 
   localTokenPositions = signal<Record<string, { x: number; y: number }>>({});
   draggingTokenId = signal<string | null>(null);
-  private tokenDragState: { id: string; startMouseX: number; startMouseY: number; startX: number; startY: number } | null = null;
+  private tokenDragState: { id: string; startMouseX: number; startMouseY: number; startX: number; startY: number; moved: boolean } | null = null;
 
   // Local-only (not persisted) position for the draggable timer widget -- it's a per-viewer
   // convenience for placing the clock out of the way on the board, not shared session state.
   timerWidgetPos = signal<{ x: number; y: number }>({ x: 20, y: 20 });
-  private timerDragState: { startMouseX: number; startMouseY: number; startX: number; startY: number } | null = null;
+  private timerDragState: { startMouseX: number; startMouseY: number; startX: number; startY: number; moved: boolean } | null = null;
 
   // World-space cursor position while a sticker or a freshly-started timer is "stuck to the
   // cursor" waiting for a click to drop it -- see onMouseMove/onCanvasClick.
   placingWorld = signal<{ x: number; y: number } | null>(null);
+  placingScreenPos = signal<{ x: number; y: number } | null>(null);
   timerNeedsPlacement = signal(false);
   private timerPlacementSeen = false;
 
@@ -547,7 +731,7 @@ export class RetroSingleCanvasComponent implements AfterViewInit {
     e.preventDefault();
     e.stopPropagation();
     const p = this.timerWidgetPos();
-    this.timerDragState = { startMouseX: e.clientX, startMouseY: e.clientY, startX: p.x, startY: p.y };
+    this.timerDragState = { startMouseX: e.clientX, startMouseY: e.clientY, startX: p.x, startY: p.y, moved: false };
   }
 
   zoneOriginX(zoneIndex: number): number {
@@ -677,9 +861,14 @@ export class RetroSingleCanvasComponent implements AfterViewInit {
     const contentMaxY = this.canvasHeight();
     const scaledW = contentMaxX * zoom;
     const scaledH = contentMaxY * zoom;
-    const maxPanX = outerW - margin;
+    // Content starts at world (0,0) with nothing before it -- panning past panX/panY = 0
+    // would reveal grid background to the left/above that no card or sticker can ever
+    // actually occupy (they clamp at 0 too), so cap the pan there instead of leaving a
+    // pannable-but-dead strip. (The `outerW - margin` fallback only kicks in on a viewport
+    // so small that even that would clip too much of the content.)
+    const maxPanX = Math.min(0, outerW - margin);
     const minPanX = margin - scaledW;
-    const maxPanY = outerH - margin;
+    const maxPanY = Math.min(0, outerH - margin);
     const minPanY = margin - scaledH;
     return {
       panX: Math.min(maxPanX, Math.max(minPanX, panX)),
@@ -743,6 +932,7 @@ export class RetroSingleCanvasComponent implements AfterViewInit {
     if (this.placingStickerEmoji() || this.timerNeedsPlacement()) return;
     const t = e.target as HTMLElement;
     if (t.closest('.sticky') || t.closest('.canvas-zoom-controls') || t.closest('app-retro-canvas-sidebar')) return;
+    this.closeSizeToolbars();
     const v = this.view();
     this.panState = { startMouseX: e.clientX, startMouseY: e.clientY, startPanX: v.panX, startPanY: v.panY };
     this.panningView.set(true);
@@ -886,24 +1076,28 @@ export class RetroSingleCanvasComponent implements AfterViewInit {
   private confirmStickerPlacement(): void {
     const p = this.placingWorld();
     const emoji = this.placingStickerEmoji();
+    const size = this.placingStickerSize();
     this.placingWorld.set(null);
+    this.placingScreenPos.set(null);
     if (!p || !emoji) return;
     const col = this.cols()[this.zoneIndexForX(p.x)];
     if (!col) return;
-    this.stickerPlaceRequested.emit({ emoji, column: col.key, x: p.x, y: p.y });
+    this.stickerPlaceRequested.emit({ emoji, column: col.key, x: p.x, y: p.y, size });
   }
 
   private confirmTimerPlacement(): void {
     const p = this.placingWorld();
     this.placingWorld.set(null);
+    this.placingScreenPos.set(null);
     this.timerNeedsPlacement.set(false);
     if (p) this.timerWidgetPos.set(p);
   }
 
   @HostListener('document:keydown.escape')
   onEscapeKey(): void {
-    if (this.timerNeedsPlacement()) { this.timerNeedsPlacement.set(false); this.placingWorld.set(null); }
-    if (this.placingStickerEmoji()) { this.placingWorld.set(null); this.stickerPlacementCancelled.emit(); }
+    if (this.timerNeedsPlacement()) { this.timerNeedsPlacement.set(false); this.placingWorld.set(null); this.placingScreenPos.set(null); }
+    if (this.placingStickerEmoji()) { this.placingWorld.set(null); this.placingScreenPos.set(null); this.stickerPlacementCancelled.emit(); }
+    this.closeSizeToolbars();
   }
 
   pendingCardColor(): string {
@@ -937,7 +1131,8 @@ export class RetroSingleCanvasComponent implements AfterViewInit {
     if (e.button !== 0) return;
     e.preventDefault();
     e.stopPropagation();
-    this.tokenDragState = { id: token.id, startMouseX: e.clientX, startMouseY: e.clientY, startX: x, startY: y };
+    this.closeSizeToolbars();
+    this.tokenDragState = { id: token.id, startMouseX: e.clientX, startMouseY: e.clientY, startX: x, startY: y, moved: false };
     this.draggingTokenId.set(token.id);
   }
 
@@ -982,6 +1177,9 @@ export class RetroSingleCanvasComponent implements AfterViewInit {
         const rect = outer.getBoundingClientRect();
         const v = this.view();
         this.placingWorld.set({ x: (e.clientX - rect.left - v.panX) / v.zoom, y: (e.clientY - rect.top - v.panY) / v.zoom });
+        // Screen-space (not world-space) so the size hint can track the cursor directly
+        // without re-deriving the pan/zoom transform just to place a fixed-size UI element.
+        this.placingScreenPos.set({ x: e.clientX, y: e.clientY });
       }
       return;
     }
@@ -996,6 +1194,11 @@ export class RetroSingleCanvasComponent implements AfterViewInit {
       return;
     }
     if (this.tokenDragState) {
+      if (!this.tokenDragState.moved) {
+        const totalDx = e.clientX - this.tokenDragState.startMouseX;
+        const totalDy = e.clientY - this.tokenDragState.startMouseY;
+        if (Math.hypot(totalDx, totalDy) > RetroSingleCanvasComponent.CLICK_MOVE_THRESHOLD) this.tokenDragState.moved = true;
+      }
       const zoom = this.view().zoom;
       const dx = (e.clientX - this.tokenDragState.startMouseX) / zoom;
       const dy = (e.clientY - this.tokenDragState.startMouseY) / zoom;
@@ -1005,6 +1208,11 @@ export class RetroSingleCanvasComponent implements AfterViewInit {
       return;
     }
     if (this.timerDragState) {
+      if (!this.timerDragState.moved) {
+        const totalDx = e.clientX - this.timerDragState.startMouseX;
+        const totalDy = e.clientY - this.timerDragState.startMouseY;
+        if (Math.hypot(totalDx, totalDy) > RetroSingleCanvasComponent.CLICK_MOVE_THRESHOLD) this.timerDragState.moved = true;
+      }
       const zoom = this.view().zoom;
       const dx = (e.clientX - this.timerDragState.startMouseX) / zoom;
       const dy = (e.clientY - this.timerDragState.startMouseY) / zoom;
@@ -1044,14 +1252,24 @@ export class RetroSingleCanvasComponent implements AfterViewInit {
       return;
     }
     if (this.tokenDragState) {
-      const { id } = this.tokenDragState;
-      const pos = this.localTokenPositions()[id];
-      if (pos) this.tokenPositionCommitted.emit({ tokenId: id, x: pos.x, y: pos.y });
+      const { id, moved } = this.tokenDragState;
+      if (moved) {
+        const pos = this.localTokenPositions()[id];
+        if (pos) this.tokenPositionCommitted.emit({ tokenId: id, x: pos.x, y: pos.y });
+      } else {
+        const el = (this.elRef.nativeElement as HTMLElement).querySelector(`[data-token-id="${id}"]`) as HTMLElement | null;
+        if (el) this.selectToken(id, el);
+      }
       this.tokenDragState = null;
       this.draggingTokenId.set(null);
       return;
     }
     if (this.timerDragState) {
+      const { moved } = this.timerDragState;
+      if (!moved) {
+        const el = (this.elRef.nativeElement as HTMLElement).querySelector('.timer-widget:not(.placing-ghost)') as HTMLElement | null;
+        if (el) this.selectTimer(el);
+      }
       this.timerDragState = null;
       return;
     }

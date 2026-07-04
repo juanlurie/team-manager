@@ -12,7 +12,7 @@ import { Subject, Subscription } from 'rxjs';
 import { takeUntil, filter, take } from 'rxjs/operators';
 import { Router, ActivatedRoute } from '@angular/router';
 import { FunRetroService } from '../../../core/services/fun-retro.service';
-import { FunRetroAnalysis, FunRetroSession, FunRetroSessionSummary, FunRetroCard, RetroColumn, RetroTheme, RetroCanvasLayout, FunRetroCardComment, FunRetroToken } from '../../../core/models/fun-retro.model';
+import { FunRetroAnalysis, FunRetroSession, FunRetroSessionSummary, FunRetroCard, RetroColumn, RetroTheme, RetroCanvasLayout, FunRetroCardComment, FunRetroToken, FunRetroTokenSize } from '../../../core/models/fun-retro.model';
 import { WebSocketService } from '../../../core/websocket/websocket.service';
 import { AvatarCircleComponent } from '../../../core/components/k-picker/avatar-circle.component';
 import { AuthService } from '../../../core/auth/auth.service';
@@ -454,17 +454,23 @@ interface TimerState {
 
     /* ── shared popovers ────────────────────────────────── */
     .sticker-palette-popover {
-      position:fixed;z-index:250;width:176px;
-      display:grid;grid-template-columns:repeat(4, 1fr);gap:2px;padding:8px;
-      background:#2a2a2a;border:1px solid rgba(255,255,255,0.15);
+      position:fixed;z-index:250;width:272px;max-height:70vh;overflow-y:auto;
+      padding:10px;background:#2a2a2a;border:1px solid rgba(255,255,255,0.15);
       border-radius:10px;box-shadow:0 4px 16px rgba(0,0,0,0.5);
     }
+    .sticker-palette-category-label {
+      font-size:0.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;
+      color:rgba(255,255,255,0.4);margin:10px 2px 6px;
+    }
+    .sticker-palette-category-label:first-child { margin-top:2px; }
+    .sticker-palette-grid { display:grid;grid-template-columns:repeat(6, 1fr);gap:4px; }
     .sticker-palette-option {
       display:flex;align-items:center;justify-content:center;
-      width:36px;height:36px;border-radius:7px;font-size:19px;cursor:pointer;
-      transition:background .12s;
+      width:36px;height:36px;border-radius:50%;font-size:19px;cursor:pointer;
+      background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.85);
+      font-weight:700;line-height:1;transition:background .12s,transform .1s;
     }
-    .sticker-palette-option:hover { background:rgba(255,255,255,0.12); }
+    .sticker-palette-option:hover { background:rgba(255,255,255,0.16);transform:scale(1.08); }
     .card-toolbar {
       position:fixed;z-index:250;
       display:flex;align-items:center;gap:2px;
@@ -1275,6 +1281,7 @@ interface TimerState {
             (stickerPaletteRequested)="onSingleCanvasStickerPaletteRequested($event)"
             (tokenPositionCommitted)="onSingleCanvasTokenPositionCommitted($event)"
             (tokenDeleteRequested)="deleteToken($event)"
+            (tokenResizeRequested)="onSingleCanvasTokenResize($event)"
             (revealRequested)="revealAllNow()"
             (timerToggleRequested)="toggleTimerPopover($event)"
             (stickerPlaceRequested)="onSingleCanvasStickerPlaced($event)"
@@ -1420,8 +1427,17 @@ interface TimerState {
           @if (stickerPalettePos(); as pos) {
             <div class="sticker-palette-popover" [style.top.px]="pos.top" [style.left.px]="pos.left"
                  (mousedown)="$event.stopPropagation()" (click)="$event.stopPropagation()">
-              @for (emoji of stickerPalette; track emoji) {
-                <div class="sticker-palette-option" (click)="pickSticker(emoji)">{{ emoji }}</div>
+              @for (cat of stickerCategories; track cat.label) {
+                <div class="sticker-palette-category-label">{{ cat.label }}</div>
+                <div class="sticker-palette-grid">
+                  @for (item of cat.items; track item.value) {
+                    <div class="sticker-palette-option"
+                         [style.background]="item.color ? item.color + '2a' : null"
+                         [style.color]="item.color ?? null"
+                         [style.font-size]="item.value.length > 2 ? '0.6rem' : item.value.length > 1 ? '0.85rem' : '19px'"
+                         (click)="pickSticker(item.value)">{{ item.value }}</div>
+                  }
+                </div>
               }
             </div>
           }
@@ -1557,7 +1573,41 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
   editingText = signal('');
 
   // ── Sticker tokens ──
-  readonly stickerPalette = ['⭐', '🔥', '💯', '👍', '👎', '❤️', '✅', '❌', '🚩', '🎯', '💡', '🤔', '😂', '🎉', '⚠️', '🏆'];
+  readonly stickerCategories: { label: string; items: { value: string; color?: string }[] }[] = [
+    {
+      label: 'Emoji',
+      items: ['⭐', '🔥', '💯', '👍', '👎', '❤️', '✅', '❌', '🚩', '🎯', '💡', '🤔', '😂', '🎉', '⚠️', '🏆']
+        .map(value => ({ value })),
+    },
+    {
+      // Same circle "face" shape throughout -- just a different color per item.
+      label: 'Faces',
+      items: ['🔴', '🟠', '🟡', '🟢', '🔵', '🟣', '⚫', '⚪', '🟤'].map(value => ({ value })),
+    },
+    {
+      label: 'Story Points',
+      items: [
+        { value: '0', color: '#cddc39' }, { value: '1', color: '#8bc34a' }, { value: '2', color: '#4caf50' },
+        { value: '3', color: '#009688' }, { value: '5', color: '#00bcd4' }, { value: '8', color: '#2196f3' },
+        { value: '13', color: '#3f51b5' }, { value: '20', color: '#673ab7' }, { value: '40', color: '#9c27b0' },
+        { value: '100', color: '#ab47bc' }, { value: '☕', color: '#8d6e63' }, { value: '?', color: '#ef5350' },
+      ],
+    },
+    {
+      label: 'Letters',
+      items: [
+        { value: 'WHO', color: '#7e57c2' }, { value: 'WHAT', color: '#42a5f5' }, { value: 'WHEN', color: '#26a69a' },
+        { value: 'YES', color: '#66bb6a' }, { value: 'NO', color: '#ef5350' }, { value: 'LOL', color: '#7e57c2' },
+        { value: 'WHY', color: '#66bb6a' }, { value: 'HOW', color: '#ffa726' }, { value: 'WOW', color: '#ef5350' },
+        { value: 'YUP', color: '#42a5f5' }, { value: 'NOPE', color: '#ef5350' }, { value: 'IDK', color: '#7e57c2' },
+        { value: 'IF', color: '#ab47bc' }, { value: 'THEN', color: '#ab47bc' }, { value: 'ELSE', color: '#ab47bc' },
+        { value: 'DO', color: '#66bb6a' }, { value: 'DONT', color: '#ef5350' }, { value: 'WTF', color: '#7e57c2' },
+        { value: '?', color: '#66bb6a' }, { value: '??', color: '#42a5f5' }, { value: '???', color: '#ab47bc' },
+        { value: '!', color: '#66bb6a' }, { value: '!!', color: '#42a5f5' }, { value: '!!!', color: '#ab47bc' },
+        { value: '-', color: '#42a5f5' }, { value: '*', color: '#42a5f5' }, { value: '/', color: '#42a5f5' }, { value: '=', color: '#42a5f5' },
+      ],
+    },
+  ];
   stickerPaletteOpenFor = signal<string | null>(null);
   stickerPalettePos = signal<{ top: number; left: number } | null>(null);
 
@@ -1576,13 +1626,22 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
     this.singleCanvasPlacingStickerEmoji.set(emoji);
   }
 
-  onSingleCanvasStickerPlaced(payload: { emoji: string; column: string; x: number; y: number }): void {
+  onSingleCanvasStickerPlaced(payload: { emoji: string; column: string; x: number; y: number; size: FunRetroTokenSize }): void {
     this.singleCanvasPlacingStickerEmoji.set(null);
     const s = this.session();
     if (!s) return;
-    this.svc.addToken(s.id, payload.column, payload.emoji, payload.x, payload.y).subscribe(token => {
+    this.svc.addToken(s.id, payload.column, payload.emoji, payload.x, payload.y, payload.size).subscribe(token => {
       this.session.update(cur => cur ? { ...cur, tokens: [...cur.tokens, token] } : cur);
     });
+  }
+
+  onSingleCanvasTokenResize(payload: { tokenId: string; size: FunRetroTokenSize }): void {
+    const s = this.session();
+    if (!s) return;
+    this.session.update(cur => cur
+      ? { ...cur, tokens: cur.tokens.map(t => t.id === payload.tokenId ? { ...t, size: payload.size } : t) }
+      : cur);
+    this.svc.updateTokenSize(s.id, payload.tokenId, payload.size).subscribe();
   }
 
 
@@ -1975,6 +2034,7 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
         case 'fun_retro_token_added':
         case 'fun_retro_token_moved':
         case 'fun_retro_token_deleted':
+        case 'fun_retro_token_resized':
           if (msg.data['sessionId'] === s.id) this.silentRefresh();
           break;
         case 'fun_retro_phase_changed':
