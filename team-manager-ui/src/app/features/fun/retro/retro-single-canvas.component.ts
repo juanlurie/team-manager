@@ -126,8 +126,8 @@ const REACTION_EMOJIS = ['👍', '❤️', '😂', '🎉', '🤔'];
       z-index:150;
     }
     .retro-token-face-icon {
-      font-size:calc(70px * var(--tok-scale, 1));width:calc(70px * var(--tok-scale, 1));
-      height:calc(70px * var(--tok-scale, 1));line-height:calc(70px * var(--tok-scale, 1));
+      font-size:calc(100px * var(--tok-scale, 1));width:calc(100px * var(--tok-scale, 1));
+      height:calc(100px * var(--tok-scale, 1));line-height:calc(100px * var(--tok-scale, 1));
       color:rgba(255,255,255,0.95);
     }
     .retro-token-del {
@@ -153,8 +153,8 @@ const REACTION_EMOJIS = ['👍', '❤️', '😂', '🎉', '🤔'];
     .timer-widget.placing-ghost { pointer-events:none;opacity:0.85;z-index:200; }
     .timer-widget-danger { border-color:rgba(239,83,80,0.5);color:#ef5350; }
     .timer-widget-icon {
-      font-size:calc(78px * var(--tw-scale, 1));width:calc(78px * var(--tw-scale, 1));
-      height:calc(78px * var(--tw-scale, 1));line-height:calc(78px * var(--tw-scale, 1));
+      font-size:calc(92px * var(--tw-scale, 1));width:calc(92px * var(--tw-scale, 1));
+      height:calc(92px * var(--tw-scale, 1));line-height:calc(92px * var(--tw-scale, 1));
     }
     .timer-widget-del {
       position:absolute;top:-12px;right:-12px;width:32px;height:32px;
@@ -647,11 +647,11 @@ export class RetroSingleCanvasComponent implements AfterViewInit {
    *  (Story Points, Letters) needs to shrink to actually fit inside the circle instead of
    *  overflowing it -- scales down further the longer the text gets. */
   tokenFontRatio(value: string): number {
-    if (!this.isTextToken(value)) return 0.656; // roughly the original single-emoji ratio (84/128)
+    if (!this.isTextToken(value)) return 0.78; // a single emoji glyph, big enough to fill most of the circle
     const len = value.length;
-    if (len <= 1) return 0.5;
-    if (len <= 3) return 0.4;
-    return 0.28;
+    if (len <= 1) return 0.58;
+    if (len <= 3) return 0.48;
+    return 0.34;
   }
 
   // Size chosen while a sticker is stuck to the cursor, waiting for a placement click.
