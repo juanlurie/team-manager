@@ -572,6 +572,13 @@ export class RetroSingleCanvasComponent implements AfterViewInit {
     effect(() => {
       if (!this.timerLabel()) this.timerNeedsPlacement.set(false);
     });
+    // Adopt the synced position broadcast from another participant's drag -- but never while
+    // this viewer is mid-drag themselves (would fight the local mousemove updates) or mid
+    // placement (would yank the cursor-following ghost to a stale spot).
+    effect(() => {
+      const pos = this.timerPosition();
+      if (pos && !this.timerDragState && !this.timerNeedsPlacement()) this.timerWidgetPos.set(pos);
+    });
     // Each new sticker placement starts fresh at medium -- the size toolbar next to the
     // cursor-following ghost lets you change it before the placement click.
     effect(() => {
@@ -590,6 +597,7 @@ export class RetroSingleCanvasComponent implements AfterViewInit {
   timerDanger = input<boolean>(false);
   timerPlaceTrigger = input<number>(0);
   timerActive = input<boolean>(false);
+  timerPosition = input<{ x: number; y: number } | null>(null);
   placingStickerEmoji = input<string | null>(null);
   selectedCardId = input<string | null>(null);
 
@@ -605,6 +613,7 @@ export class RetroSingleCanvasComponent implements AfterViewInit {
   commentThreadRequested = output<{ event: MouseEvent; card: FunRetroCard }>();
   stickerPaletteRequested = output<{ event: MouseEvent; column: string; x: number; y: number }>();
   tokenPositionCommitted = output<{ tokenId: string; x: number; y: number }>();
+  timerPositionCommitted = output<{ x: number; y: number }>();
   tokenDeleteRequested = output<FunRetroToken>();
   tokenResizeRequested = output<{ tokenId: string; size: FunRetroTokenSize }>();
   revealRequested = output<void>();
@@ -745,8 +754,8 @@ export class RetroSingleCanvasComponent implements AfterViewInit {
   draggingTokenId = signal<string | null>(null);
   private tokenDragState: { id: string; startMouseX: number; startMouseY: number; startX: number; startY: number; moved: boolean } | null = null;
 
-  // Local-only (not persisted) position for the draggable timer widget -- it's a per-viewer
-  // convenience for placing the clock out of the way on the board, not shared session state.
+  // Draggable timer widget position. Synced across viewers via `timerPosition` (patched in by
+  // the effect below) once the widget has been placed/dragged; defaults locally until then.
   timerWidgetPos = signal<{ x: number; y: number }>({ x: 20, y: 20 });
   private timerDragState: { startMouseX: number; startMouseY: number; startX: number; startY: number; moved: boolean } | null = null;
 
@@ -1126,7 +1135,10 @@ export class RetroSingleCanvasComponent implements AfterViewInit {
     this.placingWorld.set(null);
     this.placingScreenPos.set(null);
     this.timerNeedsPlacement.set(false);
-    if (p) this.timerWidgetPos.set(p);
+    if (p) {
+      this.timerWidgetPos.set(p);
+      this.timerPositionCommitted.emit(p);
+    }
   }
 
   @HostListener('document:keydown.escape')
@@ -1302,7 +1314,9 @@ export class RetroSingleCanvasComponent implements AfterViewInit {
     }
     if (this.timerDragState) {
       const { moved } = this.timerDragState;
-      if (!moved) {
+      if (moved) {
+        this.timerPositionCommitted.emit(this.timerWidgetPos());
+      } else {
         const el = (this.elRef.nativeElement as HTMLElement).querySelector('.timer-widget:not(.placing-ghost)') as HTMLElement | null;
         if (el) this.selectTimer(el);
       }

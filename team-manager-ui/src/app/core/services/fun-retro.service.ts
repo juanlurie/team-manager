@@ -108,6 +108,10 @@ export class FunRetroService {
     return this.http.delete<void>(`${this.base}/${sessionId}/timer`);
   }
 
+  setTimerPosition(sessionId: string, x: number, y: number): Observable<void> {
+    return this.http.post<void>(`${this.base}/${sessionId}/timer/position`, { x, y });
+  }
+
   getPreviousActions(sessionId: string): Observable<{ id: string; text: string; authorName: string | null }[]> {
     return this.http.get<{ id: string; text: string; authorName: string | null }[]>(`${this.base}/${sessionId}/previous-actions`);
   }
