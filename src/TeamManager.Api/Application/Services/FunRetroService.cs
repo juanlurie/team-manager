@@ -281,6 +281,44 @@ public class FunRetroService(AppDbContext db, AiPromptExecutorService aiExecutor
         if (session is null) return false;
         if (session.CreatedByMemberId != memberId) return false;
 
+        // Timer state (start/pause/reset) and widget position are set through separate calls,
+        // but both live in the same TimerJson blob -- carry the position forward here so a
+        // plain start/pause doesn't blow away where the widget was last dragged to.
+        if (timerJson is not null && !string.IsNullOrEmpty(session.TimerJson))
+        {
+            var existing = System.Text.Json.Nodes.JsonNode.Parse(session.TimerJson)?.AsObject();
+            var positionX = existing?["positionX"];
+            var positionY = existing?["positionY"];
+            if (positionX is not null && positionY is not null)
+            {
+                var node = System.Text.Json.Nodes.JsonNode.Parse(timerJson)!.AsObject();
+                node["positionX"] = positionX.DeepClone();
+                node["positionY"] = positionY.DeepClone();
+                timerJson = node.ToJsonString();
+            }
+        }
+
+        session.TimerJson = timerJson;
+        await db.SaveChangesAsync();
+
+        _ = WebSocketMiddleware.BroadcastAsync("fun_retro_timer_updated", new { sessionId, timerJson }, guestAllowed: true);
+        return true;
+    }
+
+    public async Task<bool> UpdateTimerPositionAsync(Guid sessionId, double x, double y)
+    {
+        var session = await db.FunRetroSessions.FindAsync(sessionId);
+        if (session is null) return false;
+
+        // Merge into whatever timer state already exists (running/paused/seconds) rather than
+        // going through TimerRequest, since repositioning the widget shouldn't touch those fields.
+        var node = string.IsNullOrEmpty(session.TimerJson)
+            ? new System.Text.Json.Nodes.JsonObject()
+            : System.Text.Json.Nodes.JsonNode.Parse(session.TimerJson)!.AsObject();
+        node["positionX"] = x;
+        node["positionY"] = y;
+        var timerJson = node.ToJsonString();
+
         session.TimerJson = timerJson;
         await db.SaveChangesAsync();
 

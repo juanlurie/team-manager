@@ -263,6 +263,17 @@ public class FunRetroController(FunRetroService service, PollService pollService
         return NoContent();
     }
 
+    [HttpPost("{id:guid}/timer/position")]
+    public async Task<IActionResult> SetTimerPosition(Guid id, [FromBody] TimerPositionRequest request)
+    {
+        var memberId = GetCurrentMemberId();
+        if (!memberId.HasValue) return Unauthorized();
+
+        var success = await service.UpdateTimerPositionAsync(id, request.X, request.Y);
+        if (!success) return NotFound();
+        return NoContent();
+    }
+
     [HttpGet("{id:guid}/previous-actions")]
     public async Task<IActionResult> GetPreviousActions(Guid id)
     {
@@ -305,6 +316,7 @@ public record ReactRequest(string Emoji);
 public record CardPositionRequest(double X, double Y);
 public record CardColorRequest(string? Color);
 public record TimerRequest(int TotalSeconds, DateTimeOffset? StartedAt, DateTimeOffset? PausedAt, double ElapsedBeforePause);
+public record TimerPositionRequest(double X, double Y);
 public record IcebreakerAnswerRequest(string Answer);
 public record CardGroupRequest(Guid? GroupId);
 public record CardTextRequest(string Text);

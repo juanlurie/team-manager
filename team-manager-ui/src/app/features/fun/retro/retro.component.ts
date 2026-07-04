@@ -56,6 +56,8 @@ interface TimerState {
   startedAt: string | null;
   pausedAt: string | null;
   elapsedBeforePause: number;
+  positionX?: number;
+  positionY?: number;
 }
 
 @Component({
@@ -1276,6 +1278,7 @@ interface TimerState {
             [timerDanger]="timerRemaining() <= 30 && !timerExpired() && timerRunning()"
             [timerPlaceTrigger]="timerJustStartedTick()"
             [timerActive]="timerPopoverOpen() || timerRunning()"
+            [timerPosition]="timerWidgetPosition()"
             [placingStickerEmoji]="singleCanvasPlacingStickerEmoji()"
             [selectedCardId]="selectedCardId()"
             (voteToggled)="toggleVote($event)"
@@ -1290,6 +1293,7 @@ interface TimerState {
             (commentThreadRequested)="openCommentThread($event.event, $event.card)"
             (stickerPaletteRequested)="onSingleCanvasStickerPaletteRequested($event)"
             (tokenPositionCommitted)="onSingleCanvasTokenPositionCommitted($event)"
+            (timerPositionCommitted)="onSingleCanvasTimerPositionCommitted($event)"
             (tokenDeleteRequested)="deleteToken($event)"
             (tokenResizeRequested)="onSingleCanvasTokenResize($event)"
             (revealRequested)="revealAllNow()"
@@ -1533,6 +1537,12 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
   // itself -- lets the canvas stick the widget to the cursor for just the person who started
   // it, not every participant who receives the resulting fun_retro_timer_updated broadcast.
   timerJustStartedTick = signal(0);
+  // Widget position rides along in the same synced `timer` state (see TimerState.positionX/Y)
+  // so every participant sees the clock in the same place once someone drags it.
+  timerWidgetPosition = computed<{ x: number; y: number } | null>(() => {
+    const t = this.timer();
+    return t && t.positionX != null && t.positionY != null ? { x: t.positionX, y: t.positionY } : null;
+  });
   private nowTick = signal(Date.now());
   private timerInterval?: ReturnType<typeof setInterval>;
 
@@ -1705,6 +1715,13 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
   onSingleCanvasTokenPositionCommitted(payload: { tokenId: string; x: number; y: number }): void {
     const s = this.session();
     if (s) this.svc.updateTokenPosition(s.id, payload.tokenId, payload.x, payload.y).subscribe();
+  }
+
+  onSingleCanvasTimerPositionCommitted(payload: { x: number; y: number }): void {
+    const s = this.session();
+    if (!s) return;
+    this.timer.update(t => t ? { ...t, positionX: payload.x, positionY: payload.y } : t);
+    this.svc.setTimerPosition(s.id, payload.x, payload.y).subscribe();
   }
 
   deleteToken(token: FunRetroToken): void {
@@ -2086,10 +2103,17 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
           if (msg.data['sessionId'] === s.id) this.silentRefresh();
           break;
         case 'fun_retro_token_added':
-        case 'fun_retro_token_moved':
         case 'fun_retro_token_deleted':
         case 'fun_retro_token_resized':
           if (msg.data['sessionId'] === s.id) this.silentRefresh();
+          break;
+        case 'fun_retro_token_moved':
+          if (msg.data['sessionId'] === s.id) {
+            const { tokenId, x, y } = msg.data as { tokenId: string; x: number; y: number };
+            this.session.update(cur => cur
+              ? { ...cur, tokens: cur.tokens.map(t => t.id === tokenId ? { ...t, positionX: x, positionY: y } : t) }
+              : cur);
+          }
           break;
         case 'fun_retro_phase_changed':
           if (msg.data['sessionId'] === s.id) {
