@@ -8,6 +8,10 @@ const SKIP_PATTERNS = [
   '/api/auth', '/api-keys', '/api/auth-mode', '/api/accessrequests',
   // Actively-polled, time-sensitive endpoints -- caching these makes live games/timers look stuck.
   '/quiz-game/sessions', '/win-of-the-week/current', '/guest/wow/', '/scrum-poker/sessions', '/polls',
+  // Fun Retro's WS handlers call getSession() as their refetch-after-broadcast step (silentRefresh) --
+  // serving a cached response there means every card/vote/phase/reveal update goes silently stale for
+  // up to TTL_MS after the first fetch, since the WS-triggered GET never actually reaches the server.
+  '/fun-retro',
 ];
 
 export function clearCacheForPattern(pattern: string): void {
