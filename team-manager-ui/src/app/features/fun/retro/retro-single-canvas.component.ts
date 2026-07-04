@@ -103,9 +103,9 @@ const REACTION_EMOJIS = ['👍', '❤️', '😂', '🎉', '🤔'];
     .cz-fit mat-icon { font-size:16px;width:16px;height:16px;line-height:16px; }
     .cz-divider { width:1px;height:16px;background:rgba(255,255,255,0.15);margin:0 2px;flex-shrink:0; }
     .retro-token {
-      position:absolute;width:64px;height:64px;
+      position:absolute;width:128px;height:128px;
       display:flex;align-items:center;justify-content:center;
-      font-size:42px;line-height:1;cursor:grab;user-select:none;
+      font-size:84px;line-height:1;cursor:grab;user-select:none;
       filter:drop-shadow(0 2px 3px rgba(0,0,0,0.4));
       transition:transform .1s;
     }
@@ -113,10 +113,10 @@ const REACTION_EMOJIS = ['👍', '❤️', '😂', '🎉', '🤔'];
     .retro-token.dragging { cursor:grabbing;z-index:50;transition:none; }
     .retro-token.placing-ghost { pointer-events:none;opacity:0.85;z-index:200; }
     .retro-token-del {
-      position:absolute;top:-6px;right:-6px;width:16px;height:16px;
+      position:absolute;top:-12px;right:-12px;width:32px;height:32px;
       display:flex;align-items:center;justify-content:center;
       border-radius:50%;background:rgba(0,0,0,0.7);color:rgba(255,255,255,0.7);
-      border:none;font-size:12px;line-height:1;cursor:pointer;opacity:0;
+      border:none;font-size:24px;line-height:1;cursor:pointer;opacity:0;
       transition:opacity .12s;
     }
     .retro-token:hover .retro-token-del { opacity:1; }
@@ -124,16 +124,16 @@ const REACTION_EMOJIS = ['👍', '❤️', '😂', '🎉', '🤔'];
     /* Draggable clock so the timer can be parked wherever's convenient on the board instead
        of only living in a header popover -- position is local to this viewer, not persisted. */
     .timer-widget {
-      position:absolute;display:flex;align-items:center;gap:10px;
-      padding:12px 22px;border-radius:32px;cursor:grab;user-select:none;
-      background:rgba(20,20,24,0.9);border:1px solid rgba(255,255,255,0.15);
-      color:rgba(255,255,255,0.85);font-size:1.4rem;font-weight:700;font-variant-numeric:tabular-nums;
+      position:absolute;display:flex;align-items:center;gap:30px;
+      padding:36px 66px;border-radius:64px;cursor:grab;user-select:none;
+      background:rgba(20,20,24,0.9);border:3px solid rgba(255,255,255,0.15);
+      color:rgba(255,255,255,0.85);font-size:4.2rem;font-weight:700;font-variant-numeric:tabular-nums;
       box-shadow:0 3px 10px rgba(0,0,0,0.35);z-index:20;
     }
     .timer-widget:active { cursor:grabbing; }
     .timer-widget.placing-ghost { pointer-events:none;opacity:0.85;z-index:200; }
     .timer-widget-danger { border-color:rgba(239,83,80,0.5);color:#ef5350; }
-    .timer-widget-icon { font-size:26px;width:26px;height:26px;line-height:26px; }
+    .timer-widget-icon { font-size:78px;width:78px;height:78px;line-height:78px; }
     .sticky {
       position:absolute;box-sizing:border-box;
       width:240px;min-height:220px;
@@ -844,7 +844,10 @@ export class RetroSingleCanvasComponent implements AfterViewInit {
     if (this.timerNeedsPlacement()) { this.confirmTimerPlacement(); return; }
     if (this.activeTool() !== 'add-card') return;
     if ((e.target as HTMLElement).closest('.sticky')) return;
-    this.placeCardAt(e);
+    // Unlike a bare double-click (see below), picking the Add-Card tool and clicking is a
+    // deliberate "put a card down" action -- it should always succeed, clamped into the
+    // nearest column if you clicked outside every zone's strip, not silently do nothing.
+    this.placeCardAt(e, true);
     this.activeTool.set('select');
   }
 
@@ -855,7 +858,7 @@ export class RetroSingleCanvasComponent implements AfterViewInit {
   onCanvasDoubleClick(e: MouseEvent): void {
     if (this.placingStickerEmoji() || this.timerNeedsPlacement()) return;
     if ((e.target as HTMLElement).closest('.sticky')) return;
-    this.placeCardAt(e);
+    this.placeCardAt(e, false);
   }
 
   private worldPointFromEvent(e: MouseEvent): { x: number; y: number } {
@@ -864,14 +867,19 @@ export class RetroSingleCanvasComponent implements AfterViewInit {
     return { x: (e.clientX - rect.left - v.panX) / v.zoom, y: (e.clientY - rect.top - v.panY) / v.zoom };
   }
 
-  private placeCardAt(e: MouseEvent): void {
-    const { x: worldX, y: worldY } = this.worldPointFromEvent(e);
-    // Outside every zone's actual strip (the blank margin past the last column, or before the
-    // first) -- zoneIndexForX would silently clamp this into whichever zone is nearest, which
-    // reads as "the card I placed way over here jumped into some other column." Just no-op
-    // instead of creating a card wherever the pointer happened to land.
+  /** @param clampToNearestZone When false (a bare double-click), a click outside every zone's
+   *  actual strip (the blank margin past the last column, or before the first) is a no-op --
+   *  zoneIndexForX would otherwise silently clamp it into whichever zone is nearest, which
+   *  reads as "the card I placed way over here jumped into some other column." When true (the
+   *  explicit Add-Card tool), that same clamp is exactly what you want instead: the click was
+   *  a deliberate "add a card" and should always land somewhere, not do nothing. */
+  private placeCardAt(e: MouseEvent, clampToNearestZone: boolean): void {
+    let { x: worldX, y: worldY } = this.worldPointFromEvent(e);
     const stripWidth = this.cols().length * (this.ZONE_WIDTH + this.ZONE_GAP) - this.ZONE_GAP;
-    if (worldX < 0 || worldX > stripWidth) return;
+    if (worldX < 0 || worldX > stripWidth) {
+      if (!clampToNearestZone) return;
+      worldX = Math.max(0, Math.min(stripWidth, worldX));
+    }
     this.pendingCard.set({ x: worldX, y: worldY, text: '' });
   }
 
