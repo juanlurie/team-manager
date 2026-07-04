@@ -291,17 +291,29 @@ const RETRO_GAMING_ACTION_DETAIL: [number, number][] = [
   ...scale([[8, 12], [9, 12], [30, 12], [31, 12]]), // shoulder button hints
 ];
 
+export interface RetroBgStyle { opacity: number; blend: string; size: string }
+
 export interface RetroThemeDef {
   id: NonNullable<RetroTheme>;
   label: string;
   /** [positive, negative, action] -- shown on a column by its position (index % 3). */
   variantUrls: [string, string, string];
-  /** Overrides for themes backed by real photo/render assets (not the hand-authored,
-   *  mostly-transparent pixel SVGs above) -- those need a much higher opacity plus a
-   *  screen blend to read at all instead of just tinting the column a flat color, and
-   *  `contain` sizing so the subject isn't stretched. Omitted for the vector themes, which
-   *  keep the CSS defaults (0.16 opacity, no blend, stretched to fill). */
-  bgStyle?: { opacity: number; blend: string; size: string };
+  /** Overrides for whichever variants are backed by real photo/render assets (not the
+   *  hand-authored, mostly-transparent pixel SVGs above) -- those need a much higher opacity
+   *  plus a screen blend to read at all instead of just tinting the column a flat color, and
+   *  `contain` sizing so the subject isn't stretched. A single style applies to all three
+   *  variants (the common case: a theme that's fully real renders); a 3-tuple lets a theme mix
+   *  renders with vector variants, overriding only the render slots (`null` for the rest, which
+   *  keep the CSS defaults -- 0.16 opacity, no blend, stretched to fill). */
+  bgStyle?: RetroBgStyle | [RetroBgStyle | null, RetroBgStyle | null, RetroBgStyle | null];
+}
+
+const PHOTO_BG_STYLE: RetroBgStyle = { opacity: 0.4, blend: 'screen', size: 'contain' };
+
+export function bgStyleFor(def: RetroThemeDef | undefined, variantIndex: number): RetroBgStyle | null {
+  const style = def?.bgStyle;
+  if (!style) return null;
+  return Array.isArray(style) ? style[Math.min(variantIndex, 2)] : style;
 }
 
 function twoTone(fill: [number, number][], detail: [number, number][]): string {
@@ -318,7 +330,7 @@ export const RETRO_THEMES: RetroThemeDef[] = [
       'url("/assets/pixel-art/space_ufo.png")',
       'url("/assets/pixel-art/space_astronaut.png")',
     ],
-    bgStyle: { opacity: 0.4, blend: 'screen', size: 'contain' },
+    bgStyle: PHOTO_BG_STYLE,
   },
   {
     id: 'f1', label: 'F1',
@@ -329,7 +341,7 @@ export const RETRO_THEMES: RetroThemeDef[] = [
       'url("/assets/pixel-art/formula_1_race_car.png")',
       'url("/assets/pixel-art/formula_1_podium.png")',
     ],
-    bgStyle: { opacity: 0.4, blend: 'screen', size: 'contain' },
+    bgStyle: PHOTO_BG_STYLE,
   },
   {
     id: 'ocean', label: 'Ocean',
@@ -341,10 +353,15 @@ export const RETRO_THEMES: RetroThemeDef[] = [
   },
   {
     id: 'retro-gaming', label: 'Retro Gaming',
+    // Real renders for negative/action (question block: the unknowns/problems; controller:
+    // actively playing = doing the work) -- positive keeps the hand-authored pixel SVG since
+    // there's no matching render for it yet, so only those two slots get the photo bgStyle
+    // (the vector variant would render oversized/washed-out under `contain` + screen blend).
     variantUrls: [
       twoTone(RETRO_GAMING_POSITIVE_FILL, RETRO_GAMING_POSITIVE_DETAIL),
-      twoTone(RETRO_GAMING_NEGATIVE_FILL, RETRO_GAMING_NEGATIVE_DETAIL),
-      twoTone(RETRO_GAMING_ACTION_FILL, RETRO_GAMING_ACTION_DETAIL),
+      'url("/assets/pixel-art/retro_mystery_block.png")',
+      'url("/assets/pixel-art/retro_game_controller.png")',
     ],
+    bgStyle: [null, PHOTO_BG_STYLE, PHOTO_BG_STYLE],
   },
 ];
