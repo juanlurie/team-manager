@@ -252,6 +252,17 @@ public class FunRetroController(FunRetroService service, PollService pollService
         return Ok(new { timerJson });
     }
 
+    [HttpDelete("{id:guid}/timer")]
+    public async Task<IActionResult> ClearTimer(Guid id)
+    {
+        var memberId = GetCurrentMemberId();
+        if (!memberId.HasValue) return Unauthorized();
+
+        var success = await service.SetTimerAsync(id, memberId.Value, null);
+        if (!success) return NotFound();
+        return NoContent();
+    }
+
     [HttpGet("{id:guid}/previous-actions")]
     public async Task<IActionResult> GetPreviousActions(Guid id)
     {

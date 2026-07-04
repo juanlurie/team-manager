@@ -275,7 +275,7 @@ public class FunRetroService(AppDbContext db, AiPromptExecutorService aiExecutor
     private static string? ValidLayout(string? layout) =>
         layout is not null && ValidLayouts.Contains(layout) ? layout : null;
 
-    public async Task<bool> SetTimerAsync(Guid sessionId, Guid memberId, string timerJson)
+    public async Task<bool> SetTimerAsync(Guid sessionId, Guid memberId, string? timerJson)
     {
         var session = await db.FunRetroSessions.FindAsync(sessionId);
         if (session is null) return false;

@@ -125,6 +125,11 @@ const REACTION_EMOJIS = ['👍', '❤️', '😂', '🎉', '🤔'];
       box-shadow:0 0 0 3px rgba(100,181,246,0.9),0 0 22px 6px rgba(100,181,246,0.6);
       z-index:150;
     }
+    .retro-token-face-icon {
+      font-size:calc(70px * var(--tok-scale, 1));width:calc(70px * var(--tok-scale, 1));
+      height:calc(70px * var(--tok-scale, 1));line-height:calc(70px * var(--tok-scale, 1));
+      color:rgba(255,255,255,0.95);
+    }
     .retro-token-del {
       position:absolute;top:-12px;right:-12px;width:32px;height:32px;
       display:flex;align-items:center;justify-content:center;
@@ -151,6 +156,15 @@ const REACTION_EMOJIS = ['👍', '❤️', '😂', '🎉', '🤔'];
       font-size:calc(78px * var(--tw-scale, 1));width:calc(78px * var(--tw-scale, 1));
       height:calc(78px * var(--tw-scale, 1));line-height:calc(78px * var(--tw-scale, 1));
     }
+    .timer-widget-del {
+      position:absolute;top:-12px;right:-12px;width:32px;height:32px;
+      display:flex;align-items:center;justify-content:center;
+      border-radius:50%;background:rgba(0,0,0,0.7);color:rgba(255,255,255,0.7);
+      border:2px solid rgba(255,255,255,0.9);font-size:20px;line-height:1;cursor:pointer;opacity:0;
+      transition:opacity .12s;
+    }
+    .timer-widget:hover .timer-widget-del { opacity:1; }
+    .timer-widget-del:hover { color:#ef5350; }
     /* position:fixed (not absolute) and positioned from getBoundingClientRect() -- same
        convention as the color/sticker-palette popovers elsewhere in this file -- so the
        coordinates are viewport-relative and land exactly next to the item regardless of
@@ -436,9 +450,14 @@ const REACTION_EMOJIS = ['👍', '❤️', '😂', '🎉', '🤔'];
                [class.dragging]="draggingTokenId() === t.token.id"
                [style.left.px]="t.x" [style.top.px]="t.y"
                [style.--tok-scale]="sizeScale(t.token.size)"
-               [style.font-size.px]="128 * sizeScale(t.token.size) * tokenFontRatio(t.token.emoji)"
+               [style.background]="faceColor(t.token.emoji)"
+               [style.font-size.px]="faceColor(t.token.emoji) ? null : 128 * sizeScale(t.token.size) * tokenFontRatio(t.token.emoji)"
                (mousedown)="startTokenDrag($event, t.token, t.x, t.y)">
-            {{ t.token.emoji }}
+            @if (faceColor(t.token.emoji)) {
+              <mat-icon class="retro-token-face-icon">face</mat-icon>
+            } @else {
+              {{ t.token.emoji }}
+            }
             <button class="retro-token-del" (mousedown)="$event.stopPropagation()" (click)="tokenDeleteRequested.emit(t.token)">×</button>
           </div>
         }
@@ -455,6 +474,7 @@ const REACTION_EMOJIS = ['👍', '❤️', '😂', '🎉', '🤔'];
                  [style.left.px]="timerWidgetPos().x" [style.top.px]="timerWidgetPos().y" [style.--tw-scale]="sizeScale(timerSize())"
                  (mousedown)="startTimerWidgetDrag($event)">
               <mat-icon class="timer-widget-icon">timer</mat-icon>{{ label }}
+              <button class="timer-widget-del" (mousedown)="$event.stopPropagation()" (click)="timerRemoveRequested.emit()">×</button>
             </div>
           }
         }
@@ -462,7 +482,14 @@ const REACTION_EMOJIS = ['👍', '❤️', '😂', '🎉', '🤔'];
           @if (placingWorld(); as p) {
             <div class="retro-token placing-ghost" [style.left.px]="p.x" [style.top.px]="p.y"
                  [style.--tok-scale]="sizeScale(placingStickerSize())"
-                 [style.font-size.px]="128 * sizeScale(placingStickerSize()) * tokenFontRatio(emoji)">{{ emoji }}</div>
+                 [style.background]="faceColor(emoji)"
+                 [style.font-size.px]="faceColor(emoji) ? null : 128 * sizeScale(placingStickerSize()) * tokenFontRatio(emoji)">
+              @if (faceColor(emoji)) {
+                <mat-icon class="retro-token-face-icon">face</mat-icon>
+              } @else {
+                {{ emoji }}
+              }
+            </div>
           }
         }
       </div>
@@ -589,6 +616,7 @@ export class RetroSingleCanvasComponent implements AfterViewInit {
   tokenResizeRequested = output<{ tokenId: string; size: FunRetroTokenSize }>();
   revealRequested = output<void>();
   timerToggleRequested = output<MouseEvent>();
+  timerRemoveRequested = output<void>();
   stickerPlaceRequested = output<{ emoji: string; column: string; x: number; y: number; size: FunRetroTokenSize }>();
   stickerPlacementCancelled = output<void>();
 
@@ -603,6 +631,12 @@ export class RetroSingleCanvasComponent implements AfterViewInit {
    *  to tell them apart without threading a separate "category" field through the token. */
   isTextToken(value: string): boolean {
     return /^[A-Za-z0-9?!*/=.-]+$/.test(value);
+  }
+
+  /** "face:#hex" values (the Faces category) render as a face icon on a colored circle
+   *  instead of literal text -- returns the hex color, or null if this isn't one of those. */
+  faceColor(value: string): string | null {
+    return value.startsWith('face:') ? value.slice(5) : null;
   }
 
   /** A single emoji glyph reads fine at the token's full size, but a word/number sticker
@@ -888,16 +922,15 @@ export class RetroSingleCanvasComponent implements AfterViewInit {
     this.setView(this.overviewView());
   }
 
-  /** Starting view: zoomed out enough to show every zone at once (an overview the host can
-   *  then zoom in from), rather than defaulting to 100% -- at 100% only one or two zones
-   *  are visible in a typical viewport, and there's no reason to start that cramped when
-   *  panning/zooming out is exactly what you'd otherwise have to do immediately anyway. */
+  /** Starting view: zoomed in on just the first column (an obvious, focused starting point
+   *  for adding cards to it) rather than either a cramped 100% or a zoomed-so-far-out-it's-
+   *  illegible view of every zone at once. Panning/zooming to the other columns from there
+   *  is one scroll away. */
   private overviewView(): { zoom: number; panX: number; panY: number } {
     const outer = this.outerEl();
     const pad = 24;
-    const totalWidth = this.cols().length * (this.ZONE_WIDTH + this.ZONE_GAP) - this.ZONE_GAP;
-    if (!outer || totalWidth <= 0) return { zoom: 1, panX: pad, panY: pad };
-    const zoom = this.clampZoom(Math.min((outer.clientWidth - pad * 2) / totalWidth, 1));
+    if (!outer || this.ZONE_WIDTH <= 0) return { zoom: 1, panX: pad, panY: pad };
+    const zoom = this.clampZoom(Math.min((outer.clientWidth - pad * 2) / this.ZONE_WIDTH, 1));
     return { zoom, panX: pad, panY: pad };
   }
 
