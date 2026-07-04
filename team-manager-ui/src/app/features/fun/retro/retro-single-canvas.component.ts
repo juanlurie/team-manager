@@ -453,8 +453,8 @@ const REACTION_EMOJIS = ['👍', '❤️', '😂', '🎉', '🤔'];
                [style.background]="faceColor(t.token.emoji)"
                [style.font-size.px]="faceColor(t.token.emoji) ? null : 128 * sizeScale(t.token.size) * tokenFontRatio(t.token.emoji)"
                (mousedown)="startTokenDrag($event, t.token, t.x, t.y)">
-            @if (faceColor(t.token.emoji)) {
-              <mat-icon class="retro-token-face-icon">face</mat-icon>
+            @if (faceIcon(t.token.emoji); as icon) {
+              <mat-icon class="retro-token-face-icon">{{ icon }}</mat-icon>
             } @else {
               {{ t.token.emoji }}
             }
@@ -484,8 +484,8 @@ const REACTION_EMOJIS = ['👍', '❤️', '😂', '🎉', '🤔'];
                  [style.--tok-scale]="sizeScale(placingStickerSize())"
                  [style.background]="faceColor(emoji)"
                  [style.font-size.px]="faceColor(emoji) ? null : 128 * sizeScale(placingStickerSize()) * tokenFontRatio(emoji)">
-              @if (faceColor(emoji)) {
-                <mat-icon class="retro-token-face-icon">face</mat-icon>
+              @if (faceIcon(emoji); as icon) {
+                <mat-icon class="retro-token-face-icon">{{ icon }}</mat-icon>
               } @else {
                 {{ emoji }}
               }
@@ -583,7 +583,7 @@ export class RetroSingleCanvasComponent implements AfterViewInit {
     // Each new sticker placement starts fresh at medium -- the size toolbar next to the
     // cursor-following ghost lets you change it before the placement click.
     effect(() => {
-      if (this.placingStickerEmoji()) this.placingStickerSize.set('medium');
+      if (this.placingStickerEmoji()) this.placingStickerSize.set('small');
     });
   }
 
@@ -633,10 +633,14 @@ export class RetroSingleCanvasComponent implements AfterViewInit {
     return /^[A-Za-z0-9?!*/=.-]+$/.test(value);
   }
 
-  /** "face:#hex" values (the Faces category) render as a face icon on a colored circle
-   *  instead of literal text -- returns the hex color, or null if this isn't one of those. */
+  /** "face:<icon>:#hex" values (the Faces category) render as an expression icon on a
+   *  colored circle instead of literal text -- icon name / hex color, or null if this isn't
+   *  one of those tokens. */
+  faceIcon(value: string): string | null {
+    return value.startsWith('face:') ? value.split(':')[1] ?? null : null;
+  }
   faceColor(value: string): string | null {
-    return value.startsWith('face:') ? value.slice(5) : null;
+    return value.startsWith('face:') ? value.split(':')[2] ?? null : null;
   }
 
   /** A single emoji glyph reads fine at the token's full size, but a word/number sticker
@@ -651,9 +655,9 @@ export class RetroSingleCanvasComponent implements AfterViewInit {
   }
 
   // Size chosen while a sticker is stuck to the cursor, waiting for a placement click.
-  placingStickerSize = signal<FunRetroTokenSize>('medium');
+  placingStickerSize = signal<FunRetroTokenSize>('small');
   // The timer widget's size is a per-viewer preference, not synced -- same as its position.
-  timerSize = signal<FunRetroTokenSize>('medium');
+  timerSize = signal<FunRetroTokenSize>('small');
 
   // Clicking (not dragging) an existing token or the timer opens a small toolbar to resize it.
   selectedTokenId = signal<string | null>(null);

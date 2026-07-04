@@ -14,8 +14,11 @@ export type RetroCanvasTool = 'select' | 'add-card';
   imports: [MatIconModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   styles: [`
+    /* Dropped below the zone header row (which sits inside the panned/zoomed canvas content,
+       not fixed chrome like this sidebar) so the default view doesn't start with the two
+       overlapping. */
     .sidebar {
-      position: absolute; left: 12px; top: 12px;
+      position: absolute; left: 12px; top: 56px;
       display: flex; flex-direction: column; gap: 4px;
       background: rgba(20,20,24,0.85); border: 1px solid rgba(255,255,255,0.1);
       border-radius: 10px; padding: 6px; z-index: 5;
