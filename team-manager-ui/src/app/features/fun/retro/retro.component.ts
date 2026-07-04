@@ -24,7 +24,7 @@ import { CreatePollDialogComponent } from '../../polls/poll.component';
 import { ConfirmDialogComponent } from '../../../shared/components/confirm-dialog/confirm-dialog.component';
 import { NavService } from '../../../core/nav/nav.service';
 import { NewRetroDialogComponent, NewRetroDialogResult } from './new-retro-dialog.component';
-import { DEFAULT_COLS, RETRO_TEMPLATES, ICEBREAKER_QUESTIONS, RETRO_THEMES, RetroThemeDef } from './retro-constants';
+import { DEFAULT_COLS, RETRO_TEMPLATES, ICEBREAKER_QUESTIONS, RETRO_THEMES, RetroThemeDef, RetroBgStyle, bgStyleFor } from './retro-constants';
 import { RetroSingleCanvasComponent } from './retro-single-canvas.component';
 
 const PHASE_META: Record<string, { label: string; color: string }> = {
@@ -723,8 +723,8 @@ interface TimerState {
                instead of the column, so it stays put as you scroll through columns rather
                than scrolling away or repeating per-section. -->
           <div class="mobile-theme-bg" [style.background-image]="bg"
-               [style.opacity]="themeBgStyle()?.opacity ?? null" [style.mix-blend-mode]="themeBgStyle()?.blend ?? null"
-               [style.background-size]="themeBgStyle()?.size ?? null" [style.image-rendering]="themeBgStyle() ? 'auto' : null"></div>
+               [style.opacity]="themeBgStyle(0)?.opacity ?? null" [style.mix-blend-mode]="themeBgStyle(0)?.blend ?? null"
+               [style.background-size]="themeBgStyle(0)?.size ?? null" [style.image-rendering]="themeBgStyle(0) ? 'auto' : null"></div>
         }
         <!-- Compact header: title, timer, polls, settings, share, back, phase actions — all in one row -->
         <div class="session-header" [class.full-bleed]="isDesktop()">
@@ -2422,10 +2422,10 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
   /** Photo/render-backed themes need a different opacity/blend/sizing than the hand-authored
    *  pixel SVGs' CSS defaults -- see RetroThemeDef.bgStyle. Null (nothing to override) for
    *  the vector themes, which keep using their existing per-element CSS untouched. */
-  themeBgStyle(): { opacity: number; blend: string; size: string } | null {
+  themeBgStyle(variantIndex: number): RetroBgStyle | null {
     const theme = this.session()?.theme;
     const def = theme ? RETRO_THEMES.find(t => t.id === theme) : undefined;
-    return def?.bgStyle ?? null;
+    return bgStyleFor(def, variantIndex);
   }
 
   /** Representative icon for the theme picker swatch -- the "positive" variant. */

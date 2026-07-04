@@ -4,7 +4,7 @@ import { CdkTextareaAutosize } from '@angular/cdk/text-field';
 import { AvatarCircleComponent } from '../../../core/components/k-picker/avatar-circle.component';
 import { FunRetroSession, FunRetroCard, RetroColumn, FunRetroToken, FunRetroTokenSize } from '../../../core/models/fun-retro.model';
 import { RetroCanvasSidebarComponent, RetroCanvasTool } from './retro-canvas-sidebar.component';
-import { RETRO_THEMES } from './retro-constants';
+import { RETRO_THEMES, RetroBgStyle, bgStyleFor } from './retro-constants';
 
 interface ZoneCardItem {
   card: FunRetroCard;
@@ -322,8 +322,8 @@ const REACTION_EMOJIS = ['👍', '❤️', '😂', '🎉', '🤔'];
         @for (col of cs; track col.key; let zi = $index) {
           @if (themeUrl(zi); as bg) {
             <div class="zone-theme-bg" [style.left.px]="zoneOriginX(zi)" [style.width.px]="ZONE_WIDTH" [style.background-image]="bg"
-                 [style.opacity]="themeBgStyle()?.opacity ?? null" [style.mix-blend-mode]="themeBgStyle()?.blend ?? null"
-                 [style.background-size]="themeBgStyle()?.size ?? null" [style.image-rendering]="themeBgStyle() ? 'auto' : null"></div>
+                 [style.opacity]="themeBgStyle(zi)?.opacity ?? null" [style.mix-blend-mode]="themeBgStyle(zi)?.blend ?? null"
+                 [style.background-size]="themeBgStyle(zi)?.size ?? null" [style.image-rendering]="themeBgStyle(zi) ? 'auto' : null"></div>
           }
         }
         @for (col of cs; track col.key; let zi = $index) {
@@ -793,13 +793,13 @@ export class RetroSingleCanvasComponent implements AfterViewInit {
     return def ? def.variantUrls[Math.min(zoneIndex, 2)] : null;
   }
 
-  /** Photo/render-backed themes need a different opacity/blend/sizing than the hand-authored
-   *  pixel SVGs' CSS defaults -- see RetroThemeDef.bgStyle. Null (nothing to override) for
-   *  the vector themes, which keep using their existing CSS untouched. */
-  themeBgStyle(): { opacity: number; blend: string; size: string } | null {
+  /** Photo/render-backed variants need a different opacity/blend/sizing than the hand-authored
+   *  pixel SVGs' CSS defaults -- see RetroThemeDef.bgStyle. Null (nothing to override) for a
+   *  vector variant, which keeps using its existing CSS untouched. */
+  themeBgStyle(zoneIndex: number): RetroBgStyle | null {
     const theme = this.session()?.theme;
     const def = theme ? RETRO_THEMES.find(t => t.id === theme) : undefined;
-    return def?.bgStyle ?? null;
+    return bgStyleFor(def, Math.min(zoneIndex, 2));
   }
 
   /** How many sticky-columns fit across one zone's width -- shared by the fallback grid
