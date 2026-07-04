@@ -220,6 +220,7 @@ public class FunRetroService(AppDbContext db, AiPromptExecutorService aiExecutor
                     SessionId = t.SessionId,
                     Column = t.Column,
                     Emoji = t.Emoji,
+                    Size = t.Size,
                     PositionX = t.PositionX,
                     PositionY = t.PositionY,
                     CreatedByMemberId = t.CreatedByMemberId,
@@ -620,7 +621,7 @@ public class FunRetroService(AppDbContext db, AiPromptExecutorService aiExecutor
         return true;
     }
 
-    public async Task<FunRetroTokenDto?> AddTokenAsync(Guid sessionId, Guid memberId, string column, string emoji, double x, double y)
+    public async Task<FunRetroTokenDto?> AddTokenAsync(Guid sessionId, Guid memberId, string column, string emoji, string size, double x, double y)
     {
         if (string.IsNullOrWhiteSpace(emoji)) return null;
         var session = await db.FunRetroSessions.FindAsync(sessionId);
@@ -631,6 +632,7 @@ public class FunRetroService(AppDbContext db, AiPromptExecutorService aiExecutor
             SessionId = sessionId,
             Column = column,
             Emoji = emoji,
+            Size = size,
             PositionX = x,
             PositionY = y,
             CreatedByMemberId = memberId,
@@ -644,6 +646,7 @@ public class FunRetroService(AppDbContext db, AiPromptExecutorService aiExecutor
             SessionId = sessionId,
             Column = column,
             Emoji = emoji,
+            Size = size,
             PositionX = x,
             PositionY = y,
             CreatedByMemberId = memberId,
@@ -665,6 +668,19 @@ public class FunRetroService(AppDbContext db, AiPromptExecutorService aiExecutor
         await db.SaveChangesAsync();
 
         _ = WebSocketMiddleware.BroadcastAsync("fun_retro_token_moved", new { sessionId, tokenId, x, y }, guestAllowed: true);
+        return true;
+    }
+
+    public async Task<bool> UpdateTokenSizeAsync(Guid sessionId, Guid tokenId, string size)
+    {
+        var token = await db.FunRetroTokens
+            .FirstOrDefaultAsync(t => t.Id == tokenId && t.SessionId == sessionId);
+        if (token is null) return false;
+
+        token.Size = size;
+        await db.SaveChangesAsync();
+
+        _ = WebSocketMiddleware.BroadcastAsync("fun_retro_token_resized", new { sessionId, tokenId, size }, guestAllowed: true);
         return true;
     }
 

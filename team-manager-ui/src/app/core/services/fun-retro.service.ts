@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { FunRetroAnalysis, FunRetroSession, FunRetroSessionSummary, RetroColumn, RetroTheme, RetroCanvasLayout, FunRetroCardComment, FunRetroToken } from '../models/fun-retro.model';
+import { FunRetroAnalysis, FunRetroSession, FunRetroSessionSummary, RetroColumn, RetroTheme, RetroCanvasLayout, FunRetroCardComment, FunRetroToken, FunRetroTokenSize } from '../models/fun-retro.model';
 
 @Injectable({ providedIn: 'root' })
 export class FunRetroService {
@@ -72,12 +72,16 @@ export class FunRetroService {
     return this.http.delete<void>(`${this.base}/${sessionId}/cards/${cardId}/comments/${commentId}`);
   }
 
-  addToken(sessionId: string, column: string, emoji: string, x: number, y: number): Observable<FunRetroToken> {
-    return this.http.post<FunRetroToken>(`${this.base}/${sessionId}/tokens`, { column, emoji, positionX: x, positionY: y });
+  addToken(sessionId: string, column: string, emoji: string, x: number, y: number, size: FunRetroTokenSize = 'medium'): Observable<FunRetroToken> {
+    return this.http.post<FunRetroToken>(`${this.base}/${sessionId}/tokens`, { column, emoji, size, positionX: x, positionY: y });
   }
 
   updateTokenPosition(sessionId: string, tokenId: string, x: number, y: number): Observable<void> {
     return this.http.patch<void>(`${this.base}/${sessionId}/tokens/${tokenId}/position`, { positionX: x, positionY: y });
+  }
+
+  updateTokenSize(sessionId: string, tokenId: string, size: FunRetroTokenSize): Observable<void> {
+    return this.http.patch<void>(`${this.base}/${sessionId}/tokens/${tokenId}/size`, { size });
   }
 
   deleteToken(sessionId: string, tokenId: string): Observable<void> {
