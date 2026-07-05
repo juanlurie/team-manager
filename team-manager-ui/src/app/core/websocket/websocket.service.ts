@@ -15,6 +15,17 @@ export class WebSocketService {
   private _connected$ = new BehaviorSubject<boolean>(false);
   private reconnectTimer: any;
 
+  // Heartbeat: a TCP connection can die (laptop sleep, wifi drop, NAT/proxy idle timeout)
+  // without the browser ever firing onclose -- the socket sits in a "zombie" state where
+  // readyState still reads OPEN but no bytes will ever flow again. That silently freezes all
+  // real-time updates until something else forces a reconnect. We defend against it by pinging
+  // the server on an interval and expecting a pong (or any inbound traffic) back within a
+  // bounded window; if the window lapses we treat the socket as dead and force a reconnect.
+  private static readonly PING_INTERVAL_MS = 25_000;
+  private static readonly PONG_TIMEOUT_MS = 10_000;
+  private pingTimer: any;
+  private pongTimer: any;
+
   messages$ = this._messages$.asObservable();
   connected$ = this._connected$.asObservable();
 
@@ -32,19 +43,27 @@ export class WebSocketService {
 
     this.ws.onopen = () => {
       this._connected$.next(true);
+      this.startHeartbeat();
     };
 
     this.ws.onmessage = (event) => {
+      // Any inbound byte proves the socket is alive -- clear the outstanding liveness deadline
+      // (a pong satisfies it, but so does any real broadcast that happens to arrive first).
+      this.clearPongTimer();
+      let msg: WsMessage;
       try {
-        const msg: WsMessage = JSON.parse(event.data);
-        this._messages$.next(msg);
+        msg = JSON.parse(event.data);
       } catch {
-        // Ignore malformed messages
+        return; // Ignore malformed messages
       }
+      // Heartbeat replies are internal plumbing -- don't surface them to feature subscribers.
+      if ((msg as { type?: string }).type === 'pong') return;
+      this._messages$.next(msg);
     };
 
     this.ws.onclose = () => {
       this._connected$.next(false);
+      this.stopHeartbeat();
       this.ws = null;
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = setTimeout(() => this.connect(), 3000);
@@ -55,6 +74,44 @@ export class WebSocketService {
     };
   }
 
+  private startHeartbeat(): void {
+    this.stopHeartbeat();
+    this.pingTimer = setInterval(() => {
+      if (this.ws?.readyState !== WebSocket.OPEN) return;
+      this.ws.send(JSON.stringify({ type: 'ping' }));
+      // Expect *some* inbound traffic before the deadline; otherwise the socket is a zombie.
+      this.clearPongTimer();
+      this.pongTimer = setTimeout(() => this.forceReconnect(), WebSocketService.PONG_TIMEOUT_MS);
+    }, WebSocketService.PING_INTERVAL_MS);
+  }
+
+  private stopHeartbeat(): void {
+    clearInterval(this.pingTimer);
+    this.pingTimer = undefined;
+    this.clearPongTimer();
+  }
+
+  private clearPongTimer(): void {
+    clearTimeout(this.pongTimer);
+    this.pongTimer = undefined;
+  }
+
+  // Tear the zombie socket down explicitly. Closing a socket whose peer is already gone still
+  // fires onclose synchronously enough to kick the normal 3s reconnect path; null the handlers
+  // first so the dead socket can't emit a late spurious event after we've moved on.
+  private forceReconnect(): void {
+    this.stopHeartbeat();
+    const dead = this.ws;
+    this.ws = null;
+    if (dead) {
+      dead.onopen = dead.onmessage = dead.onclose = dead.onerror = null;
+      try { dead.close(); } catch { /* already closing */ }
+    }
+    this._connected$.next(false);
+    clearTimeout(this.reconnectTimer);
+    this.reconnectTimer = setTimeout(() => this.connect(), 1000);
+  }
+
   send(data: object): void {
     if (this.ws?.readyState === WebSocket.OPEN) {
       this.ws.send(JSON.stringify(data));
@@ -63,6 +120,7 @@ export class WebSocketService {
 
   disconnect(): void {
     clearTimeout(this.reconnectTimer);
+    this.stopHeartbeat();
     this.ws?.close();
     this.ws = null;
   }

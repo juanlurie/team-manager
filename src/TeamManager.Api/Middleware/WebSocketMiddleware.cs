@@ -144,6 +144,15 @@ public class WebSocketMiddleware
 
             switch (typeProp.GetString())
             {
+                case "ping":
+                {
+                    // Client liveness probe -- reply on this socket only so the client can tell a
+                    // live connection from a zombie one (TCP dead but no close ever delivered).
+                    if (_connections.TryGetValue(connectionId, out var entry))
+                        _ = SendToSocketAsync(entry.Socket, "pong", new { });
+                    break;
+                }
+
                 case "join_wow":
                 {
                     if (!root.TryGetProperty("sessionKey", out var keyProp)) return;
@@ -191,6 +200,22 @@ public class WebSocketMiddleware
             }
         }
         catch { }
+    }
+
+    // Targeted single-socket send (e.g. a pong). Goes through the same _broadcastLock as the
+    // broadcasts: WebSocket.SendAsync is not safe to call concurrently on one socket, so a pong
+    // racing a broadcast to the same peer could interleave frames and corrupt the stream.
+    private static async Task SendToSocketAsync(WebSocket socket, string type, object data)
+    {
+        var message = JsonSerializer.Serialize(new { type, data });
+        var bytes = Encoding.UTF8.GetBytes(message);
+        await _broadcastLock.WaitAsync();
+        try
+        {
+            if (socket.State == WebSocketState.Open)
+                await TrySendAsync(socket, bytes);
+        }
+        finally { _broadcastLock.Release(); }
     }
 
     public static async Task BroadcastToRetroSessionAsync(string type, string sessionId, object data)
