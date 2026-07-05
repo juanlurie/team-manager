@@ -307,10 +307,11 @@ const REACTION_EMOJIS = ['👍', '❤️', '😂', '🎉', '🤔'];
          (click)="onCanvasClick($event)"
          (dblclick)="onCanvasDoubleClick($event)">
       <app-retro-canvas-sidebar [activeTool]="activeTool()" [isHost]="s?.isCreator ?? false"
-                                [timerActive]="timerActive()"
+                                [showRevealAction]="showRevealAction()" [timerActive]="timerActive()"
                                 (toolSelected)="activeTool.set($event)"
                                 (stickerRequested)="requestStickerPalette($event, canvasOuterEl)"
                                 (tidyRequested)="arrangeAllZones()"
+                                (revealRequested)="revealRequested.emit()"
                                 (timerRequested)="timerToggleRequested.emit($event)" />
       <div class="canvas-inner"
            [style.height.px]="canvasHeight()"
@@ -591,6 +592,7 @@ export class RetroSingleCanvasComponent implements AfterViewInit {
   editingCardId = input.required<string | null>();
   editingText = input.required<string>();
   resolveCardColor = input.required<(card: FunRetroCard) => string>();
+  showRevealAction = input<boolean>(false);
   timerLabel = input<string | null>(null);
   timerDanger = input<boolean>(false);
   timerPlaceTrigger = input<number>(0);
@@ -614,6 +616,7 @@ export class RetroSingleCanvasComponent implements AfterViewInit {
   timerPositionCommitted = output<{ x: number; y: number }>();
   tokenDeleteRequested = output<FunRetroToken>();
   tokenResizeRequested = output<{ tokenId: string; size: FunRetroTokenSize }>();
+  revealRequested = output<void>();
   timerToggleRequested = output<MouseEvent>();
   timerRemoveRequested = output<void>();
   stickerPlaceRequested = output<{ emoji: string; column: string; x: number; y: number; size: FunRetroTokenSize }>();

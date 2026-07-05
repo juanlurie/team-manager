@@ -16,7 +16,7 @@ export class FunRetroService {
     return this.http.get<FunRetroSession>(`${this.base}/${id}`);
   }
 
-  createSession(req: { title?: string; sprintId?: string; columns?: RetroColumn[]; icebreakerQuestion?: string; theme?: RetroTheme; canvasLayout?: RetroCanvasLayout }): Observable<FunRetroSession> {
+  createSession(req: { title?: string; sprintId?: string; columns?: RetroColumn[]; icebreakerQuestion?: string; theme?: RetroTheme; canvasLayout?: RetroCanvasLayout; hideCardsOnAdd?: boolean }): Observable<FunRetroSession> {
     return this.http.post<FunRetroSession>(this.base, req);
   }
 
@@ -90,6 +90,10 @@ export class FunRetroService {
 
   updateSettings(sessionId: string, settings: { participationTracking: boolean; theme: RetroTheme }): Observable<void> {
     return this.http.patch<void>(`${this.base}/${sessionId}/settings`, settings);
+  }
+
+  revealAllNow(sessionId: string): Observable<void> {
+    return this.http.post<void>(`${this.base}/${sessionId}/reveal-now`, {});
   }
 
   analyse(sessionId: string): Observable<FunRetroAnalysis> {

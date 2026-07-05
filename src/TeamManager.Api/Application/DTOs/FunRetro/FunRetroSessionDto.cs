@@ -18,6 +18,8 @@ public record FunRetroSessionDto
     public List<IcebreakerAnswerDto> IcebreakerAnswers { get; init; } = [];
     public string? IcebreakerQuestion { get; init; }
     public List<RetroColumnDto> Columns { get; init; } = [];
+    public bool HideCardsOnAdd { get; init; }
+    public bool ManuallyRevealed { get; init; }
     public bool ParticipationTracking { get; init; }
     public string? Theme { get; init; }
     public string? CanvasLayout { get; init; }
@@ -150,6 +152,9 @@ public record CreateFunRetroSessionRequest
     public string? IcebreakerQuestion { get; init; }
     public string? Theme { get; init; }
     public string? CanvasLayout { get; init; }
+    // Chosen once at creation ("hide cards until reveal"), rather than a live setting -- the
+    // whole point is to lock cards for the duration of the add phase before anyone joins.
+    public bool HideCardsOnAdd { get; init; }
 }
 
 public record AddFunRetroCardRequest
