@@ -2300,9 +2300,9 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
         this.session.set(s);
         this.applyExtras(s, true);
         this.loading.set(false);
-        this.router.navigate(['/pulse/retro', id], { replaceUrl: true });
-        this.joinRetroPresence(id);
-        this.loadRetroPolls(id);
+        this.router.navigate(['/pulse/retro', s.slug ?? s.id], { replaceUrl: true });
+        this.joinRetroPresence(s.id);
+        this.loadRetroPolls(s.id);
       },
       error: () => {
         this.loading.set(false);
@@ -2327,6 +2327,10 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
     this.connectedSub?.unsubscribe();
     this.connectedSub = this.wsSvc.connected$.pipe(filter(c => c), takeUntil(this.destroy$)).subscribe(() => {
       if (!this.currentRetroSessionId) return;
+      // A reconnect may be a brand-new server process with its seq counter reset to 1. If we keep
+      // comparing against the previous socket's last seq, we'd discard every new broadcast as
+      // "stale" and the board would appear frozen until a hard reload.
+      this.lastWsSeq = -1;
       this.wsSvc.send({ type: 'join_retro', sessionId: this.currentRetroSessionId, memberName: this.currentRetroMemberName });
       // A reconnect means we may have missed broadcasts while the socket was down -- pull a fresh
       // snapshot so the board doesn't sit stale on whatever state it had when the socket dropped.
