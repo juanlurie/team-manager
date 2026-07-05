@@ -2061,6 +2061,10 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
       if (!msg) return;
       const s = this.session();
       if (!s) return;
+      // A throw inside this callback would error the observable and permanently unsubscribe us
+      // from messages$ -- every future real-time update silently lost until a full page reload.
+      // One malformed broadcast must never take the whole stream down; contain it per-message.
+      try {
       switch (msg.type) {
         case 'fun_retro_card_added':
         case 'fun_retro_voted':
@@ -2095,6 +2099,7 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
             this.session.update(cur => cur
               ? { ...cur, tokens: cur.tokens.map(t => t.id === tokenId ? { ...t, positionX: x, positionY: y } : t) }
               : cur);
+            this.invalidateInFlightRefresh();
           }
           break;
         case 'fun_retro_phase_changed':
@@ -2129,6 +2134,7 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
             this.session.update(cur => cur
               ? { ...cur, cards: cur.cards.map(c => c.id === cardId ? { ...c, positionX: x, positionY: y } : c) }
               : cur);
+            this.invalidateInFlightRefresh();
           }
           break;
         case 'fun_retro_card_color_changed':
@@ -2139,6 +2145,7 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
               if (!cur) return cur;
               return { ...cur, cards: cur.cards.map(c => c.id === cardId ? { ...c, color } : c) };
             });
+            this.invalidateInFlightRefresh();
           }
           break;
         case 'fun_retro_settings_updated':
@@ -2159,6 +2166,7 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
               if (!cur) return cur;
               return { ...cur, cards: cur.cards.map(c => c.id === cardId ? { ...c, text } : c) };
             });
+            this.invalidateInFlightRefresh();
           }
           break;
         case 'fun_retro_card_grouped':
@@ -2169,6 +2177,7 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
               if (!cur) return cur;
               return { ...cur, cards: cur.cards.map(c => c.id === cardId ? { ...c, groupId } : c) };
             });
+            this.invalidateInFlightRefresh();
           }
           break;
         case 'fun_retro_revealed':
@@ -2190,6 +2199,9 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
             this.loadRetroPolls(s.id);
           }
           break;
+      }
+      } catch (err) {
+        console.error('Retro WS handler error (message dropped, stream kept alive):', err);
       }
     });
   }
@@ -2488,11 +2500,32 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
     return cards.filter(c => !c.groupId);
   }
 
+  private refreshSeq = 0;
+
+  // Call after applying an authoritative local patch from a WS broadcast (card moved/recolored/
+  // retext/regrouped) that does NOT itself trigger a refresh. It invalidates any getSession()
+  // already in flight: that older snapshot was fetched before this change committed, so letting
+  // it land would revert *this one card* to stale state while everything else stayed current --
+  // the "some cards update, others don't" symptom. Bumping the seq makes the stale response drop.
+  private invalidateInFlightRefresh(): void {
+    this.refreshSeq++;
+  }
+
   silentRefresh(): void {
     const s = this.session();
     if (!s) return;
+    // Nearly every WS event calls silentRefresh(), so a busy board has many getSession() calls
+    // in flight at once. Their responses can arrive out of order (HTTP multiplexing, varying
+    // latency), and each does a wholesale session.set(). An older response landing after a newer
+    // one rewinds the whole board to stale state -- which shows up as "some cards update, others
+    // revert / never appear" as different cards win different races. Stamp each request and let
+    // only the most recently issued one apply; older responses are dropped. The newest snapshot
+    // reflects all server-committed state, and any commit that lands after it broadcasts again
+    // and triggers a fresh refresh, so the board still converges.
+    const seq = ++this.refreshSeq;
     this.svc.getSession(s.id).subscribe({
       next: updated => {
+        if (seq !== this.refreshSeq) return;
         this.session.set(updated);
         // WS owns the timer signal; only re-sync icebreaker answers here
         this.applyExtras(updated, false);
