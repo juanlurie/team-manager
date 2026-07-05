@@ -34,6 +34,7 @@ public class FunRetroService(AppDbContext db, AiPromptExecutorService aiExecutor
             IcebreakerQuestion = string.IsNullOrWhiteSpace(req.IcebreakerQuestion) ? null : req.IcebreakerQuestion.Trim(),
             Theme = ValidTheme(req.Theme),
             CanvasLayout = ValidLayout(req.CanvasLayout),
+            HideCardsOnAdd = req.HideCardsOnAdd,
             Slug = await GenerateUniqueSlugAsync(),
         };
 
@@ -115,13 +116,17 @@ public class FunRetroService(AppDbContext db, AiPromptExecutorService aiExecutor
         var isCreator = session.CreatedByMemberId == memberId;
         var totalCardCount = session.Cards.Count;
 
+        // Cards are hidden only during the add phase, and only when the session was created with
+        // HideCardsOnAdd. Leaving the add phase (e.g. moving to voting) reveals everything, as does
+        // the creator's manual one-shot reveal. Your own cards are always visible to you.
+        var isAddPhase = session.Phase == "add";
+
         var cardDtos = session.Cards
             .OrderBy(c => c.CreatedAt)
             .Select(c =>
             {
                 var isOwn = c.AuthorId == memberId;
-                // "Hide cards during add phase" mode has been removed -- cards are always visible.
-                var hideContent = false;
+                var hideContent = isAddPhase && !isOwn && session.HideCardsOnAdd && !session.ManuallyRevealed;
 
                 var reactionDtos = c.Reactions
                     .GroupBy(r => r.Emoji)
@@ -207,6 +212,8 @@ public class FunRetroService(AppDbContext db, AiPromptExecutorService aiExecutor
             IcebreakerAnswers = icebreakerAnswers,
             IcebreakerQuestion = session.IcebreakerQuestion,
             Columns = columns,
+            HideCardsOnAdd = session.HideCardsOnAdd,
+            ManuallyRevealed = session.ManuallyRevealed,
             ParticipationTracking = session.ParticipationTracking,
             Theme = session.Theme,
             CanvasLayout = session.CanvasLayout,
@@ -240,6 +247,23 @@ public class FunRetroService(AppDbContext db, AiPromptExecutorService aiExecutor
 
         _ = WebSocketMiddleware.BroadcastAsync("fun_retro_settings_updated",
             new { sessionId, participationTracking, theme = validTheme }, guestAllowed: true);
+        return true;
+    }
+
+    /// <summary>Creator-only one-shot override: reveals every card immediately (including
+    /// ones added afterward, for the rest of this "add" phase) without touching the persistent
+    /// HideCardsOnAdd setting or advancing the phase. This is the "lock" the host clicks on the
+    /// canvas control panel to unlock cards early.</summary>
+    public async Task<bool> RevealAllNowAsync(Guid sessionId, Guid memberId)
+    {
+        var session = await db.FunRetroSessions.FindAsync(sessionId);
+        if (session is null || session.CreatedByMemberId != memberId) return false;
+        if (session.ManuallyRevealed) return true; // already revealed, nothing to do
+
+        session.ManuallyRevealed = true;
+        await db.SaveChangesAsync();
+
+        _ = WebSocketMiddleware.BroadcastAsync("fun_retro_revealed", new { sessionId }, guestAllowed: true);
         return true;
     }
 

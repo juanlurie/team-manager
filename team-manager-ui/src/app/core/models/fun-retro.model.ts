@@ -79,6 +79,8 @@ export interface FunRetroSession {
   icebreakerAnswers: { memberId: string; memberName: string; answer: string }[];
   icebreakerQuestion: string | null;
   columns: RetroColumn[];
+  hideCardsOnAdd: boolean;
+  manuallyRevealed: boolean;
   participationTracking: boolean;
   theme: RetroTheme;
   canvasLayout: RetroCanvasLayout;

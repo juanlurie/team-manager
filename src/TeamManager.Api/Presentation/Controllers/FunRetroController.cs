@@ -228,6 +228,17 @@ public class FunRetroController(FunRetroService service, PollService pollService
         return NoContent();
     }
 
+    [HttpPost("{id:guid}/reveal-now")]
+    public async Task<IActionResult> RevealAllNow(Guid id)
+    {
+        var memberId = GetCurrentMemberId();
+        if (!memberId.HasValue) return Unauthorized();
+
+        var success = await service.RevealAllNowAsync(id, memberId.Value);
+        if (!success) return NotFound();
+        return NoContent();
+    }
+
     [HttpPost("{id:guid}/timer")]
     public async Task<IActionResult> SetTimer(Guid id, [FromBody] TimerRequest request)
     {

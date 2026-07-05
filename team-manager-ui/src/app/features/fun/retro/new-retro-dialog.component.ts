@@ -12,6 +12,7 @@ export interface NewRetroDialogResult {
   icebreakerQuestion?: string;
   theme: RetroTheme;
   canvasLayout: RetroCanvasLayout;
+  hideCardsOnAdd: boolean;
 }
 
 @Component({
@@ -57,6 +58,22 @@ export interface NewRetroDialogResult {
       width:22px;height:22px;background-repeat:no-repeat;background-position:center;
       background-size:contain;image-rendering:pixelated;opacity:0.85;
     }
+    .setting-row {
+      display:flex;align-items:center;justify-content:space-between;gap:12px;
+      margin-bottom:4px;padding:8px 0;
+    }
+    .setting-text { font-size:0.82rem;color:rgba(255,255,255,0.85); }
+    .setting-desc { font-size:0.7rem;color:rgba(255,255,255,0.35);margin-top:2px; }
+    .toggle-track {
+      width:38px;height:22px;border-radius:11px;background:rgba(255,255,255,0.12);
+      flex-shrink:0;cursor:pointer;position:relative;transition:background 0.15s;
+    }
+    .toggle-track.on { background:#64b5f6; }
+    .toggle-thumb {
+      position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;
+      background:#fff;transition:transform 0.15s;
+    }
+    .toggle-track.on .toggle-thumb { transform:translateX(16px); }
   `],
   template: `
     <h2 mat-dialog-title style="font-size:1rem;margin:0 0 4px">New Retro</h2>
@@ -105,6 +122,16 @@ export interface NewRetroDialogResult {
           </button>
         }
       </div>
+
+      <div class="setting-row" style="margin-top:8px">
+        <div>
+          <div class="setting-text">Hide cards until reveal</div>
+          <div class="setting-desc">Participants only see their own cards during the add phase. Cards reveal when you move to voting or unlock them from the board.</div>
+        </div>
+        <div class="toggle-track" [class.on]="hideCardsOnAdd" (click)="hideCardsOnAdd = !hideCardsOnAdd">
+          <div class="toggle-thumb"></div>
+        </div>
+      </div>
     </mat-dialog-content>
     <mat-dialog-actions align="end" style="margin-top:8px">
       <button mat-button mat-dialog-close>Cancel</button>
@@ -122,6 +149,7 @@ export class NewRetroDialogComponent {
   icebreakerMode = 'random';
   customIcebreaker = '';
   selectedTheme: RetroTheme = null;
+  hideCardsOnAdd = true;
 
   templateAccent(t: RetroTemplate): string {
     return t.columns[0]?.color ?? '#64b5f6';
@@ -140,6 +168,7 @@ export class NewRetroDialogComponent {
       icebreakerQuestion,
       theme: this.selectedTheme,
       canvasLayout: 'single',
+      hideCardsOnAdd: this.hideCardsOnAdd,
     });
   }
 }

@@ -34,6 +34,9 @@ export type RetroCanvasTool = 'select' | 'add-card';
     }
     .tool-btn:hover { background:rgba(255,255,255,0.1);color:#fff; }
     .tool-btn.active { background:rgba(100,181,246,0.18);color:#64b5f6; }
+    /* The lock reads as "locked, click to unlock" -- amber so the host notices cards are still hidden. */
+    .tool-btn.reveal-btn { color:#ffb74d; }
+    .tool-btn.reveal-btn:hover { background:rgba(255,183,77,0.16);color:#ffb74d; }
     .tool-btn mat-icon { font-size:18px;width:18px;height:18px;line-height:18px; }
     .tool-divider { height:1px;background:rgba(255,255,255,0.1);margin:2px 4px; }
   `],
@@ -54,6 +57,12 @@ export type RetroCanvasTool = 'select' | 'add-card';
       <button class="tool-btn" title="Tidy up all columns" (click)="tidyRequested.emit()">
         <mat-icon>grid_view</mat-icon>
       </button>
+      @if (isHost() && showRevealAction()) {
+        <button class="tool-btn reveal-btn" title="Cards are hidden — click to reveal them to everyone now"
+                (click)="revealRequested.emit()">
+          <mat-icon>lock</mat-icon>
+        </button>
+      }
       @if (isHost()) {
         <button class="tool-btn" [class.active]="timerActive()" title="Timer" (click)="timerRequested.emit($event)">
           <mat-icon>timer</mat-icon>
@@ -65,9 +74,11 @@ export type RetroCanvasTool = 'select' | 'add-card';
 export class RetroCanvasSidebarComponent {
   activeTool = input<RetroCanvasTool>('select');
   isHost = input<boolean>(false);
+  showRevealAction = input<boolean>(false);
   timerActive = input<boolean>(false);
   toolSelected = output<RetroCanvasTool>();
   stickerRequested = output<MouseEvent>();
   tidyRequested = output<void>();
+  revealRequested = output<void>();
   timerRequested = output<MouseEvent>();
 }

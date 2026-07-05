@@ -1250,6 +1250,7 @@ interface TimerState {
             [editingCardId]="editingCardId()"
             [editingText]="editingText()"
             [resolveCardColor]="resolveCardColorFn"
+            [showRevealAction]="showRevealAction()"
             [timerLabel]="timer() ? timerDisplay() : null"
             [timerDanger]="timerRemaining() <= 30 && !timerExpired() && timerRunning()"
             [timerPlaceTrigger]="timerJustStartedTick()"
@@ -1272,6 +1273,7 @@ interface TimerState {
             (timerPositionCommitted)="onSingleCanvasTimerPositionCommitted($event)"
             (tokenDeleteRequested)="deleteToken($event)"
             (tokenResizeRequested)="onSingleCanvasTokenResize($event)"
+            (revealRequested)="revealAllNow()"
             (timerToggleRequested)="toggleTimerPopover($event)"
             (timerRemoveRequested)="clearTimer()"
             (stickerPlaceRequested)="onSingleCanvasStickerPlaced($event)"
@@ -2036,6 +2038,11 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
 
   private destroy$ = new Subject<void>();
   private wsSub?: Subscription;
+  private connectedSub?: Subscription;
+  // The retro this connection is currently joined to, re-sent to the server on every WS
+  // reconnect so presence/broadcasts survive a dropped socket. See joinRetroPresence().
+  private currentRetroSessionId: string | null = null;
+  private currentRetroMemberName: string | null = null;
 
   ngOnInit(): void {
     const id = this.route.snapshot.params['id'];
@@ -2188,6 +2195,7 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.currentRetroSessionId = null;
     this.destroy$.next();
     this.destroy$.complete();
     if (this.timerInterval) clearInterval(this.timerInterval);
@@ -2242,12 +2250,23 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
 
   private joinRetroPresence(sessionId: string): void {
     const me = this.authSvc.me;
-    const memberName = me ? `${me.firstName} ${me.lastName}`.trim() : null;
+    this.currentRetroSessionId = sessionId;
+    this.currentRetroMemberName = me ? `${me.firstName} ${me.lastName}`.trim() : null;
+
     // send() silently drops the message if the socket isn't OPEN yet -- a real risk right
-    // after ngOnInit's own connect() call, since the HTTP session fetch above often resolves
-    // before the WS handshake finishes. Wait for an actual open connection instead of racing it.
-    this.wsSvc.connected$.pipe(filter(c => c), take(1), takeUntil(this.destroy$)).subscribe(() => {
-      this.wsSvc.send({ type: 'join_retro', sessionId, memberName });
+    // after ngOnInit's own connect() call, since the HTTP session fetch often resolves before
+    // the WS handshake finishes. We must also re-send join_retro after every *reconnect*: the
+    // socket only carries our RetroSessionId server-side for its own lifetime, so a dropped-and-
+    // reconnected socket (sleep/wake, flaky wifi) is a brand-new connection the server no longer
+    // associates with this retro -- presence and card updates silently stop until we re-join.
+    // Hence filter(c => c) with no take(1): fire on the first open *and* every subsequent one.
+    this.connectedSub?.unsubscribe();
+    this.connectedSub = this.wsSvc.connected$.pipe(filter(c => c), takeUntil(this.destroy$)).subscribe(() => {
+      if (!this.currentRetroSessionId) return;
+      this.wsSvc.send({ type: 'join_retro', sessionId: this.currentRetroSessionId, memberName: this.currentRetroMemberName });
+      // A reconnect means we may have missed broadcasts while the socket was down -- pull a fresh
+      // snapshot so the board doesn't sit stale on whatever state it had when the socket dropped.
+      this.silentRefresh();
     });
   }
 
@@ -2361,6 +2380,27 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
     const s = this.session();
     if (!s) return;
     this.patchSettings({ [key]: !s[key] });
+  }
+
+  // Drives the canvas control-panel "lock" icon -- only worth showing while cards are actually
+  // hidden and revealable (add phase, hide-on-add on, not yet manually revealed). Moving to the
+  // voting phase reveals cards on its own, so this control only exists to unlock them early.
+  showRevealAction = computed(() => {
+    const s = this.session();
+    return !!s && s.isCreator && s.phase === 'add' && s.hideCardsOnAdd && !s.manuallyRevealed;
+  });
+
+  revealAllNow(): void {
+    const s = this.session();
+    if (!s || s.manuallyRevealed) return;
+    this.session.update(cur => cur ? { ...cur, manuallyRevealed: true } : cur);
+    this.svc.revealAllNow(s.id).subscribe({
+      next: () => this.silentRefresh(),
+      error: () => {
+        this.session.update(cur => cur ? { ...cur, manuallyRevealed: false } : cur);
+        this.snackBar.open('Failed to reveal cards', 'OK', { duration: 3000 });
+      },
+    });
   }
 
   readonly retroThemes = RETRO_THEMES;
@@ -2609,8 +2649,9 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
   private createSession(result: NewRetroDialogResult): void {
     this.creating.set(true);
     const template = RETRO_TEMPLATES.find(t => t.id === result.templateId);
-    const req: { title?: string; columns?: RetroColumn[]; icebreakerQuestion?: string; theme?: RetroTheme; canvasLayout?: RetroCanvasLayout } = {
+    const req: { title?: string; columns?: RetroColumn[]; icebreakerQuestion?: string; theme?: RetroTheme; canvasLayout?: RetroCanvasLayout; hideCardsOnAdd?: boolean } = {
       columns: template?.columns ?? DEFAULT_COLS,
+      hideCardsOnAdd: result.hideCardsOnAdd,
     };
     if (result.title) req.title = result.title;
     if (result.icebreakerQuestion) req.icebreakerQuestion = result.icebreakerQuestion;
