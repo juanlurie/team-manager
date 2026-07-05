@@ -21,6 +21,27 @@ public class WebSocketMiddleware
     private static readonly TimeSpan SendTimeout = TimeSpan.FromSeconds(5);
     private static ILogger? _logger;
 
+    // Every outgoing broadcast carries a strictly-increasing sequence number. A single WebSocket
+    // already delivers messages in order, so this isn't about reordering the socket -- it lets a
+    // client dedupe/discard anything it has already applied (e.g. an event that also landed in a
+    // post-reconnect snapshot refetch) and reject a stale straggler, without a DB schema change.
+    // It's an in-memory counter because delivery itself is in-memory per instance (see _connections):
+    // a broadcast only ever reaches sockets on the same process, so that process's counter is the
+    // single ordering authority for every client it serves. (A multi-replica deployment would need
+    // a shared backplane -- e.g. Redis pub/sub -- for cross-instance delivery *and* ordering; that
+    // is a separate, larger change and is called out in the PR.)
+    private static long _seq;
+
+    private static readonly JsonSerializerOptions WsJson = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
+
+    // Single place every send goes through: stamps the envelope with the next seq and serializes
+    // camelCase so DTO payloads (e.g. a card object) match the frontend's field names.
+    private static byte[] Envelope(string type, object data)
+    {
+        var seq = Interlocked.Increment(ref _seq);
+        return Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new { type, seq, data }, WsJson));
+    }
+
     // All three broadcast methods below serialize through the single _broadcastLock, so a send
     // that never completes -- e.g. a phone whose screen locked or a laptop that slept, where the
     // OS never told us the socket closed and WebSocketState still reads Open -- would hold that
@@ -207,8 +228,7 @@ public class WebSocketMiddleware
     // racing a broadcast to the same peer could interleave frames and corrupt the stream.
     private static async Task SendToSocketAsync(WebSocket socket, string type, object data)
     {
-        var message = JsonSerializer.Serialize(new { type, data });
-        var bytes = Encoding.UTF8.GetBytes(message);
+        var bytes = Envelope(type, data);
         await _broadcastLock.WaitAsync();
         try
         {
@@ -220,12 +240,13 @@ public class WebSocketMiddleware
 
     public static async Task BroadcastToRetroSessionAsync(string type, string sessionId, object data)
     {
-        var message = JsonSerializer.Serialize(new { type, data });
-        var bytes = Encoding.UTF8.GetBytes(message);
-
         await _broadcastLock.WaitAsync();
         try
         {
+            // Assign the seq inside the lock so seq order == on-the-wire send order. Assigning it
+            // before the lock would let a broadcast with a higher seq win the lock and be sent
+            // first, making a client drop the lower-seq one that arrives second as "stale".
+            var bytes = Envelope(type, data);
             var dead = new List<Guid>();
             foreach (var (id, entry) in _connections)
             {
@@ -240,12 +261,13 @@ public class WebSocketMiddleware
 
     public static async Task BroadcastToSessionAsync(string type, string sessionKey, object data)
     {
-        var message = JsonSerializer.Serialize(new { type, data });
-        var bytes = Encoding.UTF8.GetBytes(message);
-
         await _broadcastLock.WaitAsync();
         try
         {
+            // Assign the seq inside the lock so seq order == on-the-wire send order. Assigning it
+            // before the lock would let a broadcast with a higher seq win the lock and be sent
+            // first, making a client drop the lower-seq one that arrives second as "stale".
+            var bytes = Envelope(type, data);
             var dead = new List<Guid>();
             foreach (var (id, entry) in _connections)
             {
@@ -260,12 +282,13 @@ public class WebSocketMiddleware
 
     public static async Task BroadcastAsync(string type, object data, bool guestAllowed = false)
     {
-        var message = JsonSerializer.Serialize(new { type, data });
-        var bytes = Encoding.UTF8.GetBytes(message);
-
         await _broadcastLock.WaitAsync();
         try
         {
+            // Assign the seq inside the lock so seq order == on-the-wire send order. Assigning it
+            // before the lock would let a broadcast with a higher seq win the lock and be sent
+            // first, making a client drop the lower-seq one that arrives second as "stale".
+            var bytes = Envelope(type, data);
             var dead = new List<Guid>();
             var sent = 0;
             var skipped = 0;

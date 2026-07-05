@@ -245,8 +245,8 @@ public class FunRetroService(AppDbContext db, AiPromptExecutorService aiExecutor
         session.Theme = validTheme;
         await db.SaveChangesAsync();
 
-        _ = WebSocketMiddleware.BroadcastAsync("fun_retro_settings_updated",
-            new { sessionId, participationTracking, theme = validTheme }, guestAllowed: true);
+        _ = WebSocketMiddleware.BroadcastToRetroSessionAsync("fun_retro_settings_updated", sessionId.ToString(),
+            new { sessionId, participationTracking, theme = validTheme });
         return true;
     }
 
@@ -263,7 +263,7 @@ public class FunRetroService(AppDbContext db, AiPromptExecutorService aiExecutor
         session.ManuallyRevealed = true;
         await db.SaveChangesAsync();
 
-        _ = WebSocketMiddleware.BroadcastAsync("fun_retro_revealed", new { sessionId }, guestAllowed: true);
+        _ = WebSocketMiddleware.BroadcastToRetroSessionAsync("fun_retro_revealed", sessionId.ToString(), new { sessionId });
         return true;
     }
 
@@ -306,7 +306,7 @@ public class FunRetroService(AppDbContext db, AiPromptExecutorService aiExecutor
         session.TimerJson = timerJson;
         await db.SaveChangesAsync();
 
-        _ = WebSocketMiddleware.BroadcastAsync("fun_retro_timer_updated", new { sessionId, timerJson }, guestAllowed: true);
+        _ = WebSocketMiddleware.BroadcastToRetroSessionAsync("fun_retro_timer_updated", sessionId.ToString(), new { sessionId, timerJson });
         return true;
     }
 
@@ -327,7 +327,7 @@ public class FunRetroService(AppDbContext db, AiPromptExecutorService aiExecutor
         session.TimerJson = timerJson;
         await db.SaveChangesAsync();
 
-        _ = WebSocketMiddleware.BroadcastAsync("fun_retro_timer_updated", new { sessionId, timerJson }, guestAllowed: true);
+        _ = WebSocketMiddleware.BroadcastToRetroSessionAsync("fun_retro_timer_updated", sessionId.ToString(), new { sessionId, timerJson });
         return true;
     }
 
@@ -384,8 +384,8 @@ public class FunRetroService(AppDbContext db, AiPromptExecutorService aiExecutor
         session.IcebreakerAnswersJson = JsonSerializer.Serialize(answers);
         await db.SaveChangesAsync();
 
-        _ = WebSocketMiddleware.BroadcastAsync("fun_retro_icebreaker_answered",
-            new { sessionId, memberId, memberName, answer }, guestAllowed: true);
+        _ = WebSocketMiddleware.BroadcastToRetroSessionAsync("fun_retro_icebreaker_answered", sessionId.ToString(),
+            new { sessionId, memberId, memberName, answer });
 
         return (true, answers);
     }
@@ -433,7 +433,38 @@ public class FunRetroService(AppDbContext db, AiPromptExecutorService aiExecutor
         await db.SaveChangesAsync();
 
         var count = await db.FunRetroCards.CountAsync(c => c.SessionId == sessionId);
-        _ = WebSocketMiddleware.BroadcastAsync("fun_retro_card_added", new { sessionId, count }, guestAllowed: true);
+
+        // Broadcast the actual card so other participants append it directly instead of every one
+        // of them refetching the whole session (the old {count}-only payload forced an N-client
+        // GET storm on every single card -- a prime source of the refetch races). Redact text the
+        // same way GetSession would for a viewer who isn't the author: during a hidden add phase a
+        // card comes across as a locked placeholder. AuthorName is always sent (participation is
+        // visible even while text is hidden). IsOwn is left false here and recomputed per-viewer on
+        // the client from authorId; the author's own client already has the card from its POST
+        // response, so it dedupes this by id.
+        var hidden = session.HideCardsOnAdd && session.Phase == "add" && !session.ManuallyRevealed;
+        var cardDto = new FunRetroCardDto
+        {
+            Id = card.Id,
+            SessionId = sessionId,
+            Column = card.Column,
+            Text = hidden ? null : card.Text,
+            AuthorName = card.AuthorName,
+            AuthorId = card.AuthorId,
+            AuthorAvatarSeed = member.AvatarSeed,
+            IsOwn = false,
+            CreatedAt = card.CreatedAt,
+            VoteCount = 0,
+            MyVoteCount = 0,
+            Reactions = [],
+            PositionX = card.PositionX,
+            PositionY = card.PositionY,
+            Color = card.Color,
+            GroupId = card.GroupId,
+            CommentCount = 0,
+        };
+        _ = WebSocketMiddleware.BroadcastToRetroSessionAsync("fun_retro_card_added", sessionId.ToString(),
+            new { sessionId, count, card = cardDto });
 
         return await GetSessionAsync(sessionId, memberId);
     }
@@ -467,11 +498,11 @@ public class FunRetroService(AppDbContext db, AiPromptExecutorService aiExecutor
         session.Phase = phase;
         await db.SaveChangesAsync();
 
-        _ = WebSocketMiddleware.BroadcastAsync("fun_retro_phase_changed", new { sessionId, phase }, guestAllowed: true);
+        _ = WebSocketMiddleware.BroadcastToRetroSessionAsync("fun_retro_phase_changed", sessionId.ToString(), new { sessionId, phase });
 
         if (wasAddPhase && phase != "add")
         {
-            _ = WebSocketMiddleware.BroadcastAsync("fun_retro_revealed", new { sessionId }, guestAllowed: true);
+            _ = WebSocketMiddleware.BroadcastToRetroSessionAsync("fun_retro_revealed", sessionId.ToString(), new { sessionId });
         }
 
         return await GetSessionAsync(sessionId, memberId);
@@ -505,7 +536,7 @@ public class FunRetroService(AppDbContext db, AiPromptExecutorService aiExecutor
         await db.SaveChangesAsync();
 
         var voteCount = await db.FunRetroVotes.CountAsync(v => v.CardId == cardId);
-        _ = WebSocketMiddleware.BroadcastAsync("fun_retro_voted", new { sessionId, cardId, voteCount }, guestAllowed: true);
+        _ = WebSocketMiddleware.BroadcastToRetroSessionAsync("fun_retro_voted", sessionId.ToString(), new { sessionId, cardId, voteCount });
 
         return (true, null);
     }
@@ -535,7 +566,17 @@ public class FunRetroService(AppDbContext db, AiPromptExecutorService aiExecutor
 
         await db.SaveChangesAsync();
 
-        _ = WebSocketMiddleware.BroadcastAsync("fun_retro_reacted", new { sessionId, cardId }, guestAllowed: true);
+        // Send the card's per-emoji totals so clients update counts in place instead of refetching
+        // the whole session. `mine` is per-viewer and deliberately omitted -- each client keeps its
+        // own mine flags (the reactor already toggled its own optimistically); everyone just applies
+        // the authoritative counts.
+        var reactionCounts = await db.FunRetroReactions
+            .Where(r => r.CardId == cardId)
+            .GroupBy(r => r.Emoji)
+            .Select(g => new { emoji = g.Key, count = g.Count() })
+            .ToListAsync();
+        _ = WebSocketMiddleware.BroadcastToRetroSessionAsync("fun_retro_reacted", sessionId.ToString(),
+            new { sessionId, cardId, reactions = reactionCounts });
 
         return true;
     }
@@ -592,8 +633,8 @@ public class FunRetroService(AppDbContext db, AiPromptExecutorService aiExecutor
             CreatedAt = comment.CreatedAt,
         };
 
-        _ = WebSocketMiddleware.BroadcastAsync("fun_retro_comment_added",
-            new { sessionId, cardId, commentCount = count, comment = dto }, guestAllowed: true);
+        _ = WebSocketMiddleware.BroadcastToRetroSessionAsync("fun_retro_comment_added", sessionId.ToString(),
+            new { sessionId, cardId, commentCount = count, comment = dto });
 
         return dto;
     }
@@ -613,8 +654,8 @@ public class FunRetroService(AppDbContext db, AiPromptExecutorService aiExecutor
         await db.SaveChangesAsync();
 
         var count = await db.FunRetroCardComments.CountAsync(c => c.CardId == cardId);
-        _ = WebSocketMiddleware.BroadcastAsync("fun_retro_comment_deleted",
-            new { sessionId, cardId, commentId, commentCount = count }, guestAllowed: true);
+        _ = WebSocketMiddleware.BroadcastToRetroSessionAsync("fun_retro_comment_deleted", sessionId.ToString(),
+            new { sessionId, cardId, commentId, commentCount = count });
         return true;
     }
 
@@ -633,7 +674,7 @@ public class FunRetroService(AppDbContext db, AiPromptExecutorService aiExecutor
         card.Text = text.Trim();
         await db.SaveChangesAsync();
 
-        _ = WebSocketMiddleware.BroadcastAsync("fun_retro_card_text_updated", new { sessionId, cardId, text = card.Text }, guestAllowed: true);
+        _ = WebSocketMiddleware.BroadcastToRetroSessionAsync("fun_retro_card_text_updated", sessionId.ToString(), new { sessionId, cardId, text = card.Text });
         return true;
     }
 
@@ -646,7 +687,7 @@ public class FunRetroService(AppDbContext db, AiPromptExecutorService aiExecutor
         card.Color = color;
         await db.SaveChangesAsync();
 
-        _ = WebSocketMiddleware.BroadcastAsync("fun_retro_card_color_changed", new { sessionId, cardId, color }, guestAllowed: true);
+        _ = WebSocketMiddleware.BroadcastToRetroSessionAsync("fun_retro_card_color_changed", sessionId.ToString(), new { sessionId, cardId, color });
         return true;
     }
 
@@ -660,7 +701,7 @@ public class FunRetroService(AppDbContext db, AiPromptExecutorService aiExecutor
         card.PositionY = y;
         await db.SaveChangesAsync();
 
-        _ = WebSocketMiddleware.BroadcastAsync("fun_retro_card_moved", new { sessionId, cardId, x, y }, guestAllowed: true);
+        _ = WebSocketMiddleware.BroadcastToRetroSessionAsync("fun_retro_card_moved", sessionId.ToString(), new { sessionId, cardId, x, y });
         return true;
     }
 
@@ -696,7 +737,7 @@ public class FunRetroService(AppDbContext db, AiPromptExecutorService aiExecutor
             CreatedAt = token.CreatedAt,
         };
 
-        _ = WebSocketMiddleware.BroadcastAsync("fun_retro_token_added", new { sessionId, token = dto }, guestAllowed: true);
+        _ = WebSocketMiddleware.BroadcastToRetroSessionAsync("fun_retro_token_added", sessionId.ToString(), new { sessionId, token = dto });
         return dto;
     }
 
@@ -710,7 +751,7 @@ public class FunRetroService(AppDbContext db, AiPromptExecutorService aiExecutor
         token.PositionY = y;
         await db.SaveChangesAsync();
 
-        _ = WebSocketMiddleware.BroadcastAsync("fun_retro_token_moved", new { sessionId, tokenId, x, y }, guestAllowed: true);
+        _ = WebSocketMiddleware.BroadcastToRetroSessionAsync("fun_retro_token_moved", sessionId.ToString(), new { sessionId, tokenId, x, y });
         return true;
     }
 
@@ -723,7 +764,7 @@ public class FunRetroService(AppDbContext db, AiPromptExecutorService aiExecutor
         token.Size = size;
         await db.SaveChangesAsync();
 
-        _ = WebSocketMiddleware.BroadcastAsync("fun_retro_token_resized", new { sessionId, tokenId, size }, guestAllowed: true);
+        _ = WebSocketMiddleware.BroadcastToRetroSessionAsync("fun_retro_token_resized", sessionId.ToString(), new { sessionId, tokenId, size });
         return true;
     }
 
@@ -741,7 +782,7 @@ public class FunRetroService(AppDbContext db, AiPromptExecutorService aiExecutor
         db.FunRetroTokens.Remove(token);
         await db.SaveChangesAsync();
 
-        _ = WebSocketMiddleware.BroadcastAsync("fun_retro_token_deleted", new { sessionId, tokenId }, guestAllowed: true);
+        _ = WebSocketMiddleware.BroadcastToRetroSessionAsync("fun_retro_token_deleted", sessionId.ToString(), new { sessionId, tokenId });
         return true;
     }
 
@@ -754,7 +795,7 @@ public class FunRetroService(AppDbContext db, AiPromptExecutorService aiExecutor
         card.GroupId = groupId;
         await db.SaveChangesAsync();
 
-        _ = WebSocketMiddleware.BroadcastAsync("fun_retro_card_grouped", new { sessionId, cardId, groupId }, guestAllowed: true);
+        _ = WebSocketMiddleware.BroadcastToRetroSessionAsync("fun_retro_card_grouped", sessionId.ToString(), new { sessionId, cardId, groupId });
         return true;
     }
 
@@ -799,7 +840,7 @@ public class FunRetroService(AppDbContext db, AiPromptExecutorService aiExecutor
         session.AiAnalysisJson = JsonSerializer.Serialize(analysis);
         await db.SaveChangesAsync();
 
-        _ = WebSocketMiddleware.BroadcastAsync("fun_retro_analysed", new { sessionId }, guestAllowed: true);
+        _ = WebSocketMiddleware.BroadcastToRetroSessionAsync("fun_retro_analysed", sessionId.ToString(), new { sessionId });
 
         return (true, null, analysis);
     }

@@ -2043,6 +2043,9 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
   // reconnect so presence/broadcasts survive a dropped socket. See joinRetroPresence().
   private currentRetroSessionId: string | null = null;
   private currentRetroMemberName: string | null = null;
+  // Highest broadcast seq we've applied. Anything <= this we've already seen (a duplicate, or a
+  // straggler behind a snapshot we already pulled) and drop. Reset when we (re)load a board.
+  private lastWsSeq = -1;
 
   ngOnInit(): void {
     const id = this.route.snapshot.params['id'];
@@ -2065,11 +2068,59 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
       // from messages$ -- every future real-time update silently lost until a full page reload.
       // One malformed broadcast must never take the whole stream down; contain it per-message.
       try {
+      // Drop anything we've already applied. A single socket delivers in order, so this mainly
+      // sheds duplicates and post-reconnect stragglers rather than reordering.
+      if (typeof msg.seq === 'number') {
+        if (msg.seq <= this.lastWsSeq) return;
+        this.lastWsSeq = msg.seq;
+      }
       switch (msg.type) {
         case 'fun_retro_card_added':
+          // Append the broadcast card instead of everyone refetching the whole session. The author
+          // already has it (from its POST response), so dedupe by id. isOwn is per-viewer, computed
+          // here rather than trusting the shared payload.
+          if (msg.data['sessionId'] === s.id && msg.data['card']) {
+            const incoming = msg.data['card'] as FunRetroCard;
+            this.session.update(cur => {
+              if (!cur || cur.cards.some(c => c.id === incoming.id)) return cur;
+              const myId = this.authSvc.me?.id;
+              const card: FunRetroCard = { ...incoming, isOwn: incoming.authorId === myId, myVoteCount: 0 };
+              return { ...cur, cards: [...cur.cards, card], totalCardCount: cur.totalCardCount + 1 };
+            });
+            this.invalidateInFlightRefresh();
+          }
+          break;
         case 'fun_retro_voted':
+          // Apply the authoritative total from the payload; the voter's own myVoteCount was already
+          // updated optimistically in toggleVote(). No refetch.
+          if (msg.data['sessionId'] === s.id) {
+            const cardId = msg.data['cardId'] as string;
+            const voteCount = msg.data['voteCount'] as number;
+            this.session.update(cur => cur
+              ? { ...cur, cards: cur.cards.map(c => c.id === cardId ? { ...c, voteCount } : c) }
+              : cur);
+            this.invalidateInFlightRefresh();
+          }
+          break;
         case 'fun_retro_reacted':
-          if (msg.data['sessionId'] === s.id) this.silentRefresh();
+          // Apply per-emoji totals, preserving this viewer's own `mine` flags (which the payload
+          // deliberately doesn't carry). No refetch.
+          if (msg.data['sessionId'] === s.id) {
+            const cardId = msg.data['cardId'] as string;
+            const counts = (msg.data['reactions'] as { emoji: string; count: number }[]) ?? [];
+            this.session.update(cur => cur
+              ? { ...cur, cards: cur.cards.map(c => {
+                  if (c.id !== cardId) return c;
+                  const reactions = counts.map(rc => ({
+                    emoji: rc.emoji,
+                    count: rc.count,
+                    mine: c.reactions?.find(r => r.emoji === rc.emoji)?.mine ?? false,
+                  }));
+                  return { ...c, reactions };
+                }) }
+              : cur);
+            this.invalidateInFlightRefresh();
+          }
           break;
         case 'fun_retro_comment_added':
           if (msg.data['sessionId'] === s.id) {
@@ -2245,6 +2296,7 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
     this.loading.set(true);
     this.svc.getSession(id).subscribe({
       next: s => {
+        this.lastWsSeq = -1; // fresh board -- start accepting broadcasts from scratch
         this.session.set(s);
         this.applyExtras(s, true);
         this.loading.set(false);
@@ -2804,18 +2856,43 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
   toggleVote(card: FunRetroCard): void {
     const s = this.session();
     if (!s) return;
+    // Server toggles a single vote per member per card. Mirror it optimistically: myVoteCount is
+    // per-viewer (never arrives on the fun_retro_voted broadcast), so the voter must patch it here;
+    // the authoritative voteCount comes back via the broadcast. Guard the budget like the server.
+    const wasVoted = card.myVoteCount > 0;
+    if (!wasVoted && this.voteBudget() <= 0) return;
+    const delta = wasVoted ? -1 : 1;
+    this.session.update(cur => cur
+      ? { ...cur, cards: cur.cards.map(c => c.id === card.id
+          ? { ...c, myVoteCount: wasVoted ? 0 : 1, voteCount: Math.max(0, c.voteCount + delta) }
+          : c) }
+      : cur);
+    this.invalidateInFlightRefresh();
     this.svc.toggleVote(s.id, card.id).subscribe({
-      next: () => this.silentRefresh(),
-      error: () => this.snackBar.open('Failed to vote', 'OK', { duration: 3000 })
+      // On failure the optimistic patch is wrong -- a full refetch is the simplest correct rollback.
+      error: () => { this.silentRefresh(); this.snackBar.open('Failed to vote', 'OK', { duration: 3000 }); }
     });
   }
 
   toggleReaction(card: FunRetroCard, emoji: string): void {
     const s = this.session();
     if (!s) return;
+    // Optimistically flip this viewer's own reaction; authoritative counts arrive via broadcast.
+    const existing = card.reactions?.find(r => r.emoji === emoji);
+    this.session.update(cur => cur
+      ? { ...cur, cards: cur.cards.map(c => {
+          if (c.id !== card.id) return c;
+          const others = (c.reactions ?? []).filter(r => r.emoji !== emoji);
+          if (existing?.mine) {
+            const count = existing.count - 1;
+            return { ...c, reactions: count > 0 ? [...others, { emoji, count, mine: false }] : others };
+          }
+          return { ...c, reactions: [...others, { emoji, count: (existing?.count ?? 0) + 1, mine: true }] };
+        }) }
+      : cur);
+    this.invalidateInFlightRefresh();
     this.svc.toggleReaction(s.id, card.id, emoji).subscribe({
-      next: () => this.silentRefresh(),
-      error: () => this.snackBar.open('Failed to react', 'OK', { duration: 3000 })
+      error: () => { this.silentRefresh(); this.snackBar.open('Failed to react', 'OK', { duration: 3000 }); }
     });
   }
 
