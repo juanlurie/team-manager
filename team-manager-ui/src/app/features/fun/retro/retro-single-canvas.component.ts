@@ -910,9 +910,13 @@ export class RetroSingleCanvasComponent implements AfterViewInit {
     const minPanX = margin - scaledW;
     const maxPanY = Math.min(0, outerH - margin);
     const minPanY = margin - scaledH;
+    // Once the whole board (a zone axis) has zoomed down small enough to fit inside the
+    // viewport, centre it on that axis instead of leaving it pinned to whichever edge the
+    // cursor-anchored zoom-out dragged it to -- keeps the content that matters framed rather
+    // than shoved into a corner with dead grid on the other side.
     return {
-      panX: Math.min(maxPanX, Math.max(minPanX, panX)),
-      panY: Math.min(maxPanY, Math.max(minPanY, panY)),
+      panX: scaledW <= outerW ? (outerW - scaledW) / 2 : Math.min(maxPanX, Math.max(minPanX, panX)),
+      panY: scaledH <= outerH ? (outerH - scaledH) / 2 : Math.min(maxPanY, Math.max(minPanY, panY)),
     };
   }
 
