@@ -958,7 +958,15 @@ export class RetroSingleCanvasComponent implements AfterViewInit {
   onCanvasWheel(e: WheelEvent): void {
     e.preventDefault();
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-    this.zoomAt(e.deltaY < 0 ? 1.1 : 0.9, e.clientX - rect.left, e.clientY - rect.top);
+    // Normalise delta across input devices: mouse wheels report in lines (deltaMode 1) with
+    // big per-notch values, trackpads in pixels (deltaMode 0) with small ones, some in pages
+    // (deltaMode 2). Convert to a rough pixel amount, then map to an exponential zoom factor
+    // so the step scales with how hard you scroll -- smooth on a trackpad, still snappy on a
+    // wheel -- instead of a fixed 1.1x jump that feels jerky and drops context.
+    const unit = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? rect.height : 1;
+    const px = Math.max(-120, Math.min(120, e.deltaY * unit));
+    const factor = Math.exp(-px * 0.0025);
+    this.zoomAt(factor, e.clientX - rect.left, e.clientY - rect.top);
   }
 
   zoomBy(factor: number): void {
