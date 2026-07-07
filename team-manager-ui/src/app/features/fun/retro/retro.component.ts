@@ -12,7 +12,8 @@ import { Subject, Subscription } from 'rxjs';
 import { takeUntil, filter, take } from 'rxjs/operators';
 import { Router, ActivatedRoute } from '@angular/router';
 import { FunRetroService } from '../../../core/services/fun-retro.service';
-import { FunRetroAnalysis, FunRetroSession, FunRetroSessionSummary, FunRetroCard, RetroColumn, RetroTheme, RetroCanvasLayout, FunRetroCardComment, FunRetroToken, FunRetroTokenSize } from '../../../core/models/fun-retro.model';
+import { RetroThemeLibraryService } from '../../../core/services/retro-theme-library.service';
+import { FunRetroAnalysis, FunRetroSession, FunRetroSessionSummary, FunRetroCard, RetroColumn, RetroTheme, RetroCanvasLayout, FunRetroCardComment, FunRetroToken, FunRetroTokenSize, RetroCustomTheme } from '../../../core/models/fun-retro.model';
 import { WebSocketService } from '../../../core/websocket/websocket.service';
 import { AvatarCircleComponent } from '../../../core/components/k-picker/avatar-circle.component';
 import { AuthService } from '../../../core/auth/auth.service';
@@ -188,6 +189,35 @@ interface TimerState {
       width:22px;height:22px;background-repeat:no-repeat;background-position:center;
       background-size:contain;image-rendering:pixelated;opacity:0.85;
     }
+    .theme-manage-panel {
+      background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);
+      border-radius:10px;padding:12px;
+    }
+    .theme-manage-desc { font-size:0.7rem;color:rgba(255,255,255,0.35); }
+    .theme-manage-row {
+      display:flex;align-items:center;gap:8px;padding:8px 0;
+      border-bottom:1px solid rgba(255,255,255,0.06);
+    }
+    .theme-manage-name { flex:1;font-size:0.82rem;font-weight:600; }
+    .theme-name-input {
+      flex:1;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.15);
+      border-radius:6px;color:#fff;padding:5px 8px;font-size:0.82rem;
+    }
+    .theme-variant-slots { display:flex;gap:6px; }
+    .theme-variant-slot { position:relative;width:34px;height:34px;flex-shrink:0; }
+    .theme-variant-preview, .theme-variant-upload {
+      width:34px;height:34px;border-radius:6px;cursor:pointer;
+      background-color:rgba(255,255,255,0.05);border:1.5px dashed rgba(255,255,255,0.15);
+      background-repeat:no-repeat;background-position:center;background-size:contain;
+      display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,0.4);
+    }
+    .theme-variant-preview { border-style:solid; }
+    .theme-variant-remove {
+      position:absolute;top:-6px;right:-6px;width:16px;height:16px;border-radius:50%;
+      background:#ef5350;color:#fff;border:none;cursor:pointer;
+      display:flex;align-items:center;justify-content:center;padding:0;
+    }
+    .theme-manage-new { display:flex;gap:8px;align-items:center;margin-top:4px; }
     .toggle-track {
       width:36px;height:20px;border-radius:10px;background:rgba(255,255,255,0.12);
       position:relative;cursor:pointer;transition:background .2s;flex-shrink:0;
@@ -907,23 +937,70 @@ interface TimerState {
                     <span class="theme-swatch-preview" [style.background-image]="themeSwatchUrl(t)"></span>
                   </button>
                 }
-                <button class="theme-swatch" [class.active]="s.theme === 'custom'" title="Upload your own image"
-                        (click)="customThemeImageInput.click()">
-                  @if (s.theme === 'custom' && customThemeImageUrl()) {
-                    <span class="theme-swatch-preview" [style.background-image]="'url(' + customThemeImageUrl() + ')'"></span>
-                  } @else {
-                    <mat-icon style="font-size:16px;height:16px;width:16px">upload</mat-icon>
-                  }
-                </button>
-                @if (s.theme === 'custom') {
-                  <button class="theme-swatch" title="Remove custom image" (click)="removeThemeImage()">
-                    <mat-icon style="font-size:16px;height:16px;width:16px">close</mat-icon>
+                @for (t of customThemes(); track t.id) {
+                  <button class="theme-swatch" [class.active]="s.theme === t.id" [title]="t.name"
+                          (click)="setTheme(t.id)">
+                    @if (customThemeSwatchUrl(t); as url) {
+                      <span class="theme-swatch-preview" [style.background-image]="'url(' + url + ')'"></span>
+                    } @else {
+                      <mat-icon style="font-size:16px;height:16px;width:16px">image</mat-icon>
+                    }
                   </button>
                 }
-                <input #customThemeImageInput type="file" accept="image/png,image/jpeg,image/webp,image/gif"
-                       style="display:none" (change)="onThemeImageSelected($event)" />
+                <button class="theme-swatch" title="Manage custom themes" (click)="manageThemesOpen.set(!manageThemesOpen())">
+                  <mat-icon style="font-size:16px;height:16px;width:16px">tune</mat-icon>
+                </button>
               </div>
             </div>
+            @if (manageThemesOpen()) {
+              <div class="settings-row settings-row-column theme-manage-panel">
+                <div class="settings-row-label">Custom Themes</div>
+                <div class="theme-manage-desc">
+                  Shared across every retro. Each theme takes up to 3 images -- shown per column like the built-in themes (1st = positive, 2nd = negative, 3rd+ = action).
+                </div>
+                @for (t of customThemes(); track t.id) {
+                  <div class="theme-manage-row">
+                    @if (renamingThemeId() === t.id) {
+                      <input class="theme-name-input" [value]="renameText()" (input)="renameText.set($any($event.target).value)"
+                             (keydown.enter)="saveRenameTheme(t.id)" (keydown.escape)="renamingThemeId.set(null)" />
+                      <button class="toolbar-btn" (click)="saveRenameTheme(t.id)"><mat-icon>check</mat-icon></button>
+                      <button class="toolbar-btn" (click)="renamingThemeId.set(null)"><mat-icon>close</mat-icon></button>
+                    } @else {
+                      <span class="theme-manage-name">{{ t.name }}</span>
+                      <button class="toolbar-btn" title="Rename" (click)="startRenameTheme(t)"><mat-icon style="font-size:16px;height:16px;width:16px">edit</mat-icon></button>
+                    }
+                    <div class="theme-variant-slots">
+                      @for (v of themeVariants; track v) {
+                        <div class="theme-variant-slot" [title]="v">
+                          @if (customThemeVariantUrl(t, v); as url) {
+                            <span class="theme-variant-preview" [style.background-image]="'url(' + url + ')'" (click)="fileInput.click()"></span>
+                            <button class="theme-variant-remove" title="Remove" (click)="removeVariantImage(t.id, v)">
+                              <mat-icon style="font-size:12px;height:12px;width:12px">close</mat-icon>
+                            </button>
+                          } @else {
+                            <button class="theme-variant-upload" (click)="fileInput.click()">
+                              <mat-icon style="font-size:16px;height:16px;width:16px">add_photo_alternate</mat-icon>
+                            </button>
+                          }
+                          <input #fileInput type="file" accept="image/png,image/jpeg,image/webp,image/gif" style="display:none"
+                                 (change)="onVariantFileSelected($event, t.id, v)" />
+                        </div>
+                      }
+                    </div>
+                    <button class="toolbar-btn toolbar-btn-danger" title="Delete theme" (click)="deleteCustomTheme(t)">
+                      <mat-icon style="font-size:16px;height:16px;width:16px">delete_outline</mat-icon>
+                    </button>
+                  </div>
+                }
+                <div class="theme-manage-new">
+                  <input class="theme-name-input" placeholder="New theme name…" [value]="newThemeName()"
+                         (input)="newThemeName.set($any($event.target).value)" (keydown.enter)="createCustomTheme()" />
+                  <button mat-stroked-button [disabled]="!newThemeName().trim() || creatingTheme()" (click)="createCustomTheme()">
+                    <mat-icon>add</mat-icon> New Theme
+                  </button>
+                </div>
+              </div>
+            }
           </div>
         }
 
@@ -1273,7 +1350,8 @@ interface TimerState {
             [timerPosition]="timerWidgetPosition()"
             [placingStickerEmoji]="singleCanvasPlacingStickerEmoji()"
             [selectedCardId]="selectedCardId()"
-            [customThemeImageUrl]="customThemeImageUrl()"
+            [resolveThemeUrl]="themeBgUrlFn"
+            [resolveThemeStyle]="themeBgStyleFn"
             (voteToggled)="toggleVote($event)"
             (reactionToggled)="toggleReaction($event.card, $event.emoji)"
             (editStarted)="startEditCard($event)"
@@ -1969,6 +2047,8 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
   // Bound reference so RetroSingleCanvasComponent can call this as a plain function input
   // without losing `this` (an unbound method reference would break on `this.baseColDefaultColor`).
   readonly resolveCardColorFn = (card: FunRetroCard): string => this.resolveCardColor(card);
+  readonly themeBgUrlFn = (colIndex: number): string | null => this.themeBgUrl(colIndex);
+  readonly themeBgStyleFn = (colIndex: number): RetroBgStyle | null => this.themeBgStyle(colIndex);
 
   /** The color a card added to this column right now would be created with. */
   nextCardColorFor(colKey: string): string {
@@ -2078,6 +2158,7 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
     } else {
       this.loadSessions();
     }
+    this.loadCustomThemes();
     this.timerInterval = setInterval(() => this.nowTick.set(Date.now()), 1000);
     // Every other WS-consuming feature calls connect() on init (e.g. sprint-dashboard).
     // Retro never did -- it only worked when some other page had already opened the
@@ -2503,70 +2584,168 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   readonly retroThemes = RETRO_THEMES;
+  readonly themeVariants: ('positive' | 'negative' | 'action')[] = ['positive', 'negative', 'action'];
 
-  // Object URL for the fetched custom theme image blob (see fetchCustomThemeImageEffect below).
-  // Not a plain asset URL -- the endpoint sits behind bearer-token auth, so it's fetched via
-  // HttpClient (which the auth interceptor attaches the token to) rather than an <img src>.
-  customThemeImageUrl = signal<string | null>(null);
-  private customThemeImageObjectUrl: string | null = null;
-  private lastFetchedThemeImageVersion: string | null = null;
+  private themeLibSvc = inject(RetroThemeLibraryService);
+  customThemes = signal<RetroCustomTheme[]>([]);
+  manageThemesOpen = signal(false);
+  newThemeName = signal('');
+  creatingTheme = signal(false);
+  renamingThemeId = signal<string | null>(null);
+  renameText = signal('');
 
-  // Re-fetches the blob whenever the session's theme becomes "custom" or its version bumps
-  // (a re-upload) -- and revokes the previous object URL so we don't leak one per upload/session.
-  private fetchCustomThemeImageEffect = effect(() => {
-    const s = this.session();
-    const version = s?.theme === 'custom' ? s.customThemeImageUpdatedAt : null;
-    if (version === this.lastFetchedThemeImageVersion) return;
-    this.lastFetchedThemeImageVersion = version;
-    if (this.customThemeImageObjectUrl) {
-      URL.revokeObjectURL(this.customThemeImageObjectUrl);
-      this.customThemeImageObjectUrl = null;
-    }
-    if (!version || !s) { this.customThemeImageUrl.set(null); return; }
-    this.svc.getThemeImageBlob(s.id).subscribe({
-      next: blob => {
-        this.customThemeImageObjectUrl = URL.createObjectURL(blob);
-        this.customThemeImageUrl.set(this.customThemeImageObjectUrl);
-      },
-      error: () => this.customThemeImageUrl.set(null),
+  // Object URLs for fetched variant image blobs, keyed by "themeId:variant". Not plain asset
+  // URLs -- the endpoint sits behind bearer-token auth, so each is fetched via HttpClient (which
+  // the auth interceptor attaches the token to) rather than an <img src>, then cached here.
+  private variantImageUrls = signal<Record<string, string>>({});
+  private variantFetchInFlight = new Set<string>();
+
+  private loadCustomThemes(): void {
+    this.themeLibSvc.getThemes().subscribe({
+      next: themes => this.customThemes.set(themes),
+      error: () => {},
     });
-  });
+  }
 
-  onThemeImageSelected(event: Event): void {
-    const s = this.session();
+  private findCustomTheme(id: string): RetroCustomTheme | undefined {
+    return this.customThemes().find(t => t.id === id);
+  }
+
+  /** Lazily fetches and caches a variant's image blob as an object URL; returns the cached URL
+   *  (or null while the fetch is in flight / the variant has no image). Falls back to the
+   *  "positive" variant if the requested one has no image, same spirit as the built-in
+   *  retro-gaming theme mixing variants -- a half-configured theme still reads as one theme. */
+  private ensureVariantUrl(themeId: string, variant: string): string | null {
+    const theme = this.findCustomTheme(themeId);
+    if (!theme) return null;
+    const effectiveVariant = theme.variants[variant] ? variant : (theme.variants['positive'] ? 'positive' : null);
+    if (!effectiveVariant) return null;
+    const key = `${themeId}:${effectiveVariant}`;
+    const cached = this.variantImageUrls()[key];
+    if (cached) return cached;
+    if (!this.variantFetchInFlight.has(key)) {
+      this.variantFetchInFlight.add(key);
+      this.themeLibSvc.getVariantBlob(themeId, effectiveVariant as 'positive').subscribe({
+        next: blob => {
+          this.variantFetchInFlight.delete(key);
+          this.variantImageUrls.update(m => ({ ...m, [key]: URL.createObjectURL(blob) }));
+        },
+        error: () => this.variantFetchInFlight.delete(key),
+      });
+    }
+    return null;
+  }
+
+  /** Representative preview for a custom theme's swatch -- the "positive" variant (or whatever's
+   *  uploaded, since ensureVariantUrl falls back to it). */
+  customThemeSwatchUrl(theme: RetroCustomTheme): string | null {
+    return this.ensureVariantUrl(theme.id, 'positive');
+  }
+
+  customThemeVariantUrl(theme: RetroCustomTheme, variant: string): string | null {
+    const key = `${theme.id}:${variant}`;
+    return this.variantImageUrls()[key] ?? (theme.variants[variant] ? this.ensureVariantUrl(theme.id, variant) : null);
+  }
+
+  createCustomTheme(): void {
+    const name = this.newThemeName().trim();
+    if (!name || this.creatingTheme()) return;
+    this.creatingTheme.set(true);
+    this.themeLibSvc.createTheme(name).subscribe({
+      next: theme => {
+        this.customThemes.update(list => [...list, theme]);
+        this.newThemeName.set('');
+        this.creatingTheme.set(false);
+      },
+      error: () => {
+        this.creatingTheme.set(false);
+        this.snackBar.open('Failed to create theme', 'OK', { duration: 3000 });
+      },
+    });
+  }
+
+  startRenameTheme(theme: RetroCustomTheme): void {
+    this.renamingThemeId.set(theme.id);
+    this.renameText.set(theme.name);
+  }
+
+  saveRenameTheme(themeId: string): void {
+    const name = this.renameText().trim();
+    this.renamingThemeId.set(null);
+    if (!name) return;
+    this.themeLibSvc.renameTheme(themeId, name).subscribe({
+      next: () => this.customThemes.update(list => list.map(t => t.id === themeId ? { ...t, name } : t)),
+      error: () => this.snackBar.open('Failed to rename theme', 'OK', { duration: 3000 }),
+    });
+  }
+
+  deleteCustomTheme(theme: RetroCustomTheme): void {
+    this.dialog.open(ConfirmDialogComponent, {
+      width: '360px',
+      data: { title: `Delete "${theme.name}"?`, message: 'Sessions using this theme will fall back to no background.', danger: true }
+    }).afterClosed().subscribe(ok => {
+      if (!ok) return;
+      this.themeLibSvc.deleteTheme(theme.id).subscribe({
+        next: () => this.customThemes.update(list => list.filter(t => t.id !== theme.id)),
+        error: () => this.snackBar.open('Failed to delete theme', 'OK', { duration: 3000 }),
+      });
+    });
+  }
+
+  onVariantFileSelected(event: Event, themeId: string, variant: 'positive' | 'negative' | 'action'): void {
     const input = event.target as HTMLInputElement;
     const file = input.files?.[0];
     input.value = ''; // allow re-selecting the same file later
-    if (!s || !s.isCreator || !file) return;
+    if (!file) return;
     if (file.size > 5 * 1024 * 1024) {
       this.snackBar.open('Image must be under 5MB', 'OK', { duration: 3000 });
       return;
     }
-    this.svc.uploadThemeImage(s.id, file).subscribe({
-      next: ({ customThemeImageUpdatedAt }) => {
-        this.session.update(cur => cur ? { ...cur, theme: 'custom', customThemeImageUpdatedAt } : cur);
+    this.themeLibSvc.uploadVariant(themeId, variant, file).subscribe({
+      next: ({ updatedAt }) => {
+        this.customThemes.update(list => list.map(t => t.id === themeId ? { ...t, variants: { ...t.variants, [variant]: updatedAt } } : t));
+        const key = `${themeId}:${variant}`;
+        this.variantImageUrls.update(m => {
+          const old = m[key];
+          if (old) URL.revokeObjectURL(old);
+          const next = { ...m };
+          delete next[key];
+          return next;
+        });
       },
       error: () => this.snackBar.open('Failed to upload image', 'OK', { duration: 3000 }),
     });
   }
 
-  removeThemeImage(): void {
-    const s = this.session();
-    if (!s || !s.isCreator) return;
-    this.svc.deleteThemeImage(s.id).subscribe({
-      next: () => this.session.update(cur => cur ? { ...cur, theme: null, customThemeImageUpdatedAt: null } : cur),
+  removeVariantImage(themeId: string, variant: 'positive' | 'negative' | 'action'): void {
+    this.themeLibSvc.deleteVariant(themeId, variant).subscribe({
+      next: () => {
+        this.customThemes.update(list => list.map(t => {
+          if (t.id !== themeId) return t;
+          const variants = { ...t.variants };
+          delete variants[variant];
+          return { ...t, variants };
+        }));
+        const key = `${themeId}:${variant}`;
+        const old = this.variantImageUrls()[key];
+        if (old) {
+          URL.revokeObjectURL(old);
+          this.variantImageUrls.update(m => { const next = { ...m }; delete next[key]; return next; });
+        }
+      },
       error: () => this.snackBar.open('Failed to remove image', 'OK', { duration: 3000 }),
     });
   }
 
   /** The pixel-art background for the column at `colIndex` -- each column shows a
-   *  different tone within the theme (1st = positive, 2nd = negative, 3rd+ = action).
-   *  "custom" has one uploaded image shared by every column, not per-tone variants. */
+   *  different tone within the theme (1st = positive, 2nd = negative, 3rd+ = action). A custom
+   *  library theme follows the same convention with its own uploaded variant images. */
   themeBgUrl(colIndex: number): string | null {
     const theme = this.session()?.theme;
     if (!theme) return null;
-    if (theme === 'custom') {
-      const url = this.customThemeImageUrl();
+    const custom = this.findCustomTheme(theme);
+    if (custom) {
+      const url = this.ensureVariantUrl(theme, this.themeVariants[Math.min(colIndex, 2)]);
       return url ? `url("${url}")` : null;
     }
     const def = RETRO_THEMES.find(t => t.id === theme);
@@ -2579,7 +2758,7 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
    *  image is a real photo like the space/f1 renders, so it gets the same treatment. */
   themeBgStyle(variantIndex: number): RetroBgStyle | null {
     const theme = this.session()?.theme;
-    if (theme === 'custom') return PHOTO_BG_STYLE;
+    if (theme && this.findCustomTheme(theme)) return PHOTO_BG_STYLE;
     const def = theme ? RETRO_THEMES.find(t => t.id === theme) : undefined;
     return bgStyleFor(def, variantIndex);
   }

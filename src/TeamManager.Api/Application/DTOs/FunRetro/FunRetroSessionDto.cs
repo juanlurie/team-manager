@@ -23,7 +23,6 @@ public record FunRetroSessionDto
     public bool ParticipationTracking { get; init; }
     public string? Theme { get; init; }
     public string? CanvasLayout { get; init; }
-    public DateTimeOffset? CustomThemeImageUpdatedAt { get; init; }
     public List<FunRetroTokenDto> Tokens { get; init; } = [];
 }
 

@@ -228,45 +228,6 @@ public class FunRetroController(FunRetroService service, PollService pollService
         return NoContent();
     }
 
-    [HttpPost("{id:guid}/theme-image")]
-    [RequestSizeLimit(FunRetroService.MaxThemeImageBytes)]
-    public async Task<IActionResult> UploadThemeImage(Guid id, IFormFile file)
-    {
-        var memberId = GetCurrentMemberId();
-        if (!memberId.HasValue) return Unauthorized();
-
-        if (file.Length <= 0 || file.Length > FunRetroService.MaxThemeImageBytes
-            || !FunRetroService.AllowedThemeImageContentTypes.Contains(file.ContentType))
-            return BadRequest(new { error = "Image must be PNG/JPEG/WEBP/GIF, up to 5MB." });
-
-        await using var stream = file.OpenReadStream();
-        var updatedAt = await service.UploadThemeImageAsync(id, memberId.Value, file.ContentType, stream);
-        if (updatedAt is null) return NotFound();
-        return Ok(new { customThemeImageUpdatedAt = updatedAt });
-    }
-
-    [HttpGet("{id:guid}/theme-image")]
-    public async Task<IActionResult> GetThemeImage(Guid id)
-    {
-        var memberId = GetCurrentMemberId();
-        if (!memberId.HasValue) return Unauthorized();
-
-        var image = await service.GetThemeImageAsync(id);
-        if (image is null) return NotFound();
-        return File(image.Value.Data, image.Value.ContentType);
-    }
-
-    [HttpDelete("{id:guid}/theme-image")]
-    public async Task<IActionResult> DeleteThemeImage(Guid id)
-    {
-        var memberId = GetCurrentMemberId();
-        if (!memberId.HasValue) return Unauthorized();
-
-        var success = await service.DeleteThemeImageAsync(id, memberId.Value);
-        if (!success) return NotFound();
-        return NoContent();
-    }
-
     [HttpPost("{id:guid}/reveal-now")]
     public async Task<IActionResult> RevealAllNow(Guid id)
     {

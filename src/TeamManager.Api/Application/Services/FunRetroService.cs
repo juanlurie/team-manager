@@ -217,7 +217,6 @@ public class FunRetroService(AppDbContext db, AiPromptExecutorService aiExecutor
             ParticipationTracking = session.ParticipationTracking,
             Theme = session.Theme,
             CanvasLayout = session.CanvasLayout,
-            CustomThemeImageUpdatedAt = session.CustomThemeImageUpdatedAt,
             Tokens = session.Tokens
                 .OrderBy(t => t.CreatedAt)
                 .Select(t => new FunRetroTokenDto
@@ -236,12 +235,16 @@ public class FunRetroService(AppDbContext db, AiPromptExecutorService aiExecutor
         };
     }
 
+    /// <summary>theme is either one of the fixed built-in ids or a RetroCustomTheme's Guid (as a
+    /// string) from the shared library -- resolved with a DB lookup since the library is open-
+    /// ended, unlike the fixed HashSet. An unrecognized id (typo, stale client, deleted library
+    /// theme) is dropped to null rather than persisted, same as the old fixed-enum behavior.</summary>
     public async Task<bool> UpdateSettingsAsync(Guid sessionId, Guid memberId, bool participationTracking, string? theme)
     {
         var session = await db.FunRetroSessions.FindAsync(sessionId);
         if (session is null || session.CreatedByMemberId != memberId) return false;
 
-        var validTheme = ValidTheme(theme);
+        var validTheme = await ResolveThemeAsync(theme);
         session.ParticipationTracking = participationTracking;
         session.Theme = validTheme;
         await db.SaveChangesAsync();
@@ -251,68 +254,13 @@ public class FunRetroService(AppDbContext db, AiPromptExecutorService aiExecutor
         return true;
     }
 
-    public static readonly HashSet<string> AllowedThemeImageContentTypes = ["image/png", "image/jpeg", "image/webp", "image/gif"];
-    public const long MaxThemeImageBytes = 5 * 1024 * 1024;
-
-    /// <summary>Creator-only. Stores the uploaded image as the session's custom board background
-    /// and switches Theme to "custom" -- ValidTheme() deliberately excludes "custom" from the
-    /// fixed-enum settings PATCH, so this upload is the only path that can set it. Caller
-    /// (the controller) is expected to have already validated content type/size against
-    /// AllowedThemeImageContentTypes/MaxThemeImageBytes. Returns null only for an unauthorized
-    /// caller or missing session; otherwise the new CustomThemeImageUpdatedAt, used by the client
-    /// as a cache-busting version.</summary>
-    public async Task<DateTimeOffset?> UploadThemeImageAsync(Guid sessionId, Guid memberId, string contentType, Stream content)
+    private async Task<string?> ResolveThemeAsync(string? theme)
     {
-        var session = await db.FunRetroSessions.FindAsync(sessionId);
-        if (session is null || session.CreatedByMemberId != memberId) return null;
-
-        using var ms = new MemoryStream();
-        await content.CopyToAsync(ms);
-        var bytes = ms.ToArray();
-
-        var image = await db.FunRetroThemeImages.FindAsync(sessionId);
-        var now = DateTimeOffset.UtcNow;
-        if (image is null)
-        {
-            image = new FunRetroThemeImage { SessionId = sessionId };
-            db.FunRetroThemeImages.Add(image);
-        }
-        image.Data = bytes;
-        image.ContentType = contentType;
-        image.UpdatedAt = now;
-
-        session.Theme = "custom";
-        session.CustomThemeImageUpdatedAt = now;
-        await db.SaveChangesAsync();
-
-        _ = WebSocketMiddleware.BroadcastToRetroSessionAsync("fun_retro_settings_updated", sessionId.ToString(),
-            new { sessionId, participationTracking = session.ParticipationTracking, theme = "custom" });
-        return now;
-    }
-
-    /// <summary>No membership check beyond authentication -- any session participant may view the
-    /// board's theme image, same as the fixed pixel-art themes' assets are public.</summary>
-    public async Task<(byte[] Data, string ContentType)?> GetThemeImageAsync(Guid sessionId)
-    {
-        var image = await db.FunRetroThemeImages.FindAsync(sessionId);
-        return image is null ? null : (image.Data, image.ContentType);
-    }
-
-    public async Task<bool> DeleteThemeImageAsync(Guid sessionId, Guid memberId)
-    {
-        var session = await db.FunRetroSessions.FindAsync(sessionId);
-        if (session is null || session.CreatedByMemberId != memberId) return false;
-
-        var image = await db.FunRetroThemeImages.FindAsync(sessionId);
-        if (image is not null) db.FunRetroThemeImages.Remove(image);
-
-        if (session.Theme == "custom") session.Theme = null;
-        session.CustomThemeImageUpdatedAt = null;
-        await db.SaveChangesAsync();
-
-        _ = WebSocketMiddleware.BroadcastToRetroSessionAsync("fun_retro_settings_updated", sessionId.ToString(),
-            new { sessionId, participationTracking = session.ParticipationTracking, theme = session.Theme });
-        return true;
+        if (theme is null) return null;
+        if (ValidThemes.Contains(theme)) return theme;
+        return Guid.TryParse(theme, out var themeId) && await db.RetroCustomThemes.AnyAsync(t => t.Id == themeId)
+            ? theme
+            : null;
     }
 
     /// <summary>Creator-only one-shot override: reveals every card immediately (including

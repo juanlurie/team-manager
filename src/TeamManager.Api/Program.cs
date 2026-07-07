@@ -74,6 +74,7 @@ builder.Services.AddScoped<WordleWordGeneratorService>();
 builder.Services.AddScoped<WordleService>();
 builder.Services.AddScoped<WordleRoyaleService>();
 builder.Services.AddScoped<FunRetroService>();
+builder.Services.AddScoped<RetroCustomThemeService>();
 builder.Services.AddScoped<DotsAndBoxesService>();
 builder.Services.AddScoped<Game2048Service>();
 builder.Services.AddScoped<GameThreesService>();

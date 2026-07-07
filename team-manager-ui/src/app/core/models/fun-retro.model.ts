@@ -84,11 +84,21 @@ export interface FunRetroSession {
   participationTracking: boolean;
   theme: RetroTheme;
   canvasLayout: RetroCanvasLayout;
-  customThemeImageUpdatedAt: string | null;
   tokens: FunRetroToken[];
 }
 
-export type RetroTheme = 'space' | 'f1' | 'ocean' | 'retro-gaming' | 'custom' | null;
+// A fixed built-in id, a RetroCustomTheme's guid (string) from the shared library, or null.
+export type RetroTheme = string | null;
+
+export interface RetroCustomTheme {
+  id: string;
+  name: string;
+  createdByMemberId: string;
+  createdAt: string;
+  // Keyed by variant ("positive"|"negative"|"action") -- present only for variants that have an
+  // uploaded image; the value is that image's updatedAt, used as a cache-busting version.
+  variants: Record<string, string>;
+}
 export type RetroCanvasLayout = 'columns' | 'single' | null;
 
 export interface FunRetroSessionSummary {
