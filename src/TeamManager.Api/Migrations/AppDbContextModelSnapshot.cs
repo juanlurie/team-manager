@@ -1050,9 +1050,6 @@ namespace TeamManager.Api.Migrations
                     b.Property<Guid>("CreatedByMemberId")
                         .HasColumnType("uuid");
 
-                    b.Property<DateTimeOffset?>("CustomThemeImageUpdatedAt")
-                        .HasColumnType("timestamp with time zone");
-
                     b.Property<bool>("HideCardsOnAdd")
                         .HasColumnType("boolean");
 
@@ -1100,27 +1097,6 @@ namespace TeamManager.Api.Migrations
                     b.HasIndex("SprintId");
 
                     b.ToTable("FunRetroSessions");
-                });
-
-            modelBuilder.Entity("TeamManager.Api.Domain.Entities.FunRetroThemeImage", b =>
-                {
-                    b.Property<Guid>("SessionId")
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("ContentType")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<byte[]>("Data")
-                        .IsRequired()
-                        .HasColumnType("bytea");
-
-                    b.Property<DateTimeOffset>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.HasKey("SessionId");
-
-                    b.ToTable("FunRetroThemeImages");
                 });
 
             modelBuilder.Entity("TeamManager.Api.Domain.Entities.FunRetroToken", b =>
@@ -2818,6 +2794,52 @@ namespace TeamManager.Api.Migrations
                     b.ToTable("RetroCardReactions");
                 });
 
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.RetroCustomTheme", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("CreatedByMemberId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("RetroCustomThemes");
+                });
+
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.RetroCustomThemeImage", b =>
+                {
+                    b.Property<Guid>("ThemeId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Variant")
+                        .HasColumnType("text");
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<byte[]>("Data")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("ThemeId", "Variant");
+
+                    b.ToTable("RetroCustomThemeImages");
+                });
+
             modelBuilder.Entity("TeamManager.Api.Domain.Entities.RetroVote", b =>
                 {
                     b.Property<Guid>("Id")
@@ -4393,17 +4415,6 @@ namespace TeamManager.Api.Migrations
                     b.Navigation("Sprint");
                 });
 
-            modelBuilder.Entity("TeamManager.Api.Domain.Entities.FunRetroThemeImage", b =>
-                {
-                    b.HasOne("TeamManager.Api.Domain.Entities.FunRetroSession", "Session")
-                        .WithOne()
-                        .HasForeignKey("TeamManager.Api.Domain.Entities.FunRetroThemeImage", "SessionId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Session");
-                });
-
             modelBuilder.Entity("TeamManager.Api.Domain.Entities.FunRetroToken", b =>
                 {
                     b.HasOne("TeamManager.Api.Domain.Entities.FunRetroSession", "Session")
@@ -5018,6 +5029,17 @@ namespace TeamManager.Api.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.RetroCustomThemeImage", b =>
+                {
+                    b.HasOne("TeamManager.Api.Domain.Entities.RetroCustomTheme", "Theme")
+                        .WithMany("Images")
+                        .HasForeignKey("ThemeId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Theme");
+                });
+
             modelBuilder.Entity("TeamManager.Api.Domain.Entities.RetroVote", b =>
                 {
                     b.HasOne("TeamManager.Api.Domain.Entities.RetroCard", "Card")
@@ -5609,6 +5631,11 @@ namespace TeamManager.Api.Migrations
             modelBuilder.Entity("TeamManager.Api.Domain.Entities.RetroCard", b =>
                 {
                     b.Navigation("Votes");
+                });
+
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.RetroCustomTheme", b =>
+                {
+                    b.Navigation("Images");
                 });
 
             modelBuilder.Entity("TeamManager.Api.Domain.Entities.ScrumPokerSession", b =>
