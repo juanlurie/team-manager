@@ -1058,14 +1058,13 @@ export class RetroSingleCanvasComponent implements AfterViewInit {
       updates.push({ id: item.card.id, x, y });
     });
 
-    this.localPositions.update(p => {
-      const next = { ...p };
-      for (const u of updates) next[u.id] = { x: u.x, y: u.y };
-      return next;
-    });
     for (const u of updates) {
       this.positionCommitted.emit({ cardId: u.id, x: u.x, y: u.y });
     }
+    // Tidy commits every card's new slot straight to shared session state through the parent, so
+    // drop any transient drag overrides for these ids and let them render from session -- keeping a
+    // local entry here is exactly what made Tidy'd cards stop reflecting other users' moves.
+    this.clearLocalPositions(updates.map(u => u.id));
   }
 
   startDrag(e: MouseEvent, card: FunRetroCard, x: number, y: number): void {
@@ -1315,7 +1314,11 @@ export class RetroSingleCanvasComponent implements AfterViewInit {
       const { id, moved } = this.tokenDragState;
       if (moved) {
         const pos = this.localTokenPositions()[id];
+        // Emit first (the parent folds the position into shared session state synchronously),
+        // then drop the local override so the token renders from session and a later remote
+        // fun_retro_token_moved isn't shadowed by a stale local entry.
         if (pos) this.tokenPositionCommitted.emit({ tokenId: id, x: pos.x, y: pos.y });
+        this.clearLocalTokenPositions([id]);
       } else {
         const el = (this.elRef.nativeElement as HTMLElement).querySelector(`[data-token-id="${id}"]`) as HTMLElement | null;
         if (el) this.selectToken(id, el);
@@ -1339,17 +1342,46 @@ export class RetroSingleCanvasComponent implements AfterViewInit {
     const { id, moved, pinnedTokens } = this.dragState;
     if (moved) {
       const pos = this.localPositions()[id];
+      // Emit commits first (the parent folds each position into shared session state
+      // synchronously), then drop the local overrides so the card and its pinned tokens render
+      // from session -- otherwise the local entries would permanently shadow later remote
+      // fun_retro_card_moved / fun_retro_token_moved broadcasts for these ids.
       if (pos) this.positionCommitted.emit({ cardId: id, x: pos.x, y: pos.y });
       const tokenPositions = this.localTokenPositions();
       for (const t of pinnedTokens) {
         const tPos = tokenPositions[t.id];
         if (tPos) this.tokenPositionCommitted.emit({ tokenId: t.id, x: tPos.x, y: tPos.y });
       }
+      this.clearLocalPositions([id]);
+      this.clearLocalTokenPositions(pinnedTokens.map(t => t.id));
     } else {
       const card = this.session()?.cards.find(c => c.id === id);
       if (card) this.cardSelected.emit(card);
     }
     this.dragState = null;
     this.draggingId.set(null);
+  }
+
+  // Drag overrides (localPositions / localTokenPositions) are transient: they exist only to drive
+  // the visual during an in-flight drag/Tidy and are dropped the moment the position is committed,
+  // so that `session` -- fed by the server and by remote move broadcasts -- stays the single source
+  // of truth. A lingering entry here would make zoneItems()/allTokenItems() keep rendering the
+  // local value and silently ignore every remote move for that id.
+  private clearLocalPositions(ids: string[]): void {
+    if (!ids.length) return;
+    this.localPositions.update(p => {
+      const next = { ...p };
+      for (const id of ids) delete next[id];
+      return next;
+    });
+  }
+
+  private clearLocalTokenPositions(ids: string[]): void {
+    if (!ids.length) return;
+    this.localTokenPositions.update(p => {
+      const next = { ...p };
+      for (const id of ids) delete next[id];
+      return next;
+    });
   }
 }

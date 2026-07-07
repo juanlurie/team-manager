@@ -1691,7 +1691,15 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
   // unlike the per-column layout above, where this component owns the drag itself.
   onSingleCanvasTokenPositionCommitted(payload: { tokenId: string; x: number; y: number }): void {
     const s = this.session();
-    if (s) this.svc.updateTokenPosition(s.id, payload.tokenId, payload.x, payload.y).subscribe();
+    if (!s) return;
+    // Same optimistic-patch reasoning as onSingleCanvasPositionCommitted: the child drops its
+    // transient drag override on commit, so fold the position into shared session state (matching
+    // a remote fun_retro_token_moved) to avoid a one-round-trip snap-back.
+    this.session.update(cur => cur
+      ? { ...cur, tokens: cur.tokens.map(t => t.id === payload.tokenId ? { ...t, positionX: payload.x, positionY: payload.y } : t) }
+      : cur);
+    this.invalidateInFlightRefresh();
+    this.svc.updateTokenPosition(s.id, payload.tokenId, payload.x, payload.y).subscribe();
   }
 
   onSingleCanvasTimerPositionCommitted(payload: { x: number; y: number }): void {
@@ -2822,11 +2830,19 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
     });
   }
 
-  /** Drag-end / Tidy commits from the single canvas -- the child already applied the new
-   *  position optimistically to its own local UI state, so this only needs to persist it. */
+  /** Drag-end / Tidy commits from the single canvas. Fold the new position into the shared
+   *  session state (the same field a remote fun_retro_card_moved patches) so it's authoritative
+   *  immediately: the child now drops its transient drag override on commit rather than keeping a
+   *  permanent local shadow, so without this optimistic patch the card would snap back to its old
+   *  position for one server round-trip. invalidateInFlightRefresh() keeps a snapshot that was
+   *  requested before this move from later clobbering it. */
   onSingleCanvasPositionCommitted(req: { cardId: string; x: number; y: number }): void {
     const s = this.session();
     if (!s) return;
+    this.session.update(cur => cur
+      ? { ...cur, cards: cur.cards.map(c => c.id === req.cardId ? { ...c, positionX: req.x, positionY: req.y } : c) }
+      : cur);
+    this.invalidateInFlightRefresh();
     this.svc.updateCardPosition(s.id, req.cardId, req.x, req.y).subscribe();
   }
 
