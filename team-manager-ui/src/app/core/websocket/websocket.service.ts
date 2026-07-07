@@ -33,6 +33,27 @@ export class WebSocketService {
   messages$ = this._messages$.asObservable();
   connected$ = this._connected$.asObservable();
 
+  constructor() {
+    // A backgrounded/inactive tab has setInterval throttled by the browser (Chrome clamps it to
+    // roughly once a minute, sometimes longer) -- the 25s ping schedule below barely runs, so a
+    // socket that actually died while the tab was hidden (laptop slept, wifi dropped) can sit
+    // undetected far longer than PONG_TIMEOUT_MS once the tab comes back. That's a real symptom:
+    // someone leaves a retro tab open, another participant's card lands on a zombie socket and
+    // never appears until something else forces a resync. Probe immediately on resume instead of
+    // waiting for the throttled interval to eventually get around to it.
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') this.checkConnectionOnResume();
+    });
+  }
+
+  private checkConnectionOnResume(): void {
+    if (this.ws?.readyState !== WebSocket.OPEN) {
+      this.connect(); // not open (or never was) -- let the normal connect/reconnect path handle it
+      return;
+    }
+    this.probe();
+  }
+
   connect(): void {
     if (this.ws && (this.ws.readyState === WebSocket.OPEN || this.ws.readyState === WebSocket.CONNECTING)) return;
 
@@ -80,13 +101,18 @@ export class WebSocketService {
 
   private startHeartbeat(): void {
     this.stopHeartbeat();
-    this.pingTimer = setInterval(() => {
-      if (this.ws?.readyState !== WebSocket.OPEN) return;
-      this.ws.send(JSON.stringify({ type: 'ping' }));
-      // Expect *some* inbound traffic before the deadline; otherwise the socket is a zombie.
-      this.clearPongTimer();
-      this.pongTimer = setTimeout(() => this.forceReconnect(), WebSocketService.PONG_TIMEOUT_MS);
-    }, WebSocketService.PING_INTERVAL_MS);
+    this.pingTimer = setInterval(() => this.probe(), WebSocketService.PING_INTERVAL_MS);
+  }
+
+  // Sends one ping and arms the zombie-detection deadline. Called on the regular interval, and
+  // also immediately on tab-resume (see constructor) so a dead socket doesn't wait out the rest
+  // of a throttled-background interval before detection kicks in.
+  private probe(): void {
+    if (this.ws?.readyState !== WebSocket.OPEN) return;
+    this.ws.send(JSON.stringify({ type: 'ping' }));
+    // Expect *some* inbound traffic before the deadline; otherwise the socket is a zombie.
+    this.clearPongTimer();
+    this.pongTimer = setTimeout(() => this.forceReconnect(), WebSocketService.PONG_TIMEOUT_MS);
   }
 
   private stopHeartbeat(): void {
