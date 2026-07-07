@@ -25,6 +25,10 @@ public class FunRetroSession
     // the phase. Only meaningful during "add" -- hiding never applies outside it anyway.
     public bool ManuallyRevealed { get; set; }
     public bool ParticipationTracking { get; set; } = true;
-    public string? Theme { get; set; } // null|space|f1|ocean|retro-gaming
+    public string? Theme { get; set; } // null|space|f1|ocean|retro-gaming|custom
     public string? CanvasLayout { get; set; } // null|columns|single -- null/"columns" = today's per-column canvases
+    // Bumped whenever the uploaded theme image (FunRetroThemeImage) changes. Denormalized onto the
+    // session row so GetSession can tell the client "there's a custom image, fetch it" and hand it
+    // a cache-busting version without an extra join/query on every session fetch.
+    public DateTimeOffset? CustomThemeImageUpdatedAt { get; set; }
 }

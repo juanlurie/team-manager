@@ -4,7 +4,7 @@ import { CdkTextareaAutosize } from '@angular/cdk/text-field';
 import { AvatarCircleComponent } from '../../../core/components/k-picker/avatar-circle.component';
 import { FunRetroSession, FunRetroCard, RetroColumn, FunRetroToken, FunRetroTokenSize } from '../../../core/models/fun-retro.model';
 import { RetroCanvasSidebarComponent, RetroCanvasTool } from './retro-canvas-sidebar.component';
-import { RETRO_THEMES, RetroBgStyle, bgStyleFor } from './retro-constants';
+import { RETRO_THEMES, RetroBgStyle, bgStyleFor, PHOTO_BG_STYLE } from './retro-constants';
 
 interface ZoneCardItem {
   card: FunRetroCard;
@@ -786,18 +786,29 @@ export class RetroSingleCanvasComponent implements AfterViewInit {
     return Math.max(0, Math.min(n - 1, Math.floor(x / (this.ZONE_WIDTH + this.ZONE_GAP))));
   }
 
+  // The fetched blob URL for an uploaded "custom" theme image -- owned by the parent (it's the
+  // one with HttpClient access to the auth-gated theme-image endpoint), passed down here so the
+  // single shared canvas can render it same as any built-in theme's pixel-art background.
+  customThemeImageUrl = input<string | null>(null);
+
   themeUrl(zoneIndex: number): string | null {
     const theme = this.session()?.theme;
     if (!theme) return null;
+    if (theme === 'custom') {
+      const url = this.customThemeImageUrl();
+      return url ? `url("${url}")` : null;
+    }
     const def = RETRO_THEMES.find(t => t.id === theme);
     return def ? def.variantUrls[Math.min(zoneIndex, 2)] : null;
   }
 
   /** Photo/render-backed variants need a different opacity/blend/sizing than the hand-authored
    *  pixel SVGs' CSS defaults -- see RetroThemeDef.bgStyle. Null (nothing to override) for a
-   *  vector variant, which keeps using its existing CSS untouched. */
+   *  vector variant, which keeps using its existing CSS untouched. An uploaded image is a real
+   *  photo like the space/f1 renders, so it gets the same treatment. */
   themeBgStyle(zoneIndex: number): RetroBgStyle | null {
     const theme = this.session()?.theme;
+    if (theme === 'custom') return PHOTO_BG_STYLE;
     const def = theme ? RETRO_THEMES.find(t => t.id === theme) : undefined;
     return bgStyleFor(def, Math.min(zoneIndex, 2));
   }

@@ -84,10 +84,11 @@ export interface FunRetroSession {
   participationTracking: boolean;
   theme: RetroTheme;
   canvasLayout: RetroCanvasLayout;
+  customThemeImageUpdatedAt: string | null;
   tokens: FunRetroToken[];
 }
 
-export type RetroTheme = 'space' | 'f1' | 'ocean' | 'retro-gaming' | null;
+export type RetroTheme = 'space' | 'f1' | 'ocean' | 'retro-gaming' | 'custom' | null;
 export type RetroCanvasLayout = 'columns' | 'single' | null;
 
 export interface FunRetroSessionSummary {

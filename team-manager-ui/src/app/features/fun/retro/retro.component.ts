@@ -24,7 +24,7 @@ import { CreatePollDialogComponent } from '../../polls/poll.component';
 import { ConfirmDialogComponent } from '../../../shared/components/confirm-dialog/confirm-dialog.component';
 import { NavService } from '../../../core/nav/nav.service';
 import { NewRetroDialogComponent, NewRetroDialogResult } from './new-retro-dialog.component';
-import { DEFAULT_COLS, RETRO_TEMPLATES, ICEBREAKER_QUESTIONS, RETRO_THEMES, RetroThemeDef, RetroBgStyle, bgStyleFor } from './retro-constants';
+import { DEFAULT_COLS, RETRO_TEMPLATES, ICEBREAKER_QUESTIONS, RETRO_THEMES, RetroThemeDef, RetroBgStyle, bgStyleFor, PHOTO_BG_STYLE } from './retro-constants';
 import { RetroSingleCanvasComponent } from './retro-single-canvas.component';
 
 const PHASE_META: Record<string, { label: string; color: string }> = {
@@ -907,6 +907,21 @@ interface TimerState {
                     <span class="theme-swatch-preview" [style.background-image]="themeSwatchUrl(t)"></span>
                   </button>
                 }
+                <button class="theme-swatch" [class.active]="s.theme === 'custom'" title="Upload your own image"
+                        (click)="customThemeImageInput.click()">
+                  @if (s.theme === 'custom' && customThemeImageUrl()) {
+                    <span class="theme-swatch-preview" [style.background-image]="'url(' + customThemeImageUrl() + ')'"></span>
+                  } @else {
+                    <mat-icon style="font-size:16px;height:16px;width:16px">upload</mat-icon>
+                  }
+                </button>
+                @if (s.theme === 'custom') {
+                  <button class="theme-swatch" title="Remove custom image" (click)="removeThemeImage()">
+                    <mat-icon style="font-size:16px;height:16px;width:16px">close</mat-icon>
+                  </button>
+                }
+                <input #customThemeImageInput type="file" accept="image/png,image/jpeg,image/webp,image/gif"
+                       style="display:none" (change)="onThemeImageSelected($event)" />
               </div>
             </div>
           </div>
@@ -1258,6 +1273,7 @@ interface TimerState {
             [timerPosition]="timerWidgetPosition()"
             [placingStickerEmoji]="singleCanvasPlacingStickerEmoji()"
             [selectedCardId]="selectedCardId()"
+            [customThemeImageUrl]="customThemeImageUrl()"
             (voteToggled)="toggleVote($event)"
             (reactionToggled)="toggleReaction($event.card, $event.emoji)"
             (editStarted)="startEditCard($event)"
@@ -2488,20 +2504,82 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
 
   readonly retroThemes = RETRO_THEMES;
 
+  // Object URL for the fetched custom theme image blob (see fetchCustomThemeImageEffect below).
+  // Not a plain asset URL -- the endpoint sits behind bearer-token auth, so it's fetched via
+  // HttpClient (which the auth interceptor attaches the token to) rather than an <img src>.
+  customThemeImageUrl = signal<string | null>(null);
+  private customThemeImageObjectUrl: string | null = null;
+  private lastFetchedThemeImageVersion: string | null = null;
+
+  // Re-fetches the blob whenever the session's theme becomes "custom" or its version bumps
+  // (a re-upload) -- and revokes the previous object URL so we don't leak one per upload/session.
+  private fetchCustomThemeImageEffect = effect(() => {
+    const s = this.session();
+    const version = s?.theme === 'custom' ? s.customThemeImageUpdatedAt : null;
+    if (version === this.lastFetchedThemeImageVersion) return;
+    this.lastFetchedThemeImageVersion = version;
+    if (this.customThemeImageObjectUrl) {
+      URL.revokeObjectURL(this.customThemeImageObjectUrl);
+      this.customThemeImageObjectUrl = null;
+    }
+    if (!version || !s) { this.customThemeImageUrl.set(null); return; }
+    this.svc.getThemeImageBlob(s.id).subscribe({
+      next: blob => {
+        this.customThemeImageObjectUrl = URL.createObjectURL(blob);
+        this.customThemeImageUrl.set(this.customThemeImageObjectUrl);
+      },
+      error: () => this.customThemeImageUrl.set(null),
+    });
+  });
+
+  onThemeImageSelected(event: Event): void {
+    const s = this.session();
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    input.value = ''; // allow re-selecting the same file later
+    if (!s || !s.isCreator || !file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      this.snackBar.open('Image must be under 5MB', 'OK', { duration: 3000 });
+      return;
+    }
+    this.svc.uploadThemeImage(s.id, file).subscribe({
+      next: ({ customThemeImageUpdatedAt }) => {
+        this.session.update(cur => cur ? { ...cur, theme: 'custom', customThemeImageUpdatedAt } : cur);
+      },
+      error: () => this.snackBar.open('Failed to upload image', 'OK', { duration: 3000 }),
+    });
+  }
+
+  removeThemeImage(): void {
+    const s = this.session();
+    if (!s || !s.isCreator) return;
+    this.svc.deleteThemeImage(s.id).subscribe({
+      next: () => this.session.update(cur => cur ? { ...cur, theme: null, customThemeImageUpdatedAt: null } : cur),
+      error: () => this.snackBar.open('Failed to remove image', 'OK', { duration: 3000 }),
+    });
+  }
+
   /** The pixel-art background for the column at `colIndex` -- each column shows a
-   *  different tone within the theme (1st = positive, 2nd = negative, 3rd+ = action). */
+   *  different tone within the theme (1st = positive, 2nd = negative, 3rd+ = action).
+   *  "custom" has one uploaded image shared by every column, not per-tone variants. */
   themeBgUrl(colIndex: number): string | null {
     const theme = this.session()?.theme;
     if (!theme) return null;
+    if (theme === 'custom') {
+      const url = this.customThemeImageUrl();
+      return url ? `url("${url}")` : null;
+    }
     const def = RETRO_THEMES.find(t => t.id === theme);
     return def ? def.variantUrls[Math.min(colIndex, 2)] : null;
   }
 
   /** Photo/render-backed themes need a different opacity/blend/sizing than the hand-authored
    *  pixel SVGs' CSS defaults -- see RetroThemeDef.bgStyle. Null (nothing to override) for
-   *  the vector themes, which keep using their existing per-element CSS untouched. */
+   *  the vector themes, which keep using their existing per-element CSS untouched. An uploaded
+   *  image is a real photo like the space/f1 renders, so it gets the same treatment. */
   themeBgStyle(variantIndex: number): RetroBgStyle | null {
     const theme = this.session()?.theme;
+    if (theme === 'custom') return PHOTO_BG_STYLE;
     const def = theme ? RETRO_THEMES.find(t => t.id === theme) : undefined;
     return bgStyleFor(def, variantIndex);
   }

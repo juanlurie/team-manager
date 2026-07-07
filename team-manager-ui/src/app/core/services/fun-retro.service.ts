@@ -92,6 +92,23 @@ export class FunRetroService {
     return this.http.patch<void>(`${this.base}/${sessionId}/settings`, settings);
   }
 
+  uploadThemeImage(sessionId: string, file: File): Observable<{ customThemeImageUpdatedAt: string }> {
+    const form = new FormData();
+    form.append('file', file);
+    return this.http.post<{ customThemeImageUpdatedAt: string }>(`${this.base}/${sessionId}/theme-image`, form);
+  }
+
+  deleteThemeImage(sessionId: string): Observable<void> {
+    return this.http.delete<void>(`${this.base}/${sessionId}/theme-image`);
+  }
+
+  // Fetched as a blob (not a plain <img src>) because the API sits behind the same bearer-token
+  // auth as every other endpoint here -- an <img> tag can't attach the Authorization header the
+  // auth interceptor adds to HttpClient requests, so it would just 401.
+  getThemeImageBlob(sessionId: string): Observable<Blob> {
+    return this.http.get(`${this.base}/${sessionId}/theme-image`, { responseType: 'blob' });
+  }
+
   revealAllNow(sessionId: string): Observable<void> {
     return this.http.post<void>(`${this.base}/${sessionId}/reveal-now`, {});
   }
