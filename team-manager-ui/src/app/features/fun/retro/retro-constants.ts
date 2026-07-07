@@ -308,7 +308,10 @@ export interface RetroThemeDef {
   bgStyle?: RetroBgStyle | [RetroBgStyle | null, RetroBgStyle | null, RetroBgStyle | null];
 }
 
-const PHOTO_BG_STYLE: RetroBgStyle = { opacity: 0.4, blend: 'screen', size: 'contain' };
+// Exported for the "custom" theme (retro.component.ts) -- an uploaded photo needs the same
+// treatment as the built-in photo/render-backed themes (higher opacity, screen blend, `contain`
+// sizing) rather than the hand-authored pixel SVGs' defaults, which would wash out or stretch it.
+export const PHOTO_BG_STYLE: RetroBgStyle = { opacity: 0.4, blend: 'screen', size: 'contain' };
 
 export function bgStyleFor(def: RetroThemeDef | undefined, variantIndex: number): RetroBgStyle | null {
   const style = def?.bgStyle;
