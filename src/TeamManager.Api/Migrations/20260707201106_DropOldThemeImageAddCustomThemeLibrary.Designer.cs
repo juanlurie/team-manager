@@ -12,8 +12,8 @@ using TeamManager.Api.Infrastructure.Data;
 namespace TeamManager.Api.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260707195346_AddRetroCustomThemes")]
-    partial class AddRetroCustomThemes
+    [Migration("20260707201106_DropOldThemeImageAddCustomThemeLibrary")]
+    partial class DropOldThemeImageAddCustomThemeLibrary
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)

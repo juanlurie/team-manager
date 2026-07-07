@@ -6,11 +6,18 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace TeamManager.Api.Migrations
 {
     /// <inheritdoc />
-    public partial class AddRetroCustomThemes : Migration
+    public partial class DropOldThemeImageAddCustomThemeLibrary : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
+            migrationBuilder.DropTable(
+                name: "FunRetroThemeImages");
+
+            migrationBuilder.DropColumn(
+                name: "CustomThemeImageUpdatedAt",
+                table: "FunRetroSessions");
+
             migrationBuilder.CreateTable(
                 name: "RetroCustomThemes",
                 columns: table => new
@@ -55,6 +62,32 @@ namespace TeamManager.Api.Migrations
 
             migrationBuilder.DropTable(
                 name: "RetroCustomThemes");
+
+            migrationBuilder.AddColumn<DateTimeOffset>(
+                name: "CustomThemeImageUpdatedAt",
+                table: "FunRetroSessions",
+                type: "timestamp with time zone",
+                nullable: true);
+
+            migrationBuilder.CreateTable(
+                name: "FunRetroThemeImages",
+                columns: table => new
+                {
+                    SessionId = table.Column<Guid>(type: "uuid", nullable: false),
+                    ContentType = table.Column<string>(type: "text", nullable: false),
+                    Data = table.Column<byte[]>(type: "bytea", nullable: false),
+                    UpdatedAt = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_FunRetroThemeImages", x => x.SessionId);
+                    table.ForeignKey(
+                        name: "FK_FunRetroThemeImages_FunRetroSessions_SessionId",
+                        column: x => x.SessionId,
+                        principalTable: "FunRetroSessions",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
         }
     }
 }
