@@ -2220,10 +2220,17 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
         case 'fun_retro_card_text_updated':
           if (msg.data['sessionId'] === s.id) {
             const cardId = msg.data['cardId'] as string;
-            const text = msg.data['text'] as string;
+            const text = msg.data['text'] as string | null;
             this.session.update(cur => {
               if (!cur) return cur;
-              return { ...cur, cards: cur.cards.map(c => c.id === cardId ? { ...c, text } : c) };
+              return { ...cur, cards: cur.cards.map(c => {
+                if (c.id !== cardId) return c;
+                // The server redacts this broadcast to null for viewers of a hidden card. Never let
+                // that null overwrite text we already hold for our own card (we applied it locally
+                // in saveCardText) -- that would blank the author's card back to a placeholder.
+                if (text === null && c.isOwn) return c;
+                return { ...c, text };
+              }) };
             });
             this.invalidateInFlightRefresh();
           }

@@ -674,7 +674,14 @@ public class FunRetroService(AppDbContext db, AiPromptExecutorService aiExecutor
         card.Text = text.Trim();
         await db.SaveChangesAsync();
 
-        _ = WebSocketMiddleware.BroadcastToRetroSessionAsync("fun_retro_card_text_updated", sessionId.ToString(), new { sessionId, cardId, text = card.Text });
+        // Redact exactly as card_added and GetSession do: during a hidden add phase a card is a
+        // locked placeholder to everyone but its author, so the edited text must NOT go out on the
+        // wire to other viewers -- otherwise every keystroke-save leaks hidden content. The author's
+        // own client already applied the text optimistically (saveCardText), and the client handler
+        // ignores a null text for a card it authored, so masking here doesn't blank the author.
+        var hidden = session.HideCardsOnAdd && session.Phase == "add" && !session.ManuallyRevealed;
+        _ = WebSocketMiddleware.BroadcastToRetroSessionAsync("fun_retro_card_text_updated", sessionId.ToString(),
+            new { sessionId, cardId, text = hidden ? null : card.Text });
         return true;
     }
 
