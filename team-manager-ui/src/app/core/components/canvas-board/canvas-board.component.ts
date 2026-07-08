@@ -63,8 +63,10 @@ const MAX_ZOOM = 2.5;
     }
     .connect-handle {
       position:absolute;width:14px;height:14px;border-radius:50%;background:#64b5f6;
-      border:2px solid #14171f;cursor:crosshair;
+      border:2px solid #14171f;cursor:crosshair;opacity:0;transition:opacity 0.12s;
     }
+    .canvas-node:hover .connect-handle, .canvas-node.selected .connect-handle { opacity:1; }
+    .connect-handle:hover { transform:scale(1.25); }
     .canvas-zoom-controls {
       position:absolute;bottom:12px;right:12px;display:flex;gap:4px;
       background:rgba(20,23,31,0.85);border-radius:8px;padding:4px;
@@ -116,6 +118,12 @@ const MAX_ZOOM = 2.5;
             }
             @if (connectMode()) {
               <div class="connect-handle" style="right:-7px;top:50%;margin-top:-7px"
+                   (mousedown)="startConnect($event, n)"></div>
+              <div class="connect-handle" style="left:-7px;top:50%;margin-top:-7px"
+                   (mousedown)="startConnect($event, n)"></div>
+              <div class="connect-handle" style="top:-7px;left:50%;margin-left:-7px"
+                   (mousedown)="startConnect($event, n)"></div>
+              <div class="connect-handle" style="bottom:-7px;left:50%;margin-left:-7px"
                    (mousedown)="startConnect($event, n)"></div>
             }
           </div>
