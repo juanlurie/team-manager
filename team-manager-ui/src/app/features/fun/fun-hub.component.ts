@@ -17,6 +17,8 @@ const FUN_TABS: FunTab[] = [
   { label: 'Scrum Poker', route: 'scrum-poker', featureKey: 'scrum-poker' },
   { label: 'Polls', route: 'polls', featureKey: 'polls' },
   { label: 'Retro', route: 'retro', featureKey: 'retro' },
+  { label: 'Process Flows', route: 'process-flows', featureKey: 'process-flows' },
+  { label: 'Personal Maps', route: 'personal-maps', featureKey: 'personal-maps' },
   { label: 'Jokes', route: 'jokes', featureKey: 'jokes' },
 ];
 

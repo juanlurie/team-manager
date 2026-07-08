@@ -14,6 +14,11 @@ public class WebSocketMiddleware
         public string? WowSession { get; set; }
         public string? RetroSessionId { get; set; }
         public string? RetroMemberName { get; set; }
+        // Generic room for board-style features that don't need retro's presence/member-name
+        // tracking (process flows, and personal maps once built) -- kept separate from
+        // RetroSessionId rather than generalizing that field, so retro's presence semantics don't
+        // have to be threaded through every future board type.
+        public string? BoardSessionId { get; set; }
     }
 
     private static readonly ConcurrentDictionary<Guid, ConnectionEntry> _connections = new();
@@ -218,6 +223,23 @@ public class WebSocketMiddleware
                         _ = BroadcastRetroPresenceAsync(oldRetro);
                     break;
                 }
+
+                case "join_board":
+                {
+                    if (!root.TryGetProperty("sessionId", out var boardSidProp)) return;
+                    var boardSessionId = boardSidProp.GetString();
+                    if (string.IsNullOrEmpty(boardSessionId)) return;
+                    if (!_connections.TryGetValue(connectionId, out var boardEntry)) return;
+                    boardEntry.BoardSessionId = boardSessionId;
+                    break;
+                }
+
+                case "leave_board":
+                {
+                    if (!_connections.TryGetValue(connectionId, out var boardEntry)) return;
+                    boardEntry.BoardSessionId = null;
+                    break;
+                }
             }
         }
         catch { }
@@ -251,6 +273,27 @@ public class WebSocketMiddleware
             foreach (var (id, entry) in _connections)
             {
                 if (entry.RetroSessionId != sessionId) continue;
+                if (entry.Socket.State != WebSocketState.Open) { dead.Add(id); continue; }
+                if (!await TrySendAsync(entry.Socket, bytes)) dead.Add(id);
+            }
+            foreach (var id in dead) _connections.TryRemove(id, out _);
+        }
+        finally { _broadcastLock.Release(); }
+    }
+
+    // Generic room broadcast for board-style features (process flows, personal maps) -- same
+    // shape as BroadcastToRetroSessionAsync but keyed on BoardSessionId, so a new board type never
+    // needs another copy of this method or another WS message pair.
+    public static async Task BroadcastToBoardSessionAsync(string type, string sessionId, object data)
+    {
+        await _broadcastLock.WaitAsync();
+        try
+        {
+            var bytes = Envelope(type, data);
+            var dead = new List<Guid>();
+            foreach (var (id, entry) in _connections)
+            {
+                if (entry.BoardSessionId != sessionId) continue;
                 if (entry.Socket.State != WebSocketState.Open) { dead.Add(id); continue; }
                 if (!await TrySendAsync(entry.Socket, bytes)) dead.Add(id);
             }
