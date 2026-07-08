@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, inject, signal, ChangeDetectionStrategy } from '@angular/core';
+import { Component, OnInit, OnDestroy, inject, signal, effect, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
@@ -13,6 +13,7 @@ import { ProcessFlowService } from '../../../core/services/process-flow.service'
 import { ProcessFlowSession, ProcessFlowSessionSummary, ProcessFlowNode } from '../../../core/models/process-flow.model';
 import { WebSocketService } from '../../../core/websocket/websocket.service';
 import { AuthService } from '../../../core/auth/auth.service';
+import { NavService } from '../../../core/nav/nav.service';
 import { ConfirmDialogComponent } from '../../../shared/components/confirm-dialog/confirm-dialog.component';
 import { CanvasBoardComponent, CanvasNode, CanvasEdge } from '../../../core/components/canvas-board/canvas-board.component';
 
@@ -37,7 +38,7 @@ import { CanvasBoardComponent, CanvasNode, CanvasEdge } from '../../../core/comp
     .session-card-title { font-weight:600;color:#fff; }
     .session-card-meta { display:flex;gap:10px;font-size:0.75rem;color:rgba(255,255,255,0.45);margin-top:4px; }
     .empty-state { text-align:center;padding:32px;color:rgba(255,255,255,0.4); }
-    .board-wrap { display:flex;flex-direction:column;height:calc(100vh - 160px); }
+    .board-wrap { display:flex;flex-direction:column;height:calc(100vh - 100px); }
     .board-header { display:flex;align-items:center;gap:8px;padding:8px 0; }
     .board-title { font-weight:600;font-size:1rem;color:#fff; }
     .board-hint { font-size:0.75rem;color:rgba(255,255,255,0.4);margin-left:auto; }
@@ -104,6 +105,7 @@ export class ProcessFlowComponent implements OnInit, OnDestroy {
   private svc = inject(ProcessFlowService);
   private wsSvc = inject(WebSocketService);
   authSvc = inject(AuthService);
+  private navSvc = inject(NavService);
   private router = inject(Router);
   private route = inject(ActivatedRoute);
   private snackBar = inject(MatSnackBar);
@@ -121,6 +123,11 @@ export class ProcessFlowComponent implements OnInit, OnDestroy {
 
   canvasNodes = signal<CanvasNode[]>([]);
   canvasEdges = signal<CanvasEdge[]>([]);
+
+  /** Hide the Pulse hub's tab row + width cap while a flow is open, so the canvas goes full-bleed (matches Retro). */
+  private hideSubNavEffect = effect(() => {
+    this.navSvc.hideSubNav.set(!!this.session());
+  });
 
   ngOnInit(): void {
     const id = this.route.snapshot.params['id'];
@@ -203,6 +210,7 @@ export class ProcessFlowComponent implements OnInit, OnDestroy {
     this.destroy$.next();
     this.destroy$.complete();
     this.connectedSub?.unsubscribe();
+    this.navSvc.hideSubNav.set(false);
     if (this.currentBoardSessionId) this.wsSvc.send({ type: 'leave_board' });
   }
 
