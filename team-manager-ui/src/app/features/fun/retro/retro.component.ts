@@ -3021,8 +3021,11 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
     this.svc.createSession(req).subscribe({
       next: s => {
         this.creating.set(false);
+        this.lastWsSeq = -1;
         this.session.set(s);
         this.applyExtras(s, true);
+        this.joinRetroPresence(s.id);
+        this.loadRetroPolls(s.id);
       },
       error: () => {
         this.creating.set(false);
