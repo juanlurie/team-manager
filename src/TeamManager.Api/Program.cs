@@ -75,6 +75,8 @@ builder.Services.AddScoped<WordleService>();
 builder.Services.AddScoped<WordleRoyaleService>();
 builder.Services.AddScoped<FunRetroService>();
 builder.Services.AddScoped<RetroCustomThemeService>();
+builder.Services.AddScoped<ProcessFlowService>();
+builder.Services.AddScoped<PersonalMapService>();
 builder.Services.AddScoped<DotsAndBoxesService>();
 builder.Services.AddScoped<Game2048Service>();
 builder.Services.AddScoped<GameThreesService>();
@@ -202,6 +204,8 @@ static async Task SeedFeaturePermissionsAsync(AppDbContext db)
         ("quiz-game", "Fun Hub", "Quiz Game"),
         ("wordle", "Fun Hub", "Wordle"),
         ("retro", "Fun Hub", "Retro"),
+        ("process-flows", "Fun Hub", "Process Flows"),
+        ("personal-maps", "Fun Hub", "Personal Maps"),
         ("dots-and-boxes", "Fun Hub", "Dots & Boxes"),
         ("2048", "Fun Hub", "2048"),
         ("threes", "Fun Hub", "Threes"),

@@ -44,12 +44,34 @@ export const PULSE_ROUTES: Routes = [
         loadComponent: () => import('./retro/retro.component').then(m => m.FunRetroComponent)
       },
       {
+        // Must precede 'retro/:id' -- static segments have to be listed before param segments
+        // in the same array or 'retro/:id' greedily matches 'retro/themes' with id='themes'.
+        path: 'retro/themes',
+        loadComponent: () => import('./retro/retro-theme-manager.component').then(m => m.RetroThemeManagerComponent)
+      },
+      {
         path: 'retro/:id',
         loadComponent: () => import('./retro/retro.component').then(m => m.FunRetroComponent)
       },
       {
         path: 'jokes',
         loadComponent: () => import('../jokes/jokes.component').then(m => m.JokesComponent)
+      },
+      {
+        path: 'process-flows',
+        loadComponent: () => import('./process-flow/process-flow.component').then(m => m.ProcessFlowComponent)
+      },
+      {
+        path: 'process-flows/:id',
+        loadComponent: () => import('./process-flow/process-flow.component').then(m => m.ProcessFlowComponent)
+      },
+      {
+        path: 'personal-maps',
+        loadComponent: () => import('./personal-map/personal-map.component').then(m => m.PersonalMapComponent)
+      },
+      {
+        path: 'personal-maps/:id',
+        loadComponent: () => import('./personal-map/personal-map.component').then(m => m.PersonalMapComponent)
       }
     ]
   }

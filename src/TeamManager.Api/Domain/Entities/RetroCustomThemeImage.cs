@@ -1,9 +1,10 @@
 namespace TeamManager.Api.Domain.Entities;
 
-// One of up to three variant images for a RetroCustomTheme, mirroring the built-in themes'
-// positive/negative/action tone-per-column convention (see RETRO_THEMES in the frontend's
-// retro-constants.ts). Keyed by (ThemeId, Variant) -- at most one row per variant per theme,
-// re-uploading a variant replaces it rather than accumulating history.
+// A variant image for a RetroCustomTheme -- either one of the 3 legacy tone names
+// ("positive"/"negative"/"action", see RETRO_THEMES in the frontend's retro-constants.ts) or, for
+// newer per-column themes, an actual RetroColumn.key ("well", "start", "wind", ...). Keyed by
+// (ThemeId, Variant) -- at most one row per variant per theme, re-uploading a variant replaces it
+// rather than accumulating history.
 public class RetroCustomThemeImage
 {
     public Guid ThemeId { get; set; }

@@ -101,6 +101,11 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<FunRetroToken> FunRetroTokens => Set<FunRetroToken>();
     public DbSet<RetroCustomTheme> RetroCustomThemes => Set<RetroCustomTheme>();
     public DbSet<RetroCustomThemeImage> RetroCustomThemeImages => Set<RetroCustomThemeImage>();
+    public DbSet<ProcessFlowSession> ProcessFlowSessions => Set<ProcessFlowSession>();
+    public DbSet<ProcessFlowNode> ProcessFlowNodes => Set<ProcessFlowNode>();
+    public DbSet<ProcessFlowEdge> ProcessFlowEdges => Set<ProcessFlowEdge>();
+    public DbSet<PersonalMapSession> PersonalMapSessions => Set<PersonalMapSession>();
+    public DbSet<PersonalMapNode> PersonalMapNodes => Set<PersonalMapNode>();
     public DbSet<DotsAndBoxesSession> DotsAndBoxesSessions => Set<DotsAndBoxesSession>();
     public DbSet<DotsAndBoxesParticipant> DotsAndBoxesParticipants => Set<DotsAndBoxesParticipant>();
     public DbSet<Game2048Session> Game2048Sessions => Set<Game2048Session>();
@@ -196,6 +201,11 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         modelBuilder.ApplyConfiguration(new FunRetroTokenConfiguration());
         modelBuilder.ApplyConfiguration(new RetroCustomThemeConfiguration());
         modelBuilder.ApplyConfiguration(new RetroCustomThemeImageConfiguration());
+        modelBuilder.ApplyConfiguration(new ProcessFlowSessionConfiguration());
+        modelBuilder.ApplyConfiguration(new ProcessFlowNodeConfiguration());
+        modelBuilder.ApplyConfiguration(new ProcessFlowEdgeConfiguration());
+        modelBuilder.ApplyConfiguration(new PersonalMapSessionConfiguration());
+        modelBuilder.ApplyConfiguration(new PersonalMapNodeConfiguration());
         modelBuilder.ApplyConfiguration(new DotsAndBoxesSessionConfiguration());
         modelBuilder.ApplyConfiguration(new DotsAndBoxesParticipantConfiguration());
         modelBuilder.ApplyConfiguration(new Game2048SessionConfiguration());

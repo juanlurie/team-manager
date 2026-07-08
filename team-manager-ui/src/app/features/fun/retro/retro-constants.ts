@@ -75,6 +75,21 @@ export const RETRO_TEMPLATES: RetroTemplate[] = [
   },
 ];
 
+// Every distinct column key used by any template, deduped and label-mapped -- the theme editor
+// renders one upload slot per key so a theme can carry a per-column image regardless of which
+// template(s) use that key. First matching template's label/emoji wins for a shared key.
+export const ALL_TEMPLATE_COLUMNS: RetroColumn[] = (() => {
+  const seen = new Map<string, RetroColumn>();
+  for (const template of RETRO_TEMPLATES) {
+    for (const col of template.columns) {
+      if (!seen.has(col.key)) seen.set(col.key, col);
+    }
+  }
+  return [...seen.values()];
+})();
+
+export const ALL_TEMPLATE_COLUMN_KEYS: string[] = ALL_TEMPLATE_COLUMNS.map(c => c.key);
+
 export const ICEBREAKER_QUESTIONS = [
   "What's one word that describes this session?",
   "If this retro were a weather forecast, what would it be?",
