@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using TeamManager.Api.Infrastructure.Data;
@@ -11,9 +12,11 @@ using TeamManager.Api.Infrastructure.Data;
 namespace TeamManager.Api.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260708160608_AddRetroCustomThemeOverridesBuiltIn")]
+    partial class AddRetroCustomThemeOverridesBuiltIn
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -2351,61 +2354,6 @@ namespace TeamManager.Api.Migrations
                     b.ToTable("PIs");
                 });
 
-            modelBuilder.Entity("TeamManager.Api.Domain.Entities.PersonalMapNode", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasDefaultValueSql("gen_random_uuid()");
-
-                    b.Property<string>("Color")
-                        .HasColumnType("text");
-
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("Label")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<double>("PositionX")
-                        .HasColumnType("double precision");
-
-                    b.Property<double>("PositionY")
-                        .HasColumnType("double precision");
-
-                    b.Property<Guid>("SessionId")
-                        .HasColumnType("uuid");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("SessionId")
-                        .HasDatabaseName("IX_PersonalMapNode_SessionId");
-
-                    b.ToTable("PersonalMapNodes");
-                });
-
-            modelBuilder.Entity("TeamManager.Api.Domain.Entities.PersonalMapSession", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasDefaultValueSql("gen_random_uuid()");
-
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<Guid>("CreatedByMemberId")
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("Title")
-                        .HasColumnType("text");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("PersonalMapSessions");
-                });
-
             modelBuilder.Entity("TeamManager.Api.Domain.Entities.PointAward", b =>
                 {
                     b.Property<Guid>("Id")
@@ -2541,100 +2489,6 @@ namespace TeamManager.Api.Migrations
                         .HasDatabaseName("IX_PollVote_PollId_MemberId");
 
                     b.ToTable("PollVotes");
-                });
-
-            modelBuilder.Entity("TeamManager.Api.Domain.Entities.ProcessFlowEdge", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasDefaultValueSql("gen_random_uuid()");
-
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<Guid>("FromNodeId")
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("Label")
-                        .HasColumnType("text");
-
-                    b.Property<Guid>("SessionId")
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("ToNodeId")
-                        .HasColumnType("uuid");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("FromNodeId")
-                        .HasDatabaseName("IX_ProcessFlowEdge_FromNodeId");
-
-                    b.HasIndex("SessionId")
-                        .HasDatabaseName("IX_ProcessFlowEdge_SessionId");
-
-                    b.HasIndex("ToNodeId")
-                        .HasDatabaseName("IX_ProcessFlowEdge_ToNodeId");
-
-                    b.ToTable("ProcessFlowEdges");
-                });
-
-            modelBuilder.Entity("TeamManager.Api.Domain.Entities.ProcessFlowNode", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasDefaultValueSql("gen_random_uuid()");
-
-                    b.Property<string>("Color")
-                        .HasColumnType("text");
-
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<Guid>("CreatedByMemberId")
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("Label")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<double>("PositionX")
-                        .HasColumnType("double precision");
-
-                    b.Property<double>("PositionY")
-                        .HasColumnType("double precision");
-
-                    b.Property<Guid>("SessionId")
-                        .HasColumnType("uuid");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("SessionId")
-                        .HasDatabaseName("IX_ProcessFlowNode_SessionId");
-
-                    b.ToTable("ProcessFlowNodes");
-                });
-
-            modelBuilder.Entity("TeamManager.Api.Domain.Entities.ProcessFlowSession", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasDefaultValueSql("gen_random_uuid()");
-
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<Guid>("CreatedByMemberId")
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("Title")
-                        .HasColumnType("text");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("ProcessFlowSessions");
                 });
 
             modelBuilder.Entity("TeamManager.Api.Domain.Entities.QuizGameAnswer", b =>
@@ -5048,17 +4902,6 @@ namespace TeamManager.Api.Migrations
                     b.Navigation("TeamMember");
                 });
 
-            modelBuilder.Entity("TeamManager.Api.Domain.Entities.PersonalMapNode", b =>
-                {
-                    b.HasOne("TeamManager.Api.Domain.Entities.PersonalMapSession", "Session")
-                        .WithMany("Nodes")
-                        .HasForeignKey("SessionId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Session");
-                });
-
             modelBuilder.Entity("TeamManager.Api.Domain.Entities.PointAward", b =>
                 {
                     b.HasOne("TeamManager.Api.Domain.Entities.TeamMember", "TeamMember")
@@ -5115,40 +4958,6 @@ namespace TeamManager.Api.Migrations
                     b.Navigation("Option");
 
                     b.Navigation("Poll");
-                });
-
-            modelBuilder.Entity("TeamManager.Api.Domain.Entities.ProcessFlowEdge", b =>
-                {
-                    b.HasOne("TeamManager.Api.Domain.Entities.ProcessFlowNode", null)
-                        .WithMany()
-                        .HasForeignKey("FromNodeId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("TeamManager.Api.Domain.Entities.ProcessFlowSession", "Session")
-                        .WithMany("Edges")
-                        .HasForeignKey("SessionId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("TeamManager.Api.Domain.Entities.ProcessFlowNode", null)
-                        .WithMany()
-                        .HasForeignKey("ToNodeId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("Session");
-                });
-
-            modelBuilder.Entity("TeamManager.Api.Domain.Entities.ProcessFlowNode", b =>
-                {
-                    b.HasOne("TeamManager.Api.Domain.Entities.ProcessFlowSession", "Session")
-                        .WithMany("Nodes")
-                        .HasForeignKey("SessionId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Session");
                 });
 
             modelBuilder.Entity("TeamManager.Api.Domain.Entities.QuizGameAnswer", b =>
@@ -5813,23 +5622,11 @@ namespace TeamManager.Api.Migrations
                     b.Navigation("Sprints");
                 });
 
-            modelBuilder.Entity("TeamManager.Api.Domain.Entities.PersonalMapSession", b =>
-                {
-                    b.Navigation("Nodes");
-                });
-
             modelBuilder.Entity("TeamManager.Api.Domain.Entities.Poll", b =>
                 {
                     b.Navigation("Options");
 
                     b.Navigation("Votes");
-                });
-
-            modelBuilder.Entity("TeamManager.Api.Domain.Entities.ProcessFlowSession", b =>
-                {
-                    b.Navigation("Edges");
-
-                    b.Navigation("Nodes");
                 });
 
             modelBuilder.Entity("TeamManager.Api.Domain.Entities.QuizGameSession", b =>

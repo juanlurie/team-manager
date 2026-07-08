@@ -10,5 +10,9 @@ public class RetroCustomThemeConfiguration : IEntityTypeConfiguration<RetroCusto
     {
         builder.HasKey(t => t.Id);
         builder.Property(t => t.Id).HasDefaultValueSql("gen_random_uuid()");
+
+        builder.HasIndex(t => t.OverridesBuiltInId)
+            .IsUnique()
+            .HasFilter("\"OverridesBuiltInId\" IS NOT NULL");
     }
 }

@@ -95,9 +95,12 @@ export interface RetroCustomTheme {
   name: string;
   createdByMemberId: string;
   createdAt: string;
-  // Keyed by variant ("positive"|"negative"|"action") -- present only for variants that have an
-  // uploaded image; the value is that image's updatedAt, used as a cache-busting version.
+  // Keyed by variant -- a legacy tone ("positive"|"negative"|"action") or a template column key
+  // ("well", "start", "wind", ...) -- present only for variants that have an uploaded image; the
+  // value is that image's updatedAt, used as a cache-busting version.
   variants: Record<string, string>;
+  // The built-in theme id (space/f1/ocean/retro-gaming) this theme stands in for, if any.
+  overridesBuiltInId: string | null;
 }
 export type RetroCanvasLayout = 'columns' | 'single' | null;
 

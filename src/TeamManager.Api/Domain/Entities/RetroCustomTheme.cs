@@ -11,5 +11,11 @@ public class RetroCustomTheme
     public Guid CreatedByMemberId { get; set; }
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
 
+    // When set, one of the fixed built-in theme ids (space/f1/ocean/retro-gaming) this theme
+    // stands in for -- sessions with Theme == this built-in id render this theme's images instead,
+    // without their stored Theme value ever changing. At most one custom theme may claim a given
+    // built-in id at a time (enforced by a unique filtered index, see RetroCustomThemeConfiguration).
+    public string? OverridesBuiltInId { get; set; }
+
     public ICollection<RetroCustomThemeImage> Images { get; set; } = [];
 }

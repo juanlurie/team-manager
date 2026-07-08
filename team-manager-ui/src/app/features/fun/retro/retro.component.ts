@@ -25,8 +25,9 @@ import { CreatePollDialogComponent } from '../../polls/poll.component';
 import { ConfirmDialogComponent } from '../../../shared/components/confirm-dialog/confirm-dialog.component';
 import { NavService } from '../../../core/nav/nav.service';
 import { NewRetroDialogComponent, NewRetroDialogResult } from './new-retro-dialog.component';
-import { DEFAULT_COLS, RETRO_TEMPLATES, ICEBREAKER_QUESTIONS, RETRO_THEMES, RetroThemeDef, RetroBgStyle, bgStyleFor, PHOTO_BG_STYLE } from './retro-constants';
+import { DEFAULT_COLS, RETRO_TEMPLATES, ICEBREAKER_QUESTIONS, RETRO_THEMES, RetroBgStyle, bgStyleFor, PHOTO_BG_STYLE } from './retro-constants';
 import { RetroSingleCanvasComponent } from './retro-single-canvas.component';
+import { RetroThemeEditorComponent } from './retro-theme-editor.component';
 
 const PHASE_META: Record<string, { label: string; color: string }> = {
   lobby:   { label: 'Lobby',         color: '#64b5f6' },
@@ -75,6 +76,7 @@ interface TimerState {
     TextFieldModule,
     AvatarCircleComponent,
     RetroSingleCanvasComponent,
+    RetroThemeEditorComponent,
   ],
   changeDetection: ChangeDetectionStrategy.Default,
   styles: [`
@@ -175,49 +177,6 @@ interface TimerState {
     .settings-row-label { font-size:0.82rem;color:rgba(255,255,255,0.75); }
     .settings-row-desc { font-size:0.7rem;color:rgba(255,255,255,0.35);margin-top:1px; }
     .settings-row-column { flex-direction:column;align-items:stretch;gap:8px; }
-    .theme-picker { display:flex;gap:6px;flex-wrap:wrap; }
-    .theme-swatch {
-      width:34px;height:34px;flex-shrink:0;
-      background:rgba(255,255,255,0.05);border:1.5px solid rgba(255,255,255,0.12);
-      border-radius:8px;cursor:pointer;color:rgba(255,255,255,0.5);
-      display:flex;align-items:center;justify-content:center;
-      transition:border-color .15s,background .15s;
-    }
-    .theme-swatch:hover { background:rgba(255,255,255,0.1); }
-    .theme-swatch.active { border-color:#64b5f6;background:rgba(100,181,246,0.12); }
-    .theme-swatch-preview {
-      width:22px;height:22px;background-repeat:no-repeat;background-position:center;
-      background-size:contain;image-rendering:pixelated;opacity:0.85;
-    }
-    .theme-manage-panel {
-      background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);
-      border-radius:10px;padding:12px;
-    }
-    .theme-manage-desc { font-size:0.7rem;color:rgba(255,255,255,0.35); }
-    .theme-manage-row {
-      display:flex;align-items:center;gap:8px;padding:8px 0;
-      border-bottom:1px solid rgba(255,255,255,0.06);
-    }
-    .theme-manage-name { flex:1;font-size:0.82rem;font-weight:600; }
-    .theme-name-input {
-      flex:1;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.15);
-      border-radius:6px;color:#fff;padding:5px 8px;font-size:0.82rem;
-    }
-    .theme-variant-slots { display:flex;gap:6px; }
-    .theme-variant-slot { position:relative;width:34px;height:34px;flex-shrink:0; }
-    .theme-variant-preview, .theme-variant-upload {
-      width:34px;height:34px;border-radius:6px;cursor:pointer;
-      background-color:rgba(255,255,255,0.05);border:1.5px dashed rgba(255,255,255,0.15);
-      background-repeat:no-repeat;background-position:center;background-size:contain;
-      display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,0.4);
-    }
-    .theme-variant-preview { border-style:solid; }
-    .theme-variant-remove {
-      position:absolute;top:-6px;right:-6px;width:16px;height:16px;border-radius:50%;
-      background:#ef5350;color:#fff;border:none;cursor:pointer;
-      display:flex;align-items:center;justify-content:center;padding:0;
-    }
-    .theme-manage-new { display:flex;gap:8px;align-items:center;margin-top:4px; }
     .toggle-track {
       width:36px;height:20px;border-radius:10px;background:rgba(255,255,255,0.12);
       position:relative;cursor:pointer;transition:background .2s;flex-shrink:0;
@@ -702,9 +661,14 @@ interface TimerState {
       <div class="lobby-wrap">
         <div class="lobby-header">
           <span class="lobby-title">Fun Retro</span>
-          <button mat-flat-button color="primary" (click)="openNewRetroDialog()" [disabled]="loading()">
-            <mat-icon>add</mat-icon> New Retro
-          </button>
+          <div style="display:flex;gap:8px">
+            <button mat-stroked-button (click)="goToThemeManager()">
+              <mat-icon>palette</mat-icon> Manage Themes
+            </button>
+            <button mat-flat-button color="primary" (click)="openNewRetroDialog()" [disabled]="loading()">
+              <mat-icon>add</mat-icon> New Retro
+            </button>
+          </div>
         </div>
 
         @if (loading()) {
@@ -927,80 +891,8 @@ interface TimerState {
                 <div class="settings-row-label">Board theme</div>
                 <div class="settings-row-desc">A subtle background on each canvas</div>
               </div>
-              <div class="theme-picker">
-                <button class="theme-swatch" [class.active]="!s.theme" title="None" (click)="setTheme(null)">
-                  <mat-icon style="font-size:16px;height:16px;width:16px">block</mat-icon>
-                </button>
-                @for (t of retroThemes; track t.id) {
-                  <button class="theme-swatch" [class.active]="s.theme === t.id" [title]="t.label"
-                          (click)="setTheme(t.id)">
-                    <span class="theme-swatch-preview" [style.background-image]="themeSwatchUrl(t)"></span>
-                  </button>
-                }
-                @for (t of customThemes(); track t.id) {
-                  <button class="theme-swatch" [class.active]="s.theme === t.id" [title]="t.name"
-                          (click)="setTheme(t.id)">
-                    @if (customThemeSwatchUrl(t); as url) {
-                      <span class="theme-swatch-preview" [style.background-image]="'url(' + url + ')'"></span>
-                    } @else {
-                      <mat-icon style="font-size:16px;height:16px;width:16px">image</mat-icon>
-                    }
-                  </button>
-                }
-                <button class="theme-swatch" title="Manage custom themes" (click)="manageThemesOpen.set(!manageThemesOpen())">
-                  <mat-icon style="font-size:16px;height:16px;width:16px">tune</mat-icon>
-                </button>
-              </div>
+              <app-retro-theme-editor mode="compact" [selectedThemeId]="s.theme" (themeSelected)="setTheme($event)" />
             </div>
-            @if (manageThemesOpen()) {
-              <div class="settings-row settings-row-column theme-manage-panel">
-                <div class="settings-row-label">Custom Themes</div>
-                <div class="theme-manage-desc">
-                  Shared across every retro. Each theme takes up to 3 images -- shown per column like the built-in themes (1st = positive, 2nd = negative, 3rd+ = action).
-                </div>
-                @for (t of customThemes(); track t.id) {
-                  <div class="theme-manage-row">
-                    @if (renamingThemeId() === t.id) {
-                      <input class="theme-name-input" [value]="renameText()" (input)="renameText.set($any($event.target).value)"
-                             (keydown.enter)="saveRenameTheme(t.id)" (keydown.escape)="renamingThemeId.set(null)" />
-                      <button class="toolbar-btn" (click)="saveRenameTheme(t.id)"><mat-icon>check</mat-icon></button>
-                      <button class="toolbar-btn" (click)="renamingThemeId.set(null)"><mat-icon>close</mat-icon></button>
-                    } @else {
-                      <span class="theme-manage-name">{{ t.name }}</span>
-                      <button class="toolbar-btn" title="Rename" (click)="startRenameTheme(t)"><mat-icon style="font-size:16px;height:16px;width:16px">edit</mat-icon></button>
-                    }
-                    <div class="theme-variant-slots">
-                      @for (v of themeVariants; track v) {
-                        <div class="theme-variant-slot" [title]="v">
-                          @if (customThemeVariantUrl(t, v); as url) {
-                            <span class="theme-variant-preview" [style.background-image]="'url(' + url + ')'" (click)="fileInput.click()"></span>
-                            <button class="theme-variant-remove" title="Remove" (click)="removeVariantImage(t.id, v)">
-                              <mat-icon style="font-size:12px;height:12px;width:12px">close</mat-icon>
-                            </button>
-                          } @else {
-                            <button class="theme-variant-upload" (click)="fileInput.click()">
-                              <mat-icon style="font-size:16px;height:16px;width:16px">add_photo_alternate</mat-icon>
-                            </button>
-                          }
-                          <input #fileInput type="file" accept="image/png,image/jpeg,image/webp,image/gif" style="display:none"
-                                 (change)="onVariantFileSelected($event, t.id, v)" />
-                        </div>
-                      }
-                    </div>
-                    <button class="toolbar-btn toolbar-btn-danger" title="Delete theme" (click)="deleteCustomTheme(t)">
-                      <mat-icon style="font-size:16px;height:16px;width:16px">delete_outline</mat-icon>
-                    </button>
-                  </div>
-                }
-                <div class="theme-manage-new">
-                  <input class="theme-name-input" placeholder="New theme name…" [value]="newThemeName()"
-                         (input)="newThemeName.set($any($event.target).value)" (keydown.enter)="createCustomTheme()" />
-                  <button mat-stroked-button [disabled]="!newThemeName().trim() || creatingTheme()" (click)="createCustomTheme()">
-                    <mat-icon>add</mat-icon> New Theme
-                  </button>
-                </div>
-              </div>
-            }
           </div>
         }
 
@@ -2379,6 +2271,10 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
     this.canvasResizeObserver?.disconnect();
   }
 
+  goToThemeManager(): void {
+    this.router.navigate(['/pulse/retro/themes']);
+  }
+
   loadSessions(): void {
     this.loading.set(true);
     this.svc.getSessions().subscribe({
@@ -2583,22 +2479,13 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
     });
   }
 
-  readonly retroThemes = RETRO_THEMES;
   readonly themeVariants: ('positive' | 'negative' | 'action')[] = ['positive', 'negative', 'action'];
 
   private themeLibSvc = inject(RetroThemeLibraryService);
+  // Loaded here purely for rendering (themeBgUrl/themeBgStyle below) -- CRUD/authoring now lives
+  // entirely in RetroThemeEditorComponent (its own copy, loaded independently when mounted in
+  // 'compact' mode in the settings drawer, or standalone on the theme manager page).
   customThemes = signal<RetroCustomTheme[]>([]);
-  manageThemesOpen = signal(false);
-  newThemeName = signal('');
-  creatingTheme = signal(false);
-  renamingThemeId = signal<string | null>(null);
-  renameText = signal('');
-
-  // Object URLs for fetched variant image blobs, keyed by "themeId:variant". Not plain asset
-  // URLs -- the endpoint sits behind bearer-token auth, so each is fetched via HttpClient (which
-  // the auth interceptor attaches the token to) rather than an <img src>, then cached here.
-  private variantImageUrls = signal<Record<string, string>>({});
-  private variantFetchInFlight = new Set<string>();
 
   private loadCustomThemes(): void {
     this.themeLibSvc.getThemes().subscribe({
@@ -2611,10 +2498,19 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
     return this.customThemes().find(t => t.id === id);
   }
 
-  /** Lazily fetches and caches a variant's image blob as an object URL; returns the cached URL
-   *  (or null while the fetch is in flight / the variant has no image). Falls back to the
-   *  "positive" variant if the requested one has no image, same spirit as the built-in
-   *  retro-gaming theme mixing variants -- a half-configured theme still reads as one theme. */
+  /** A custom theme whose OverridesBuiltInId matches `builtInId`, if any -- sessions still
+   *  pointing at the built-in id render this theme's images instead, with no change to the
+   *  session's stored theme value. */
+  private findOverridingTheme(builtInId: string): RetroCustomTheme | undefined {
+    return this.customThemes().find(t => t.overridesBuiltInId === builtInId);
+  }
+
+  /** Object URLs for fetched variant image blobs, keyed by "themeId:variant" -- fetched via
+   *  HttpClient (so the auth interceptor attaches the bearer token) rather than a plain <img src>,
+   *  then cached here. Falls back to the "positive" variant if the requested one has no image. */
+  private variantImageUrls = signal<Record<string, string>>({});
+  private variantFetchInFlight = new Set<string>();
+
   private ensureVariantUrl(themeId: string, variant: string): string | null {
     const theme = this.findCustomTheme(themeId);
     if (!theme) return null;
@@ -2625,7 +2521,7 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
     if (cached) return cached;
     if (!this.variantFetchInFlight.has(key)) {
       this.variantFetchInFlight.add(key);
-      this.themeLibSvc.getVariantBlob(themeId, effectiveVariant as 'positive').subscribe({
+      this.themeLibSvc.getVariantBlob(themeId, effectiveVariant).subscribe({
         next: blob => {
           this.variantFetchInFlight.delete(key);
           this.variantImageUrls.update(m => ({ ...m, [key]: URL.createObjectURL(blob) }));
@@ -2636,116 +2532,19 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
     return null;
   }
 
-  /** Representative preview for a custom theme's swatch -- the "positive" variant (or whatever's
-   *  uploaded, since ensureVariantUrl falls back to it). */
-  customThemeSwatchUrl(theme: RetroCustomTheme): string | null {
-    return this.ensureVariantUrl(theme.id, 'positive');
-  }
-
-  customThemeVariantUrl(theme: RetroCustomTheme, variant: string): string | null {
-    const key = `${theme.id}:${variant}`;
-    return this.variantImageUrls()[key] ?? (theme.variants[variant] ? this.ensureVariantUrl(theme.id, variant) : null);
-  }
-
-  createCustomTheme(): void {
-    const name = this.newThemeName().trim();
-    if (!name || this.creatingTheme()) return;
-    this.creatingTheme.set(true);
-    this.themeLibSvc.createTheme(name).subscribe({
-      next: theme => {
-        this.customThemes.update(list => [...list, theme]);
-        this.newThemeName.set('');
-        this.creatingTheme.set(false);
-      },
-      error: () => {
-        this.creatingTheme.set(false);
-        this.snackBar.open('Failed to create theme', 'OK', { duration: 3000 });
-      },
-    });
-  }
-
-  startRenameTheme(theme: RetroCustomTheme): void {
-    this.renamingThemeId.set(theme.id);
-    this.renameText.set(theme.name);
-  }
-
-  saveRenameTheme(themeId: string): void {
-    const name = this.renameText().trim();
-    this.renamingThemeId.set(null);
-    if (!name) return;
-    this.themeLibSvc.renameTheme(themeId, name).subscribe({
-      next: () => this.customThemes.update(list => list.map(t => t.id === themeId ? { ...t, name } : t)),
-      error: () => this.snackBar.open('Failed to rename theme', 'OK', { duration: 3000 }),
-    });
-  }
-
-  deleteCustomTheme(theme: RetroCustomTheme): void {
-    this.dialog.open(ConfirmDialogComponent, {
-      width: '360px',
-      data: { title: `Delete "${theme.name}"?`, message: 'Sessions using this theme will fall back to no background.', danger: true }
-    }).afterClosed().subscribe(ok => {
-      if (!ok) return;
-      this.themeLibSvc.deleteTheme(theme.id).subscribe({
-        next: () => this.customThemes.update(list => list.filter(t => t.id !== theme.id)),
-        error: () => this.snackBar.open('Failed to delete theme', 'OK', { duration: 3000 }),
-      });
-    });
-  }
-
-  onVariantFileSelected(event: Event, themeId: string, variant: 'positive' | 'negative' | 'action'): void {
-    const input = event.target as HTMLInputElement;
-    const file = input.files?.[0];
-    input.value = ''; // allow re-selecting the same file later
-    if (!file) return;
-    if (file.size > 5 * 1024 * 1024) {
-      this.snackBar.open('Image must be under 5MB', 'OK', { duration: 3000 });
-      return;
-    }
-    this.themeLibSvc.uploadVariant(themeId, variant, file).subscribe({
-      next: ({ updatedAt }) => {
-        this.customThemes.update(list => list.map(t => t.id === themeId ? { ...t, variants: { ...t.variants, [variant]: updatedAt } } : t));
-        const key = `${themeId}:${variant}`;
-        this.variantImageUrls.update(m => {
-          const old = m[key];
-          if (old) URL.revokeObjectURL(old);
-          const next = { ...m };
-          delete next[key];
-          return next;
-        });
-      },
-      error: () => this.snackBar.open('Failed to upload image', 'OK', { duration: 3000 }),
-    });
-  }
-
-  removeVariantImage(themeId: string, variant: 'positive' | 'negative' | 'action'): void {
-    this.themeLibSvc.deleteVariant(themeId, variant).subscribe({
-      next: () => {
-        this.customThemes.update(list => list.map(t => {
-          if (t.id !== themeId) return t;
-          const variants = { ...t.variants };
-          delete variants[variant];
-          return { ...t, variants };
-        }));
-        const key = `${themeId}:${variant}`;
-        const old = this.variantImageUrls()[key];
-        if (old) {
-          URL.revokeObjectURL(old);
-          this.variantImageUrls.update(m => { const next = { ...m }; delete next[key]; return next; });
-        }
-      },
-      error: () => this.snackBar.open('Failed to remove image', 'OK', { duration: 3000 }),
-    });
-  }
-
-  /** The pixel-art background for the column at `colIndex` -- each column shows a
-   *  different tone within the theme (1st = positive, 2nd = negative, 3rd+ = action). A custom
-   *  library theme follows the same convention with its own uploaded variant images. */
+  /** The background for the column at `colIndex`: (1) a custom theme overriding the session's
+   *  built-in theme id, (2) a custom theme selected directly by id, (3) the built-in constant.
+   *  A resolved custom theme tries the column's own key first (per-column images), then falls
+   *  back to the legacy position-based positive/negative/action slot so themes uploaded before
+   *  per-column support keep rendering with no data migration. */
   themeBgUrl(colIndex: number): string | null {
     const theme = this.session()?.theme;
     if (!theme) return null;
-    const custom = this.findCustomTheme(theme);
+    const custom = this.findOverridingTheme(theme) ?? this.findCustomTheme(theme);
     if (custom) {
-      const url = this.ensureVariantUrl(theme, this.themeVariants[Math.min(colIndex, 2)]);
+      const columnKey = this.session()?.columns?.[colIndex]?.key;
+      const positional = this.themeVariants[Math.min(colIndex, 2)];
+      const url = this.ensureVariantUrl(custom.id, columnKey && custom.variants[columnKey] ? columnKey : positional);
       return url ? `url("${url}")` : null;
     }
     const def = RETRO_THEMES.find(t => t.id === theme);
@@ -2758,14 +2557,9 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
    *  image is a real photo like the space/f1 renders, so it gets the same treatment. */
   themeBgStyle(variantIndex: number): RetroBgStyle | null {
     const theme = this.session()?.theme;
-    if (theme && this.findCustomTheme(theme)) return PHOTO_BG_STYLE;
+    if (theme && (this.findOverridingTheme(theme) || this.findCustomTheme(theme))) return PHOTO_BG_STYLE;
     const def = theme ? RETRO_THEMES.find(t => t.id === theme) : undefined;
     return bgStyleFor(def, variantIndex);
-  }
-
-  /** Representative icon for the theme picker swatch -- the "positive" variant. */
-  themeSwatchUrl(theme: RetroThemeDef): string {
-    return theme.variantUrls[0];
   }
 
   setTheme(theme: RetroTheme): void {

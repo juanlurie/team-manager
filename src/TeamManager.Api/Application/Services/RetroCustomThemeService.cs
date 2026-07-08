@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using Microsoft.EntityFrameworkCore;
 using TeamManager.Api.Application.DTOs.FunRetro;
 using TeamManager.Api.Domain.Entities;
@@ -14,7 +15,14 @@ public class RetroCustomThemeService(AppDbContext db)
 {
     public static readonly HashSet<string> AllowedContentTypes = ["image/png", "image/jpeg", "image/webp", "image/gif"];
     public const long MaxImageBytes = 5 * 1024 * 1024;
-    public static readonly HashSet<string> ValidVariants = ["positive", "negative", "action"];
+    public static readonly HashSet<string> ValidBuiltInIds = ["space", "f1", "ocean", "retro-gaming"];
+
+    // Variant used to be restricted to the 3 legacy tone names ("positive"/"negative"/"action");
+    // it's now also used for arbitrary template column keys ("well", "start", "wind", ...), so the
+    // check is a generic safe-string format (it's a URL path segment and a DB PK component) rather
+    // than a hardcoded whitelist -- the frontend owns the actual column-key vocabulary.
+    private static readonly Regex ValidVariantPattern = new("^[a-z0-9-]{1,40}$", RegexOptions.Compiled);
+    public static bool IsValidVariant(string variant) => ValidVariantPattern.IsMatch(variant);
 
     public async Task<List<RetroCustomThemeDto>> GetThemesAsync()
     {
@@ -61,8 +69,25 @@ public class RetroCustomThemeService(AppDbContext db)
         return true;
     }
 
+    public async Task<(bool Success, bool Conflict)> SetOverrideBuiltInAsync(Guid themeId, string? builtInId)
+    {
+        var theme = await db.RetroCustomThemes.FindAsync(themeId);
+        if (theme is null) return (false, false);
+        if (builtInId is not null)
+        {
+            if (!ValidBuiltInIds.Contains(builtInId)) return (false, false);
+            var claimedByAnother = await db.RetroCustomThemes
+                .AnyAsync(t => t.Id != themeId && t.OverridesBuiltInId == builtInId);
+            if (claimedByAnother) return (false, true);
+        }
+
+        theme.OverridesBuiltInId = builtInId;
+        await db.SaveChangesAsync();
+        return (true, false);
+    }
+
     /// <summary>Caller (the controller) is expected to have already validated content type/size
-    /// against AllowedContentTypes/MaxImageBytes and that variant is one of ValidVariants.</summary>
+    /// against AllowedContentTypes/MaxImageBytes and that variant is a valid format (IsValidVariant).</summary>
     public async Task<DateTimeOffset?> UploadVariantImageAsync(Guid themeId, string variant, string contentType, Stream content)
     {
         var theme = await db.RetroCustomThemes.FindAsync(themeId);
@@ -109,5 +134,6 @@ public class RetroCustomThemeService(AppDbContext db)
         CreatedByMemberId = theme.CreatedByMemberId,
         CreatedAt = theme.CreatedAt,
         Variants = theme.Images.ToDictionary(i => i.Variant, i => i.UpdatedAt),
+        OverridesBuiltInId = theme.OverridesBuiltInId,
     };
 }

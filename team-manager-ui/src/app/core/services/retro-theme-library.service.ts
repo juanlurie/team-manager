@@ -27,20 +27,28 @@ export class RetroThemeLibraryService {
     return this.http.delete<void>(`${this.base}/${id}`);
   }
 
-  uploadVariant(id: string, variant: 'positive' | 'negative' | 'action', file: File): Observable<{ updatedAt: string }> {
+  // variant is either a legacy tone ("positive"|"negative"|"action") or a template column key
+  // ("well", "start", "wind", ...) -- the backend accepts any safe-string variant now.
+  uploadVariant(id: string, variant: string, file: File): Observable<{ updatedAt: string }> {
     const form = new FormData();
     form.append('file', file);
     return this.http.post<{ updatedAt: string }>(`${this.base}/${id}/variants/${variant}`, form);
   }
 
-  deleteVariant(id: string, variant: 'positive' | 'negative' | 'action'): Observable<void> {
+  deleteVariant(id: string, variant: string): Observable<void> {
     return this.http.delete<void>(`${this.base}/${id}/variants/${variant}`);
   }
 
   // Fetched as a blob (not a plain <img src>) -- the endpoint sits behind the same bearer-token
   // auth as everything else here, and an <img> tag can't attach the Authorization header the auth
   // interceptor adds to HttpClient requests.
-  getVariantBlob(id: string, variant: 'positive' | 'negative' | 'action'): Observable<Blob> {
+  getVariantBlob(id: string, variant: string): Observable<Blob> {
     return this.http.get(`${this.base}/${id}/variants/${variant}`, { responseType: 'blob' });
+  }
+
+  // builtInId null clears an existing override. Server enforces at most one custom theme may
+  // claim a given built-in id at a time -- rejects with 409 if another theme already owns it.
+  setOverride(id: string, builtInId: string | null): Observable<void> {
+    return this.http.patch<void>(`${this.base}/${id}/override`, { builtInId });
   }
 }

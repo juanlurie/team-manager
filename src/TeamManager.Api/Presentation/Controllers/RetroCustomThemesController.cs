@@ -46,11 +46,23 @@ public class RetroCustomThemesController(RetroCustomThemeService service) : Cont
         return NoContent();
     }
 
+    [HttpPatch("{id:guid}/override")]
+    public async Task<IActionResult> SetOverride(Guid id, [FromBody] SetOverrideBuiltInRequest request)
+    {
+        if (request.BuiltInId is not null && !RetroCustomThemeService.ValidBuiltInIds.Contains(request.BuiltInId))
+            return BadRequest(new { error = "Unknown built-in theme id." });
+
+        var (success, conflict) = await service.SetOverrideBuiltInAsync(id, request.BuiltInId);
+        if (conflict) return Conflict(new { error = "Another theme already overrides this built-in theme." });
+        if (!success) return NotFound();
+        return NoContent();
+    }
+
     [HttpPost("{id:guid}/variants/{variant}")]
     [RequestSizeLimit(RetroCustomThemeService.MaxImageBytes)]
     public async Task<IActionResult> UploadVariant(Guid id, string variant, IFormFile file)
     {
-        if (!RetroCustomThemeService.ValidVariants.Contains(variant)) return NotFound();
+        if (!RetroCustomThemeService.IsValidVariant(variant)) return BadRequest(new { error = "Invalid variant key." });
         if (file.Length <= 0 || file.Length > RetroCustomThemeService.MaxImageBytes
             || !RetroCustomThemeService.AllowedContentTypes.Contains(file.ContentType))
             return BadRequest(new { error = "Image must be PNG/JPEG/WEBP/GIF, up to 5MB." });
