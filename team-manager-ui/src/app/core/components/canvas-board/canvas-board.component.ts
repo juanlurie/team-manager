@@ -43,8 +43,10 @@ const MAX_ZOOM = 2.5;
     .canvas-outer.panning { cursor:grabbing; }
     .canvas-inner { position:absolute;top:0;left:0;transform-origin:0 0; }
     .canvas-svg { position:absolute;top:0;left:0;overflow:visible;pointer-events:none; }
-    .canvas-edge { stroke:rgba(255,255,255,0.4);stroke-width:2;fill:none;cursor:pointer;pointer-events:stroke; }
-    .canvas-edge:hover { stroke:#64b5f6; }
+    .canvas-edge-group { cursor:pointer; }
+    .canvas-edge { stroke:rgba(255,255,255,0.4);stroke-width:2;fill:none;pointer-events:none; }
+    .canvas-edge-hit { stroke:transparent;stroke-width:16;fill:none;pointer-events:stroke; }
+    .canvas-edge-group:hover .canvas-edge { stroke:#64b5f6; }
     .canvas-edge-pending { stroke:#64b5f6;stroke-width:2;stroke-dasharray:6 4;fill:none; }
     .canvas-node {
       position:absolute;width:${NODE_W}px;min-height:${NODE_H}px;border-radius:10px;
@@ -81,13 +83,16 @@ const MAX_ZOOM = 2.5;
       <div class="canvas-inner" [style.transform]="innerTransform()">
         <svg class="canvas-svg" [attr.width]="10" [attr.height]="10" [style.overflow]="'visible'">
           <defs>
-            <marker id="cb-arrow" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth">
-              <path d="M0,0 L0,6 L9,3 z" fill="rgba(255,255,255,0.5)" />
+            <marker id="cb-arrow" markerWidth="9" markerHeight="9" refX="7.5" refY="4" orient="auto" markerUnits="userSpaceOnUse">
+              <path d="M0,0 L0,8 L8,4 z" fill="rgba(255,255,255,0.55)" />
             </marker>
           </defs>
           @for (e of edgeLines(); track e.id) {
-            <line class="canvas-edge" [attr.x1]="e.x1" [attr.y1]="e.y1" [attr.x2]="e.x2" [attr.y2]="e.y2"
-                  marker-end="url(#cb-arrow)" (click)="edgeClicked.emit(e.id)" />
+            <g class="canvas-edge-group" (click)="edgeClicked.emit(e.id)">
+              <line class="canvas-edge-hit" [attr.x1]="e.x1" [attr.y1]="e.y1" [attr.x2]="e.x2" [attr.y2]="e.y2" />
+              <line class="canvas-edge" [attr.x1]="e.x1" [attr.y1]="e.y1" [attr.x2]="e.x2" [attr.y2]="e.y2"
+                    marker-end="url(#cb-arrow)" />
+            </g>
           }
           @if (pendingConnectLine(); as pl) {
             <line class="canvas-edge-pending" [attr.x1]="pl.x1" [attr.y1]="pl.y1" [attr.x2]="pl.x2" [attr.y2]="pl.y2" />
@@ -170,8 +175,8 @@ export class CanvasBoardComponent implements AfterViewInit {
         const from = byId.get(e.fromId);
         const to = byId.get(e.toId);
         if (!from || !to) return null;
-        const c1 = this.anchorPoint(from, to);
-        const c2 = this.anchorPoint(to, from);
+        const c1 = this.anchorPoint(from, this.center(to));
+        const c2 = this.anchorPoint(to, this.center(from));
         return { id: e.id, x1: c1.x, y1: c1.y, x2: c2.x, y2: c2.y };
       })
       .filter((e): e is { id: string; x1: number; y1: number; x2: number; y2: number } => e !== null);
@@ -187,13 +192,23 @@ export class CanvasBoardComponent implements AfterViewInit {
     return { x1: start.x, y1: start.y, x2: cs.toWorld.x, y2: cs.toWorld.y };
   });
 
-  private anchorPoint(from: { x: number; y: number }, to: { x: number; y: number }): { x: number; y: number } {
+  private center(node: { x: number; y: number }): { x: number; y: number } {
+    return { x: node.x + NODE_W / 2, y: node.y + NODE_H / 2 };
+  }
+
+  // Point where the line from `from`'s center toward the world point `target` crosses `from`'s
+  // rectangular border. Nodes are rectangles (160x64), so projecting onto a circle left arrows
+  // floating off the short top/bottom edges -- scale the direction vector to the nearest border.
+  private anchorPoint(from: { x: number; y: number }, target: { x: number; y: number }): { x: number; y: number } {
     const cx = from.x + NODE_W / 2;
     const cy = from.y + NODE_H / 2;
-    const dx = to.x - cx;
-    const dy = to.y - cy;
-    const angle = Math.atan2(dy, dx);
-    return { x: cx + Math.cos(angle) * (NODE_W / 2), y: cy + Math.sin(angle) * (NODE_H / 2) };
+    const dx = target.x - cx;
+    const dy = target.y - cy;
+    if (dx === 0 && dy === 0) return { x: cx, y: cy };
+    const hw = NODE_W / 2;
+    const hh = NODE_H / 2;
+    const scale = 1 / Math.max(Math.abs(dx) / hw, Math.abs(dy) / hh);
+    return { x: cx + dx * scale, y: cy + dy * scale };
   }
 
   private outerEl(): HTMLElement | null {
