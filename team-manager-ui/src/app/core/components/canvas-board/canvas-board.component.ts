@@ -1,4 +1,4 @@
-import { Component, ChangeDetectionStrategy, ElementRef, HostListener, AfterViewInit, inject, input, output, signal, computed } from '@angular/core';
+import { Component, ChangeDetectionStrategy, ElementRef, HostListener, AfterViewInit, inject, input, output, signal, computed, effect, untracked } from '@angular/core';
 import { CommonModule } from '@angular/common';
 
 export interface CanvasNode {
@@ -165,6 +165,9 @@ export class CanvasBoardComponent implements AfterViewInit {
   connectMode = input(false);
   resizable = input(false);
   selectedId = input<string | null>(null);
+  // When set to a node id, that node immediately enters label-edit mode (used so a freshly
+  // created node opens ready to type). Parent bumps this after adding a node.
+  editNodeId = input<string | null>(null);
 
   nodeMoved = output<{ id: string; x: number; y: number }>();
   nodeResized = output<{ id: string; width: number; height: number }>();
@@ -191,6 +194,24 @@ export class CanvasBoardComponent implements AfterViewInit {
 
   editingId = signal<string | null>(null);
   editingText = signal('');
+
+  constructor() {
+    // Open a node straight into edit mode when the parent points editNodeId at it (nodes read
+    // untracked so unrelated node updates don't yank focus out of an in-progress edit).
+    effect(() => {
+      const id = this.editNodeId();
+      if (!id) return;
+      const node = untracked(() => this.nodes()).find(n => n.id === id);
+      if (!node) return;
+      this.editingId.set(id);
+      this.editingText.set(node.label);
+      requestAnimationFrame(() => {
+        const ta = (this.elRef.nativeElement as HTMLElement).querySelector('.canvas-node-label') as HTMLTextAreaElement | null;
+        ta?.focus();
+        ta?.select();
+      });
+    });
+  }
 
   // Effective geometry: always carries a concrete width/height (falling back to defaults), with
   // any in-flight local drag/resize override layered on top until it's committed to the parent.
@@ -412,16 +433,6 @@ export class CanvasBoardComponent implements AfterViewInit {
       } else if (!toId) {
         // Dropped on empty canvas -- spawn a new node centred on the cursor and connect to it.
         this.connectorDroppedOnEmpty.emit({ fromId, x: Math.max(0, dropWorld.x - NODE_W / 2), y: Math.max(0, dropWorld.y - NODE_H / 2) });
-      }
-      return;
-    }
-    if (this.resizeState) {
-      const { id } = this.resizeState;
-      const size = this.localSizes()[id];
-      this.resizeState = null;
-      if (size) {
-        this.nodeResized.emit({ id, width: size.width, height: size.height });
-        this.localSizes.update(s => { const next = { ...s }; delete next[id]; return next; });
       }
       return;
     }
