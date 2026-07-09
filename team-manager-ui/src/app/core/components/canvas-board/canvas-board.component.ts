@@ -172,6 +172,7 @@ export class CanvasBoardComponent implements AfterViewInit {
   labelCommitted = output<{ id: string; label: string }>();
   canvasDoubleClicked = output<{ x: number; y: number }>();
   connectorDrawn = output<{ fromId: string; toId: string }>();
+  connectorDroppedOnEmpty = output<{ fromId: string; x: number; y: number }>();
   edgeClicked = output<string>();
 
   private elRef = inject(ElementRef);
@@ -404,8 +405,14 @@ export class CanvasBoardComponent implements AfterViewInit {
       const fromId = this.connectState.fromId;
       const target = (e.target as HTMLElement).closest('.canvas-node') as HTMLElement | null;
       const toId = target?.getAttribute('data-node-id');
+      const dropWorld = this.worldPointFromEvent(e);
       this.connectState = null;
-      if (toId && toId !== fromId) this.connectorDrawn.emit({ fromId, toId });
+      if (toId && toId !== fromId) {
+        this.connectorDrawn.emit({ fromId, toId });
+      } else if (!toId) {
+        // Dropped on empty canvas -- spawn a new node centred on the cursor and connect to it.
+        this.connectorDroppedOnEmpty.emit({ fromId, x: Math.max(0, dropWorld.x - NODE_W / 2), y: Math.max(0, dropWorld.y - NODE_H / 2) });
+      }
       return;
     }
     if (this.resizeState) {
