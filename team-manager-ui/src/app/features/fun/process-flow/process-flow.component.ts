@@ -91,8 +91,10 @@ import { CanvasBoardComponent, CanvasNode, CanvasEdge } from '../../../core/comp
             [nodes]="canvasNodes()"
             [edges]="canvasEdges()"
             [connectMode]="true"
+            [resizable]="true"
             (canvasDoubleClicked)="onCanvasDoubleClicked($event)"
             (nodeMoved)="onNodeMoved($event)"
+            (nodeResized)="onNodeResized($event)"
             (labelCommitted)="onLabelCommitted($event)"
             (connectorDrawn)="onConnectorDrawn($event)"
             (edgeClicked)="onEdgeClicked($event)" />
@@ -166,6 +168,17 @@ export class ProcessFlowComponent implements OnInit, OnDestroy {
               this.syncCanvas();
             }
             break;
+          case 'process_flow_node_resized':
+            if (msg.data['sessionId'] === s.id) {
+              const nodeId = msg.data['nodeId'] as string;
+              const width = msg.data['width'] as number;
+              const height = msg.data['height'] as number;
+              this.session.update(cur => cur
+                ? { ...cur, nodes: cur.nodes.map(n => n.id === nodeId ? { ...n, width, height } : n) }
+                : cur);
+              this.syncCanvas();
+            }
+            break;
           case 'process_flow_node_text_updated':
             if (msg.data['sessionId'] === s.id) {
               const nodeId = msg.data['nodeId'] as string;
@@ -217,7 +230,7 @@ export class ProcessFlowComponent implements OnInit, OnDestroy {
   private syncCanvas(): void {
     const s = this.session();
     if (!s) return;
-    this.canvasNodes.set(s.nodes.map(n => ({ id: n.id, x: n.positionX, y: n.positionY, label: n.label, color: n.color ?? undefined })));
+    this.canvasNodes.set(s.nodes.map(n => ({ id: n.id, x: n.positionX, y: n.positionY, label: n.label, color: n.color ?? undefined, width: n.width, height: n.height })));
     this.canvasEdges.set(s.edges.map(e => ({ id: e.id, fromId: e.fromNodeId, toId: e.toNodeId })));
   }
 
@@ -322,6 +335,18 @@ export class ProcessFlowComponent implements OnInit, OnDestroy {
     this.syncCanvas();
     this.svc.updateNodePosition(s.id, e.id, e.x, e.y).subscribe({
       error: () => this.snackBar.open('Failed to save node position', 'OK', { duration: 3000 }),
+    });
+  }
+
+  onNodeResized(e: { id: string; width: number; height: number }): void {
+    const s = this.session();
+    if (!s) return;
+    this.session.update(cur => cur
+      ? { ...cur, nodes: cur.nodes.map(n => n.id === e.id ? { ...n, width: e.width, height: e.height } : n) }
+      : cur);
+    this.syncCanvas();
+    this.svc.updateNodeSize(s.id, e.id, e.width, e.height).subscribe({
+      error: () => this.snackBar.open('Failed to save node size', 'OK', { duration: 3000 }),
     });
   }
 

@@ -64,6 +64,14 @@ public class ProcessFlowController(ProcessFlowService service) : ControllerBase
         return NoContent();
     }
 
+    [HttpPatch("{id:guid}/nodes/{nodeId:guid}/size")]
+    public async Task<IActionResult> UpdateNodeSize(Guid id, Guid nodeId, [FromBody] UpdateProcessFlowNodeSizeRequest request)
+    {
+        var success = await service.UpdateNodeSizeAsync(id, nodeId, request);
+        if (!success) return NotFound();
+        return NoContent();
+    }
+
     [HttpPatch("{id:guid}/nodes/{nodeId:guid}/text")]
     public async Task<IActionResult> UpdateNodeText(Guid id, Guid nodeId, [FromBody] UpdateProcessFlowNodeTextRequest request)
     {

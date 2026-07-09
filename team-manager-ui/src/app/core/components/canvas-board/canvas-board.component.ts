@@ -7,6 +7,8 @@ export interface CanvasNode {
   y: number;
   label: string;
   color?: string;
+  width?: number;
+  height?: number;
 }
 
 export interface CanvasEdge {
@@ -17,6 +19,10 @@ export interface CanvasEdge {
 
 const NODE_W = 160;
 const NODE_H = 64;
+const MIN_NODE_W = 80;
+const MIN_NODE_H = 48;
+const MAX_NODE_W = 640;
+const MAX_NODE_H = 480;
 const CLICK_MOVE_THRESHOLD = 4;
 const MIN_ZOOM = 0.2;
 const MAX_ZOOM = 2.5;
@@ -49,12 +55,13 @@ const MAX_ZOOM = 2.5;
     .canvas-edge-group:hover .canvas-edge { stroke:#64b5f6; }
     .canvas-edge-pending { stroke:#64b5f6;stroke-width:2;stroke-dasharray:6 4;fill:none; }
     .canvas-node {
-      position:absolute;width:${NODE_W}px;min-height:${NODE_H}px;border-radius:10px;
+      position:absolute;border-radius:10px;
       background:rgba(255,255,255,0.06);border:1.5px solid rgba(255,255,255,0.18);
       color:#fff;display:flex;align-items:center;justify-content:center;text-align:center;
       padding:8px 12px;cursor:grab;user-select:none;font-size:0.85rem;box-sizing:border-box;
       box-shadow:0 2px 6px rgba(0,0,0,0.3);
     }
+    .canvas-node > span { overflow:hidden;max-width:100%;max-height:100%; }
     .canvas-node:hover { border-color:rgba(100,181,246,0.6); }
     .canvas-node.selected { border-color:#64b5f6;box-shadow:0 0 0 2px rgba(100,181,246,0.4); }
     .canvas-node-label {
@@ -67,6 +74,16 @@ const MAX_ZOOM = 2.5;
     }
     .canvas-node:hover .connect-handle, .canvas-node.selected .connect-handle { opacity:1; }
     .connect-handle:hover { transform:scale(1.25); }
+    .resize-handle {
+      position:absolute;right:0;bottom:0;width:16px;height:16px;cursor:nwse-resize;
+      opacity:0;transition:opacity 0.12s;
+    }
+    .resize-handle::after {
+      content:'';position:absolute;right:3px;bottom:3px;width:8px;height:8px;
+      border-right:2px solid rgba(255,255,255,0.6);border-bottom:2px solid rgba(255,255,255,0.6);
+      border-bottom-right-radius:3px;
+    }
+    .canvas-node:hover .resize-handle, .canvas-node.selected .resize-handle { opacity:1; }
     .canvas-zoom-controls {
       position:absolute;bottom:12px;right:12px;display:flex;gap:4px;
       background:rgba(20,23,31,0.85);border-radius:8px;padding:4px;
@@ -104,6 +121,7 @@ const MAX_ZOOM = 2.5;
         @for (n of renderNodes(); track n.id) {
           <div class="canvas-node" [class.selected]="n.id === selectedId()" [attr.data-node-id]="n.id"
                [style.left.px]="n.x" [style.top.px]="n.y"
+               [style.width.px]="n.width" [style.height.px]="n.height"
                [style.border-color]="n.color ?? null"
                (mousedown)="startNodeDrag($event, n)">
             @if (editingId() === n.id) {
@@ -126,6 +144,9 @@ const MAX_ZOOM = 2.5;
               <div class="connect-handle" style="bottom:-7px;left:50%;margin-left:-7px"
                    (mousedown)="startConnect($event, n)"></div>
             }
+            @if (resizable()) {
+              <div class="resize-handle" (mousedown)="startResize($event, n)"></div>
+            }
           </div>
         }
       </div>
@@ -142,9 +163,11 @@ export class CanvasBoardComponent implements AfterViewInit {
   nodes = input.required<CanvasNode[]>();
   edges = input<CanvasEdge[]>([]);
   connectMode = input(false);
+  resizable = input(false);
   selectedId = input<string | null>(null);
 
   nodeMoved = output<{ id: string; x: number; y: number }>();
+  nodeResized = output<{ id: string; width: number; height: number }>();
   nodeSelected = output<string>();
   labelCommitted = output<{ id: string; label: string }>();
   canvasDoubleClicked = output<{ x: number; y: number }>();
@@ -158,17 +181,28 @@ export class CanvasBoardComponent implements AfterViewInit {
 
   private panState: { startMouseX: number; startMouseY: number; startPanX: number; startPanY: number } | null = null;
   private dragState: { id: string; startMouseX: number; startMouseY: number; startX: number; startY: number; moved: boolean } | null = null;
+  private resizeState: { id: string; startMouseX: number; startMouseY: number; startW: number; startH: number } | null = null;
   private connectState: { fromId: string; toWorld: { x: number; y: number } } | null = null;
   private connectTick = signal(0); // bumped on mousemove while connecting, to re-render pendingConnectLine
 
   private localPositions = signal<Record<string, { x: number; y: number }>>({});
+  private localSizes = signal<Record<string, { width: number; height: number }>>({});
 
   editingId = signal<string | null>(null);
   editingText = signal('');
 
+  // Effective geometry: always carries a concrete width/height (falling back to defaults), with
+  // any in-flight local drag/resize override layered on top until it's committed to the parent.
   renderNodes = computed(() => {
-    const local = this.localPositions();
-    return this.nodes().map(n => local[n.id] ? { ...n, x: local[n.id].x, y: local[n.id].y } : n);
+    const pos = this.localPositions();
+    const sz = this.localSizes();
+    return this.nodes().map(n => ({
+      ...n,
+      x: pos[n.id]?.x ?? n.x,
+      y: pos[n.id]?.y ?? n.y,
+      width: sz[n.id]?.width ?? n.width ?? NODE_W,
+      height: sz[n.id]?.height ?? n.height ?? NODE_H,
+    }));
   });
 
   innerTransform = computed(() => {
@@ -200,21 +234,21 @@ export class CanvasBoardComponent implements AfterViewInit {
     return { x1: start.x, y1: start.y, x2: cs.toWorld.x, y2: cs.toWorld.y };
   });
 
-  private center(node: { x: number; y: number }): { x: number; y: number } {
-    return { x: node.x + NODE_W / 2, y: node.y + NODE_H / 2 };
+  private center(node: { x: number; y: number; width?: number; height?: number }): { x: number; y: number } {
+    return { x: node.x + (node.width ?? NODE_W) / 2, y: node.y + (node.height ?? NODE_H) / 2 };
   }
 
   // Point where the line from `from`'s center toward the world point `target` crosses `from`'s
-  // rectangular border. Nodes are rectangles (160x64), so projecting onto a circle left arrows
+  // rectangular border. Nodes are (resizable) rectangles, so projecting onto a circle left arrows
   // floating off the short top/bottom edges -- scale the direction vector to the nearest border.
-  private anchorPoint(from: { x: number; y: number }, target: { x: number; y: number }): { x: number; y: number } {
-    const cx = from.x + NODE_W / 2;
-    const cy = from.y + NODE_H / 2;
+  private anchorPoint(from: { x: number; y: number; width?: number; height?: number }, target: { x: number; y: number }): { x: number; y: number } {
+    const hw = (from.width ?? NODE_W) / 2;
+    const hh = (from.height ?? NODE_H) / 2;
+    const cx = from.x + hw;
+    const cy = from.y + hh;
     const dx = target.x - cx;
     const dy = target.y - cy;
     if (dx === 0 && dy === 0) return { x: cx, y: cy };
-    const hw = NODE_W / 2;
-    const hh = NODE_H / 2;
     const scale = 1 / Math.max(Math.abs(dx) / hw, Math.abs(dy) / hh);
     return { x: cx + dx * scale, y: cy + dy * scale };
   }
@@ -292,6 +326,18 @@ export class CanvasBoardComponent implements AfterViewInit {
     this.dragState = { id: node.id, startMouseX: e.clientX, startMouseY: e.clientY, startX: node.x, startY: node.y, moved: false };
   }
 
+  startResize(e: MouseEvent, node: CanvasNode): void {
+    if (e.button !== 0) return;
+    e.stopPropagation();
+    this.resizeState = {
+      id: node.id,
+      startMouseX: e.clientX,
+      startMouseY: e.clientY,
+      startW: node.width ?? NODE_W,
+      startH: node.height ?? NODE_H,
+    };
+  }
+
   startConnect(e: MouseEvent, node: CanvasNode): void {
     e.stopPropagation();
     e.preventDefault();
@@ -323,6 +369,14 @@ export class CanvasBoardComponent implements AfterViewInit {
       this.connectTick.update(t => t + 1);
       return;
     }
+    if (this.resizeState) {
+      const zoom = this.view().zoom;
+      const rs = this.resizeState;
+      const w = Math.max(MIN_NODE_W, Math.min(MAX_NODE_W, rs.startW + (e.clientX - rs.startMouseX) / zoom));
+      const h = Math.max(MIN_NODE_H, Math.min(MAX_NODE_H, rs.startH + (e.clientY - rs.startMouseY) / zoom));
+      this.localSizes.update(s => ({ ...s, [rs.id]: { width: w, height: h } }));
+      return;
+    }
     if (this.dragState) {
       if (!this.dragState.moved) {
         const totalDx = e.clientX - this.dragState.startMouseX;
@@ -352,6 +406,16 @@ export class CanvasBoardComponent implements AfterViewInit {
       const toId = target?.getAttribute('data-node-id');
       this.connectState = null;
       if (toId && toId !== fromId) this.connectorDrawn.emit({ fromId, toId });
+      return;
+    }
+    if (this.resizeState) {
+      const { id } = this.resizeState;
+      const size = this.localSizes()[id];
+      this.resizeState = null;
+      if (size) {
+        this.nodeResized.emit({ id, width: size.width, height: size.height });
+        this.localSizes.update(s => { const next = { ...s }; delete next[id]; return next; });
+      }
       return;
     }
     if (this.dragState) {
