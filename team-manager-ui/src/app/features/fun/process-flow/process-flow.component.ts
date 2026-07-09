@@ -102,6 +102,7 @@ import { CanvasBoardComponent, CanvasNode, CanvasEdge } from '../../../core/comp
             (connectorDrawn)="onConnectorDrawn($event)"
             (connectorDroppedOnEmpty)="onConnectorDroppedOnEmpty($event)"
             (edgeReshaped)="onEdgeReshaped($event)"
+            (edgeEndpointRetargeted)="onEdgeEndpointRetargeted($event)"
             (edgeClicked)="onEdgeClicked($event)" />
         </div>
       </div>
@@ -230,6 +231,17 @@ export class ProcessFlowComponent implements OnInit, OnDestroy {
               const waypoints = (msg.data['waypoints'] as { x: number; y: number }[]) ?? [];
               this.session.update(cur => cur
                 ? { ...cur, edges: cur.edges.map(e => e.id === edgeId ? { ...e, waypoints } : e) }
+                : cur);
+              this.syncCanvas();
+            }
+            break;
+          case 'process_flow_edge_endpoints_changed':
+            if (msg.data['sessionId'] === s.id) {
+              const edgeId = msg.data['edgeId'] as string;
+              const fromNodeId = msg.data['fromNodeId'] as string;
+              const toNodeId = msg.data['toNodeId'] as string;
+              this.session.update(cur => cur
+                ? { ...cur, edges: cur.edges.map(e => e.id === edgeId ? { ...e, fromNodeId, toNodeId, waypoints: [] } : e) }
                 : cur);
               this.syncCanvas();
             }
@@ -445,21 +457,33 @@ export class ProcessFlowComponent implements OnInit, OnDestroy {
     });
   }
 
+  onEdgeEndpointRetargeted(e: { id: string; end: 'from' | 'to'; nodeId: string }): void {
+    const s = this.session();
+    if (!s) return;
+    const edge = s.edges.find(x => x.id === e.id);
+    if (!edge) return;
+    const fromNodeId = e.end === 'from' ? e.nodeId : edge.fromNodeId;
+    const toNodeId = e.end === 'to' ? e.nodeId : edge.toNodeId;
+    if (fromNodeId === toNodeId) return; // can't point an edge at itself
+    // Retargeting drops any manual bends server-side; mirror that locally.
+    this.session.update(cur => cur
+      ? { ...cur, edges: cur.edges.map(x => x.id === e.id ? { ...x, fromNodeId, toNodeId, waypoints: [] } : x) }
+      : cur);
+    this.syncCanvas();
+    this.svc.updateEdgeEndpoints(s.id, e.id, fromNodeId, toNodeId).subscribe({
+      error: () => this.snackBar.open('Could not move that connection', 'OK', { duration: 3000 }),
+    });
+  }
+
+  // Deletion is one click on the edge's hover trash icon -- deliberate enough to skip a dialog,
+  // and re-drawing a connection is trivial.
   onEdgeClicked(edgeId: string): void {
     const s = this.session();
     if (!s) return;
-    this.dialog.open(ConfirmDialogComponent, {
-      width: '340px',
-      data: { title: 'Remove connection?', message: 'This can\'t be undone.', danger: true },
-    }).afterClosed().subscribe(ok => {
-      if (!ok) return;
-      this.svc.deleteEdge(s.id, edgeId).subscribe({
-        next: () => {
-          this.session.update(cur => cur ? { ...cur, edges: cur.edges.filter(e => e.id !== edgeId) } : cur);
-          this.syncCanvas();
-        },
-        error: () => this.snackBar.open('Failed to remove connection', 'OK', { duration: 3000 }),
-      });
+    this.session.update(cur => cur ? { ...cur, edges: cur.edges.filter(e => e.id !== edgeId) } : cur);
+    this.syncCanvas();
+    this.svc.deleteEdge(s.id, edgeId).subscribe({
+      error: () => this.snackBar.open('Failed to remove connection', 'OK', { duration: 3000 }),
     });
   }
 }

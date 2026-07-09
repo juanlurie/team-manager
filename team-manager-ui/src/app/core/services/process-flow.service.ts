@@ -56,6 +56,10 @@ export class ProcessFlowService {
     return this.http.patch<void>(`${this.base}/${sessionId}/edges/${edgeId}/waypoints`, { waypoints });
   }
 
+  updateEdgeEndpoints(sessionId: string, edgeId: string, fromNodeId: string, toNodeId: string): Observable<void> {
+    return this.http.patch<void>(`${this.base}/${sessionId}/edges/${edgeId}/endpoints`, { fromNodeId, toNodeId });
+  }
+
   deleteEdge(sessionId: string, edgeId: string): Observable<void> {
     return this.http.delete<void>(`${this.base}/${sessionId}/edges/${edgeId}`);
   }

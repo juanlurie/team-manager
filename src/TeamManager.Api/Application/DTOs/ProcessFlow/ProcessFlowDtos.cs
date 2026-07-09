@@ -95,3 +95,9 @@ public record UpdateProcessFlowEdgeWaypointsRequest
 {
     public List<ProcessFlowPointDto> Waypoints { get; init; } = [];
 }
+
+public record UpdateProcessFlowEdgeEndpointsRequest
+{
+    public Guid FromNodeId { get; init; }
+    public Guid ToNodeId { get; init; }
+}

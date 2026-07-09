@@ -68,6 +68,11 @@ const NODE_PALETTE = [
     .edge-waypoint { fill:#64b5f6;stroke:#14171f;stroke-width:2;cursor:grab; }
     .edge-midpoint { fill:rgba(100,181,246,0.45);stroke:#14171f;stroke-width:1.5;cursor:copy; }
     .edge-midpoint:hover { fill:#64b5f6; }
+    .edge-endpoint { fill:#fff;stroke:#64b5f6;stroke-width:2.5;cursor:grab; }
+    .edge-delete { cursor:pointer; }
+    .edge-delete-bg { fill:#ef5350;stroke:#14171f;stroke-width:1.5; }
+    .edge-delete-x { stroke:#fff;stroke-width:1.6;stroke-linecap:round;pointer-events:none; }
+    .edge-delete:hover .edge-delete-bg { fill:#f77; }
     .canvas-node {
       position:absolute;border-radius:10px;
       background:rgba(255,255,255,0.06);border:1.5px solid rgba(255,255,255,0.18);
@@ -140,7 +145,7 @@ const NODE_PALETTE = [
           </defs>
           @for (e of edgePaths(); track e.id) {
             <g class="canvas-edge-group">
-              <path class="canvas-edge-hit" [attr.d]="e.d" (click)="edgeClicked.emit(e.id)" />
+              <path class="canvas-edge-hit" [attr.d]="e.d" />
               <path class="canvas-edge" [attr.d]="e.d" marker-end="url(#cb-arrow)" />
               @if (connectMode()) {
                 @for (mp of e.midpoints; track mp.segIndex) {
@@ -152,10 +157,22 @@ const NODE_PALETTE = [
                           (mousedown)="startWaypointDrag($event, e.id, wp.index)"
                           (dblclick)="removeWaypoint($event, e.id, wp.index)" />
                 }
+                <circle class="edge-handle edge-endpoint" [attr.cx]="e.fromX" [attr.cy]="e.fromY" r="6"
+                        (mousedown)="startEndpointDrag($event, e.id, 'from')" />
+                <circle class="edge-handle edge-endpoint" [attr.cx]="e.toX" [attr.cy]="e.toY" r="6"
+                        (mousedown)="startEndpointDrag($event, e.id, 'to')" />
+                <g class="edge-handle edge-delete" (mousedown)="$event.stopPropagation()" (click)="edgeClicked.emit(e.id)">
+                  <circle class="edge-delete-bg" [attr.cx]="e.labelX" [attr.cy]="e.labelY" r="8" />
+                  <line class="edge-delete-x" [attr.x1]="e.labelX - 3" [attr.y1]="e.labelY - 3" [attr.x2]="e.labelX + 3" [attr.y2]="e.labelY + 3" />
+                  <line class="edge-delete-x" [attr.x1]="e.labelX - 3" [attr.y1]="e.labelY + 3" [attr.x2]="e.labelX + 3" [attr.y2]="e.labelY - 3" />
+                </g>
               }
             </g>
           }
           @if (pendingConnectLine(); as pl) {
+            <line class="canvas-edge-pending" [attr.x1]="pl.x1" [attr.y1]="pl.y1" [attr.x2]="pl.x2" [attr.y2]="pl.y2" />
+          }
+          @if (endpointPendingLine(); as pl) {
             <line class="canvas-edge-pending" [attr.x1]="pl.x1" [attr.y1]="pl.y1" [attr.x2]="pl.x2" [attr.y2]="pl.y2" />
           }
         </svg>
@@ -242,6 +259,7 @@ export class CanvasBoardComponent implements AfterViewInit {
   connectorDroppedOnEmpty = output<{ fromId: string; x: number; y: number }>();
   edgeClicked = output<string>();
   edgeReshaped = output<{ id: string; waypoints: CanvasPoint[] }>();
+  edgeEndpointRetargeted = output<{ id: string; end: 'from' | 'to'; nodeId: string }>();
 
   private elRef = inject(ElementRef);
 
@@ -259,6 +277,8 @@ export class CanvasBoardComponent implements AfterViewInit {
   // In-flight waypoint edits, keyed by edge id, layered over edge.waypoints until committed.
   private localWaypoints = signal<Record<string, CanvasPoint[]>>({});
   private edgeDragState: { edgeId: string; index: number } | null = null;
+  private endpointDragState: { edgeId: string; end: 'from' | 'to'; toWorld: CanvasPoint } | null = null;
+  private endpointTick = signal(0); // bumped on mousemove while re-targeting, to re-render the pending line
 
   editingId = signal<string | null>(null);
   editingText = signal('');
@@ -335,10 +355,47 @@ export class CanvasBoardComponent implements AfterViewInit {
     return this.localWaypoints()[edge.id] ?? edge.waypoints ?? [];
   }
 
-  // Full geometry for each edge: an SVG polyline threaded through its bend points, plus the
-  // handle positions (existing waypoints + per-segment midpoints for inserting new ones). The
-  // end anchors aim at the first/last bend (or the far node's centre) so the arrow leaves and
-  // arrives cleanly even when the edge is bent.
+  private nodeById(id: string): { x: number; y: number; width?: number; height?: number } | undefined {
+    return this.renderNodes().find(n => n.id === id);
+  }
+
+  // Auto orthogonal (Manhattan) route between two nodes: leaves/enters the facing side and turns
+  // with one or two right-angle bends. Used only when an edge has no manual waypoints, so a fresh
+  // connection reads as clean horizontal/vertical segments and stays that way as nodes move.
+  private orthoRoute(from: { x: number; y: number; width?: number; height?: number }, to: { x: number; y: number; width?: number; height?: number }): CanvasPoint[] {
+    const fhw = (from.width ?? NODE_W) / 2, fhh = (from.height ?? NODE_H) / 2;
+    const thw = (to.width ?? NODE_W) / 2, thh = (to.height ?? NODE_H) / 2;
+    const fc = { x: from.x + fhw, y: from.y + fhh }, tc = { x: to.x + thw, y: to.y + thh };
+    const dx = tc.x - fc.x, dy = tc.y - fc.y;
+    let pts: CanvasPoint[];
+    if (Math.abs(dx) >= Math.abs(dy)) {
+      const sgn = dx >= 0 ? 1 : -1;
+      const sx = fc.x + sgn * fhw, tx = tc.x - sgn * thw, midx = (sx + tx) / 2;
+      pts = [{ x: sx, y: fc.y }, { x: midx, y: fc.y }, { x: midx, y: tc.y }, { x: tx, y: tc.y }];
+    } else {
+      const sgn = dy >= 0 ? 1 : -1;
+      const sy = fc.y + sgn * fhh, ty = tc.y - sgn * thh, midy = (sy + ty) / 2;
+      pts = [{ x: fc.x, y: sy }, { x: fc.x, y: midy }, { x: tc.x, y: midy }, { x: tc.x, y: ty }];
+    }
+    // Drop consecutive duplicates so the final segment always has length (arrowhead needs a
+    // direction to orient to).
+    return pts.filter((p, i) => i === 0 || Math.abs(p.x - pts[i - 1].x) > 0.5 || Math.abs(p.y - pts[i - 1].y) > 0.5);
+  }
+
+  // Resolved point list + interior bends for an edge. Manual waypoints win; otherwise an auto
+  // orthogonal route. `interior` is what a bend-insert bakes into, so auto edges convert to manual
+  // cleanly on first drag.
+  private edgeGeometry(edge: CanvasEdge, from: { x: number; y: number; width?: number; height?: number }, to: { x: number; y: number; width?: number; height?: number }): { points: CanvasPoint[]; interior: CanvasPoint[]; auto: boolean } {
+    const wps = this.resolvedWaypoints(edge);
+    if (wps.length) {
+      const src = this.anchorPoint(from, wps[0]);
+      const tgt = this.anchorPoint(to, wps[wps.length - 1]);
+      return { points: [src, ...wps, tgt], interior: [...wps], auto: false };
+    }
+    const pts = this.orthoRoute(from, to);
+    return { points: pts, interior: pts.slice(1, -1), auto: true };
+  }
+
   edgePaths = computed(() => {
     const byId = new Map(this.renderNodes().map(n => [n.id, n]));
     return this.edges()
@@ -346,20 +403,36 @@ export class CanvasBoardComponent implements AfterViewInit {
         const from = byId.get(e.fromId);
         const to = byId.get(e.toId);
         if (!from || !to) return null;
-        const wps = this.resolvedWaypoints(e);
-        const firstTarget = wps.length ? wps[0] : this.center(to);
-        const lastSource = wps.length ? wps[wps.length - 1] : this.center(from);
-        const src = this.anchorPoint(from, firstTarget);
-        const tgt = this.anchorPoint(to, lastSource);
-        const pts = [src, ...wps, tgt];
+        const g = this.edgeGeometry(e, from, to);
+        const pts = g.points;
         const d = 'M' + pts.map(p => `${p.x},${p.y}`).join(' L');
         const midpoints = pts.slice(0, -1).map((p, i) => ({
           segIndex: i, x: (p.x + pts[i + 1].x) / 2, y: (p.y + pts[i + 1].y) / 2,
         }));
-        const waypoints = wps.map((p, i) => ({ index: i, x: p.x, y: p.y }));
-        return { id: e.id, d, midpoints, waypoints };
+        // Only manual bends get move/remove handles; auto-route bends aren't real waypoints yet.
+        const waypoints = g.auto ? [] : g.interior.map((p, i) => ({ index: i, x: p.x, y: p.y }));
+        // Delete icon sits on the middle segment so it lands on the visible line.
+        const mseg = Math.floor((pts.length - 1) / 2);
+        const label = { x: (pts[mseg].x + pts[mseg + 1].x) / 2, y: (pts[mseg].y + pts[mseg + 1].y) / 2 };
+        return {
+          id: e.id, d, midpoints, waypoints,
+          labelX: label.x, labelY: label.y,
+          fromX: pts[0].x, fromY: pts[0].y, toX: pts[pts.length - 1].x, toY: pts[pts.length - 1].y,
+        };
       })
       .filter((e): e is NonNullable<typeof e> => e !== null);
+  });
+
+  endpointPendingLine = computed(() => {
+    this.endpointTick();
+    const s = this.endpointDragState;
+    if (!s) return null;
+    const edge = this.edges().find(ed => ed.id === s.edgeId);
+    if (!edge) return null;
+    const fixed = this.nodeById(s.end === 'from' ? edge.toId : edge.fromId);
+    if (!fixed) return null;
+    const anchor = this.anchorPoint(fixed, s.toWorld);
+    return { x1: anchor.x, y1: anchor.y, x2: s.toWorld.x, y2: s.toWorld.y };
   });
 
   pendingConnectLine = computed(() => {
@@ -372,9 +445,6 @@ export class CanvasBoardComponent implements AfterViewInit {
     return { x1: start.x, y1: start.y, x2: cs.toWorld.x, y2: cs.toWorld.y };
   });
 
-  private center(node: { x: number; y: number; width?: number; height?: number }): { x: number; y: number } {
-    return { x: node.x + (node.width ?? NODE_W) / 2, y: node.y + (node.height ?? NODE_H) / 2 };
-  }
 
   // Point where the line from `from`'s center toward the world point `target` crosses `from`'s
   // rectangular border. Nodes are (resizable) rectangles, so projecting onto a circle left arrows
@@ -501,11 +571,23 @@ export class CanvasBoardComponent implements AfterViewInit {
     e.stopPropagation();
     e.preventDefault();
     const edge = this.edges().find(ed => ed.id === edgeId);
-    if (!edge) return;
-    const wps = [...this.resolvedWaypoints(edge)];
-    wps.splice(segIndex, 0, { x, y });
-    this.localWaypoints.update(m => ({ ...m, [edgeId]: wps }));
+    const from = edge && this.nodeById(edge.fromId);
+    const to = edge && this.nodeById(edge.toId);
+    if (!edge || !from || !to) return;
+    // Bake the current route's interior bends (manual waypoints, or the auto-orthogonal bends)
+    // then insert the new one, so an auto edge becomes an editable manual path on first drag.
+    const interior = [...this.edgeGeometry(edge, from, to).interior];
+    interior.splice(segIndex, 0, { x, y });
+    this.localWaypoints.update(m => ({ ...m, [edgeId]: interior }));
     this.edgeDragState = { edgeId, index: segIndex }; // start dragging the just-inserted bend
+  }
+
+  startEndpointDrag(e: MouseEvent, edgeId: string, end: 'from' | 'to'): void {
+    if (e.button !== 0) return;
+    e.stopPropagation();
+    e.preventDefault();
+    this.endpointDragState = { edgeId, end, toWorld: this.worldPointFromEvent(e) };
+    this.endpointTick.update(t => t + 1);
   }
 
   removeWaypoint(e: MouseEvent, edgeId: string, index: number): void {
@@ -569,6 +651,11 @@ export class CanvasBoardComponent implements AfterViewInit {
       this.localSizes.update(s => ({ ...s, [rs.id]: { width: w, height: h } }));
       return;
     }
+    if (this.endpointDragState) {
+      this.endpointDragState.toWorld = this.worldPointFromEvent(e);
+      this.endpointTick.update(t => t + 1);
+      return;
+    }
     if (this.edgeDragState) {
       const { edgeId, index } = this.edgeDragState;
       const p = this.worldPointFromEvent(e);
@@ -625,6 +712,17 @@ export class CanvasBoardComponent implements AfterViewInit {
         this.nodeResized.emit({ id, width: size.width, height: size.height });
         this.localSizes.update(s => { const next = { ...s }; delete next[id]; return next; });
       }
+      return;
+    }
+    if (this.endpointDragState) {
+      const { edgeId, end } = this.endpointDragState;
+      const target = (e.target as HTMLElement).closest('.canvas-node') as HTMLElement | null;
+      const nodeId = target?.getAttribute('data-node-id');
+      this.endpointDragState = null;
+      this.endpointTick.update(t => t + 1);
+      // Dropped on a node -> ask the parent to re-point that end; dropped anywhere else -> no-op
+      // and the edge snaps back to its original endpoints.
+      if (nodeId) this.edgeEndpointRetargeted.emit({ id: edgeId, end, nodeId });
       return;
     }
     if (this.edgeDragState) {
