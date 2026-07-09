@@ -113,6 +113,21 @@ public class PersonalMapService(AppDbContext db)
         return true;
     }
 
+    public async Task<bool> UpdateNodeColorAsync(Guid sessionId, Guid memberId, Guid nodeId, UpdatePersonalMapNodeColorRequest req)
+    {
+        var node = await db.PersonalMapNodes
+            .Include(n => n.Session)
+            .FirstOrDefaultAsync(n => n.Id == nodeId && n.SessionId == sessionId && n.Session.CreatedByMemberId == memberId);
+        if (node is null) return false;
+
+        node.Color = string.IsNullOrWhiteSpace(req.Color) ? null : req.Color.Trim();
+        await db.SaveChangesAsync();
+
+        _ = WebSocketMiddleware.BroadcastToBoardSessionAsync("personal_map_node_color_changed", sessionId.ToString(),
+            new { sessionId, nodeId, color = node.Color });
+        return true;
+    }
+
     public async Task<bool> UpdateNodeTextAsync(Guid sessionId, Guid memberId, Guid nodeId, UpdatePersonalMapNodeTextRequest req)
     {
         var node = await db.PersonalMapNodes

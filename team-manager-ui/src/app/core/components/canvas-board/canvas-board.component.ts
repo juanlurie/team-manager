@@ -1,4 +1,4 @@
-import { Component, ChangeDetectionStrategy, ElementRef, HostListener, AfterViewInit, inject, input, output, signal, computed, effect, untracked } from '@angular/core';
+import { Component, ChangeDetectionStrategy, ElementRef, HostListener, AfterViewInit, inject, input, output, signal, computed, effect, untracked, afterEveryRender } from '@angular/core';
 import { CommonModule } from '@angular/common';
 
 export interface CanvasNode {
@@ -11,10 +11,13 @@ export interface CanvasNode {
   height?: number;
 }
 
+export interface CanvasPoint { x: number; y: number; }
+
 export interface CanvasEdge {
   id: string;
   fromId: string;
   toId: string;
+  waypoints?: CanvasPoint[];
 }
 
 const NODE_W = 160;
@@ -26,6 +29,12 @@ const MAX_NODE_H = 480;
 const CLICK_MOVE_THRESHOLD = 4;
 const MIN_ZOOM = 0.2;
 const MAX_ZOOM = 2.5;
+// Same pastel set the retro sticky cards use, so node colours read consistently across boards.
+const NODE_PALETTE = [
+  '#fff9c4', '#ffe0b2', '#fce4ec', '#c8e6c9',
+  '#bbdefb', '#e1bee7', '#ffcdd2', '#b2dfdb',
+  '#f5f5f5', '#ffe082', '#a5d6a7', '#90caf9',
+];
 
 // Generic pan/zoom/drag canvas: positions nodes freely in a shared world-coordinate space and
 // draws directed edges between them. No domain knowledge of retro/process-flow/personal-maps --
@@ -54,6 +63,11 @@ const MAX_ZOOM = 2.5;
     .canvas-edge-hit { stroke:transparent;stroke-width:16;fill:none;pointer-events:stroke; }
     .canvas-edge-group:hover .canvas-edge { stroke:#64b5f6; }
     .canvas-edge-pending { stroke:#64b5f6;stroke-width:2;stroke-dasharray:6 4;fill:none; }
+    .edge-handle { opacity:0;pointer-events:none;transition:opacity 0.12s; }
+    .canvas-edge-group:hover .edge-handle { opacity:1;pointer-events:all; }
+    .edge-waypoint { fill:#64b5f6;stroke:#14171f;stroke-width:2;cursor:grab; }
+    .edge-midpoint { fill:rgba(100,181,246,0.45);stroke:#14171f;stroke-width:1.5;cursor:copy; }
+    .edge-midpoint:hover { fill:#64b5f6; }
     .canvas-node {
       position:absolute;border-radius:10px;
       background:rgba(255,255,255,0.06);border:1.5px solid rgba(255,255,255,0.18);
@@ -61,7 +75,7 @@ const MAX_ZOOM = 2.5;
       padding:8px 12px;cursor:grab;user-select:none;font-size:0.85rem;box-sizing:border-box;
       box-shadow:0 2px 6px rgba(0,0,0,0.3);
     }
-    .canvas-node > span { overflow:hidden;max-width:100%;max-height:100%; }
+    .canvas-node > span { max-width:100%;white-space:pre-wrap;overflow-wrap:anywhere; }
     .canvas-node:hover { border-color:rgba(100,181,246,0.6); }
     .canvas-node.selected { border-color:#64b5f6;box-shadow:0 0 0 2px rgba(100,181,246,0.4); }
     .canvas-node-label {
@@ -84,6 +98,24 @@ const MAX_ZOOM = 2.5;
       border-bottom-right-radius:3px;
     }
     .canvas-node:hover .resize-handle, .canvas-node.selected .resize-handle { opacity:1; }
+    .color-handle {
+      position:absolute;top:-9px;right:-9px;width:18px;height:18px;border-radius:50%;
+      border:2px solid #14171f;cursor:pointer;opacity:0;transition:opacity 0.12s;
+      background:conic-gradient(#ffcdd2,#ffe082,#a5d6a7,#90caf9,#e1bee7,#ffcdd2);
+    }
+    .canvas-node:hover .color-handle, .canvas-node.selected .color-handle { opacity:1; }
+    .color-picker-popover {
+      position:fixed;z-index:1000;
+      background:#2a2a2a;border:1px solid rgba(255,255,255,0.12);
+      border-radius:8px;padding:8px;
+      display:grid;grid-template-columns:repeat(4, 22px);gap:6px;
+      width:max-content;box-shadow:0 4px 16px rgba(0,0,0,0.5);
+    }
+    .color-swatch {
+      width:22px;height:22px;border-radius:50%;cursor:pointer;box-sizing:border-box;
+      border:2px solid transparent;transition:border-color 0.1s, transform 0.1s;
+    }
+    .color-swatch:hover, .color-swatch.active { border-color:rgba(255,255,255,0.7);transform:scale(1.15); }
     .canvas-zoom-controls {
       position:absolute;bottom:12px;right:12px;display:flex;gap:4px;
       background:rgba(20,23,31,0.85);border-radius:8px;padding:4px;
@@ -106,11 +138,21 @@ const MAX_ZOOM = 2.5;
               <path d="M0,0 L0,8 L8,4 z" fill="rgba(255,255,255,0.55)" />
             </marker>
           </defs>
-          @for (e of edgeLines(); track e.id) {
-            <g class="canvas-edge-group" (click)="edgeClicked.emit(e.id)">
-              <line class="canvas-edge-hit" [attr.x1]="e.x1" [attr.y1]="e.y1" [attr.x2]="e.x2" [attr.y2]="e.y2" />
-              <line class="canvas-edge" [attr.x1]="e.x1" [attr.y1]="e.y1" [attr.x2]="e.x2" [attr.y2]="e.y2"
-                    marker-end="url(#cb-arrow)" />
+          @for (e of edgePaths(); track e.id) {
+            <g class="canvas-edge-group">
+              <path class="canvas-edge-hit" [attr.d]="e.d" (click)="edgeClicked.emit(e.id)" />
+              <path class="canvas-edge" [attr.d]="e.d" marker-end="url(#cb-arrow)" />
+              @if (connectMode()) {
+                @for (mp of e.midpoints; track mp.segIndex) {
+                  <circle class="edge-handle edge-midpoint" [attr.cx]="mp.x" [attr.cy]="mp.y" r="5"
+                          (mousedown)="startWaypointInsert($event, e.id, mp.segIndex, mp.x, mp.y)" />
+                }
+                @for (wp of e.waypoints; track wp.index) {
+                  <circle class="edge-handle edge-waypoint" [attr.cx]="wp.x" [attr.cy]="wp.y" r="6"
+                          (mousedown)="startWaypointDrag($event, e.id, wp.index)"
+                          (dblclick)="removeWaypoint($event, e.id, wp.index)" />
+                }
+              }
             </g>
           }
           @if (pendingConnectLine(); as pl) {
@@ -121,7 +163,9 @@ const MAX_ZOOM = 2.5;
         @for (n of renderNodes(); track n.id) {
           <div class="canvas-node" [class.selected]="n.id === selectedId()" [attr.data-node-id]="n.id"
                [style.left.px]="n.x" [style.top.px]="n.y"
-               [style.width.px]="n.width" [style.height.px]="n.height"
+               [style.width.px]="n.width" [style.min-height.px]="n.storedHeight"
+               [style.background]="n.color ?? null"
+               [style.color]="n.color ? '#1a1a1a' : null"
                [style.border-color]="n.color ?? null"
                (mousedown)="startNodeDrag($event, n)">
             @if (editingId() === n.id) {
@@ -147,6 +191,11 @@ const MAX_ZOOM = 2.5;
             @if (resizable()) {
               <div class="resize-handle" (mousedown)="startResize($event, n)"></div>
             }
+            @if (colorPicker()) {
+              <div class="color-handle" title="Change colour"
+                   (mousedown)="$event.stopPropagation()"
+                   (click)="toggleColorPicker($event, n)"></div>
+            }
           </div>
         }
       </div>
@@ -156,6 +205,19 @@ const MAX_ZOOM = 2.5;
         <button class="cz-btn" (click)="resetView()">{{ zoomPercent() }}%</button>
         <button class="cz-btn" (click)="zoomBy(1.25)">+</button>
       </div>
+
+      @if (colorPickerId(); as pickId) {
+        @if (colorPickerPos(); as pos) {
+          <div class="color-picker-popover" [style.top.px]="pos.top" [style.left.px]="pos.left"
+               (mousedown)="$event.stopPropagation()" (click)="$event.stopPropagation()">
+            @for (swatch of palette; track swatch) {
+              <div class="color-swatch" [style.background]="swatch"
+                   [class.active]="nodeColor(pickId) === swatch"
+                   (click)="pickColor(pickId, swatch)"></div>
+            }
+          </div>
+        }
+      }
     </div>
   `,
 })
@@ -164,6 +226,7 @@ export class CanvasBoardComponent implements AfterViewInit {
   edges = input<CanvasEdge[]>([]);
   connectMode = input(false);
   resizable = input(false);
+  colorPicker = input(false);
   selectedId = input<string | null>(null);
   // When set to a node id, that node immediately enters label-edit mode (used so a freshly
   // created node opens ready to type). Parent bumps this after adding a node.
@@ -171,12 +234,14 @@ export class CanvasBoardComponent implements AfterViewInit {
 
   nodeMoved = output<{ id: string; x: number; y: number }>();
   nodeResized = output<{ id: string; width: number; height: number }>();
+  nodeColorChanged = output<{ id: string; color: string }>();
   nodeSelected = output<string>();
   labelCommitted = output<{ id: string; label: string }>();
   canvasDoubleClicked = output<{ x: number; y: number }>();
   connectorDrawn = output<{ fromId: string; toId: string }>();
   connectorDroppedOnEmpty = output<{ fromId: string; x: number; y: number }>();
   edgeClicked = output<string>();
+  edgeReshaped = output<{ id: string; waypoints: CanvasPoint[] }>();
 
   private elRef = inject(ElementRef);
 
@@ -191,11 +256,39 @@ export class CanvasBoardComponent implements AfterViewInit {
 
   private localPositions = signal<Record<string, { x: number; y: number }>>({});
   private localSizes = signal<Record<string, { width: number; height: number }>>({});
+  // In-flight waypoint edits, keyed by edge id, layered over edge.waypoints until committed.
+  private localWaypoints = signal<Record<string, CanvasPoint[]>>({});
+  private edgeDragState: { edgeId: string; index: number } | null = null;
 
   editingId = signal<string | null>(null);
   editingText = signal('');
 
+  readonly palette = NODE_PALETTE;
+  colorPickerId = signal<string | null>(null);
+  colorPickerPos = signal<{ top: number; left: number } | null>(null);
+
+  // Actual rendered node heights (a node auto-grows past its stored height when its label wraps).
+  // Fed back into the geometry so edge anchors land on the real border, not the stored rectangle.
+  private measuredHeights = signal<Record<string, number>>({});
+
   constructor() {
+    // After each render, read the DOM height of every node (offsetHeight is the unscaled layout
+    // size -- the canvas zoom is a CSS transform and doesn't affect it). Only write when something
+    // changed so this doesn't spin the change-detection loop.
+    afterEveryRender(() => {
+      const els = (this.elRef.nativeElement as HTMLElement).querySelectorAll('.canvas-node[data-node-id]');
+      const next: Record<string, number> = {};
+      els.forEach(el => {
+        const id = el.getAttribute('data-node-id');
+        if (id) next[id] = (el as HTMLElement).offsetHeight;
+      });
+      const cur = this.measuredHeights();
+      const ids = new Set([...Object.keys(cur), ...Object.keys(next)]);
+      let changed = false;
+      for (const id of ids) { if (cur[id] !== next[id]) { changed = true; break; } }
+      if (changed) this.measuredHeights.set(next);
+    });
+
     // Open a node straight into edit mode when the parent points editNodeId at it (nodes read
     // untracked so unrelated node updates don't yank focus out of an in-progress edit).
     effect(() => {
@@ -218,13 +311,19 @@ export class CanvasBoardComponent implements AfterViewInit {
   renderNodes = computed(() => {
     const pos = this.localPositions();
     const sz = this.localSizes();
-    return this.nodes().map(n => ({
-      ...n,
-      x: pos[n.id]?.x ?? n.x,
-      y: pos[n.id]?.y ?? n.y,
-      width: sz[n.id]?.width ?? n.width ?? NODE_W,
-      height: sz[n.id]?.height ?? n.height ?? NODE_H,
-    }));
+    const measured = this.measuredHeights();
+    return this.nodes().map(n => {
+      const storedH = sz[n.id]?.height ?? n.height ?? NODE_H;
+      return {
+        ...n,
+        x: pos[n.id]?.x ?? n.x,
+        y: pos[n.id]?.y ?? n.y,
+        width: sz[n.id]?.width ?? n.width ?? NODE_W,
+        // stored height is the min-height binding; the rendered box may be taller when text wraps.
+        storedHeight: storedH,
+        height: Math.max(storedH, measured[n.id] ?? 0),
+      };
+    });
   });
 
   innerTransform = computed(() => {
@@ -232,18 +331,35 @@ export class CanvasBoardComponent implements AfterViewInit {
     return `translate(${v.panX}px, ${v.panY}px) scale(${v.zoom})`;
   });
 
-  edgeLines = computed(() => {
+  private resolvedWaypoints(edge: CanvasEdge): CanvasPoint[] {
+    return this.localWaypoints()[edge.id] ?? edge.waypoints ?? [];
+  }
+
+  // Full geometry for each edge: an SVG polyline threaded through its bend points, plus the
+  // handle positions (existing waypoints + per-segment midpoints for inserting new ones). The
+  // end anchors aim at the first/last bend (or the far node's centre) so the arrow leaves and
+  // arrives cleanly even when the edge is bent.
+  edgePaths = computed(() => {
     const byId = new Map(this.renderNodes().map(n => [n.id, n]));
     return this.edges()
       .map(e => {
         const from = byId.get(e.fromId);
         const to = byId.get(e.toId);
         if (!from || !to) return null;
-        const c1 = this.anchorPoint(from, this.center(to));
-        const c2 = this.anchorPoint(to, this.center(from));
-        return { id: e.id, x1: c1.x, y1: c1.y, x2: c2.x, y2: c2.y };
+        const wps = this.resolvedWaypoints(e);
+        const firstTarget = wps.length ? wps[0] : this.center(to);
+        const lastSource = wps.length ? wps[wps.length - 1] : this.center(from);
+        const src = this.anchorPoint(from, firstTarget);
+        const tgt = this.anchorPoint(to, lastSource);
+        const pts = [src, ...wps, tgt];
+        const d = 'M' + pts.map(p => `${p.x},${p.y}`).join(' L');
+        const midpoints = pts.slice(0, -1).map((p, i) => ({
+          segIndex: i, x: (p.x + pts[i + 1].x) / 2, y: (p.y + pts[i + 1].y) / 2,
+        }));
+        const waypoints = wps.map((p, i) => ({ index: i, x: p.x, y: p.y }));
+        return { id: e.id, d, midpoints, waypoints };
       })
-      .filter((e): e is { id: string; x1: number; y1: number; x2: number; y2: number } => e !== null);
+      .filter((e): e is NonNullable<typeof e> => e !== null);
   });
 
   pendingConnectLine = computed(() => {
@@ -320,6 +436,7 @@ export class CanvasBoardComponent implements AfterViewInit {
   startPan(e: MouseEvent): void {
     if (e.button !== 0) return;
     const t = e.target as HTMLElement;
+    this.closeColorPicker();
     if (t.closest('.canvas-node') || t.closest('.canvas-zoom-controls')) return;
     const v = this.view();
     this.panState = { startMouseX: e.clientX, startMouseY: e.clientY, startPanX: v.panX, startPanY: v.panY };
@@ -346,6 +463,59 @@ export class CanvasBoardComponent implements AfterViewInit {
     e.stopPropagation();
     if (this.editingId() === node.id) return;
     this.dragState = { id: node.id, startMouseX: e.clientX, startMouseY: e.clientY, startX: node.x, startY: node.y, moved: false };
+  }
+
+  nodeColor(id: string): string | null {
+    return this.nodes().find(n => n.id === id)?.color ?? null;
+  }
+
+  toggleColorPicker(e: MouseEvent, node: CanvasNode): void {
+    e.stopPropagation();
+    if (this.colorPickerId() === node.id) { this.closeColorPicker(); return; }
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    // position:fixed popover anchored to the swatch button's viewport position (a transformed
+    // canvas ancestor would break position:absolute), nudged so it doesn't cover the node.
+    this.colorPickerPos.set({ top: rect.bottom + 6, left: rect.left });
+    this.colorPickerId.set(node.id);
+  }
+
+  pickColor(id: string, color: string): void {
+    this.nodeColorChanged.emit({ id, color });
+    this.closeColorPicker();
+  }
+
+  closeColorPicker(): void {
+    this.colorPickerId.set(null);
+    this.colorPickerPos.set(null);
+  }
+
+  startWaypointDrag(e: MouseEvent, edgeId: string, index: number): void {
+    if (e.button !== 0) return;
+    e.stopPropagation();
+    e.preventDefault();
+    this.edgeDragState = { edgeId, index };
+  }
+
+  startWaypointInsert(e: MouseEvent, edgeId: string, segIndex: number, x: number, y: number): void {
+    if (e.button !== 0) return;
+    e.stopPropagation();
+    e.preventDefault();
+    const edge = this.edges().find(ed => ed.id === edgeId);
+    if (!edge) return;
+    const wps = [...this.resolvedWaypoints(edge)];
+    wps.splice(segIndex, 0, { x, y });
+    this.localWaypoints.update(m => ({ ...m, [edgeId]: wps }));
+    this.edgeDragState = { edgeId, index: segIndex }; // start dragging the just-inserted bend
+  }
+
+  removeWaypoint(e: MouseEvent, edgeId: string, index: number): void {
+    e.stopPropagation();
+    e.preventDefault();
+    const edge = this.edges().find(ed => ed.id === edgeId);
+    if (!edge) return;
+    const wps = this.resolvedWaypoints(edge).filter((_, i) => i !== index);
+    this.localWaypoints.update(m => { const next = { ...m }; delete next[edgeId]; return next; });
+    this.edgeReshaped.emit({ id: edgeId, waypoints: wps });
   }
 
   startResize(e: MouseEvent, node: CanvasNode): void {
@@ -399,6 +569,17 @@ export class CanvasBoardComponent implements AfterViewInit {
       this.localSizes.update(s => ({ ...s, [rs.id]: { width: w, height: h } }));
       return;
     }
+    if (this.edgeDragState) {
+      const { edgeId, index } = this.edgeDragState;
+      const p = this.worldPointFromEvent(e);
+      this.localWaypoints.update(m => {
+        const wps = [...(m[edgeId] ?? [])];
+        if (!wps[index]) return m;
+        wps[index] = { x: Math.max(0, p.x), y: Math.max(0, p.y) };
+        return { ...m, [edgeId]: wps };
+      });
+      return;
+    }
     if (this.dragState) {
       if (!this.dragState.moved) {
         const totalDx = e.clientX - this.dragState.startMouseX;
@@ -443,6 +624,16 @@ export class CanvasBoardComponent implements AfterViewInit {
       if (size) {
         this.nodeResized.emit({ id, width: size.width, height: size.height });
         this.localSizes.update(s => { const next = { ...s }; delete next[id]; return next; });
+      }
+      return;
+    }
+    if (this.edgeDragState) {
+      const { edgeId } = this.edgeDragState;
+      const wps = this.localWaypoints()[edgeId];
+      this.edgeDragState = null;
+      if (wps) {
+        this.edgeReshaped.emit({ id: edgeId, waypoints: wps });
+        this.localWaypoints.update(m => { const next = { ...m }; delete next[edgeId]; return next; });
       }
       return;
     }

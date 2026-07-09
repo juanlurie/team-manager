@@ -72,6 +72,14 @@ public class ProcessFlowController(ProcessFlowService service) : ControllerBase
         return NoContent();
     }
 
+    [HttpPatch("{id:guid}/nodes/{nodeId:guid}/color")]
+    public async Task<IActionResult> UpdateNodeColor(Guid id, Guid nodeId, [FromBody] UpdateProcessFlowNodeColorRequest request)
+    {
+        var success = await service.UpdateNodeColorAsync(id, nodeId, request);
+        if (!success) return NotFound();
+        return NoContent();
+    }
+
     [HttpPatch("{id:guid}/nodes/{nodeId:guid}/text")]
     public async Task<IActionResult> UpdateNodeText(Guid id, Guid nodeId, [FromBody] UpdateProcessFlowNodeTextRequest request)
     {
@@ -94,6 +102,14 @@ public class ProcessFlowController(ProcessFlowService service) : ControllerBase
         var edge = await service.AddEdgeAsync(id, request);
         if (edge is null) return BadRequest(new { error = "Invalid edge: nodes must exist, differ, and not already be connected." });
         return Ok(edge);
+    }
+
+    [HttpPatch("{id:guid}/edges/{edgeId:guid}/waypoints")]
+    public async Task<IActionResult> UpdateEdgeWaypoints(Guid id, Guid edgeId, [FromBody] UpdateProcessFlowEdgeWaypointsRequest request)
+    {
+        var success = await service.UpdateEdgeWaypointsAsync(id, edgeId, request);
+        if (!success) return NotFound();
+        return NoContent();
     }
 
     [HttpDelete("{id:guid}/edges/{edgeId:guid}")]

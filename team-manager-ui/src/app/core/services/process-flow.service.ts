@@ -36,6 +36,10 @@ export class ProcessFlowService {
     return this.http.patch<void>(`${this.base}/${sessionId}/nodes/${nodeId}/size`, { width, height });
   }
 
+  updateNodeColor(sessionId: string, nodeId: string, color: string): Observable<void> {
+    return this.http.patch<void>(`${this.base}/${sessionId}/nodes/${nodeId}/color`, { color });
+  }
+
   updateNodeText(sessionId: string, nodeId: string, label: string): Observable<void> {
     return this.http.patch<void>(`${this.base}/${sessionId}/nodes/${nodeId}/text`, { label });
   }
@@ -46,6 +50,10 @@ export class ProcessFlowService {
 
   addEdge(sessionId: string, fromNodeId: string, toNodeId: string): Observable<ProcessFlowEdge> {
     return this.http.post<ProcessFlowEdge>(`${this.base}/${sessionId}/edges`, { fromNodeId, toNodeId });
+  }
+
+  updateEdgeWaypoints(sessionId: string, edgeId: string, waypoints: { x: number; y: number }[]): Observable<void> {
+    return this.http.patch<void>(`${this.base}/${sessionId}/edges/${edgeId}/waypoints`, { waypoints });
   }
 
   deleteEdge(sessionId: string, edgeId: string): Observable<void> {

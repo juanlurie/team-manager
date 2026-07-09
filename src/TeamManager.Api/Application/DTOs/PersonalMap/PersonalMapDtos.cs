@@ -58,3 +58,8 @@ public record UpdatePersonalMapNodeSizeRequest
     public double Width { get; init; }
     public double Height { get; init; }
 }
+
+public record UpdatePersonalMapNodeColorRequest
+{
+    public string? Color { get; init; }
+}
