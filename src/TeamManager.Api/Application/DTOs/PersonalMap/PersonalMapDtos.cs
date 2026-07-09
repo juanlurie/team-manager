@@ -7,6 +7,8 @@ public record PersonalMapNodeDto
     public string Label { get; init; } = "";
     public double PositionX { get; init; }
     public double PositionY { get; init; }
+    public double Width { get; init; }
+    public double Height { get; init; }
     public string? Color { get; init; }
 }
 
@@ -49,4 +51,10 @@ public record UpdatePersonalMapNodePositionRequest
 public record UpdatePersonalMapNodeTextRequest
 {
     public string Label { get; init; } = "";
+}
+
+public record UpdatePersonalMapNodeSizeRequest
+{
+    public double Width { get; init; }
+    public double Height { get; init; }
 }

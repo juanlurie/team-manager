@@ -97,6 +97,20 @@ public class ProcessFlowService(AppDbContext db)
         return true;
     }
 
+    public async Task<bool> UpdateNodeSizeAsync(Guid sessionId, Guid nodeId, UpdateProcessFlowNodeSizeRequest req)
+    {
+        var node = await db.ProcessFlowNodes.FirstOrDefaultAsync(n => n.Id == nodeId && n.SessionId == sessionId);
+        if (node is null) return false;
+
+        node.Width = Math.Clamp(req.Width, 80, 640);
+        node.Height = Math.Clamp(req.Height, 48, 480);
+        await db.SaveChangesAsync();
+
+        _ = WebSocketMiddleware.BroadcastToBoardSessionAsync("process_flow_node_resized", sessionId.ToString(),
+            new { sessionId, nodeId, width = node.Width, height = node.Height });
+        return true;
+    }
+
     public async Task<bool> UpdateNodeTextAsync(Guid sessionId, Guid nodeId, UpdateProcessFlowNodeTextRequest req)
     {
         var node = await db.ProcessFlowNodes.FirstOrDefaultAsync(n => n.Id == nodeId && n.SessionId == sessionId);
@@ -187,6 +201,8 @@ public class ProcessFlowService(AppDbContext db)
         Label = node.Label,
         PositionX = node.PositionX,
         PositionY = node.PositionY,
+        Width = node.Width,
+        Height = node.Height,
         Color = node.Color,
         CreatedByMemberId = node.CreatedByMemberId,
     };

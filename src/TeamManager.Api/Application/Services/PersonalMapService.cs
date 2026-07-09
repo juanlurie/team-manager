@@ -97,6 +97,22 @@ public class PersonalMapService(AppDbContext db)
         return true;
     }
 
+    public async Task<bool> UpdateNodeSizeAsync(Guid sessionId, Guid memberId, Guid nodeId, UpdatePersonalMapNodeSizeRequest req)
+    {
+        var node = await db.PersonalMapNodes
+            .Include(n => n.Session)
+            .FirstOrDefaultAsync(n => n.Id == nodeId && n.SessionId == sessionId && n.Session.CreatedByMemberId == memberId);
+        if (node is null) return false;
+
+        node.Width = Math.Clamp(req.Width, 80, 640);
+        node.Height = Math.Clamp(req.Height, 48, 480);
+        await db.SaveChangesAsync();
+
+        _ = WebSocketMiddleware.BroadcastToBoardSessionAsync("personal_map_node_resized", sessionId.ToString(),
+            new { sessionId, nodeId, width = node.Width, height = node.Height });
+        return true;
+    }
+
     public async Task<bool> UpdateNodeTextAsync(Guid sessionId, Guid memberId, Guid nodeId, UpdatePersonalMapNodeTextRequest req)
     {
         var node = await db.PersonalMapNodes
@@ -142,6 +158,8 @@ public class PersonalMapService(AppDbContext db)
         Label = node.Label,
         PositionX = node.PositionX,
         PositionY = node.PositionY,
+        Width = node.Width,
+        Height = node.Height,
         Color = node.Color,
     };
 }

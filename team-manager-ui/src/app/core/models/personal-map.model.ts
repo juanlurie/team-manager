@@ -4,6 +4,8 @@ export interface PersonalMapNode {
   label: string;
   positionX: number;
   positionY: number;
+  width: number;
+  height: number;
   color: string | null;
 }
 

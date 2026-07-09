@@ -32,6 +32,10 @@ export class PersonalMapService {
     return this.http.patch<void>(`${this.base}/${sessionId}/nodes/${nodeId}/position`, { positionX: x, positionY: y });
   }
 
+  updateNodeSize(sessionId: string, nodeId: string, width: number, height: number): Observable<void> {
+    return this.http.patch<void>(`${this.base}/${sessionId}/nodes/${nodeId}/size`, { width, height });
+  }
+
   updateNodeText(sessionId: string, nodeId: string, label: string): Observable<void> {
     return this.http.patch<void>(`${this.base}/${sessionId}/nodes/${nodeId}/text`, { label });
   }
