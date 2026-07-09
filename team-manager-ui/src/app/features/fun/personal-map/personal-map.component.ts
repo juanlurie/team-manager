@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, inject, signal, effect, ChangeDetectionStrategy } from '@angular/core';
+import { Component, OnInit, OnDestroy, inject, signal, effect, afterEveryRender, ElementRef, HostListener, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
@@ -107,6 +107,7 @@ export class PersonalMapComponent implements OnInit, OnDestroy {
   private svc = inject(PersonalMapService);
   private wsSvc = inject(WebSocketService);
   private navSvc = inject(NavService);
+  private elRef = inject(ElementRef);
   private router = inject(Router);
   private route = inject(ActivatedRoute);
   private snackBar = inject(MatSnackBar);
@@ -129,6 +130,26 @@ export class PersonalMapComponent implements OnInit, OnDestroy {
   private hideSubNavEffect = effect(() => {
     this.navSvc.hideSubNav.set(!!this.session());
   });
+
+  // Break the board out of the centered page-wrap so the canvas spans the full content width.
+  private bleedEffect = afterEveryRender(() => this.applyBleed());
+
+  @HostListener('window:resize')
+  onResize(): void { this.applyBleed(); }
+
+  private applyBleed(): void {
+    const host = this.elRef.nativeElement as HTMLElement;
+    const board = host.querySelector('.board-canvas') as HTMLElement | null;
+    if (!board) return;
+    const content = host.closest('.content') as HTMLElement | null;
+    const cl = content ? content.getBoundingClientRect().left : 0;
+    const cr = content ? content.getBoundingClientRect().right : window.innerWidth;
+    const r = host.getBoundingClientRect();
+    const gutter = 8;
+    const ml = `${-(r.left - cl - gutter)}px`, mr = `${-(cr - r.right - gutter)}px`;
+    if (board.style.marginLeft !== ml) board.style.marginLeft = ml;
+    if (board.style.marginRight !== mr) board.style.marginRight = mr;
+  }
 
   ngOnInit(): void {
     const id = this.route.snapshot.params['id'];

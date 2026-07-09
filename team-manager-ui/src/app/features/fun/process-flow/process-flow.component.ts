@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, inject, signal, effect, ChangeDetectionStrategy } from '@angular/core';
+import { Component, OnInit, OnDestroy, inject, signal, effect, afterEveryRender, ElementRef, HostListener, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
@@ -6,6 +6,8 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
+import { MatMenuModule } from '@angular/material/menu';
+import { DiagramExportService, DiagramFormat } from '../../../core/services/diagram-export.service';
 import { Subject } from 'rxjs';
 import { takeUntil, filter } from 'rxjs/operators';
 import { Router, ActivatedRoute } from '@angular/router';
@@ -20,7 +22,7 @@ import { CanvasBoardComponent, CanvasNode, CanvasEdge } from '../../../core/comp
 @Component({
   selector: 'app-process-flow',
   standalone: true,
-  imports: [CommonModule, FormsModule, MatButtonModule, MatIconModule, MatProgressSpinnerModule, MatSnackBarModule, MatDialogModule, CanvasBoardComponent],
+  imports: [CommonModule, FormsModule, MatButtonModule, MatIconModule, MatProgressSpinnerModule, MatSnackBarModule, MatDialogModule, MatMenuModule, CanvasBoardComponent],
   changeDetection: ChangeDetectionStrategy.Default,
   styles: [`
     :host { display:block;height:100%; }
@@ -85,6 +87,15 @@ import { CanvasBoardComponent, CanvasNode, CanvasEdge } from '../../../core/comp
           <button mat-icon-button (click)="backToList()"><mat-icon>arrow_back</mat-icon></button>
           <span class="board-title">{{ session()!.title || 'Untitled Flow' }}</span>
           <span class="board-hint">Double-click canvas to add a step. Drag a node's dot to connect it to another.</span>
+          <button mat-icon-button title="Download diagram" [matMenuTriggerFor]="dlMenu"
+                  [disabled]="!session()?.nodes?.length"><mat-icon>download</mat-icon></button>
+          <mat-menu #dlMenu="matMenu">
+            <button mat-menu-item (click)="exportDiagram('png')"><mat-icon>image</mat-icon> PNG image</button>
+            <button mat-menu-item (click)="exportDiagram('svg')"><mat-icon>shape_line</mat-icon> SVG (vector)</button>
+            <button mat-menu-item (click)="exportDiagram('drawio')"><mat-icon>account_tree</mat-icon> draw.io (editable)</button>
+            <button mat-menu-item (click)="exportDiagram('mermaid')"><mat-icon>code</mat-icon> Mermaid</button>
+            <button mat-menu-item (click)="exportDiagram('plantuml')"><mat-icon>code</mat-icon> PlantUML</button>
+          </mat-menu>
         </div>
         <div class="board-canvas">
           <app-canvas-board
@@ -115,10 +126,12 @@ export class ProcessFlowComponent implements OnInit, OnDestroy {
   private wsSvc = inject(WebSocketService);
   authSvc = inject(AuthService);
   private navSvc = inject(NavService);
+  private elRef = inject(ElementRef);
   private router = inject(Router);
   private route = inject(ActivatedRoute);
   private snackBar = inject(MatSnackBar);
   private dialog = inject(MatDialog);
+  private exportSvc = inject(DiagramExportService);
 
   sessions = signal<ProcessFlowSessionSummary[]>([]);
   session = signal<ProcessFlowSession | null>(null);
@@ -138,6 +151,31 @@ export class ProcessFlowComponent implements OnInit, OnDestroy {
   private hideSubNavEffect = effect(() => {
     this.navSvc.hideSubNav.set(!!this.session());
   });
+
+  // Break the board out of the centered page-wrap padding/max-width so the canvas spans the full
+  // content area (edge to edge, like the retro board). Negative margins are measured against the
+  // scroll container because the amount depends on the sidebar width + how the page-wrap centers.
+  private bleedEffect = afterEveryRender(() => this.applyBleed());
+
+  @HostListener('window:resize')
+  onResize(): void { this.applyBleed(); }
+
+  private applyBleed(): void {
+    const host = this.elRef.nativeElement as HTMLElement;
+    const board = host.querySelector('.board-canvas') as HTMLElement | null;
+    if (!board) return;
+    const content = host.closest('.content') as HTMLElement | null;
+    const cl = content ? content.getBoundingClientRect().left : 0;
+    const cr = content ? content.getBoundingClientRect().right : window.innerWidth;
+    // Measure the host (page-wrap content column) -- it stays put regardless of the board margins,
+    // so this converges instead of oscillating.
+    const r = host.getBoundingClientRect();
+    const gutter = 8;
+    const ml = `${-(r.left - cl - gutter)}px`, mr = `${-(cr - r.right - gutter)}px`;
+    // Only write when it actually changes, so this render-loop hook doesn't thrash layout.
+    if (board.style.marginLeft !== ml) board.style.marginLeft = ml;
+    if (board.style.marginRight !== mr) board.style.marginRight = mr;
+  }
 
   ngOnInit(): void {
     const id = this.route.snapshot.params['id'];
@@ -488,6 +526,14 @@ export class ProcessFlowComponent implements OnInit, OnDestroy {
 
   // Deletion is one click on the edge's hover trash icon -- deliberate enough to skip a dialog,
   // and re-drawing a connection is trivial.
+  exportDiagram(format: DiagramFormat): void {
+    const s = this.session();
+    if (!s) return;
+    const nodes = s.nodes.map(n => ({ id: n.id, label: n.label, x: n.positionX, y: n.positionY, width: n.width, height: n.height, color: n.color }));
+    const edges = s.edges.map(e => ({ id: e.id, fromId: e.fromNodeId, toId: e.toNodeId, color: e.color, waypoints: e.waypoints ?? [] }));
+    this.exportSvc.download(format, s.title || 'process-flow', nodes, edges);
+  }
+
   onEdgeColorChanged(e: { id: string; color: string }): void {
     const s = this.session();
     if (!s) return;
