@@ -72,6 +72,14 @@ public class ProcessFlowController(ProcessFlowService service) : ControllerBase
         return NoContent();
     }
 
+    [HttpPatch("{id:guid}/nodes/{nodeId:guid}/color")]
+    public async Task<IActionResult> UpdateNodeColor(Guid id, Guid nodeId, [FromBody] UpdateProcessFlowNodeColorRequest request)
+    {
+        var success = await service.UpdateNodeColorAsync(id, nodeId, request);
+        if (!success) return NotFound();
+        return NoContent();
+    }
+
     [HttpPatch("{id:guid}/nodes/{nodeId:guid}/text")]
     public async Task<IActionResult> UpdateNodeText(Guid id, Guid nodeId, [FromBody] UpdateProcessFlowNodeTextRequest request)
     {

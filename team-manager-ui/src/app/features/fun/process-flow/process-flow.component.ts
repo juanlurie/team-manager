@@ -92,10 +92,12 @@ import { CanvasBoardComponent, CanvasNode, CanvasEdge } from '../../../core/comp
             [edges]="canvasEdges()"
             [connectMode]="true"
             [resizable]="true"
+            [colorPicker]="true"
             [editNodeId]="editNodeId()"
             (canvasDoubleClicked)="onCanvasDoubleClicked($event)"
             (nodeMoved)="onNodeMoved($event)"
             (nodeResized)="onNodeResized($event)"
+            (nodeColorChanged)="onNodeColorChanged($event)"
             (labelCommitted)="onLabelCommitted($event)"
             (connectorDrawn)="onConnectorDrawn($event)"
             (connectorDroppedOnEmpty)="onConnectorDroppedOnEmpty($event)"
@@ -178,6 +180,16 @@ export class ProcessFlowComponent implements OnInit, OnDestroy {
               const height = msg.data['height'] as number;
               this.session.update(cur => cur
                 ? { ...cur, nodes: cur.nodes.map(n => n.id === nodeId ? { ...n, width, height } : n) }
+                : cur);
+              this.syncCanvas();
+            }
+            break;
+          case 'process_flow_node_color_changed':
+            if (msg.data['sessionId'] === s.id) {
+              const nodeId = msg.data['nodeId'] as string;
+              const color = (msg.data['color'] as string | null) ?? null;
+              this.session.update(cur => cur
+                ? { ...cur, nodes: cur.nodes.map(n => n.id === nodeId ? { ...n, color } : n) }
                 : cur);
               this.syncCanvas();
             }
@@ -351,6 +363,18 @@ export class ProcessFlowComponent implements OnInit, OnDestroy {
     this.syncCanvas();
     this.svc.updateNodeSize(s.id, e.id, e.width, e.height).subscribe({
       error: () => this.snackBar.open('Failed to save node size', 'OK', { duration: 3000 }),
+    });
+  }
+
+  onNodeColorChanged(e: { id: string; color: string }): void {
+    const s = this.session();
+    if (!s) return;
+    this.session.update(cur => cur
+      ? { ...cur, nodes: cur.nodes.map(n => n.id === e.id ? { ...n, color: e.color } : n) }
+      : cur);
+    this.syncCanvas();
+    this.svc.updateNodeColor(s.id, e.id, e.color).subscribe({
+      error: () => this.snackBar.open('Failed to save node colour', 'OK', { duration: 3000 }),
     });
   }
 

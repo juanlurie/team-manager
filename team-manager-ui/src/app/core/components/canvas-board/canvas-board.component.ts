@@ -26,6 +26,12 @@ const MAX_NODE_H = 480;
 const CLICK_MOVE_THRESHOLD = 4;
 const MIN_ZOOM = 0.2;
 const MAX_ZOOM = 2.5;
+// Same pastel set the retro sticky cards use, so node colours read consistently across boards.
+const NODE_PALETTE = [
+  '#fff9c4', '#ffe0b2', '#fce4ec', '#c8e6c9',
+  '#bbdefb', '#e1bee7', '#ffcdd2', '#b2dfdb',
+  '#f5f5f5', '#ffe082', '#a5d6a7', '#90caf9',
+];
 
 // Generic pan/zoom/drag canvas: positions nodes freely in a shared world-coordinate space and
 // draws directed edges between them. No domain knowledge of retro/process-flow/personal-maps --
@@ -84,6 +90,24 @@ const MAX_ZOOM = 2.5;
       border-bottom-right-radius:3px;
     }
     .canvas-node:hover .resize-handle, .canvas-node.selected .resize-handle { opacity:1; }
+    .color-handle {
+      position:absolute;top:-9px;right:-9px;width:18px;height:18px;border-radius:50%;
+      border:2px solid #14171f;cursor:pointer;opacity:0;transition:opacity 0.12s;
+      background:conic-gradient(#ffcdd2,#ffe082,#a5d6a7,#90caf9,#e1bee7,#ffcdd2);
+    }
+    .canvas-node:hover .color-handle, .canvas-node.selected .color-handle { opacity:1; }
+    .color-picker-popover {
+      position:fixed;z-index:1000;
+      background:#2a2a2a;border:1px solid rgba(255,255,255,0.12);
+      border-radius:8px;padding:8px;
+      display:grid;grid-template-columns:repeat(4, 22px);gap:6px;
+      width:max-content;box-shadow:0 4px 16px rgba(0,0,0,0.5);
+    }
+    .color-swatch {
+      width:22px;height:22px;border-radius:50%;cursor:pointer;box-sizing:border-box;
+      border:2px solid transparent;transition:border-color 0.1s, transform 0.1s;
+    }
+    .color-swatch:hover, .color-swatch.active { border-color:rgba(255,255,255,0.7);transform:scale(1.15); }
     .canvas-zoom-controls {
       position:absolute;bottom:12px;right:12px;display:flex;gap:4px;
       background:rgba(20,23,31,0.85);border-radius:8px;padding:4px;
@@ -122,6 +146,8 @@ const MAX_ZOOM = 2.5;
           <div class="canvas-node" [class.selected]="n.id === selectedId()" [attr.data-node-id]="n.id"
                [style.left.px]="n.x" [style.top.px]="n.y"
                [style.width.px]="n.width" [style.height.px]="n.height"
+               [style.background]="n.color ?? null"
+               [style.color]="n.color ? '#1a1a1a' : null"
                [style.border-color]="n.color ?? null"
                (mousedown)="startNodeDrag($event, n)">
             @if (editingId() === n.id) {
@@ -147,6 +173,11 @@ const MAX_ZOOM = 2.5;
             @if (resizable()) {
               <div class="resize-handle" (mousedown)="startResize($event, n)"></div>
             }
+            @if (colorPicker()) {
+              <div class="color-handle" title="Change colour"
+                   (mousedown)="$event.stopPropagation()"
+                   (click)="toggleColorPicker($event, n)"></div>
+            }
           </div>
         }
       </div>
@@ -156,6 +187,19 @@ const MAX_ZOOM = 2.5;
         <button class="cz-btn" (click)="resetView()">{{ zoomPercent() }}%</button>
         <button class="cz-btn" (click)="zoomBy(1.25)">+</button>
       </div>
+
+      @if (colorPickerId(); as pickId) {
+        @if (colorPickerPos(); as pos) {
+          <div class="color-picker-popover" [style.top.px]="pos.top" [style.left.px]="pos.left"
+               (mousedown)="$event.stopPropagation()" (click)="$event.stopPropagation()">
+            @for (swatch of palette; track swatch) {
+              <div class="color-swatch" [style.background]="swatch"
+                   [class.active]="nodeColor(pickId) === swatch"
+                   (click)="pickColor(pickId, swatch)"></div>
+            }
+          </div>
+        }
+      }
     </div>
   `,
 })
@@ -164,6 +208,7 @@ export class CanvasBoardComponent implements AfterViewInit {
   edges = input<CanvasEdge[]>([]);
   connectMode = input(false);
   resizable = input(false);
+  colorPicker = input(false);
   selectedId = input<string | null>(null);
   // When set to a node id, that node immediately enters label-edit mode (used so a freshly
   // created node opens ready to type). Parent bumps this after adding a node.
@@ -171,6 +216,7 @@ export class CanvasBoardComponent implements AfterViewInit {
 
   nodeMoved = output<{ id: string; x: number; y: number }>();
   nodeResized = output<{ id: string; width: number; height: number }>();
+  nodeColorChanged = output<{ id: string; color: string }>();
   nodeSelected = output<string>();
   labelCommitted = output<{ id: string; label: string }>();
   canvasDoubleClicked = output<{ x: number; y: number }>();
@@ -194,6 +240,10 @@ export class CanvasBoardComponent implements AfterViewInit {
 
   editingId = signal<string | null>(null);
   editingText = signal('');
+
+  readonly palette = NODE_PALETTE;
+  colorPickerId = signal<string | null>(null);
+  colorPickerPos = signal<{ top: number; left: number } | null>(null);
 
   constructor() {
     // Open a node straight into edit mode when the parent points editNodeId at it (nodes read
@@ -320,6 +370,7 @@ export class CanvasBoardComponent implements AfterViewInit {
   startPan(e: MouseEvent): void {
     if (e.button !== 0) return;
     const t = e.target as HTMLElement;
+    this.closeColorPicker();
     if (t.closest('.canvas-node') || t.closest('.canvas-zoom-controls')) return;
     const v = this.view();
     this.panState = { startMouseX: e.clientX, startMouseY: e.clientY, startPanX: v.panX, startPanY: v.panY };
@@ -346,6 +397,30 @@ export class CanvasBoardComponent implements AfterViewInit {
     e.stopPropagation();
     if (this.editingId() === node.id) return;
     this.dragState = { id: node.id, startMouseX: e.clientX, startMouseY: e.clientY, startX: node.x, startY: node.y, moved: false };
+  }
+
+  nodeColor(id: string): string | null {
+    return this.nodes().find(n => n.id === id)?.color ?? null;
+  }
+
+  toggleColorPicker(e: MouseEvent, node: CanvasNode): void {
+    e.stopPropagation();
+    if (this.colorPickerId() === node.id) { this.closeColorPicker(); return; }
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    // position:fixed popover anchored to the swatch button's viewport position (a transformed
+    // canvas ancestor would break position:absolute), nudged so it doesn't cover the node.
+    this.colorPickerPos.set({ top: rect.bottom + 6, left: rect.left });
+    this.colorPickerId.set(node.id);
+  }
+
+  pickColor(id: string, color: string): void {
+    this.nodeColorChanged.emit({ id, color });
+    this.closeColorPicker();
+  }
+
+  closeColorPicker(): void {
+    this.colorPickerId.set(null);
+    this.colorPickerPos.set(null);
   }
 
   startResize(e: MouseEvent, node: CanvasNode): void {

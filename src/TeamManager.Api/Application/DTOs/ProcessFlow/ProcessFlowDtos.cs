@@ -72,6 +72,11 @@ public record UpdateProcessFlowNodeSizeRequest
     public double Height { get; init; }
 }
 
+public record UpdateProcessFlowNodeColorRequest
+{
+    public string? Color { get; init; }
+}
+
 public record AddProcessFlowEdgeRequest
 {
     public Guid FromNodeId { get; init; }

@@ -84,6 +84,17 @@ public class PersonalMapController(PersonalMapService service) : ControllerBase
         return NoContent();
     }
 
+    [HttpPatch("{id:guid}/nodes/{nodeId:guid}/color")]
+    public async Task<IActionResult> UpdateNodeColor(Guid id, Guid nodeId, [FromBody] UpdatePersonalMapNodeColorRequest request)
+    {
+        var memberId = GetCurrentMemberId();
+        if (!memberId.HasValue) return Unauthorized();
+
+        var success = await service.UpdateNodeColorAsync(id, memberId.Value, nodeId, request);
+        if (!success) return NotFound();
+        return NoContent();
+    }
+
     [HttpPatch("{id:guid}/nodes/{nodeId:guid}/text")]
     public async Task<IActionResult> UpdateNodeText(Guid id, Guid nodeId, [FromBody] UpdatePersonalMapNodeTextRequest request)
     {

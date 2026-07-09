@@ -111,6 +111,19 @@ public class ProcessFlowService(AppDbContext db)
         return true;
     }
 
+    public async Task<bool> UpdateNodeColorAsync(Guid sessionId, Guid nodeId, UpdateProcessFlowNodeColorRequest req)
+    {
+        var node = await db.ProcessFlowNodes.FirstOrDefaultAsync(n => n.Id == nodeId && n.SessionId == sessionId);
+        if (node is null) return false;
+
+        node.Color = string.IsNullOrWhiteSpace(req.Color) ? null : req.Color.Trim();
+        await db.SaveChangesAsync();
+
+        _ = WebSocketMiddleware.BroadcastToBoardSessionAsync("process_flow_node_color_changed", sessionId.ToString(),
+            new { sessionId, nodeId, color = node.Color });
+        return true;
+    }
+
     public async Task<bool> UpdateNodeTextAsync(Guid sessionId, Guid nodeId, UpdateProcessFlowNodeTextRequest req)
     {
         var node = await db.ProcessFlowNodes.FirstOrDefaultAsync(n => n.Id == nodeId && n.SessionId == sessionId);
