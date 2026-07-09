@@ -97,6 +97,7 @@ import { CanvasBoardComponent, CanvasNode, CanvasEdge } from '../../../core/comp
             (nodeResized)="onNodeResized($event)"
             (labelCommitted)="onLabelCommitted($event)"
             (connectorDrawn)="onConnectorDrawn($event)"
+            (connectorDroppedOnEmpty)="onConnectorDroppedOnEmpty($event)"
             (edgeClicked)="onEdgeClicked($event)" />
         </div>
       </div>
@@ -369,6 +370,26 @@ export class ProcessFlowComponent implements OnInit, OnDestroy {
         this.syncCanvas();
       },
       error: () => this.snackBar.open('Could not connect those nodes', 'OK', { duration: 3000 }),
+    });
+  }
+
+  onConnectorDroppedOnEmpty(e: { fromId: string; x: number; y: number }): void {
+    const s = this.session();
+    if (!s) return;
+    // Create the target node where the line was dropped, then connect the source to it.
+    this.svc.addNode(s.id, 'Step', e.x, e.y).subscribe({
+      next: node => {
+        this.session.update(cur => cur && !cur.nodes.some(n => n.id === node.id) ? { ...cur, nodes: [...cur.nodes, node] } : cur);
+        this.syncCanvas();
+        this.svc.addEdge(s.id, e.fromId, node.id).subscribe({
+          next: edge => {
+            this.session.update(cur => cur && !cur.edges.some(x => x.id === edge.id) ? { ...cur, edges: [...cur.edges, edge] } : cur);
+            this.syncCanvas();
+          },
+          error: () => this.snackBar.open('Could not connect the new node', 'OK', { duration: 3000 }),
+        });
+      },
+      error: () => this.snackBar.open('Failed to add node', 'OK', { duration: 3000 }),
     });
   }
 
