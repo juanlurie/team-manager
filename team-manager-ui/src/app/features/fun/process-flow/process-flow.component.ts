@@ -92,6 +92,7 @@ import { CanvasBoardComponent, CanvasNode, CanvasEdge } from '../../../core/comp
             [edges]="canvasEdges()"
             [connectMode]="true"
             [resizable]="true"
+            [editNodeId]="editNodeId()"
             (canvasDoubleClicked)="onCanvasDoubleClicked($event)"
             (nodeMoved)="onNodeMoved($event)"
             (nodeResized)="onNodeResized($event)"
@@ -126,6 +127,7 @@ export class ProcessFlowComponent implements OnInit, OnDestroy {
 
   canvasNodes = signal<CanvasNode[]>([]);
   canvasEdges = signal<CanvasEdge[]>([]);
+  editNodeId = signal<string | null>(null);
 
   /** Hide the Pulse hub's tab row + width cap while a flow is open, so the canvas goes full-bleed (matches Retro). */
   private hideSubNavEffect = effect(() => {
@@ -322,6 +324,7 @@ export class ProcessFlowComponent implements OnInit, OnDestroy {
       next: node => {
         this.session.update(cur => cur && !cur.nodes.some(n => n.id === node.id) ? { ...cur, nodes: [...cur.nodes, node] } : cur);
         this.syncCanvas();
+        this.editNodeId.set(node.id);
       },
       error: () => this.snackBar.open('Failed to add node', 'OK', { duration: 3000 }),
     });
@@ -381,6 +384,7 @@ export class ProcessFlowComponent implements OnInit, OnDestroy {
       next: node => {
         this.session.update(cur => cur && !cur.nodes.some(n => n.id === node.id) ? { ...cur, nodes: [...cur.nodes, node] } : cur);
         this.syncCanvas();
+        this.editNodeId.set(node.id);
         this.svc.addEdge(s.id, e.fromId, node.id).subscribe({
           next: edge => {
             this.session.update(cur => cur && !cur.edges.some(x => x.id === edge.id) ? { ...cur, edges: [...cur.edges, edge] } : cur);

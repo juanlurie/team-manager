@@ -91,6 +91,7 @@ import { CanvasBoardComponent, CanvasNode } from '../../../core/components/canva
             [nodes]="canvasNodes()"
             [connectMode]="false"
             [resizable]="true"
+            [editNodeId]="editNodeId()"
             (canvasDoubleClicked)="onCanvasDoubleClicked($event)"
             (nodeMoved)="onNodeMoved($event)"
             (nodeResized)="onNodeResized($event)"
@@ -120,6 +121,7 @@ export class PersonalMapComponent implements OnInit, OnDestroy {
   private lastWsSeq = -1;
 
   canvasNodes = signal<CanvasNode[]>([]);
+  editNodeId = signal<string | null>(null);
 
   /** Hide the Pulse hub's tab row + width cap while a map is open, so the canvas goes full-bleed (matches Retro). */
   private hideSubNavEffect = effect(() => {
@@ -297,6 +299,7 @@ export class PersonalMapComponent implements OnInit, OnDestroy {
       next: node => {
         this.session.update(cur => cur && !cur.nodes.some(n => n.id === node.id) ? { ...cur, nodes: [...cur.nodes, node] } : cur);
         this.syncCanvas();
+        this.editNodeId.set(node.id);
       },
       error: () => this.snackBar.open('Failed to add node', 'OK', { duration: 3000 }),
     });
