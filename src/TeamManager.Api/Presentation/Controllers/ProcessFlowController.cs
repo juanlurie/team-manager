@@ -120,6 +120,14 @@ public class ProcessFlowController(ProcessFlowService service) : ControllerBase
         return NoContent();
     }
 
+    [HttpPatch("{id:guid}/edges/{edgeId:guid}/color")]
+    public async Task<IActionResult> UpdateEdgeColor(Guid id, Guid edgeId, [FromBody] UpdateProcessFlowEdgeColorRequest request)
+    {
+        var success = await service.UpdateEdgeColorAsync(id, edgeId, request);
+        if (!success) return NotFound();
+        return NoContent();
+    }
+
     [HttpDelete("{id:guid}/edges/{edgeId:guid}")]
     public async Task<IActionResult> DeleteEdge(Guid id, Guid edgeId)
     {

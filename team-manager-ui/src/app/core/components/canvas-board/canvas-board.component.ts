@@ -17,6 +17,7 @@ export interface CanvasEdge {
   id: string;
   fromId: string;
   toId: string;
+  color?: string;
   waypoints?: CanvasPoint[];
 }
 
@@ -73,6 +74,13 @@ const NODE_PALETTE = [
     .edge-delete-bg { fill:#ef5350;stroke:#14171f;stroke-width:1.5; }
     .edge-delete-x { stroke:#fff;stroke-width:1.6;stroke-linecap:round;pointer-events:none; }
     .edge-delete:hover .edge-delete-bg { fill:#f77; }
+    .edge-reset { cursor:pointer; }
+    .edge-reset-bg { fill:#455a64;stroke:#14171f;stroke-width:1.5; }
+    .edge-reset:hover .edge-reset-bg { fill:#607d8b; }
+    .edge-reset-glyph { fill:#fff;font-size:11px;pointer-events:none;font-family:sans-serif; }
+    .edge-colour { cursor:pointer; }
+    .edge-colour-bg { stroke:#14171f;stroke-width:1.5; }
+    .edge-colour:hover .edge-colour-bg { stroke:rgba(255,255,255,0.6); }
     .canvas-node {
       position:absolute;border-radius:10px;
       background:rgba(255,255,255,0.06);border:2px solid rgba(255,255,255,0.22);
@@ -142,13 +150,13 @@ const NODE_PALETTE = [
         <svg class="canvas-svg" [attr.width]="10" [attr.height]="10" [style.overflow]="'visible'">
           <defs>
             <marker id="cb-arrow" markerWidth="9" markerHeight="9" refX="7.5" refY="4" orient="auto" markerUnits="userSpaceOnUse">
-              <path d="M0,0 L0,8 L8,4 z" fill="rgba(255,255,255,0.55)" />
+              <path d="M0,0 L0,8 L8,4 z" fill="context-stroke" />
             </marker>
           </defs>
           @for (e of edgePaths(); track e.id) {
             <g class="canvas-edge-group">
               <path class="canvas-edge-hit" [attr.d]="e.d" />
-              <path class="canvas-edge" [attr.d]="e.d" marker-end="url(#cb-arrow)" />
+              <path class="canvas-edge" [style.stroke]="e.color ?? null" [attr.d]="e.d" marker-end="url(#cb-arrow)" />
               @if (connectMode()) {
                 @for (mp of e.midpoints; track mp.segIndex) {
                   <circle class="edge-handle edge-midpoint" [attr.cx]="mp.x" [attr.cy]="mp.y" r="5"
@@ -167,6 +175,16 @@ const NODE_PALETTE = [
                   <circle class="edge-delete-bg" [attr.cx]="e.labelX" [attr.cy]="e.labelY" r="8" />
                   <line class="edge-delete-x" [attr.x1]="e.labelX - 3" [attr.y1]="e.labelY - 3" [attr.x2]="e.labelX + 3" [attr.y2]="e.labelY + 3" />
                   <line class="edge-delete-x" [attr.x1]="e.labelX - 3" [attr.y1]="e.labelY + 3" [attr.x2]="e.labelX + 3" [attr.y2]="e.labelY - 3" />
+                </g>
+                @if (e.hasBends) {
+                  <g class="edge-handle edge-reset" (mousedown)="$event.stopPropagation()" (click)="resetEdge($event, e.id)">
+                    <circle class="edge-reset-bg" [attr.cx]="e.resetX" [attr.cy]="e.labelY" r="8" />
+                    <text class="edge-reset-glyph" [attr.x]="e.resetX" [attr.y]="e.labelY" text-anchor="middle" dominant-baseline="central">↺</text>
+                  </g>
+                }
+                <g class="edge-handle edge-colour" (mousedown)="$event.stopPropagation()" (click)="openColorPicker($event, 'edge', e.id)">
+                  <circle class="edge-colour-bg" [attr.cx]="e.colorX" [attr.cy]="e.labelY" r="8"
+                          [style.fill]="e.color ?? '#90caf9'" />
                 </g>
               }
             </g>
@@ -214,7 +232,7 @@ const NODE_PALETTE = [
             @if (colorPicker()) {
               <div class="color-handle" title="Change colour"
                    (mousedown)="$event.stopPropagation()"
-                   (click)="toggleColorPicker($event, n)"></div>
+                   (click)="openColorPicker($event, 'node', n.id)"></div>
             }
           </div>
         }
@@ -226,14 +244,14 @@ const NODE_PALETTE = [
         <button class="cz-btn" (click)="zoomBy(1.25)">+</button>
       </div>
 
-      @if (colorPickerId(); as pickId) {
+      @if (colorTarget()) {
         @if (colorPickerPos(); as pos) {
           <div class="color-picker-popover" [style.top.px]="pos.top" [style.left.px]="pos.left"
                (mousedown)="$event.stopPropagation()" (click)="$event.stopPropagation()">
             @for (swatch of palette; track swatch) {
               <div class="color-swatch" [style.background]="swatch"
-                   [class.active]="nodeColor(pickId) === swatch"
-                   (click)="pickColor(pickId, swatch)"></div>
+                   [class.active]="activeColor() === swatch"
+                   (click)="pickColor(swatch)"></div>
             }
           </div>
         }
@@ -255,6 +273,7 @@ export class CanvasBoardComponent implements AfterViewInit {
   nodeMoved = output<{ id: string; x: number; y: number }>();
   nodeResized = output<{ id: string; width: number; height: number }>();
   nodeColorChanged = output<{ id: string; color: string }>();
+  edgeColorChanged = output<{ id: string; color: string }>();
   nodeSelected = output<string>();
   labelCommitted = output<{ id: string; label: string }>();
   canvasDoubleClicked = output<{ x: number; y: number }>();
@@ -287,7 +306,7 @@ export class CanvasBoardComponent implements AfterViewInit {
   editingText = signal('');
 
   readonly palette = NODE_PALETTE;
-  colorPickerId = signal<string | null>(null);
+  colorTarget = signal<{ kind: 'node' | 'edge'; id: string } | null>(null);
   colorPickerPos = signal<{ top: number; left: number } | null>(null);
 
   // Actual rendered node heights (a node auto-grows past its stored height when its label wraps).
@@ -441,7 +460,10 @@ export class CanvasBoardComponent implements AfterViewInit {
         const label = { x: (pts[mseg].x + pts[mseg + 1].x) / 2, y: (pts[mseg].y + pts[mseg + 1].y) / 2 };
         return {
           id: e.id, d, midpoints, waypoints,
+          color: e.color ?? null,
+          hasBends: !g.auto,
           labelX: label.x, labelY: label.y,
+          resetX: label.x - 15, colorX: label.x + 15,
           fromX: pts[0].x, fromY: pts[0].y, toX: pts[pts.length - 1].x, toY: pts[pts.length - 1].y,
         };
       })
@@ -565,34 +587,55 @@ export class CanvasBoardComponent implements AfterViewInit {
     };
   }
 
-  nodeColor(id: string): string | null {
-    return this.nodes().find(n => n.id === id)?.color ?? null;
+  // Current colour of whatever the picker is aimed at, for highlighting the active swatch.
+  activeColor(): string | null {
+    const t = this.colorTarget();
+    if (!t) return null;
+    return t.kind === 'node'
+      ? (this.nodes().find(n => n.id === t.id)?.color ?? null)
+      : (this.edges().find(e => e.id === t.id)?.color ?? null);
   }
 
-  toggleColorPicker(e: MouseEvent, node: CanvasNode): void {
+  openColorPicker(e: MouseEvent, kind: 'node' | 'edge', id: string): void {
     e.stopPropagation();
-    if (this.colorPickerId() === node.id) { this.closeColorPicker(); return; }
+    const cur = this.colorTarget();
+    if (cur && cur.kind === kind && cur.id === id) { this.closeColorPicker(); return; }
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
     // position:fixed popover anchored to the swatch button's viewport position (a transformed
-    // canvas ancestor would break position:absolute), nudged so it doesn't cover the node.
+    // canvas ancestor would break position:absolute), nudged so it doesn't cover the target.
     this.colorPickerPos.set({ top: rect.bottom + 6, left: rect.left });
-    this.colorPickerId.set(node.id);
+    this.colorTarget.set({ kind, id });
   }
 
-  pickColor(id: string, color: string): void {
-    this.nodeColorChanged.emit({ id, color });
+  pickColor(color: string): void {
+    const t = this.colorTarget();
+    if (!t) return;
+    if (t.kind === 'node') this.nodeColorChanged.emit({ id: t.id, color });
+    else this.edgeColorChanged.emit({ id: t.id, color });
     this.closeColorPicker();
   }
 
   closeColorPicker(): void {
-    this.colorPickerId.set(null);
+    this.colorTarget.set(null);
     this.colorPickerPos.set(null);
+  }
+
+  resetEdge(e: MouseEvent, edgeId: string): void {
+    e.stopPropagation();
+    e.preventDefault();
+    this.localWaypoints.update(m => { const next = { ...m }; delete next[edgeId]; return next; });
+    this.edgeReshaped.emit({ id: edgeId, waypoints: [] });
   }
 
   startWaypointDrag(e: MouseEvent, edgeId: string, index: number): void {
     if (e.button !== 0) return;
     e.stopPropagation();
     e.preventDefault();
+    // Seed the local override with the edge's current bends, otherwise onMouseMove has no array
+    // to update at `index` and the waypoint can't be dragged a second time.
+    const edge = this.edges().find(ed => ed.id === edgeId);
+    if (!edge) return;
+    this.localWaypoints.update(m => ({ ...m, [edgeId]: [...this.resolvedWaypoints(edge)] }));
     this.edgeDragState = { edgeId, index };
   }
 
