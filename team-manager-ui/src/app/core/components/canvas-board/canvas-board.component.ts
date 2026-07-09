@@ -75,11 +75,13 @@ const NODE_PALETTE = [
     .edge-delete:hover .edge-delete-bg { fill:#f77; }
     .canvas-node {
       position:absolute;border-radius:10px;
-      background:rgba(255,255,255,0.06);border:1.5px solid rgba(255,255,255,0.18);
+      background:rgba(255,255,255,0.06);border:2px solid rgba(255,255,255,0.22);
       color:#fff;display:flex;align-items:center;justify-content:center;text-align:center;
       padding:8px 12px;cursor:grab;user-select:none;font-size:0.85rem;box-sizing:border-box;
       box-shadow:0 2px 6px rgba(0,0,0,0.3);
     }
+    /* Coloured cards get a thicker, glowing neon edge in their own colour. */
+    .canvas-node.neon { border-width:3px; }
     .canvas-node > span { max-width:100%;white-space:pre-wrap;overflow-wrap:anywhere; }
     .canvas-node:hover { border-color:rgba(100,181,246,0.6); }
     .canvas-node.selected { border-color:#64b5f6;box-shadow:0 0 0 2px rgba(100,181,246,0.4); }
@@ -178,12 +180,13 @@ const NODE_PALETTE = [
         </svg>
 
         @for (n of renderNodes(); track n.id) {
-          <div class="canvas-node" [class.selected]="n.id === selectedId()" [attr.data-node-id]="n.id"
+          <div class="canvas-node" [class.selected]="n.id === selectedId()" [class.neon]="!!n.color" [attr.data-node-id]="n.id"
                [style.left.px]="n.x" [style.top.px]="n.y"
                [style.width.px]="n.width" [style.min-height.px]="n.storedHeight"
                [style.background]="n.color ?? null"
                [style.color]="n.color ? '#1a1a1a' : null"
                [style.border-color]="n.color ?? null"
+               [style.box-shadow]="n.color ? ('0 0 16px ' + n.color + ', 0 0 6px ' + n.color) : null"
                (mousedown)="startNodeDrag($event, n)">
             @if (editingId() === n.id) {
               <textarea class="canvas-node-label" [value]="editingText()" rows="2"
@@ -191,7 +194,7 @@ const NODE_PALETTE = [
                         (blur)="commitLabelEdit(n.id)"
                         (keydown.enter)="$event.preventDefault(); commitLabelEdit(n.id)"
                         (keydown.escape)="editingId.set(null)"
-                        (mousedown)="$event.stopPropagation()"></textarea>
+                        (mousedown)="startNodeDrag($event, n)"></textarea>
             } @else {
               <span (dblclick)="$event.stopPropagation(); startLabelEdit(n)">{{ n.label }}</span>
             }
@@ -267,7 +270,7 @@ export class CanvasBoardComponent implements AfterViewInit {
   panningView = signal(false);
 
   private panState: { startMouseX: number; startMouseY: number; startPanX: number; startPanY: number } | null = null;
-  private dragState: { id: string; startMouseX: number; startMouseY: number; startX: number; startY: number; moved: boolean } | null = null;
+  private dragState: { id: string; startMouseX: number; startMouseY: number; startX: number; startY: number; moved: boolean; editing: boolean } | null = null;
   private resizeState: { id: string; startMouseX: number; startMouseY: number; startW: number; startH: number } | null = null;
   private connectState: { fromId: string; toWorld: { x: number; y: number } } | null = null;
   private connectTick = signal(0); // bumped on mousemove while connecting, to re-render pendingConnectLine
@@ -382,6 +385,28 @@ export class CanvasBoardComponent implements AfterViewInit {
     return pts.filter((p, i) => i === 0 || Math.abs(p.x - pts[i - 1].x) > 0.5 || Math.abs(p.y - pts[i - 1].y) > 0.5);
   }
 
+  // Build an SVG path through the points, rounding each interior corner with a quadratic arc so
+  // bends read as smooth curves rather than hard right angles. The corner radius is capped at half
+  // the shorter adjacent segment so tight bends don't overshoot.
+  private roundedPath(pts: CanvasPoint[], radius = 14): string {
+    if (pts.length < 3) return 'M' + pts.map(p => `${p.x},${p.y}`).join(' L');
+    let d = `M${pts[0].x},${pts[0].y}`;
+    for (let i = 1; i < pts.length - 1; i++) {
+      const p0 = pts[i - 1], p1 = pts[i], p2 = pts[i + 1];
+      const trim = (from: CanvasPoint, toward: CanvasPoint): CanvasPoint => {
+        const dx = toward.x - from.x, dy = toward.y - from.y;
+        const len = Math.hypot(dx, dy) || 1;
+        const r = Math.min(radius, len / 2);
+        return { x: from.x + (dx / len) * r, y: from.y + (dy / len) * r };
+      };
+      const a = trim(p1, p0), b = trim(p1, p2);
+      d += ` L${a.x},${a.y} Q${p1.x},${p1.y} ${b.x},${b.y}`;
+    }
+    const last = pts[pts.length - 1];
+    d += ` L${last.x},${last.y}`;
+    return d;
+  }
+
   // Resolved point list + interior bends for an edge. Manual waypoints win; otherwise an auto
   // orthogonal route. `interior` is what a bend-insert bakes into, so auto edges convert to manual
   // cleanly on first drag.
@@ -405,7 +430,7 @@ export class CanvasBoardComponent implements AfterViewInit {
         if (!from || !to) return null;
         const g = this.edgeGeometry(e, from, to);
         const pts = g.points;
-        const d = 'M' + pts.map(p => `${p.x},${p.y}`).join(' L');
+        const d = this.roundedPath(pts);
         const midpoints = pts.slice(0, -1).map((p, i) => ({
           segIndex: i, x: (p.x + pts[i + 1].x) / 2, y: (p.y + pts[i + 1].y) / 2,
         }));
@@ -531,8 +556,13 @@ export class CanvasBoardComponent implements AfterViewInit {
   startNodeDrag(e: MouseEvent, node: CanvasNode): void {
     if (e.button !== 0) return;
     e.stopPropagation();
-    if (this.editingId() === node.id) return;
-    this.dragState = { id: node.id, startMouseX: e.clientX, startMouseY: e.clientY, startX: node.x, startY: node.y, moved: false };
+    // Note: this also fires from the edit textarea (so a fresh auto-editing node isn't trapped).
+    // We don't preventDefault, so a plain click still places the text cursor; only once the pointer
+    // actually moves past the threshold do we commit the edit and turn it into a real drag.
+    this.dragState = {
+      id: node.id, startMouseX: e.clientX, startMouseY: e.clientY,
+      startX: node.x, startY: node.y, moved: false, editing: this.editingId() === node.id,
+    };
   }
 
   nodeColor(id: string): string | null {
@@ -671,8 +701,16 @@ export class CanvasBoardComponent implements AfterViewInit {
       if (!this.dragState.moved) {
         const totalDx = e.clientX - this.dragState.startMouseX;
         const totalDy = e.clientY - this.dragState.startMouseY;
-        if (Math.hypot(totalDx, totalDy) > CLICK_MOVE_THRESHOLD) this.dragState.moved = true;
+        if (Math.hypot(totalDx, totalDy) > CLICK_MOVE_THRESHOLD) {
+          this.dragState.moved = true;
+          // Turn an in-progress edit into a move: commit the text and stop the textarea from
+          // running a text selection under the drag.
+          if (this.dragState.editing) { this.commitLabelEdit(this.dragState.id); this.dragState.editing = false; }
+        } else {
+          return; // below threshold -- treat as a potential click/caret placement, don't nudge
+        }
       }
+      e.preventDefault();
       const zoom = this.view().zoom;
       const dx = (e.clientX - this.dragState.startMouseX) / zoom;
       const dy = (e.clientY - this.dragState.startMouseY) / zoom;
@@ -736,15 +774,17 @@ export class CanvasBoardComponent implements AfterViewInit {
       return;
     }
     if (this.dragState) {
-      const { id, moved } = this.dragState;
+      const { id, moved, editing } = this.dragState;
+      this.dragState = null;
       if (moved) {
         const pos = this.localPositions()[id];
         if (pos) this.nodeMoved.emit({ id, x: pos.x, y: pos.y });
         this.localPositions.update(p => { const next = { ...p }; delete next[id]; return next; });
-      } else {
+      } else if (!editing) {
+        // A plain click on a non-editing node selects it. A click on an editing node is left
+        // alone so the caret stays where the user placed it.
         this.nodeSelected.emit(id);
       }
-      this.dragState = null;
       return;
     }
   }
