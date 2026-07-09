@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "git fetch -q origin main 2>/dev/null; behind=$(git rev-list --count HEAD..origin/main 2>/dev/null || echo 0); if [ \"$behind\" -gt 0 ] 2>/dev/null; then printf '{\"hookSpecificOutput\":{\"hookEventName\":\"UserPromptSubmit\",\"additionalContext\":\"Current branch is %s commit(s) behind origin/main. Per CLAUDE.md, ALWAYS pull/merge origin/main and resolve conflicts BEFORE starting new work.\"}}' \"$behind\"; fi",
+            "timeout": 30
+          }
+        ]
+      }
+    ]
+  }
+}
