@@ -4,10 +4,23 @@ These rules are non-negotiable. Follow them exactly every time.
 
 ## Before making any code changes
 
-Always pull latest from main first:
+ALWAYS start a new piece of work from an up-to-date main. Never begin
+editing on a branch that is behind main — this is what causes merge
+conflicts later. Every time, before the first change:
+
 ```
+git checkout main
 git pull origin main
+git checkout -b feature/name   # branch off fresh main
 ```
+
+If you are already on an existing feature branch, first bring main into
+it before continuing:
+```
+git fetch origin main
+git merge origin/main
+```
+Resolve any conflicts immediately, before writing new code.
 
 ## Committing and pushing
 
