@@ -44,7 +44,23 @@ import { CanvasBoardComponent, CanvasNode, CanvasEdge } from '../../../core/comp
     .board-header { display:flex;align-items:center;gap:8px;padding:8px 0; }
     .board-title { font-weight:600;font-size:1rem;color:#fff; }
     .board-hint { font-size:0.75rem;color:rgba(255,255,255,0.4);margin-left:auto; }
-    .board-canvas { flex:1;min-height:0;border-radius:10px;overflow:hidden;border:1px solid rgba(255,255,255,0.08); }
+    .board-canvas { position:relative;flex:1;min-height:0;border-radius:10px;overflow:hidden;border:1px solid rgba(255,255,255,0.08); }
+    .active-toggle { color:#64b5f6; }
+    .code-panel {
+      position:absolute;top:0;right:0;bottom:0;width:min(420px, 90%);z-index:20;
+      display:flex;flex-direction:column;
+      background:#1b1f28;border-left:1px solid rgba(255,255,255,0.12);
+      box-shadow:-6px 0 20px rgba(0,0,0,0.4);
+    }
+    .code-panel-head { display:flex;align-items:center;gap:2px;padding:4px 6px 4px 12px;border-bottom:1px solid rgba(255,255,255,0.08); }
+    .code-panel-title { font-size:0.8rem;font-weight:600;color:#fff;margin-right:auto;letter-spacing:0.04em; }
+    .code-textarea {
+      flex:1;min-height:0;resize:none;border:none;outline:none;
+      background:#12151c;color:#d7e0ea;padding:12px;
+      font-family:'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+      font-size:0.78rem;line-height:1.5;white-space:pre;tab-size:2;
+    }
+    .code-panel-hint { padding:8px 12px;font-size:0.68rem;color:rgba(255,255,255,0.4);border-top:1px solid rgba(255,255,255,0.08); }
   `],
   template: `
     @if (!session()) {
@@ -87,6 +103,8 @@ import { CanvasBoardComponent, CanvasNode, CanvasEdge } from '../../../core/comp
           <button mat-icon-button (click)="backToList()"><mat-icon>arrow_back</mat-icon></button>
           <span class="board-title">{{ session()!.title || 'Untitled Flow' }}</span>
           <span class="board-hint">Double-click canvas to add a step. Drag a node's dot to connect it to another.</span>
+          <button mat-icon-button title="PlantUML code" [class.active-toggle]="codeOpen()"
+                  (click)="toggleCodePanel()" [disabled]="!session()?.nodes?.length"><mat-icon>code</mat-icon></button>
           <button mat-icon-button title="Download diagram" [matMenuTriggerFor]="dlMenu"
                   [disabled]="!session()?.nodes?.length"><mat-icon>download</mat-icon></button>
           <mat-menu #dlMenu="matMenu">
@@ -116,6 +134,19 @@ import { CanvasBoardComponent, CanvasNode, CanvasEdge } from '../../../core/comp
             (edgeEndpointRetargeted)="onEdgeEndpointRetargeted($event)"
             (edgeColorChanged)="onEdgeColorChanged($event)"
             (edgeClicked)="onEdgeClicked($event)" />
+          @if (codeOpen()) {
+            <div class="code-panel">
+              <div class="code-panel-head">
+                <span class="code-panel-title">PlantUML</span>
+                <button mat-icon-button title="Regenerate from diagram" (click)="regenerateCode()"><mat-icon>refresh</mat-icon></button>
+                <button mat-icon-button title="Copy" (click)="copyCode()"><mat-icon>content_copy</mat-icon></button>
+                <button mat-icon-button title="Close" (click)="codeOpen.set(false)"><mat-icon>close</mat-icon></button>
+              </div>
+              <textarea class="code-textarea" spellcheck="false" [value]="codeText()"
+                        (input)="onCodeEdited($any($event.target).value)"></textarea>
+              <div class="code-panel-hint">Live from the diagram. Edit and Copy to use elsewhere; Regenerate to re-sync. (Edits here don't change the diagram.)</div>
+            </div>
+          }
         </div>
       </div>
     }
@@ -526,12 +557,52 @@ export class ProcessFlowComponent implements OnInit, OnDestroy {
 
   // Deletion is one click on the edge's hover trash icon -- deliberate enough to skip a dialog,
   // and re-drawing a connection is trivial.
-  exportDiagram(format: DiagramFormat): void {
+  private exportData() {
     const s = this.session();
-    if (!s) return;
-    const nodes = s.nodes.map(n => ({ id: n.id, label: n.label, x: n.positionX, y: n.positionY, width: n.width, height: n.height, color: n.color }));
-    const edges = s.edges.map(e => ({ id: e.id, fromId: e.fromNodeId, toId: e.toNodeId, color: e.color, waypoints: e.waypoints ?? [] }));
-    this.exportSvc.download(format, s.title || 'process-flow', nodes, edges);
+    if (!s) return null;
+    return {
+      title: s.title || 'process-flow',
+      nodes: s.nodes.map(n => ({ id: n.id, label: n.label, x: n.positionX, y: n.positionY, width: n.width, height: n.height, color: n.color })),
+      edges: s.edges.map(e => ({ id: e.id, fromId: e.fromNodeId, toId: e.toNodeId, color: e.color, waypoints: e.waypoints ?? [] })),
+    };
+  }
+
+  exportDiagram(format: DiagramFormat): void {
+    const d = this.exportData();
+    if (d) this.exportSvc.download(format, d.title, d.nodes, d.edges);
+  }
+
+  // ── live PlantUML code panel ──────────────────────────────────────────────
+  codeOpen = signal(false);
+  codeText = signal('');
+  private codeEdited = signal(false);
+
+  // Keep the panel in sync with the diagram while it's open, unless the user has hand-edited it.
+  private codeSyncEffect = effect(() => {
+    const s = this.session(); // track diagram changes
+    if (this.codeOpen() && !this.codeEdited() && s) this.codeText.set(this.exportSvc.toPlantuml(
+      s.nodes.map(n => ({ id: n.id, label: n.label, x: n.positionX, y: n.positionY, width: n.width, height: n.height, color: n.color })),
+      s.edges.map(e => ({ id: e.id, fromId: e.fromNodeId, toId: e.toNodeId, color: e.color, waypoints: e.waypoints ?? [] })),
+    ));
+  });
+
+  toggleCodePanel(): void {
+    if (!this.codeOpen()) { this.codeEdited.set(false); this.regenerateCode(); }
+    this.codeOpen.update(v => !v);
+  }
+
+  regenerateCode(): void {
+    const d = this.exportData();
+    if (d) { this.codeEdited.set(false); this.codeText.set(this.exportSvc.toPlantuml(d.nodes, d.edges)); }
+  }
+
+  onCodeEdited(text: string): void { this.codeEdited.set(true); this.codeText.set(text); }
+
+  copyCode(): void {
+    navigator.clipboard?.writeText(this.codeText()).then(
+      () => this.snackBar.open('PlantUML copied', 'OK', { duration: 2000 }),
+      () => this.snackBar.open('Copy failed', 'OK', { duration: 2000 }),
+    );
   }
 
   onEdgeColorChanged(e: { id: string; color: string }): void {
