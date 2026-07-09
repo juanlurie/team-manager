@@ -201,6 +201,34 @@ public class ProcessFlowService(AppDbContext db)
         return true;
     }
 
+    /// <summary>Re-points an existing edge onto (possibly) different endpoints when the user drags
+    /// an arrow end onto another node. Resets any manual waypoints, since old bends rarely make
+    /// sense against new endpoints -- the client re-routes it fresh.</summary>
+    public async Task<bool> UpdateEdgeEndpointsAsync(Guid sessionId, Guid edgeId, UpdateProcessFlowEdgeEndpointsRequest req)
+    {
+        if (req.FromNodeId == req.ToNodeId) return false;
+
+        var edge = await db.ProcessFlowEdges.FirstOrDefaultAsync(e => e.Id == edgeId && e.SessionId == sessionId);
+        if (edge is null) return false;
+
+        var nodeCount = await db.ProcessFlowNodes
+            .CountAsync(n => n.SessionId == sessionId && (n.Id == req.FromNodeId || n.Id == req.ToNodeId));
+        if (nodeCount != 2) return false;
+
+        var duplicate = await db.ProcessFlowEdges.AnyAsync(e =>
+            e.Id != edgeId && e.SessionId == sessionId && e.FromNodeId == req.FromNodeId && e.ToNodeId == req.ToNodeId);
+        if (duplicate) return false;
+
+        edge.FromNodeId = req.FromNodeId;
+        edge.ToNodeId = req.ToNodeId;
+        edge.Waypoints = null;
+        await db.SaveChangesAsync();
+
+        _ = WebSocketMiddleware.BroadcastToBoardSessionAsync("process_flow_edge_endpoints_changed", sessionId.ToString(),
+            new { sessionId, edgeId, fromNodeId = edge.FromNodeId, toNodeId = edge.ToNodeId });
+        return true;
+    }
+
     public async Task<bool> DeleteEdgeAsync(Guid sessionId, Guid edgeId)
     {
         var edge = await db.ProcessFlowEdges.FirstOrDefaultAsync(e => e.Id == edgeId && e.SessionId == sessionId);

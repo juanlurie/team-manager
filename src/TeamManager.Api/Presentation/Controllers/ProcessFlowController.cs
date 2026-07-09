@@ -112,6 +112,14 @@ public class ProcessFlowController(ProcessFlowService service) : ControllerBase
         return NoContent();
     }
 
+    [HttpPatch("{id:guid}/edges/{edgeId:guid}/endpoints")]
+    public async Task<IActionResult> UpdateEdgeEndpoints(Guid id, Guid edgeId, [FromBody] UpdateProcessFlowEdgeEndpointsRequest request)
+    {
+        var success = await service.UpdateEdgeEndpointsAsync(id, edgeId, request);
+        if (!success) return BadRequest(new { error = "Invalid endpoints: nodes must exist, differ, and not duplicate an existing edge." });
+        return NoContent();
+    }
+
     [HttpDelete("{id:guid}/edges/{edgeId:guid}")]
     public async Task<IActionResult> DeleteEdge(Guid id, Guid edgeId)
     {
