@@ -104,6 +104,14 @@ public class ProcessFlowController(ProcessFlowService service) : ControllerBase
         return Ok(edge);
     }
 
+    [HttpPatch("{id:guid}/edges/{edgeId:guid}/waypoints")]
+    public async Task<IActionResult> UpdateEdgeWaypoints(Guid id, Guid edgeId, [FromBody] UpdateProcessFlowEdgeWaypointsRequest request)
+    {
+        var success = await service.UpdateEdgeWaypointsAsync(id, edgeId, request);
+        if (!success) return NotFound();
+        return NoContent();
+    }
+
     [HttpDelete("{id:guid}/edges/{edgeId:guid}")]
     public async Task<IActionResult> DeleteEdge(Guid id, Guid edgeId)
     {

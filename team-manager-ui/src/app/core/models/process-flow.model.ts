@@ -10,12 +10,18 @@ export interface ProcessFlowNode {
   createdByMemberId: string;
 }
 
+export interface ProcessFlowPoint {
+  x: number;
+  y: number;
+}
+
 export interface ProcessFlowEdge {
   id: string;
   sessionId: string;
   fromNodeId: string;
   toNodeId: string;
   label: string | null;
+  waypoints: ProcessFlowPoint[];
 }
 
 export interface ProcessFlowSession {

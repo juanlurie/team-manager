@@ -13,6 +13,12 @@ public record ProcessFlowNodeDto
     public Guid CreatedByMemberId { get; init; }
 }
 
+public record ProcessFlowPointDto
+{
+    public double X { get; init; }
+    public double Y { get; init; }
+}
+
 public record ProcessFlowEdgeDto
 {
     public Guid Id { get; init; }
@@ -20,6 +26,7 @@ public record ProcessFlowEdgeDto
     public Guid FromNodeId { get; init; }
     public Guid ToNodeId { get; init; }
     public string? Label { get; init; }
+    public List<ProcessFlowPointDto> Waypoints { get; init; } = [];
 }
 
 public record ProcessFlowSessionDto
@@ -82,4 +89,9 @@ public record AddProcessFlowEdgeRequest
     public Guid FromNodeId { get; init; }
     public Guid ToNodeId { get; init; }
     public string? Label { get; init; }
+}
+
+public record UpdateProcessFlowEdgeWaypointsRequest
+{
+    public List<ProcessFlowPointDto> Waypoints { get; init; } = [];
 }

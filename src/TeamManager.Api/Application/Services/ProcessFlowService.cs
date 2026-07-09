@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using TeamManager.Api.Application.DTOs.ProcessFlow;
 using TeamManager.Api.Domain.Entities;
@@ -185,6 +186,21 @@ public class ProcessFlowService(AppDbContext db)
         return dto;
     }
 
+    public async Task<bool> UpdateEdgeWaypointsAsync(Guid sessionId, Guid edgeId, UpdateProcessFlowEdgeWaypointsRequest req)
+    {
+        var edge = await db.ProcessFlowEdges.FirstOrDefaultAsync(e => e.Id == edgeId && e.SessionId == sessionId);
+        if (edge is null) return false;
+
+        // Cap the number of bends so a malicious/buggy client can't store an unbounded blob.
+        var points = (req.Waypoints ?? []).Take(24).ToList();
+        edge.Waypoints = points.Count == 0 ? null : JsonSerializer.Serialize(points, WaypointJson);
+        await db.SaveChangesAsync();
+
+        _ = WebSocketMiddleware.BroadcastToBoardSessionAsync("process_flow_edge_reshaped", sessionId.ToString(),
+            new { sessionId, edgeId, waypoints = points });
+        return true;
+    }
+
     public async Task<bool> DeleteEdgeAsync(Guid sessionId, Guid edgeId)
     {
         var edge = await db.ProcessFlowEdges.FirstOrDefaultAsync(e => e.Id == edgeId && e.SessionId == sessionId);
@@ -227,5 +243,15 @@ public class ProcessFlowService(AppDbContext db)
         FromNodeId = edge.FromNodeId,
         ToNodeId = edge.ToNodeId,
         Label = edge.Label,
+        Waypoints = DeserializeWaypoints(edge.Waypoints),
     };
+
+    private static readonly JsonSerializerOptions WaypointJson = new(JsonSerializerDefaults.Web);
+
+    private static List<ProcessFlowPointDto> DeserializeWaypoints(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return [];
+        try { return JsonSerializer.Deserialize<List<ProcessFlowPointDto>>(json, WaypointJson) ?? []; }
+        catch { return []; }
+    }
 }

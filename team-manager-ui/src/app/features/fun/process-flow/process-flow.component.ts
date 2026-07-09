@@ -10,7 +10,7 @@ import { Subject } from 'rxjs';
 import { takeUntil, filter } from 'rxjs/operators';
 import { Router, ActivatedRoute } from '@angular/router';
 import { ProcessFlowService } from '../../../core/services/process-flow.service';
-import { ProcessFlowSession, ProcessFlowSessionSummary, ProcessFlowNode } from '../../../core/models/process-flow.model';
+import { ProcessFlowSession, ProcessFlowSessionSummary, ProcessFlowNode, ProcessFlowEdge } from '../../../core/models/process-flow.model';
 import { WebSocketService } from '../../../core/websocket/websocket.service';
 import { AuthService } from '../../../core/auth/auth.service';
 import { NavService } from '../../../core/nav/nav.service';
@@ -101,6 +101,7 @@ import { CanvasBoardComponent, CanvasNode, CanvasEdge } from '../../../core/comp
             (labelCommitted)="onLabelCommitted($event)"
             (connectorDrawn)="onConnectorDrawn($event)"
             (connectorDroppedOnEmpty)="onConnectorDroppedOnEmpty($event)"
+            (edgeReshaped)="onEdgeReshaped($event)"
             (edgeClicked)="onEdgeClicked($event)" />
         </div>
       </div>
@@ -216,9 +217,20 @@ export class ProcessFlowComponent implements OnInit, OnDestroy {
             break;
           case 'process_flow_edge_added':
             if (msg.data['sessionId'] === s.id && msg.data['edge']) {
-              const edge = msg.data['edge'] as { id: string; fromNodeId: string; toNodeId: string; label: string | null; sessionId: string };
+              const raw = msg.data['edge'] as ProcessFlowEdge;
+              const edge: ProcessFlowEdge = { ...raw, waypoints: raw.waypoints ?? [] };
               this.session.update(cur => cur && !cur.edges.some(e => e.id === edge.id)
                 ? { ...cur, edges: [...cur.edges, edge] } : cur);
+              this.syncCanvas();
+            }
+            break;
+          case 'process_flow_edge_reshaped':
+            if (msg.data['sessionId'] === s.id) {
+              const edgeId = msg.data['edgeId'] as string;
+              const waypoints = (msg.data['waypoints'] as { x: number; y: number }[]) ?? [];
+              this.session.update(cur => cur
+                ? { ...cur, edges: cur.edges.map(e => e.id === edgeId ? { ...e, waypoints } : e) }
+                : cur);
               this.syncCanvas();
             }
             break;
@@ -246,7 +258,7 @@ export class ProcessFlowComponent implements OnInit, OnDestroy {
     const s = this.session();
     if (!s) return;
     this.canvasNodes.set(s.nodes.map(n => ({ id: n.id, x: n.positionX, y: n.positionY, label: n.label, color: n.color ?? undefined, width: n.width, height: n.height })));
-    this.canvasEdges.set(s.edges.map(e => ({ id: e.id, fromId: e.fromNodeId, toId: e.toNodeId })));
+    this.canvasEdges.set(s.edges.map(e => ({ id: e.id, fromId: e.fromNodeId, toId: e.toNodeId, waypoints: e.waypoints ?? [] })));
   }
 
   private joinBoardPresence(sessionId: string): void {
@@ -418,6 +430,18 @@ export class ProcessFlowComponent implements OnInit, OnDestroy {
         });
       },
       error: () => this.snackBar.open('Failed to add node', 'OK', { duration: 3000 }),
+    });
+  }
+
+  onEdgeReshaped(e: { id: string; waypoints: { x: number; y: number }[] }): void {
+    const s = this.session();
+    if (!s) return;
+    this.session.update(cur => cur
+      ? { ...cur, edges: cur.edges.map(x => x.id === e.id ? { ...x, waypoints: e.waypoints } : x) }
+      : cur);
+    this.syncCanvas();
+    this.svc.updateEdgeWaypoints(s.id, e.id, e.waypoints).subscribe({
+      error: () => this.snackBar.open('Failed to save arrow shape', 'OK', { duration: 3000 }),
     });
   }
 
