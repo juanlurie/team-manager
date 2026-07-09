@@ -103,6 +103,7 @@ import { CanvasBoardComponent, CanvasNode, CanvasEdge } from '../../../core/comp
             (connectorDroppedOnEmpty)="onConnectorDroppedOnEmpty($event)"
             (edgeReshaped)="onEdgeReshaped($event)"
             (edgeEndpointRetargeted)="onEdgeEndpointRetargeted($event)"
+            (edgeColorChanged)="onEdgeColorChanged($event)"
             (edgeClicked)="onEdgeClicked($event)" />
         </div>
       </div>
@@ -235,6 +236,16 @@ export class ProcessFlowComponent implements OnInit, OnDestroy {
               this.syncCanvas();
             }
             break;
+          case 'process_flow_edge_color_changed':
+            if (msg.data['sessionId'] === s.id) {
+              const edgeId = msg.data['edgeId'] as string;
+              const color = (msg.data['color'] as string | null) ?? null;
+              this.session.update(cur => cur
+                ? { ...cur, edges: cur.edges.map(e => e.id === edgeId ? { ...e, color } : e) }
+                : cur);
+              this.syncCanvas();
+            }
+            break;
           case 'process_flow_edge_endpoints_changed':
             if (msg.data['sessionId'] === s.id) {
               const edgeId = msg.data['edgeId'] as string;
@@ -270,7 +281,7 @@ export class ProcessFlowComponent implements OnInit, OnDestroy {
     const s = this.session();
     if (!s) return;
     this.canvasNodes.set(s.nodes.map(n => ({ id: n.id, x: n.positionX, y: n.positionY, label: n.label, color: n.color ?? undefined, width: n.width, height: n.height })));
-    this.canvasEdges.set(s.edges.map(e => ({ id: e.id, fromId: e.fromNodeId, toId: e.toNodeId, waypoints: e.waypoints ?? [] })));
+    this.canvasEdges.set(s.edges.map(e => ({ id: e.id, fromId: e.fromNodeId, toId: e.toNodeId, color: e.color ?? undefined, waypoints: e.waypoints ?? [] })));
   }
 
   private joinBoardPresence(sessionId: string): void {
@@ -477,6 +488,18 @@ export class ProcessFlowComponent implements OnInit, OnDestroy {
 
   // Deletion is one click on the edge's hover trash icon -- deliberate enough to skip a dialog,
   // and re-drawing a connection is trivial.
+  onEdgeColorChanged(e: { id: string; color: string }): void {
+    const s = this.session();
+    if (!s) return;
+    this.session.update(cur => cur
+      ? { ...cur, edges: cur.edges.map(x => x.id === e.id ? { ...x, color: e.color } : x) }
+      : cur);
+    this.syncCanvas();
+    this.svc.updateEdgeColor(s.id, e.id, e.color).subscribe({
+      error: () => this.snackBar.open('Failed to save arrow colour', 'OK', { duration: 3000 }),
+    });
+  }
+
   onEdgeClicked(edgeId: string): void {
     const s = this.session();
     if (!s) return;

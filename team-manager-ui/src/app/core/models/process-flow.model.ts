@@ -21,6 +21,7 @@ export interface ProcessFlowEdge {
   fromNodeId: string;
   toNodeId: string;
   label: string | null;
+  color: string | null;
   waypoints: ProcessFlowPoint[];
 }
 

@@ -26,6 +26,7 @@ public record ProcessFlowEdgeDto
     public Guid FromNodeId { get; init; }
     public Guid ToNodeId { get; init; }
     public string? Label { get; init; }
+    public string? Color { get; init; }
     public List<ProcessFlowPointDto> Waypoints { get; init; } = [];
 }
 
@@ -100,4 +101,9 @@ public record UpdateProcessFlowEdgeEndpointsRequest
 {
     public Guid FromNodeId { get; init; }
     public Guid ToNodeId { get; init; }
+}
+
+public record UpdateProcessFlowEdgeColorRequest
+{
+    public string? Color { get; init; }
 }

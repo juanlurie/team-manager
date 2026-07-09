@@ -229,6 +229,19 @@ public class ProcessFlowService(AppDbContext db)
         return true;
     }
 
+    public async Task<bool> UpdateEdgeColorAsync(Guid sessionId, Guid edgeId, UpdateProcessFlowEdgeColorRequest req)
+    {
+        var edge = await db.ProcessFlowEdges.FirstOrDefaultAsync(e => e.Id == edgeId && e.SessionId == sessionId);
+        if (edge is null) return false;
+
+        edge.Color = string.IsNullOrWhiteSpace(req.Color) ? null : req.Color.Trim();
+        await db.SaveChangesAsync();
+
+        _ = WebSocketMiddleware.BroadcastToBoardSessionAsync("process_flow_edge_color_changed", sessionId.ToString(),
+            new { sessionId, edgeId, color = edge.Color });
+        return true;
+    }
+
     public async Task<bool> DeleteEdgeAsync(Guid sessionId, Guid edgeId)
     {
         var edge = await db.ProcessFlowEdges.FirstOrDefaultAsync(e => e.Id == edgeId && e.SessionId == sessionId);
@@ -271,6 +284,7 @@ public class ProcessFlowService(AppDbContext db)
         FromNodeId = edge.FromNodeId,
         ToNodeId = edge.ToNodeId,
         Label = edge.Label,
+        Color = edge.Color,
         Waypoints = DeserializeWaypoints(edge.Waypoints),
     };
 

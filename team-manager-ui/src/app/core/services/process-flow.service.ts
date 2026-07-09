@@ -60,6 +60,10 @@ export class ProcessFlowService {
     return this.http.patch<void>(`${this.base}/${sessionId}/edges/${edgeId}/endpoints`, { fromNodeId, toNodeId });
   }
 
+  updateEdgeColor(sessionId: string, edgeId: string, color: string): Observable<void> {
+    return this.http.patch<void>(`${this.base}/${sessionId}/edges/${edgeId}/color`, { color });
+  }
+
   deleteEdge(sessionId: string, edgeId: string): Observable<void> {
     return this.http.delete<void>(`${this.base}/${sessionId}/edges/${edgeId}`);
   }
