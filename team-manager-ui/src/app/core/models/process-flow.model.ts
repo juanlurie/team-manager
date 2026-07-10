@@ -6,6 +6,7 @@ export interface ProcessFlowNode {
   positionY: number;
   width: number;
   height: number;
+  shape: string;
   color: string | null;
   createdByMemberId: string;
 }

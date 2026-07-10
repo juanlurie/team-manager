@@ -80,6 +80,14 @@ public class ProcessFlowController(ProcessFlowService service) : ControllerBase
         return NoContent();
     }
 
+    [HttpPatch("{id:guid}/nodes/{nodeId:guid}/shape")]
+    public async Task<IActionResult> UpdateNodeShape(Guid id, Guid nodeId, [FromBody] UpdateProcessFlowNodeShapeRequest request)
+    {
+        var success = await service.UpdateNodeShapeAsync(id, nodeId, request);
+        if (!success) return NotFound();
+        return NoContent();
+    }
+
     [HttpPatch("{id:guid}/nodes/{nodeId:guid}/text")]
     public async Task<IActionResult> UpdateNodeText(Guid id, Guid nodeId, [FromBody] UpdateProcessFlowNodeTextRequest request)
     {

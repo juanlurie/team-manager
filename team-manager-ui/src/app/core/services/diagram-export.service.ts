@@ -1,6 +1,8 @@
 import { Injectable } from '@angular/core';
 
 // Domain-neutral shapes so this service doesn't depend on process-flow models.
+export type ExportShape = 'rectangle' | 'diamond' | 'cylinder' | 'hexagon';
+
 export interface ExportNode {
   id: string;
   label: string;
@@ -8,6 +10,7 @@ export interface ExportNode {
   y: number;
   width: number;
   height: number;
+  shape?: string | null;
   color?: string | null;
 }
 export interface ExportEdge {
@@ -119,7 +122,12 @@ export class DiagramExportService {
       const fill = n.color || NODE_FILL;
       const stroke = n.color || NODE_STROKE;
       const textColor = n.color ? '#1a1a1a' : '#ffffff';
-      parts.push(`<rect x="${r(n.x)}" y="${r(n.y)}" width="${r(n.width)}" height="${r(n.height)}" rx="10" fill="${esc(fill)}" stroke="${esc(stroke)}" stroke-width="${n.color ? 3 : 1.5}"/>`);
+      const sw = n.color ? 3 : 1.5;
+      const shape = shapeOf(n.shape);
+      parts.push(`<g transform="translate(${r(n.x)},${r(n.y)})">`);
+      parts.push(`<path d="${shapePath(shape, n.width, n.height)}" fill="${esc(fill)}" stroke="${esc(stroke)}" stroke-width="${sw}"/>`);
+      if (shape === 'cylinder') parts.push(`<path d="${cylinderTopPath(n.width, n.height)}" fill="none" stroke="${esc(stroke)}" stroke-width="${sw}"/>`);
+      parts.push('</g>');
       parts.push(this.svgLabel(n, textColor));
     }
     parts.push('</svg>');
@@ -160,9 +168,12 @@ export class DiagramExportService {
     cells.push('<mxCell id="0"/>');
     cells.push('<mxCell id="1" parent="0"/>');
     const idFor = new Map(nodes.map((n, i) => [n.id, `n${i}`]));
+    const drawioShape: Record<ExportShape, string> = {
+      rectangle: 'rounded=1;', diamond: 'rhombus;', cylinder: 'shape=cylinder3;boundedLbl=1;', hexagon: 'shape=hexagon;',
+    };
     for (const n of nodes) {
       const fill = n.color || NODE_FILL, stroke = n.color || NODE_STROKE, font = n.color ? '#1a1a1a' : '#ffffff';
-      const style = `rounded=1;whiteSpace=wrap;html=1;fillColor=${fill};strokeColor=${stroke};fontColor=${font};`;
+      const style = `${drawioShape[shapeOf(n.shape)]}whiteSpace=wrap;html=1;fillColor=${fill};strokeColor=${stroke};fontColor=${font};`;
       cells.push(`<mxCell id="${idFor.get(n.id)}" value="${esc(n.label)}" style="${esc(style)}" vertex="1" parent="1"><mxGeometry x="${r(n.x)}" y="${r(n.y)}" width="${r(n.width)}" height="${r(n.height)}" as="geometry"/></mxCell>`);
     }
     edges.forEach((e, i) => {
@@ -182,7 +193,10 @@ export class DiagramExportService {
   toMermaid(nodes: ExportNode[], edges: ExportEdge[]): string {
     const idFor = new Map(nodes.map((n, i) => [n.id, `n${i}`]));
     const lines = ['flowchart TD'];
-    for (const n of nodes) lines.push(`  ${idFor.get(n.id)}["${mmLabel(n.label)}"]`);
+    const mmWrap: Record<ExportShape, (l: string) => string> = {
+      rectangle: l => `["${l}"]`, diamond: l => `{"${l}"}`, cylinder: l => `[("${l}")]`, hexagon: l => `{{"${l}"}}`,
+    };
+    for (const n of nodes) lines.push(`  ${idFor.get(n.id)}${mmWrap[shapeOf(n.shape)](mmLabel(n.label))}`);
     for (const e of edges) {
       const s = idFor.get(e.fromId), t = idFor.get(e.toId);
       if (s && t) lines.push(`  ${s} --> ${t}`);
@@ -197,9 +211,12 @@ export class DiagramExportService {
   toPlantuml(nodes: ExportNode[], edges: ExportEdge[]): string {
     const idFor = new Map(nodes.map((n, i) => [n.id, `n${i}`]));
     const lines = ['@startuml', 'left to right direction'];
+    const puKeyword: Record<ExportShape, string> = {
+      rectangle: 'rectangle', diamond: 'diamond', cylinder: 'database', hexagon: 'hexagon',
+    };
     for (const n of nodes) {
       const col = n.color ? ` ${n.color}` : '';
-      lines.push(`rectangle "${puLabel(n.label)}" as ${idFor.get(n.id)}${col}`);
+      lines.push(`${puKeyword[shapeOf(n.shape)]} "${puLabel(n.label)}" as ${idFor.get(n.id)}${col}`);
     }
     for (const e of edges) {
       const s = idFor.get(e.fromId), t = idFor.get(e.toId);
@@ -212,10 +229,11 @@ export class DiagramExportService {
   // ── PlantUML parse (for the editable code panel) ─────────────────────────────────────────
   // Understands the subset this service emits plus common variants: `rectangle "Label" as id
   // [#colour]` nodes and `a --> b` edges. Anything else (skinparam, notes, directives) is ignored.
-  parsePlantuml(text: string): { nodes: { alias: string; label: string; color?: string }[]; edges: { from: string; to: string }[] } {
-    const nodeRe = /^\s*(?:rectangle|node|card|component|usecase|storage|folder|agent|artifact)\s+"([^"]*)"\s+as\s+([A-Za-z0-9_]+)\s*(#[0-9A-Za-z]+)?/;
+  parsePlantuml(text: string): { nodes: { alias: string; label: string; color?: string; shape: ExportShape }[]; edges: { from: string; to: string }[] } {
+    const nodeRe = /^\s*(rectangle|diamond|database|hexagon|node|card|component|usecase|storage|folder|agent|artifact)\s+"([^"]*)"\s+as\s+([A-Za-z0-9_]+)\s*(#[0-9A-Za-z]+)?/;
     const edgeRe = /^\s*([A-Za-z0-9_]+)\s*[-.]+>+\s*([A-Za-z0-9_]+)/;
-    const nodes: { alias: string; label: string; color?: string }[] = [];
+    const kwShape: Record<string, ExportShape> = { diamond: 'diamond', database: 'cylinder', hexagon: 'hexagon' };
+    const nodes: { alias: string; label: string; color?: string; shape: ExportShape }[] = [];
     const edges: { from: string; to: string }[] = [];
     const seen = new Set<string>();
     for (const raw of text.split('\n')) {
@@ -223,7 +241,7 @@ export class DiagramExportService {
       if (!line || line.startsWith('@') || line.startsWith("'") || /^(skinparam|left to right|top to bottom|title|note|hide|show)\b/i.test(line)) continue;
       const nm = line.match(nodeRe);
       if (nm) {
-        if (!seen.has(nm[2])) { seen.add(nm[2]); nodes.push({ alias: nm[2], label: nm[1], color: nm[3] }); }
+        if (!seen.has(nm[3])) { seen.add(nm[3]); nodes.push({ alias: nm[3], label: nm[2], color: nm[4], shape: kwShape[nm[1]] ?? 'rectangle' }); }
         continue;
       }
       const em = line.match(edgeRe);
@@ -246,6 +264,28 @@ export class DiagramExportService {
     a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
+}
+
+function shapeOf(s?: string | null): ExportShape {
+  return s === 'diamond' || s === 'cylinder' || s === 'hexagon' ? s : 'rectangle';
+}
+function shapePath(shape: ExportShape, w: number, h: number): string {
+  const s = 1.5;
+  if (shape === 'diamond') return `M${r(w / 2)},${s} L${r(w - s)},${r(h / 2)} L${r(w / 2)},${r(h - s)} L${s},${r(h / 2)} Z`;
+  if (shape === 'hexagon') {
+    const o = Math.min(w * 0.22, h * 0.6);
+    return `M${r(o)},${s} L${r(w - o)},${s} L${r(w - s)},${r(h / 2)} L${r(w - o)},${r(h - s)} L${r(o)},${r(h - s)} L${s},${r(h / 2)} Z`;
+  }
+  if (shape === 'cylinder') {
+    const rx = (w - 2 * s) / 2, ry = Math.min(h * 0.16, 14), cx = w / 2, top = s + ry, bot = h - s - ry;
+    return `M${r(cx - rx)},${r(top)} V${r(bot)} A${r(rx)},${r(ry)} 0 0 0 ${r(cx + rx)},${r(bot)} V${r(top)} A${r(rx)},${r(ry)} 0 0 0 ${r(cx - rx)},${r(top)} Z`;
+  }
+  const rr = 10, e = w - s, b = h - s;
+  return `M${r(s + rr)},${s} H${r(e - rr)} A${rr},${rr} 0 0 1 ${r(e)},${r(s + rr)} V${r(b - rr)} A${rr},${rr} 0 0 1 ${r(e - rr)},${r(b)} H${r(s + rr)} A${rr},${rr} 0 0 1 ${s},${r(b - rr)} V${r(s + rr)} A${rr},${rr} 0 0 1 ${r(s + rr)},${s} Z`;
+}
+function cylinderTopPath(w: number, h: number): string {
+  const s = 1.5, rx = (w - 2 * s) / 2, ry = Math.min(h * 0.16, 14), cx = w / 2, top = s + ry;
+  return `M${r(cx - rx)},${r(top)} A${r(rx)},${r(ry)} 0 0 0 ${r(cx + rx)},${r(top)}`;
 }
 
 function r(n: number): number { return Math.round(n * 100) / 100; }

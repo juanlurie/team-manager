@@ -1,6 +1,8 @@
 import { Component, ChangeDetectionStrategy, ElementRef, HostListener, AfterViewInit, inject, input, output, signal, computed, effect, untracked, afterEveryRender } from '@angular/core';
 import { CommonModule } from '@angular/common';
 
+export type NodeShape = 'rectangle' | 'diamond' | 'cylinder' | 'hexagon';
+
 export interface CanvasNode {
   id: string;
   x: number;
@@ -9,6 +11,7 @@ export interface CanvasNode {
   color?: string;
   width?: number;
   height?: number;
+  shape?: string;
 }
 
 export interface CanvasPoint { x: number; y: number; }
@@ -83,19 +86,18 @@ const NODE_PALETTE = [
     .edge-colour { cursor:pointer; }
     .edge-colour-bg { stroke:#14171f;stroke-width:1.5; }
     .edge-colour:hover .edge-colour-bg { stroke:rgba(255,255,255,0.6); }
+    /* The shape (rect/diamond/cylinder/hexagon) is drawn by the SVG layer below; the div just
+       positions the box and holds the text + handles on top. */
     .canvas-node {
-      position:absolute;border-radius:10px;
-      background:rgba(255,255,255,0.06);border:2px solid rgba(255,255,255,0.22);
+      position:absolute;
       color:#fff;display:flex;align-items:center;justify-content:center;text-align:center;
-      padding:8px 12px;cursor:grab;user-select:none;font-size:0.85rem;box-sizing:border-box;
-      box-shadow:0 2px 6px rgba(0,0,0,0.3);
+      padding:8px 14px;cursor:grab;user-select:none;font-size:0.85rem;box-sizing:border-box;
     }
-    /* Coloured cards get a thicker, glowing neon edge in their own colour. */
-    .canvas-node.neon { border-width:3px; }
-    .canvas-node > span { max-width:100%;white-space:pre-wrap;overflow-wrap:anywhere; }
-    .canvas-node:hover { border-color:rgba(100,181,246,0.6); }
-    .canvas-node.selected { border-color:#64b5f6;box-shadow:0 0 0 2px rgba(100,181,246,0.4); }
+    .node-shape { position:absolute;inset:0;width:100%;height:100%;overflow:visible;pointer-events:none;z-index:0; }
+    .canvas-node > span { position:relative;z-index:1;max-width:100%;white-space:pre-wrap;overflow-wrap:anywhere; }
+    .canvas-node.selected .node-shape path { stroke:#64b5f6; }
     .canvas-node-label {
+      position:relative;z-index:1;
       width:100%;background:transparent;border:none;color:inherit;text-align:center;
       font:inherit;resize:none;outline:none;
     }
@@ -121,6 +123,24 @@ const NODE_PALETTE = [
       background:conic-gradient(#ffcdd2,#ffe082,#a5d6a7,#90caf9,#e1bee7,#ffcdd2);
     }
     .canvas-node:hover .color-handle, .canvas-node.selected .color-handle { opacity:1; }
+    .shape-handle {
+      position:absolute;top:-9px;left:-9px;width:18px;height:18px;border-radius:4px;
+      background:#2a2f3a;border:2px solid #14171f;cursor:pointer;opacity:0;transition:opacity 0.12s;
+      display:flex;align-items:center;justify-content:center;padding:2px;box-sizing:border-box;
+    }
+    .shape-handle svg { width:100%;height:100%;display:block; }
+    .canvas-node:hover .shape-handle, .canvas-node.selected .shape-handle { opacity:1; }
+    .shape-picker-popover {
+      position:fixed;z-index:1000;background:#2a2a2a;border:1px solid rgba(255,255,255,0.12);
+      border-radius:8px;padding:6px;display:flex;gap:4px;box-shadow:0 4px 16px rgba(0,0,0,0.5);
+    }
+    .shape-opt {
+      width:36px;height:32px;background:transparent;border:1px solid transparent;border-radius:6px;
+      cursor:pointer;padding:4px;display:flex;align-items:center;justify-content:center;
+    }
+    .shape-opt svg { width:100%;height:100%;display:block; }
+    .shape-opt:hover { background:rgba(255,255,255,0.08); }
+    .shape-opt.active { border-color:#64b5f6;background:rgba(100,181,246,0.12); }
     .color-picker-popover {
       position:fixed;z-index:1000;
       background:#2a2a2a;border:1px solid rgba(255,255,255,0.12);
@@ -203,14 +223,18 @@ const NODE_PALETTE = [
         </svg>
 
         @for (n of renderNodes(); track n.id) {
-          <div class="canvas-node" [class.selected]="n.id === selectedId()" [class.neon]="!!n.color" [attr.data-node-id]="n.id"
+          <div class="canvas-node" [class.selected]="n.id === selectedId()" [attr.data-node-id]="n.id"
                [style.left.px]="n.x" [style.top.px]="n.y"
                [style.width.px]="n.width" [style.min-height.px]="n.storedHeight"
-               [style.background]="n.color ?? null"
                [style.color]="n.color ? '#1a1a1a' : null"
-               [style.border-color]="n.color ?? null"
-               [style.box-shadow]="n.color ? ('0 0 16px ' + n.color + ', 0 0 6px ' + n.color) : null"
                (mousedown)="startNodeDrag($event, n)">
+            <svg class="node-shape" [style.filter]="n.glow" preserveAspectRatio="none"
+                 [attr.viewBox]="'0 0 ' + n.width + ' ' + n.height">
+              <path [attr.d]="n.shapePts" [attr.fill]="n.fill" [attr.stroke]="n.stroke" [attr.stroke-width]="n.strokeW" />
+              @if (n.cylTop) {
+                <path [attr.d]="n.cylTop" fill="none" [attr.stroke]="n.stroke" [attr.stroke-width]="n.strokeW" />
+              }
+            </svg>
             @if (editingId() === n.id) {
               <textarea class="canvas-node-label" [value]="editingText()" rows="2"
                         (input)="editingText.set($any($event.target).value)"
@@ -239,6 +263,13 @@ const NODE_PALETTE = [
                    (mousedown)="$event.stopPropagation()"
                    (click)="openColorPicker($event, 'node', n.id)"></div>
             }
+            @if (shapePicker()) {
+              <div class="shape-handle" title="Change shape"
+                   (mousedown)="$event.stopPropagation()"
+                   (click)="openShapePicker($event, n.id)">
+                <svg viewBox="0 0 20 20"><path d="M10,2 L18,10 L10,18 L2,10 Z" fill="rgba(255,255,255,0.85)"/></svg>
+              </div>
+            }
           </div>
         }
       </div>
@@ -261,6 +292,21 @@ const NODE_PALETTE = [
           </div>
         }
       }
+      @if (shapePickerId()) {
+        @if (shapePickerPos(); as pos) {
+          <div class="shape-picker-popover" [style.top.px]="pos.top" [style.left.px]="pos.left"
+               (mousedown)="$event.stopPropagation()" (click)="$event.stopPropagation()">
+            @for (opt of shapeOptions; track opt.shape) {
+              <button class="shape-opt" [class.active]="activeShape() === opt.shape" [title]="opt.label"
+                      (click)="pickShape(opt.shape)">
+                <svg viewBox="0 0 26 24" preserveAspectRatio="xMidYMid meet">
+                  <path [attr.d]="opt.d" fill="rgba(100,181,246,0.25)" stroke="#64b5f6" stroke-width="1.5"/>
+                </svg>
+              </button>
+            }
+          </div>
+        }
+      }
     </div>
   `,
 })
@@ -270,6 +316,7 @@ export class CanvasBoardComponent implements AfterViewInit {
   connectMode = input(false);
   resizable = input(false);
   colorPicker = input(false);
+  shapePicker = input(false);
   selectedId = input<string | null>(null);
   // When set to a node id, that node immediately enters label-edit mode (used so a freshly
   // created node opens ready to type). Parent bumps this after adding a node.
@@ -278,6 +325,7 @@ export class CanvasBoardComponent implements AfterViewInit {
   nodeMoved = output<{ id: string; x: number; y: number }>();
   nodeResized = output<{ id: string; width: number; height: number }>();
   nodeColorChanged = output<{ id: string; color: string }>();
+  nodeShapeChanged = output<{ id: string; shape: NodeShape }>();
   edgeColorChanged = output<{ id: string; color: string }>();
   nodeSelected = output<string>();
   labelCommitted = output<{ id: string; label: string }>();
@@ -314,6 +362,8 @@ export class CanvasBoardComponent implements AfterViewInit {
   readonly palette = NODE_PALETTE;
   colorTarget = signal<{ kind: 'node' | 'edge'; id: string } | null>(null);
   colorPickerPos = signal<{ top: number; left: number } | null>(null);
+  shapePickerId = signal<string | null>(null);
+  shapePickerPos = signal<{ top: number; left: number } | null>(null);
 
   // Actual rendered node heights (a node auto-grows past its stored height when its label wraps).
   // Fed back into the geometry so edge anchors land on the real border, not the stored rectangle.
@@ -362,14 +412,24 @@ export class CanvasBoardComponent implements AfterViewInit {
     const measured = this.measuredHeights();
     return this.nodes().map(n => {
       const storedH = sz[n.id]?.height ?? n.height ?? NODE_H;
+      const width = sz[n.id]?.width ?? n.width ?? NODE_W;
+      const height = Math.max(storedH, measured[n.id] ?? 0);
+      const shape = (n.shape as NodeShape) || 'rectangle';
       return {
         ...n,
         x: pos[n.id]?.x ?? n.x,
         y: pos[n.id]?.y ?? n.y,
-        width: sz[n.id]?.width ?? n.width ?? NODE_W,
+        width,
         // stored height is the min-height binding; the rendered box may be taller when text wraps.
         storedHeight: storedH,
-        height: Math.max(storedH, measured[n.id] ?? 0),
+        height,
+        shape,
+        fill: n.color || 'rgba(255,255,255,0.06)',
+        stroke: n.color || 'rgba(255,255,255,0.22)',
+        strokeW: n.color ? 3 : 2,
+        glow: n.color ? `drop-shadow(0 0 6px ${n.color}) drop-shadow(0 0 3px ${n.color})` : null,
+        shapePts: this.shapePoints(shape, width, height),
+        cylTop: shape === 'cylinder' ? this.cylinderTop(width, height) : null,
       };
     });
   });
@@ -386,6 +446,39 @@ export class CanvasBoardComponent implements AfterViewInit {
   private nodeById(id: string): { x: number; y: number; width?: number; height?: number } | undefined {
     return this.renderNodes().find(n => n.id === id);
   }
+
+  // SVG path (in the node's own 0..w / 0..h space) for the shape outline. Inset by the stroke so
+  // it isn't clipped. Text/handles sit on top in the HTML layer.
+  private shapePoints(shape: NodeShape, w: number, h: number): string {
+    const s = 1.5;
+    if (shape === 'diamond') {
+      return `M${w / 2},${s} L${w - s},${h / 2} L${w / 2},${h - s} L${s},${h / 2} Z`;
+    }
+    if (shape === 'hexagon') {
+      const o = Math.min(w * 0.22, h * 0.6);
+      return `M${o},${s} L${w - o},${s} L${w - s},${h / 2} L${w - o},${h - s} L${o},${h - s} L${s},${h / 2} Z`;
+    }
+    if (shape === 'cylinder') {
+      const rx = (w - 2 * s) / 2, ry = Math.min(h * 0.16, 14), cx = w / 2, top = s + ry, bot = h - s - ry;
+      return `M${cx - rx},${top} V${bot} A${rx},${ry} 0 0 0 ${cx + rx},${bot} V${top} A${rx},${ry} 0 0 0 ${cx - rx},${top} Z`;
+    }
+    // rounded rectangle (default)
+    const r = 10, e = w - s, b = h - s;
+    return `M${s + r},${s} H${e - r} A${r},${r} 0 0 1 ${e},${s + r} V${b - r} A${r},${r} 0 0 1 ${e - r},${b} H${s + r} A${r},${r} 0 0 1 ${s},${b - r} V${s + r} A${r},${r} 0 0 1 ${s + r},${s} Z`;
+  }
+
+  // The visible front lip of a cylinder's top rim (drawn stroke-only over the filled body).
+  private cylinderTop(w: number, h: number): string {
+    const s = 1.5, rx = (w - 2 * s) / 2, ry = Math.min(h * 0.16, 14), cx = w / 2, top = s + ry;
+    return `M${cx - rx},${top} A${rx},${ry} 0 0 0 ${cx + rx},${top}`;
+  }
+
+  readonly shapeOptions: { shape: NodeShape; d: string; label: string }[] = [
+    { shape: 'rectangle', d: this.shapePoints('rectangle', 26, 20), label: 'Rectangle' },
+    { shape: 'diamond', d: this.shapePoints('diamond', 26, 20), label: 'Diamond' },
+    { shape: 'cylinder', d: this.shapePoints('cylinder', 26, 24), label: 'Cylinder' },
+    { shape: 'hexagon', d: this.shapePoints('hexagon', 26, 20), label: 'Hexagon' },
+  ];
 
   // Auto orthogonal (Manhattan) route between two nodes: leaves/enters the facing side and turns
   // with one or two right-angle bends. Used only when an edge has no manual waypoints, so a fresh
@@ -565,6 +658,7 @@ export class CanvasBoardComponent implements AfterViewInit {
     if (e.button !== 0) return;
     const t = e.target as HTMLElement;
     this.closeColorPicker();
+    this.closeShapePicker();
     if (t.closest('.canvas-node') || t.closest('.canvas-zoom-controls')) return;
     const v = this.view();
     this.panState = { startMouseX: e.clientX, startMouseY: e.clientY, startPanX: v.panX, startPanY: v.panY };
@@ -629,6 +723,31 @@ export class CanvasBoardComponent implements AfterViewInit {
   closeColorPicker(): void {
     this.colorTarget.set(null);
     this.colorPickerPos.set(null);
+  }
+
+  activeShape(): NodeShape | null {
+    const id = this.shapePickerId();
+    if (!id) return null;
+    return ((this.nodes().find(n => n.id === id)?.shape as NodeShape) || 'rectangle');
+  }
+
+  openShapePicker(e: MouseEvent, id: string): void {
+    e.stopPropagation();
+    if (this.shapePickerId() === id) { this.closeShapePicker(); return; }
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    this.shapePickerPos.set({ top: rect.bottom + 6, left: rect.left });
+    this.shapePickerId.set(id);
+  }
+
+  pickShape(shape: NodeShape): void {
+    const id = this.shapePickerId();
+    if (id) this.nodeShapeChanged.emit({ id, shape });
+    this.closeShapePicker();
+  }
+
+  closeShapePicker(): void {
+    this.shapePickerId.set(null);
+    this.shapePickerPos.set(null);
   }
 
   resetEdge(e: MouseEvent, edgeId: string): void {

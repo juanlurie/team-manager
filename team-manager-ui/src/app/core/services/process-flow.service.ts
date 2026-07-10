@@ -40,6 +40,10 @@ export class ProcessFlowService {
     return this.http.patch<void>(`${this.base}/${sessionId}/nodes/${nodeId}/color`, { color });
   }
 
+  updateNodeShape(sessionId: string, nodeId: string, shape: string): Observable<void> {
+    return this.http.patch<void>(`${this.base}/${sessionId}/nodes/${nodeId}/shape`, { shape });
+  }
+
   updateNodeText(sessionId: string, nodeId: string, label: string): Observable<void> {
     return this.http.patch<void>(`${this.base}/${sessionId}/nodes/${nodeId}/text`, { label });
   }
