@@ -8,7 +8,7 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatMenuModule } from '@angular/material/menu';
 import { DiagramExportService, DiagramFormat } from '../../../core/services/diagram-export.service';
-import { Subject } from 'rxjs';
+import { Subject, firstValueFrom } from 'rxjs';
 import { takeUntil, filter } from 'rxjs/operators';
 import { Router, ActivatedRoute } from '@angular/router';
 import { ProcessFlowService } from '../../../core/services/process-flow.service';
@@ -54,6 +54,9 @@ import { CanvasBoardComponent, CanvasNode, CanvasEdge } from '../../../core/comp
     }
     .code-panel-head { display:flex;align-items:center;gap:2px;padding:4px 6px 4px 12px;border-bottom:1px solid rgba(255,255,255,0.08); }
     .code-panel-title { font-size:0.8rem;font-weight:600;color:#fff;margin-right:auto;letter-spacing:0.04em; }
+    .code-apply { height:30px;line-height:30px;font-size:0.78rem;padding:0 12px;min-width:0; }
+    .code-apply mat-spinner { display:inline-block;vertical-align:middle;margin-right:4px; }
+    .code-apply mat-icon { font-size:18px;height:18px;width:18px;vertical-align:middle; }
     .code-textarea {
       flex:1;min-height:0;resize:none;border:none;outline:none;
       background:#12151c;color:#d7e0ea;padding:12px;
@@ -138,13 +141,17 @@ import { CanvasBoardComponent, CanvasNode, CanvasEdge } from '../../../core/comp
             <div class="code-panel">
               <div class="code-panel-head">
                 <span class="code-panel-title">PlantUML</span>
-                <button mat-icon-button title="Regenerate from diagram" (click)="regenerateCode()"><mat-icon>refresh</mat-icon></button>
+                <button mat-flat-button color="primary" class="code-apply" (click)="applyCode()"
+                        [disabled]="applyingCode() || !codeEdited()">
+                  @if (applyingCode()) { <mat-spinner diameter="16" /> } @else { <mat-icon>play_arrow</mat-icon> } Apply
+                </button>
+                <button mat-icon-button title="Regenerate from diagram" (click)="regenerateCode()" [disabled]="applyingCode()"><mat-icon>refresh</mat-icon></button>
                 <button mat-icon-button title="Copy" (click)="copyCode()"><mat-icon>content_copy</mat-icon></button>
                 <button mat-icon-button title="Close" (click)="codeOpen.set(false)"><mat-icon>close</mat-icon></button>
               </div>
               <textarea class="code-textarea" spellcheck="false" [value]="codeText()"
-                        (input)="onCodeEdited($any($event.target).value)"></textarea>
-              <div class="code-panel-hint">Live from the diagram. Edit and Copy to use elsewhere; Regenerate to re-sync. (Edits here don't change the diagram.)</div>
+                        (input)="onCodeEdited($any($event.target).value)" [disabled]="applyingCode()"></textarea>
+              <div class="code-panel-hint">Edit the code, then <strong>Apply</strong> to update the diagram (renames, colours, and added/removed nodes &amp; arrows). New nodes get an auto position; Regenerate re-syncs from the diagram.</div>
             </div>
           }
         </div>
@@ -572,29 +579,35 @@ export class ProcessFlowComponent implements OnInit, OnDestroy {
     if (d) this.exportSvc.download(format, d.title, d.nodes, d.edges);
   }
 
-  // ── live PlantUML code panel ──────────────────────────────────────────────
+  // ── live, editable PlantUML code panel ────────────────────────────────────
   codeOpen = signal(false);
   codeText = signal('');
-  private codeEdited = signal(false);
+  applyingCode = signal(false);
+  codeEdited = signal(false);
+  // Alias (n0, n1, ...) -> node id, captured whenever the code is (re)generated so an Apply can map
+  // edited lines back to the right existing nodes.
+  private codeAliasMap: Record<string, string> = {};
 
   // Keep the panel in sync with the diagram while it's open, unless the user has hand-edited it.
   private codeSyncEffect = effect(() => {
-    const s = this.session(); // track diagram changes
-    if (this.codeOpen() && !this.codeEdited() && s) this.codeText.set(this.exportSvc.toPlantuml(
-      s.nodes.map(n => ({ id: n.id, label: n.label, x: n.positionX, y: n.positionY, width: n.width, height: n.height, color: n.color })),
-      s.edges.map(e => ({ id: e.id, fromId: e.fromNodeId, toId: e.toNodeId, color: e.color, waypoints: e.waypoints ?? [] })),
-    ));
+    this.session(); // track diagram changes
+    if (this.codeOpen() && !this.codeEdited()) this.codeText.set(this.buildPlantuml());
   });
 
+  private buildPlantuml(): string {
+    const s = this.session();
+    if (!s) return '';
+    this.codeAliasMap = Object.fromEntries(s.nodes.map((n, i) => [`n${i}`, n.id]));
+    const d = this.exportData();
+    return d ? this.exportSvc.toPlantuml(d.nodes, d.edges) : '';
+  }
+
   toggleCodePanel(): void {
-    if (!this.codeOpen()) { this.codeEdited.set(false); this.regenerateCode(); }
+    if (!this.codeOpen()) this.regenerateCode();
     this.codeOpen.update(v => !v);
   }
 
-  regenerateCode(): void {
-    const d = this.exportData();
-    if (d) { this.codeEdited.set(false); this.codeText.set(this.exportSvc.toPlantuml(d.nodes, d.edges)); }
-  }
+  regenerateCode(): void { this.codeEdited.set(false); this.codeText.set(this.buildPlantuml()); }
 
   onCodeEdited(text: string): void { this.codeEdited.set(true); this.codeText.set(text); }
 
@@ -603,6 +616,77 @@ export class ProcessFlowComponent implements OnInit, OnDestroy {
       () => this.snackBar.open('PlantUML copied', 'OK', { duration: 2000 }),
       () => this.snackBar.open('Copy failed', 'OK', { duration: 2000 }),
     );
+  }
+
+  // Parse the edited PlantUML and reconcile it onto the diagram: rename/recolour matched nodes,
+  // create new ones (aliases not seen before), delete removed ones, and add/remove edges to match.
+  // Aliases map to existing nodes via codeAliasMap (captured at last generate); server round-trips
+  // between phases keep ids/positions authoritative.
+  async applyCode(): Promise<void> {
+    const s0 = this.session();
+    if (!s0 || this.applyingCode()) return;
+    const sessionId = s0.id;
+    const parsed = this.exportSvc.parsePlantuml(this.codeText());
+    if (!parsed.nodes.length) { this.snackBar.open('No nodes found in the code', 'OK', { duration: 3000 }); return; }
+
+    this.applyingCode.set(true);
+    try {
+      const aliasMap = { ...this.codeAliasMap };
+      const idToAlias = new Map(Object.entries(aliasMap).map(([a, id]) => [id, a]));
+      const parsedAliases = new Set(parsed.nodes.map(n => n.alias));
+      let snap = await firstValueFrom(this.svc.getSession(sessionId));
+
+      // create nodes for aliases we've never seen
+      let made = 0;
+      for (const pn of parsed.nodes) {
+        if (aliasMap[pn.alias]) continue;
+        const node = await firstValueFrom(this.svc.addNode(sessionId, pn.label || 'Step', 80 + (made % 6) * 190, 520 + Math.floor(made / 6) * 130));
+        aliasMap[pn.alias] = node.id;
+        made++;
+        if (pn.color) await firstValueFrom(this.svc.updateNodeColor(sessionId, node.id, pn.color));
+      }
+      // rename / recolour existing nodes
+      for (const pn of parsed.nodes) {
+        const id = aliasMap[pn.alias];
+        const cur = id && snap.nodes.find(n => n.id === id);
+        if (!cur) continue;
+        if (pn.label && pn.label !== cur.label) await firstValueFrom(this.svc.updateNodeText(sessionId, id, pn.label));
+        if ((pn.color || null) !== (cur.color || null)) await firstValueFrom(this.svc.updateNodeColor(sessionId, id, pn.color || ''));
+      }
+      // delete nodes whose alias was removed from the code
+      for (const n of snap.nodes) {
+        const al = idToAlias.get(n.id);
+        if (al && !parsedAliases.has(al)) await firstValueFrom(this.svc.deleteNode(sessionId, n.id));
+      }
+
+      // reconcile edges against fresh server state
+      snap = await firstValueFrom(this.svc.getSession(sessionId));
+      const want = parsed.edges
+        .map(e => ({ from: aliasMap[e.from], to: aliasMap[e.to] }))
+        .filter(e => e.from && e.to && e.from !== e.to);
+      const seen = new Set<string>();
+      for (const w of want) {
+        const key = `${w.from}>${w.to}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        if (!snap.edges.some(e => e.fromNodeId === w.from && e.toNodeId === w.to)) {
+          await firstValueFrom(this.svc.addEdge(sessionId, w.from, w.to)).catch(() => {});
+        }
+      }
+      for (const e of snap.edges) {
+        if (!want.some(w => w.from === e.fromNodeId && w.to === e.toNodeId)) await firstValueFrom(this.svc.deleteEdge(sessionId, e.id));
+      }
+
+      const fresh = await firstValueFrom(this.svc.getSession(sessionId));
+      this.session.set(fresh);
+      this.syncCanvas();
+      this.regenerateCode();
+      this.snackBar.open('Diagram updated from code', 'OK', { duration: 2500 });
+    } catch {
+      this.snackBar.open('Could not apply the code', 'OK', { duration: 3000 });
+    } finally {
+      this.applyingCode.set(false);
+    }
   }
 
   onEdgeColorChanged(e: { id: string; color: string }): void {

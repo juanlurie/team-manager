@@ -209,6 +209,29 @@ export class DiagramExportService {
     return lines.join('\n') + '\n';
   }
 
+  // ── PlantUML parse (for the editable code panel) ─────────────────────────────────────────
+  // Understands the subset this service emits plus common variants: `rectangle "Label" as id
+  // [#colour]` nodes and `a --> b` edges. Anything else (skinparam, notes, directives) is ignored.
+  parsePlantuml(text: string): { nodes: { alias: string; label: string; color?: string }[]; edges: { from: string; to: string }[] } {
+    const nodeRe = /^\s*(?:rectangle|node|card|component|usecase|storage|folder|agent|artifact)\s+"([^"]*)"\s+as\s+([A-Za-z0-9_]+)\s*(#[0-9A-Za-z]+)?/;
+    const edgeRe = /^\s*([A-Za-z0-9_]+)\s*[-.]+>+\s*([A-Za-z0-9_]+)/;
+    const nodes: { alias: string; label: string; color?: string }[] = [];
+    const edges: { from: string; to: string }[] = [];
+    const seen = new Set<string>();
+    for (const raw of text.split('\n')) {
+      const line = raw.trim();
+      if (!line || line.startsWith('@') || line.startsWith("'") || /^(skinparam|left to right|top to bottom|title|note|hide|show)\b/i.test(line)) continue;
+      const nm = line.match(nodeRe);
+      if (nm) {
+        if (!seen.has(nm[2])) { seen.add(nm[2]); nodes.push({ alias: nm[2], label: nm[1], color: nm[3] }); }
+        continue;
+      }
+      const em = line.match(edgeRe);
+      if (em) edges.push({ from: em[1], to: em[2] });
+    }
+    return { nodes, edges };
+  }
+
   // ── download helpers ─────────────────────────────────────────────────────────────────────
   private saveText(name: string, mime: string, text: string): void {
     this.saveBlob(name, new Blob([text], { type: `${mime};charset=utf-8` }));
