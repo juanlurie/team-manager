@@ -125,11 +125,13 @@ import { CanvasBoardComponent, CanvasNode, CanvasEdge } from '../../../core/comp
             [connectMode]="true"
             [resizable]="true"
             [colorPicker]="true"
+            [shapePicker]="true"
             [editNodeId]="editNodeId()"
             (canvasDoubleClicked)="onCanvasDoubleClicked($event)"
             (nodeMoved)="onNodeMoved($event)"
             (nodeResized)="onNodeResized($event)"
             (nodeColorChanged)="onNodeColorChanged($event)"
+            (nodeShapeChanged)="onNodeShapeChanged($event)"
             (labelCommitted)="onLabelCommitted($event)"
             (connectorDrawn)="onConnectorDrawn($event)"
             (connectorDroppedOnEmpty)="onConnectorDroppedOnEmpty($event)"
@@ -273,6 +275,16 @@ export class ProcessFlowComponent implements OnInit, OnDestroy {
               this.syncCanvas();
             }
             break;
+          case 'process_flow_node_shape_changed':
+            if (msg.data['sessionId'] === s.id) {
+              const nodeId = msg.data['nodeId'] as string;
+              const shape = msg.data['shape'] as string;
+              this.session.update(cur => cur
+                ? { ...cur, nodes: cur.nodes.map(n => n.id === nodeId ? { ...n, shape } : n) }
+                : cur);
+              this.syncCanvas();
+            }
+            break;
           case 'process_flow_node_text_updated':
             if (msg.data['sessionId'] === s.id) {
               const nodeId = msg.data['nodeId'] as string;
@@ -356,7 +368,7 @@ export class ProcessFlowComponent implements OnInit, OnDestroy {
   private syncCanvas(): void {
     const s = this.session();
     if (!s) return;
-    this.canvasNodes.set(s.nodes.map(n => ({ id: n.id, x: n.positionX, y: n.positionY, label: n.label, color: n.color ?? undefined, width: n.width, height: n.height })));
+    this.canvasNodes.set(s.nodes.map(n => ({ id: n.id, x: n.positionX, y: n.positionY, label: n.label, color: n.color ?? undefined, width: n.width, height: n.height, shape: n.shape })));
     this.canvasEdges.set(s.edges.map(e => ({ id: e.id, fromId: e.fromNodeId, toId: e.toNodeId, color: e.color ?? undefined, waypoints: e.waypoints ?? [] })));
   }
 
@@ -489,6 +501,18 @@ export class ProcessFlowComponent implements OnInit, OnDestroy {
     });
   }
 
+  onNodeShapeChanged(e: { id: string; shape: string }): void {
+    const s = this.session();
+    if (!s) return;
+    this.session.update(cur => cur
+      ? { ...cur, nodes: cur.nodes.map(n => n.id === e.id ? { ...n, shape: e.shape } : n) }
+      : cur);
+    this.syncCanvas();
+    this.svc.updateNodeShape(s.id, e.id, e.shape).subscribe({
+      error: () => this.snackBar.open('Failed to save node shape', 'OK', { duration: 3000 }),
+    });
+  }
+
   onLabelCommitted(e: { id: string; label: string }): void {
     const s = this.session();
     if (!s) return;
@@ -569,7 +593,7 @@ export class ProcessFlowComponent implements OnInit, OnDestroy {
     if (!s) return null;
     return {
       title: s.title || 'process-flow',
-      nodes: s.nodes.map(n => ({ id: n.id, label: n.label, x: n.positionX, y: n.positionY, width: n.width, height: n.height, color: n.color })),
+      nodes: s.nodes.map(n => ({ id: n.id, label: n.label, x: n.positionX, y: n.positionY, width: n.width, height: n.height, shape: n.shape, color: n.color })),
       edges: s.edges.map(e => ({ id: e.id, fromId: e.fromNodeId, toId: e.toNodeId, color: e.color, waypoints: e.waypoints ?? [] })),
     };
   }
@@ -644,6 +668,7 @@ export class ProcessFlowComponent implements OnInit, OnDestroy {
         aliasMap[pn.alias] = node.id;
         made++;
         if (pn.color) await firstValueFrom(this.svc.updateNodeColor(sessionId, node.id, pn.color));
+        if (pn.shape && pn.shape !== 'rectangle') await firstValueFrom(this.svc.updateNodeShape(sessionId, node.id, pn.shape));
       }
       // rename / recolour existing nodes
       for (const pn of parsed.nodes) {
@@ -652,6 +677,7 @@ export class ProcessFlowComponent implements OnInit, OnDestroy {
         if (!cur) continue;
         if (pn.label && pn.label !== cur.label) await firstValueFrom(this.svc.updateNodeText(sessionId, id, pn.label));
         if ((pn.color || null) !== (cur.color || null)) await firstValueFrom(this.svc.updateNodeColor(sessionId, id, pn.color || ''));
+        if (pn.shape !== (cur.shape || 'rectangle')) await firstValueFrom(this.svc.updateNodeShape(sessionId, id, pn.shape));
       }
       // delete nodes whose alias was removed from the code
       for (const n of snap.nodes) {

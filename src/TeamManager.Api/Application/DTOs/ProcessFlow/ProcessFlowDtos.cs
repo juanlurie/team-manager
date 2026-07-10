@@ -9,6 +9,7 @@ public record ProcessFlowNodeDto
     public double PositionY { get; init; }
     public double Width { get; init; }
     public double Height { get; init; }
+    public string Shape { get; init; } = "rectangle";
     public string? Color { get; init; }
     public Guid CreatedByMemberId { get; init; }
 }
@@ -83,6 +84,11 @@ public record UpdateProcessFlowNodeSizeRequest
 public record UpdateProcessFlowNodeColorRequest
 {
     public string? Color { get; init; }
+}
+
+public record UpdateProcessFlowNodeShapeRequest
+{
+    public string Shape { get; init; } = "rectangle";
 }
 
 public record AddProcessFlowEdgeRequest
