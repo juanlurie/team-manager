@@ -54,6 +54,14 @@ export const PULSE_ROUTES: Routes = [
         loadComponent: () => import('./retro/retro.component').then(m => m.FunRetroComponent)
       },
       {
+        path: 'retro-board',
+        loadComponent: () => import('./retro-board/retro-board.component').then(m => m.RetroBoardComponent)
+      },
+      {
+        path: 'retro-board/:id',
+        loadComponent: () => import('./retro-board/retro-board.component').then(m => m.RetroBoardComponent)
+      },
+      {
         path: 'jokes',
         loadComponent: () => import('../jokes/jokes.component').then(m => m.JokesComponent)
       },

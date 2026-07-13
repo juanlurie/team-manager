@@ -1,0 +1,124 @@
+import { Injectable, inject } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { Observable } from 'rxjs';
+import {
+  RetroBoardSession, RetroBoardSummary, RetroBoardColumn, RetroBoardCheckinQuestion,
+  RetroBoardAction, RetroBoardAiSummary, RetroColumnInput, CheckinQuestionInput, RetroStepDurations,
+} from '../models/retro-board.model';
+
+@Injectable({ providedIn: 'root' })
+export class RetroBoardService {
+  private http = inject(HttpClient);
+  private base = '/api/v1/retro-board';
+
+  // ---- sessions ----
+  getOpenSessions(): Observable<RetroBoardSummary[]> {
+    return this.http.get<RetroBoardSummary[]>(this.base);
+  }
+  getSession(idOrSlug: string): Observable<RetroBoardSession> {
+    return this.http.get<RetroBoardSession>(`${this.base}/${idOrSlug}`);
+  }
+  createSession(req: {
+    title?: string; squadId?: string | null; sprintId?: string | null;
+    columns?: RetroColumnInput[]; checkinQuestions?: CheckinQuestionInput[];
+    votesPerUser?: number; allowAnonymous?: boolean; hideNotesUntilReveal?: boolean;
+    stepDurations?: RetroStepDurations; seedFromPreviousRetro?: boolean;
+  }): Observable<RetroBoardSession> {
+    return this.http.post<RetroBoardSession>(this.base, req);
+  }
+  join(idOrSlug: string): Observable<RetroBoardSession> {
+    return this.http.post<RetroBoardSession>(`${this.base}/${idOrSlug}/join`, {});
+  }
+  deleteSession(id: string): Observable<void> {
+    return this.http.delete<void>(`${this.base}/${id}`);
+  }
+  setPhase(id: string, phase: string): Observable<RetroBoardSession> {
+    return this.http.put<RetroBoardSession>(`${this.base}/${id}/phase`, { phase });
+  }
+  updateSettings(id: string, req: {
+    votesPerUser?: number; allowAnonymous?: boolean; hideNotesUntilReveal?: boolean; stepDurations?: RetroStepDurations;
+  }): Observable<void> {
+    return this.http.patch<void>(`${this.base}/${id}/settings`, req);
+  }
+  reveal(id: string): Observable<void> {
+    return this.http.post<void>(`${this.base}/${id}/reveal`, {});
+  }
+  setLiveState(id: string, liveStateJson: string | null): Observable<void> {
+    return this.http.put<void>(`${this.base}/${id}/live-state`, { liveStateJson });
+  }
+  analyse(id: string): Observable<RetroBoardAiSummary> {
+    return this.http.post<RetroBoardAiSummary>(`${this.base}/${id}/analyse`, {});
+  }
+
+  // ---- columns ----
+  addColumn(id: string, input: RetroColumnInput): Observable<RetroBoardColumn> {
+    return this.http.post<RetroBoardColumn>(`${this.base}/${id}/columns`, input);
+  }
+  updateColumn(id: string, columnId: string, input: RetroColumnInput): Observable<void> {
+    return this.http.put<void>(`${this.base}/${id}/columns/${columnId}`, input);
+  }
+  deleteColumn(id: string, columnId: string): Observable<void> {
+    return this.http.delete<void>(`${this.base}/${id}/columns/${columnId}`);
+  }
+
+  // ---- notes ----
+  addNote(id: string, columnId: string, text: string, isAnonymous: boolean): Observable<RetroBoardSession> {
+    return this.http.post<RetroBoardSession>(`${this.base}/${id}/notes`, { columnId, text, isAnonymous });
+  }
+  updateNoteText(id: string, noteId: string, text: string): Observable<void> {
+    return this.http.patch<void>(`${this.base}/${id}/notes/${noteId}/text`, { text });
+  }
+  deleteNote(id: string, noteId: string): Observable<void> {
+    return this.http.delete<void>(`${this.base}/${id}/notes/${noteId}`);
+  }
+  flagNote(id: string, noteId: string, flagged: boolean): Observable<void> {
+    return this.http.patch<void>(`${this.base}/${id}/notes/${noteId}/flag`, { flagged });
+  }
+  clarifyNote(id: string, noteId: string, clarification: string | null): Observable<void> {
+    return this.http.patch<void>(`${this.base}/${id}/notes/${noteId}/clarify`, { clarification });
+  }
+  markIntroduced(id: string, noteId: string, introduced: boolean): Observable<void> {
+    return this.http.post<void>(`${this.base}/${id}/notes/${noteId}/introduced`, { flagged: introduced });
+  }
+
+  // ---- votes ----
+  addVote(id: string, noteId: string): Observable<void> {
+    return this.http.post<void>(`${this.base}/${id}/notes/${noteId}/vote`, {});
+  }
+  removeVote(id: string, noteId: string): Observable<void> {
+    return this.http.delete<void>(`${this.base}/${id}/notes/${noteId}/vote`);
+  }
+
+  // ---- check-in ----
+  addCheckinQuestion(id: string, input: CheckinQuestionInput): Observable<RetroBoardCheckinQuestion> {
+    return this.http.post<RetroBoardCheckinQuestion>(`${this.base}/${id}/checkin-questions`, input);
+  }
+  deleteCheckinQuestion(id: string, questionId: string): Observable<void> {
+    return this.http.delete<void>(`${this.base}/${id}/checkin-questions/${questionId}`);
+  }
+  respondCheckin(id: string, questionId: string, rating: string): Observable<void> {
+    return this.http.post<void>(`${this.base}/${id}/checkin-questions/${questionId}/respond`, { rating });
+  }
+
+  // ---- actions ----
+  addAction(id: string, title: string, opts?: { sourceNoteId?: string | null; assigneeMemberIds?: string[] }): Observable<RetroBoardAction> {
+    return this.http.post<RetroBoardAction>(`${this.base}/${id}/actions`, { title, sourceNoteId: opts?.sourceNoteId, assigneeMemberIds: opts?.assigneeMemberIds });
+  }
+  updateAction(id: string, actionId: string, req: { title?: string; status?: string; dueDate?: string | null; assigneeMemberIds?: string[] }): Observable<void> {
+    return this.http.patch<void>(`${this.base}/${id}/actions/${actionId}`, req);
+  }
+  deleteAction(id: string, actionId: string): Observable<void> {
+    return this.http.delete<void>(`${this.base}/${id}/actions/${actionId}`);
+  }
+
+  // ---- participants ----
+  setProgress(id: string, phase: string, completed: boolean): Observable<void> {
+    return this.http.post<void>(`${this.base}/${id}/progress`, { phase, completed });
+  }
+  setSelfPaced(id: string, isSelfPaced: boolean): Observable<void> {
+    return this.http.post<void>(`${this.base}/${id}/self-paced`, { isSelfPaced });
+  }
+  setParticipantRole(id: string, memberId: string, role: string): Observable<void> {
+    return this.http.put<void>(`${this.base}/${id}/participants/role`, { memberId, role });
+  }
+}
