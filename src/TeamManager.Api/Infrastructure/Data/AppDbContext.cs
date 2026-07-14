@@ -99,6 +99,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<FunRetroReaction> FunRetroReactions => Set<FunRetroReaction>();
     public DbSet<FunRetroCardComment> FunRetroCardComments => Set<FunRetroCardComment>();
     public DbSet<FunRetroToken> FunRetroTokens => Set<FunRetroToken>();
+    public DbSet<FunRetroCheckinQuestion> FunRetroCheckinQuestions => Set<FunRetroCheckinQuestion>();
+    public DbSet<FunRetroCheckinResponse> FunRetroCheckinResponses => Set<FunRetroCheckinResponse>();
     public DbSet<RetroCustomTheme> RetroCustomThemes => Set<RetroCustomTheme>();
     public DbSet<RetroCustomThemeImage> RetroCustomThemeImages => Set<RetroCustomThemeImage>();
     public DbSet<ProcessFlowSession> ProcessFlowSessions => Set<ProcessFlowSession>();
@@ -208,6 +210,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         modelBuilder.ApplyConfiguration(new FunRetroReactionConfiguration());
         modelBuilder.ApplyConfiguration(new FunRetroCardCommentConfiguration());
         modelBuilder.ApplyConfiguration(new FunRetroTokenConfiguration());
+        modelBuilder.ApplyConfiguration(new FunRetroCheckinQuestionConfiguration());
+        modelBuilder.ApplyConfiguration(new FunRetroCheckinResponseConfiguration());
         modelBuilder.ApplyConfiguration(new RetroCustomThemeConfiguration());
         modelBuilder.ApplyConfiguration(new RetroCustomThemeImageConfiguration());
         modelBuilder.ApplyConfiguration(new ProcessFlowSessionConfiguration());

@@ -13,6 +13,7 @@ public class FunRetroSession
     public Sprint? Sprint { get; set; }
     public ICollection<FunRetroCard> Cards { get; set; } = [];
     public ICollection<FunRetroToken> Tokens { get; set; } = [];
+    public ICollection<FunRetroCheckinQuestion> CheckinQuestions { get; set; } = [];
     public string? AiAnalysisJson { get; set; }
     public string? TimerJson { get; set; }
     public string? IcebreakerAnswersJson { get; set; }
@@ -37,4 +38,7 @@ public class FunRetroSession
     // Facilitator opt-in per-phase timer presets (ported from RetroBoard's step durations), stored
     // as { add, vote, discuss } seconds. Null = no presets; the meeting budget is their sum.
     public string? StepDurationsJson { get; set; }
+    // Facilitator opt-in: adds a "check-in" phase before "add" (ported from RetroBoard), seeded
+    // from the creator's previous retro's open action items.
+    public bool CheckinEnabled { get; set; }
 }

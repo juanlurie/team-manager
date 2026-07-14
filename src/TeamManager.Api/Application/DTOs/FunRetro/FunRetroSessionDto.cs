@@ -28,6 +28,32 @@ public record FunRetroSessionDto
     public int MaxVotesPerCard { get; init; } = 1;
     public int MyVotesUsed { get; init; }
     public FunRetroStepDurations? StepDurations { get; init; }
+    public bool CheckinEnabled { get; init; }
+    public List<FunRetroCheckinQuestionDto> CheckinQuestions { get; init; } = [];
+}
+
+public record FunRetroCheckinQuestionDto
+{
+    public Guid Id { get; init; }
+    public string Text { get; init; } = "";
+    public string? ContextText { get; init; }
+    public int SortOrder { get; init; }
+    public string? MyRating { get; init; }
+    public int Better { get; init; }
+    public int Same { get; init; }
+    public int Worse { get; init; }
+    public int Na { get; init; }
+}
+
+public record AddFunRetroCheckinQuestionRequest
+{
+    public string Text { get; init; } = "";
+    public string? ContextText { get; init; }
+}
+
+public record RespondFunRetroCheckinRequest
+{
+    public string Rating { get; init; } = "na";
 }
 
 // Per-phase timer presets in seconds; null entry = no preset for that phase.
@@ -191,6 +217,8 @@ public record CreateFunRetroSessionRequest
     public int MaxVotesPerCard { get; init; } = 1;
     // Optional per-phase timer presets (seconds) for add/vote/discuss.
     public FunRetroStepDurations? StepDurations { get; init; }
+    // Opt-in check-in round before the add phase, seeded from the creator's last retro's actions.
+    public bool CheckinEnabled { get; init; }
 }
 
 public record AddFunRetroCardRequest

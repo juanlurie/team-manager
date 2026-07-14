@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { FunRetroAnalysis, FunRetroSession, FunRetroSessionSummary, RetroColumn, RetroTheme, RetroCanvasLayout, FunRetroCardComment, FunRetroToken, FunRetroTokenSize } from '../models/fun-retro.model';
+import { FunRetroAnalysis, FunRetroSession, FunRetroSessionSummary, RetroColumn, RetroTheme, RetroCanvasLayout, FunRetroCardComment, FunRetroToken, FunRetroTokenSize, FunRetroCheckinQuestion } from '../models/fun-retro.model';
 
 @Injectable({ providedIn: 'root' })
 export class FunRetroService {
@@ -16,7 +16,7 @@ export class FunRetroService {
     return this.http.get<FunRetroSession>(`${this.base}/${id}`);
   }
 
-  createSession(req: { title?: string; sprintId?: string; columns?: RetroColumn[]; icebreakerQuestion?: string; theme?: RetroTheme; canvasLayout?: RetroCanvasLayout; hideCardsOnAdd?: boolean; votesPerUser?: number | null; maxVotesPerCard?: number; stepDurations?: { add?: number | null; vote?: number | null; discuss?: number | null } | null }): Observable<FunRetroSession> {
+  createSession(req: { title?: string; sprintId?: string; columns?: RetroColumn[]; icebreakerQuestion?: string; theme?: RetroTheme; canvasLayout?: RetroCanvasLayout; hideCardsOnAdd?: boolean; votesPerUser?: number | null; maxVotesPerCard?: number; stepDurations?: { add?: number | null; vote?: number | null; discuss?: number | null } | null; checkinEnabled?: boolean }): Observable<FunRetroSession> {
     return this.http.post<FunRetroSession>(this.base, req);
   }
 
@@ -46,6 +46,18 @@ export class FunRetroService {
 
   setAssignees(sessionId: string, cardId: string, memberIds: string[]): Observable<void> {
     return this.http.put<void>(`${this.base}/${sessionId}/cards/${cardId}/assignees`, { memberIds });
+  }
+
+  addCheckinQuestion(sessionId: string, text: string, contextText?: string): Observable<FunRetroCheckinQuestion> {
+    return this.http.post<FunRetroCheckinQuestion>(`${this.base}/${sessionId}/checkin/questions`, { text, contextText });
+  }
+
+  deleteCheckinQuestion(sessionId: string, questionId: string): Observable<void> {
+    return this.http.delete<void>(`${this.base}/${sessionId}/checkin/questions/${questionId}`);
+  }
+
+  respondCheckin(sessionId: string, questionId: string, rating: string): Observable<void> {
+    return this.http.post<void>(`${this.base}/${sessionId}/checkin/questions/${questionId}/respond`, { rating });
   }
 
   updateCardPosition(sessionId: string, cardId: string, x: number, y: number): Observable<void> {

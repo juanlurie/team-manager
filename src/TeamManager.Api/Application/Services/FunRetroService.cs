@@ -42,8 +42,15 @@ public class FunRetroService(AppDbContext db, AiPromptExecutorService aiExecutor
             StepDurationsJson = req.StepDurations is { } sd && (sd.Add is > 0 || sd.Vote is > 0 || sd.Discuss is > 0)
                 ? JsonSerializer.Serialize(sd, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase })
                 : null,
+            CheckinEnabled = req.CheckinEnabled,
             Slug = await GenerateUniqueSlugAsync(),
         };
+
+        // Seed the check-in from the creator's most recent finished retro's open action cards, so
+        // the team can rate how last time's action items are going. Carry-forward keys off the
+        // creator (FunRetro has no squad anchor).
+        if (req.CheckinEnabled)
+            session.CheckinQuestions = await SeedCheckinFromPreviousAsync(memberId);
 
         db.FunRetroSessions.Add(session);
         await db.SaveChangesAsync();
@@ -107,6 +114,8 @@ public class FunRetroService(AppDbContext db, AiPromptExecutorService aiExecutor
             .Include(s => s.Cards)
                 .ThenInclude(c => c.Comments)
             .Include(s => s.Tokens)
+            .Include(s => s.CheckinQuestions)
+                .ThenInclude(q => q.Responses)
             .FirstOrDefaultAsync(s => s.Id == sessionId);
 
         if (session is null) return null;
@@ -246,6 +255,22 @@ public class FunRetroService(AppDbContext db, AiPromptExecutorService aiExecutor
             StepDurations = string.IsNullOrEmpty(session.StepDurationsJson)
                 ? null
                 : JsonSerializer.Deserialize<FunRetroStepDurations>(session.StepDurationsJson, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }),
+            CheckinEnabled = session.CheckinEnabled,
+            CheckinQuestions = session.CheckinQuestions
+                .OrderBy(q => q.SortOrder)
+                .Select(q => new FunRetroCheckinQuestionDto
+                {
+                    Id = q.Id,
+                    Text = q.Text,
+                    ContextText = q.ContextText,
+                    SortOrder = q.SortOrder,
+                    MyRating = q.Responses.FirstOrDefault(r => r.MemberId == memberId)?.Rating,
+                    Better = q.Responses.Count(r => r.Rating == "better"),
+                    Same = q.Responses.Count(r => r.Rating == "same"),
+                    Worse = q.Responses.Count(r => r.Rating == "worse"),
+                    Na = q.Responses.Count(r => r.Rating == "na"),
+                })
+                .ToList(),
             Tokens = session.Tokens
                 .OrderBy(t => t.CreatedAt)
                 .Select(t => new FunRetroTokenDto
@@ -539,6 +564,80 @@ public class FunRetroService(AppDbContext db, AiPromptExecutorService aiExecutor
         if (string.IsNullOrEmpty(json)) return [];
         try { return JsonSerializer.Deserialize<List<Guid>>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? []; }
         catch { return []; }
+    }
+
+    // ── Check-in ──
+
+    /// <summary>Carry forward the creator's last finished retro's open action cards as check-in
+    /// questions. "Finished" = phase "done"; "open" = an action card whose text isn't struck out.</summary>
+    private async Task<List<FunRetroCheckinQuestion>> SeedCheckinFromPreviousAsync(Guid creatorId)
+    {
+        var prev = await db.FunRetroSessions
+            .Where(s => s.CreatedByMemberId == creatorId && s.Phase == "done")
+            .OrderByDescending(s => s.CreatedAt)
+            .Include(s => s.Cards)
+            .FirstOrDefaultAsync();
+        if (prev is null) return [];
+
+        return prev.Cards
+            .Where(c => c.Column == "action" && !string.IsNullOrWhiteSpace(c.Text))
+            .OrderBy(c => c.CreatedAt)
+            .Select((c, i) => new FunRetroCheckinQuestion
+            {
+                Text = c.Text.Trim(),
+                ContextText = "From your last retro",
+                SourceCardId = c.Id,
+                SortOrder = i,
+            })
+            .ToList();
+    }
+
+    public async Task<FunRetroCheckinQuestionDto?> AddCheckinQuestionAsync(Guid sessionId, Guid memberId, AddFunRetroCheckinQuestionRequest req)
+    {
+        var session = await db.FunRetroSessions.FindAsync(sessionId);
+        if (session is null || session.CreatedByMemberId != memberId || string.IsNullOrWhiteSpace(req.Text)) return null;
+
+        var order = (await db.FunRetroCheckinQuestions.Where(q => q.SessionId == sessionId).MaxAsync(q => (int?)q.SortOrder) ?? -1) + 1;
+        var q = new FunRetroCheckinQuestion
+        {
+            SessionId = sessionId,
+            Text = req.Text.Trim(),
+            ContextText = string.IsNullOrWhiteSpace(req.ContextText) ? null : req.ContextText.Trim(),
+            SortOrder = order,
+        };
+        db.FunRetroCheckinQuestions.Add(q);
+        await db.SaveChangesAsync();
+        _ = WebSocketMiddleware.BroadcastToRetroSessionAsync("fun_retro_checkin_changed", sessionId.ToString(), new { sessionId });
+        return new FunRetroCheckinQuestionDto { Id = q.Id, Text = q.Text, ContextText = q.ContextText, SortOrder = q.SortOrder };
+    }
+
+    public async Task<bool> DeleteCheckinQuestionAsync(Guid sessionId, Guid memberId, Guid questionId)
+    {
+        var session = await db.FunRetroSessions.FindAsync(sessionId);
+        if (session is null || session.CreatedByMemberId != memberId) return false;
+        var q = await db.FunRetroCheckinQuestions.FirstOrDefaultAsync(x => x.Id == questionId && x.SessionId == sessionId);
+        if (q is null) return false;
+        db.FunRetroCheckinQuestions.Remove(q);
+        await db.SaveChangesAsync();
+        _ = WebSocketMiddleware.BroadcastToRetroSessionAsync("fun_retro_checkin_changed", sessionId.ToString(), new { sessionId });
+        return true;
+    }
+
+    public async Task<bool> RespondCheckinAsync(Guid sessionId, Guid memberId, Guid questionId, string rating)
+    {
+        string[] valid = ["better", "same", "worse", "na"];
+        if (!valid.Contains(rating)) return false;
+        var exists = await db.FunRetroCheckinQuestions.AnyAsync(q => q.Id == questionId && q.SessionId == sessionId);
+        if (!exists) return false;
+
+        var existing = await db.FunRetroCheckinResponses.FirstOrDefaultAsync(r => r.QuestionId == questionId && r.MemberId == memberId);
+        if (existing is null)
+            db.FunRetroCheckinResponses.Add(new FunRetroCheckinResponse { QuestionId = questionId, MemberId = memberId, Rating = rating });
+        else
+            existing.Rating = rating;
+        await db.SaveChangesAsync();
+        _ = WebSocketMiddleware.BroadcastToRetroSessionAsync("fun_retro_checkin_responded", sessionId.ToString(), new { sessionId, questionId });
+        return true;
     }
 
     public async Task<bool> DeleteCardAsync(Guid sessionId, Guid cardId, Guid memberId)

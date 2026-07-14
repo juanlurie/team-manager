@@ -72,7 +72,7 @@ export interface FunRetroSession {
   id: string;
   slug: string | null;
   title: string | null;
-  phase: 'lobby' | 'add' | 'vote' | 'discuss' | 'done';
+  phase: 'lobby' | 'checkin' | 'add' | 'vote' | 'discuss' | 'done';
   createdByMemberId: string;
   isCreator: boolean;
   sprintId: string | null;
@@ -96,6 +96,22 @@ export interface FunRetroSession {
   maxVotesPerCard: number;     // 1 = classic one-vote-per-card toggle
   myVotesUsed: number;
   stepDurations: FunRetroStepDurations | null;
+  checkinEnabled: boolean;
+  checkinQuestions: FunRetroCheckinQuestion[];
+}
+
+export type CheckinRating = 'better' | 'same' | 'worse' | 'na';
+
+export interface FunRetroCheckinQuestion {
+  id: string;
+  text: string;
+  contextText: string | null;
+  sortOrder: number;
+  myRating: CheckinRating | null;
+  better: number;
+  same: number;
+  worse: number;
+  na: number;
 }
 
 // Per-phase timer presets in seconds; missing entry = no preset for that phase.

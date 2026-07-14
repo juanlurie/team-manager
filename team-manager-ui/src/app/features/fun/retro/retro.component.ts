@@ -15,7 +15,7 @@ import { FunRetroService } from '../../../core/services/fun-retro.service';
 import { TeamMemberService } from '../../../core/services/team-member.service';
 import { TeamMember } from '../../../core/models/team-member.model';
 import { RetroThemeLibraryService } from '../../../core/services/retro-theme-library.service';
-import { FunRetroAnalysis, FunRetroSession, FunRetroSessionSummary, FunRetroCard, RetroColumn, RetroTheme, RetroCanvasLayout, FunRetroCardComment, FunRetroToken, FunRetroTokenSize, RetroCustomTheme } from '../../../core/models/fun-retro.model';
+import { FunRetroAnalysis, FunRetroSession, FunRetroSessionSummary, FunRetroCard, RetroColumn, RetroTheme, RetroCanvasLayout, FunRetroCardComment, FunRetroToken, FunRetroTokenSize, RetroCustomTheme, FunRetroCheckinQuestion, CheckinRating } from '../../../core/models/fun-retro.model';
 import { WebSocketService } from '../../../core/websocket/websocket.service';
 import { AvatarCircleComponent } from '../../../core/components/k-picker/avatar-circle.component';
 import { AuthService } from '../../../core/auth/auth.service';
@@ -30,9 +30,11 @@ import { NewRetroDialogComponent, NewRetroDialogResult } from './new-retro-dialo
 import { DEFAULT_COLS, RETRO_TEMPLATES, ICEBREAKER_QUESTIONS, RETRO_THEMES, RetroBgStyle, bgStyleFor, PHOTO_BG_STYLE } from './retro-constants';
 import { RetroSingleCanvasComponent } from './retro-single-canvas.component';
 import { RetroThemeEditorComponent } from './retro-theme-editor.component';
+import { RetroCheckinComponent } from './retro-checkin.component';
 
 const PHASE_META: Record<string, { label: string; color: string }> = {
   lobby:   { label: 'Lobby',         color: '#64b5f6' },
+  checkin: { label: 'Check-in',      color: '#26c6da' },
   add:     { label: 'Adding Cards',  color: '#4caf50' },
   vote:    { label: 'Voting',        color: '#ff9800' },
   discuss: { label: 'Discussion',    color: '#e91e8c' },
@@ -79,6 +81,7 @@ interface TimerState {
     AvatarCircleComponent,
     RetroSingleCanvasComponent,
     RetroThemeEditorComponent,
+    RetroCheckinComponent,
   ],
   changeDetection: ChangeDetectionStrategy.Default,
   styles: [`
@@ -1075,6 +1078,17 @@ interface TimerState {
           }
         }
 
+        @if (s.phase === 'checkin') {
+          <div style="padding:16px 0">
+            <app-retro-checkin
+              [questions]="s.checkinQuestions"
+              [isCreator]="s.isCreator"
+              (respond)="respondCheckin($event.question, $event.rating)"
+              (addQuestion)="addCheckinQuestion($event)"
+              (deleteQuestion)="deleteCheckinQuestion($event)" />
+          </div>
+        }
+
         <!-- Mobile: card list columns -->
         @if (!isDesktop()) {
           @if (s.phase === 'add' || s.phase === 'vote' || s.phase === 'discuss' || s.phase === 'done') {
@@ -2040,12 +2054,19 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
     return Math.max(0, s.votesPerUser - used);
   });
 
-  phases = ['lobby', 'add', 'vote', 'discuss', 'done'] as const;
+  // The check-in phase only exists when the facilitator enabled it, so the flow is dynamic.
+  phases = computed<string[]>(() => {
+    const s = this.session();
+    return s?.checkinEnabled
+      ? ['lobby', 'checkin', 'add', 'vote', 'discuss', 'done']
+      : ['lobby', 'add', 'vote', 'discuss', 'done'];
+  });
   nextPhase = computed(() => {
     const s = this.session();
     if (!s) return null;
-    const idx = this.phases.indexOf(s.phase as any);
-    return idx >= 0 && idx < this.phases.length - 1 ? this.phases[idx + 1] : null;
+    const order = this.phases();
+    const idx = order.indexOf(s.phase);
+    return idx >= 0 && idx < order.length - 1 ? order[idx + 1] : null;
   });
 
   private destroy$ = new Subject<void>();
@@ -2224,6 +2245,11 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
           break;
         case 'fun_retro_card_updated':
           // Assignee changes and other card-field edits: simplest correct path is a refetch.
+          if (msg.data['sessionId'] === s.id) this.silentRefresh();
+          break;
+        case 'fun_retro_checkin_changed':
+        case 'fun_retro_checkin_responded':
+          // Check-in question add/remove and rating aggregates: refetch to reconcile counts.
           if (msg.data['sessionId'] === s.id) this.silentRefresh();
           break;
         case 'fun_retro_card_text_updated':
@@ -2831,6 +2857,44 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
     });
   }
 
+  // ── Check-in ──
+  respondCheckin(q: FunRetroCheckinQuestion, rating: CheckinRating): void {
+    const s = this.session();
+    if (!s) return;
+    // Toggle off if re-clicking the same rating; otherwise switch. Optimistic myRating patch;
+    // the aggregate counts reconcile via the fun_retro_checkin_responded broadcast.
+    const next: CheckinRating | null = q.myRating === rating ? null : rating;
+    this.session.update(cur => cur
+      ? { ...cur, checkinQuestions: cur.checkinQuestions.map(x => x.id === q.id ? { ...x, myRating: next } : x) }
+      : cur);
+    this.invalidateInFlightRefresh();
+    this.svc.respondCheckin(s.id, q.id, next ?? 'na').subscribe({
+      error: () => { this.silentRefresh(); this.snackBar.open('Failed to submit response', 'OK', { duration: 3000 }); }
+    });
+  }
+
+  addCheckinQuestion(text: string): void {
+    const s = this.session();
+    const t = text.trim();
+    if (!s || !t) return;
+    this.svc.addCheckinQuestion(s.id, t).subscribe({
+      next: () => this.silentRefresh(),
+      error: () => this.snackBar.open('Failed to add question', 'OK', { duration: 3000 })
+    });
+  }
+
+  deleteCheckinQuestion(q: FunRetroCheckinQuestion): void {
+    const s = this.session();
+    if (!s) return;
+    this.session.update(cur => cur
+      ? { ...cur, checkinQuestions: cur.checkinQuestions.filter(x => x.id !== q.id) }
+      : cur);
+    this.invalidateInFlightRefresh();
+    this.svc.deleteCheckinQuestion(s.id, q.id).subscribe({
+      error: () => { this.silentRefresh(); this.snackBar.open('Failed to remove question', 'OK', { duration: 3000 }); }
+    });
+  }
+
   // ── Previous actions ──
   carryForward(a: { id: string; text: string; authorName: string | null }): void {
     const s = this.session();
@@ -2874,12 +2938,13 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
   private createSession(result: NewRetroDialogResult): void {
     this.creating.set(true);
     const template = RETRO_TEMPLATES.find(t => t.id === result.templateId);
-    const req: { title?: string; columns?: RetroColumn[]; icebreakerQuestion?: string; theme?: RetroTheme; canvasLayout?: RetroCanvasLayout; hideCardsOnAdd?: boolean; votesPerUser?: number | null; maxVotesPerCard?: number; stepDurations?: { add?: number | null; vote?: number | null; discuss?: number | null } | null } = {
+    const req: { title?: string; columns?: RetroColumn[]; icebreakerQuestion?: string; theme?: RetroTheme; canvasLayout?: RetroCanvasLayout; hideCardsOnAdd?: boolean; votesPerUser?: number | null; maxVotesPerCard?: number; stepDurations?: { add?: number | null; vote?: number | null; discuss?: number | null } | null; checkinEnabled?: boolean } = {
       columns: template?.columns ?? DEFAULT_COLS,
       hideCardsOnAdd: result.hideCardsOnAdd,
       votesPerUser: result.votesPerUser,
       maxVotesPerCard: result.maxVotesPerCard,
       stepDurations: result.stepDurations,
+      checkinEnabled: result.checkinEnabled,
     };
     if (result.title) req.title = result.title;
     if (result.icebreakerQuestion) req.icebreakerQuestion = result.icebreakerQuestion;

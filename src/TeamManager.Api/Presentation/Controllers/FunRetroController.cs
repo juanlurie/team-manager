@@ -107,6 +107,39 @@ public class FunRetroController(FunRetroService service, PollService pollService
         return Ok();
     }
 
+    [HttpPost("{id:guid}/checkin/questions")]
+    public async Task<IActionResult> AddCheckinQuestion(Guid id, [FromBody] AddFunRetroCheckinQuestionRequest request)
+    {
+        var memberId = GetCurrentMemberId();
+        if (!memberId.HasValue) return Unauthorized();
+
+        var dto = await service.AddCheckinQuestionAsync(id, memberId.Value, request);
+        if (dto is null) return Conflict(new { error = "Could not add question." });
+        return Ok(dto);
+    }
+
+    [HttpDelete("{id:guid}/checkin/questions/{questionId:guid}")]
+    public async Task<IActionResult> DeleteCheckinQuestion(Guid id, Guid questionId)
+    {
+        var memberId = GetCurrentMemberId();
+        if (!memberId.HasValue) return Unauthorized();
+
+        var ok = await service.DeleteCheckinQuestionAsync(id, memberId.Value, questionId);
+        if (!ok) return NotFound();
+        return Ok();
+    }
+
+    [HttpPost("{id:guid}/checkin/questions/{questionId:guid}/respond")]
+    public async Task<IActionResult> RespondCheckin(Guid id, Guid questionId, [FromBody] RespondFunRetroCheckinRequest request)
+    {
+        var memberId = GetCurrentMemberId();
+        if (!memberId.HasValue) return Unauthorized();
+
+        var ok = await service.RespondCheckinAsync(id, memberId.Value, questionId, request.Rating);
+        if (!ok) return Conflict(new { error = "Invalid response." });
+        return Ok();
+    }
+
     [HttpPost("{id:guid}/cards/{cardId:guid}/react")]
     public async Task<IActionResult> ToggleReaction(Guid id, Guid cardId, [FromBody] ReactRequest request)
     {

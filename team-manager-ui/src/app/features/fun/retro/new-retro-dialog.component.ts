@@ -16,6 +16,7 @@ export interface NewRetroDialogResult {
   votesPerUser: number | null; // null = unlimited
   maxVotesPerCard: number;
   stepDurations: { add?: number | null; vote?: number | null; discuss?: number | null } | null;
+  checkinEnabled: boolean;
 }
 
 @Component({
@@ -184,6 +185,16 @@ export interface NewRetroDialogResult {
         </div>
         <div class="setting-desc" style="margin-bottom:8px">Meeting budget: {{ (addMinutes || 0) + (voteMinutes || 0) + (discussMinutes || 0) }} min</div>
       }
+
+      <div class="setting-row">
+        <div>
+          <div class="setting-text">Check-in round</div>
+          <div class="setting-desc">Adds a check-in phase before adding cards. Seeded with your last retro's action items so the team can rate how each is going.</div>
+        </div>
+        <div class="toggle-track" [class.on]="checkinEnabled" (click)="checkinEnabled = !checkinEnabled">
+          <div class="toggle-thumb"></div>
+        </div>
+      </div>
     </mat-dialog-content>
     <mat-dialog-actions align="end" style="margin-top:8px">
       <button mat-button mat-dialog-close>Cancel</button>
@@ -209,6 +220,7 @@ export class NewRetroDialogComponent {
   addMinutes = 5;
   voteMinutes = 3;
   discussMinutes = 10;
+  checkinEnabled = false;
 
   templateAccent(t: RetroTemplate): string {
     return t.columns[0]?.color ?? '#64b5f6';
@@ -235,6 +247,7 @@ export class NewRetroDialogComponent {
         vote: Math.max(0, this.voteMinutes || 0) * 60 || null,
         discuss: Math.max(0, this.discussMinutes || 0) * 60 || null,
       } : null,
+      checkinEnabled: this.checkinEnabled,
     });
   }
 }
