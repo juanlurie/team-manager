@@ -24,6 +24,9 @@ public record FunRetroSessionDto
     public string? Theme { get; init; }
     public string? CanvasLayout { get; init; }
     public List<FunRetroTokenDto> Tokens { get; init; } = [];
+    public int? VotesPerUser { get; init; }
+    public int MaxVotesPerCard { get; init; } = 1;
+    public int MyVotesUsed { get; init; }
 }
 
 public record FunRetroTokenDto
@@ -118,6 +121,12 @@ public record AddFunRetroCardCommentRequest
     public string Text { get; init; } = "";
 }
 
+public record FunRetroVoteRequest
+{
+    // false = add a vote (respecting caps); true = remove one of the caller's votes on the card.
+    public bool Remove { get; init; }
+}
+
 public record FunRetroReactionDto
 {
     public string Emoji { get; init; } = "";
@@ -155,6 +164,9 @@ public record CreateFunRetroSessionRequest
     // Chosen once at creation ("hide cards until reveal"), rather than a live setting -- the
     // whole point is to lock cards for the duration of the add phase before anyone joins.
     public bool HideCardsOnAdd { get; init; }
+    // Facilitator opt-in vote caps. Null VotesPerUser = unlimited; MaxVotesPerCard defaults to 1.
+    public int? VotesPerUser { get; init; } = 3;
+    public int MaxVotesPerCard { get; init; } = 1;
 }
 
 public record AddFunRetroCardRequest

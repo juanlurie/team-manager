@@ -852,7 +852,7 @@ interface TimerState {
               <mat-icon>share</mat-icon>
             </button>
           </div>
-          @if (s.phase === 'vote') {
+          @if (s.phase === 'vote' && s.votesPerUser != null) {
             <span class="votes-left-badge">{{ voteBudget() }} vote{{ voteBudget() !== 1 ? 's' : '' }} left</span>
           }
           @if (s.isCreator && (s.phase === 'discuss' || s.phase === 'done')) {
@@ -1134,9 +1134,9 @@ interface TimerState {
                                   </div>
                                 } @else { <span></span> }
                                 <div class="card-vote-row">
-                                  @if (s.phase === 'vote') { <button class="vote-dec-btn" [disabled]="card.myVoteCount === 0" (click)="toggleVote(card)">−</button> }
+                                  @if (s.phase === 'vote') { <button class="vote-dec-btn" [disabled]="card.myVoteCount === 0" (click)="toggleVote(card, true)">−</button> }
                                   <span class="card-vote-count" [class.has-votes]="card.voteCount > 0">{{ card.voteCount }}</span>
-                                  @if (s.phase === 'vote') { <button class="vote-inc-btn" [disabled]="voteBudget() === 0 && card.myVoteCount === 0" (click)="toggleVote(card)">+</button> }
+                                  @if (s.phase === 'vote') { <button class="vote-inc-btn" [disabled]="voteBudget() <= 0 || card.myVoteCount >= s.maxVotesPerCard" (click)="toggleVote(card)">+</button> }
                                 </div>
                               </div>
                             }
@@ -1194,9 +1194,9 @@ interface TimerState {
                               </div>
                             } @else { <span></span> }
                             <div class="card-vote-row">
-                              @if (s.phase === 'vote') { <button class="vote-dec-btn" [disabled]="card.myVoteCount === 0" (click)="toggleVote(card)">−</button> }
+                              @if (s.phase === 'vote') { <button class="vote-dec-btn" [disabled]="card.myVoteCount === 0" (click)="toggleVote(card, true)">−</button> }
                               <span class="card-vote-count" [class.has-votes]="card.voteCount > 0">{{ card.voteCount }}</span>
-                              @if (s.phase === 'vote') { <button class="vote-inc-btn" [disabled]="voteBudget() === 0 && card.myVoteCount === 0" (click)="toggleVote(card)">+</button> }
+                              @if (s.phase === 'vote') { <button class="vote-inc-btn" [disabled]="voteBudget() <= 0 || card.myVoteCount >= s.maxVotesPerCard" (click)="toggleVote(card)">+</button> }
                             </div>
                           </div>
                         }
@@ -1244,7 +1244,7 @@ interface TimerState {
             [selectedCardId]="selectedCardId()"
             [resolveThemeUrl]="themeBgUrlFn"
             [resolveThemeStyle]="themeBgStyleFn"
-            (voteToggled)="toggleVote($event)"
+            (voteToggled)="toggleVote($event.card, $event.remove)"
             (reactionToggled)="toggleReaction($event.card, $event.emoji)"
             (editStarted)="startEditCard($event)"
             (editTextChanged)="editingText.set($event)"
@@ -2017,11 +2017,13 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   myCards = computed(() => this.session()?.cards.filter(c => c.isOwn) ?? []);
+  // Remaining votes in the session budget. null votesPerUser = unlimited (shown as Infinity).
   voteBudget = computed(() => {
     const s = this.session();
-    if (!s) return 3;
+    if (!s) return Infinity;
+    if (s.votesPerUser == null) return Infinity;
     const used = s.cards.reduce((n, c) => n + c.myVoteCount, 0);
-    return Math.max(0, 3 - used);
+    return Math.max(0, s.votesPerUser - used);
   });
 
   phases = ['lobby', 'add', 'vote', 'discuss', 'done'] as const;
@@ -2804,9 +2806,11 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
   private createSession(result: NewRetroDialogResult): void {
     this.creating.set(true);
     const template = RETRO_TEMPLATES.find(t => t.id === result.templateId);
-    const req: { title?: string; columns?: RetroColumn[]; icebreakerQuestion?: string; theme?: RetroTheme; canvasLayout?: RetroCanvasLayout; hideCardsOnAdd?: boolean } = {
+    const req: { title?: string; columns?: RetroColumn[]; icebreakerQuestion?: string; theme?: RetroTheme; canvasLayout?: RetroCanvasLayout; hideCardsOnAdd?: boolean; votesPerUser?: number | null; maxVotesPerCard?: number } = {
       columns: template?.columns ?? DEFAULT_COLS,
       hideCardsOnAdd: result.hideCardsOnAdd,
+      votesPerUser: result.votesPerUser,
+      maxVotesPerCard: result.maxVotesPerCard,
     };
     if (result.title) req.title = result.title;
     if (result.icebreakerQuestion) req.icebreakerQuestion = result.icebreakerQuestion;
@@ -2934,22 +2938,26 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
     });
   }
 
-  toggleVote(card: FunRetroCard): void {
+  toggleVote(card: FunRetroCard, remove = false): void {
     const s = this.session();
     if (!s) return;
-    // Server toggles a single vote per member per card. Mirror it optimistically: myVoteCount is
-    // per-viewer (never arrives on the fun_retro_voted broadcast), so the voter must patch it here;
-    // the authoritative voteCount comes back via the broadcast. Guard the budget like the server.
-    const wasVoted = card.myVoteCount > 0;
-    if (!wasVoted && this.voteBudget() <= 0) return;
-    const delta = wasVoted ? -1 : 1;
+    // Add or remove one vote. myVoteCount is per-viewer (never arrives on the fun_retro_voted
+    // broadcast), so the voter patches it here; the authoritative voteCount comes back via the
+    // broadcast. Guard the per-card cap and session budget like the server does.
+    if (remove) {
+      if (card.myVoteCount <= 0) return;
+    } else {
+      if (card.myVoteCount >= s.maxVotesPerCard) return;
+      if (this.voteBudget() <= 0) return;
+    }
+    const delta = remove ? -1 : 1;
     this.session.update(cur => cur
       ? { ...cur, cards: cur.cards.map(c => c.id === card.id
-          ? { ...c, myVoteCount: wasVoted ? 0 : 1, voteCount: Math.max(0, c.voteCount + delta) }
+          ? { ...c, myVoteCount: Math.max(0, c.myVoteCount + delta), voteCount: Math.max(0, c.voteCount + delta) }
           : c) }
       : cur);
     this.invalidateInFlightRefresh();
-    this.svc.toggleVote(s.id, card.id).subscribe({
+    this.svc.toggleVote(s.id, card.id, remove).subscribe({
       // On failure the optimistic patch is wrong -- a full refetch is the simplest correct rollback.
       error: () => { this.silentRefresh(); this.snackBar.open('Failed to vote', 'OK', { duration: 3000 }); }
     });
@@ -3028,9 +3036,13 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   phaseGuide(phase: string): { icon: string; text: string } {
+    const budget = this.session()?.votesPerUser;
+    const voteText = budget == null
+      ? 'Cards are now revealed. Vote on the items that matter most to you.'
+      : `Cards are now revealed. Use your ${budget} vote${budget === 1 ? '' : 's'} on the items that matter most to you.`;
     const guides: Record<string, { icon: string; text: string }> = {
       add:     { icon: 'edit_note',    text: 'Add your thoughts to each column. Your cards are hidden from others until the host moves on.' },
-      vote:    { icon: 'how_to_vote',  text: 'Cards are now revealed. Use your 3 votes on the items that matter most to you.' },
+      vote:    { icon: 'how_to_vote',  text: voteText },
       discuss: { icon: 'forum',        text: 'Work through the top-voted items together. React to cards as you discuss each one.' },
       done:    { icon: 'task_alt',     text: 'Retro complete! Review the summary and make sure action items are captured.' },
     };

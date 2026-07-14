@@ -86,12 +86,12 @@ public class FunRetroController(FunRetroService service, PollService pollService
     }
 
     [HttpPost("{id:guid}/cards/{cardId:guid}/vote")]
-    public async Task<IActionResult> ToggleVote(Guid id, Guid cardId)
+    public async Task<IActionResult> ToggleVote(Guid id, Guid cardId, [FromBody] FunRetroVoteRequest? req = null)
     {
         var memberId = GetCurrentMemberId();
         if (!memberId.HasValue) return Unauthorized();
 
-        var (success, error) = await service.ToggleVoteAsync(id, cardId, memberId.Value);
+        var (success, error) = await service.ToggleVoteAsync(id, cardId, memberId.Value, req?.Remove ?? false);
         if (!success) return Conflict(new { error });
         return Ok();
     }

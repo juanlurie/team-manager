@@ -13,6 +13,8 @@ export interface NewRetroDialogResult {
   theme: RetroTheme;
   canvasLayout: RetroCanvasLayout;
   hideCardsOnAdd: boolean;
+  votesPerUser: number | null; // null = unlimited
+  maxVotesPerCard: number;
 }
 
 @Component({
@@ -132,6 +134,28 @@ export interface NewRetroDialogResult {
           <div class="toggle-thumb"></div>
         </div>
       </div>
+
+      <div class="setting-row">
+        <div>
+          <div class="setting-text">Limit votes per person</div>
+          <div class="setting-desc">Cap how many votes each participant gets across the whole board. Off = unlimited.</div>
+        </div>
+        <div class="toggle-track" [class.on]="limitVotes" (click)="limitVotes = !limitVotes">
+          <div class="toggle-thumb"></div>
+        </div>
+      </div>
+      @if (limitVotes) {
+        <div style="display:flex;gap:12px">
+          <div style="flex:1">
+            <label class="field-label">Votes per person</label>
+            <input class="field" type="number" min="1" max="99" [(ngModel)]="votesPerUser" />
+          </div>
+          <div style="flex:1">
+            <label class="field-label">Max votes per card</label>
+            <input class="field" type="number" min="1" [max]="votesPerUser" [(ngModel)]="maxVotesPerCard" />
+          </div>
+        </div>
+      }
     </mat-dialog-content>
     <mat-dialog-actions align="end" style="margin-top:8px">
       <button mat-button mat-dialog-close>Cancel</button>
@@ -150,6 +174,9 @@ export class NewRetroDialogComponent {
   customIcebreaker = '';
   selectedTheme: RetroTheme = null;
   hideCardsOnAdd = true;
+  limitVotes = true;
+  votesPerUser = 3;
+  maxVotesPerCard = 1;
 
   templateAccent(t: RetroTemplate): string {
     return t.columns[0]?.color ?? '#64b5f6';
@@ -169,6 +196,8 @@ export class NewRetroDialogComponent {
       theme: this.selectedTheme,
       canvasLayout: 'single',
       hideCardsOnAdd: this.hideCardsOnAdd,
+      votesPerUser: this.limitVotes ? Math.max(1, Math.min(99, this.votesPerUser || 1)) : null,
+      maxVotesPerCard: this.limitVotes ? Math.max(1, Math.min(this.votesPerUser || 1, this.maxVotesPerCard || 1)) : 1,
     });
   }
 }

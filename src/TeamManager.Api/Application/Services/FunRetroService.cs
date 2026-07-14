@@ -35,6 +35,10 @@ public class FunRetroService(AppDbContext db, AiPromptExecutorService aiExecutor
             Theme = ValidTheme(req.Theme),
             CanvasLayout = ValidLayout(req.CanvasLayout),
             HideCardsOnAdd = req.HideCardsOnAdd,
+            // Vote caps: null VotesPerUser = unlimited; otherwise clamp to a sane 1..99. Per-card
+            // cap defaults to 1 (today's toggle) and is bounded by the session budget when set.
+            VotesPerUser = req.VotesPerUser is { } vpu ? Math.Clamp(vpu, 1, 99) : null,
+            MaxVotesPerCard = Math.Clamp(req.MaxVotesPerCard, 1, req.VotesPerUser is { } b ? Math.Clamp(b, 1, 99) : 99),
             Slug = await GenerateUniqueSlugAsync(),
         };
 
@@ -217,6 +221,9 @@ public class FunRetroService(AppDbContext db, AiPromptExecutorService aiExecutor
             ParticipationTracking = session.ParticipationTracking,
             Theme = session.Theme,
             CanvasLayout = session.CanvasLayout,
+            VotesPerUser = session.VotesPerUser,
+            MaxVotesPerCard = session.MaxVotesPerCard,
+            MyVotesUsed = session.Cards.Sum(c => c.Votes.Count(v => v.VoterId == memberId)),
             Tokens = session.Tokens
                 .OrderBy(t => t.CreatedAt)
                 .Select(t => new FunRetroTokenDto
@@ -521,26 +528,35 @@ public class FunRetroService(AppDbContext db, AiPromptExecutorService aiExecutor
         return await GetSessionAsync(sessionId, memberId);
     }
 
-    public async Task<(bool success, string? error)> ToggleVoteAsync(Guid sessionId, Guid cardId, Guid memberId)
+    /// <summary>Add or remove one of the caller's votes on a card. <paramref name="remove"/> false
+    /// adds a vote (honouring the per-card and per-session caps); true removes one. A per-card cap of
+    /// 1 with the +/- buttons preserves the classic one-vote-per-card behaviour.</summary>
+    public async Task<(bool success, string? error)> ToggleVoteAsync(Guid sessionId, Guid cardId, Guid memberId, bool remove = false)
     {
+        var session = await db.FunRetroSessions.FindAsync(sessionId);
+        if (session is null) return (false, "Session not found.");
+
         var card = await db.FunRetroCards
             .Include(c => c.Votes)
             .FirstOrDefaultAsync(c => c.Id == cardId && c.SessionId == sessionId);
 
         if (card is null) return (false, "Card not found.");
 
-        var existingVote = card.Votes.FirstOrDefault(v => v.VoterId == memberId);
-        if (existingVote is not null)
+        var myVotesOnCard = card.Votes.Where(v => v.VoterId == memberId).ToList();
+        if (remove)
         {
-            db.FunRetroVotes.Remove(existingVote);
+            if (myVotesOnCard.Count == 0) return (true, null); // nothing to remove
+            db.FunRetroVotes.Remove(myVotesOnCard[0]);
         }
         else
         {
-            // Check vote budget: max 3 votes per session
+            // Per-card cap (default 1) and the session budget (null = unlimited).
+            if (myVotesOnCard.Count >= session.MaxVotesPerCard)
+                return (false, "Max votes on this card reached.");
+
             var sessionVoteCount = await db.FunRetroVotes
                 .CountAsync(v => v.Card.SessionId == sessionId && v.VoterId == memberId);
-
-            if (sessionVoteCount >= 3)
+            if (session.VotesPerUser is { } budget && sessionVoteCount >= budget)
                 return (false, "Vote budget exhausted.");
 
             db.FunRetroVotes.Add(new FunRetroVote { CardId = cardId, VoterId = memberId });

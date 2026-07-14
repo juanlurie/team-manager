@@ -29,4 +29,9 @@ public class FunRetroSession
     // shared library.
     public string? Theme { get; set; }
     public string? CanvasLayout { get; set; } // null|columns|single -- null/"columns" = today's per-column canvases
+    // Facilitator opt-in vote caps (ported from RetroBoard). Null VotesPerUser = unlimited session
+    // budget; MaxVotesPerCard defaults to 1 (today's one-vote-per-card toggle behaviour). Setting
+    // MaxVotesPerCard > 1 lets a member stack multiple votes on the same card.
+    public int? VotesPerUser { get; set; } = 3;
+    public int MaxVotesPerCard { get; set; } = 1;
 }

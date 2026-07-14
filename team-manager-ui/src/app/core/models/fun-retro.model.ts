@@ -85,6 +85,9 @@ export interface FunRetroSession {
   theme: RetroTheme;
   canvasLayout: RetroCanvasLayout;
   tokens: FunRetroToken[];
+  votesPerUser: number | null; // null = unlimited session budget
+  maxVotesPerCard: number;     // 1 = classic one-vote-per-card toggle
+  myVotesUsed: number;
 }
 
 // A fixed built-in id, a RetroCustomTheme's guid (string) from the shared library, or null.

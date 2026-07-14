@@ -394,12 +394,12 @@ const REACTION_EMOJIS = ['👍', '❤️', '😂', '🎉', '🤔'];
                   <div class="sticky-vote-row">
                     @if (s?.phase === 'vote') {
                       <button class="sticky-vdec-btn" [disabled]="item.card.myVoteCount === 0"
-                              (mousedown)="$event.stopPropagation()" (click)="voteToggled.emit(item.card)">−</button>
+                              (mousedown)="$event.stopPropagation()" (click)="voteToggled.emit({ card: item.card, remove: true })">−</button>
                     }
                     <span class="sticky-vote-count" [class.has-votes]="item.card.voteCount > 0">{{ item.card.voteCount }}</span>
                     @if (s?.phase === 'vote') {
-                      <button class="sticky-vinc-btn" [disabled]="voteBudget() === 0 && item.card.myVoteCount === 0"
-                              (mousedown)="$event.stopPropagation()" (click)="voteToggled.emit(item.card)">+</button>
+                      <button class="sticky-vinc-btn" [disabled]="voteBudget() <= 0 || item.card.myVoteCount >= (s?.maxVotesPerCard ?? 1)"
+                              (mousedown)="$event.stopPropagation()" (click)="voteToggled.emit({ card: item.card, remove: false })">+</button>
                     }
                   </div>
                 </div>
@@ -601,7 +601,7 @@ export class RetroSingleCanvasComponent implements AfterViewInit {
   placingStickerEmoji = input<string | null>(null);
   selectedCardId = input<string | null>(null);
 
-  voteToggled = output<FunRetroCard>();
+  voteToggled = output<{ card: FunRetroCard; remove: boolean }>();
   reactionToggled = output<{ card: FunRetroCard; emoji: string }>();
   editStarted = output<FunRetroCard>();
   editTextChanged = output<string>();

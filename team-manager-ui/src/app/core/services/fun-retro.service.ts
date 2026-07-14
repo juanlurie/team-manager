@@ -16,7 +16,7 @@ export class FunRetroService {
     return this.http.get<FunRetroSession>(`${this.base}/${id}`);
   }
 
-  createSession(req: { title?: string; sprintId?: string; columns?: RetroColumn[]; icebreakerQuestion?: string; theme?: RetroTheme; canvasLayout?: RetroCanvasLayout; hideCardsOnAdd?: boolean }): Observable<FunRetroSession> {
+  createSession(req: { title?: string; sprintId?: string; columns?: RetroColumn[]; icebreakerQuestion?: string; theme?: RetroTheme; canvasLayout?: RetroCanvasLayout; hideCardsOnAdd?: boolean; votesPerUser?: number | null; maxVotesPerCard?: number }): Observable<FunRetroSession> {
     return this.http.post<FunRetroSession>(this.base, req);
   }
 
@@ -36,8 +36,8 @@ export class FunRetroService {
     return this.http.put<FunRetroSession>(`${this.base}/${sessionId}/phase`, { phase });
   }
 
-  toggleVote(sessionId: string, cardId: string): Observable<void> {
-    return this.http.post<void>(`${this.base}/${sessionId}/cards/${cardId}/vote`, {});
+  toggleVote(sessionId: string, cardId: string, remove = false): Observable<void> {
+    return this.http.post<void>(`${this.base}/${sessionId}/cards/${cardId}/vote`, { remove });
   }
 
   toggleReaction(sessionId: string, cardId: string, emoji: string): Observable<void> {
