@@ -20,17 +20,20 @@ public record RetroBoardSessionDto
     public bool AllowAnonymous { get; init; }
     public bool HideNotesUntilReveal { get; init; }
     public bool NotesRevealed { get; init; }
+    public bool IsArchived { get; init; }
     public RetroStepDurations StepDurations { get; init; } = new();
     public string? LiveStateJson { get; init; }   // opaque live sub-state; client parses
     public RetroBoardAiSummaryDto? AiSummary { get; init; }
     public DateTimeOffset CreatedAt { get; init; }
     public DateTimeOffset? StartedAt { get; init; }
     public DateTimeOffset? ClosedAt { get; init; }
+    public DateTimeOffset? ArchivedAt { get; init; }
     public List<RetroBoardColumnDto> Columns { get; init; } = [];
     public List<RetroBoardNoteDto> Notes { get; init; } = [];
     public List<RetroBoardCheckinQuestionDto> CheckinQuestions { get; init; } = [];
     public List<RetroBoardParticipantDto> Participants { get; init; } = [];
     public List<RetroBoardActionDto> Actions { get; init; } = [];
+    public List<RetroBoardFeedbackPromptDto> FeedbackPrompts { get; init; } = [];
 }
 
 public record RetroStepDurations
@@ -113,6 +116,25 @@ public record RetroBoardActionDto
     public bool IsAiSuggested { get; init; }
 }
 
+public record RetroBoardFeedbackPromptDto
+{
+    public Guid Id { get; init; }
+    public string Text { get; init; } = "";
+    public int SortOrder { get; init; }
+
+    // The requesting member's own response (participant view).
+    public int? MyScore { get; init; }
+    public string? MyComment { get; init; }
+
+    // Anonymous aggregate — only populated for facilitators.
+    public int ResponseCount { get; init; }
+    public double? AverageScore { get; init; }
+    /// <summary>Counts of each star value 1..5, index 0 = one star.</summary>
+    public List<int> Distribution { get; init; } = [0, 0, 0, 0, 0];
+    /// <summary>Free-text comments, anonymous and shuffled so they can't be tied to a rating order.</summary>
+    public List<string> Comments { get; init; } = [];
+}
+
 public record RetroBoardAiSummaryDto
 {
     public List<string> StrengthThemes { get; init; } = [];
@@ -145,6 +167,7 @@ public record CreateRetroBoardSessionRequest
     public Guid? SprintId { get; init; }
     public List<RetroColumnInput>? Columns { get; init; }        // null = default four columns
     public List<CheckinQuestionInput>? CheckinQuestions { get; init; }
+    public List<FeedbackPromptInput>? FeedbackPrompts { get; init; }
     public int? VotesPerUser { get; init; }
     public bool? AllowAnonymous { get; init; }
     public bool? HideNotesUntilReveal { get; init; }
@@ -188,6 +211,8 @@ public record NoteTextRequest { public string Text { get; init; } = ""; }
 public record ClarifyRequest { public string? Clarification { get; init; } }
 public record FlagRequest { public bool Flagged { get; init; } }
 public record CheckinResponseRequest { public string Rating { get; init; } = ""; }
+public record FeedbackPromptInput { public string Text { get; init; } = ""; }
+public record FeedbackResponseRequest { public int Score { get; init; } public string? Comment { get; init; } }
 public record ProgressRequest { public string Phase { get; init; } = ""; public bool Completed { get; init; } = true; }
 public record SelfPacedRequest { public bool IsSelfPaced { get; init; } }
 public record SetParticipantRoleRequest { public Guid MemberId { get; init; } public string Role { get; init; } = "participant"; }

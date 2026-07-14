@@ -54,4 +54,5 @@ public class RetroBoardSession
     public ICollection<RetroBoardCheckinQuestion> CheckinQuestions { get; set; } = [];
     public ICollection<RetroBoardParticipant> Participants { get; set; } = [];
     public ICollection<RetroBoardAction> Actions { get; set; } = [];
+    public ICollection<RetroBoardFeedbackPrompt> FeedbackPrompts { get; set; } = [];
 }

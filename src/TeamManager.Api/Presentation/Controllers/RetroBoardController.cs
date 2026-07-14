@@ -164,6 +164,25 @@ public class RetroBoardController(RetroBoardService service) : ControllerBase
     public async Task<IActionResult> RespondCheckin(Guid id, Guid questionId, [FromBody] CheckinResponseRequest req) =>
         await Guard(m => service.RespondCheckinAsync(id, m, questionId, req.Rating));
 
+    // ---------- Feedback ----------
+
+    [HttpPost("{id:guid}/feedback-prompts")]
+    public async Task<IActionResult> AddFeedbackPrompt(Guid id, [FromBody] FeedbackPromptInput input)
+    {
+        var memberId = GetMemberId();
+        if (memberId is null) return Unauthorized();
+        var p = await service.AddFeedbackPromptAsync(id, memberId.Value, input);
+        return p is null ? NotFound() : Ok(p);
+    }
+
+    [HttpDelete("{id:guid}/feedback-prompts/{promptId:guid}")]
+    public async Task<IActionResult> DeleteFeedbackPrompt(Guid id, Guid promptId) =>
+        await Guard(m => service.DeleteFeedbackPromptAsync(id, m, promptId));
+
+    [HttpPost("{id:guid}/feedback-prompts/{promptId:guid}/respond")]
+    public async Task<IActionResult> RespondFeedback(Guid id, Guid promptId, [FromBody] FeedbackResponseRequest req) =>
+        await Guard(m => service.RespondFeedbackAsync(id, m, promptId, req.Score, req.Comment));
+
     // ---------- Actions ----------
 
     [HttpPost("{id:guid}/actions")]

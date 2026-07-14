@@ -125,6 +125,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<RetroBoardParticipant> RetroBoardParticipants => Set<RetroBoardParticipant>();
     public DbSet<RetroBoardParticipantProgress> RetroBoardParticipantProgress => Set<RetroBoardParticipantProgress>();
     public DbSet<RetroBoardAction> RetroBoardActions => Set<RetroBoardAction>();
+    public DbSet<RetroBoardFeedbackPrompt> RetroBoardFeedbackPrompts => Set<RetroBoardFeedbackPrompt>();
+    public DbSet<RetroBoardFeedbackResponse> RetroBoardFeedbackResponses => Set<RetroBoardFeedbackResponse>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -234,5 +236,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         modelBuilder.ApplyConfiguration(new RetroBoardParticipantConfiguration());
         modelBuilder.ApplyConfiguration(new RetroBoardParticipantProgressConfiguration());
         modelBuilder.ApplyConfiguration(new RetroBoardActionConfiguration());
+        modelBuilder.ApplyConfiguration(new RetroBoardFeedbackPromptConfiguration());
+        modelBuilder.ApplyConfiguration(new RetroBoardFeedbackResponseConfiguration());
     }
 }

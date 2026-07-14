@@ -104,6 +104,11 @@ public class RetroBoardService(AppDbContext db, AiPromptExecutorService aiExecut
             session.CheckinQuestions = await SeedCheckinFromPreviousAsync(squadId);
         }
 
+        // Feedback prompts: explicit list, else a sensible default set.
+        session.FeedbackPrompts = (req.FeedbackPrompts is { Count: > 0 }
+            ? req.FeedbackPrompts.Where(p => !string.IsNullOrWhiteSpace(p.Text)).Select((p, i) => new RetroBoardFeedbackPrompt { Text = p.Text.Trim(), SortOrder = i })
+            : DefaultFeedbackPrompts()).ToList();
+
         // Creator joins as the first facilitator.
         session.Participants = [new RetroBoardParticipant { MemberId = memberId, Role = "facilitator" }];
 
@@ -423,10 +428,57 @@ public class RetroBoardService(AppDbContext db, AiPromptExecutorService aiExecut
         return true;
     }
 
+    // ---------- Feedback ----------
+
+    public async Task<RetroBoardFeedbackPromptDto?> AddFeedbackPromptAsync(Guid sessionId, Guid memberId, FeedbackPromptInput input)
+    {
+        if (!await IsFacilitatorAsync(sessionId, memberId) || string.IsNullOrWhiteSpace(input.Text)) return null;
+        var order = (await db.RetroBoardFeedbackPrompts.Where(p => p.RetroBoardSessionId == sessionId).MaxAsync(p => (int?)p.SortOrder) ?? -1) + 1;
+        var prompt = new RetroBoardFeedbackPrompt { RetroBoardSessionId = sessionId, Text = input.Text.Trim(), SortOrder = order };
+        db.RetroBoardFeedbackPrompts.Add(prompt);
+        await db.SaveChangesAsync();
+        Broadcast(sessionId, "rb_feedback_changed");
+        return new RetroBoardFeedbackPromptDto { Id = prompt.Id, Text = prompt.Text, SortOrder = prompt.SortOrder };
+    }
+
+    public async Task<bool> DeleteFeedbackPromptAsync(Guid sessionId, Guid memberId, Guid promptId)
+    {
+        if (!await IsFacilitatorAsync(sessionId, memberId)) return false;
+        var prompt = await db.RetroBoardFeedbackPrompts.FirstOrDefaultAsync(p => p.Id == promptId && p.RetroBoardSessionId == sessionId);
+        if (prompt is null) return false;
+        db.RetroBoardFeedbackPrompts.Remove(prompt);
+        await db.SaveChangesAsync();
+        Broadcast(sessionId, "rb_feedback_changed");
+        return true;
+    }
+
+    public async Task<bool> RespondFeedbackAsync(Guid sessionId, Guid memberId, Guid promptId, int score, string? comment)
+    {
+        if (score is < 1 or > 5) return false;
+        var prompt = await db.RetroBoardFeedbackPrompts.AnyAsync(p => p.Id == promptId && p.RetroBoardSessionId == sessionId);
+        if (!prompt) return false;
+        var trimmed = string.IsNullOrWhiteSpace(comment) ? null : comment.Trim();
+        var existing = await db.RetroBoardFeedbackResponses.FirstOrDefaultAsync(r => r.RetroBoardFeedbackPromptId == promptId && r.MemberId == memberId);
+        if (existing is null)
+            db.RetroBoardFeedbackResponses.Add(new RetroBoardFeedbackResponse { RetroBoardFeedbackPromptId = promptId, MemberId = memberId, Score = score, Comment = trimmed });
+        else
+        {
+            existing.Score = score;
+            existing.Comment = trimmed;
+            existing.UpdatedAt = DateTimeOffset.UtcNow;
+        }
+        await db.SaveChangesAsync();
+        // Only the count changes for other clients; the aggregate itself stays facilitator-only on fetch.
+        Broadcast(sessionId, "rb_feedback_responded", new { sessionId, promptId });
+        return true;
+    }
+
     // ---------- Actions ----------
 
     public async Task<RetroBoardActionDto?> AddActionAsync(Guid sessionId, Guid memberId, AddRetroBoardActionRequest req)
     {
+        // Actions are intentionally NOT gated by close: they're follow-up items whose status is tracked
+        // during the sprint after the retro closes (and carry-forward seeds from closed sessions' actions).
         if (!await IsFacilitatorAsync(sessionId, memberId) || string.IsNullOrWhiteSpace(req.Title)) return null;
         var action = new RetroBoardAction
         {
@@ -537,18 +589,47 @@ public class RetroBoardService(AppDbContext db, AiPromptExecutorService aiExecut
             .Include(s => s.Participants).ThenInclude(p => p.Member)
             .Include(s => s.Participants).ThenInclude(p => p.Progress)
             .Include(s => s.Actions).ThenInclude(a => a.Owner)
+            .Include(s => s.FeedbackPrompts).ThenInclude(p => p.Responses)
             .AsSplitQuery()
             .FirstOrDefaultAsync(s => s.Id == sessionId);
 
     private async Task<RetroBoardActionDto?> MapActionAsync(Guid actionId)
     {
         var a = await db.RetroBoardActions.Include(x => x.Owner).FirstOrDefaultAsync(x => x.Id == actionId);
-        return a is null ? null : new RetroBoardActionDto
+        return a is null ? null : MapAction(a);
+    }
+
+    /// <summary>Single mapping for RetroBoardAction → DTO, shared by MapActionAsync and ToDto.
+    /// Requires the Owner navigation to be loaded.</summary>
+    private static RetroBoardActionDto MapAction(RetroBoardAction a) => new()
+    {
+        Id = a.Id, SourceNoteId = a.SourceNoteId, Title = a.Title, OwnerMemberId = a.OwnerMemberId,
+        OwnerName = a.Owner is null ? null : $"{a.Owner.FirstName} {a.Owner.LastName}".Trim(),
+        AssigneeMemberIds = ParseAssignees(a.AssigneeMemberIdsJson),
+        Status = a.Status, DueDate = a.DueDate, IsAiSuggested = a.IsAiSuggested,
+    };
+
+    /// <summary>Maps a feedback prompt to its DTO and applies the anonymity policy: the aggregate
+    /// (scores, distribution, comments) is exposed ONLY to facilitators; everyone else sees just their
+    /// own response. This is the single source of truth for that rule — do not re-implement it inline.
+    /// Requires the Responses navigation to be loaded.</summary>
+    private static RetroBoardFeedbackPromptDto MapFeedbackPrompt(RetroBoardFeedbackPrompt p, Guid memberId, bool isFacilitator)
+    {
+        var mine = p.Responses.FirstOrDefault(r => r.MemberId == memberId);
+        var scored = isFacilitator ? p.Responses.Where(r => r.Score is >= 1 and <= 5).ToList() : [];
+        var dist = new List<int> { 0, 0, 0, 0, 0 };
+        foreach (var r in scored) dist[r.Score - 1]++;
+        return new RetroBoardFeedbackPromptDto
         {
-            Id = a.Id, SourceNoteId = a.SourceNoteId, Title = a.Title, OwnerMemberId = a.OwnerMemberId,
-            OwnerName = a.Owner is null ? null : $"{a.Owner.FirstName} {a.Owner.LastName}".Trim(),
-            AssigneeMemberIds = ParseAssignees(a.AssigneeMemberIdsJson),
-            Status = a.Status, DueDate = a.DueDate, IsAiSuggested = a.IsAiSuggested,
+            Id = p.Id, Text = p.Text, SortOrder = p.SortOrder,
+            MyScore = mine?.Score, MyComment = mine?.Comment,
+            ResponseCount = scored.Count,
+            AverageScore = scored.Count == 0 ? null : Math.Round(scored.Average(r => r.Score), 2),
+            Distribution = dist,
+            Comments = isFacilitator
+                ? p.Responses.Where(r => !string.IsNullOrWhiteSpace(r.Comment))
+                    .OrderBy(_ => Guid.NewGuid()).Select(r => r.Comment!.Trim()).ToList()
+                : [],
         };
     }
 
@@ -628,13 +709,9 @@ public class RetroBoardService(AppDbContext db, AiPromptExecutorService aiExecut
                 AvatarSeed = p.Member?.AvatarSeed, Role = p.Role, IsSelfPaced = p.IsSelfPaced,
                 CompletedPhases = p.Progress.Select(x => x.Phase).ToList(),
             }).ToList(),
-            Actions = s.Actions.OrderBy(a => a.CreatedAt).Select(a => new RetroBoardActionDto
-            {
-                Id = a.Id, SourceNoteId = a.SourceNoteId, Title = a.Title, OwnerMemberId = a.OwnerMemberId,
-                OwnerName = a.Owner is null ? null : $"{a.Owner.FirstName} {a.Owner.LastName}".Trim(),
-                AssigneeMemberIds = ParseAssignees(a.AssigneeMemberIdsJson),
-                Status = a.Status, DueDate = a.DueDate, IsAiSuggested = a.IsAiSuggested,
-            }).ToList(),
+            Actions = s.Actions.OrderBy(a => a.CreatedAt).Select(MapAction).ToList(),
+            FeedbackPrompts = s.FeedbackPrompts.OrderBy(p => p.SortOrder)
+                .Select(p => MapFeedbackPrompt(p, memberId, isFacil)).ToList(),
         };
     }
 
@@ -664,6 +741,13 @@ public class RetroBoardService(AppDbContext db, AiPromptExecutorService aiExecut
         new() { Key = "better", Label = "What to Improve",  Description = "Things that could be better", Color = "#f4566b", Icon = "tri",   SortOrder = 1 },
         new() { Key = "quest",  Label = "Questions",        Description = "Seek clarity",                Color = "#f5b544", Icon = "quest", SortOrder = 2 },
         new() { Key = "shout",  Label = "Shout-outs",       Description = "Recognition & gratitude",     Color = "#5b9dff", Icon = "star",  SortOrder = 3 },
+    ];
+
+    private static List<RetroBoardFeedbackPrompt> DefaultFeedbackPrompts() =>
+    [
+        new() { Text = "Facilitation & presentation", SortOrder = 0 },
+        new() { Text = "Flow & structure of the session", SortOrder = 1 },
+        new() { Text = "Collaboration & participation", SortOrder = 2 },
     ];
 
     private async Task<string> GenerateUniqueSlugAsync()
