@@ -24,27 +24,47 @@ public class RetroBoardService(AppDbContext db, AiPromptExecutorService aiExecut
 
     // ---------- Queries ----------
 
-    public async Task<List<RetroBoardSummaryDto>> GetOpenSessionsAsync()
+    /// <summary>Active (non-archived) sessions for the lobby — draft/live first, then recently closed.
+    /// Note: this includes closed-but-not-archived sessions, so it is deliberately NOT "open only".</summary>
+    public async Task<List<RetroBoardSummaryDto>> GetLobbySessionsAsync(Guid memberId)
     {
         return await db.RetroBoardSessions
-            .Where(s => s.Status != "closed")
-            .OrderByDescending(s => s.CreatedAt)
-            .Select(s => new RetroBoardSummaryDto
-            {
-                Id = s.Id,
-                Title = s.Title,
-                Slug = s.Slug,
-                Phase = s.Phase,
-                Status = s.Status,
-                SquadName = s.Squad!.Name,
-                CreatedByMemberId = s.CreatedByMemberId,
-                CreatedByName = s.CreatedBy!.FirstName + " " + s.CreatedBy.LastName,
-                ParticipantCount = s.Participants.Count,
-                NoteCount = s.Notes.Count,
-                CreatedAt = s.CreatedAt,
-            })
+            .Where(s => !s.IsArchived)
+            // Draft/live sit above closed; within each group, newest first.
+            .OrderBy(s => s.Status == "closed" ? 1 : 0)
+            .ThenByDescending(s => s.CreatedAt)
+            .Select(SummaryProjection(memberId))
             .ToListAsync();
     }
+
+    /// <summary>Archived sessions, most-recently-archived first.</summary>
+    public async Task<List<RetroBoardSummaryDto>> GetArchivedSessionsAsync(Guid memberId)
+    {
+        return await db.RetroBoardSessions
+            .Where(s => s.IsArchived)
+            .OrderByDescending(s => s.ArchivedAt)
+            .Select(SummaryProjection(memberId))
+            .ToListAsync();
+    }
+
+    private static System.Linq.Expressions.Expression<Func<RetroBoardSession, RetroBoardSummaryDto>> SummaryProjection(Guid memberId) =>
+        s => new RetroBoardSummaryDto
+        {
+            Id = s.Id,
+            Title = s.Title,
+            Slug = s.Slug,
+            Phase = s.Phase,
+            Status = s.Status,
+            SquadName = s.Squad!.Name,
+            CreatedByMemberId = s.CreatedByMemberId,
+            CreatedByName = s.CreatedBy!.FirstName + " " + s.CreatedBy.LastName,
+            IsFacilitator = s.CreatedByMemberId == memberId || s.Participants.Any(p => p.MemberId == memberId && p.Role == "facilitator"),
+            IsArchived = s.IsArchived,
+            ParticipantCount = s.Participants.Count,
+            NoteCount = s.Notes.Count,
+            CreatedAt = s.CreatedAt,
+            ClosedAt = s.ClosedAt,
+        };
 
     public async Task<Guid?> ResolveSessionIdAsync(string idOrSlug)
     {
@@ -121,21 +141,26 @@ public class RetroBoardService(AppDbContext db, AiPromptExecutorService aiExecut
     public async Task<RetroBoardSessionDto?> JoinAsync(Guid sessionId, Guid memberId)
     {
         var session = await db.RetroBoardSessions.FindAsync(sessionId);
-        if (session is null || session.Status == "closed") return null;
+        if (session is null) return null;
 
-        var existing = await db.RetroBoardParticipants
-            .FirstOrDefaultAsync(p => p.RetroBoardSessionId == sessionId && p.MemberId == memberId);
-        if (existing is null)
+        // Closed sessions are view-only: return current state without enrolling anyone new,
+        // so facilitators can review the recap/feedback and choose to reopen.
+        if (session.Status != "closed")
         {
-            var role = session.CreatedByMemberId == memberId ? "facilitator" : "participant";
-            db.RetroBoardParticipants.Add(new RetroBoardParticipant { RetroBoardSessionId = sessionId, MemberId = memberId, Role = role });
-            await db.SaveChangesAsync();
-            Broadcast(sessionId, "rb_participant_changed");
-        }
-        else
-        {
-            existing.LastSeenAt = DateTimeOffset.UtcNow;
-            await db.SaveChangesAsync();
+            var existing = await db.RetroBoardParticipants
+                .FirstOrDefaultAsync(p => p.RetroBoardSessionId == sessionId && p.MemberId == memberId);
+            if (existing is null)
+            {
+                var role = session.CreatedByMemberId == memberId ? "facilitator" : "participant";
+                db.RetroBoardParticipants.Add(new RetroBoardParticipant { RetroBoardSessionId = sessionId, MemberId = memberId, Role = role });
+                await db.SaveChangesAsync();
+                Broadcast(sessionId, "rb_participant_changed");
+            }
+            else
+            {
+                existing.LastSeenAt = DateTimeOffset.UtcNow;
+                await db.SaveChangesAsync();
+            }
         }
         return await GetSessionAsync(sessionId, memberId);
     }
@@ -155,20 +180,62 @@ public class RetroBoardService(AppDbContext db, AiPromptExecutorService aiExecut
         if (!Phases.Contains(phase)) return null;
         var session = await db.RetroBoardSessions.FindAsync(sessionId);
         if (session is null || !await IsFacilitatorAsync(sessionId, memberId)) return null;
+        if (session.Status == "closed") return null;   // reopen before advancing phases
 
         session.Phase = phase;
         if (session.Status == "draft" && phase != "setup") { session.Status = "live"; session.StartedAt ??= DateTimeOffset.UtcNow; }
-        if (phase == "summary") { session.Status = "closed"; session.ClosedAt ??= DateTimeOffset.UtcNow; }
+        // Reaching Summary no longer auto-closes — the facilitator ends the retro explicitly via Close.
         await db.SaveChangesAsync();
 
         Broadcast(sessionId, "rb_phase_changed", new { sessionId, phase });
         return await GetSessionAsync(sessionId, memberId);
     }
 
+    /// <summary>Facilitator ends the retro. Sets status closed without changing the phase, so a
+    /// subsequent reopen returns everyone exactly where they were.</summary>
+    public async Task<RetroBoardSessionDto?> CloseAsync(Guid sessionId, Guid memberId)
+    {
+        var session = await db.RetroBoardSessions.FindAsync(sessionId);
+        if (session is null || !await IsFacilitatorAsync(sessionId, memberId)) return null;
+        session.Status = "closed";
+        session.ClosedAt ??= DateTimeOffset.UtcNow;
+        await db.SaveChangesAsync();
+        Broadcast(sessionId, "rb_lifecycle_changed", new { sessionId });
+        return await GetSessionAsync(sessionId, memberId);
+    }
+
+    /// <summary>Facilitator reopens a closed session (also un-archives it). Returns to live if it had
+    /// started, otherwise back to draft.</summary>
+    public async Task<RetroBoardSessionDto?> ReopenAsync(Guid sessionId, Guid memberId)
+    {
+        var session = await db.RetroBoardSessions.FindAsync(sessionId);
+        if (session is null || !await IsFacilitatorAsync(sessionId, memberId)) return null;
+        session.Status = session.StartedAt is null ? "draft" : "live";
+        session.ClosedAt = null;
+        session.IsArchived = false;
+        session.ArchivedAt = null;
+        await db.SaveChangesAsync();
+        Broadcast(sessionId, "rb_lifecycle_changed", new { sessionId });
+        return await GetSessionAsync(sessionId, memberId);
+    }
+
+    /// <summary>Facilitator files a session away (or restores it). Archiving hides it from the active lobby.</summary>
+    public async Task<bool> SetArchivedAsync(Guid sessionId, Guid memberId, bool archived)
+    {
+        var session = await db.RetroBoardSessions.FindAsync(sessionId);
+        if (session is null || !await IsFacilitatorAsync(sessionId, memberId)) return false;
+        session.IsArchived = archived;
+        session.ArchivedAt = archived ? DateTimeOffset.UtcNow : null;
+        await db.SaveChangesAsync();
+        Broadcast(sessionId, "rb_lifecycle_changed", new { sessionId });
+        return true;
+    }
+
     public async Task<bool> UpdateSettingsAsync(Guid sessionId, Guid memberId, UpdateRetroBoardSettingsRequest req)
     {
         var session = await db.RetroBoardSessions.FindAsync(sessionId);
         if (session is null || !await IsFacilitatorAsync(sessionId, memberId)) return false;
+        if (session.Status == "closed") return false;
 
         if (req.VotesPerUser is > 0 and <= 99) session.VotesPerUser = req.VotesPerUser.Value;
         if (req.AllowAnonymous is { } anon) session.AllowAnonymous = anon;
@@ -184,6 +251,7 @@ public class RetroBoardService(AppDbContext db, AiPromptExecutorService aiExecut
     {
         var session = await db.RetroBoardSessions.FindAsync(sessionId);
         if (session is null || !await IsFacilitatorAsync(sessionId, memberId)) return false;
+        if (session.Status == "closed") return false;
         session.NotesRevealed = true;
         await db.SaveChangesAsync();
         Broadcast(sessionId, "rb_revealed", new { sessionId });
@@ -195,6 +263,7 @@ public class RetroBoardService(AppDbContext db, AiPromptExecutorService aiExecut
     {
         var session = await db.RetroBoardSessions.FindAsync(sessionId);
         if (session is null || !await IsFacilitatorAsync(sessionId, memberId)) return false;
+        if (session.Status == "closed") return false;
         session.LiveStateJson = liveStateJson;
         await db.SaveChangesAsync();
         Broadcast(sessionId, "rb_live_state", new { sessionId, liveStateJson });
@@ -236,7 +305,7 @@ public class RetroBoardService(AppDbContext db, AiPromptExecutorService aiExecut
 
     public async Task<RetroBoardColumnDto?> AddColumnAsync(Guid sessionId, Guid memberId, RetroColumnInput input)
     {
-        if (!await IsFacilitatorAsync(sessionId, memberId)) return null;
+        if (await IsClosedAsync(sessionId) || !await IsFacilitatorAsync(sessionId, memberId)) return null;
         var order = (await db.RetroBoardColumns.Where(c => c.RetroBoardSessionId == sessionId).MaxAsync(c => (int?)c.SortOrder) ?? -1) + 1;
         var col = new RetroBoardColumn
         {
@@ -252,7 +321,7 @@ public class RetroBoardService(AppDbContext db, AiPromptExecutorService aiExecut
 
     public async Task<bool> UpdateColumnAsync(Guid sessionId, Guid memberId, Guid columnId, RetroColumnInput input)
     {
-        if (!await IsFacilitatorAsync(sessionId, memberId)) return false;
+        if (await IsClosedAsync(sessionId) || !await IsFacilitatorAsync(sessionId, memberId)) return false;
         var col = await db.RetroBoardColumns.FirstOrDefaultAsync(c => c.Id == columnId && c.RetroBoardSessionId == sessionId);
         if (col is null) return false;
         col.Label = input.Label.Trim(); col.Description = input.Description; col.Color = input.Color; col.Icon = input.Icon;
@@ -263,7 +332,7 @@ public class RetroBoardService(AppDbContext db, AiPromptExecutorService aiExecut
 
     public async Task<bool> DeleteColumnAsync(Guid sessionId, Guid memberId, Guid columnId)
     {
-        if (!await IsFacilitatorAsync(sessionId, memberId)) return false;
+        if (await IsClosedAsync(sessionId) || !await IsFacilitatorAsync(sessionId, memberId)) return false;
         var col = await db.RetroBoardColumns.Include(c => c.Notes).FirstOrDefaultAsync(c => c.Id == columnId && c.RetroBoardSessionId == sessionId);
         if (col is null) return false;
         if (col.Notes.Count > 0) db.RetroBoardNotes.RemoveRange(col.Notes);   // Restrict FK -- clear notes first
@@ -278,7 +347,7 @@ public class RetroBoardService(AppDbContext db, AiPromptExecutorService aiExecut
     public async Task<RetroBoardSessionDto?> AddNoteAsync(Guid sessionId, Guid memberId, AddRetroBoardNoteRequest req)
     {
         var session = await db.RetroBoardSessions.FindAsync(sessionId);
-        if (session is null) return null;
+        if (session is null || session.Status == "closed") return null;
         var columnOk = await db.RetroBoardColumns.AnyAsync(c => c.Id == req.ColumnId && c.RetroBoardSessionId == sessionId);
         if (!columnOk || string.IsNullOrWhiteSpace(req.Text)) return null;
 
@@ -298,6 +367,7 @@ public class RetroBoardService(AppDbContext db, AiPromptExecutorService aiExecut
 
     public async Task<bool> UpdateNoteTextAsync(Guid sessionId, Guid memberId, Guid noteId, string text)
     {
+        if (await IsClosedAsync(sessionId)) return false;
         var note = await db.RetroBoardNotes.FirstOrDefaultAsync(n => n.Id == noteId && n.RetroBoardSessionId == sessionId);
         if (note is null || string.IsNullOrWhiteSpace(text)) return false;
         var isFacil = await IsFacilitatorAsync(sessionId, memberId);
@@ -310,6 +380,7 @@ public class RetroBoardService(AppDbContext db, AiPromptExecutorService aiExecut
 
     public async Task<bool> DeleteNoteAsync(Guid sessionId, Guid memberId, Guid noteId)
     {
+        if (await IsClosedAsync(sessionId)) return false;
         var note = await db.RetroBoardNotes.FirstOrDefaultAsync(n => n.Id == noteId && n.RetroBoardSessionId == sessionId);
         if (note is null) return false;
         var isFacil = await IsFacilitatorAsync(sessionId, memberId);
@@ -323,6 +394,7 @@ public class RetroBoardService(AppDbContext db, AiPromptExecutorService aiExecut
     public async Task<bool> FlagNoteAsync(Guid sessionId, Guid memberId, Guid noteId, bool flagged)
     {
         _ = memberId; // anyone in the session may flag
+        if (await IsClosedAsync(sessionId)) return false;
         var note = await db.RetroBoardNotes.FirstOrDefaultAsync(n => n.Id == noteId && n.RetroBoardSessionId == sessionId);
         if (note is null) return false;
         note.Flagged = flagged;
@@ -333,6 +405,7 @@ public class RetroBoardService(AppDbContext db, AiPromptExecutorService aiExecut
 
     public async Task<bool> ClarifyNoteAsync(Guid sessionId, Guid memberId, Guid noteId, string? clarification)
     {
+        if (await IsClosedAsync(sessionId)) return false;
         var note = await db.RetroBoardNotes.FirstOrDefaultAsync(n => n.Id == noteId && n.RetroBoardSessionId == sessionId);
         if (note is null) return false;
         var isFacil = await IsFacilitatorAsync(sessionId, memberId);
@@ -345,7 +418,7 @@ public class RetroBoardService(AppDbContext db, AiPromptExecutorService aiExecut
 
     public async Task<bool> SetIntroducedAsync(Guid sessionId, Guid memberId, Guid noteId, bool introduced)
     {
-        if (!await IsFacilitatorAsync(sessionId, memberId)) return false;
+        if (await IsClosedAsync(sessionId) || !await IsFacilitatorAsync(sessionId, memberId)) return false;
         var note = await db.RetroBoardNotes.FirstOrDefaultAsync(n => n.Id == noteId && n.RetroBoardSessionId == sessionId);
         if (note is null) return false;
         note.IntroducedAt = introduced ? DateTimeOffset.UtcNow : null;
@@ -360,6 +433,7 @@ public class RetroBoardService(AppDbContext db, AiPromptExecutorService aiExecut
     {
         var session = await db.RetroBoardSessions.FindAsync(sessionId);
         if (session is null) return (false, "Session not found.");
+        if (session.Status == "closed") return (false, "This retro is closed.");
         var noteOk = await db.RetroBoardNotes.AnyAsync(n => n.Id == noteId && n.RetroBoardSessionId == sessionId);
         if (!noteOk) return (false, "Note not found.");
 
@@ -377,6 +451,7 @@ public class RetroBoardService(AppDbContext db, AiPromptExecutorService aiExecut
 
     public async Task<bool> RemoveVoteAsync(Guid sessionId, Guid memberId, Guid noteId)
     {
+        if (await IsClosedAsync(sessionId)) return false;
         var vote = await db.RetroBoardVotes
             .Where(v => v.RetroBoardNoteId == noteId && v.MemberId == memberId && v.Note!.RetroBoardSessionId == sessionId)
             .OrderByDescending(v => v.CreatedAt)
@@ -392,7 +467,7 @@ public class RetroBoardService(AppDbContext db, AiPromptExecutorService aiExecut
 
     public async Task<RetroBoardCheckinQuestionDto?> AddCheckinQuestionAsync(Guid sessionId, Guid memberId, CheckinQuestionInput input)
     {
-        if (!await IsFacilitatorAsync(sessionId, memberId) || string.IsNullOrWhiteSpace(input.Text)) return null;
+        if (await IsClosedAsync(sessionId) || !await IsFacilitatorAsync(sessionId, memberId) || string.IsNullOrWhiteSpace(input.Text)) return null;
         var order = (await db.RetroBoardCheckinQuestions.Where(q => q.RetroBoardSessionId == sessionId).MaxAsync(q => (int?)q.SortOrder) ?? -1) + 1;
         var q = new RetroBoardCheckinQuestion { RetroBoardSessionId = sessionId, Text = input.Text.Trim(), ContextText = input.ContextText, SortOrder = order };
         db.RetroBoardCheckinQuestions.Add(q);
@@ -403,7 +478,7 @@ public class RetroBoardService(AppDbContext db, AiPromptExecutorService aiExecut
 
     public async Task<bool> DeleteCheckinQuestionAsync(Guid sessionId, Guid memberId, Guid questionId)
     {
-        if (!await IsFacilitatorAsync(sessionId, memberId)) return false;
+        if (await IsClosedAsync(sessionId) || !await IsFacilitatorAsync(sessionId, memberId)) return false;
         var q = await db.RetroBoardCheckinQuestions.FirstOrDefaultAsync(x => x.Id == questionId && x.RetroBoardSessionId == sessionId);
         if (q is null) return false;
         db.RetroBoardCheckinQuestions.Remove(q);
@@ -416,6 +491,7 @@ public class RetroBoardService(AppDbContext db, AiPromptExecutorService aiExecut
     {
         string[] valid = ["better", "same", "worse", "na"];
         if (!valid.Contains(rating)) return false;
+        if (await IsClosedAsync(sessionId)) return false;
         var q = await db.RetroBoardCheckinQuestions.AnyAsync(x => x.Id == questionId && x.RetroBoardSessionId == sessionId);
         if (!q) return false;
         var existing = await db.RetroBoardCheckinResponses.FirstOrDefaultAsync(r => r.RetroBoardCheckinQuestionId == questionId && r.MemberId == memberId);
@@ -571,6 +647,12 @@ public class RetroBoardService(AppDbContext db, AiPromptExecutorService aiExecut
     private static List<Guid> ParseAssignees(string? json) =>
         string.IsNullOrEmpty(json) ? [] : (JsonSerializer.Deserialize<List<Guid>>(json, JsonRead) ?? []);
 
+    /// <summary>Board mutations (notes, votes, columns, check-in, phase/timer/settings) are rejected
+    /// once a session is closed — the facilitator must reopen first. Intentionally NOT gated: feedback
+    /// responses, lifecycle actions (close/reopen/archive), and action items (tracked after close).</summary>
+    private Task<bool> IsClosedAsync(Guid sessionId) =>
+        db.RetroBoardSessions.AnyAsync(s => s.Id == sessionId && s.Status == "closed");
+
     private async Task<bool> IsFacilitatorAsync(Guid sessionId, Guid memberId)
     {
         var creatorId = await db.RetroBoardSessions.Where(s => s.Id == sessionId).Select(s => (Guid?)s.CreatedByMemberId).FirstOrDefaultAsync();
@@ -658,6 +740,7 @@ public class RetroBoardService(AppDbContext db, AiPromptExecutorService aiExecut
             AllowAnonymous = s.AllowAnonymous,
             HideNotesUntilReveal = s.HideNotesUntilReveal,
             NotesRevealed = s.NotesRevealed,
+            IsArchived = s.IsArchived,
             StepDurations = string.IsNullOrEmpty(s.StepDurationsJson)
                 ? new RetroStepDurations()
                 : JsonSerializer.Deserialize<RetroStepDurations>(s.StepDurationsJson, JsonRead) ?? new RetroStepDurations(),
@@ -666,6 +749,7 @@ public class RetroBoardService(AppDbContext db, AiPromptExecutorService aiExecut
             CreatedAt = s.CreatedAt,
             StartedAt = s.StartedAt,
             ClosedAt = s.ClosedAt,
+            ArchivedAt = s.ArchivedAt,
             Columns = s.Columns.OrderBy(c => c.SortOrder).Select(c => new RetroBoardColumnDto
             {
                 Id = c.Id, Key = c.Key, Label = c.Label, Description = c.Description, Color = c.Color, Icon = c.Icon, SortOrder = c.SortOrder,

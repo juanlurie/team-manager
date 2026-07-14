@@ -153,9 +153,12 @@ public record RetroBoardSummaryDto
     public string? SquadName { get; init; }
     public Guid CreatedByMemberId { get; init; }
     public string CreatedByName { get; init; } = "";
+    public bool IsFacilitator { get; init; }
+    public bool IsArchived { get; init; }
     public int ParticipantCount { get; init; }
     public int NoteCount { get; init; }
     public DateTimeOffset CreatedAt { get; init; }
+    public DateTimeOffset? ClosedAt { get; init; }
 }
 
 // ---------- Write models ----------

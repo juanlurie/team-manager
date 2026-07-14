@@ -42,9 +42,14 @@ public class RetroBoardSession
     /// <summary>AI Reflect output: { strengthThemes, improveThemes, insights, suggestedActions }.</summary>
     public string? AiSummaryJson { get; set; }
 
+    /// <summary>Archived sessions are filed away — hidden from the active lobby but retrievable in the
+    /// archived view. Independent of Status: a session is typically closed first, then archived; reopening un-archives.</summary>
+    public bool IsArchived { get; set; }
+
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
     public DateTimeOffset? StartedAt { get; set; }
     public DateTimeOffset? ClosedAt { get; set; }
+    public DateTimeOffset? ArchivedAt { get; set; }
 
     public TeamMember? CreatedBy { get; set; }
     public Squad? Squad { get; set; }

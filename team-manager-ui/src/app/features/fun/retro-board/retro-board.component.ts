@@ -8,7 +8,7 @@ import { RetroBoardService } from '../../../core/services/retro-board.service';
 import { TeamMemberService } from '../../../core/services/team-member.service';
 import { WebSocketService } from '../../../core/websocket/websocket.service';
 import { AuthService } from '../../../core/auth/auth.service';
-import { RetroBoardSession, RetroBoardSummary, RetroPhase, RetroBoardNote } from '../../../core/models/retro-board.model';
+import { RetroBoardSession, RetroBoardSummary, RetroPhase, RetroBoardNote, RetroBoardFeedbackPrompt } from '../../../core/models/retro-board.model';
 
 const PHASES: { key: RetroPhase; label: string }[] = [
   { key: 'setup', label: 'Setup' }, { key: 'checkin', label: 'Check-in' }, { key: 'capture', label: 'Capture' },
@@ -96,6 +96,14 @@ interface Member { id: string; name: string; }
     .ta { position:relative; }
     .ta-list { position:absolute; z-index:5; left:0; right:0; background:var(--surface2); border:1px solid var(--border); border-radius:9px; margin-top:4px; overflow:hidden; }
     .ta-item { padding:8px 12px; cursor:pointer; font-size:13.5px; } .ta-item:hover { background:var(--accent); color:#fff; }
+    .stars { display:inline-flex; gap:4px; } .stars.sm { gap:2px; }
+    .star { color:var(--surface2); cursor:pointer; font-size:26px; line-height:1; transition:color .1s; -webkit-text-stroke:1px var(--border); }
+    .stars.sm .star { font-size:16px; cursor:default; }
+    .star.on { color:#f5b544; -webkit-text-stroke:0; } .star:hover { color:#f5b544; }
+    .stars.sm .star:hover { color:var(--surface2); } .stars.sm .star.on:hover { color:#f5b544; }
+    .bar-row { display:flex; align-items:center; gap:8px; margin:2px 0; }
+    .bar-track { flex:1; height:8px; border-radius:4px; background:var(--surface2); overflow:hidden; }
+    .bar-fill { display:block; height:100%; background:#f5b544; }
     @media (max-width: 760px) {
       .body { grid-template-columns:1fr; }
       .rail { border-right:0; border-bottom:1px solid var(--border); display:flex; gap:8px; overflow-x:auto; padding:10px; }
@@ -127,8 +135,31 @@ interface Member { id: string; name: string; }
               <div class="muted" style="font-size:12.5px">{{ s.createdByName }} · {{ s.noteCount }} notes · {{ s.participantCount }} joined</div>
             </div>
             <span class="tag" [class.draft]="s.status==='draft'" [class.live]="s.status==='live'" [class.closed]="s.status==='closed'">{{ s.status }}</span>
+            @if (s.isFacilitator && s.status==='closed') {
+              <button class="btn ghost sm" (click)="reopen(s.id, $event)">Reopen</button>
+              <button class="btn ghost sm" (click)="archive(s.id, $event)">Archive</button>
+            }
             @if (s.status==='draft' && s.createdByMemberId===myId) { <button class="btn ghost sm" title="Delete draft" (click)="del(s.id, $event)">✕</button> }
           </div>
+        }
+
+        <div class="row between" style="margin:24px 0 12px">
+          <h3 style="margin:0">Archived</h3>
+          <button class="btn ghost sm" (click)="toggleArchived()">{{ showArchived() ? 'Hide' : 'Show' }}</button>
+        </div>
+        @if (showArchived()) {
+          @if (archived().length === 0) { <p class="muted">No archived retros.</p> }
+          @for (s of archived(); track s.id) {
+            <div class="lobby-card">
+              <div class="lc-main" (click)="open(s.id)">
+                <div style="font-weight:600">{{ s.title || 'Untitled retro' }}</div>
+                <div class="muted" style="font-size:12.5px">{{ s.createdByName }} · {{ s.noteCount }} notes · {{ s.participantCount }} joined</div>
+              </div>
+              <span class="tag closed">{{ s.status }}</span>
+              @if (s.isFacilitator) { <button class="btn ghost sm" (click)="unarchive(s.id, $event)">Restore</button> }
+              @if (s.createdByMemberId===myId) { <button class="btn ghost sm" title="Delete permanently" (click)="del(s.id, $event)">✕</button> }
+            </div>
+          }
         }
         @if (error()) { <p class="err">{{ error() }}</p> }
       </div>
@@ -156,7 +187,11 @@ interface Member { id: string; name: string; }
             <button [class.on]="viewAs()==='participant'" (click)="viewAs.set('participant')">Participant</button>
           </div>
         }
-        <span class="tag">{{ s.slug }}</span>
+        <span class="tag" [class.closed]="s.status==='closed'">{{ s.status==='closed' ? 'closed' : s.slug }}</span>
+        @if (s.isFacilitator) {
+          @if (s.status==='closed') { <button class="btn ghost sm" (click)="reopenCurrent()">Reopen</button> }
+          @else { <button class="btn ghost sm" (click)="closeCurrent()">Close retro</button> }
+        }
         <button class="btn ghost sm" (click)="leave()">Leave</button>
       </div>
 
@@ -225,6 +260,18 @@ interface Member { id: string; name: string; }
                   </div>
                 }
                 @if (amFacilitator()) { <div class="row" style="margin-top:12px"><input class="f" [(ngModel)]="newQuestion" placeholder="Add check-in question…" (keydown.enter)="addQuestion()"><button class="btn primary" (click)="addQuestion()">+</button></div> }
+              </div>
+
+              <div class="card">
+                <label class="lbl">Feedback prompts</label>
+                <div class="muted" style="font-size:12px;margin:-2px 0 12px">Participants rate each of these 1–5 stars after the retro and can add a comment. Ratings are anonymous — you'll see the aggregate.</div>
+                @for (p of s.feedbackPrompts; track p.id) {
+                  <div class="row between" style="margin-bottom:10px">
+                    <div style="font-weight:600">{{ p.text }}</div>
+                    @if (amFacilitator()) { <button class="btn ghost sm" (click)="delPrompt(p.id)">✕</button> }
+                  </div>
+                }
+                @if (amFacilitator()) { <div class="row" style="margin-top:12px"><input class="f" [(ngModel)]="newPrompt" placeholder="Add feedback prompt…" (keydown.enter)="addPrompt()"><button class="btn primary" (click)="addPrompt()">+</button></div> }
               </div>
             }
 
@@ -403,6 +450,53 @@ interface Member { id: string; name: string; }
                     </div></div>
                 }
               </div>
+
+              @if (s.feedbackPrompts.length) {
+                @if (amFacilitator()) {
+                  <!-- Facilitator: anonymous aggregate -->
+                  <div class="card"><h3 style="margin:0 0 4px">Session feedback</h3>
+                    <p class="muted" style="margin:0 0 18px">Anonymous ratings from participants.</p>
+                    @for (p of s.feedbackPrompts; track p.id) {
+                      <div style="margin-bottom:22px">
+                        <div class="row between">
+                          <div style="font-weight:600">{{ p.text }}</div>
+                          <div class="row" style="gap:8px;align-items:center">
+                            <span class="stars sm">@for (n of starScale; track n) { <span class="star" [class.on]="(p.averageScore ?? 0) >= n - 0.4">★</span> }</span>
+                            <b>{{ avgFb(p) }}</b><span class="muted" style="font-size:12px">({{ p.responseCount }})</span>
+                          </div>
+                        </div>
+                        <div style="margin-top:8px">
+                          @for (n of starScaleDesc; track n) {
+                            <div class="bar-row"><span class="muted" style="width:26px;font-size:12px">{{ n }}★</span>
+                              <div class="bar-track"><span class="bar-fill" [style.width.%]="distPct(p, n)"></span></div>
+                              <span class="muted" style="width:20px;font-size:12px;text-align:right">{{ p.distribution[n-1] }}</span></div>
+                          }
+                        </div>
+                        @if (p.comments.length) { <div style="margin-top:10px">
+                          @for (c of p.comments; track $index) { <div class="note" style="font-style:italic">“{{ c }}”</div> }
+                        </div> }
+                      </div>
+                    }
+                  </div>
+                } @else {
+                  <!-- Participant: rate the session -->
+                  <div class="card"><h3 style="margin:0 0 4px">How did we do?</h3>
+                    <p class="muted" style="margin:0 0 18px">Your ratings are anonymous — only the aggregate is shared with the facilitator.</p>
+                    @for (p of s.feedbackPrompts; track p.id) {
+                      <div style="margin-bottom:20px">
+                        <div style="font-weight:600;margin-bottom:6px">{{ p.text }}</div>
+                        <div class="stars">
+                          @for (n of starScale; track n) { <span class="star" [class.on]="(p.myScore ?? 0) >= n" (click)="rateFeedback(p.id, n)">★</span> }
+                          @if (p.myScore) { <span class="muted" style="font-size:12px;margin-left:8px;align-self:center">{{ p.myScore }}/5</span> }
+                        </div>
+                        <textarea class="f" rows="2" style="margin-top:8px" [placeholder]="p.myScore ? 'Optional comment…' : 'Rate first, then add a comment'"
+                          [disabled]="!p.myScore" [(ngModel)]="fbComments[p.id]" (change)="commentFeedback(p.id)"></textarea>
+                      </div>
+                    }
+                    @if (feedbackDone()) { <div class="muted">✓ Thanks — your feedback has been recorded. You can still adjust it above.</div> }
+                  </div>
+                }
+              }
             }
           }
         </main>
@@ -438,9 +532,13 @@ export class RetroBoardComponent implements OnInit, OnDestroy {
   readonly ratings = RATINGS;
   readonly timerFields = TIMER_FIELDS;
   readonly swatches = ['#2fd47e', '#f4566b', '#f5b544', '#5b9dff', '#b07cff', '#f5934a', '#2dd4bf', '#f472b6'];
+  readonly starScale = [1, 2, 3, 4, 5];
+  readonly starScaleDesc = [5, 4, 3, 2, 1];
 
   session = signal<RetroBoardSession | null>(null);
   summaries = signal<RetroBoardSummary[]>([]);
+  archived = signal<RetroBoardSummary[]>([]);
+  showArchived = signal(false);
   members = signal<Member[]>([]);
   error = signal<string | null>(null);
   creating = signal(false);
@@ -455,6 +553,7 @@ export class RetroBoardComponent implements OnInit, OnDestroy {
   flagged = computed(() => this.session()?.notes.filter(n => n.flagged) ?? []);
   sortedByVotes = computed(() => [...(this.session()?.notes ?? [])].sort((a, b) => b.voteCount - a.voteCount));
   checkinDone = computed(() => !!this.session()?.participants.find(p => p.memberId === this.myId)?.completedPhases.includes('checkin'));
+  feedbackDone = computed(() => { const ps = this.session()?.feedbackPrompts ?? []; return ps.length > 0 && ps.every(p => p.myScore != null); });
   phaseTimerKey = computed(() => PHASE_TIMER[this.session()?.phase ?? '']);
   timer = computed(() => {
     const s = this.session(); if (!s?.liveStateJson) return null;
@@ -468,7 +567,8 @@ export class RetroBoardComponent implements OnInit, OnDestroy {
 
   newTitle = '';
   edit = { votes: 6, anon: true, d: { meeting: 3600, checkin: 180, capture: 480, introduceRead: 60, introduceTopic: 30, vote: 300, discussTopic: 120, reflect: 120 } };
-  newColumn = ''; newQuestion = '';
+  newColumn = ''; newQuestion = ''; newPrompt = '';
+  fbComments: Record<string, string> = {};
   manual = { title: '', assignees: [] as string[] };
   assigneeQuery = '';
   draft: Record<string, string> = {}; draftAnon: Record<string, boolean> = {};
@@ -489,10 +589,17 @@ export class RetroBoardComponent implements OnInit, OnDestroy {
   }
   ngOnDestroy() { this.leaveWs(); if (this.tick) clearInterval(this.tick); this.destroy$.next(); this.destroy$.complete(); }
 
-  private loadLobby() { this.svc.getOpenSessions().subscribe({ next: v => this.summaries.set(v), error: () => this.error.set('Could not load retros.') }); }
+  private loadLobby() { this.svc.getLobbySessions().subscribe({ next: v => this.summaries.set(v), error: () => this.error.set('Could not load retros.') }); }
+  private loadArchived() { this.svc.getArchivedSessions().subscribe({ next: v => this.archived.set(v) }); }
+  private reloadLists() { this.loadLobby(); if (this.showArchived()) this.loadArchived(); }
+  toggleArchived() { const next = !this.showArchived(); this.showArchived.set(next); if (next) this.loadArchived(); }
   private load(idOrSlug: string) { this.svc.join(idOrSlug).subscribe({ next: s => { this.setSession(s); this.joinWs(s.id); }, error: () => this.error.set('Could not open retro.') }); }
   private refresh(id: string) { this.svc.getSession(id).subscribe({ next: s => this.setSession(s) }); }
-  private setSession(s: RetroBoardSession) { this.session.set(s); this.edit.votes = s.votesPerUser; this.edit.anon = s.allowAnonymous; this.edit.d = { ...s.stepDurations }; }
+  private setSession(s: RetroBoardSession) {
+    this.session.set(s); this.edit.votes = s.votesPerUser; this.edit.anon = s.allowAnonymous; this.edit.d = { ...s.stepDurations };
+    // Seed local comment drafts once so in-progress typing survives WS refreshes.
+    for (const p of s.feedbackPrompts) if (this.fbComments[p.id] === undefined) this.fbComments[p.id] = p.myComment ?? '';
+  }
 
   create() {
     const t = this.newTitle.trim(); this.creating.set(true);
@@ -502,8 +609,16 @@ export class RetroBoardComponent implements OnInit, OnDestroy {
     });
   }
   open(id: string) { this.router.navigate(['/pulse/retro-board', id]); this.load(id); }
-  del(id: string, ev: Event) { ev.stopPropagation(); if (!confirm('Delete this draft retro? This cannot be undone.')) return; this.svc.deleteSession(id).subscribe({ next: () => this.loadLobby() }); }
-  leave() { this.leaveWs(); this.session.set(null); this.viewAs.set('facilitator'); this.router.navigate(['/pulse/retro-board']); this.loadLobby(); }
+  del(id: string, ev: Event) { ev.stopPropagation(); if (!confirm('Delete this retro permanently? This cannot be undone.')) return; this.svc.deleteSession(id).subscribe({ next: () => this.reloadLists() }); }
+  leave() { this.leaveWs(); this.session.set(null); this.viewAs.set('facilitator'); this.router.navigate(['/pulse/retro-board']); this.reloadLists(); }
+
+  // ---- lobby lifecycle actions ----
+  reopen(id: string, ev: Event) { ev.stopPropagation(); this.svc.reopen(id).subscribe({ next: () => this.reloadLists() }); }
+  archive(id: string, ev: Event) { ev.stopPropagation(); this.svc.archive(id).subscribe({ next: () => this.reloadLists() }); }
+  unarchive(id: string, ev: Event) { ev.stopPropagation(); this.svc.unarchive(id).subscribe({ next: () => this.reloadLists() }); }
+  // ---- in-session lifecycle actions ----
+  closeCurrent() { const s = this.session(); if (s && confirm('Close this retro? It will be marked closed. You can reopen or archive it anytime.')) this.svc.close(s.id).subscribe({ next: r => this.setSession(r) }); }
+  reopenCurrent() { const s = this.session(); if (s) this.svc.reopen(s.id).subscribe({ next: r => this.setSession(r) }); }
 
   private joinWs(id: string) { this.joinedId = id; const me = this.auth.me; this.ws.send({ type: 'join_retro', sessionId: id, memberName: me ? `${me.firstName} ${me.lastName}`.trim() : '' }); }
   private leaveWs() { if (this.joinedId) { this.ws.send({ type: 'leave_retro' }); this.joinedId = null; } }
@@ -526,6 +641,13 @@ export class RetroBoardComponent implements OnInit, OnDestroy {
   delQuestion(id: string) { const s = this.session(); if (s) this.svc.deleteCheckinQuestion(s.id, id).subscribe({ next: () => this.refresh(s.id) }); }
   respond(qid: string, rating: string) { const s = this.session(); if (s) this.svc.respondCheckin(s.id, qid, rating).subscribe({ next: () => this.refresh(s.id) }); }
   markDone(phase: string) { const s = this.session(); if (s) this.svc.setProgress(s.id, phase, true).subscribe({ next: () => this.refresh(s.id) }); }
+
+  addPrompt() { const s = this.session(); const v = this.newPrompt.trim(); if (!s || !v) return; this.svc.addFeedbackPrompt(s.id, { text: v }).subscribe({ next: () => { this.newPrompt = ''; this.refresh(s.id); } }); }
+  delPrompt(id: string) { const s = this.session(); if (s) this.svc.deleteFeedbackPrompt(s.id, id).subscribe({ next: () => this.refresh(s.id) }); }
+  rateFeedback(pid: string, score: number) { const s = this.session(); if (!s) return; this.svc.respondFeedback(s.id, pid, score, (this.fbComments[pid] || '').trim() || null).subscribe({ next: () => this.refresh(s.id) }); }
+  commentFeedback(pid: string) { const s = this.session(); const p = s?.feedbackPrompts.find(x => x.id === pid); if (!s || !p?.myScore) return; this.svc.respondFeedback(s.id, pid, p.myScore, (this.fbComments[pid] || '').trim() || null).subscribe({ next: () => this.refresh(s.id) }); }
+  avgFb(p: RetroBoardFeedbackPrompt) { return p.averageScore != null ? p.averageScore.toFixed(1) : '—'; }
+  distPct(p: RetroBoardFeedbackPrompt, star: number) { return p.responseCount ? (p.distribution[star - 1] / p.responseCount) * 100 : 0; }
 
   notesFor(colId: string) { return this.session()?.notes.filter(n => n.columnId === colId) ?? []; }
   masked(n: RetroBoardNote) { const s = this.session(); return this.viewAs() === 'participant' && !!s && s.phase === 'capture' && s.hideNotesUntilReveal && !s.notesRevealed && !n.isOwn; }

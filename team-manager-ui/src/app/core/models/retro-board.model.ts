@@ -82,6 +82,19 @@ export interface RetroBoardAiSummary {
   suggestedActions: string[];
 }
 
+export interface RetroBoardFeedbackPrompt {
+  id: string;
+  text: string;
+  sortOrder: number;
+  myScore: number | null;
+  myComment: string | null;
+  // Anonymous aggregate — only populated for facilitators.
+  responseCount: number;
+  averageScore: number | null;
+  distribution: number[];        // counts of each star value 1..5, index 0 = one star
+  comments: string[];
+}
+
 export interface RetroBoardSession {
   id: string;
   slug: string | null;
@@ -99,17 +112,20 @@ export interface RetroBoardSession {
   allowAnonymous: boolean;
   hideNotesUntilReveal: boolean;
   notesRevealed: boolean;
+  isArchived: boolean;
   stepDurations: RetroStepDurations;
   liveStateJson: string | null;
   aiSummary: RetroBoardAiSummary | null;
   createdAt: string;
   startedAt: string | null;
   closedAt: string | null;
+  archivedAt: string | null;
   columns: RetroBoardColumn[];
   notes: RetroBoardNote[];
   checkinQuestions: RetroBoardCheckinQuestion[];
   participants: RetroBoardParticipant[];
   actions: RetroBoardAction[];
+  feedbackPrompts: RetroBoardFeedbackPrompt[];
 }
 
 export interface RetroBoardSummary {
@@ -121,9 +137,12 @@ export interface RetroBoardSummary {
   squadName: string | null;
   createdByMemberId: string;
   createdByName: string;
+  isFacilitator: boolean;
+  isArchived: boolean;
   participantCount: number;
   noteCount: number;
   createdAt: string;
+  closedAt: string | null;
 }
 
 export interface RetroColumnInput {
@@ -137,4 +156,8 @@ export interface RetroColumnInput {
 export interface CheckinQuestionInput {
   text: string;
   contextText?: string | null;
+}
+
+export interface FeedbackPromptInput {
+  text: string;
 }

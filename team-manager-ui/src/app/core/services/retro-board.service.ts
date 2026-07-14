@@ -4,6 +4,7 @@ import { Observable } from 'rxjs';
 import {
   RetroBoardSession, RetroBoardSummary, RetroBoardColumn, RetroBoardCheckinQuestion,
   RetroBoardAction, RetroBoardAiSummary, RetroColumnInput, CheckinQuestionInput, RetroStepDurations,
+  RetroBoardFeedbackPrompt, FeedbackPromptInput,
 } from '../models/retro-board.model';
 
 @Injectable({ providedIn: 'root' })
@@ -12,15 +13,19 @@ export class RetroBoardService {
   private base = '/api/v1/retro-board';
 
   // ---- sessions ----
-  getOpenSessions(): Observable<RetroBoardSummary[]> {
+  // Lobby list: non-archived sessions (draft/live and recently closed).
+  getLobbySessions(): Observable<RetroBoardSummary[]> {
     return this.http.get<RetroBoardSummary[]>(this.base);
+  }
+  getArchivedSessions(): Observable<RetroBoardSummary[]> {
+    return this.http.get<RetroBoardSummary[]>(`${this.base}/archived`);
   }
   getSession(idOrSlug: string): Observable<RetroBoardSession> {
     return this.http.get<RetroBoardSession>(`${this.base}/${idOrSlug}`);
   }
   createSession(req: {
     title?: string; squadId?: string | null; sprintId?: string | null;
-    columns?: RetroColumnInput[]; checkinQuestions?: CheckinQuestionInput[];
+    columns?: RetroColumnInput[]; checkinQuestions?: CheckinQuestionInput[]; feedbackPrompts?: FeedbackPromptInput[];
     votesPerUser?: number; allowAnonymous?: boolean; hideNotesUntilReveal?: boolean;
     stepDurations?: RetroStepDurations; seedFromPreviousRetro?: boolean;
   }): Observable<RetroBoardSession> {
@@ -34,6 +39,18 @@ export class RetroBoardService {
   }
   setPhase(id: string, phase: string): Observable<RetroBoardSession> {
     return this.http.put<RetroBoardSession>(`${this.base}/${id}/phase`, { phase });
+  }
+  close(id: string): Observable<RetroBoardSession> {
+    return this.http.post<RetroBoardSession>(`${this.base}/${id}/close`, {});
+  }
+  reopen(id: string): Observable<RetroBoardSession> {
+    return this.http.post<RetroBoardSession>(`${this.base}/${id}/reopen`, {});
+  }
+  archive(id: string): Observable<void> {
+    return this.http.post<void>(`${this.base}/${id}/archive`, {});
+  }
+  unarchive(id: string): Observable<void> {
+    return this.http.post<void>(`${this.base}/${id}/unarchive`, {});
   }
   updateSettings(id: string, req: {
     votesPerUser?: number; allowAnonymous?: boolean; hideNotesUntilReveal?: boolean; stepDurations?: RetroStepDurations;
@@ -98,6 +115,17 @@ export class RetroBoardService {
   }
   respondCheckin(id: string, questionId: string, rating: string): Observable<void> {
     return this.http.post<void>(`${this.base}/${id}/checkin-questions/${questionId}/respond`, { rating });
+  }
+
+  // ---- feedback ----
+  addFeedbackPrompt(id: string, input: FeedbackPromptInput): Observable<RetroBoardFeedbackPrompt> {
+    return this.http.post<RetroBoardFeedbackPrompt>(`${this.base}/${id}/feedback-prompts`, input);
+  }
+  deleteFeedbackPrompt(id: string, promptId: string): Observable<void> {
+    return this.http.delete<void>(`${this.base}/${id}/feedback-prompts/${promptId}`);
+  }
+  respondFeedback(id: string, promptId: string, score: number, comment: string | null): Observable<void> {
+    return this.http.post<void>(`${this.base}/${id}/feedback-prompts/${promptId}/respond`, { score, comment });
   }
 
   // ---- actions ----

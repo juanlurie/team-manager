@@ -13,7 +13,20 @@ public class RetroBoardController(RetroBoardService service) : ControllerBase
     // ---------- Sessions ----------
 
     [HttpGet]
-    public async Task<IActionResult> GetOpenSessions() => Ok(await service.GetOpenSessionsAsync());
+    public async Task<IActionResult> GetLobbySessions()
+    {
+        var memberId = GetMemberId();
+        if (memberId is null) return Unauthorized();
+        return Ok(await service.GetLobbySessionsAsync(memberId.Value));
+    }
+
+    [HttpGet("archived")]
+    public async Task<IActionResult> GetArchivedSessions()
+    {
+        var memberId = GetMemberId();
+        if (memberId is null) return Unauthorized();
+        return Ok(await service.GetArchivedSessionsAsync(memberId.Value));
+    }
 
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] CreateRetroBoardSessionRequest request)
@@ -58,6 +71,32 @@ public class RetroBoardController(RetroBoardService service) : ControllerBase
         var dto = await service.SetPhaseAsync(id, memberId.Value, req.Phase);
         return dto is null ? NotFound() : Ok(dto);
     }
+
+    [HttpPost("{id:guid}/close")]
+    public async Task<IActionResult> Close(Guid id)
+    {
+        var memberId = GetMemberId();
+        if (memberId is null) return Unauthorized();
+        var dto = await service.CloseAsync(id, memberId.Value);
+        return dto is null ? NotFound() : Ok(dto);
+    }
+
+    [HttpPost("{id:guid}/reopen")]
+    public async Task<IActionResult> Reopen(Guid id)
+    {
+        var memberId = GetMemberId();
+        if (memberId is null) return Unauthorized();
+        var dto = await service.ReopenAsync(id, memberId.Value);
+        return dto is null ? NotFound() : Ok(dto);
+    }
+
+    [HttpPost("{id:guid}/archive")]
+    public async Task<IActionResult> Archive(Guid id) =>
+        await Guard(m => service.SetArchivedAsync(id, m, true));
+
+    [HttpPost("{id:guid}/unarchive")]
+    public async Task<IActionResult> Unarchive(Guid id) =>
+        await Guard(m => service.SetArchivedAsync(id, m, false));
 
     [HttpPatch("{id:guid}/settings")]
     public async Task<IActionResult> UpdateSettings(Guid id, [FromBody] UpdateRetroBoardSettingsRequest req) =>
