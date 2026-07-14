@@ -2,7 +2,7 @@ import { Component, OnInit, OnDestroy, inject, signal, computed, ChangeDetection
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
-import { Subject, takeUntil } from 'rxjs';
+import { Subject, EMPTY, takeUntil, debounceTime, switchMap, catchError } from 'rxjs';
 
 import { RetroBoardService } from '../../../core/services/retro-board.service';
 import { TeamMemberService } from '../../../core/services/team-member.service';
@@ -527,6 +527,9 @@ export class RetroBoardComponent implements OnInit, OnDestroy {
   private route = inject(ActivatedRoute);
   private router = inject(Router);
   private destroy$ = new Subject<void>();
+  // Coalesces refetches: bursts of rb_* events (and rapid local actions) collapse into a single
+  // full-session GET, and switchMap cancels any in-flight fetch so the latest result always wins.
+  private refresh$ = new Subject<string>();
 
   readonly phases = PHASES;
   readonly ratings = RATINGS;
@@ -578,6 +581,11 @@ export class RetroBoardComponent implements OnInit, OnDestroy {
   ngOnInit() {
     this.memberSvc.getAll({ isActive: true }).subscribe({ next: ms => this.members.set(ms.map(m => ({ id: m.id, name: `${m.firstName} ${m.lastName}`.trim() }))) });
     this.ws.connect();
+    this.refresh$.pipe(
+      debounceTime(150),
+      switchMap(id => this.svc.getSession(id).pipe(catchError(() => EMPTY))),
+      takeUntil(this.destroy$),
+    ).subscribe({ next: s => this.setSession(s) });
     this.ws.messages$.pipe(takeUntil(this.destroy$)).subscribe(msg => {
       if (!msg) return;
       const s = this.session();
@@ -594,7 +602,7 @@ export class RetroBoardComponent implements OnInit, OnDestroy {
   private reloadLists() { this.loadLobby(); if (this.showArchived()) this.loadArchived(); }
   toggleArchived() { const next = !this.showArchived(); this.showArchived.set(next); if (next) this.loadArchived(); }
   private load(idOrSlug: string) { this.svc.join(idOrSlug).subscribe({ next: s => { this.setSession(s); this.joinWs(s.id); }, error: () => this.error.set('Could not open retro.') }); }
-  private refresh(id: string) { this.svc.getSession(id).subscribe({ next: s => this.setSession(s) }); }
+  private refresh(id: string) { this.refresh$.next(id); }
   private setSession(s: RetroBoardSession) {
     this.session.set(s); this.edit.votes = s.votesPerUser; this.edit.anon = s.allowAnonymous; this.edit.d = { ...s.stepDurations };
     // Seed local comment drafts once so in-progress typing survives WS refreshes.
