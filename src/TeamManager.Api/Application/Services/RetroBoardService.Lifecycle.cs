@@ -172,13 +172,13 @@ public partial class RetroBoardService
         return RetroActionResult.Ok;
     }
 
-    public async Task<RetroActionResult> RevealNotesAsync(Guid sessionId, Guid memberId)
+    public async Task<RetroActionResult> RevealNotesAsync(Guid sessionId, Guid memberId, bool revealed = true)
     {
         var (guard, session) = await GuardAsync(sessionId, memberId, facilitatorOnly: true, blockClosed: true);
         if (guard != RetroActionResult.Ok) return guard;
-        session!.NotesRevealed = true;
+        session!.NotesRevealed = revealed;
         await db.SaveChangesAsync();
-        Broadcast(sessionId, "rb_revealed", new { sessionId });
+        Broadcast(sessionId, "rb_revealed", new { sessionId, revealed });
         return RetroActionResult.Ok;
     }
 

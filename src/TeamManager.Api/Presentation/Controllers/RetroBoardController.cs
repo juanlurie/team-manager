@@ -88,8 +88,8 @@ public class RetroBoardController(RetroBoardService service) : ControllerBase
         await Run(m => service.UpdateSettingsAsync(id, m, req));
 
     [HttpPost("{id:guid}/reveal")]
-    public async Task<IActionResult> Reveal(Guid id) =>
-        await Run(m => service.RevealNotesAsync(id, m));
+    public async Task<IActionResult> Reveal(Guid id, [FromQuery] bool revealed = true) =>
+        await Run(m => service.RevealNotesAsync(id, m, revealed));
 
     [HttpPut("{id:guid}/live-state")]
     public async Task<IActionResult> SetLiveState(Guid id, [FromBody] LiveStateRequest req) =>
