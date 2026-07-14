@@ -62,8 +62,8 @@ export class RetroBoardService {
   }): Observable<void> {
     return this.http.patch<void>(`${this.base}/${id}/settings`, req);
   }
-  reveal(id: string): Observable<void> {
-    return this.http.post<void>(`${this.base}/${id}/reveal`, {});
+  reveal(id: string, revealed = true): Observable<void> {
+    return this.http.post<void>(`${this.base}/${id}/reveal`, {}, { params: { revealed } });
   }
   setLiveState(id: string, liveStateJson: string | null): Observable<void> {
     return this.http.put<void>(`${this.base}/${id}/live-state`, { liveStateJson });

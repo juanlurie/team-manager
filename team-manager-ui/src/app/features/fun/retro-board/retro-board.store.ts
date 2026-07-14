@@ -78,6 +78,13 @@ export class RetroBoardStore implements OnDestroy {
   amFacilitator = computed(() => !!this.session()?.isFacilitator && this.viewAs() === 'facilitator');
   phaseIndex = computed(() => this.phases.findIndex(p => p.key === this.session()?.phase));
   flagged = computed(() => this.session()?.notes.filter(n => n.flagged) ?? []);
+  // Flagged notes grouped under their theme/column, in column order, skipping empty groups.
+  flaggedByColumn = computed(() => {
+    const by = this.notesByColumn();
+    return (this.session()?.columns ?? [])
+      .map(c => ({ column: c, notes: (by[c.id] ?? []).filter(n => n.flagged) }))
+      .filter(g => g.notes.length > 0);
+  });
   sortedByVotes = computed(() => [...(this.session()?.notes ?? [])].sort((a, b) => b.voteCount - a.voteCount));
   checkinDone = computed(() => !!this.session()?.participants.find(p => p.memberId === this.myId)?.completedPhases.includes('checkin'));
   feedbackDone = computed(() => { const ps = this.session()?.feedbackPrompts ?? []; return ps.length > 0 && ps.every(p => p.myScore != null); });
@@ -90,19 +97,28 @@ export class RetroBoardStore implements OnDestroy {
     return map;
   });
 
-  // Whether a countdown is configured; drives the 1s interval so it never runs in the lobby (PF5).
+  // Whether a countdown is actively ticking; drives the 1s interval so it never runs in the
+  // lobby (PF5) and stops while paused.
   private timerRunning = computed(() => {
     const s = this.session();
     if (!s?.liveStateJson) return false;
-    try { const st = JSON.parse(s.liveStateJson); return !!(st.startedAt && st.seconds); } catch { return false; }
+    try { const st = JSON.parse(s.liveStateJson); return !!(st.startedAt && st.seconds && !st.paused); } catch { return false; }
+  });
+
+  // True while the phase clock is paused (frozen remaining stored in `seconds`, no `startedAt`).
+  isPaused = computed(() => {
+    const s = this.session(); if (!s?.liveStateJson) return false;
+    try { return !!JSON.parse(s.liveStateJson).paused; } catch { return false; }
   });
 
   timer = computed(() => {
     const s = this.session(); if (!s?.liveStateJson) return null;
     const nowMs = this.timerNow();
     try {
-      const st = JSON.parse(s.liveStateJson) as { startedAt?: string; seconds?: number };
-      if (!st.startedAt || !st.seconds) return null;
+      const st = JSON.parse(s.liveStateJson) as { startedAt?: string | null; seconds?: number; paused?: boolean };
+      if (!st.seconds) return null;
+      // Paused: `seconds` holds the frozen remaining directly.
+      if (st.paused || !st.startedAt) return Math.max(0, Math.round(st.seconds));
       const rem = Math.round(st.seconds - (nowMs - new Date(st.startedAt).getTime()) / 1000);
       return rem > 0 ? rem : 0;
     } catch { return null; }
@@ -110,6 +126,9 @@ export class RetroBoardStore implements OnDestroy {
 
   newTitle = '';
   edit = { votes: 6, anon: true, d: { ...DEFAULT_STEP_DURATIONS } };
+  // Facilitator's estimate of how many topics will be discussed; the per-topic timers
+  // (intro + discuss) are multiplied by this for the Allocated/Remaining budget. UI-only.
+  topicEstimate = 5;
   newColumn = ''; newQuestion = ''; newPrompt = '';
   fbComments: Record<string, string> = {};
   manual = { title: '', assignees: [] as string[] };
@@ -193,10 +212,15 @@ export class RetroBoardStore implements OnDestroy {
   private autoStartTimer(s: RetroBoardSession) { const key = PHASE_TIMER[s.phase]; if (!key) return; this.svc.setLiveState(s.id, JSON.stringify({ startedAt: new Date(this.serverNow()).toISOString(), seconds: s.stepDurations[key] })).subscribe({ next: () => this.refresh(s.id) }); }
   saveSettings() { const s = this.session(); if (s) this.svc.updateSettings(s.id, { votesPerUser: this.edit.votes, allowAnonymous: this.edit.anon, stepDurations: this.edit.d }).subscribe({ next: () => this.refresh(s.id) }); }
   setTimer(key: keyof RetroBoardSession['stepDurations'], ev: Event) { this.edit.d[key] = this.parse((ev.target as HTMLInputElement).value); this.saveSettings(); }
-  reveal() { const s = this.session(); if (s) this.svc.reveal(s.id).subscribe({ next: () => this.refresh(s.id) }); }
+  reveal() { const s = this.session(); if (s) this.svc.reveal(s.id, true).subscribe({ next: () => this.refresh(s.id) }); }
+  // Undo an accidental reveal — re-hides notes from participants during Capture.
+  hideNotes() { const s = this.session(); if (s) this.svc.reveal(s.id, false).subscribe({ next: () => this.refresh(s.id) }); }
 
+  // Start (or restart) the current phase clock from its full configured duration.
   startTimer() { const s = this.session(); const key = this.phaseTimerKey(); if (!s || !key) return; this.svc.setLiveState(s.id, JSON.stringify({ startedAt: new Date(this.serverNow()).toISOString(), seconds: s.stepDurations[key] })).subscribe({ next: () => this.refresh(s.id) }); }
-  stopTimer() { const s = this.session(); if (s) this.svc.setLiveState(s.id, null).subscribe({ next: () => this.refresh(s.id) }); }
+  // Freeze the clock at its current remaining; Resume continues from there.
+  pauseTimer() { const s = this.session(); const rem = this.timer(); if (!s || rem === null) return; this.svc.setLiveState(s.id, JSON.stringify({ startedAt: null, seconds: rem, paused: true })).subscribe({ next: () => this.refresh(s.id) }); }
+  resumeTimer() { const s = this.session(); if (!s?.liveStateJson) return; let secs = 0; try { secs = JSON.parse(s.liveStateJson).seconds || 0; } catch { /* ignore */ } if (secs <= 0) return; this.svc.setLiveState(s.id, JSON.stringify({ startedAt: new Date(this.serverNow()).toISOString(), seconds: secs })).subscribe({ next: () => this.refresh(s.id) }); }
 
   setColor(columnId: string, color: string) { const s = this.session(); const c = s?.columns.find(x => x.id === columnId); if (s && c) this.svc.updateColumn(s.id, columnId, { label: c.label, description: c.description, color, icon: c.icon }).subscribe({ next: () => this.refresh(s.id) }); }
   addColumn() { const s = this.session(); const v = this.newColumn.trim(); if (!s || !v) return; this.svc.addColumn(s.id, { label: v, color: '#5b9dff', icon: 'star' }).subscribe({ next: () => { this.newColumn = ''; this.refresh(s.id); } }); }
@@ -219,6 +243,9 @@ export class RetroBoardStore implements OnDestroy {
   introducer(n: RetroBoardNote) { return n.isAnonymous ? 'facilitator' : this.shortName(n.authorName ?? '?'); }
   addNote(colId: string) { const s = this.session(); const v = (this.draft[colId] || '').trim(); if (!s || !v) return; this.svc.addNote(s.id, colId, v, !!this.draftAnon[colId]).subscribe({ next: r => { this.draft[colId] = ''; this.setSession(r); } }); }
   toggleFlag(n: RetroBoardNote) { const s = this.session(); if (s) this.svc.flagNote(s.id, n.id, !n.flagged).subscribe({ next: () => this.refresh(s.id) }); }
+  // Delete a note while the session is open (author or facilitator; server-enforced).
+  delNote(n: RetroBoardNote) { const s = this.session(); if (s && confirm('Delete this note?')) this.svc.deleteNote(s.id, n.id).subscribe({ next: () => this.refresh(s.id) }); }
+  canDelNote(n: RetroBoardNote) { return !this.masked(n) && (n.isOwn || this.amFacilitator()); }
 
   vote(n: { id: string }) { const s = this.session(); if (s) this.svc.addVote(s.id, n.id).subscribe({ next: () => this.refresh(s.id), error: () => {} }); }
   unvote(n: { id: string }) { const s = this.session(); if (s) this.svc.removeVote(s.id, n.id).subscribe({ next: () => this.refresh(s.id) }); }
@@ -234,7 +261,7 @@ export class RetroBoardStore implements OnDestroy {
 
   // ---- display helpers ----
   filterMembers(query: string, exclude: string[]): Member[] { const q = query.trim().toLowerCase(); if (!q) return []; return this.members().filter(m => !exclude.includes(m.id) && m.name.toLowerCase().includes(q)).slice(0, 6); }
-  allocated() { const d = this.edit.d; return d.checkin + d.capture + d.introduceRead + d.introduceTopic + d.vote + d.discussTopic + d.reflect; }
+  allocated() { const d = this.edit.d; const t = Math.max(0, this.topicEstimate || 0); return d.checkin + d.capture + d.introduceRead + d.vote + d.reflect + (d.introduceTopic + d.discussTopic) * t; }
   remaining() { return (this.edit.d.meeting || 0) - this.allocated(); }
   phaseLabel(p: string) { return this.phases.find(x => x.key === p)?.label ?? p; }
   memberName(id: string) { const m = this.members().find(x => x.id === id); if (m) return this.shortName(m.name); return this.shortName(this.session()?.participants.find(p => p.memberId === id)?.name ?? '?'); }

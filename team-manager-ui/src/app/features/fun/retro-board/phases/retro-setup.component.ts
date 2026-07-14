@@ -12,15 +12,21 @@ import { RETRO_STYLES } from '../retro-board.styles';
   styles: [RETRO_STYLES],
   template: `
     @if (store.session(); as s) {
-      <div class="row between"><div><h1>Retro Setup</h1><p class="sub">Configure this session before participants join</p></div>
+      <div class="phase-head"><div><h1>Retro Setup</h1><p class="sub">Configure this session before participants join</p></div>
         @if (store.amFacilitator()) { <button class="btn primary" (click)="store.goPhase('checkin')">Start Retro →</button> }</div>
 
       <div class="card">
         <div class="row" style="gap:24px">
           <div><label class="lbl">Votes / user</label><input class="f" style="width:70px" type="number" [(ngModel)]="store.edit.votes" (change)="store.saveSettings()" [disabled]="!store.amFacilitator()"></div>
           <label class="row" style="gap:8px;cursor:pointer"><input type="checkbox" [(ngModel)]="store.edit.anon" (change)="store.saveSettings()" [disabled]="!store.amFacilitator()"> Allow anonymous notes</label>
-          <div><label class="lbl">Meeting length (m:ss)</label><input class="f" style="width:90px" [ngModel]="store.fmt(store.edit.d.meeting)" (change)="store.setTimer('meeting', $event)" [disabled]="!store.amFacilitator()"></div>
         </div>
+
+        <label class="lbl" style="margin-top:18px">Meeting</label>
+        <div class="row" style="gap:24px">
+          <div><label class="lbl">Meeting length (m:ss)</label><input class="f" style="width:90px" [ngModel]="store.fmt(store.edit.d.meeting)" (change)="store.setTimer('meeting', $event)" [disabled]="!store.amFacilitator()"></div>
+          <div><label class="lbl">Topics to discuss (est.)</label><input class="f" style="width:80px" type="number" min="0" [(ngModel)]="store.topicEstimate" [disabled]="!store.amFacilitator()"></div>
+        </div>
+
         <label class="lbl" style="margin-top:18px">Phase timers (m:ss)</label>
         <div class="timers">
           @for (t of store.timerFields; track t.key) {
@@ -31,6 +37,7 @@ import { RETRO_STYLES } from '../retro-board.styles';
         <div class="budget">
           <span class="muted">Allocated <b style="color:var(--text)">{{ store.fmt(store.allocated()) }}</b></span>
           <span class="muted">Remaining <b [style.color]="store.remaining() < 0 ? '#f4566b' : '#34d67f'">{{ store.fmt(store.remaining()) }}</b></span>
+          <span class="muted">for <b style="color:var(--text)">{{ store.topicEstimate }}</b> topics (intro + discuss counted per topic)</span>
         </div>
       </div>
 

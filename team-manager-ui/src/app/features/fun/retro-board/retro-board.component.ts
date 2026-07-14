@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, ChangeDetectionStrategy } from '@angular/core';
+import { Component, OnInit, inject, signal, viewChild, ElementRef, HostListener, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute } from '@angular/router';
 
@@ -31,7 +31,7 @@ import { RetroSummaryComponent } from './phases/retro-summary.component';
   changeDetection: ChangeDetectionStrategy.OnPush,
   styles: [RETRO_STYLES],
   template: `
-  <div class="wrap">
+  <div class="wrap" [class.present]="presenting()" #board>
     @if (!store.session()) {
       <app-retro-lobby />
     }
@@ -39,18 +39,7 @@ import { RetroSummaryComponent } from './phases/retro-summary.component';
     @if (store.session(); as s) {
       <div class="topbar">
         <div class="brand">Retro<span>Board</span></div>
-        <div class="stepper">
-          @for (p of store.phases; track p.key; let i = $index) {
-            <button class="step" [class.active]="p.key===s.phase" [class.done]="i < store.phaseIndex()"
-                    [disabled]="!store.amFacilitator()" (click)="store.goPhase(p.key)">{{ p.label }}</button>
-            @if (i < store.phases.length-1) { <span class="sep">›</span> }
-          }
-        </div>
-        @if (store.timer() !== null) { <span class="clock" [class.low]="store.timer()! <= 15">⏱ {{ store.fmt(store.timer()!) }}</span> }
-        @if (store.amFacilitator() && store.phaseTimerKey()) {
-          @if (store.timer() === null) { <button class="btn ghost sm" (click)="store.startTimer()">▶ Start</button> }
-          @else { <button class="btn ghost sm" (click)="store.stopTimer()">■ Stop</button> }
-        }
+        <span class="grow"></span>
         @if (s.isFacilitator) {
           <div class="seg" title="Preview the participant experience">
             <button [class.on]="store.viewAs()==='facilitator'" (click)="store.viewAs.set('facilitator')">Facilitator</button>
@@ -62,13 +51,37 @@ import { RetroSummaryComponent } from './phases/retro-summary.component';
           @if (s.status==='closed') { <button class="btn ghost sm" (click)="store.reopenCurrent()">Reopen</button> }
           @else { <button class="btn ghost sm" (click)="store.closeCurrent()">Close retro</button> }
         }
+        <button class="btn ghost sm" (click)="toggleFullscreen()" title="Presentation view">{{ presenting() ? '⤡ Exit' : '⤢ Present' }}</button>
         <button class="btn ghost sm" (click)="store.leave()">Leave</button>
+      </div>
+
+      <div class="stepbar">
+        @for (p of store.phases; track p.key; let i = $index) {
+          <button class="step" [class.active]="p.key===s.phase" [class.done]="i < store.phaseIndex()"
+                  [disabled]="!store.amFacilitator()" (click)="store.goPhase(p.key)">{{ p.label }}</button>
+          @if (i < store.phases.length-1) { <span class="sep">›</span> }
+        }
       </div>
 
       @if (store.viewAs()==='participant') { <div class="live"><span class="dot"></span> Participant preview — following the facilitator (on <b>&nbsp;{{ store.phaseLabel(s.phase) }}</b>)</div> }
 
       <div class="body">
         <aside class="rail">
+          @if (store.phaseTimerKey() || store.timer() !== null) {
+            <div class="rail-timer">
+              @if (store.timer() !== null) { <span class="clock" [class.low]="store.timer()! <= 15" [class.idle]="store.isPaused()">⏱ {{ store.fmt(store.timer()!) }}</span> }
+              @else { <span class="clock idle">⏱ —:—</span> }
+              @if (store.isPaused()) { <span class="muted" style="font-size:12px">paused</span> }
+              @if (store.amFacilitator() && store.phaseTimerKey()) {
+                @if (store.timer() === null) { <button class="btn ghost sm" (click)="store.startTimer()">▶ Start</button> }
+                @else {
+                  @if (store.isPaused()) { <button class="btn ghost sm" (click)="store.resumeTimer()">▶ Resume</button> }
+                  @else { <button class="btn ghost sm" (click)="store.pauseTimer()">⏸ Pause</button> }
+                  <button class="btn ghost sm" (click)="store.startTimer()" title="Restart this phase timer">↻ Restart</button>
+                }
+              }
+            </div>
+          }
           <h4>Participants · {{ s.participants.length }}</h4>
           @for (p of s.participants; track p.id) {
             <div class="p-row">
@@ -101,7 +114,21 @@ export class RetroBoardComponent implements OnInit {
   store = inject(RetroBoardStore);
   private route = inject(ActivatedRoute);
 
+  /** True while the board is displayed fullscreen for presentation. */
+  presenting = signal(false);
+  private board = viewChild<ElementRef<HTMLElement>>('board');
+
   ngOnInit() {
     this.store.init(this.route.snapshot.paramMap.get('id'));
   }
+
+  /** Toggle browser fullscreen on the board shell for a projector-friendly presentation view. */
+  toggleFullscreen() {
+    if (document.fullscreenElement) document.exitFullscreen?.();
+    else this.board()?.nativeElement.requestFullscreen?.();
+  }
+
+  // Keep the flag in sync however fullscreen is exited (button, Esc, or OS chrome).
+  @HostListener('document:fullscreenchange')
+  onFullscreenChange() { this.presenting.set(!!document.fullscreenElement); }
 }

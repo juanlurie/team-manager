@@ -11,10 +11,15 @@ import { RETRO_STYLES } from '../retro-board.styles';
   styles: [RETRO_STYLES],
   template: `
     @if (store.session(); as s) {
-      <div class="row between"><div><h1>Introduce Topics</h1><p class="sub">Read the notes and flag anything that needs the owner to explain it</p></div>
+      <div class="phase-head"><div><h1>Introduce Topics</h1><p class="sub">Read the notes and flag anything that needs the owner to explain it</p></div>
         @if (store.amFacilitator()) { <button class="btn primary" (click)="store.goPhase('vote')">Continue to Vote →</button> }</div>
-      @if (store.flagged().length) { <div class="card" style="border-color:color-mix(in srgb,var(--flag) 40%, transparent)"><div style="color:var(--flag);font-size:12px;letter-spacing:.08em">{{ store.flagged().length }} FLAGGED TO DISCUSS</div>
-        @for (n of store.flagged(); track n.id) { <div style="margin-top:6px">• {{ n.text }} <span class="intro-by">— {{ store.introducer(n) }}</span></div> }</div> }
+      @if (store.flagged().length) { <div class="card" style="border-color:color-mix(in srgb,var(--flag) 40%, transparent)"><div style="color:var(--flag);font-size:12px;letter-spacing:.08em">{{ store.flagged().length }} FLAGGED TO INTRODUCE</div>
+        @for (g of store.flaggedByColumn(); track g.column.id) {
+          <div style="margin-top:12px">
+            <div style="font-weight:600;font-size:12.5px" [style.color]="g.column.color">{{ g.column.label }}</div>
+            @for (n of g.notes; track n.id) { <div style="margin-top:4px">• {{ n.text }} <span class="intro-by">— {{ store.introducer(n) }}</span></div> }
+          </div>
+        }</div> }
       <div class="cols">
         @for (c of s.columns; track c.id) {
           <div class="col" [style.borderColor]="c.color+'55'"><h3 [style.color]="c.color">{{ c.label }}</h3>
@@ -25,7 +30,7 @@ import { RETRO_STYLES } from '../retro-board.styles';
                 <div class="meta">
                   @if (n.isAnonymous) { <span class="muted">anon</span> } @else { <span>{{ n.authorName }}</span> }
                   @if (n.flagged) { <span class="intro-by">will introduce</span> }
-                  <span class="pill" [class.on]="n.flagged" (click)="store.toggleFlag(n)">⚑ {{ n.flagged ? 'Flagged to discuss' : 'Flag to discuss' }}</span>
+                  <span class="pill" [class.on]="n.flagged" (click)="store.toggleFlag(n)">⚑ {{ n.flagged ? 'Flagged to introduce' : 'Flag to introduce' }}</span>
                 </div>
               </div>
             }

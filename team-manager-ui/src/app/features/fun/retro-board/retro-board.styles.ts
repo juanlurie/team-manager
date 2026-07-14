@@ -7,7 +7,8 @@ export const RETRO_STYLES = `
     .wrap { background:var(--bg); min-height:100%; border-radius:14px; overflow:hidden; }
     .topbar { display:flex; align-items:center; gap:12px; padding:12px 18px; border-bottom:1px solid var(--border); flex-wrap:wrap; }
     .brand { font-weight:700; font-size:17px; } .brand span{ color:var(--accent); }
-    .stepper { display:flex; align-items:center; gap:2px; flex:1; overflow-x:auto; min-width:0; }
+    .grow { flex:1; }
+    .stepbar { display:flex; align-items:center; gap:2px; padding:9px 18px; border-bottom:1px solid var(--border); overflow-x:auto; }
     .step { border:0; background:none; color:var(--mute); font-size:12.5px; padding:6px 10px; border-radius:8px; white-space:nowrap; cursor:pointer; }
     .step.done { color:var(--dim); } .step.active { background:var(--accent); color:#fff; }
     .step:disabled { cursor:default; } .sep { color:var(--mute); opacity:.5; }
@@ -15,7 +16,9 @@ export const RETRO_STYLES = `
     .seg button { border:0; background:none; color:var(--dim); font-size:12px; font-weight:600; padding:5px 11px; border-radius:6px; cursor:pointer; }
     .seg button.on { background:var(--accent); color:#fff; }
     .clock { font-family:monospace; font-size:14px; padding:5px 10px; border:1px solid var(--border); border-radius:8px; }
-    .clock.low { color:#f4566b; border-color:#f4566b; }
+    .clock.low { color:#f4566b; border-color:#f4566b; } .clock.idle { color:var(--mute); }
+    .rail-timer { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:16px; }
+    .rail-timer .clock { font-size:16px; }
     .live { display:flex; align-items:center; gap:8px; padding:8px 18px; background:#171029; border-bottom:1px solid var(--border); font-size:13px; color:var(--dim); }
     .dot { width:8px; height:8px; border-radius:50%; background:#f4566b; }
     .body { display:grid; grid-template-columns:220px 1fr; min-height:500px; }
@@ -26,6 +29,9 @@ export const RETRO_STYLES = `
     .crown { margin-left:auto; color:#f5b544; font-size:12px; } .tick { margin-left:auto; color:#34d67f; }
     .main { padding:26px 30px; overflow-y:auto; }
     h1 { font-size:25px; margin:0 0 4px; } .sub { color:var(--dim); margin:0 0 22px; }
+    /* Phase header: title/sub-text on the left, primary action pinned top-right without wrapping under it. */
+    .phase-head { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; margin-bottom:8px; }
+    .phase-head > div:first-child { min-width:0; } .phase-head > .btn, .phase-head > .row { flex-shrink:0; }
     .row { display:flex; align-items:center; gap:12px; flex-wrap:wrap; } .between { justify-content:space-between; }
     .btn { border:1px solid transparent; border-radius:10px; font-weight:600; padding:10px 16px; background:var(--surface2); color:var(--text); cursor:pointer; font-size:14px; }
     .btn:hover { filter:brightness(1.15); } .btn.primary { background:var(--accent); color:#fff; } .btn.ghost { background:transparent; border-color:var(--border); color:var(--dim); }
@@ -69,6 +75,10 @@ export const RETRO_STYLES = `
     .bar-row { display:flex; align-items:center; gap:8px; margin:2px 0; }
     .bar-track { flex:1; height:8px; border-radius:4px; background:var(--surface2); overflow:hidden; }
     .bar-fill { display:block; height:100%; background:#f5b544; }
+    /* Presentation view — projector-friendly: fill the screen and scale text up. */
+    .wrap:fullscreen { border-radius:0; height:100vh; overflow-y:auto; }
+    .wrap.present .main { font-size:16.5px; } .wrap.present h1 { font-size:30px; }
+    .wrap.present .note { padding:14px 16px; } .wrap.present .seg { display:none; }
     @media (max-width: 760px) {
       .body { grid-template-columns:1fr; }
       .rail { border-right:0; border-bottom:1px solid var(--border); display:flex; gap:8px; overflow-x:auto; padding:10px; }
@@ -76,6 +86,6 @@ export const RETRO_STYLES = `
       .p-row span:not(.avatar) { font-size:11px; } .crown,.tick { margin:0; }
       .main { padding:18px 16px; } h1 { font-size:21px; }
       .cols, .g2, .g4, .timers { grid-template-columns:1fr !important; }
-      .stepper { order:3; width:100%; } .topbar { gap:8px; }
+      .stepbar { padding:8px 12px; } .topbar { gap:8px; }
     }
 `;

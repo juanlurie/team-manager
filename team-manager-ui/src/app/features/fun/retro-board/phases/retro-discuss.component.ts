@@ -12,7 +12,7 @@ import { RETRO_STYLES } from '../retro-board.styles';
   styles: [RETRO_STYLES],
   template: `
     @if (store.session(); as s) {
-      <div class="row between"><div><h1>Discuss</h1><p class="sub">Top-voted first — turn topics into action items</p></div>
+      <div class="phase-head"><div><h1>Discuss</h1><p class="sub">Top-voted first — turn topics into action items</p></div>
         @if (store.amFacilitator()) { <button class="btn primary" (click)="store.goPhase('reflect')">Continue to Reflect →</button> }</div>
       <div class="grid g2" style="align-items:start">
         <div>

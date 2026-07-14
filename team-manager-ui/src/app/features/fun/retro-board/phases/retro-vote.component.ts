@@ -11,7 +11,7 @@ import { RETRO_STYLES } from '../retro-board.styles';
   styles: [RETRO_STYLES],
   template: `
     @if (store.session(); as s) {
-      <div class="row between"><div><h1>Vote</h1><p class="sub">Up to 3 votes per topic — spend on what matters most</p></div>
+      <div class="phase-head"><div><h1>Vote</h1><p class="sub">Up to 3 votes per topic — spend on what matters most</p></div>
         @if (store.amFacilitator()) { <button class="btn primary" (click)="store.goPhase('discuss')">Continue to Discuss →</button> }</div>
       <div class="card row" style="gap:8px">You have <b>{{ s.votesPerUser - s.myVotesUsed }}</b> of <b>{{ s.votesPerUser }}</b> votes left</div>
       @for (c of s.columns; track c.id) {

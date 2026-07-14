@@ -11,7 +11,7 @@ import { RETRO_STYLES } from '../retro-board.styles';
   styles: [RETRO_STYLES],
   template: `
     @if (store.session(); as s) {
-      <div class="row between"><div><h1>Sprint Check-in</h1><p class="sub">Rate how things have changed since last retro</p></div>
+      <div class="phase-head"><div><h1>Sprint Check-in</h1><p class="sub">Rate how things have changed since last retro</p></div>
         @if (store.amFacilitator()) { <button class="btn primary" (click)="store.goPhase('capture')">Continue to Capture →</button> }</div>
       @for (q of s.checkinQuestions; track q.id) {
         <div class="card">

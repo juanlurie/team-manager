@@ -15,7 +15,6 @@ import { RETRO_STYLES } from '../retro-board.styles';
       <h1>RetroBoard</h1>
       <p class="sub">Start a new retrospective or join an open one.</p>
       <div class="card">
-        <label class="lbl">Retro name</label>
         <div class="row"><input class="f" [(ngModel)]="store.newTitle" placeholder="Sprint 8 Retrospective" (keydown.enter)="store.create()">
           <button class="btn primary" (click)="store.create()" [disabled]="store.creating()">Create</button></div>
       </div>

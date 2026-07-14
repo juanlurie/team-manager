@@ -11,7 +11,7 @@ import { RETRO_STYLES } from '../retro-board.styles';
   styles: [RETRO_STYLES],
   template: `
     @if (store.session(); as s) {
-      <div class="row between"><div><h1>Reflect</h1><p class="sub">AI synthesis of the board</p></div>
+      <div class="phase-head"><div><h1>Reflect</h1><p class="sub">AI synthesis of the board</p></div>
         @if (store.amFacilitator() && s.aiSummary) { <button class="btn primary" (click)="store.goPhase('summary')">Continue to Summary →</button> }</div>
       <div class="card">
         @if (!s.aiSummary) {
