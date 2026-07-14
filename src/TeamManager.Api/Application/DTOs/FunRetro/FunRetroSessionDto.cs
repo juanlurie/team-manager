@@ -27,6 +27,15 @@ public record FunRetroSessionDto
     public int? VotesPerUser { get; init; }
     public int MaxVotesPerCard { get; init; } = 1;
     public int MyVotesUsed { get; init; }
+    public FunRetroStepDurations? StepDurations { get; init; }
+}
+
+// Per-phase timer presets in seconds; null entry = no preset for that phase.
+public record FunRetroStepDurations
+{
+    public int? Add { get; init; }
+    public int? Vote { get; init; }
+    public int? Discuss { get; init; }
 }
 
 public record FunRetroTokenDto
@@ -180,6 +189,8 @@ public record CreateFunRetroSessionRequest
     // Facilitator opt-in vote caps. Null VotesPerUser = unlimited; MaxVotesPerCard defaults to 1.
     public int? VotesPerUser { get; init; } = 3;
     public int MaxVotesPerCard { get; init; } = 1;
+    // Optional per-phase timer presets (seconds) for add/vote/discuss.
+    public FunRetroStepDurations? StepDurations { get; init; }
 }
 
 public record AddFunRetroCardRequest

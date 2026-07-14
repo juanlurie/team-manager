@@ -39,6 +39,9 @@ public class FunRetroService(AppDbContext db, AiPromptExecutorService aiExecutor
             // cap defaults to 1 (today's toggle) and is bounded by the session budget when set.
             VotesPerUser = req.VotesPerUser is { } vpu ? Math.Clamp(vpu, 1, 99) : null,
             MaxVotesPerCard = Math.Clamp(req.MaxVotesPerCard, 1, req.VotesPerUser is { } b ? Math.Clamp(b, 1, 99) : 99),
+            StepDurationsJson = req.StepDurations is { } sd && (sd.Add is > 0 || sd.Vote is > 0 || sd.Discuss is > 0)
+                ? JsonSerializer.Serialize(sd, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase })
+                : null,
             Slug = await GenerateUniqueSlugAsync(),
         };
 
@@ -240,6 +243,9 @@ public class FunRetroService(AppDbContext db, AiPromptExecutorService aiExecutor
             VotesPerUser = session.VotesPerUser,
             MaxVotesPerCard = session.MaxVotesPerCard,
             MyVotesUsed = session.Cards.Sum(c => c.Votes.Count(v => v.VoterId == memberId)),
+            StepDurations = string.IsNullOrEmpty(session.StepDurationsJson)
+                ? null
+                : JsonSerializer.Deserialize<FunRetroStepDurations>(session.StepDurationsJson, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }),
             Tokens = session.Tokens
                 .OrderBy(t => t.CreatedAt)
                 .Select(t => new FunRetroTokenDto

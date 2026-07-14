@@ -15,6 +15,7 @@ export interface NewRetroDialogResult {
   hideCardsOnAdd: boolean;
   votesPerUser: number | null; // null = unlimited
   maxVotesPerCard: number;
+  stepDurations: { add?: number | null; vote?: number | null; discuss?: number | null } | null;
 }
 
 @Component({
@@ -156,6 +157,33 @@ export interface NewRetroDialogResult {
           </div>
         </div>
       }
+
+      <div class="setting-row">
+        <div>
+          <div class="setting-text">Phase timers</div>
+          <div class="setting-desc">Preset a timer length for each phase. When you open the timer in that phase it starts pre-filled. Total is your meeting budget.</div>
+        </div>
+        <div class="toggle-track" [class.on]="phaseTimers" (click)="phaseTimers = !phaseTimers">
+          <div class="toggle-thumb"></div>
+        </div>
+      </div>
+      @if (phaseTimers) {
+        <div style="display:flex;gap:12px">
+          <div style="flex:1">
+            <label class="field-label">Add (min)</label>
+            <input class="field" type="number" min="0" [(ngModel)]="addMinutes" />
+          </div>
+          <div style="flex:1">
+            <label class="field-label">Vote (min)</label>
+            <input class="field" type="number" min="0" [(ngModel)]="voteMinutes" />
+          </div>
+          <div style="flex:1">
+            <label class="field-label">Discuss (min)</label>
+            <input class="field" type="number" min="0" [(ngModel)]="discussMinutes" />
+          </div>
+        </div>
+        <div class="setting-desc" style="margin-bottom:8px">Meeting budget: {{ (addMinutes || 0) + (voteMinutes || 0) + (discussMinutes || 0) }} min</div>
+      }
     </mat-dialog-content>
     <mat-dialog-actions align="end" style="margin-top:8px">
       <button mat-button mat-dialog-close>Cancel</button>
@@ -177,6 +205,10 @@ export class NewRetroDialogComponent {
   limitVotes = true;
   votesPerUser = 3;
   maxVotesPerCard = 1;
+  phaseTimers = false;
+  addMinutes = 5;
+  voteMinutes = 3;
+  discussMinutes = 10;
 
   templateAccent(t: RetroTemplate): string {
     return t.columns[0]?.color ?? '#64b5f6';
@@ -198,6 +230,11 @@ export class NewRetroDialogComponent {
       hideCardsOnAdd: this.hideCardsOnAdd,
       votesPerUser: this.limitVotes ? Math.max(1, Math.min(99, this.votesPerUser || 1)) : null,
       maxVotesPerCard: this.limitVotes ? Math.max(1, Math.min(this.votesPerUser || 1, this.maxVotesPerCard || 1)) : 1,
+      stepDurations: this.phaseTimers ? {
+        add: Math.max(0, this.addMinutes || 0) * 60 || null,
+        vote: Math.max(0, this.voteMinutes || 0) * 60 || null,
+        discuss: Math.max(0, this.discussMinutes || 0) * 60 || null,
+      } : null,
     });
   }
 }

@@ -34,4 +34,7 @@ public class FunRetroSession
     // MaxVotesPerCard > 1 lets a member stack multiple votes on the same card.
     public int? VotesPerUser { get; set; } = 3;
     public int MaxVotesPerCard { get; set; } = 1;
+    // Facilitator opt-in per-phase timer presets (ported from RetroBoard's step durations), stored
+    // as { add, vote, discuss } seconds. Null = no presets; the meeting budget is their sum.
+    public string? StepDurationsJson { get; set; }
 }

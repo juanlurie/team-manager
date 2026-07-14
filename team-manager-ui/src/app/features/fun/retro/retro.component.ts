@@ -624,6 +624,8 @@ interface TimerState {
       transition:all 0.1s; display:flex; align-items:center; gap:4px;
     }
     .timer-btn:hover { background:rgba(255,255,255,0.08); color:rgba(255,255,255,0.95); border-color:rgba(255,255,255,0.25); }
+    .timer-btn-phase { border-color:rgba(100,181,246,0.5); color:#64b5f6; background:rgba(100,181,246,0.08); }
+    .timer-btn-phase:hover { background:rgba(100,181,246,0.18); color:#8fc7f8; border-color:rgba(100,181,246,0.7); }
     .timer-icon { font-size:18px; height:18px; width:18px; }
 
     /* Icebreaker */
@@ -820,6 +822,12 @@ interface TimerState {
                   @if (s.isCreator) {
                     <div class="timer-controls">
                       @if (!timer()) {
+                        @if (phasePresetSeconds(); as preset) {
+                          <button class="timer-btn timer-btn-phase" (click)="setTimerPreset(preset)">
+                            <mat-icon class="timer-icon">play_arrow</mat-icon>
+                            {{ preset / 60 }} min (this phase)
+                          </button>
+                        }
                         <button class="timer-btn" (click)="setTimerPreset(300)">5 min</button>
                         <button class="timer-btn" (click)="setTimerPreset(480)">8 min</button>
                         <button class="timer-btn" (click)="setTimerPreset(600)">10 min</button>
@@ -2746,6 +2754,15 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
     this.timerJustStartedTick.update(n => n + 1);
   }
 
+  // Configured timer preset (seconds) for the current phase, if the facilitator set phase timers.
+  phasePresetSeconds = computed<number | null>(() => {
+    const s = this.session();
+    const d = s?.stepDurations;
+    if (!s || !d) return null;
+    const v = d[s.phase as 'add' | 'vote' | 'discuss'];
+    return v && v > 0 ? v : null;
+  });
+
   formatTime(totalSecs: number): string {
     const s = Math.max(0, Math.floor(totalSecs));
     const m = Math.floor(s / 60);
@@ -2857,11 +2874,12 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
   private createSession(result: NewRetroDialogResult): void {
     this.creating.set(true);
     const template = RETRO_TEMPLATES.find(t => t.id === result.templateId);
-    const req: { title?: string; columns?: RetroColumn[]; icebreakerQuestion?: string; theme?: RetroTheme; canvasLayout?: RetroCanvasLayout; hideCardsOnAdd?: boolean; votesPerUser?: number | null; maxVotesPerCard?: number } = {
+    const req: { title?: string; columns?: RetroColumn[]; icebreakerQuestion?: string; theme?: RetroTheme; canvasLayout?: RetroCanvasLayout; hideCardsOnAdd?: boolean; votesPerUser?: number | null; maxVotesPerCard?: number; stepDurations?: { add?: number | null; vote?: number | null; discuss?: number | null } | null } = {
       columns: template?.columns ?? DEFAULT_COLS,
       hideCardsOnAdd: result.hideCardsOnAdd,
       votesPerUser: result.votesPerUser,
       maxVotesPerCard: result.maxVotesPerCard,
+      stepDurations: result.stepDurations,
     };
     if (result.title) req.title = result.title;
     if (result.icebreakerQuestion) req.icebreakerQuestion = result.icebreakerQuestion;

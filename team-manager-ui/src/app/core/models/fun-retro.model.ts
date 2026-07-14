@@ -95,6 +95,14 @@ export interface FunRetroSession {
   votesPerUser: number | null; // null = unlimited session budget
   maxVotesPerCard: number;     // 1 = classic one-vote-per-card toggle
   myVotesUsed: number;
+  stepDurations: FunRetroStepDurations | null;
+}
+
+// Per-phase timer presets in seconds; missing entry = no preset for that phase.
+export interface FunRetroStepDurations {
+  add?: number | null;
+  vote?: number | null;
+  discuss?: number | null;
 }
 
 // A fixed built-in id, a RetroCustomTheme's guid (string) from the shared library, or null.
