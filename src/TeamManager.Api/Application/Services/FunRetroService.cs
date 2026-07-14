@@ -125,6 +125,18 @@ public class FunRetroService(AppDbContext db, AiPromptExecutorService aiExecutor
         // the creator's manual one-shot reveal. Your own cards are always visible to you.
         var isAddPhase = session.Phase == "add";
 
+        // Resolve action-card assignees to names/avatars in one lookup across all cards.
+        var assigneeIds = session.Cards
+            .SelectMany(c => ParseGuidList(c.AssigneeMemberIdsJson))
+            .Distinct()
+            .ToList();
+        var assigneeLookup = assigneeIds.Count == 0
+            ? new Dictionary<Guid, FunRetroAssigneeDto>()
+            : await db.TeamMembers
+                .Where(m => assigneeIds.Contains(m.Id))
+                .Select(m => new FunRetroAssigneeDto { MemberId = m.Id, Name = (m.FirstName + " " + m.LastName).Trim(), AvatarSeed = m.AvatarSeed })
+                .ToDictionaryAsync(m => m.MemberId);
+
         var cardDtos = session.Cards
             .OrderBy(c => c.CreatedAt)
             .Select(c =>
@@ -161,6 +173,10 @@ public class FunRetroService(AppDbContext db, AiPromptExecutorService aiExecutor
                     Color = c.Color,
                     GroupId = c.GroupId,
                     CommentCount = c.Comments.Count,
+                    Assignees = ParseGuidList(c.AssigneeMemberIdsJson)
+                        .Where(assigneeLookup.ContainsKey)
+                        .Select(id => assigneeLookup[id])
+                        .ToList(),
                 };
             })
             .ToList();
@@ -487,6 +503,36 @@ public class FunRetroService(AppDbContext db, AiPromptExecutorService aiExecutor
             new { sessionId, count, card = cardDto });
 
         return await GetSessionAsync(sessionId, memberId);
+    }
+
+    /// <summary>Set the assignees on an action card (multi-assignee, ported from RetroBoard). The
+    /// card author or the session creator may edit assignees. Invalid/unknown member ids are dropped.</summary>
+    public async Task<(bool ok, string? error)> SetAssigneesAsync(Guid sessionId, Guid cardId, Guid memberId, List<Guid> memberIds)
+    {
+        var card = await db.FunRetroCards
+            .Include(c => c.Session)
+            .FirstOrDefaultAsync(c => c.Id == cardId && c.SessionId == sessionId);
+        if (card is null) return (false, "Card not found.");
+        if (card.AuthorId != memberId && card.Session.CreatedByMemberId != memberId)
+            return (false, "Only the card author or the retro creator can assign this card.");
+
+        var valid = memberIds.Count == 0
+            ? new List<Guid>()
+            : await db.TeamMembers.Where(m => memberIds.Contains(m.Id)).Select(m => m.Id).ToListAsync();
+        card.AssigneeMemberIdsJson = valid.Count == 0
+            ? null
+            : JsonSerializer.Serialize(valid, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
+        await db.SaveChangesAsync();
+
+        _ = WebSocketMiddleware.BroadcastToRetroSessionAsync("fun_retro_card_updated", sessionId.ToString(), new { sessionId, cardId });
+        return (true, null);
+    }
+
+    private static List<Guid> ParseGuidList(string? json)
+    {
+        if (string.IsNullOrEmpty(json)) return [];
+        try { return JsonSerializer.Deserialize<List<Guid>>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? []; }
+        catch { return []; }
     }
 
     public async Task<bool> DeleteCardAsync(Guid sessionId, Guid cardId, Guid memberId)

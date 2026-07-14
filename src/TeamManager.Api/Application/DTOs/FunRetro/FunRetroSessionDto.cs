@@ -104,6 +104,19 @@ public record FunRetroCardDto
     public string? Color { get; init; }
     public Guid? GroupId { get; init; }
     public int CommentCount { get; init; }
+    public List<FunRetroAssigneeDto> Assignees { get; init; } = [];
+}
+
+public record FunRetroAssigneeDto
+{
+    public Guid MemberId { get; init; }
+    public string Name { get; init; } = "";
+    public string? AvatarSeed { get; init; }
+}
+
+public record SetFunRetroAssigneesRequest
+{
+    public List<Guid> MemberIds { get; init; } = [];
 }
 
 public record FunRetroCardCommentDto

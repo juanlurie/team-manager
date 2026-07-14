@@ -96,6 +96,17 @@ public class FunRetroController(FunRetroService service, PollService pollService
         return Ok();
     }
 
+    [HttpPut("{id:guid}/cards/{cardId:guid}/assignees")]
+    public async Task<IActionResult> SetAssignees(Guid id, Guid cardId, [FromBody] SetFunRetroAssigneesRequest request)
+    {
+        var memberId = GetCurrentMemberId();
+        if (!memberId.HasValue) return Unauthorized();
+
+        var (ok, error) = await service.SetAssigneesAsync(id, cardId, memberId.Value, request.MemberIds);
+        if (!ok) return Conflict(new { error });
+        return Ok();
+    }
+
     [HttpPost("{id:guid}/cards/{cardId:guid}/react")]
     public async Task<IActionResult> ToggleReaction(Guid id, Guid cardId, [FromBody] ReactRequest request)
     {

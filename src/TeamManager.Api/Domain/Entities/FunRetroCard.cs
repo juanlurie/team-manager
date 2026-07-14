@@ -13,6 +13,9 @@ public class FunRetroCard
     public double? PositionY { get; set; }
     public string? Color { get; set; }
     public Guid? GroupId { get; set; }
+    // JSON array of TeamMember ids assigned to this card. Only meaningful for "action" cards;
+    // ported from RetroBoard's multi-assignee actions. Null/empty = unassigned.
+    public string? AssigneeMemberIdsJson { get; set; }
     public FunRetroSession Session { get; set; } = null!;
     public TeamMember Author { get; set; } = null!;
     public ICollection<FunRetroVote> Votes { get; set; } = [];

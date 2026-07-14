@@ -268,6 +268,13 @@ const REACTION_EMOJIS = ['👍', '❤️', '😂', '🎉', '🤔'];
     .sticky-vinc-btn:hover:not(:disabled) { background:rgba(230,81,0,0.12);border-color:rgba(230,81,0,0.4);color:#e65100; }
     .sticky-vdec-btn:hover:not(:disabled) { background:rgba(0,0,0,0.06);color:rgba(0,0,0,0.65); }
     .sticky-vinc-btn:disabled, .sticky-vdec-btn:disabled { opacity:0.25;cursor:default; }
+    .sticky-assignees { display:flex;align-items:center;gap:3px;flex-wrap:wrap;margin-top:4px; }
+    .sticky-assign-btn {
+      display:inline-flex;align-items:center;justify-content:center;
+      width:20px;height:20px;border-radius:50%;
+      border:1px dashed rgba(0,0,0,0.3);background:transparent;color:rgba(0,0,0,0.5);cursor:pointer;padding:0;
+    }
+    .sticky-assign-btn mat-icon { font-size:14px;width:14px;height:14px; }
     .sticky-reactions { display:flex;gap:3px;flex-wrap:wrap;margin-top:4px; }
     .sticky-reaction-btn {
       display:inline-flex;align-items:center;gap:2px;
@@ -410,6 +417,18 @@ const REACTION_EMOJIS = ['👍', '❤️', '😂', '🎉', '🤔'];
                     <button class="sticky-reaction-btn" [class.reacted]="getReaction(item.card, emoji)?.mine"
                             (mousedown)="$event.stopPropagation()" (click)="reactionToggled.emit({ card: item.card, emoji })">
                       {{ emoji }} @if (getReactionCount(item.card, emoji) > 0) { <span>{{ getReactionCount(item.card, emoji) }}</span> }
+                    </button>
+                  }
+                </div>
+              }
+              @if (item.card.column === 'action' && (item.card.assignees.length > 0 || s?.phase === 'discuss' || s?.phase === 'done')) {
+                <div class="sticky-assignees" (mousedown)="$event.stopPropagation()">
+                  @for (a of item.card.assignees; track a.memberId) {
+                    <app-avatar-circle [memberId]="a.memberId" [name]="a.name" [avatarSeed]="a.avatarSeed" [size]="18" [title]="a.name" />
+                  }
+                  @if (s?.phase === 'discuss' || s?.phase === 'done') {
+                    <button class="sticky-assign-btn" title="Assign people" (click)="assignRequested.emit(item.card)">
+                      <mat-icon>person_add</mat-icon>
                     </button>
                   }
                 </div>
@@ -602,6 +621,7 @@ export class RetroSingleCanvasComponent implements AfterViewInit {
   selectedCardId = input<string | null>(null);
 
   voteToggled = output<{ card: FunRetroCard; remove: boolean }>();
+  assignRequested = output<FunRetroCard>();
   reactionToggled = output<{ card: FunRetroCard; emoji: string }>();
   editStarted = output<FunRetroCard>();
   editTextChanged = output<string>();

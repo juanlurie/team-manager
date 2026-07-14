@@ -22,6 +22,13 @@ export interface FunRetroCard {
   color: string | null;
   groupId: string | null;
   commentCount: number;
+  assignees: FunRetroAssignee[];
+}
+
+export interface FunRetroAssignee {
+  memberId: string;
+  name: string;
+  avatarSeed: string | null;
 }
 
 export interface FunRetroCardComment {

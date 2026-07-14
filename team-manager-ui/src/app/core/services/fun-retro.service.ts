@@ -44,6 +44,10 @@ export class FunRetroService {
     return this.http.post<void>(`${this.base}/${sessionId}/cards/${cardId}/react`, { emoji });
   }
 
+  setAssignees(sessionId: string, cardId: string, memberIds: string[]): Observable<void> {
+    return this.http.put<void>(`${this.base}/${sessionId}/cards/${cardId}/assignees`, { memberIds });
+  }
+
   updateCardPosition(sessionId: string, cardId: string, x: number, y: number): Observable<void> {
     return this.http.patch<void>(`${this.base}/${sessionId}/cards/${cardId}/position`, { x, y });
   }

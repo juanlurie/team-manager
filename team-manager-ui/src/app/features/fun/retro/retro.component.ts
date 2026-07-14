@@ -12,6 +12,8 @@ import { Subject, Subscription } from 'rxjs';
 import { takeUntil, filter, take } from 'rxjs/operators';
 import { Router, ActivatedRoute } from '@angular/router';
 import { FunRetroService } from '../../../core/services/fun-retro.service';
+import { TeamMemberService } from '../../../core/services/team-member.service';
+import { TeamMember } from '../../../core/models/team-member.model';
 import { RetroThemeLibraryService } from '../../../core/services/retro-theme-library.service';
 import { FunRetroAnalysis, FunRetroSession, FunRetroSessionSummary, FunRetroCard, RetroColumn, RetroTheme, RetroCanvasLayout, FunRetroCardComment, FunRetroToken, FunRetroTokenSize, RetroCustomTheme } from '../../../core/models/fun-retro.model';
 import { WebSocketService } from '../../../core/websocket/websocket.service';
@@ -1245,6 +1247,7 @@ interface TimerState {
             [resolveThemeUrl]="themeBgUrlFn"
             [resolveThemeStyle]="themeBgStyleFn"
             (voteToggled)="toggleVote($event.card, $event.remove)"
+            (assignRequested)="openAssignPicker($event)"
             (reactionToggled)="toggleReaction($event.card, $event.emoji)"
             (editStarted)="startEditCard($event)"
             (editTextChanged)="editingText.set($event)"
@@ -1444,7 +1447,10 @@ interface TimerState {
 })
 export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
   private svc = inject(FunRetroService);
+  private teamMemberSvc = inject(TeamMemberService);
   private wsSvc = inject(WebSocketService);
+  // Active team members, loaded lazily the first time the assignee picker is opened.
+  private allMembers = signal<TeamMember[]>([]);
   authSvc = inject(AuthService);
   private pollSvc = inject(PollService);
   private dialog = inject(MatDialog);
@@ -2208,6 +2214,10 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
             this.silentRefresh();
           }
           break;
+        case 'fun_retro_card_updated':
+          // Assignee changes and other card-field edits: simplest correct path is a refetch.
+          if (msg.data['sessionId'] === s.id) this.silentRefresh();
+          break;
         case 'fun_retro_card_text_updated':
           if (msg.data['sessionId'] === s.id) {
             const cardId = msg.data['cardId'] as string;
@@ -2760,6 +2770,47 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
         this.submittingIcebreaker.set(false);
         this.snackBar.open('Failed to submit answer', 'OK', { duration: 3000 });
       }
+    });
+  }
+
+  // ── Action assignees ──
+  async openAssignPicker(card: FunRetroCard): Promise<void> {
+    const s = this.session();
+    if (!s) return;
+    if (this.dialog.openDialogs.length > 0) return;
+
+    // Load the active roster once, then reuse it for later opens.
+    if (this.allMembers().length === 0) {
+      try {
+        const members = await new Promise<TeamMember[]>((resolve, reject) =>
+          this.teamMemberSvc.getAll({ isActive: true }).subscribe({ next: resolve, error: reject }));
+        this.allMembers.set(members);
+      } catch {
+        this.snackBar.open('Failed to load team members', 'OK', { duration: 3000 });
+        return;
+      }
+    }
+
+    const preSelectedMembers = this.allMembers().filter(m => card.assignees.some(a => a.memberId === m.id));
+    const { KPickerDialogComponent } = await import('../../../core/components/k-picker/k-picker-dialog.component');
+    const ref = this.dialog.open(KPickerDialogComponent, {
+      width: '852px', maxWidth: '95vw', panelClass: 'k-picker-panel', backdropClass: 'k-picker-backdrop',
+      disableClose: true, autoFocus: '.k-search-input',
+      data: { preSelectedMembers, mode: 'multi', title: 'Assign action' },
+    });
+    ref.afterClosed().subscribe((result?: { selectedMembers: TeamMember[] }) => {
+      if (!result) return;
+      const ids = result.selectedMembers.map(m => m.id);
+      // Optimistic local patch; the fun_retro_card_updated broadcast reconciles everyone else.
+      this.session.update(cur => cur
+        ? { ...cur, cards: cur.cards.map(c => c.id === card.id
+            ? { ...c, assignees: result.selectedMembers.map(m => ({ memberId: m.id, name: `${m.firstName} ${m.lastName}`.trim(), avatarSeed: m.avatarSeed })) }
+            : c) }
+        : cur);
+      this.invalidateInFlightRefresh();
+      this.svc.setAssignees(s.id, card.id, ids).subscribe({
+        error: () => { this.silentRefresh(); this.snackBar.open('Failed to update assignees', 'OK', { duration: 3000 }); }
+      });
     });
   }
 
