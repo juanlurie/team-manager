@@ -12,6 +12,13 @@ export interface RetroStepDurations {
   reflect: number;
 }
 
+/** Single frontend source for placeholder step durations, used only until a session's real
+ *  values (the server defaults) arrive. Mirrors the C# RetroStepDurations defaults. */
+export const DEFAULT_STEP_DURATIONS: RetroStepDurations = {
+  meeting: 3600, checkin: 180, capture: 480, introduceRead: 60,
+  introduceTopic: 30, vote: 300, discussTopic: 120, reflect: 120,
+};
+
 export interface RetroBoardColumn {
   id: string;
   key: string;

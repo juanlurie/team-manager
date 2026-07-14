@@ -1,5 +1,5 @@
 import { Injectable, inject } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpResponse } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import {
   RetroBoardSession, RetroBoardSummary, RetroBoardColumn, RetroBoardCheckinQuestion,
@@ -22,6 +22,11 @@ export class RetroBoardService {
   }
   getSession(idOrSlug: string): Observable<RetroBoardSession> {
     return this.http.get<RetroBoardSession>(`${this.base}/${idOrSlug}`);
+  }
+  /** Full response variant so callers can read the server `Date` header and correct clock skew
+   *  on the live countdowns (see the store's serverOffset). */
+  getSessionResponse(idOrSlug: string): Observable<HttpResponse<RetroBoardSession>> {
+    return this.http.get<RetroBoardSession>(`${this.base}/${idOrSlug}`, { observe: 'response' });
   }
   createSession(req: {
     title?: string; squadId?: string | null; sprintId?: string | null;
