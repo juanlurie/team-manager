@@ -213,6 +213,7 @@ public record LiveStateRequest { public string? LiveStateJson { get; init; } }
 public record NoteTextRequest { public string Text { get; init; } = ""; }
 public record ClarifyRequest { public string? Clarification { get; init; } }
 public record FlagRequest { public bool Flagged { get; init; } }
+public record IntroducedRequest { public bool Introduced { get; init; } }
 public record CheckinResponseRequest { public string Rating { get; init; } = ""; }
 public record FeedbackPromptInput { public string Text { get; init; } = ""; }
 public record FeedbackResponseRequest { public int Score { get; init; } public string? Comment { get; init; } }

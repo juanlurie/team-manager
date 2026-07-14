@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using TeamManager.Api.Application.DTOs.RetroBoard;
+using TeamManager.Api.Application.Realtime;
 using TeamManager.Api.Application.Services;
 using TeamManager.Api.Domain.Entities;
 using TeamManager.Api.Domain.Enums;
@@ -7,6 +8,13 @@ using TeamManager.Api.Infrastructure.Data;
 using Xunit;
 
 namespace TeamManager.Tests;
+
+/// <summary>No-op broadcaster so the service under test needs no WebSocket transport.</summary>
+internal sealed class NullRetroBroadcaster : IRetroBroadcaster
+{
+    public void ToSession(Guid sessionId, string type, object? data = null) { }
+    public void Global(string type, object data, bool guestAllowed = false) { }
+}
 
 /// <summary>
 /// Guards the high-risk RetroBoard invariants: feedback anonymity, score validation/upsert,
@@ -21,7 +29,7 @@ public class RetroBoardServiceTests
             .UseInMemoryDatabase($"rb-{Guid.NewGuid()}")
             .Options);
 
-    private static RetroBoardService Svc(AppDbContext db) => new(db, new AiPromptExecutorService(db));
+    private static RetroBoardService Svc(AppDbContext db) => new(db, new AiPromptExecutorService(db), new NullRetroBroadcaster());
 
     private static TeamMember Member(string first = "Test") =>
         new()
@@ -95,8 +103,8 @@ public class RetroBoardServiceTests
         db.RetroBoardFeedbackPrompts.Add(prompt);
         await db.SaveChangesAsync();
 
-        var ok = await Svc(db).RespondFeedbackAsync(s.Id, m.Id, prompt.Id, score, null);
-        Assert.Equal(expectedOk, ok);
+        var result = await Svc(db).RespondFeedbackAsync(s.Id, m.Id, prompt.Id, score, null);
+        Assert.Equal(expectedOk, result == RetroActionResult.Ok);
     }
 
     [Fact]
@@ -112,8 +120,8 @@ public class RetroBoardServiceTests
         await db.SaveChangesAsync();
         var svc = Svc(db);
 
-        Assert.True(await svc.RespondFeedbackAsync(s.Id, m.Id, prompt.Id, 3, "first"));
-        Assert.True(await svc.RespondFeedbackAsync(s.Id, m.Id, prompt.Id, 5, "changed my mind"));
+        Assert.Equal(RetroActionResult.Ok, await svc.RespondFeedbackAsync(s.Id, m.Id, prompt.Id, 3, "first"));
+        Assert.Equal(RetroActionResult.Ok, await svc.RespondFeedbackAsync(s.Id, m.Id, prompt.Id, 5, "changed my mind"));
 
         var rows = await db.RetroBoardFeedbackResponses.Where(r => r.RetroBoardFeedbackPromptId == prompt.Id).ToListAsync();
         Assert.Single(rows);
@@ -135,13 +143,15 @@ public class RetroBoardServiceTests
         await db.SaveChangesAsync();
         var svc = Svc(db);
 
-        var closed = await svc.CloseAsync(s.Id, m.Id);
+        var (closeResult, closed) = await svc.CloseAsync(s.Id, m.Id);
+        Assert.Equal(RetroActionResult.Ok, closeResult);
         Assert.Equal("closed", closed!.Status);
         Assert.NotNull(closed.ClosedAt);
 
-        Assert.True(await svc.SetArchivedAsync(s.Id, m.Id, true));
+        Assert.Equal(RetroActionResult.Ok, await svc.SetArchivedAsync(s.Id, m.Id, true));
 
-        var reopened = await svc.ReopenAsync(s.Id, m.Id);
+        var (reopenResult, reopened) = await svc.ReopenAsync(s.Id, m.Id);
+        Assert.Equal(RetroActionResult.Ok, reopenResult);
         Assert.Equal("live", reopened!.Status);
         Assert.Null(reopened.ClosedAt);
         Assert.False(reopened.IsArchived);
@@ -157,7 +167,8 @@ public class RetroBoardServiceTests
         db.RetroBoardSessions.Add(s);
         await db.SaveChangesAsync();
 
-        var reopened = await Svc(db).ReopenAsync(s.Id, m.Id);
+        var (reopenResult, reopened) = await Svc(db).ReopenAsync(s.Id, m.Id);
+        Assert.Equal(RetroActionResult.Ok, reopenResult);
         Assert.Equal("draft", reopened!.Status);
     }
 
@@ -179,13 +190,126 @@ public class RetroBoardServiceTests
         var svc = Svc(db);
 
         // While live, a note can be added.
-        Assert.NotNull(await svc.AddNoteAsync(s.Id, m.Id, new AddRetroBoardNoteRequest { ColumnId = col.Id, Text = "hi" }));
+        var (liveResult, liveSnapshot) = await svc.AddNoteAsync(s.Id, m.Id, new AddRetroBoardNoteRequest { ColumnId = col.Id, Text = "hi" });
+        Assert.Equal(RetroActionResult.Ok, liveResult);
+        Assert.NotNull(liveSnapshot);
 
         await svc.CloseAsync(s.Id, m.Id);
 
         // Board mutation is blocked once closed…
-        Assert.Null(await svc.AddNoteAsync(s.Id, m.Id, new AddRetroBoardNoteRequest { ColumnId = col.Id, Text = "nope" }));
+        var (closedResult, _) = await svc.AddNoteAsync(s.Id, m.Id, new AddRetroBoardNoteRequest { ColumnId = col.Id, Text = "nope" });
+        Assert.Equal(RetroActionResult.Closed, closedResult);
         // …but post-retro feedback is still accepted.
-        Assert.True(await svc.RespondFeedbackAsync(s.Id, m.Id, prompt.Id, 4, "still fine"));
+        Assert.Equal(RetroActionResult.Ok, await svc.RespondFeedbackAsync(s.Id, m.Id, prompt.Id, 4, "still fine"));
+    }
+
+    // ---- Membership gating (A4) ----
+
+    [Fact]
+    public async Task Non_participant_cannot_add_notes_or_submit_feedback()
+    {
+        using var db = NewDb();
+        var creator = Member("Creator");
+        var outsider = Member("Outsider");          // a colleague who never joined this retro
+        db.TeamMembers.AddRange(creator, outsider);
+        var s = Session(creator.Id, status: "live");
+        db.RetroBoardSessions.Add(s);
+        var col = new RetroBoardColumn { Id = Guid.NewGuid(), RetroBoardSessionId = s.Id, Key = "well", Label = "Well", Color = "#fff", Icon = "star", SortOrder = 0 };
+        db.RetroBoardColumns.Add(col);
+        var prompt = new RetroBoardFeedbackPrompt { Id = Guid.NewGuid(), RetroBoardSessionId = s.Id, Text = "Flow" };
+        db.RetroBoardFeedbackPrompts.Add(prompt);
+        await db.SaveChangesAsync();
+        var svc = Svc(db);
+
+        var (noteResult, _) = await svc.AddNoteAsync(s.Id, outsider.Id, new AddRetroBoardNoteRequest { ColumnId = col.Id, Text = "sneaky" });
+        Assert.Equal(RetroActionResult.Forbidden, noteResult);
+        // The aggregate must not be poisonable by a non-participant.
+        Assert.Equal(RetroActionResult.Forbidden, await svc.RespondFeedbackAsync(s.Id, outsider.Id, prompt.Id, 1, "drive-by"));
+    }
+
+    [Fact]
+    public async Task Participant_cannot_perform_facilitator_actions()
+    {
+        using var db = NewDb();
+        var creator = Member("Creator");
+        var participant = Member("Part");
+        db.TeamMembers.AddRange(creator, participant);
+        var s = Session(creator.Id, status: "live");
+        s.Participants = [new RetroBoardParticipant { Id = Guid.NewGuid(), MemberId = participant.Id, Role = "participant" }];
+        db.RetroBoardSessions.Add(s);
+        await db.SaveChangesAsync();
+        var svc = Svc(db);
+
+        var (asParticipant, _) = await svc.AddColumnAsync(s.Id, participant.Id, new RetroColumnInput { Label = "Nope", Color = "#fff", Icon = "star" });
+        Assert.Equal(RetroActionResult.Forbidden, asParticipant);
+
+        var (asFacilitator, col) = await svc.AddColumnAsync(s.Id, creator.Id, new RetroColumnInput { Label = "Yes", Color = "#fff", Icon = "star" });
+        Assert.Equal(RetroActionResult.Ok, asFacilitator);
+        Assert.NotNull(col);
+    }
+
+    // ---- Vote budget caps ----
+
+    [Fact]
+    public async Task Vote_enforces_total_budget_and_three_per_topic()
+    {
+        using var db = NewDb();
+        var m = Member();
+        db.TeamMembers.Add(m);
+        var s = Session(m.Id, status: "live");
+        s.VotesPerUser = 4;
+        db.RetroBoardSessions.Add(s);
+        var col = new RetroBoardColumn { Id = Guid.NewGuid(), RetroBoardSessionId = s.Id, Key = "well", Label = "Well", Color = "#fff", Icon = "star", SortOrder = 0 };
+        db.RetroBoardColumns.Add(col);
+        var noteA = new RetroBoardNote { Id = Guid.NewGuid(), RetroBoardSessionId = s.Id, RetroBoardColumnId = col.Id, Text = "A" };
+        var noteB = new RetroBoardNote { Id = Guid.NewGuid(), RetroBoardSessionId = s.Id, RetroBoardColumnId = col.Id, Text = "B" };
+        db.RetroBoardNotes.AddRange(noteA, noteB);
+        await db.SaveChangesAsync();
+        var svc = Svc(db);
+
+        // Max 3 on a single topic — the 4th on the same note is rejected even though budget remains.
+        for (var i = 0; i < 3; i++) Assert.Equal(RetroActionResult.Ok, (await svc.AddVoteAsync(s.Id, m.Id, noteA.Id)).result);
+        var (perTopic, perTopicErr) = await svc.AddVoteAsync(s.Id, m.Id, noteA.Id);
+        Assert.Equal(RetroActionResult.Conflict, perTopic);
+        Assert.Equal("Max 3 votes per topic.", perTopicErr);
+
+        // A 4th vote (on note B) exhausts the budget of 4; the 5th is rejected.
+        Assert.Equal(RetroActionResult.Ok, (await svc.AddVoteAsync(s.Id, m.Id, noteB.Id)).result);
+        var (budget, budgetErr) = await svc.AddVoteAsync(s.Id, m.Id, noteB.Id);
+        Assert.Equal(RetroActionResult.Conflict, budget);
+        Assert.Equal("No votes left.", budgetErr);
+    }
+
+    // ---- Note masking (hide-until-reveal) ----
+
+    [Fact]
+    public async Task Capture_masks_others_notes_until_reveal()
+    {
+        using var db = NewDb();
+        var facil = Member("Fac");
+        var author = Member("Author");
+        var other = Member("Other");
+        db.TeamMembers.AddRange(facil, author, other);
+        var s = Session(facil.Id, status: "live");
+        s.Phase = "capture";
+        s.HideNotesUntilReveal = true;
+        s.NotesRevealed = false;
+        db.RetroBoardSessions.Add(s);
+        var col = new RetroBoardColumn { Id = Guid.NewGuid(), RetroBoardSessionId = s.Id, Key = "well", Label = "Well", Color = "#fff", Icon = "star", SortOrder = 0 };
+        db.RetroBoardColumns.Add(col);
+        db.RetroBoardNotes.Add(new RetroBoardNote { Id = Guid.NewGuid(), RetroBoardSessionId = s.Id, RetroBoardColumnId = col.Id, AuthorMemberId = author.Id, Text = "secret" });
+        await db.SaveChangesAsync();
+        var svc = Svc(db);
+
+        // Another participant sees the note masked…
+        Assert.Null((await svc.GetSessionAsync(s.Id, other.Id))!.Notes.Single().Text);
+        // …the author sees their own…
+        Assert.Equal("secret", (await svc.GetSessionAsync(s.Id, author.Id))!.Notes.Single().Text);
+        // …and the facilitator sees through the mask.
+        Assert.Equal("secret", (await svc.GetSessionAsync(s.Id, facil.Id))!.Notes.Single().Text);
+
+        // After the global reveal, everyone sees it.
+        await svc.RevealNotesAsync(s.Id, facil.Id);
+        Assert.Equal("secret", (await svc.GetSessionAsync(s.Id, other.Id))!.Notes.Single().Text);
     }
 }
