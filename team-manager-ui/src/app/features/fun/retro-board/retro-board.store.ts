@@ -4,6 +4,8 @@ import { Router } from '@angular/router';
 import { Subject, EMPTY, takeUntil, debounceTime, switchMap, catchError } from 'rxjs';
 
 import { RetroBoardService } from '../../../core/services/retro-board.service';
+import { SquadService } from '../../../core/services/squad.service';
+import { Squad } from '../../../core/models/squad.model';
 import { TeamMemberService } from '../../../core/services/team-member.service';
 import { WebSocketService } from '../../../core/websocket/websocket.service';
 import { AuthService } from '../../../core/auth/auth.service';
@@ -42,6 +44,7 @@ export interface ActionDraft { noteId: string; title: string; assignees: string[
 @Injectable()
 export class RetroBoardStore implements OnDestroy {
   private svc = inject(RetroBoardService);
+  private squadSvc = inject(SquadService);
   private memberSvc = inject(TeamMemberService);
   private ws = inject(WebSocketService);
   private auth = inject(AuthService);
@@ -64,8 +67,10 @@ export class RetroBoardStore implements OnDestroy {
   archived = signal<RetroBoardSummary[]>([]);
   showArchived = signal(false);
   members = signal<Member[]>([]);
+  squads = signal<Squad[]>([]);
   error = signal<string | null>(null);
   creating = signal(false);
+  joining = signal(false);
   analysing = signal(false);
   viewAs = signal<'facilitator' | 'participant'>('facilitator');
   actionDraft = signal<ActionDraft | null>(null);
@@ -87,6 +92,8 @@ export class RetroBoardStore implements OnDestroy {
   });
   sortedByVotes = computed(() => [...(this.session()?.notes ?? [])].sort((a, b) => b.voteCount - a.voteCount));
   checkinDone = computed(() => !!this.session()?.participants.find(p => p.memberId === this.myId)?.completedPhases.includes('checkin'));
+  // How many joined participants have submitted their check-in, for the "N/M responded" meter.
+  checkinResponded = computed(() => this.session()?.participants.filter(p => p.completedPhases.includes('checkin')).length ?? 0);
   feedbackDone = computed(() => { const ps = this.session()?.feedbackPrompts ?? []; return ps.length > 0 && ps.every(p => p.myScore != null); });
   phaseTimerKey = computed(() => PHASE_TIMER[this.session()?.phase ?? '']);
 
@@ -125,6 +132,7 @@ export class RetroBoardStore implements OnDestroy {
   });
 
   newTitle = '';
+  joinCode = '';
   edit = { votes: 6, anon: true, d: { ...DEFAULT_STEP_DURATIONS } };
   // Facilitator's estimate of how many topics will be discussed; the per-topic timers
   // (intro + discuss) are multiplied by this for the Allocated/Remaining budget. UI-only.
@@ -149,6 +157,7 @@ export class RetroBoardStore implements OnDestroy {
   /** Called by the container once the route id (if any) is known. */
   init(routeId: string | null) {
     this.memberSvc.getAll({ isActive: true }).subscribe({ next: ms => this.members.set(ms.map(m => ({ id: m.id, name: `${m.firstName} ${m.lastName}`.trim() }))) });
+    this.squadSvc.getAll().subscribe({ next: sq => this.squads.set(sq) });
     this.ws.connect();
     this.refresh$.pipe(
       debounceTime(150),
@@ -193,6 +202,24 @@ export class RetroBoardStore implements OnDestroy {
     });
   }
   open(id: string) { this.router.navigate(['/pulse/retro-board', id]); this.load(id); }
+
+  // Join by the friendly session code (slug). Validates before navigating so a bad code shows an
+  // inline lobby error rather than dropping the user on a broken board. Tolerates a pasted share
+  // link — the code is pulled out of any `.../retro-board/<code>` URL.
+  joinByCode() {
+    const code = this.extractJoinCode(this.joinCode);
+    if (!code) return;
+    this.joining.set(true); this.error.set(null);
+    this.svc.join(code).subscribe({
+      next: s => { this.joining.set(false); this.joinCode = ''; this.router.navigate(['/pulse/retro-board', s.slug ?? s.id]); this.setSession(s); this.joinWs(s.id); },
+      error: () => { this.joining.set(false); this.error.set('No open retro with that code.'); },
+    });
+  }
+  private extractJoinCode(raw: string): string {
+    const v = (raw || '').trim();
+    const m = v.match(/retro-board\/([^/?#]+)/i);
+    return m ? decodeURIComponent(m[1]) : v;
+  }
   del(id: string, ev: Event) { ev.stopPropagation(); if (!confirm('Delete this retro permanently? This cannot be undone.')) return; this.svc.deleteSession(id).subscribe({ next: () => this.reloadLists() }); }
   leave() { this.leaveWs(); this.session.set(null); this.viewAs.set('facilitator'); this.router.navigate(['/pulse/retro-board']); this.reloadLists(); }
 
@@ -203,6 +230,12 @@ export class RetroBoardStore implements OnDestroy {
   // ---- in-session lifecycle actions ----
   closeCurrent() { const s = this.session(); if (s && confirm('Close this retro? It will be marked closed. You can reopen or archive it anytime.')) this.svc.close(s.id).subscribe({ next: r => this.setSession(r) }); }
   reopenCurrent() { const s = this.session(); if (s) this.svc.reopen(s.id).subscribe({ next: r => this.setSession(r) }); }
+  // draft → open: publish for asynchronous pre-capture.
+  openRetro() { const s = this.session(); if (s && this.amFacilitator()) this.svc.openRetro(s.id).subscribe({ next: r => this.setSession(r) }); }
+  // open → live: start the synced, guided session (begins at check-in).
+  goLive() { const s = this.session(); if (s && this.amFacilitator()) this.svc.goLive(s.id).subscribe({ next: r => this.setSession(r) }); }
+  // Set the owning team and auto-enrol its members as participants.
+  setSquad(squadId: string | null) { const s = this.session(); if (s && this.amFacilitator()) this.svc.setSquad(s.id, squadId || null).subscribe({ next: r => this.setSession(r) }); }
 
   private joinWs(id: string) { this.joinedId = id; const me = this.auth.me; this.ws.send({ type: 'join_retro', sessionId: id, memberName: me ? `${me.firstName} ${me.lastName}`.trim() : '' }); }
   private leaveWs() { if (this.joinedId) { this.ws.send({ type: 'leave_retro' }); this.joinedId = null; } }

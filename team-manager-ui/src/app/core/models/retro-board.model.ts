@@ -113,7 +113,7 @@ export interface RetroBoardSession {
   createdByMemberId: string;
   isFacilitator: boolean;
   phase: RetroPhase;
-  status: 'draft' | 'live' | 'closed';
+  status: 'draft' | 'open' | 'live' | 'closed';
   votesPerUser: number;
   myVotesUsed: number;
   allowAnonymous: boolean;

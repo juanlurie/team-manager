@@ -12,17 +12,20 @@ import { RETRO_STYLES } from '../retro-board.styles';
   styles: [RETRO_STYLES],
   template: `
     @if (store.session(); as s) {
-      <div class="phase-head"><div><h1>Retro Setup</h1><p class="sub">Configure this session before participants join</p></div>
-        @if (store.amFacilitator()) { <button class="btn primary" (click)="store.goPhase('checkin')">Start Retro →</button> }</div>
+      <div class="phase-head"><div><h1>Retro Setup</h1><p class="sub">Configure this session, then open it so the team can start capturing.</p></div>
+        @if (store.amFacilitator()) { <button class="btn primary" (click)="store.openRetro()">Open Retro →</button> }</div>
 
       <div class="card">
-        <div class="row" style="gap:24px">
-          <div><label class="lbl">Votes / user</label><input class="f" style="width:70px" type="number" [(ngModel)]="store.edit.votes" (change)="store.saveSettings()" [disabled]="!store.amFacilitator()"></div>
+        <label class="lbl">Votes / user</label>
+        <div class="row" style="gap:24px;margin-top:6px">
+          <input class="f" style="width:70px" type="number" [(ngModel)]="store.edit.votes" (change)="store.saveSettings()" [disabled]="!store.amFacilitator()">
           <label class="row" style="gap:8px;cursor:pointer"><input type="checkbox" [(ngModel)]="store.edit.anon" (change)="store.saveSettings()" [disabled]="!store.amFacilitator()"> Allow anonymous notes</label>
         </div>
+      </div>
 
-        <label class="lbl" style="margin-top:18px">Meeting</label>
-        <div class="row" style="gap:24px">
+      <div class="card">
+        <label class="lbl">Meeting</label>
+        <div class="row" style="gap:24px;margin-top:6px">
           <div><label class="lbl">Meeting length (m:ss)</label><input class="f" style="width:90px" [ngModel]="store.fmt(store.edit.d.meeting)" (change)="store.setTimer('meeting', $event)" [disabled]="!store.amFacilitator()"></div>
           <div><label class="lbl">Topics to discuss (est.)</label><input class="f" style="width:80px" type="number" min="0" [(ngModel)]="store.topicEstimate" [disabled]="!store.amFacilitator()"></div>
         </div>
@@ -76,6 +79,30 @@ import { RETRO_STYLES } from '../retro-board.styles';
           </div>
         }
         @if (store.amFacilitator()) { <div class="row" style="margin-top:12px"><input class="f" [(ngModel)]="store.newPrompt" placeholder="Add feedback prompt…" (keydown.enter)="store.addPrompt()"><button class="btn primary" (click)="store.addPrompt()">+</button></div> }
+      </div>
+
+      <div class="card">
+        <label class="lbl">Participants</label>
+        <div class="muted" style="font-size:12px;margin:-2px 0 12px">Pick a team to add everyone on it at once. Anyone else can still join with the code.</div>
+        @if (store.amFacilitator()) {
+          <div style="max-width:280px">
+            <label class="lbl">Team</label>
+            <select class="f" [ngModel]="s.squadId" (ngModelChange)="store.setSquad($event)">
+              <option [ngValue]="null">No team</option>
+              @for (sq of store.squads(); track sq.id) { <option [ngValue]="sq.id">{{ sq.name }}</option> }
+            </select>
+          </div>
+        }
+        <div style="margin-top:14px">
+          @for (p of s.participants; track p.id) {
+            <div class="p-row" style="padding:5px 0">
+              <span class="avatar" [style.background]="store.tint(p.memberId)" [style.color]="store.ink(p.memberId)">{{ store.initials(p.name) }}</span>
+              <span>{{ p.name }}</span>
+              @if (p.role === 'facilitator') { <span class="crown">★</span> }
+            </div>
+          }
+          @if (s.participants.length === 0) { <p class="muted">No one has joined yet.</p> }
+        </div>
       </div>
     }
   `,

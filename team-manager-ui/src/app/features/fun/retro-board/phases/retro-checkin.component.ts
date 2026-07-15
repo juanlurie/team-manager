@@ -11,8 +11,16 @@ import { RETRO_STYLES } from '../retro-board.styles';
   styles: [RETRO_STYLES],
   template: `
     @if (store.session(); as s) {
-      <div class="phase-head"><div><h1>Sprint Check-in</h1><p class="sub">Rate how things have changed since last retro</p></div>
-        @if (store.amFacilitator()) { <button class="btn primary" (click)="store.goPhase('capture')">Continue to Capture →</button> }</div>
+      <div class="phase-head">
+        <div><h1>Sprint Check-in</h1><p class="sub">Rate how things have changed since last retro</p></div>
+        <div class="ph-right">
+          @if (store.amFacilitator()) { <button class="btn primary" (click)="store.goPhase('capture')">Continue to Capture →</button> }
+          <div class="responded">
+            <span class="muted">{{ store.checkinResponded() }}/{{ s.participants.length }} responded</span>
+            <div class="bar-track"><span class="bar-fill" [style.width.%]="s.participants.length ? store.checkinResponded() / s.participants.length * 100 : 0"></span></div>
+          </div>
+        </div>
+      </div>
       @for (q of s.checkinQuestions; track q.id) {
         <div class="card">
           <div style="font-weight:700;font-size:17px">{{ q.text }}</div>

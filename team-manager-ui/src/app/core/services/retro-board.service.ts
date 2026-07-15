@@ -45,6 +45,18 @@ export class RetroBoardService {
   setPhase(id: string, phase: string): Observable<RetroBoardSession> {
     return this.http.put<RetroBoardSession>(`${this.base}/${id}/phase`, { phase });
   }
+  // Publish a draft for asynchronous pre-capture (draft → open).
+  openRetro(id: string): Observable<RetroBoardSession> {
+    return this.http.post<RetroBoardSession>(`${this.base}/${id}/open`, {});
+  }
+  // Start the synced, guided session (open → live).
+  goLive(id: string): Observable<RetroBoardSession> {
+    return this.http.post<RetroBoardSession>(`${this.base}/${id}/go-live`, {});
+  }
+  // Set the owning squad and auto-enrol its members as participants.
+  setSquad(id: string, squadId: string | null): Observable<RetroBoardSession> {
+    return this.http.put<RetroBoardSession>(`${this.base}/${id}/squad`, { squadId });
+  }
   close(id: string): Observable<RetroBoardSession> {
     return this.http.post<RetroBoardSession>(`${this.base}/${id}/close`, {});
   }

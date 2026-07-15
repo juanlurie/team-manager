@@ -37,6 +37,18 @@ import { RetroSummaryComponent } from './phases/retro-summary.component';
     }
 
     @if (store.session(); as s) {
+      @if (s.status === 'draft') {
+        <!-- Setup: a focused configuration screen — no stepper, live controls, or participant rail. -->
+        <div class="topbar">
+          <div class="brand">Retro<span>Board</span></div>
+          <span class="grow"></span>
+          <span class="tag" title="Share this code so the team can join">{{ s.slug }}</span>
+          <button class="btn ghost sm" (click)="store.leave()">← Lobby</button>
+        </div>
+        @if (s.isFacilitator) { <app-retro-setup /> }
+        @else { <div class="main" style="max-width:640px;margin:0 auto"><p class="sub" style="margin-top:48px">The facilitator is still setting up this retro. You'll be able to take part once it's opened.</p></div> }
+      } @else {
+
       <div class="topbar">
         <div class="brand">Retro<span>Board</span></div>
         <span class="grow"></span>
@@ -48,6 +60,7 @@ import { RetroSummaryComponent } from './phases/retro-summary.component';
         }
         <span class="tag" [class.closed]="s.status==='closed'">{{ s.status==='closed' ? 'closed' : s.slug }}</span>
         @if (s.isFacilitator) {
+          @if (s.status==='open') { <button class="btn primary sm" (click)="store.goLive()">Go Live →</button> }
           @if (s.status==='closed') { <button class="btn ghost sm" (click)="store.reopenCurrent()">Reopen</button> }
           @else { <button class="btn ghost sm" (click)="store.closeCurrent()">Close retro</button> }
         }
@@ -55,30 +68,35 @@ import { RetroSummaryComponent } from './phases/retro-summary.component';
         <button class="btn ghost sm" (click)="store.leave()">Leave</button>
       </div>
 
-      <div class="stepbar">
-        @for (p of store.phases; track p.key; let i = $index) {
-          <button class="step" [class.active]="p.key===s.phase" [class.done]="i < store.phaseIndex()"
-                  [disabled]="!store.amFacilitator()" (click)="store.goPhase(p.key)">{{ p.label }}</button>
-          @if (i < store.phases.length-1) { <span class="sep">›</span> }
-        }
-      </div>
+      @if (s.status !== 'open') {
+        <div class="stepbar">
+          @for (p of store.phases; track p.key; let i = $index) {
+            <button class="step" [class.active]="p.key===s.phase" [class.done]="i < store.phaseIndex()"
+                    [disabled]="!store.amFacilitator()" (click)="store.goPhase(p.key)">{{ p.label }}</button>
+            @if (i < store.phases.length-1) { <span class="sep">›</span> }
+          }
+        </div>
+      }
 
-      @if (store.viewAs()==='participant') { <div class="live"><span class="dot"></span> Participant preview — following the facilitator (on <b>&nbsp;{{ store.phaseLabel(s.phase) }}</b>)</div> }
+      @if (s.status === 'open') { <div class="live"><span class="dot"></span> Open for pre-capture — the team can add notes now. Press <b>&nbsp;Go Live&nbsp;</b> to start the guided session.</div> }
+      @else if (store.viewAs()==='participant') { <div class="live"><span class="dot"></span> Participant preview — following the facilitator (on <b>&nbsp;{{ store.phaseLabel(s.phase) }}</b>)</div> }
 
       <div class="body">
         <aside class="rail">
           @if (store.phaseTimerKey() || store.timer() !== null) {
             <div class="rail-timer">
-              @if (store.timer() !== null) { <span class="clock" [class.low]="store.timer()! <= 15" [class.idle]="store.isPaused()">⏱ {{ store.fmt(store.timer()!) }}</span> }
-              @else { <span class="clock idle">⏱ —:—</span> }
-              @if (store.isPaused()) { <span class="muted" style="font-size:12px">paused</span> }
+              <div class="rt-label">⏱ {{ store.phaseLabel(s.phase) }}</div>
+              <div class="rt-time" [class.low]="store.timer() !== null && store.timer()! <= 15" [class.idle]="store.timer() === null || store.isPaused()">{{ store.timer() !== null ? store.fmt(store.timer()!) : '—:—' }}</div>
+              @if (store.isPaused()) { <div class="muted" style="font-size:12px">paused</div> }
               @if (store.amFacilitator() && store.phaseTimerKey()) {
-                @if (store.timer() === null) { <button class="btn ghost sm" (click)="store.startTimer()">▶ Start</button> }
-                @else {
-                  @if (store.isPaused()) { <button class="btn ghost sm" (click)="store.resumeTimer()">▶ Resume</button> }
-                  @else { <button class="btn ghost sm" (click)="store.pauseTimer()">⏸ Pause</button> }
-                  <button class="btn ghost sm" (click)="store.startTimer()" title="Restart this phase timer">↻ Restart</button>
-                }
+                <div class="rt-controls">
+                  @if (store.timer() === null) { <button class="btn ghost sm" (click)="store.startTimer()">▶ Start</button> }
+                  @else {
+                    @if (store.isPaused()) { <button class="btn ghost sm" (click)="store.resumeTimer()">▶ Resume</button> }
+                    @else { <button class="btn ghost sm" (click)="store.pauseTimer()">⏸ Pause</button> }
+                    <button class="btn ghost sm" (click)="store.startTimer()" title="Restart this phase timer">↻ Restart</button>
+                  }
+                </div>
               }
             </div>
           }
@@ -106,6 +124,7 @@ import { RetroSummaryComponent } from './phases/retro-summary.component';
           }
         </main>
       </div>
+      }
     }
   </div>
   `,
