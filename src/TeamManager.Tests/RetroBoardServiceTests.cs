@@ -172,6 +172,72 @@ public class RetroBoardServiceTests
         Assert.Equal("draft", reopened!.Status);
     }
 
+    [Fact]
+    public async Task Open_publishes_draft_for_precapture()
+    {
+        using var db = NewDb();
+        var m = Member();
+        db.TeamMembers.Add(m);
+        var s = Session(m.Id);                              // draft, phase "setup"
+        db.RetroBoardSessions.Add(s);
+        await db.SaveChangesAsync();
+
+        var (result, opened) = await Svc(db).OpenAsync(s.Id, m.Id);
+        Assert.Equal(RetroActionResult.Ok, result);
+        Assert.Equal("open", opened!.Status);
+        Assert.Equal("capture", opened.Phase);              // pre-capture happens on the Capture board
+        Assert.Null(opened.StartedAt);                      // not "started" until it goes live
+    }
+
+    [Fact]
+    public async Task GoLive_starts_guided_session_at_checkin()
+    {
+        using var db = NewDb();
+        var m = Member();
+        db.TeamMembers.Add(m);
+        var s = Session(m.Id, status: "open");
+        s.Phase = "capture";
+        db.RetroBoardSessions.Add(s);
+        await db.SaveChangesAsync();
+
+        var (result, live) = await Svc(db).GoLiveAsync(s.Id, m.Id);
+        Assert.Equal(RetroActionResult.Ok, result);
+        Assert.Equal("live", live!.Status);
+        Assert.Equal("checkin", live.Phase);                // guided flow starts at the top
+        Assert.NotNull(live.StartedAt);
+    }
+
+    [Fact]
+    public async Task SetSquad_enrols_team_members_idempotently()
+    {
+        using var db = NewDb();
+        var creator = Member("Creator");
+        var alice = Member("Alice");
+        var bob = Member("Bob");
+        db.TeamMembers.AddRange(creator, alice, bob);
+        var squad = new Squad { Id = Guid.NewGuid(), Name = "Platform" };
+        db.Squads.Add(squad);
+        db.SquadMembers.AddRange(
+            new SquadMember { Id = Guid.NewGuid(), SquadId = squad.Id, TeamMemberId = alice.Id },
+            new SquadMember { Id = Guid.NewGuid(), SquadId = squad.Id, TeamMemberId = bob.Id });
+        var s = Session(creator.Id);
+        db.RetroBoardSessions.Add(s);
+        await db.SaveChangesAsync();
+        var svc = Svc(db);
+
+        var (result, withTeam) = await svc.SetSquadAsync(s.Id, creator.Id, squad.Id);
+        Assert.Equal(RetroActionResult.Ok, result);
+        Assert.Equal(squad.Id, withTeam!.SquadId);
+        Assert.Equal(2, withTeam.Participants.Count);       // both squad members enrolled
+        Assert.Contains(withTeam.Participants, p => p.MemberId == alice.Id);
+        Assert.Contains(withTeam.Participants, p => p.MemberId == bob.Id);
+
+        // Re-applying the same team adds no duplicates.
+        var (again, reapplied) = await svc.SetSquadAsync(s.Id, creator.Id, squad.Id);
+        Assert.Equal(RetroActionResult.Ok, again);
+        Assert.Equal(2, reapplied!.Participants.Count);
+    }
+
     // ---- Close-lock (A1) ----
 
     [Fact]

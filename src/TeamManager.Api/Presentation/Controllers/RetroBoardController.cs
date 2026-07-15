@@ -63,6 +63,18 @@ public class RetroBoardController(RetroBoardService service) : ControllerBase
     public async Task<IActionResult> Delete(Guid id) =>
         await Guard(m => service.DeleteSessionAsync(id, m));
 
+    [HttpPost("{id:guid}/open")]
+    public async Task<IActionResult> Open(Guid id) =>
+        await RunSession(m => service.OpenAsync(id, m));
+
+    [HttpPost("{id:guid}/go-live")]
+    public async Task<IActionResult> GoLive(Guid id) =>
+        await RunSession(m => service.GoLiveAsync(id, m));
+
+    [HttpPut("{id:guid}/squad")]
+    public async Task<IActionResult> SetSquad(Guid id, [FromBody] SetSquadRequest req) =>
+        await RunSession(m => service.SetSquadAsync(id, m, req.SquadId));
+
     [HttpPut("{id:guid}/phase")]
     public async Task<IActionResult> SetPhase(Guid id, [FromBody] SetPhaseRequest req) =>
         await RunSession(m => service.SetPhaseAsync(id, m, req.Phase));

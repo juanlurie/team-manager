@@ -11,6 +11,9 @@ public static class RetroBoardConstants
     public static class Status
     {
         public const string Draft = "draft";
+        /// <summary>Published for asynchronous pre-capture: members can add notes, but the facilitator
+        /// hasn't started the synced, guided flow yet. Sits between Draft and Live.</summary>
+        public const string Open = "open";
         public const string Live = "live";
         public const string Closed = "closed";
     }

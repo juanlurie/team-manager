@@ -102,18 +102,76 @@ public partial class RetroBoardService
         return true;
     }
 
+    /// <summary>Publishes a draft session for asynchronous pre-capture (draft → open). Members can add
+    /// notes on the Capture board before the facilitator starts the synced flow via <see cref="GoLiveAsync"/>.</summary>
+    public async Task<(RetroActionResult result, RetroBoardSessionDto? session)> OpenAsync(Guid sessionId, Guid memberId)
+    {
+        var (guard, session) = await GuardAsync(sessionId, memberId, facilitatorOnly: true, blockClosed: true);
+        if (guard != RetroActionResult.Ok) return (guard, null);
+        session!.Status = Status.Open;
+        session.Phase = Phase.Capture;   // pre-capture happens on the Capture board
+        await db.SaveChangesAsync();
+        Broadcast(sessionId, "rb_lifecycle_changed", new { sessionId });
+        return (RetroActionResult.Ok, await GetSessionAsync(sessionId, memberId));
+    }
+
+    /// <summary>Starts the synced, guided session (open → live). Begins at Check-in — the top of the
+    /// flow — so the meeting opens properly; any notes added during pre-capture are still present when
+    /// the flow reaches Capture.</summary>
+    public async Task<(RetroActionResult result, RetroBoardSessionDto? session)> GoLiveAsync(Guid sessionId, Guid memberId)
+    {
+        var (guard, session) = await GuardAsync(sessionId, memberId, facilitatorOnly: true, blockClosed: true);
+        if (guard != RetroActionResult.Ok) return (guard, null);
+        session!.Status = Status.Live;
+        session.StartedAt ??= DateTimeOffset.UtcNow;
+        session.Phase = Phase.Checkin;
+        await db.SaveChangesAsync();
+        Broadcast(sessionId, "rb_phase_changed", new { sessionId, phase = Phase.Checkin });
+        Broadcast(sessionId, "rb_lifecycle_changed", new { sessionId });
+        return (RetroActionResult.Ok, await GetSessionAsync(sessionId, memberId));
+    }
+
     public async Task<(RetroActionResult result, RetroBoardSessionDto? session)> SetPhaseAsync(Guid sessionId, Guid memberId, string phase)
     {
         if (!Phase.Order.Contains(phase)) return (RetroActionResult.Invalid, null);
         var (guard, session) = await GuardAsync(sessionId, memberId, facilitatorOnly: true, blockClosed: true);
         if (guard != RetroActionResult.Ok) return (guard, null);
 
+        // Step navigation within a running session. The draft→open→live transitions are owned by
+        // OpenAsync/GoLiveAsync; reaching Summary no longer auto-closes (facilitator ends via Close).
         session!.Phase = phase;
-        if (session.Status == Status.Draft && phase != Phase.Setup) { session.Status = Status.Live; session.StartedAt ??= DateTimeOffset.UtcNow; }
-        // Reaching Summary no longer auto-closes — the facilitator ends the retro explicitly via Close.
         await db.SaveChangesAsync();
 
         Broadcast(sessionId, "rb_phase_changed", new { sessionId, phase });
+        return (RetroActionResult.Ok, await GetSessionAsync(sessionId, memberId));
+    }
+
+    /// <summary>Sets the session's owning squad and additively enrols that squad's members as
+    /// participants (idempotent — existing participants and the creator/facilitator are untouched,
+    /// and nobody is ever removed, even when the team changes).</summary>
+    public async Task<(RetroActionResult result, RetroBoardSessionDto? session)> SetSquadAsync(Guid sessionId, Guid memberId, Guid? squadId)
+    {
+        var (guard, session) = await GuardAsync(sessionId, memberId, facilitatorOnly: true, blockClosed: true);
+        if (guard != RetroActionResult.Ok) return (guard, null);
+
+        session!.SquadId = squadId;
+
+        if (squadId is { } sid)
+        {
+            var squadMemberIds = await db.SquadMembers
+                .Where(sm => sm.SquadId == sid)
+                .Select(sm => sm.TeamMemberId)
+                .ToListAsync();
+            var already = await db.RetroBoardParticipants
+                .Where(p => p.RetroBoardSessionId == sessionId)
+                .Select(p => p.MemberId)
+                .ToListAsync();
+            foreach (var newMemberId in squadMemberIds.Except(already))
+                db.RetroBoardParticipants.Add(new RetroBoardParticipant { RetroBoardSessionId = sessionId, MemberId = newMemberId, Role = Role.Participant });
+        }
+
+        await db.SaveChangesAsync();
+        Broadcast(sessionId, "rb_participant_changed");
         return (RetroActionResult.Ok, await GetSessionAsync(sessionId, memberId));
     }
 

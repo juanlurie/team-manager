@@ -220,6 +220,7 @@ public record FeedbackResponseRequest { public int Score { get; init; } public s
 public record ProgressRequest { public string Phase { get; init; } = ""; public bool Completed { get; init; } = true; }
 public record SelfPacedRequest { public bool IsSelfPaced { get; init; } }
 public record SetParticipantRoleRequest { public Guid MemberId { get; init; } public string Role { get; init; } = "participant"; }
+public record SetSquadRequest { public Guid? SquadId { get; init; } }
 
 public record AddRetroBoardActionRequest
 {
