@@ -13,6 +13,7 @@ import {
   RetroBoardSession, RetroBoardSummary, RetroPhase, RetroBoardNote,
   RetroBoardFeedbackPrompt, DEFAULT_STEP_DURATIONS,
 } from '../../../core/models/retro-board.model';
+import * as F from './retro-format';
 
 export const PHASES: { key: RetroPhase; label: string }[] = [
   { key: 'setup', label: 'Setup' }, { key: 'checkin', label: 'Check-in' }, { key: 'capture', label: 'Capture' },
@@ -80,8 +81,31 @@ export class RetroBoardStore implements OnDestroy {
   private serverOffsetMs = 0;
 
   readonly myId = this.auth.me?.id ?? '';
+  // Three related facilitator gates — use the narrowest that fits:
+  //   • session.isFacilitator (raw) — the caller's actual role; use ONLY for facilitator-exclusive
+  //     chrome that must survive the preview toggle (i.e. the Facilitator/Participant switch itself).
+  //   • amFacilitator() — isFacilitator AND currently in facilitator view; use for every facilitator
+  //     action/control so the participant PREVIEW faithfully hides it.
+  //   • liveFacilitation() — amFacilitator AND the session is live; use for controls that only make
+  //     sense in the running guided flow (advance phase, reveal notes) — hidden during 'open'.
   amFacilitator = computed(() => !!this.session()?.isFacilitator && this.viewAs() === 'facilitator');
+  liveFacilitation = computed(() => this.amFacilitator() && this.session()?.status === 'live');
   phaseIndex = computed(() => this.phases.findIndex(p => p.key === this.session()?.phase));
+  // Steps a participant sees in the live stepper — the collaborative core, without setup/reflect/summary.
+  private readonly participantSteps = ['checkin', 'capture', 'introduce', 'vote', 'discuss'];
+  visibleSteps = computed(() => this.amFacilitator() ? this.phases : this.phases.filter(p => this.participantSteps.includes(p.key)));
+  // A step is "done" by its position in the full flow, independent of which steps are shown.
+  stepDone(key: string) { return this.phases.findIndex(p => p.key === key) < this.phaseIndex(); }
+  // Single source of truth for what the board's main area renders: draft is handled by the setup
+  // shell; 'open' shows the pre-capture combo; a closed retro always shows the Summary recap;
+  // otherwise (live) it follows the current phase.
+  mainView = computed<'precapture' | 'summary' | RetroPhase | null>(() => {
+    const s = this.session();
+    if (!s) return null;
+    if (s.status === 'open') return 'precapture';
+    if (s.status === 'closed') return 'summary';
+    return s.phase;
+  });
   flagged = computed(() => this.session()?.notes.filter(n => n.flagged) ?? []);
   // Flagged notes grouped under their theme/column, in column order, skipping empty groups.
   flaggedByColumn = computed(() => {
@@ -91,9 +115,11 @@ export class RetroBoardStore implements OnDestroy {
       .filter(g => g.notes.length > 0);
   });
   sortedByVotes = computed(() => [...(this.session()?.notes ?? [])].sort((a, b) => b.voteCount - a.voteCount));
-  checkinDone = computed(() => !!this.session()?.participants.find(p => p.memberId === this.myId)?.completedPhases.includes('checkin'));
-  // How many joined participants have submitted their check-in, for the "N/M responded" meter.
-  checkinResponded = computed(() => this.session()?.participants.filter(p => p.completedPhases.includes('checkin')).length ?? 0);
+  // "N/M responded" meters count the non-facilitator participants (the facilitator drives the
+  // session rather than responding), keyed by phase (checkin|capture|vote|reflect).
+  private respondents = computed(() => this.session()?.participants.filter(p => p.role !== 'facilitator') ?? []);
+  respondedTotal = computed(() => this.respondents().length);
+  respondedFor(phase: string) { return this.respondents().filter(p => p.responded[phase]).length; }
   feedbackDone = computed(() => { const ps = this.session()?.feedbackPrompts ?? []; return ps.length > 0 && ps.every(p => p.myScore != null); });
   phaseTimerKey = computed(() => PHASE_TIMER[this.session()?.phase ?? '']);
 
@@ -262,7 +288,6 @@ export class RetroBoardStore implements OnDestroy {
   addQuestion() { const s = this.session(); const v = this.newQuestion.trim(); if (!s || !v) return; this.svc.addCheckinQuestion(s.id, { text: v }).subscribe({ next: () => { this.newQuestion = ''; this.refresh(s.id); } }); }
   delQuestion(id: string) { const s = this.session(); if (s) this.svc.deleteCheckinQuestion(s.id, id).subscribe({ next: () => this.refresh(s.id) }); }
   respond(qid: string, rating: string) { const s = this.session(); if (s) this.svc.respondCheckin(s.id, qid, rating).subscribe({ next: () => this.refresh(s.id) }); }
-  markDone(phase: string) { const s = this.session(); if (s) this.svc.setProgress(s.id, phase, true).subscribe({ next: () => this.refresh(s.id) }); }
 
   addPrompt() { const s = this.session(); const v = this.newPrompt.trim(); if (!s || !v) return; this.svc.addFeedbackPrompt(s.id, { text: v }).subscribe({ next: () => { this.newPrompt = ''; this.refresh(s.id); } }); }
   delPrompt(id: string) { const s = this.session(); if (s) this.svc.deleteFeedbackPrompt(s.id, id).subscribe({ next: () => this.refresh(s.id) }); }
@@ -272,6 +297,9 @@ export class RetroBoardStore implements OnDestroy {
   distPct(p: RetroBoardFeedbackPrompt, star: number) { return p.responseCount ? (p.distribution[star - 1] / p.responseCount) * 100 : 0; }
 
   notesFor(colId: string) { return this.notesByColumn()[colId] ?? []; }
+  // Theme colour for a note's column, for colour-coding topics in Discuss. Returns a hex fallback
+  // (not a CSS var) so callers that append an alpha suffix — e.g. `columnColor(id)+'22'` — stay valid.
+  columnColor(columnId: string) { return this.session()?.columns.find(c => c.id === columnId)?.color ?? '#7d5cff'; }
   masked(n: RetroBoardNote) { const s = this.session(); return this.viewAs() === 'participant' && !!s && s.phase === 'capture' && s.hideNotesUntilReveal && !s.notesRevealed && !n.isOwn; }
   introducer(n: RetroBoardNote) { return n.isAnonymous ? 'facilitator' : this.shortName(n.authorName ?? '?'); }
   addNote(colId: string) { const s = this.session(); const v = (this.draft[colId] || '').trim(); if (!s || !v) return; this.svc.addNote(s.id, colId, v, !!this.draftAnon[colId]).subscribe({ next: r => { this.draft[colId] = ''; this.setSession(r); } }); }
@@ -297,13 +325,13 @@ export class RetroBoardStore implements OnDestroy {
   allocated() { const d = this.edit.d; const t = Math.max(0, this.topicEstimate || 0); return d.checkin + d.capture + d.introduceRead + d.vote + d.reflect + (d.introduceTopic + d.discussTopic) * t; }
   remaining() { return (this.edit.d.meeting || 0) - this.allocated(); }
   phaseLabel(p: string) { return this.phases.find(x => x.key === p)?.label ?? p; }
-  memberName(id: string) { const m = this.members().find(x => x.id === id); if (m) return this.shortName(m.name); return this.shortName(this.session()?.participants.find(p => p.memberId === id)?.name ?? '?'); }
-  shortName(name: string) { return (name || '').split(' ')[0] || '—'; }
-  initials(name: string) { return (name || '?').split(' ').map(p => p[0]).slice(0, 2).join('').toUpperCase(); }
-  private hue(id: string) { let h = 0; for (const c of id) h = (h * 31 + c.charCodeAt(0)) % 360; return h; }
-  tint(id: string) { return `hsl(${this.hue(id)} 45% 22%)`; }
-  ink(id: string) { return `hsl(${this.hue(id)} 70% 70%)`; }
-  pct(v: number, q: { better: number; same: number; worse: number }) { const t = q.better + q.same + q.worse; return t ? (v / t) * 100 : 0; }
-  fmt(sec: number) { const s = Math.max(0, sec); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; }
-  parse(str: string): number { const parts = (str || '').split(':'); if (parts.length >= 2) return (+parts[0] || 0) * 60 + (+parts[1] || 0); return (+parts[0] || 0) * 60; }
+  memberName(id: string) { const m = this.members().find(x => x.id === id); if (m) return F.shortName(m.name); return F.shortName(this.session()?.participants.find(p => p.memberId === id)?.name ?? '?'); }
+  // Thin delegates to the pure retro-format helpers so templates keep calling store.fmt(...) etc.
+  shortName(name: string) { return F.shortName(name); }
+  initials(name: string) { return F.initials(name); }
+  tint(id: string) { return F.avatarTint(id); }
+  ink(id: string) { return F.avatarInk(id); }
+  pct(v: number, q: { better: number; same: number; worse: number }) { return F.ratioPct(v, q); }
+  fmt(sec: number) { return F.fmtDuration(sec); }
+  parse(str: string) { return F.parseDuration(str); }
 }

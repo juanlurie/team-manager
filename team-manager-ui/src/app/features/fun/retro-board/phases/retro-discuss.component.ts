@@ -17,9 +17,9 @@ import { RETRO_STYLES } from '../retro-board.styles';
       <div class="grid g2" style="align-items:start">
         <div>
           @for (n of store.sortedByVotes(); track n.id) {
-            <div class="card" style="padding:14px 16px">
-              <div class="row between"><div class="row" style="gap:12px"><span class="avatar" style="background:#7d5cff22;color:#8f72ff">{{ n.voteCount }}</span>
-                <div><div>{{ n.text }}</div><div class="muted" style="font-size:12px">{{ n.columnKey }}{{ n.isAnonymous ? '' : ' · ' + n.authorName }}</div></div></div>
+            <div class="card" style="padding:14px 16px" [style.borderLeft]="'3px solid ' + store.columnColor(n.columnId)">
+              <div class="row between"><div class="row" style="gap:12px"><span class="avatar" [style.background]="store.columnColor(n.columnId)+'22'" [style.color]="store.columnColor(n.columnId)">{{ n.voteCount }}</span>
+                <div><div>{{ n.text }}</div><div class="muted" style="font-size:12px"><span [style.color]="store.columnColor(n.columnId)" style="font-weight:600">{{ n.columnKey }}</span>{{ n.isAnonymous ? '' : ' · ' + n.authorName }}</div></div></div>
                 @if (store.amFacilitator()) { <button class="btn ghost sm" (click)="store.startAction(n)">+ Action</button> }</div>
               @if (store.actionDraft()?.noteId === n.id) {
                 <div style="margin-top:12px;border-top:1px solid var(--border);padding-top:12px">

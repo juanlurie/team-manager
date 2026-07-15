@@ -59,21 +59,21 @@ import { RetroSummaryComponent } from './phases/retro-summary.component';
           </div>
         }
         <span class="tag" [class.closed]="s.status==='closed'">{{ s.status==='closed' ? 'closed' : s.slug }}</span>
-        @if (s.isFacilitator) {
+        @if (store.amFacilitator()) {
           @if (s.status==='open') { <button class="btn primary sm" (click)="store.goLive()">Go Live →</button> }
           @if (s.status==='closed') { <button class="btn ghost sm" (click)="store.reopenCurrent()">Reopen</button> }
           @else { <button class="btn ghost sm" (click)="store.closeCurrent()">Close retro</button> }
         }
-        <button class="btn ghost sm" (click)="toggleFullscreen()" title="Presentation view">{{ presenting() ? '⤡ Exit' : '⤢ Present' }}</button>
+        <button class="btn ghost sm" (click)="toggleFullscreen()" title="Full-screen presentation view">{{ presenting() ? '⤡ Exit' : '⤢ Present' }}</button>
         <button class="btn ghost sm" (click)="store.leave()">Leave</button>
       </div>
 
-      @if (s.status !== 'open') {
+      @if (s.status === 'live') {
         <div class="stepbar">
-          @for (p of store.phases; track p.key; let i = $index) {
-            <button class="step" [class.active]="p.key===s.phase" [class.done]="i < store.phaseIndex()"
+          @for (p of store.visibleSteps(); track p.key; let last = $last) {
+            <button class="step" [class.active]="p.key===s.phase" [class.done]="store.stepDone(p.key)"
                     [disabled]="!store.amFacilitator()" (click)="store.goPhase(p.key)">{{ p.label }}</button>
-            @if (i < store.phases.length-1) { <span class="sep">›</span> }
+            @if (!last) { <span class="sep">›</span> }
           }
         </div>
       }
@@ -83,7 +83,7 @@ import { RetroSummaryComponent } from './phases/retro-summary.component';
 
       <div class="body">
         <aside class="rail">
-          @if (store.phaseTimerKey() || store.timer() !== null) {
+          @if (s.status !== 'closed' && (store.phaseTimerKey() || store.timer() !== null)) {
             <div class="rail-timer">
               <div class="rt-label">⏱ {{ store.phaseLabel(s.phase) }}</div>
               <div class="rt-time" [class.low]="store.timer() !== null && store.timer()! <= 15" [class.idle]="store.timer() === null || store.isPaused()">{{ store.timer() !== null ? store.fmt(store.timer()!) : '—:—' }}</div>
@@ -106,21 +106,21 @@ import { RetroSummaryComponent } from './phases/retro-summary.component';
               <span class="avatar" [style.background]="store.tint(p.memberId)" [style.color]="store.ink(p.memberId)">{{ store.initials(p.name) }}</span>
               <span>{{ store.shortName(p.name) }}</span>
               @if (p.role === 'facilitator') { <span class="crown">★</span> }
-              @else if (p.completedPhases.includes(s.phase)) { <span class="tick">✓</span> }
+              @else if (store.amFacilitator() && (s.status === 'open' || s.phase === 'checkin') && p.responded['checkin']) { <span class="tick" title="Checked in">✓</span> }
             </div>
           }
         </aside>
 
         <main class="main">
-          @switch (s.phase) {
-            @case ('setup')     { <app-retro-setup /> }
-            @case ('checkin')   { <app-retro-checkin /> }
-            @case ('capture')   { <app-retro-capture /> }
-            @case ('introduce') { <app-retro-introduce /> }
-            @case ('vote')      { <app-retro-vote /> }
-            @case ('discuss')   { <app-retro-discuss /> }
-            @case ('reflect')   { <app-retro-reflect /> }
-            @case ('summary')   { <app-retro-summary /> }
+          @switch (store.mainView()) {
+            @case ('precapture') { <app-retro-checkin /> <app-retro-capture /> }
+            @case ('checkin')    { <app-retro-checkin /> }
+            @case ('capture')    { <app-retro-capture /> }
+            @case ('introduce')  { <app-retro-introduce /> }
+            @case ('vote')       { <app-retro-vote /> }
+            @case ('discuss')    { <app-retro-discuss /> }
+            @case ('reflect')    { <app-retro-reflect /> }
+            @case ('summary')    { <app-retro-summary /> }
           }
         </main>
       </div>

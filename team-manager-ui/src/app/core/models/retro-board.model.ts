@@ -66,8 +66,8 @@ export interface RetroBoardParticipant {
   name: string;
   avatarSeed: string | null;
   role: 'facilitator' | 'participant';
-  isSelfPaced: boolean;
-  completedPhases: string[];
+  /** Per-phase "has participated" flags keyed by phase (checkin|capture|vote|reflect). */
+  responded: Record<string, boolean>;
 }
 
 export interface RetroBoardAction {

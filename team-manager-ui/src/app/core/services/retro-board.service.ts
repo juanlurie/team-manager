@@ -157,12 +157,6 @@ export class RetroBoardService {
   }
 
   // ---- participants ----
-  setProgress(id: string, phase: string, completed: boolean): Observable<void> {
-    return this.http.post<void>(`${this.base}/${id}/progress`, { phase, completed });
-  }
-  setSelfPaced(id: string, isSelfPaced: boolean): Observable<void> {
-    return this.http.post<void>(`${this.base}/${id}/self-paced`, { isSelfPaced });
-  }
   setParticipantRole(id: string, memberId: string, role: string): Observable<void> {
     return this.http.put<void>(`${this.base}/${id}/participants/role`, { memberId, role });
   }

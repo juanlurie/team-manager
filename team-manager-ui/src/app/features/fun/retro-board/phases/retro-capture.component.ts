@@ -3,20 +3,25 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RetroBoardStore } from '../retro-board.store';
 import { RETRO_STYLES } from '../retro-board.styles';
+import { RespondedMeterComponent } from '../responded-meter.component';
 
 @Component({
   selector: 'app-retro-capture',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, RespondedMeterComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   styles: [RETRO_STYLES],
   template: `
     @if (store.session(); as s) {
-      <div class="phase-head"><div><h1>Capture Notes</h1><p class="sub">Add your thoughts to each category</p></div>
-        @if (store.amFacilitator()) { <div class="row" style="gap:8px">
-          @if (s.notesRevealed) { <button class="btn ghost" (click)="store.hideNotes()" title="Undo an accidental reveal">↺ Hide all</button> }
-          @else { <button class="btn ghost" (click)="store.reveal()">Reveal to all</button> }
-          <button class="btn primary" (click)="store.goPhase('introduce')">Continue →</button></div> }
+      <div class="phase-head">
+        <div><h1>Capture Notes</h1><p class="sub">Add your thoughts to each category</p></div>
+        <div class="ph-right">
+          @if (store.liveFacilitation()) { <div class="row" style="gap:8px">
+            @if (s.notesRevealed) { <button class="btn ghost" (click)="store.hideNotes()" title="Undo an accidental reveal">↺ Hide all</button> }
+            @else { <button class="btn ghost" (click)="store.reveal()">Reveal to all</button> }
+            <button class="btn primary" (click)="store.goPhase('introduce')">Continue →</button></div> }
+          <app-responded-meter [done]="store.respondedFor('capture')" [total]="store.respondedTotal()" />
+        </div>
       </div>
       <div class="cols">
         @for (c of s.columns; track c.id) {
