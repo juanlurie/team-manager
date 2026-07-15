@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using TeamManager.Api.Infrastructure.Data;
@@ -11,9 +12,11 @@ using TeamManager.Api.Infrastructure.Data;
 namespace TeamManager.Api.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260713174111_AddRetroBoardActionAssignees")]
+    partial class AddRetroBoardActionAssignees
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -3045,67 +3048,6 @@ namespace TeamManager.Api.Migrations
                     b.ToTable("RetroBoardColumns");
                 });
 
-            modelBuilder.Entity("TeamManager.Api.Domain.Entities.RetroBoardFeedbackPrompt", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasDefaultValueSql("gen_random_uuid()");
-
-                    b.Property<Guid>("RetroBoardSessionId")
-                        .HasColumnType("uuid");
-
-                    b.Property<int>("SortOrder")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("Text")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("RetroBoardSessionId")
-                        .HasDatabaseName("IX_RetroBoardFeedbackPrompt_SessionId");
-
-                    b.ToTable("RetroBoardFeedbackPrompts");
-                });
-
-            modelBuilder.Entity("TeamManager.Api.Domain.Entities.RetroBoardFeedbackResponse", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasDefaultValueSql("gen_random_uuid()");
-
-                    b.Property<string>("Comment")
-                        .HasColumnType("text");
-
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<Guid>("MemberId")
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("RetroBoardFeedbackPromptId")
-                        .HasColumnType("uuid");
-
-                    b.Property<int>("Score")
-                        .HasColumnType("integer");
-
-                    b.Property<DateTimeOffset>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("MemberId");
-
-                    b.HasIndex("RetroBoardFeedbackPromptId", "MemberId")
-                        .IsUnique()
-                        .HasDatabaseName("IX_RetroBoardFeedbackResponse_PromptId_MemberId");
-
-                    b.ToTable("RetroBoardFeedbackResponses");
-                });
-
             modelBuilder.Entity("TeamManager.Api.Domain.Entities.RetroBoardNote", b =>
                 {
                     b.Property<Guid>("Id")
@@ -3230,9 +3172,6 @@ namespace TeamManager.Api.Migrations
                     b.Property<bool>("AllowAnonymous")
                         .HasColumnType("boolean");
 
-                    b.Property<DateTimeOffset?>("ArchivedAt")
-                        .HasColumnType("timestamp with time zone");
-
                     b.Property<DateTimeOffset?>("ClosedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -3247,9 +3186,6 @@ namespace TeamManager.Api.Migrations
 
                     b.Property<string>("InviteEmailsJson")
                         .HasColumnType("text");
-
-                    b.Property<bool>("IsArchived")
-                        .HasColumnType("boolean");
 
                     b.Property<string>("LiveStateJson")
                         .HasColumnType("text");
@@ -5747,36 +5683,6 @@ namespace TeamManager.Api.Migrations
                     b.Navigation("Session");
                 });
 
-            modelBuilder.Entity("TeamManager.Api.Domain.Entities.RetroBoardFeedbackPrompt", b =>
-                {
-                    b.HasOne("TeamManager.Api.Domain.Entities.RetroBoardSession", "Session")
-                        .WithMany("FeedbackPrompts")
-                        .HasForeignKey("RetroBoardSessionId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Session");
-                });
-
-            modelBuilder.Entity("TeamManager.Api.Domain.Entities.RetroBoardFeedbackResponse", b =>
-                {
-                    b.HasOne("TeamManager.Api.Domain.Entities.TeamMember", "Member")
-                        .WithMany()
-                        .HasForeignKey("MemberId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("TeamManager.Api.Domain.Entities.RetroBoardFeedbackPrompt", "Prompt")
-                        .WithMany("Responses")
-                        .HasForeignKey("RetroBoardFeedbackPromptId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Member");
-
-                    b.Navigation("Prompt");
-                });
-
             modelBuilder.Entity("TeamManager.Api.Domain.Entities.RetroBoardNote", b =>
                 {
                     b.HasOne("TeamManager.Api.Domain.Entities.TeamMember", "Author")
@@ -6516,11 +6422,6 @@ namespace TeamManager.Api.Migrations
                     b.Navigation("Notes");
                 });
 
-            modelBuilder.Entity("TeamManager.Api.Domain.Entities.RetroBoardFeedbackPrompt", b =>
-                {
-                    b.Navigation("Responses");
-                });
-
             modelBuilder.Entity("TeamManager.Api.Domain.Entities.RetroBoardNote", b =>
                 {
                     b.Navigation("Votes");
@@ -6538,8 +6439,6 @@ namespace TeamManager.Api.Migrations
                     b.Navigation("CheckinQuestions");
 
                     b.Navigation("Columns");
-
-                    b.Navigation("FeedbackPrompts");
 
                     b.Navigation("Notes");
 

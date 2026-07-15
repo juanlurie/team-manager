@@ -116,6 +116,17 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<GameUltimateTttParticipant> GameUltimateTttParticipants => Set<GameUltimateTttParticipant>();
     public DbSet<GameConnectionsSession> GameConnectionsSessions => Set<GameConnectionsSession>();
     public DbSet<GameConnectionsParticipant> GameConnectionsParticipants => Set<GameConnectionsParticipant>();
+    public DbSet<RetroBoardSession> RetroBoardSessions => Set<RetroBoardSession>();
+    public DbSet<RetroBoardColumn> RetroBoardColumns => Set<RetroBoardColumn>();
+    public DbSet<RetroBoardNote> RetroBoardNotes => Set<RetroBoardNote>();
+    public DbSet<RetroBoardVote> RetroBoardVotes => Set<RetroBoardVote>();
+    public DbSet<RetroBoardCheckinQuestion> RetroBoardCheckinQuestions => Set<RetroBoardCheckinQuestion>();
+    public DbSet<RetroBoardCheckinResponse> RetroBoardCheckinResponses => Set<RetroBoardCheckinResponse>();
+    public DbSet<RetroBoardParticipant> RetroBoardParticipants => Set<RetroBoardParticipant>();
+    public DbSet<RetroBoardParticipantProgress> RetroBoardParticipantProgress => Set<RetroBoardParticipantProgress>();
+    public DbSet<RetroBoardAction> RetroBoardActions => Set<RetroBoardAction>();
+    public DbSet<RetroBoardFeedbackPrompt> RetroBoardFeedbackPrompts => Set<RetroBoardFeedbackPrompt>();
+    public DbSet<RetroBoardFeedbackResponse> RetroBoardFeedbackResponses => Set<RetroBoardFeedbackResponse>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -216,5 +227,16 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         modelBuilder.ApplyConfiguration(new GameUltimateTttParticipantConfiguration());
         modelBuilder.ApplyConfiguration(new GameConnectionsSessionConfiguration());
         modelBuilder.ApplyConfiguration(new GameConnectionsParticipantConfiguration());
+        modelBuilder.ApplyConfiguration(new RetroBoardSessionConfiguration());
+        modelBuilder.ApplyConfiguration(new RetroBoardColumnConfiguration());
+        modelBuilder.ApplyConfiguration(new RetroBoardNoteConfiguration());
+        modelBuilder.ApplyConfiguration(new RetroBoardVoteConfiguration());
+        modelBuilder.ApplyConfiguration(new RetroBoardCheckinQuestionConfiguration());
+        modelBuilder.ApplyConfiguration(new RetroBoardCheckinResponseConfiguration());
+        modelBuilder.ApplyConfiguration(new RetroBoardParticipantConfiguration());
+        modelBuilder.ApplyConfiguration(new RetroBoardParticipantProgressConfiguration());
+        modelBuilder.ApplyConfiguration(new RetroBoardActionConfiguration());
+        modelBuilder.ApplyConfiguration(new RetroBoardFeedbackPromptConfiguration());
+        modelBuilder.ApplyConfiguration(new RetroBoardFeedbackResponseConfiguration());
     }
 }

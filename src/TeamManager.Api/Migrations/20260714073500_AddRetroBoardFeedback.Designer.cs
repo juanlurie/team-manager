@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using TeamManager.Api.Infrastructure.Data;
@@ -11,9 +12,11 @@ using TeamManager.Api.Infrastructure.Data;
 namespace TeamManager.Api.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260714073500_AddRetroBoardFeedback")]
+    partial class AddRetroBoardFeedback
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -3230,9 +3233,6 @@ namespace TeamManager.Api.Migrations
                     b.Property<bool>("AllowAnonymous")
                         .HasColumnType("boolean");
 
-                    b.Property<DateTimeOffset?>("ArchivedAt")
-                        .HasColumnType("timestamp with time zone");
-
                     b.Property<DateTimeOffset?>("ClosedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -3247,9 +3247,6 @@ namespace TeamManager.Api.Migrations
 
                     b.Property<string>("InviteEmailsJson")
                         .HasColumnType("text");
-
-                    b.Property<bool>("IsArchived")
-                        .HasColumnType("boolean");
 
                     b.Property<string>("LiveStateJson")
                         .HasColumnType("text");
