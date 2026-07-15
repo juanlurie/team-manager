@@ -99,8 +99,17 @@ public record RetroBoardParticipantDto
     public string Name { get; init; } = "";
     public string? AvatarSeed { get; init; }
     public string Role { get; init; } = "participant";
-    public bool IsSelfPaced { get; init; }
-    public List<string> CompletedPhases { get; init; } = [];
+
+    /// <summary>Per-phase "has this member participated" flags, keyed by phase. There is no manual
+    /// Done button, so each is derived from actual contributions (see <c>RetroResponded</c>):
+    /// <list type="bullet">
+    /// <item><c>checkin</c> — answered <b>every</b> check-in question.</item>
+    /// <item><c>capture</c> — added <b>at least one</b> named note (anonymous notes have no author).</item>
+    /// <item><c>vote</c> — cast <b>at least one</b> vote.</item>
+    /// <item><c>reflect</c> — rated <b>every</b> feedback prompt.</item>
+    /// </list>
+    /// Note the semantics differ by phase (all vs at-least-one) — that is intentional.</summary>
+    public Dictionary<string, bool> Responded { get; init; } = new();
 }
 
 public record RetroBoardActionDto
@@ -217,8 +226,6 @@ public record IntroducedRequest { public bool Introduced { get; init; } }
 public record CheckinResponseRequest { public string Rating { get; init; } = ""; }
 public record FeedbackPromptInput { public string Text { get; init; } = ""; }
 public record FeedbackResponseRequest { public int Score { get; init; } public string? Comment { get; init; } }
-public record ProgressRequest { public string Phase { get; init; } = ""; public bool Completed { get; init; } = true; }
-public record SelfPacedRequest { public bool IsSelfPaced { get; init; } }
 public record SetParticipantRoleRequest { public Guid MemberId { get; init; } public string Role { get; init; } = "participant"; }
 public record SetSquadRequest { public Guid? SquadId { get; init; } }
 

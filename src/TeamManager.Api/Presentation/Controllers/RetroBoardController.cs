@@ -215,14 +215,6 @@ public class RetroBoardController(RetroBoardService service) : ControllerBase
 
     // ---------- Participants ----------
 
-    [HttpPost("{id:guid}/progress")]
-    public async Task<IActionResult> SetProgress(Guid id, [FromBody] ProgressRequest req) =>
-        await Run(m => service.SetProgressAsync(id, m, req.Phase, req.Completed));
-
-    [HttpPost("{id:guid}/self-paced")]
-    public async Task<IActionResult> SetSelfPaced(Guid id, [FromBody] SelfPacedRequest req) =>
-        await Run(m => service.SetSelfPacedAsync(id, m, req.IsSelfPaced));
-
     [HttpPut("{id:guid}/participants/role")]
     public async Task<IActionResult> SetParticipantRole(Guid id, [FromBody] SetParticipantRoleRequest req) =>
         await Run(m => service.SetParticipantRoleAsync(id, m, req.MemberId, req.Role));
