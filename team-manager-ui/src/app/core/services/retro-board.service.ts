@@ -4,7 +4,7 @@ import { Observable } from 'rxjs';
 import {
   RetroBoardSession, RetroBoardSummary, RetroBoardColumn, RetroBoardCheckinQuestion,
   RetroBoardAction, RetroBoardAiSummary, RetroColumnInput, CheckinQuestionInput, RetroStepDurations,
-  RetroBoardFeedbackPrompt, FeedbackPromptInput,
+  RetroBoardFeedbackPrompt, FeedbackPromptInput, RetroPhaseFlags,
 } from '../models/retro-board.model';
 
 @Injectable({ providedIn: 'root' })
@@ -71,6 +71,7 @@ export class RetroBoardService {
   }
   updateSettings(id: string, req: {
     votesPerUser?: number; allowAnonymous?: boolean; hideNotesUntilReveal?: boolean; stepDurations?: RetroStepDurations;
+    phaseConfig?: Record<string, RetroPhaseFlags>;
   }): Observable<void> {
     return this.http.patch<void>(`${this.base}/${id}/settings`, req);
   }
@@ -87,6 +88,10 @@ export class RetroBoardService {
   // ---- columns ----
   addColumn(id: string, input: RetroColumnInput): Observable<RetroBoardColumn> {
     return this.http.post<RetroBoardColumn>(`${this.base}/${id}/columns`, input);
+  }
+  // Bulk-replace the whole column set (column template; draft-only server-side).
+  setColumns(id: string, columns: RetroColumnInput[]): Observable<RetroBoardSession> {
+    return this.http.put<RetroBoardSession>(`${this.base}/${id}/columns`, { columns });
   }
   updateColumn(id: string, columnId: string, input: RetroColumnInput): Observable<void> {
     return this.http.put<void>(`${this.base}/${id}/columns/${columnId}`, input);

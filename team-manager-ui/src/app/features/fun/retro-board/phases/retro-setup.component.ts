@@ -1,7 +1,8 @@
-import { Component, ChangeDetectionStrategy, inject } from '@angular/core';
+import { Component, ChangeDetectionStrategy, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RetroBoardStore } from '../retro-board.store';
+import { RetroBoardSession } from '../../../../core/models/retro-board.model';
 import { RETRO_STYLES } from '../retro-board.styles';
 
 @Component({
@@ -12,8 +13,76 @@ import { RETRO_STYLES } from '../retro-board.styles';
   styles: [RETRO_STYLES],
   template: `
     @if (store.session(); as s) {
-      <div class="phase-head"><div><h1>Retro Setup</h1><p class="sub">Configure this session, then open it so the team can start capturing.</p></div>
-        @if (store.amFacilitator()) { <button class="btn primary" (click)="store.openRetro()">Open Retro →</button> }</div>
+      <div class="phase-head"><div><h1>Retro Setup</h1><p class="sub">{{ s.status === 'draft' ? 'Configure this session, then open it so the team can start capturing.' : 'Editing mid-session — changes apply live.' }}</p></div>
+        @if (store.amFacilitator() && s.status === 'draft') { <button class="btn primary" (click)="store.openRetro()">{{ store.isFreeform() ? 'Start Retro →' : 'Open Retro →' }}</button> }
+        @else if (store.amFacilitator()) { <button class="btn primary" (click)="store.editingSetup.set(false)">✓ Done editing</button> }
+      </div>
+
+      <div class="card">
+        <label class="lbl">Session structure</label>
+
+        <div style="margin-top:6px;max-width:320px">
+          <label class="lbl">Team</label>
+          <select class="f" [ngModel]="s.squadId" (ngModelChange)="store.setSquad($event)" [disabled]="!store.amFacilitator()">
+            <option [ngValue]="null">No team — people join with the code</option>
+            @for (sq of store.squads(); track sq.id) { <option [ngValue]="sq.id">{{ sq.name }}</option> }
+          </select>
+          <div class="muted" style="font-size:11.5px;margin-top:4px">Pick a team to add everyone on it at once. {{ s.participants.length }} in this retro so far.</div>
+        </div>
+
+        <div class="row" style="gap:16px;align-items:flex-end;margin-top:16px">
+          <div><label class="lbl">Team size</label><input class="f" style="width:80px" type="number" min="1" [(ngModel)]="store.teamSize" (ngModelChange)="store.onTeamSizeInput()" [disabled]="!store.amFacilitator()"></div>
+          <span class="muted" style="font-size:12.5px">Auto-detected from who's joined — edit if more will join before you open.</span>
+        </div>
+
+        <div class="row between" style="margin-top:18px">
+          <label class="lbl" style="margin:0">Structure level
+            <span (click)="showInfo.set(!showInfo())" title="Why this level?" style="cursor:pointer;color:var(--dim);margin-left:4px">ⓘ</span>
+          </label>
+          <span class="muted" style="font-size:12px">Suggested for {{ store.teamSize }}: <b style="color:var(--accent)">{{ store.structureLabel(store.recommendedLevel()) }}</b></span>
+        </div>
+        <div class="row" style="gap:8px;flex-wrap:wrap;margin-top:8px">
+          @for (l of store.structureLevels; track l.key) {
+            <button class="btn ghost sm" [class.primary]="store.structureLevelOf(s.phaseConfig) === l.key" [disabled]="!store.amFacilitator()" (click)="store.applyStructureLevel(l.key)">{{ l.label }}</button>
+          }
+        </div>
+        @if (showInfo()) {
+          <div class="muted" style="font-size:12.5px;margin-top:8px;border-left:2px solid var(--accent);padding-left:10px">
+            {{ store.structureBlurb(store.structureLevelOf(s.phaseConfig)) }} Groups above ~12–15 tend to fragment into side conversations without phase structure — a facilitator keeping pace helps everyone stay engaged.
+            <a (click)="showPanel.set(!showPanel()); $event.preventDefault()" style="color:var(--accent);cursor:pointer">Read more</a>
+          </div>
+        }
+        @if (showPanel()) {
+          <div class="card" style="margin-top:10px;background:var(--surface2)">
+            <div style="font-weight:600;margin-bottom:8px">Choosing a structure level</div>
+            <div class="muted" style="font-size:13px;line-height:1.65">
+              <b style="color:var(--text)">Freeform</b> — Capture and Discuss stay open and you move at your own pace, no timers. Best for small groups; aids organic tangents and momentum.<br>
+              <b style="color:var(--text)">Guided</b> — Phases are shown and timed, but you can advance early; Introduce and Reflect are optional. A middle ground.<br>
+              <b style="color:var(--text)">Structured</b> — Hard phase gates and enforced timers, Introduce and Reflect on by default. Keeps larger groups on pace.<br><br>
+              The tradeoff: structure aids focus and equal airtime; freeform aids organic discussion and pace-of-choice.
+            </div>
+          </div>
+        }
+
+        @if (s.status === 'draft') {
+          <label class="lbl" style="margin-top:18px">Column template</label>
+          <select class="f" style="max-width:360px;margin-top:4px" (change)="store.applyColumnTemplate($any($event.target).value)" [disabled]="!store.amFacilitator()">
+            <option value="" disabled selected>Pick a template to pre-fill columns…</option>
+            @for (t of store.columnTemplates; track t.key) { <option [value]="t.key">{{ t.name }} — {{ t.desc }}</option> }
+          </select>
+        }
+
+        <label class="lbl" style="margin-top:18px">Phases in this retro</label>
+        <div class="row" style="gap:18px;flex-wrap:wrap;margin-top:4px">
+          @for (ph of phaseToggles; track ph.key) {
+            <label class="row" style="gap:8px;cursor:pointer">
+              <input type="checkbox" [checked]="s.phaseConfig[ph.key]?.enabled" (change)="store.togglePhase(ph.key)" [disabled]="!store.amFacilitator()"> {{ ph.label }}
+              @if (ph.empty(s)) { <span class="muted" style="font-size:11.5px">· auto-skipped, none configured</span> }
+            </label>
+          }
+          <span class="muted" style="font-size:11.5px;align-self:center">Capture, Vote &amp; Discuss are always included.</span>
+        </div>
+      </div>
 
       <div class="card">
         <label class="lbl">Votes / user</label>
@@ -29,6 +98,18 @@ import { RETRO_STYLES } from '../retro-board.styles';
           <div><label class="lbl">Meeting length (m:ss)</label><input class="f" style="width:90px" [ngModel]="store.fmt(store.edit.d.meeting)" (change)="store.setTimer('meeting', $event)" [disabled]="!store.amFacilitator()"></div>
           <div><label class="lbl">Topics to discuss (est.)</label><input class="f" style="width:80px" type="number" min="0" [(ngModel)]="store.topicEstimate" [disabled]="!store.amFacilitator()"></div>
         </div>
+
+        <label class="lbl" style="margin-top:18px">Session length</label>
+        <div class="row" style="gap:8px;flex-wrap:wrap">
+          @for (p of store.presetOptions; track p.key) {
+            @if (p.key === 'custom') {
+              <span class="btn ghost sm" [class.primary]="store.presetOf(store.edit.d) === 'custom'" style="cursor:default" title="Set automatically when you edit a timer by hand">{{ p.label }}</span>
+            } @else {
+              <button class="btn ghost sm" [class.primary]="store.presetOf(store.edit.d) === p.key" [disabled]="!store.amFacilitator()" (click)="store.applyPreset(p.key)">{{ p.label }}</button>
+            }
+          }
+        </div>
+        <div class="muted" style="font-size:12.5px;margin-top:10px">For a team of <b style="color:var(--text)">{{ store.teamSize }}</b>, <b style="color:var(--accent)">{{ store.presetLabel(store.recommendedPreset()) }}</b> is a good starting point.</div>
 
         <label class="lbl" style="margin-top:18px">Phase timers (m:ss)</label>
         <div class="timers">
@@ -82,18 +163,9 @@ import { RETRO_STYLES } from '../retro-board.styles';
       </div>
 
       <div class="card">
-        <label class="lbl">Participants</label>
-        <div class="muted" style="font-size:12px;margin:-2px 0 12px">Pick a team to add everyone on it at once. Anyone else can still join with the code.</div>
-        @if (store.amFacilitator()) {
-          <div style="max-width:280px">
-            <label class="lbl">Team</label>
-            <select class="f" [ngModel]="s.squadId" (ngModelChange)="store.setSquad($event)">
-              <option [ngValue]="null">No team</option>
-              @for (sq of store.squads(); track sq.id) { <option [ngValue]="sq.id">{{ sq.name }}</option> }
-            </select>
-          </div>
-        }
-        <div style="margin-top:14px">
+        <label class="lbl">Participants · {{ s.participants.length }}</label>
+        <div class="muted" style="font-size:12px;margin:-2px 0 12px">Set the team at the top to add everyone at once; anyone else joins with the code.</div>
+        <div style="margin-top:4px">
           @for (p of s.participants; track p.id) {
             <div class="p-row" style="padding:5px 0">
               <span class="avatar" [style.background]="store.tint(p.memberId)" [style.color]="store.ink(p.memberId)">{{ store.initials(p.name) }}</span>
@@ -109,4 +181,12 @@ import { RETRO_STYLES } from '../retro-board.styles';
 })
 export class RetroSetupComponent {
   store = inject(RetroBoardStore);
+  showInfo = signal(false);
+  showPanel = signal(false);
+  // The optional phases that carry an "include in this retro" toggle (with an auto-skip hint when empty).
+  phaseToggles: { key: string; label: string; empty: (s: RetroBoardSession) => boolean }[] = [
+    { key: 'checkin', label: 'Check-in', empty: s => s.checkinQuestions.length === 0 },
+    { key: 'introduce', label: 'Introduce', empty: () => false },
+    { key: 'reflect', label: 'Reflect', empty: s => s.feedbackPrompts.length === 0 },
+  ];
 }

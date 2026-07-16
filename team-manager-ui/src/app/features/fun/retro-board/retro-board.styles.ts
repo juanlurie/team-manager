@@ -32,6 +32,8 @@ export const RETRO_STYLES = `
     .avatar { width:28px; height:28px; border-radius:50%; display:grid; place-items:center; font-size:11px; font-weight:700; flex-shrink:0; }
     .crown { margin-left:auto; color:#f5b544; font-size:12px; } .tick { margin-left:auto; color:#34d67f; }
     .main { padding:26px 30px; overflow-y:auto; }
+    /* Setup renders outside the rail/grid, so centre it for a focused single-column config screen. */
+    .setup-main { max-width:920px; margin:0 auto; }
     h1 { font-size:25px; margin:0 0 4px; } .sub { color:var(--dim); margin:0 0 22px; }
     /* Phase header: title/sub-text on the left, primary action pinned top-right without wrapping under it. */
     .phase-head { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; margin-bottom:8px; }
@@ -43,6 +45,8 @@ export const RETRO_STYLES = `
     .row { display:flex; align-items:center; gap:12px; flex-wrap:wrap; } .between { justify-content:space-between; }
     .btn { border:1px solid transparent; border-radius:10px; font-weight:600; padding:10px 16px; background:var(--surface2); color:var(--text); cursor:pointer; font-size:14px; }
     .btn:hover { filter:brightness(1.15); } .btn.primary { background:var(--accent); color:#fff; } .btn.ghost { background:transparent; border-color:var(--border); color:var(--dim); }
+    /* A selected chip carries both ghost + primary; make primary win (higher specificity) so it highlights. */
+    .btn.ghost.primary { background:var(--accent); color:#fff; border-color:transparent; }
     .btn:disabled { opacity:.4; cursor:default; } .btn.sm { padding:6px 11px; font-size:12.5px; }
     .card { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:20px; margin-bottom:16px; }
     label.lbl { font-size:11px; letter-spacing:.1em; color:var(--mute); text-transform:uppercase; display:block; margin-bottom:6px; }

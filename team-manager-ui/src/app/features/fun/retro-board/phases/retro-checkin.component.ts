@@ -15,7 +15,7 @@ import { RespondedMeterComponent } from '../responded-meter.component';
       <div class="phase-head">
         <div><h1>Sprint Check-in</h1><p class="sub">Rate how things have changed since last retro</p></div>
         <div class="ph-right">
-          @if (store.liveFacilitation()) { <button class="btn primary" (click)="store.goPhase('capture')">Continue to Capture →</button> }
+          @if (store.liveFacilitation()) { <button class="btn primary" (click)="store.goNext()">Continue to {{ store.nextPhaseLabel() }} →</button> }
           <app-responded-meter [done]="store.respondedFor('checkin')" [total]="store.respondedTotal()" />
         </div>
       </div>

@@ -19,7 +19,7 @@ import { RespondedMeterComponent } from '../responded-meter.component';
           @if (store.liveFacilitation()) { <div class="row" style="gap:8px">
             @if (s.notesRevealed) { <button class="btn ghost" (click)="store.hideNotes()" title="Undo an accidental reveal">↺ Hide all</button> }
             @else { <button class="btn ghost" (click)="store.reveal()">Reveal to all</button> }
-            <button class="btn primary" (click)="store.goPhase('introduce')">Continue →</button></div> }
+            <button class="btn primary" (click)="store.goNext()">Continue to {{ store.nextPhaseLabel() }} →</button></div> }
           <app-responded-meter [done]="store.respondedFor('capture')" [total]="store.respondedTotal()" />
         </div>
       </div>

@@ -12,7 +12,7 @@ import { RETRO_STYLES } from '../retro-board.styles';
   template: `
     @if (store.session(); as s) {
       <div class="phase-head"><div><h1>Introduce Topics</h1><p class="sub">Read the notes and flag anything that needs the owner to explain it</p></div>
-        @if (store.amFacilitator()) { <button class="btn primary" (click)="store.goPhase('vote')">Continue to Vote →</button> }</div>
+        @if (store.liveFacilitation()) { <button class="btn primary" (click)="store.goNext()">Continue to {{ store.nextPhaseLabel() }} →</button> }</div>
       @if (store.flagged().length) { <div class="card" style="border-color:color-mix(in srgb,var(--flag) 40%, transparent)"><div style="color:var(--flag);font-size:12px;letter-spacing:.08em">{{ store.flagged().length }} FLAGGED TO INTRODUCE</div>
         @for (g of store.flaggedByColumn(); track g.column.id) {
           <div style="margin-top:12px">

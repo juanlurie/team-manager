@@ -11,9 +11,81 @@ import { WebSocketService } from '../../../core/websocket/websocket.service';
 import { AuthService } from '../../../core/auth/auth.service';
 import {
   RetroBoardSession, RetroBoardSummary, RetroPhase, RetroBoardNote,
-  RetroBoardFeedbackPrompt, DEFAULT_STEP_DURATIONS,
+  RetroBoardFeedbackPrompt, RetroStepDurations, RetroPhaseFlags, RetroColumnInput, DEFAULT_STEP_DURATIONS,
 } from '../../../core/models/retro-board.model';
 import * as F from './retro-format';
+
+export type StructureLevel = 'freeform' | 'guided' | 'structured';
+
+/** Session Structure levels — a starting suggestion that maps to per-phase flags (never an opaque
+ *  mode). `enforced`/`timed` gate the live flow (honoured from Slice 2); `introduce`/`reflect` are the
+ *  optional phases each level turns on by default. */
+export const STRUCTURE_LEVELS: { key: StructureLevel; label: string; blurb: string }[] = [
+  { key: 'freeform',   label: 'Freeform',   blurb: 'Open capture & discuss, no timers — best for small groups that self-organise.' },
+  { key: 'guided',     label: 'Guided',     blurb: 'Timed phases you can advance early; Introduce & Reflect optional.' },
+  { key: 'structured', label: 'Structured', blurb: 'Full phased flow with timers — keeps larger groups on pace and gives equal airtime.' },
+];
+const LEVEL_FLAGS: Record<StructureLevel, { enforced: boolean; timed: boolean; introduce: boolean; reflect: boolean }> = {
+  freeform:   { enforced: false, timed: false, introduce: false, reflect: false },
+  guided:     { enforced: false, timed: true,  introduce: false, reflect: false },
+  structured: { enforced: true,  timed: true,  introduce: true,  reflect: true  },
+};
+// The live phases that carry per-phase flags (setup/summary aren't configurable here).
+const LIVE_PHASES = ['checkin', 'capture', 'introduce', 'vote', 'discuss', 'reflect'];
+
+/** Retro column templates — pre-fill the Themes/Columns via the bulk set-columns endpoint (still
+ *  fully editable afterwards). "classic" mirrors the server default. */
+export const COLUMN_TEMPLATES: { key: string; name: string; desc: string; columns: RetroColumnInput[] }[] = [
+  { key: 'classic', name: 'Classic', desc: 'What Went Well / What to Improve / Questions / Shout-outs', columns: [
+    { key: 'well', label: 'What Went Well', description: 'Celebrate wins & strengths', color: '#2fd47e', icon: 'star' },
+    { key: 'better', label: 'What to Improve', description: 'Things that could be better', color: '#f4566b', icon: 'star' },
+    { key: 'quest', label: 'Questions', description: 'Seek clarity', color: '#f5b544', icon: 'star' },
+    { key: 'shout', label: 'Shout-outs', description: 'Recognition & gratitude', color: '#5b9dff', icon: 'star' },
+  ] },
+  { key: 'ssc', name: 'Start-Stop-Continue', desc: 'Start / Stop / Continue', columns: [
+    { key: 'start', label: 'Start', description: 'Things to begin doing', color: '#2fd47e', icon: 'star' },
+    { key: 'stop', label: 'Stop', description: 'Things to quit doing', color: '#f4566b', icon: 'star' },
+    { key: 'continue', label: 'Continue', description: 'Things working well', color: '#5b9dff', icon: 'star' },
+  ] },
+  { key: '4ls', name: '4Ls', desc: 'Liked / Learned / Lacked / Longed for', columns: [
+    { key: 'liked', label: 'Liked', description: 'What you enjoyed', color: '#2fd47e', icon: 'star' },
+    { key: 'learned', label: 'Learned', description: 'New insights gained', color: '#5b9dff', icon: 'star' },
+    { key: 'lacked', label: 'Lacked', description: 'What was missing', color: '#f5b544', icon: 'star' },
+    { key: 'longed', label: 'Longed for', description: 'What you wished for', color: '#b07cff', icon: 'star' },
+  ] },
+  { key: 'sailboat', name: 'Sailboat', desc: 'Wind / Anchor / Rocks / Island', columns: [
+    { key: 'wind', label: 'Wind', description: 'What propels us forward', color: '#2fd47e', icon: 'star' },
+    { key: 'anchor', label: 'Anchor', description: 'What holds us back', color: '#f4566b', icon: 'star' },
+    { key: 'rocks', label: 'Rocks', description: 'Risks ahead to avoid', color: '#f5934a', icon: 'star' },
+    { key: 'island', label: 'Island', description: 'The goal we sail toward', color: '#5b9dff', icon: 'star' },
+  ] },
+  { key: 'madsadglad', name: 'Mad-Sad-Glad', desc: 'Mad / Sad / Glad', columns: [
+    { key: 'mad', label: 'Mad', description: 'Frustrations', color: '#f4566b', icon: 'star' },
+    { key: 'sad', label: 'Sad', description: 'Disappointments', color: '#f5b544', icon: 'star' },
+    { key: 'glad', label: 'Glad', description: 'What made you happy', color: '#2fd47e', icon: 'star' },
+  ] },
+];
+
+export type PresetName = 'quick' | 'standard' | 'deep' | 'custom';
+
+/**
+ * Session-length presets. Each writes to the SAME per-phase timer fields manual entry does — this is
+ * purely a convenience layer. Ratios are hand-tuned per preset, NOT a uniform scale: Quick squeezes
+ * the topic-scaling phases (Capture, per-topic Discuss) hardest while keeping Check-in/Reflect nearer
+ * their Standard length; Deep expands those same phases most.
+ */
+export const SESSION_PRESETS: Record<Exclude<PresetName, 'custom'>, RetroStepDurations> = {
+  quick:    { meeting: 1800, checkin: 120, capture: 210, introduceRead: 45,  introduceTopic: 20, vote: 150, discussTopic: 60,  reflect: 90  },
+  standard: { meeting: 3600, checkin: 180, capture: 480, introduceRead: 60,  introduceTopic: 30, vote: 300, discussTopic: 120, reflect: 120 },
+  deep:     { meeting: 5400, checkin: 300, capture: 900, introduceRead: 120, introduceTopic: 45, vote: 420, discussTopic: 240, reflect: 180 },
+};
+
+export const PRESET_OPTIONS: { key: PresetName; label: string; short: string }[] = [
+  { key: 'quick', label: 'Quick · 30m', short: 'Quick' },
+  { key: 'standard', label: 'Standard · 60m', short: 'Standard' },
+  { key: 'deep', label: 'Deep · 90m', short: 'Deep' },
+  { key: 'custom', label: 'Custom', short: 'Custom' },
+];
 
 export const PHASES: { key: RetroPhase; label: string }[] = [
   { key: 'setup', label: 'Setup' }, { key: 'checkin', label: 'Check-in' }, { key: 'capture', label: 'Capture' },
@@ -74,6 +146,11 @@ export class RetroBoardStore implements OnDestroy {
   joining = signal(false);
   analysing = signal(false);
   viewAs = signal<'facilitator' | 'participant'>('facilitator');
+  // Facilitator is editing the setup (questions/structure/timers) mid-session — overlays the board.
+  editingSetup = signal(false);
+  // Freeform lets a participant navigate their own view independently of the shared phase; null =
+  // follow the facilitator. Reset whenever the run isn't live+freeform (see setSession).
+  private localPhase = signal<RetroPhase | null>(null);
   actionDraft = signal<ActionDraft | null>(null);
   private timerNow = signal(Date.now());
   // Offset (ms) between the server clock and this client's clock, learned from the response Date
@@ -90,12 +167,32 @@ export class RetroBoardStore implements OnDestroy {
   //     sense in the running guided flow (advance phase, reveal notes) — hidden during 'open'.
   amFacilitator = computed(() => !!this.session()?.isFacilitator && this.viewAs() === 'facilitator');
   liveFacilitation = computed(() => this.amFacilitator() && this.session()?.status === 'live');
-  phaseIndex = computed(() => this.phases.findIndex(p => p.key === this.session()?.phase));
+  // The phase the *viewer* is on: their local freeform phase if set, else the shared session phase.
+  viewPhase = computed<RetroPhase | null>(() => this.localPhase() ?? this.session()?.phase ?? null);
+  phaseIndex = computed(() => this.phases.findIndex(p => p.key === this.viewPhase()));
+  // Structure level of this run (derived from the per-phase flags) + its runtime consequences.
+  isFreeform = computed(() => this.structureLevelOf(this.session()?.phaseConfig ?? {}) === 'freeform');
+  isStructured = computed(() => this.structureLevelOf(this.session()?.phaseConfig ?? {}) === 'structured');
+  // Timers only apply when the viewed phase is `timed` (Freeform turns them off).
+  timerAllowed = computed(() => { const s = this.session(); const vp = this.viewPhase(); return !!s && (!vp || s.phaseConfig[vp]?.timed !== false); });
   // Steps a participant sees in the live stepper — the collaborative core, without setup/reflect/summary.
   private readonly participantSteps = ['checkin', 'capture', 'introduce', 'vote', 'discuss'];
-  visibleSteps = computed(() => this.amFacilitator() ? this.phases : this.phases.filter(p => this.participantSteps.includes(p.key)));
+  // Only the phases active this run (enabledPhases) show in the stepper; participants also lose reflect/summary.
+  visibleSteps = computed(() => {
+    const enabled = this.session()?.enabledPhases ?? [];
+    const base = this.phases.filter(p => enabled.includes(p.key));
+    return this.amFacilitator() ? base : base.filter(p => this.participantSteps.includes(p.key));
+  });
   // A step is "done" by its position in the full flow, independent of which steps are shown.
   stepDone(key: string) { return this.phases.findIndex(p => p.key === key) < this.phaseIndex(); }
+  // Next phase active this run (skips disabled/auto-skipped phases); null once on the last one.
+  nextPhase(): RetroPhase | null {
+    const s = this.session(); if (!s) return null;
+    const i = s.enabledPhases.indexOf(s.phase);
+    return i >= 0 && i < s.enabledPhases.length - 1 ? s.enabledPhases[i + 1] as RetroPhase : null;
+  }
+  nextPhaseLabel() { const n = this.nextPhase(); return n ? this.phaseLabel(n) : 'Finish'; }
+  goNext() { const n = this.nextPhase(); if (n) this.goPhase(n); }
   // Single source of truth for what the board's main area renders: draft is handled by the setup
   // shell; 'open' shows the pre-capture combo; a closed retro always shows the Summary recap;
   // otherwise (live) it follows the current phase.
@@ -104,8 +201,36 @@ export class RetroBoardStore implements OnDestroy {
     if (!s) return null;
     if (s.status === 'open') return 'precapture';
     if (s.status === 'closed') return 'summary';
-    return s.phase;
+    return this.viewPhase();   // live: the viewer's phase (their freeform local phase, else the shared one)
   });
+  // Whether the viewer may click a stepper phase. Facilitator drives the shared phase (Structured
+  // blocks jumping ahead — advance via Continue only); participants only navigate in Freeform (locally).
+  canNavigateTo(key: string): boolean {
+    const s = this.session(); if (!s || !s.enabledPhases.includes(key)) return false;
+    if (this.amFacilitator()) {
+      if (!this.isStructured()) return true;                       // guided/freeform: jump anywhere
+      return s.enabledPhases.indexOf(key) <= s.enabledPhases.indexOf(s.phase);   // structured: current or earlier
+    }
+    return !this.isStructured();                                   // participants navigate in freeform + guided (locally)
+  }
+  // Previous / next phase relative to the viewer's current phase (for the ← / → nav; freeform + guided).
+  private relPhase(dir: -1 | 1): RetroPhase | null {
+    const s = this.session(); if (!s) return null;
+    const i = s.enabledPhases.indexOf(this.viewPhase() ?? '');
+    const j = i + dir;
+    return i >= 0 && j >= 0 && j < s.enabledPhases.length ? s.enabledPhases[j] as RetroPhase : null;
+  }
+  canGoPrev() { const p = this.relPhase(-1); return !!p && this.canNavigateTo(p); }
+  canGoNext() { const p = this.relPhase(1); return !!p && this.canNavigateTo(p); }
+  goPrevPhase() { const p = this.relPhase(-1); if (p) this.navigate(p); }
+  goNextPhase() { const p = this.relPhase(1); if (p) this.navigate(p); }
+  /** Stepper navigation entry point: facilitator changes the shared phase; a freeform participant
+   *  moves only their own view. */
+  navigate(key: RetroPhase) {
+    if (!this.canNavigateTo(key)) return;
+    if (this.amFacilitator()) { this.localPhase.set(null); this.goPhase(key); }
+    else this.localPhase.set(key);
+  }
   flagged = computed(() => this.session()?.notes.filter(n => n.flagged) ?? []);
   // Flagged notes grouped under their theme/column, in column order, skipping empty groups.
   flaggedByColumn = computed(() => {
@@ -115,9 +240,9 @@ export class RetroBoardStore implements OnDestroy {
       .filter(g => g.notes.length > 0);
   });
   sortedByVotes = computed(() => [...(this.session()?.notes ?? [])].sort((a, b) => b.voteCount - a.voteCount));
-  // "N/M responded" meters count the non-facilitator participants (the facilitator drives the
-  // session rather than responding), keyed by phase (checkin|capture|vote|reflect).
-  private respondents = computed(() => this.session()?.participants.filter(p => p.role !== 'facilitator') ?? []);
+  // "N/M responded" meters count everyone in the retro (facilitators take part too — a solo admin
+  // who answers should read 1/1, not 0/0), keyed by phase (checkin|capture|vote|reflect).
+  private respondents = computed(() => this.session()?.participants ?? []);
   respondedTotal = computed(() => this.respondents().length);
   respondedFor(phase: string) { return this.respondents().filter(p => p.responded[phase]).length; }
   feedbackDone = computed(() => { const ps = this.session()?.feedbackPrompts ?? []; return ps.length > 0 && ps.every(p => p.myScore != null); });
@@ -163,6 +288,11 @@ export class RetroBoardStore implements OnDestroy {
   // Facilitator's estimate of how many topics will be discussed; the per-topic timers
   // (intro + discuss) are multiplied by this for the Allocated/Remaining budget. UI-only.
   topicEstimate = 5;
+  // Expected number of participants — nudges the preset/structure recommendation. Auto-detects from
+  // the roster until the facilitator edits it (in case more people join before the retro opens).
+  teamSize = 8;
+  private teamSizeTouched = false;
+  readonly presetOptions = PRESET_OPTIONS;
   newColumn = ''; newQuestion = ''; newPrompt = '';
   fbComments: Record<string, string> = {};
   manual = { title: '', assignees: [] as string[] };
@@ -182,6 +312,9 @@ export class RetroBoardStore implements OnDestroy {
 
   /** Called by the container once the route id (if any) is known. */
   init(routeId: string | null) {
+    // Restore the facilitator's last-used team size (durations are seeded onto new retros in create()).
+    const prefs = this.loadSetupPrefs();
+    if (prefs?.teamSize) this.teamSize = prefs.teamSize;
     this.memberSvc.getAll({ isActive: true }).subscribe({ next: ms => this.members.set(ms.map(m => ({ id: m.id, name: `${m.firstName} ${m.lastName}`.trim() }))) });
     this.squadSvc.getAll().subscribe({ next: sq => this.squads.set(sq) });
     this.ws.connect();
@@ -216,13 +349,19 @@ export class RetroBoardStore implements OnDestroy {
   private refresh(id: string) { this.refresh$.next(id); }
   private setSession(s: RetroBoardSession) {
     this.session.set(s); this.edit.votes = s.votesPerUser; this.edit.anon = s.allowAnonymous; this.edit.d = { ...s.stepDurations };
+    // Local (self-paced) navigation applies to a live freeform/guided run; otherwise snap to the shared phase.
+    if (!(s.status === 'live' && this.structureLevelOf(s.phaseConfig) !== 'structured')) this.localPhase.set(null);
+    // Auto-detect team size from the roster until the facilitator overrides it.
+    if (!this.teamSizeTouched && s.participants.length) this.teamSize = s.participants.length;
     // Seed local comment drafts once so in-progress typing survives WS refreshes.
     for (const p of s.feedbackPrompts) if (this.fbComments[p.id] === undefined) this.fbComments[p.id] = p.myComment ?? '';
   }
 
   create() {
     const t = this.newTitle.trim(); this.creating.set(true);
-    this.svc.createSession({ title: t || undefined }).subscribe({
+    // Seed a new retro from the facilitator's last-used timers so Setup doesn't reset to defaults.
+    const stepDurations = this.loadSetupPrefs()?.durations;
+    this.svc.createSession({ title: t || undefined, stepDurations }).subscribe({
       next: s => { this.creating.set(false); this.router.navigate(['/pulse/retro-board', s.id]); this.setSession(s); this.joinWs(s.id); },
       error: () => { this.creating.set(false); this.error.set('Create failed.'); },
     });
@@ -256,8 +395,16 @@ export class RetroBoardStore implements OnDestroy {
   // ---- in-session lifecycle actions ----
   closeCurrent() { const s = this.session(); if (s && confirm('Close this retro? It will be marked closed. You can reopen or archive it anytime.')) this.svc.close(s.id).subscribe({ next: r => this.setSession(r) }); }
   reopenCurrent() { const s = this.session(); if (s) this.svc.reopen(s.id).subscribe({ next: r => this.setSession(r) }); }
-  // draft → open: publish for asynchronous pre-capture.
-  openRetro() { const s = this.session(); if (s && this.amFacilitator()) this.svc.openRetro(s.id).subscribe({ next: r => this.setSession(r) }); }
+  // draft → open (pre-capture). A Freeform retro has no separate synced "live" step, so it goes
+  // straight to the navigable working session (draft → open → live in one action).
+  openRetro() {
+    const s = this.session(); if (!s || !this.amFacilitator()) return;
+    const freeform = this.structureLevelOf(s.phaseConfig) === 'freeform';
+    this.svc.openRetro(s.id).subscribe({ next: r => {
+      if (freeform) this.svc.goLive(r.id).subscribe({ next: r2 => this.setSession(r2) });
+      else this.setSession(r);
+    } });
+  }
   // open → live: start the synced, guided session (begins at check-in).
   goLive() { const s = this.session(); if (s && this.amFacilitator()) this.svc.goLive(s.id).subscribe({ next: r => this.setSession(r) }); }
   // Set the owning team and auto-enrol its members as participants.
@@ -267,10 +414,90 @@ export class RetroBoardStore implements OnDestroy {
   private leaveWs() { if (this.joinedId) { this.ws.send({ type: 'leave_retro' }); this.joinedId = null; } }
 
   goPhase(p: RetroPhase) { const s = this.session(); if (!s || !this.amFacilitator()) return; this.svc.setPhase(s.id, p).subscribe({ next: r => { this.setSession(r); this.autoStartTimer(r); } }); }
-  // Auto-start the phase clock on advance so every participant sees a running timer without the facilitator starting it.
-  private autoStartTimer(s: RetroBoardSession) { const key = PHASE_TIMER[s.phase]; if (!key) return; this.svc.setLiveState(s.id, JSON.stringify({ startedAt: new Date(this.serverNow()).toISOString(), seconds: s.stepDurations[key] })).subscribe({ next: () => this.refresh(s.id) }); }
+  // Auto-start the phase clock on advance so every participant sees a running timer without the facilitator
+  // starting it — but not for an untimed (Freeform) phase.
+  private autoStartTimer(s: RetroBoardSession) { const key = PHASE_TIMER[s.phase]; if (!key || s.phaseConfig[s.phase]?.timed === false) return; this.svc.setLiveState(s.id, JSON.stringify({ startedAt: new Date(this.serverNow()).toISOString(), seconds: s.stepDurations[key] })).subscribe({ next: () => this.refresh(s.id) }); }
   saveSettings() { const s = this.session(); if (s) this.svc.updateSettings(s.id, { votesPerUser: this.edit.votes, allowAnonymous: this.edit.anon, stepDurations: this.edit.d }).subscribe({ next: () => this.refresh(s.id) }); }
-  setTimer(key: keyof RetroBoardSession['stepDurations'], ev: Event) { this.edit.d[key] = this.parse((ev.target as HTMLInputElement).value); this.saveSettings(); }
+  // A manual timer edit persists as the new "last used" — and because the preset selector reads
+  // presetOf(edit.d), it silently flips to Custom whenever the values stop matching a preset.
+  setTimer(key: keyof RetroStepDurations, ev: Event) { this.edit.d[key] = F.parseDuration((ev.target as HTMLInputElement).value); this.saveSettings(); this.saveSetupPrefs(); }
+
+  // ---- Session-length presets (a convenience layer over the same timer fields) ----
+  /** Which preset the current durations match, or 'custom' after any manual edit. */
+  presetOf(d: RetroStepDurations): PresetName {
+    const match = (Object.keys(SESSION_PRESETS) as Exclude<PresetName, 'custom'>[])
+      .find(name => (Object.keys(SESSION_PRESETS[name]) as (keyof RetroStepDurations)[]).every(k => SESSION_PRESETS[name][k] === d[k]));
+    return match ?? 'custom';
+  }
+  /** Apply a preset to every timer field (Custom is a derived state, so it's a no-op). */
+  applyPreset(name: PresetName) {
+    if (name === 'custom' || !this.amFacilitator()) return;
+    this.edit.d = { ...SESSION_PRESETS[name] };
+    this.saveSettings();
+    this.saveSetupPrefs();
+  }
+  /** Starting recommendation from team size: larger teams carry more Introduce/Discuss overhead. */
+  recommendedPreset(): Exclude<PresetName, 'custom'> {
+    const n = this.teamSize || 0;
+    if (n <= 6) return 'quick';
+    if (n <= 15) return 'standard';
+    return 'deep';
+  }
+  presetLabel(name: PresetName) { return this.presetOptions.find(o => o.key === name)?.short ?? 'Custom'; }
+
+  private setupPrefsKey() { return `rb-setup-prefs:${this.myId}`; }
+  saveSetupPrefs() {
+    try { localStorage.setItem(this.setupPrefsKey(), JSON.stringify({ durations: this.edit.d, teamSize: this.teamSize })); } catch { /* storage may be unavailable */ }
+  }
+  private loadSetupPrefs(): { durations?: RetroStepDurations; teamSize?: number } | null {
+    try { const raw = localStorage.getItem(this.setupPrefsKey()); return raw ? JSON.parse(raw) : null; } catch { return null; }
+  }
+
+  // ---- Session Structure (per-phase config + column templates) ----
+  readonly structureLevels = STRUCTURE_LEVELS;
+  readonly columnTemplates = COLUMN_TEMPLATES;
+  /** Derive the level from the per-phase flags (like presetOf) — freeform turns timers off, structured
+   *  enforces every phase, otherwise guided. Robust to individual include toggles. */
+  structureLevelOf(config: Record<string, RetroPhaseFlags>): StructureLevel {
+    const live = LIVE_PHASES.map(p => config[p]).filter(Boolean);
+    if (live.length === 0) return 'structured';
+    if (live.some(f => !f.timed)) return 'freeform';
+    if (live.every(f => f.enforced)) return 'structured';
+    return 'guided';
+  }
+  /** Apply a structure level: sets enforced/timed across phases + the optional phases it turns on. */
+  applyStructureLevel(level: StructureLevel) {
+    const s = this.session(); if (!s || !this.amFacilitator()) return;
+    const f = LEVEL_FLAGS[level];
+    const cfg: Record<string, RetroPhaseFlags> = {};
+    for (const p of LIVE_PHASES) {
+      const enabled = p === 'introduce' ? f.introduce : p === 'reflect' ? f.reflect : true;
+      cfg[p] = { enabled, enforced: f.enforced, timed: f.timed };
+    }
+    this.svc.updateSettings(s.id, { phaseConfig: cfg }).subscribe({ next: () => this.refresh(s.id) });
+  }
+  /** Flip a phase's "include in this retro" toggle (checkin/introduce/reflect). */
+  togglePhase(phase: string) {
+    const s = this.session(); if (!s || !this.amFacilitator()) return;
+    const cur = s.phaseConfig[phase] ?? { enabled: true, enforced: true, timed: true };
+    const cfg = { ...s.phaseConfig, [phase]: { ...cur, enabled: !cur.enabled } };
+    this.svc.updateSettings(s.id, { phaseConfig: cfg }).subscribe({ next: () => this.refresh(s.id) });
+  }
+  applyColumnTemplate(key: string) {
+    const s = this.session(); const t = this.columnTemplates.find(x => x.key === key);
+    if (s && t && this.amFacilitator()) this.svc.setColumns(s.id, t.columns).subscribe({ next: r => this.setSession(r) });
+  }
+  /** Starting recommendation from team size: larger groups fragment without structure. */
+  recommendedLevel(): StructureLevel {
+    const n = this.teamSize || 0;
+    if (n <= 8) return 'freeform';
+    if (n <= 15) return 'guided';
+    return 'structured';
+  }
+  structureLabel(level: StructureLevel) { return this.structureLevels.find(l => l.key === level)?.label ?? level; }
+  structureBlurb(level: StructureLevel) { return this.structureLevels.find(l => l.key === level)?.blurb ?? ''; }
+  onTeamSizeInput() { this.teamSizeTouched = true; this.saveSetupPrefs(); }
+
   reveal() { const s = this.session(); if (s) this.svc.reveal(s.id, true).subscribe({ next: () => this.refresh(s.id) }); }
   // Undo an accidental reveal — re-hides notes from participants during Capture.
   hideNotes() { const s = this.session(); if (s) this.svc.reveal(s.id, false).subscribe({ next: () => this.refresh(s.id) }); }

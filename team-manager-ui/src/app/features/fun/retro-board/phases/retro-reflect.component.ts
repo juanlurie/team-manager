@@ -16,7 +16,7 @@ import { RespondedMeterComponent } from '../responded-meter.component';
       <div class="phase-head">
         <div><h1>Reflect</h1><p class="sub">Rate the session — your ratings are anonymous, only the aggregate is shared</p></div>
         <div class="ph-right">
-          @if (store.liveFacilitation()) { <button class="btn primary" (click)="store.goPhase('summary')">Continue to Summary →</button> }
+          @if (store.liveFacilitation()) { <button class="btn primary" (click)="store.goNext()">Continue to {{ store.nextPhaseLabel() }} →</button> }
           <app-responded-meter [done]="store.respondedFor('reflect')" [total]="store.respondedTotal()" />
         </div>
       </div>

@@ -45,8 +45,10 @@ import { RetroSummaryComponent } from './phases/retro-summary.component';
           <span class="tag" title="Share this code so the team can join">{{ s.slug }}</span>
           <button class="btn ghost sm" (click)="store.leave()">← Lobby</button>
         </div>
-        @if (s.isFacilitator) { <app-retro-setup /> }
-        @else { <div class="main" style="max-width:640px;margin:0 auto"><p class="sub" style="margin-top:48px">The facilitator is still setting up this retro. You'll be able to take part once it's opened.</p></div> }
+        <div class="body" style="grid-template-columns:1fr">
+          @if (s.isFacilitator) { <main class="main setup-main"><app-retro-setup /></main> }
+          @else { <main class="main" style="max-width:640px;margin:0 auto"><p class="sub" style="margin-top:48px">The facilitator is still setting up this retro. You'll be able to take part once it's opened.</p></main> }
+        </div>
       } @else {
 
       <div class="topbar">
@@ -61,6 +63,7 @@ import { RetroSummaryComponent } from './phases/retro-summary.component';
         <span class="tag" [class.closed]="s.status==='closed'">{{ s.status==='closed' ? 'closed' : s.slug }}</span>
         @if (store.amFacilitator()) {
           @if (s.status==='open') { <button class="btn primary sm" (click)="store.goLive()">Go Live →</button> }
+          @if (s.status !== 'closed') { <button class="btn ghost sm" [class.primary]="store.editingSetup()" (click)="store.editingSetup.set(!store.editingSetup())" title="Edit questions, structure & timers mid-session">{{ store.editingSetup() ? '✓ Done' : '⚙ Setup' }}</button> }
           @if (s.status==='closed') { <button class="btn ghost sm" (click)="store.reopenCurrent()">Reopen</button> }
           @else { <button class="btn ghost sm" (click)="store.closeCurrent()">Close retro</button> }
         }
@@ -68,12 +71,22 @@ import { RetroSummaryComponent } from './phases/retro-summary.component';
         <button class="btn ghost sm" (click)="store.leave()">Leave</button>
       </div>
 
+      @if (store.editingSetup()) {
+        <!-- Facilitator editing the setup mid-session — the board is preserved underneath and returns on Done. -->
+        <div class="body" style="grid-template-columns:1fr"><main class="main setup-main"><app-retro-setup /></main></div>
+      } @else {
+
       @if (s.status === 'live') {
         <div class="stepbar">
           @for (p of store.visibleSteps(); track p.key; let last = $last) {
-            <button class="step" [class.active]="p.key===s.phase" [class.done]="store.stepDone(p.key)"
-                    [disabled]="!store.amFacilitator()" (click)="store.goPhase(p.key)">{{ p.label }}</button>
+            <button class="step" [class.active]="p.key===store.viewPhase()" [class.done]="store.stepDone(p.key)"
+                    [disabled]="!store.canNavigateTo(p.key)" (click)="store.navigate(p.key)">{{ p.label }}</button>
             @if (!last) { <span class="sep">›</span> }
+          }
+          @if (!store.isStructured()) {
+            <span class="grow"></span>
+            <button class="btn ghost sm" (click)="store.goPrevPhase()" [disabled]="!store.canGoPrev()">← Prev</button>
+            <button class="btn ghost sm" (click)="store.goNextPhase()" [disabled]="!store.canGoNext()">Next →</button>
           }
         </div>
       }
@@ -83,7 +96,7 @@ import { RetroSummaryComponent } from './phases/retro-summary.component';
 
       <div class="body">
         <aside class="rail">
-          @if (s.status !== 'closed' && (store.phaseTimerKey() || store.timer() !== null)) {
+          @if (s.status !== 'closed' && store.timerAllowed() && (store.phaseTimerKey() || store.timer() !== null)) {
             <div class="rail-timer">
               <div class="rt-label">⏱ {{ store.phaseLabel(s.phase) }}</div>
               <div class="rt-time" [class.low]="store.timer() !== null && store.timer()! <= 15" [class.idle]="store.timer() === null || store.isPaused()">{{ store.timer() !== null ? store.fmt(store.timer()!) : '—:—' }}</div>
@@ -124,6 +137,7 @@ import { RetroSummaryComponent } from './phases/retro-summary.component';
           }
         </main>
       </div>
+      }
       }
     }
   </div>

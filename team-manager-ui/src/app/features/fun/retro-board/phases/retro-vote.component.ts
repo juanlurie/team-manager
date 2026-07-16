@@ -15,7 +15,7 @@ import { RespondedMeterComponent } from '../responded-meter.component';
       <div class="phase-head">
         <div><h1>Vote</h1><p class="sub">Up to 3 votes per topic — spend on what matters most</p></div>
         <div class="ph-right">
-          @if (store.liveFacilitation()) { <button class="btn primary" (click)="store.goPhase('discuss')">Continue to Discuss →</button> }
+          @if (store.liveFacilitation()) { <button class="btn primary" (click)="store.goNext()">Continue to {{ store.nextPhaseLabel() }} →</button> }
           <app-responded-meter [done]="store.respondedFor('vote')" [total]="store.respondedTotal()" />
         </div>
       </div>
