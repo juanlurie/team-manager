@@ -22,6 +22,11 @@ public record RetroBoardSessionDto
     public bool NotesRevealed { get; init; }
     public bool IsArchived { get; init; }
     public RetroStepDurations StepDurations { get; init; } = new();
+    /// <summary>Per-phase Session-Structure flags, keyed by phase (checkin/introduce/reflect/…).</summary>
+    public Dictionary<string, RetroPhaseFlags> PhaseConfig { get; init; } = new();
+    /// <summary>Ordered phases active this run — config toggles AND content (auto-skip empty
+    /// check-in/reflect) folded in. Single source of truth for the stepper/navigation/GoLive.</summary>
+    public List<string> EnabledPhases { get; init; } = [];
     public string? LiveStateJson { get; init; }   // opaque live sub-state; client parses
     public RetroBoardAiSummaryDto? AiSummary { get; init; }
     public DateTimeOffset CreatedAt { get; init; }
@@ -215,7 +220,19 @@ public record UpdateRetroBoardSettingsRequest
     public bool? AllowAnonymous { get; init; }
     public bool? HideNotesUntilReveal { get; init; }
     public RetroStepDurations? StepDurations { get; init; }
+    public Dictionary<string, RetroPhaseFlags>? PhaseConfig { get; init; }
 }
+
+/// <summary>Per-phase Session-Structure flags. `enabled` = included this run; `enforced`/`timed` gate
+/// the live flow (honoured from Slice 2). Defaults keep the full structured behaviour.</summary>
+public record RetroPhaseFlags
+{
+    public bool Enabled { get; init; } = true;
+    public bool Enforced { get; init; } = true;
+    public bool Timed { get; init; } = true;
+}
+
+public record SetColumnsRequest { public List<RetroColumnInput> Columns { get; init; } = []; }
 
 public record SetPhaseRequest { public string Phase { get; init; } = ""; }
 public record LiveStateRequest { public string? LiveStateJson { get; init; } }

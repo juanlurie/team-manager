@@ -198,12 +198,13 @@ public class RetroBoardServiceTests
         var s = Session(m.Id, status: "open");
         s.Phase = "capture";
         db.RetroBoardSessions.Add(s);
+        db.RetroBoardCheckinQuestions.Add(new RetroBoardCheckinQuestion { Id = Guid.NewGuid(), RetroBoardSessionId = s.Id, Text = "Q", SortOrder = 0 });
         await db.SaveChangesAsync();
 
         var (result, live) = await Svc(db).GoLiveAsync(s.Id, m.Id);
         Assert.Equal(RetroActionResult.Ok, result);
         Assert.Equal("live", live!.Status);
-        Assert.Equal("checkin", live.Phase);                // guided flow starts at the top
+        Assert.Equal("checkin", live.Phase);                // starts at check-in when it has questions
         Assert.NotNull(live.StartedAt);
     }
 
@@ -327,6 +328,68 @@ public class RetroBoardServiceTests
         var dto = (await Svc(db).GetSessionAsync(s.Id, facil.Id))!;
         Assert.True(dto.Participants.Single(p => p.MemberId == rater.Id).Responded["reflect"]);
         Assert.False(dto.Participants.Single(p => p.MemberId == quiet.Id).Responded["reflect"]);
+    }
+
+    // ---- Session structure (phase config) ----
+
+    [Fact]
+    public async Task EnabledPhases_auto_skips_empty_checkin_and_reflect()
+    {
+        using var db = NewDb();
+        var m = Member();
+        db.TeamMembers.Add(m);
+        var s = Session(m.Id, status: "live");
+        s.Phase = "capture";
+        db.RetroBoardSessions.Add(s);                       // no check-in questions, no feedback prompts
+        await db.SaveChangesAsync();
+
+        var dto = (await Svc(db).GetSessionAsync(s.Id, m.Id))!;
+        Assert.DoesNotContain("checkin", dto.EnabledPhases);
+        Assert.DoesNotContain("reflect", dto.EnabledPhases);
+        Assert.Contains("capture", dto.EnabledPhases);
+        Assert.Contains("discuss", dto.EnabledPhases);
+        Assert.Contains("summary", dto.EnabledPhases);
+    }
+
+    [Fact]
+    public async Task EnabledPhases_honours_a_disabled_toggle_even_with_content()
+    {
+        using var db = NewDb();
+        var m = Member();
+        db.TeamMembers.Add(m);
+        var s = Session(m.Id, status: "live");
+        s.PhaseConfigJson = "{\"checkin\":{\"enabled\":false,\"enforced\":true,\"timed\":true}}";
+        db.RetroBoardSessions.Add(s);
+        db.RetroBoardCheckinQuestions.Add(new RetroBoardCheckinQuestion { Id = Guid.NewGuid(), RetroBoardSessionId = s.Id, Text = "Q", SortOrder = 0 });
+        db.RetroBoardFeedbackPrompts.Add(new RetroBoardFeedbackPrompt { Id = Guid.NewGuid(), RetroBoardSessionId = s.Id, Text = "P", SortOrder = 0 });
+        await db.SaveChangesAsync();
+
+        var dto = (await Svc(db).GetSessionAsync(s.Id, m.Id))!;
+        Assert.DoesNotContain("checkin", dto.EnabledPhases);   // toggled off despite having a question
+        Assert.Contains("reflect", dto.EnabledPhases);         // enabled and has a prompt
+    }
+
+    [Fact]
+    public async Task GoLive_starts_at_capture_when_checkin_is_skipped()
+    {
+        using var db = NewDb();
+        var m = Member();
+        db.TeamMembers.Add(m);
+        var s = Session(m.Id, status: "open");             // no check-in questions → checkin auto-skips
+        db.RetroBoardSessions.Add(s);
+        await db.SaveChangesAsync();
+
+        var (result, live) = await Svc(db).GoLiveAsync(s.Id, m.Id);
+        Assert.Equal(RetroActionResult.Ok, result);
+        Assert.Equal("capture", live!.Phase);
+
+        // With a question present, GoLive starts at check-in.
+        var s2 = Session(m.Id, status: "open");
+        db.RetroBoardSessions.Add(s2);
+        db.RetroBoardCheckinQuestions.Add(new RetroBoardCheckinQuestion { Id = Guid.NewGuid(), RetroBoardSessionId = s2.Id, Text = "Q", SortOrder = 0 });
+        await db.SaveChangesAsync();
+        var (_, live2) = await Svc(db).GoLiveAsync(s2.Id, m.Id);
+        Assert.Equal("checkin", live2!.Phase);
     }
 
     // ---- Close-lock (A1) ----

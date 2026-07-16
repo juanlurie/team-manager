@@ -122,6 +122,10 @@ public class RetroBoardController(RetroBoardService service) : ControllerBase
     public async Task<IActionResult> AddColumn(Guid id, [FromBody] RetroColumnInput input) =>
         await RunResource(m => service.AddColumnAsync(id, m, input));
 
+    [HttpPut("{id:guid}/columns")]
+    public async Task<IActionResult> SetColumns(Guid id, [FromBody] SetColumnsRequest req) =>
+        await RunSession(m => service.SetColumnsAsync(id, m, req.Columns));
+
     [HttpPut("{id:guid}/columns/{columnId:guid}")]
     public async Task<IActionResult> UpdateColumn(Guid id, Guid columnId, [FromBody] RetroColumnInput input) =>
         await Run(m => service.UpdateColumnAsync(id, m, columnId, input));

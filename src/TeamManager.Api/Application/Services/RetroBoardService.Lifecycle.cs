@@ -124,9 +124,13 @@ public partial class RetroBoardService
         if (guard != RetroActionResult.Ok) return (guard, null);
         session!.Status = Status.Live;
         session.StartedAt ??= DateTimeOffset.UtcNow;
-        session.Phase = Phase.Checkin;
+        // Start at the first phase active this run (skips a disabled or empty check-in).
+        var hasCheckin = await db.RetroBoardCheckinQuestions.AnyAsync(q => q.RetroBoardSessionId == sessionId);
+        var hasReflect = await db.RetroBoardFeedbackPrompts.AnyAsync(p => p.RetroBoardSessionId == sessionId);
+        var start = EnabledPhases(ParsePhaseConfig(session.PhaseConfigJson), hasCheckin, hasReflect).FirstOrDefault() ?? Phase.Capture;
+        session.Phase = start;
         await db.SaveChangesAsync();
-        Broadcast(sessionId, "rb_phase_changed", new { sessionId, phase = Phase.Checkin });
+        Broadcast(sessionId, "rb_phase_changed", new { sessionId, phase = start });
         Broadcast(sessionId, "rb_lifecycle_changed", new { sessionId });
         return (RetroActionResult.Ok, await GetSessionAsync(sessionId, memberId));
     }
@@ -137,9 +141,15 @@ public partial class RetroBoardService
         var (guard, session) = await GuardAsync(sessionId, memberId, facilitatorOnly: true, blockClosed: true);
         if (guard != RetroActionResult.Ok) return (guard, null);
 
+        // Can only navigate to a phase active this run (config-disabled/auto-skipped phases are rejected).
+        var hasCheckin = await db.RetroBoardCheckinQuestions.AnyAsync(q => q.RetroBoardSessionId == sessionId);
+        var hasReflect = await db.RetroBoardFeedbackPrompts.AnyAsync(p => p.RetroBoardSessionId == sessionId);
+        if (!EnabledPhases(ParsePhaseConfig(session!.PhaseConfigJson), hasCheckin, hasReflect).Contains(phase))
+            return (RetroActionResult.Invalid, null);
+
         // Step navigation within a running session. The draft→open→live transitions are owned by
         // OpenAsync/GoLiveAsync; reaching Summary no longer auto-closes (facilitator ends via Close).
-        session!.Phase = phase;
+        session.Phase = phase;
         await db.SaveChangesAsync();
 
         Broadcast(sessionId, "rb_phase_changed", new { sessionId, phase });
@@ -224,6 +234,7 @@ public partial class RetroBoardService
         if (req.AllowAnonymous is { } anon) session!.AllowAnonymous = anon;
         if (req.HideNotesUntilReveal is { } hide) session!.HideNotesUntilReveal = hide;
         if (req.StepDurations is { } dur) session!.StepDurationsJson = JsonSerializer.Serialize(dur, Json);
+        if (req.PhaseConfig is { } cfg) session!.PhaseConfigJson = JsonSerializer.Serialize(cfg, Json);
         await db.SaveChangesAsync();
 
         Broadcast(sessionId, "rb_settings_updated");

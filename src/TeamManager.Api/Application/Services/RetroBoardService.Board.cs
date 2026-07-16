@@ -52,6 +52,28 @@ public partial class RetroBoardService
         return RetroActionResult.Ok;
     }
 
+    /// <summary>Replaces the whole column set from a template (Setup convenience). Draft-only so there
+    /// are never notes to orphan; writes the same RetroBoardColumn fields manual editing does.</summary>
+    public async Task<(RetroActionResult result, RetroBoardSessionDto? session)> SetColumnsAsync(Guid sessionId, Guid memberId, List<RetroColumnInput> inputs)
+    {
+        var (guard, session) = await GuardAsync(sessionId, memberId, facilitatorOnly: true, blockClosed: true);
+        if (guard != RetroActionResult.Ok) return (guard, null);
+        if (session!.Status != RetroBoardConstants.Status.Draft) return (RetroActionResult.Conflict, null);
+        if (inputs.Count == 0) return (RetroActionResult.Invalid, null);
+
+        var existing = await db.RetroBoardColumns.Where(c => c.RetroBoardSessionId == sessionId).ToListAsync();
+        db.RetroBoardColumns.RemoveRange(existing);
+        db.RetroBoardColumns.AddRange(inputs.Select((c, i) => new RetroBoardColumn
+        {
+            RetroBoardSessionId = sessionId,
+            Key = string.IsNullOrWhiteSpace(c.Key) ? $"col{i}" : c.Key.Trim(),
+            Label = c.Label.Trim(), Description = c.Description, Color = c.Color, Icon = c.Icon, SortOrder = i,
+        }));
+        await db.SaveChangesAsync();
+        Broadcast(sessionId, "rb_columns_changed");
+        return (RetroActionResult.Ok, await GetSessionAsync(sessionId, memberId));
+    }
+
     // ---------- Notes ----------
 
     public async Task<(RetroActionResult result, RetroBoardSessionDto? session)> AddNoteAsync(Guid sessionId, Guid memberId, AddRetroBoardNoteRequest req)

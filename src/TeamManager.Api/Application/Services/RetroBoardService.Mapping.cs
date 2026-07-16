@@ -89,6 +89,7 @@ public partial class RetroBoardService
     private RetroBoardSessionDto ToDto(RetroBoardSession s, Guid memberId)
     {
         var isFacil = IsFacilitator(s, memberId);
+        var phaseCfg = ParsePhaseConfig(s.PhaseConfigJson);
         var hideOthers = s.HideNotesUntilReveal && !s.NotesRevealed && s.Phase == Phase.Capture;
         var colKeyById = s.Columns.ToDictionary(c => c.Id, c => c.Key);
         var myVotesUsed = s.Notes.SelectMany(n => n.Votes).Count(v => v.MemberId == memberId);
@@ -125,6 +126,9 @@ public partial class RetroBoardService
             StepDurations = string.IsNullOrEmpty(s.StepDurationsJson)
                 ? new RetroStepDurations()
                 : JsonSerializer.Deserialize<RetroStepDurations>(s.StepDurationsJson, JsonRead) ?? new RetroStepDurations(),
+            // Per-phase flags for every live phase (stored value or defaults), + the effective ordered run.
+            PhaseConfig = Phase.Order.Where(p => p != Phase.Setup && p != Phase.Summary).ToDictionary(p => p, p => FlagsFor(phaseCfg, p)),
+            EnabledPhases = EnabledPhases(phaseCfg, s.CheckinQuestions.Count > 0, s.FeedbackPrompts.Count > 0),
             LiveStateJson = s.LiveStateJson,
             AiSummary = string.IsNullOrEmpty(s.AiSummaryJson) ? null : JsonSerializer.Deserialize<RetroBoardAiSummaryDto>(s.AiSummaryJson, JsonRead),
             CreatedAt = s.CreatedAt,
