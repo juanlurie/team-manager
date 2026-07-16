@@ -173,6 +173,13 @@ export class RetroBoardStore implements OnDestroy {
   // Structure level of this run (derived from the per-phase flags) + its runtime consequences.
   isFreeform = computed(() => this.structureLevelOf(this.session()?.phaseConfig ?? {}) === 'freeform');
   isStructured = computed(() => this.structureLevelOf(this.session()?.phaseConfig ?? {}) === 'structured');
+  // Auto-detected team size: the selected team's member count, else the current roster. Drives the
+  // preset/structure "suggested for X" recommendation — no manual input.
+  teamSize = computed(() => {
+    const s = this.session();
+    const squad = this.squads().find(q => q.id === s?.squadId);
+    return squad?.members.length || s?.participants.length || 0;
+  });
   // Timers only apply when the viewed phase is `timed` (Freeform turns them off).
   timerAllowed = computed(() => { const s = this.session(); const vp = this.viewPhase(); return !!s && (!vp || s.phaseConfig[vp]?.timed !== false); });
   // Steps a participant sees in the live stepper — the collaborative core, without setup/reflect/summary.
@@ -288,10 +295,6 @@ export class RetroBoardStore implements OnDestroy {
   // Facilitator's estimate of how many topics will be discussed; the per-topic timers
   // (intro + discuss) are multiplied by this for the Allocated/Remaining budget. UI-only.
   topicEstimate = 5;
-  // Expected number of participants — nudges the preset/structure recommendation. Auto-detects from
-  // the roster until the facilitator edits it (in case more people join before the retro opens).
-  teamSize = 8;
-  private teamSizeTouched = false;
   readonly presetOptions = PRESET_OPTIONS;
   newColumn = ''; newQuestion = ''; newPrompt = '';
   fbComments: Record<string, string> = {};
@@ -312,9 +315,6 @@ export class RetroBoardStore implements OnDestroy {
 
   /** Called by the container once the route id (if any) is known. */
   init(routeId: string | null) {
-    // Restore the facilitator's last-used team size (durations are seeded onto new retros in create()).
-    const prefs = this.loadSetupPrefs();
-    if (prefs?.teamSize) this.teamSize = prefs.teamSize;
     this.memberSvc.getAll({ isActive: true }).subscribe({ next: ms => this.members.set(ms.map(m => ({ id: m.id, name: `${m.firstName} ${m.lastName}`.trim() }))) });
     this.squadSvc.getAll().subscribe({ next: sq => this.squads.set(sq) });
     this.ws.connect();
@@ -351,8 +351,6 @@ export class RetroBoardStore implements OnDestroy {
     this.session.set(s); this.edit.votes = s.votesPerUser; this.edit.anon = s.allowAnonymous; this.edit.d = { ...s.stepDurations };
     // Local (self-paced) navigation applies to a live freeform/guided run; otherwise snap to the shared phase.
     if (!(s.status === 'live' && this.structureLevelOf(s.phaseConfig) !== 'structured')) this.localPhase.set(null);
-    // Auto-detect team size from the roster until the facilitator overrides it.
-    if (!this.teamSizeTouched && s.participants.length) this.teamSize = s.participants.length;
     // Seed local comment drafts once so in-progress typing survives WS refreshes.
     for (const p of s.feedbackPrompts) if (this.fbComments[p.id] === undefined) this.fbComments[p.id] = p.myComment ?? '';
   }
@@ -438,7 +436,7 @@ export class RetroBoardStore implements OnDestroy {
   }
   /** Starting recommendation from team size: larger teams carry more Introduce/Discuss overhead. */
   recommendedPreset(): Exclude<PresetName, 'custom'> {
-    const n = this.teamSize || 0;
+    const n = this.teamSize();
     if (n <= 6) return 'quick';
     if (n <= 15) return 'standard';
     return 'deep';
@@ -447,9 +445,9 @@ export class RetroBoardStore implements OnDestroy {
 
   private setupPrefsKey() { return `rb-setup-prefs:${this.myId}`; }
   saveSetupPrefs() {
-    try { localStorage.setItem(this.setupPrefsKey(), JSON.stringify({ durations: this.edit.d, teamSize: this.teamSize })); } catch { /* storage may be unavailable */ }
+    try { localStorage.setItem(this.setupPrefsKey(), JSON.stringify({ durations: this.edit.d })); } catch { /* storage may be unavailable */ }
   }
-  private loadSetupPrefs(): { durations?: RetroStepDurations; teamSize?: number } | null {
+  private loadSetupPrefs(): { durations?: RetroStepDurations } | null {
     try { const raw = localStorage.getItem(this.setupPrefsKey()); return raw ? JSON.parse(raw) : null; } catch { return null; }
   }
 
@@ -489,14 +487,13 @@ export class RetroBoardStore implements OnDestroy {
   }
   /** Starting recommendation from team size: larger groups fragment without structure. */
   recommendedLevel(): StructureLevel {
-    const n = this.teamSize || 0;
+    const n = this.teamSize();
     if (n <= 8) return 'freeform';
     if (n <= 15) return 'guided';
     return 'structured';
   }
   structureLabel(level: StructureLevel) { return this.structureLevels.find(l => l.key === level)?.label ?? level; }
   structureBlurb(level: StructureLevel) { return this.structureLevels.find(l => l.key === level)?.blurb ?? ''; }
-  onTeamSizeInput() { this.teamSizeTouched = true; this.saveSetupPrefs(); }
 
   reveal() { const s = this.session(); if (s) this.svc.reveal(s.id, true).subscribe({ next: () => this.refresh(s.id) }); }
   // Undo an accidental reveal — re-hides notes from participants during Capture.
