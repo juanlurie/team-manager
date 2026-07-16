@@ -22,6 +22,11 @@ public record RetroBoardSessionDto
     public bool NotesRevealed { get; init; }
     public bool IsArchived { get; init; }
     public RetroStepDurations StepDurations { get; init; } = new();
+    /// <summary>Per-phase Session-Structure flags, keyed by phase (checkin/introduce/reflect/…).</summary>
+    public Dictionary<string, RetroPhaseFlags> PhaseConfig { get; init; } = new();
+    /// <summary>Ordered phases active this run — config toggles AND content (auto-skip empty
+    /// check-in/reflect) folded in. Single source of truth for the stepper/navigation/GoLive.</summary>
+    public List<string> EnabledPhases { get; init; } = [];
     public string? LiveStateJson { get; init; }   // opaque live sub-state; client parses
     public RetroBoardAiSummaryDto? AiSummary { get; init; }
     public DateTimeOffset CreatedAt { get; init; }
@@ -99,8 +104,17 @@ public record RetroBoardParticipantDto
     public string Name { get; init; } = "";
     public string? AvatarSeed { get; init; }
     public string Role { get; init; } = "participant";
-    public bool IsSelfPaced { get; init; }
-    public List<string> CompletedPhases { get; init; } = [];
+
+    /// <summary>Per-phase "has this member participated" flags, keyed by phase. There is no manual
+    /// Done button, so each is derived from actual contributions (see <c>RetroResponded</c>):
+    /// <list type="bullet">
+    /// <item><c>checkin</c> — answered <b>every</b> check-in question.</item>
+    /// <item><c>capture</c> — added <b>at least one</b> named note (anonymous notes have no author).</item>
+    /// <item><c>vote</c> — cast <b>at least one</b> vote.</item>
+    /// <item><c>reflect</c> — rated <b>every</b> feedback prompt.</item>
+    /// </list>
+    /// Note the semantics differ by phase (all vs at-least-one) — that is intentional.</summary>
+    public Dictionary<string, bool> Responded { get; init; } = new();
 }
 
 public record RetroBoardActionDto
@@ -206,7 +220,19 @@ public record UpdateRetroBoardSettingsRequest
     public bool? AllowAnonymous { get; init; }
     public bool? HideNotesUntilReveal { get; init; }
     public RetroStepDurations? StepDurations { get; init; }
+    public Dictionary<string, RetroPhaseFlags>? PhaseConfig { get; init; }
 }
+
+/// <summary>Per-phase Session-Structure flags. `enabled` = included this run; `enforced`/`timed` gate
+/// the live flow (honoured from Slice 2). Defaults keep the full structured behaviour.</summary>
+public record RetroPhaseFlags
+{
+    public bool Enabled { get; init; } = true;
+    public bool Enforced { get; init; } = true;
+    public bool Timed { get; init; } = true;
+}
+
+public record SetColumnsRequest { public List<RetroColumnInput> Columns { get; init; } = []; }
 
 public record SetPhaseRequest { public string Phase { get; init; } = ""; }
 public record LiveStateRequest { public string? LiveStateJson { get; init; } }
@@ -217,9 +243,8 @@ public record IntroducedRequest { public bool Introduced { get; init; } }
 public record CheckinResponseRequest { public string Rating { get; init; } = ""; }
 public record FeedbackPromptInput { public string Text { get; init; } = ""; }
 public record FeedbackResponseRequest { public int Score { get; init; } public string? Comment { get; init; } }
-public record ProgressRequest { public string Phase { get; init; } = ""; public bool Completed { get; init; } = true; }
-public record SelfPacedRequest { public bool IsSelfPaced { get; init; } }
 public record SetParticipantRoleRequest { public Guid MemberId { get; init; } public string Role { get; init; } = "participant"; }
+public record SetSquadRequest { public Guid? SquadId { get; init; } }
 
 public record AddRetroBoardActionRequest
 {

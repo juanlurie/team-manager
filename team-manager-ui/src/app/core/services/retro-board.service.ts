@@ -4,7 +4,7 @@ import { Observable } from 'rxjs';
 import {
   RetroBoardSession, RetroBoardSummary, RetroBoardColumn, RetroBoardCheckinQuestion,
   RetroBoardAction, RetroBoardAiSummary, RetroColumnInput, CheckinQuestionInput, RetroStepDurations,
-  RetroBoardFeedbackPrompt, FeedbackPromptInput,
+  RetroBoardFeedbackPrompt, FeedbackPromptInput, RetroPhaseFlags,
 } from '../models/retro-board.model';
 
 @Injectable({ providedIn: 'root' })
@@ -45,6 +45,18 @@ export class RetroBoardService {
   setPhase(id: string, phase: string): Observable<RetroBoardSession> {
     return this.http.put<RetroBoardSession>(`${this.base}/${id}/phase`, { phase });
   }
+  // Publish a draft for asynchronous pre-capture (draft → open).
+  openRetro(id: string): Observable<RetroBoardSession> {
+    return this.http.post<RetroBoardSession>(`${this.base}/${id}/open`, {});
+  }
+  // Start the synced, guided session (open → live).
+  goLive(id: string): Observable<RetroBoardSession> {
+    return this.http.post<RetroBoardSession>(`${this.base}/${id}/go-live`, {});
+  }
+  // Set the owning squad and auto-enrol its members as participants.
+  setSquad(id: string, squadId: string | null): Observable<RetroBoardSession> {
+    return this.http.put<RetroBoardSession>(`${this.base}/${id}/squad`, { squadId });
+  }
   close(id: string): Observable<RetroBoardSession> {
     return this.http.post<RetroBoardSession>(`${this.base}/${id}/close`, {});
   }
@@ -59,6 +71,7 @@ export class RetroBoardService {
   }
   updateSettings(id: string, req: {
     votesPerUser?: number; allowAnonymous?: boolean; hideNotesUntilReveal?: boolean; stepDurations?: RetroStepDurations;
+    phaseConfig?: Record<string, RetroPhaseFlags>;
   }): Observable<void> {
     return this.http.patch<void>(`${this.base}/${id}/settings`, req);
   }
@@ -75,6 +88,10 @@ export class RetroBoardService {
   // ---- columns ----
   addColumn(id: string, input: RetroColumnInput): Observable<RetroBoardColumn> {
     return this.http.post<RetroBoardColumn>(`${this.base}/${id}/columns`, input);
+  }
+  // Bulk-replace the whole column set (column template; draft-only server-side).
+  setColumns(id: string, columns: RetroColumnInput[]): Observable<RetroBoardSession> {
+    return this.http.put<RetroBoardSession>(`${this.base}/${id}/columns`, { columns });
   }
   updateColumn(id: string, columnId: string, input: RetroColumnInput): Observable<void> {
     return this.http.put<void>(`${this.base}/${id}/columns/${columnId}`, input);
@@ -145,12 +162,6 @@ export class RetroBoardService {
   }
 
   // ---- participants ----
-  setProgress(id: string, phase: string, completed: boolean): Observable<void> {
-    return this.http.post<void>(`${this.base}/${id}/progress`, { phase, completed });
-  }
-  setSelfPaced(id: string, isSelfPaced: boolean): Observable<void> {
-    return this.http.post<void>(`${this.base}/${id}/self-paced`, { isSelfPaced });
-  }
   setParticipantRole(id: string, memberId: string, role: string): Observable<void> {
     return this.http.put<void>(`${this.base}/${id}/participants/role`, { memberId, role });
   }

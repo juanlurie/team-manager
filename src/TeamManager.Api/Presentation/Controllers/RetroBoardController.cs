@@ -63,6 +63,18 @@ public class RetroBoardController(RetroBoardService service) : ControllerBase
     public async Task<IActionResult> Delete(Guid id) =>
         await Guard(m => service.DeleteSessionAsync(id, m));
 
+    [HttpPost("{id:guid}/open")]
+    public async Task<IActionResult> Open(Guid id) =>
+        await RunSession(m => service.OpenAsync(id, m));
+
+    [HttpPost("{id:guid}/go-live")]
+    public async Task<IActionResult> GoLive(Guid id) =>
+        await RunSession(m => service.GoLiveAsync(id, m));
+
+    [HttpPut("{id:guid}/squad")]
+    public async Task<IActionResult> SetSquad(Guid id, [FromBody] SetSquadRequest req) =>
+        await RunSession(m => service.SetSquadAsync(id, m, req.SquadId));
+
     [HttpPut("{id:guid}/phase")]
     public async Task<IActionResult> SetPhase(Guid id, [FromBody] SetPhaseRequest req) =>
         await RunSession(m => service.SetPhaseAsync(id, m, req.Phase));
@@ -109,6 +121,10 @@ public class RetroBoardController(RetroBoardService service) : ControllerBase
     [HttpPost("{id:guid}/columns")]
     public async Task<IActionResult> AddColumn(Guid id, [FromBody] RetroColumnInput input) =>
         await RunResource(m => service.AddColumnAsync(id, m, input));
+
+    [HttpPut("{id:guid}/columns")]
+    public async Task<IActionResult> SetColumns(Guid id, [FromBody] SetColumnsRequest req) =>
+        await RunSession(m => service.SetColumnsAsync(id, m, req.Columns));
 
     [HttpPut("{id:guid}/columns/{columnId:guid}")]
     public async Task<IActionResult> UpdateColumn(Guid id, Guid columnId, [FromBody] RetroColumnInput input) =>
@@ -202,14 +218,6 @@ public class RetroBoardController(RetroBoardService service) : ControllerBase
         await Run(m => service.DeleteActionAsync(id, m, actionId));
 
     // ---------- Participants ----------
-
-    [HttpPost("{id:guid}/progress")]
-    public async Task<IActionResult> SetProgress(Guid id, [FromBody] ProgressRequest req) =>
-        await Run(m => service.SetProgressAsync(id, m, req.Phase, req.Completed));
-
-    [HttpPost("{id:guid}/self-paced")]
-    public async Task<IActionResult> SetSelfPaced(Guid id, [FromBody] SelfPacedRequest req) =>
-        await Run(m => service.SetSelfPacedAsync(id, m, req.IsSelfPaced));
 
     [HttpPut("{id:guid}/participants/role")]
     public async Task<IActionResult> SetParticipantRole(Guid id, [FromBody] SetParticipantRoleRequest req) =>

@@ -178,6 +178,34 @@ public partial class RetroBoardService(AppDbContext db, AiPromptExecutorService 
         new() { Key = "shout",  Label = "Shout-outs",       Description = "Recognition & gratitude",     Color = "#5b9dff", Icon = "star",  SortOrder = 3 },
     ];
 
+    // ---------- Session structure (per-phase config) ----------
+
+    /// <summary>Only these phases can be toggled off; capture/vote/discuss/summary are the core loop.</summary>
+    private static readonly string[] ConfigurablePhases = [Phase.Checkin, Phase.Introduce, Phase.Reflect];
+
+    private static Dictionary<string, RetroPhaseFlags> ParsePhaseConfig(string? json) =>
+        (string.IsNullOrEmpty(json) ? null : JsonSerializer.Deserialize<Dictionary<string, RetroPhaseFlags>>(json, JsonRead))
+        ?? new Dictionary<string, RetroPhaseFlags>();
+
+    private static RetroPhaseFlags FlagsFor(Dictionary<string, RetroPhaseFlags> cfg, string phase) =>
+        cfg.TryGetValue(phase, out var f) ? f : new RetroPhaseFlags();
+
+    /// <summary>Ordered live phases active this run (setup excluded): a phase is on when its config
+    /// `enabled` holds AND its content requirement is met — check-in needs ≥1 question, reflect needs
+    /// ≥1 prompt (auto-skip when empty, no toggle required). The single source of truth for the
+    /// stepper, GoLive start phase, and phase advance.</summary>
+    private static List<string> EnabledPhases(Dictionary<string, RetroPhaseFlags> cfg, bool hasCheckin, bool hasReflect)
+    {
+        bool On(string phase) => phase switch
+        {
+            Phase.Checkin => FlagsFor(cfg, phase).Enabled && hasCheckin,
+            Phase.Reflect => FlagsFor(cfg, phase).Enabled && hasReflect,
+            Phase.Introduce => FlagsFor(cfg, phase).Enabled,
+            _ => true,
+        };
+        return Phase.Order.Where(p => p != Phase.Setup && On(p)).ToList();
+    }
+
     private static List<RetroBoardFeedbackPrompt> DefaultFeedbackPrompts() =>
     [
         new() { Text = "Facilitation & presentation", SortOrder = 0 },

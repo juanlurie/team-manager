@@ -1,6 +1,12 @@
 export type RetroPhase =
   | 'setup' | 'checkin' | 'capture' | 'introduce' | 'vote' | 'discuss' | 'reflect' | 'summary';
 
+export interface RetroPhaseFlags {
+  enabled: boolean;
+  enforced: boolean;
+  timed: boolean;
+}
+
 export interface RetroStepDurations {
   meeting: number;
   checkin: number;
@@ -66,8 +72,8 @@ export interface RetroBoardParticipant {
   name: string;
   avatarSeed: string | null;
   role: 'facilitator' | 'participant';
-  isSelfPaced: boolean;
-  completedPhases: string[];
+  /** Per-phase "has participated" flags keyed by phase (checkin|capture|vote|reflect). */
+  responded: Record<string, boolean>;
 }
 
 export interface RetroBoardAction {
@@ -113,7 +119,7 @@ export interface RetroBoardSession {
   createdByMemberId: string;
   isFacilitator: boolean;
   phase: RetroPhase;
-  status: 'draft' | 'live' | 'closed';
+  status: 'draft' | 'open' | 'live' | 'closed';
   votesPerUser: number;
   myVotesUsed: number;
   allowAnonymous: boolean;
@@ -121,6 +127,10 @@ export interface RetroBoardSession {
   notesRevealed: boolean;
   isArchived: boolean;
   stepDurations: RetroStepDurations;
+  // Per-phase Session-Structure flags, keyed by phase (checkin/capture/introduce/vote/discuss/reflect).
+  phaseConfig: Record<string, RetroPhaseFlags>;
+  // Ordered phases active this run (config + auto-skip folded in) — drives the stepper/navigation.
+  enabledPhases: string[];
   liveStateJson: string | null;
   aiSummary: RetroBoardAiSummary | null;
   createdAt: string;

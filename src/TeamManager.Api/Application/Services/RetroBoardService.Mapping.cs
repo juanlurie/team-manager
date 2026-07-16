@@ -34,7 +34,6 @@ public partial class RetroBoardService
             .Include(s => s.Notes).ThenInclude(n => n.Votes)
             .Include(s => s.CheckinQuestions).ThenInclude(q => q.Responses)
             .Include(s => s.Participants).ThenInclude(p => p.Member)
-            .Include(s => s.Participants).ThenInclude(p => p.Progress)
             .Include(s => s.Actions).ThenInclude(a => a.Owner)
             .Include(s => s.FeedbackPrompts).ThenInclude(p => p.Responses)
             .AsSplitQuery()
@@ -82,12 +81,28 @@ public partial class RetroBoardService
         };
     }
 
+    /// <summary>Counts distinct items each member answered, from (memberId, itemId) pairs — used to
+    /// tell whether a member responded to *every* check-in question / feedback prompt.</summary>
+    private static Dictionary<Guid, int> CountAnsweredByMember(IEnumerable<(Guid MemberId, Guid ItemId)> pairs) =>
+        pairs.GroupBy(x => x.MemberId).ToDictionary(g => g.Key, g => g.Select(x => x.ItemId).Distinct().Count());
+
     private RetroBoardSessionDto ToDto(RetroBoardSession s, Guid memberId)
     {
         var isFacil = IsFacilitator(s, memberId);
+        var phaseCfg = ParsePhaseConfig(s.PhaseConfigJson);
         var hideOthers = s.HideNotesUntilReveal && !s.NotesRevealed && s.Phase == Phase.Capture;
         var colKeyById = s.Columns.ToDictionary(c => c.Id, c => c.Key);
         var myVotesUsed = s.Notes.SelectMany(n => n.Votes).Count(v => v.MemberId == memberId);
+
+        // Precompute per-member participation once (O(1) lookups below) rather than scanning the
+        // whole graph per participant. "capture"/"vote" = did at least one; "checkin"/"reflect" =
+        // answered all items (a member is counted only if they responded to every question/prompt).
+        var capturedBy = s.Notes.Where(n => n.AuthorMemberId.HasValue).Select(n => n.AuthorMemberId!.Value).ToHashSet();
+        var votedBy = s.Notes.SelectMany(n => n.Votes).Select(v => v.MemberId).ToHashSet();
+        var checkinAnswers = CountAnsweredByMember(s.CheckinQuestions.SelectMany(q => q.Responses).Select(r => (r.MemberId, r.RetroBoardCheckinQuestionId)));
+        var feedbackAnswers = CountAnsweredByMember(s.FeedbackPrompts.SelectMany(fp => fp.Responses).Where(r => r.Score is >= 1 and <= 5).Select(r => (r.MemberId, r.RetroBoardFeedbackPromptId)));
+        var qCount = s.CheckinQuestions.Count;
+        var fpCount = s.FeedbackPrompts.Count;
 
         return new RetroBoardSessionDto
         {
@@ -111,6 +126,9 @@ public partial class RetroBoardService
             StepDurations = string.IsNullOrEmpty(s.StepDurationsJson)
                 ? new RetroStepDurations()
                 : JsonSerializer.Deserialize<RetroStepDurations>(s.StepDurationsJson, JsonRead) ?? new RetroStepDurations(),
+            // Per-phase flags for every live phase (stored value or defaults), + the effective ordered run.
+            PhaseConfig = Phase.Order.Where(p => p != Phase.Setup && p != Phase.Summary).ToDictionary(p => p, p => FlagsFor(phaseCfg, p)),
+            EnabledPhases = EnabledPhases(phaseCfg, s.CheckinQuestions.Count > 0, s.FeedbackPrompts.Count > 0),
             LiveStateJson = s.LiveStateJson,
             AiSummary = string.IsNullOrEmpty(s.AiSummaryJson) ? null : JsonSerializer.Deserialize<RetroBoardAiSummaryDto>(s.AiSummaryJson, JsonRead),
             CreatedAt = s.CreatedAt,
@@ -157,8 +175,14 @@ public partial class RetroBoardService
             {
                 Id = p.Id, MemberId = p.MemberId,
                 Name = p.Member is null ? "" : $"{p.Member.FirstName} {p.Member.LastName}".Trim(),
-                AvatarSeed = p.Member?.AvatarSeed, Role = p.Role, IsSelfPaced = p.IsSelfPaced,
-                CompletedPhases = p.Progress.Select(x => x.Phase).ToList(),
+                AvatarSeed = p.Member?.AvatarSeed, Role = p.Role,
+                Responded = new Dictionary<string, bool>
+                {
+                    [Phase.Checkin] = qCount > 0 && checkinAnswers.GetValueOrDefault(p.MemberId) == qCount,
+                    [Phase.Capture] = capturedBy.Contains(p.MemberId),
+                    [Phase.Vote] = votedBy.Contains(p.MemberId),
+                    [Phase.Reflect] = fpCount > 0 && feedbackAnswers.GetValueOrDefault(p.MemberId) == fpCount,
+                },
             }).ToList(),
             Actions = s.Actions.OrderBy(a => a.CreatedAt).Select(MapAction).ToList(),
             FeedbackPrompts = s.FeedbackPrompts.OrderBy(p => p.SortOrder)

@@ -2,17 +2,23 @@ import { Component, ChangeDetectionStrategy, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RetroBoardStore } from '../retro-board.store';
 import { RETRO_STYLES } from '../retro-board.styles';
+import { RespondedMeterComponent } from '../responded-meter.component';
 
 @Component({
   selector: 'app-retro-vote',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, RespondedMeterComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   styles: [RETRO_STYLES],
   template: `
     @if (store.session(); as s) {
-      <div class="phase-head"><div><h1>Vote</h1><p class="sub">Up to 3 votes per topic — spend on what matters most</p></div>
-        @if (store.amFacilitator()) { <button class="btn primary" (click)="store.goPhase('discuss')">Continue to Discuss →</button> }</div>
+      <div class="phase-head">
+        <div><h1>Vote</h1><p class="sub">Up to 3 votes per topic — spend on what matters most</p></div>
+        <div class="ph-right">
+          @if (store.liveFacilitation()) { <button class="btn primary" (click)="store.goNext()">Continue to {{ store.nextPhaseLabel() }} →</button> }
+          <app-responded-meter [done]="store.respondedFor('vote')" [total]="store.respondedTotal()" />
+        </div>
+      </div>
       <div class="card row" style="gap:8px">You have <b>{{ s.votesPerUser - s.myVotesUsed }}</b> of <b>{{ s.votesPerUser }}</b> votes left</div>
       @for (c of s.columns; track c.id) {
         <h3 [style.color]="c.color" style="margin:18px 0 8px">{{ c.label }}</h3>

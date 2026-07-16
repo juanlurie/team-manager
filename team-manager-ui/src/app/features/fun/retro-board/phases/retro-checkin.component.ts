@@ -2,17 +2,23 @@ import { Component, ChangeDetectionStrategy, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RetroBoardStore } from '../retro-board.store';
 import { RETRO_STYLES } from '../retro-board.styles';
+import { RespondedMeterComponent } from '../responded-meter.component';
 
 @Component({
   selector: 'app-retro-checkin',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, RespondedMeterComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   styles: [RETRO_STYLES],
   template: `
     @if (store.session(); as s) {
-      <div class="phase-head"><div><h1>Sprint Check-in</h1><p class="sub">Rate how things have changed since last retro</p></div>
-        @if (store.amFacilitator()) { <button class="btn primary" (click)="store.goPhase('capture')">Continue to Capture →</button> }</div>
+      <div class="phase-head">
+        <div><h1>Sprint Check-in</h1><p class="sub">Rate how things have changed since last retro</p></div>
+        <div class="ph-right">
+          @if (store.liveFacilitation()) { <button class="btn primary" (click)="store.goNext()">Continue to {{ store.nextPhaseLabel() }} →</button> }
+          <app-responded-meter [done]="store.respondedFor('checkin')" [total]="store.respondedTotal()" />
+        </div>
+      </div>
       @for (q of s.checkinQuestions; track q.id) {
         <div class="card">
           <div style="font-weight:700;font-size:17px">{{ q.text }}</div>
@@ -25,8 +31,6 @@ import { RETRO_STYLES } from '../retro-board.styles';
         </div>
       }
       @if (s.checkinQuestions.length === 0) { <p class="muted">No check-in questions yet.</p> }
-      @if (store.checkinDone()) { <button class="btn" disabled>✓ Responded — waiting for others</button> }
-      @else { <button class="btn primary" (click)="store.markDone('checkin')">Done — I've responded</button> }
     }
   `,
 })

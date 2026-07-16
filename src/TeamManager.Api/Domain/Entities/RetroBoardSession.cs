@@ -34,6 +34,9 @@ public class RetroBoardSession
     /// <summary>Per-step timer durations in seconds, keyed by step
     /// (checkin, capture, introduceRead, introduceTopic, vote, discussTopic, reflect).</summary>
     public string? StepDurationsJson { get; set; }
+    /// <summary>Per-phase config (Session Structure), keyed by phase → { enabled, enforced, timed }.
+    /// A convenience layer that skips/gates phases without changing the phase flow; null = all defaults.</summary>
+    public string? PhaseConfigJson { get; set; }
     /// <summary>Transient live sub-state: intro stage, current spotlight note id, and the running
     /// clock (startedAt/pausedAt) so reconnecting clients resume in sync.</summary>
     public string? LiveStateJson { get; set; }

@@ -158,37 +158,6 @@ public partial class RetroBoardService
 
     // ---------- Participants ----------
 
-    public async Task<RetroActionResult> SetProgressAsync(Guid sessionId, Guid memberId, string phase, bool completed)
-    {
-        // Progress is a participant's own self-report; not gated by close.
-        var (guard, _) = await GuardAsync(sessionId, memberId, facilitatorOnly: false, blockClosed: false);
-        if (guard != RetroActionResult.Ok) return guard;
-        var participant = await db.RetroBoardParticipants.FirstOrDefaultAsync(p => p.RetroBoardSessionId == sessionId && p.MemberId == memberId);
-        if (participant is null) return RetroActionResult.Forbidden;
-        var existing = await db.RetroBoardParticipantProgress.FirstOrDefaultAsync(x => x.RetroBoardParticipantId == participant.Id && x.Phase == phase);
-        if (completed && existing is null)
-            db.RetroBoardParticipantProgress.Add(new RetroBoardParticipantProgress { RetroBoardParticipantId = participant.Id, Phase = phase });
-        else if (!completed && existing is not null)
-            db.RetroBoardParticipantProgress.Remove(existing);
-        else return RetroActionResult.Ok;
-        await db.SaveChangesAsync();
-        Broadcast(sessionId, "rb_progress_updated", new { sessionId, memberId, phase, completed });
-        return RetroActionResult.Ok;
-    }
-
-    public async Task<RetroActionResult> SetSelfPacedAsync(Guid sessionId, Guid memberId, bool isSelfPaced)
-    {
-        var (guard, session) = await GuardAsync(sessionId, memberId, facilitatorOnly: false, blockClosed: false);
-        if (guard != RetroActionResult.Ok) return guard;
-        // Self-paced is only honoured before the session goes live.
-        if (isSelfPaced && session!.Phase != Phase.Setup) return RetroActionResult.Conflict;
-        var participant = await db.RetroBoardParticipants.FirstOrDefaultAsync(p => p.RetroBoardSessionId == sessionId && p.MemberId == memberId);
-        if (participant is null) return RetroActionResult.Forbidden;
-        participant.IsSelfPaced = isSelfPaced;
-        await db.SaveChangesAsync();
-        return RetroActionResult.Ok;
-    }
-
     public async Task<RetroActionResult> SetParticipantRoleAsync(Guid sessionId, Guid actingMemberId, Guid targetMemberId, string role)
     {
         if (role is not (Role.Facilitator or Role.Participant)) return RetroActionResult.Invalid;

@@ -17,8 +17,12 @@ export const RETRO_STYLES = `
     .seg button.on { background:var(--accent); color:#fff; }
     .clock { font-family:monospace; font-size:14px; padding:5px 10px; border:1px solid var(--border); border-radius:8px; }
     .clock.low { color:#f4566b; border-color:#f4566b; } .clock.idle { color:var(--mute); }
-    .rail-timer { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:16px; }
-    .rail-timer .clock { font-size:16px; }
+    /* Prominent phase clock at the top of the rail: label, large time, then controls. */
+    .rail-timer { display:flex; flex-direction:column; align-items:flex-start; gap:6px; margin-bottom:18px; padding-bottom:16px; border-bottom:1px solid var(--border); }
+    .rt-label { font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--mute); }
+    .rt-time { font-family:monospace; font-size:34px; font-weight:600; line-height:1; color:var(--text); }
+    .rt-time.low { color:#f4566b; } .rt-time.idle { color:var(--mute); }
+    .rt-controls { display:flex; gap:8px; flex-wrap:wrap; margin-top:4px; }
     .live { display:flex; align-items:center; gap:8px; padding:8px 18px; background:#171029; border-bottom:1px solid var(--border); font-size:13px; color:var(--dim); }
     .dot { width:8px; height:8px; border-radius:50%; background:#f4566b; }
     .body { display:grid; grid-template-columns:220px 1fr; min-height:500px; }
@@ -28,13 +32,21 @@ export const RETRO_STYLES = `
     .avatar { width:28px; height:28px; border-radius:50%; display:grid; place-items:center; font-size:11px; font-weight:700; flex-shrink:0; }
     .crown { margin-left:auto; color:#f5b544; font-size:12px; } .tick { margin-left:auto; color:#34d67f; }
     .main { padding:26px 30px; overflow-y:auto; }
+    /* Setup renders outside the rail/grid, so centre it for a focused single-column config screen. */
+    .setup-main { max-width:920px; margin:0 auto; }
     h1 { font-size:25px; margin:0 0 4px; } .sub { color:var(--dim); margin:0 0 22px; }
     /* Phase header: title/sub-text on the left, primary action pinned top-right without wrapping under it. */
     .phase-head { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; margin-bottom:8px; }
-    .phase-head > div:first-child { min-width:0; } .phase-head > .btn, .phase-head > .row { flex-shrink:0; }
+    .phase-head > div:first-child { min-width:0; } .phase-head > .btn, .phase-head > .row, .phase-head > .ph-right { flex-shrink:0; }
+    /* Right column of a phase header: primary action stacked above a small progress meter. */
+    .ph-right { display:flex; flex-direction:column; align-items:flex-end; gap:12px; }
+    .responded { display:flex; flex-direction:column; align-items:flex-end; gap:6px; min-width:150px; font-size:12.5px; }
+    .responded .bar-track { width:100%; } .responded .bar-fill { background:var(--accent); }
     .row { display:flex; align-items:center; gap:12px; flex-wrap:wrap; } .between { justify-content:space-between; }
     .btn { border:1px solid transparent; border-radius:10px; font-weight:600; padding:10px 16px; background:var(--surface2); color:var(--text); cursor:pointer; font-size:14px; }
     .btn:hover { filter:brightness(1.15); } .btn.primary { background:var(--accent); color:#fff; } .btn.ghost { background:transparent; border-color:var(--border); color:var(--dim); }
+    /* A selected chip carries both ghost + primary; make primary win (higher specificity) so it highlights. */
+    .btn.ghost.primary { background:var(--accent); color:#fff; border-color:transparent; }
     .btn:disabled { opacity:.4; cursor:default; } .btn.sm { padding:6px 11px; font-size:12.5px; }
     .card { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:20px; margin-bottom:16px; }
     label.lbl { font-size:11px; letter-spacing:.1em; color:var(--mute); text-transform:uppercase; display:block; margin-bottom:6px; }
@@ -58,7 +70,7 @@ export const RETRO_STYLES = `
     .lobby-card .lc-main { flex:1; cursor:pointer; min-width:0; }
     .lobby-card:hover { border-color:var(--accent); }
     .tag { font-size:11px; padding:2px 8px; border-radius:20px; background:var(--surface2); color:var(--dim); font-family:monospace; }
-    .tag.draft { color:#f5b544; } .tag.live { color:#34d67f; } .tag.closed { color:var(--mute); }
+    .tag.draft { color:#f5b544; } .tag.open { color:#5b9dff; } .tag.live { color:#34d67f; } .tag.closed { color:var(--mute); }
     .err { color:#f4566b; }
     .vote-dots { display:inline-flex; gap:3px; } .vote-dots i{ width:9px; height:9px; border-radius:50%; background:var(--surface2); } .vote-dots i.on{ background:var(--accent); }
     .chips { display:flex; flex-wrap:wrap; gap:6px; margin:8px 0; }

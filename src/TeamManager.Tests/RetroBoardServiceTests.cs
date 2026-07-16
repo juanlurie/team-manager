@@ -172,6 +172,226 @@ public class RetroBoardServiceTests
         Assert.Equal("draft", reopened!.Status);
     }
 
+    [Fact]
+    public async Task Open_publishes_draft_for_precapture()
+    {
+        using var db = NewDb();
+        var m = Member();
+        db.TeamMembers.Add(m);
+        var s = Session(m.Id);                              // draft, phase "setup"
+        db.RetroBoardSessions.Add(s);
+        await db.SaveChangesAsync();
+
+        var (result, opened) = await Svc(db).OpenAsync(s.Id, m.Id);
+        Assert.Equal(RetroActionResult.Ok, result);
+        Assert.Equal("open", opened!.Status);
+        Assert.Equal("capture", opened.Phase);              // pre-capture happens on the Capture board
+        Assert.Null(opened.StartedAt);                      // not "started" until it goes live
+    }
+
+    [Fact]
+    public async Task GoLive_starts_guided_session_at_checkin()
+    {
+        using var db = NewDb();
+        var m = Member();
+        db.TeamMembers.Add(m);
+        var s = Session(m.Id, status: "open");
+        s.Phase = "capture";
+        db.RetroBoardSessions.Add(s);
+        db.RetroBoardCheckinQuestions.Add(new RetroBoardCheckinQuestion { Id = Guid.NewGuid(), RetroBoardSessionId = s.Id, Text = "Q", SortOrder = 0 });
+        await db.SaveChangesAsync();
+
+        var (result, live) = await Svc(db).GoLiveAsync(s.Id, m.Id);
+        Assert.Equal(RetroActionResult.Ok, result);
+        Assert.Equal("live", live!.Status);
+        Assert.Equal("checkin", live.Phase);                // starts at check-in when it has questions
+        Assert.NotNull(live.StartedAt);
+    }
+
+    [Fact]
+    public async Task SetSquad_enrols_team_members_idempotently()
+    {
+        using var db = NewDb();
+        var creator = Member("Creator");
+        var alice = Member("Alice");
+        var bob = Member("Bob");
+        db.TeamMembers.AddRange(creator, alice, bob);
+        var squad = new Squad { Id = Guid.NewGuid(), Name = "Platform" };
+        db.Squads.Add(squad);
+        db.SquadMembers.AddRange(
+            new SquadMember { Id = Guid.NewGuid(), SquadId = squad.Id, TeamMemberId = alice.Id },
+            new SquadMember { Id = Guid.NewGuid(), SquadId = squad.Id, TeamMemberId = bob.Id });
+        var s = Session(creator.Id);
+        db.RetroBoardSessions.Add(s);
+        await db.SaveChangesAsync();
+        var svc = Svc(db);
+
+        var (result, withTeam) = await svc.SetSquadAsync(s.Id, creator.Id, squad.Id);
+        Assert.Equal(RetroActionResult.Ok, result);
+        Assert.Equal(squad.Id, withTeam!.SquadId);
+        Assert.Equal(2, withTeam.Participants.Count);       // both squad members enrolled
+        Assert.Contains(withTeam.Participants, p => p.MemberId == alice.Id);
+        Assert.Contains(withTeam.Participants, p => p.MemberId == bob.Id);
+
+        // Re-applying the same team adds no duplicates.
+        var (again, reapplied) = await svc.SetSquadAsync(s.Id, creator.Id, squad.Id);
+        Assert.Equal(RetroActionResult.Ok, again);
+        Assert.Equal(2, reapplied!.Participants.Count);
+    }
+
+    [Fact]
+    public async Task HasCheckedIn_is_true_only_when_all_checkin_questions_answered()
+    {
+        using var db = NewDb();
+        var facil = Member("Fac");
+        var full = Member("Full");
+        var partial = Member("Partial");
+        db.TeamMembers.AddRange(facil, full, partial);
+        var s = Session(facil.Id, status: "live");
+        s.Phase = "checkin";
+        s.Participants =
+        [
+            new RetroBoardParticipant { Id = Guid.NewGuid(), MemberId = full.Id, Role = "participant" },
+            new RetroBoardParticipant { Id = Guid.NewGuid(), MemberId = partial.Id, Role = "participant" },
+        ];
+        db.RetroBoardSessions.Add(s);
+        var q1 = new RetroBoardCheckinQuestion { Id = Guid.NewGuid(), RetroBoardSessionId = s.Id, Text = "Q1", SortOrder = 0 };
+        var q2 = new RetroBoardCheckinQuestion { Id = Guid.NewGuid(), RetroBoardSessionId = s.Id, Text = "Q2", SortOrder = 1 };
+        db.RetroBoardCheckinQuestions.AddRange(q1, q2);
+        db.RetroBoardCheckinResponses.AddRange(
+            new RetroBoardCheckinResponse { Id = Guid.NewGuid(), RetroBoardCheckinQuestionId = q1.Id, MemberId = full.Id, Rating = "better" },
+            new RetroBoardCheckinResponse { Id = Guid.NewGuid(), RetroBoardCheckinQuestionId = q2.Id, MemberId = full.Id, Rating = "same" },
+            new RetroBoardCheckinResponse { Id = Guid.NewGuid(), RetroBoardCheckinQuestionId = q1.Id, MemberId = partial.Id, Rating = "worse" });   // only 1 of 2
+        await db.SaveChangesAsync();
+
+        var dto = (await Svc(db).GetSessionAsync(s.Id, facil.Id))!;
+        Assert.True(dto.Participants.Single(p => p.MemberId == full.Id).Responded["checkin"]);
+        Assert.False(dto.Participants.Single(p => p.MemberId == partial.Id).Responded["checkin"]);
+    }
+
+    [Fact]
+    public async Task HasCaptured_and_HasVoted_reflect_named_contributions_only()
+    {
+        using var db = NewDb();
+        var facil = Member("Fac");
+        var doer = Member("Doer");
+        var lurker = Member("Lurker");
+        db.TeamMembers.AddRange(facil, doer, lurker);
+        var s = Session(facil.Id, status: "live");
+        s.Participants =
+        [
+            new RetroBoardParticipant { Id = Guid.NewGuid(), MemberId = doer.Id, Role = "participant" },
+            new RetroBoardParticipant { Id = Guid.NewGuid(), MemberId = lurker.Id, Role = "participant" },
+        ];
+        db.RetroBoardSessions.Add(s);
+        var col = new RetroBoardColumn { Id = Guid.NewGuid(), RetroBoardSessionId = s.Id, Key = "well", Label = "Well", Color = "#fff", Icon = "star", SortOrder = 0 };
+        db.RetroBoardColumns.Add(col);
+        var named = new RetroBoardNote { Id = Guid.NewGuid(), RetroBoardSessionId = s.Id, RetroBoardColumnId = col.Id, AuthorMemberId = doer.Id, Text = "mine" };
+        var anon = new RetroBoardNote { Id = Guid.NewGuid(), RetroBoardSessionId = s.Id, RetroBoardColumnId = col.Id, AuthorMemberId = null, IsAnonymous = true, Text = "anon" };
+        db.RetroBoardNotes.AddRange(named, anon);
+        db.RetroBoardVotes.Add(new RetroBoardVote { Id = Guid.NewGuid(), RetroBoardNoteId = named.Id, MemberId = doer.Id });
+        await db.SaveChangesAsync();
+
+        var dto = (await Svc(db).GetSessionAsync(s.Id, facil.Id))!;
+        var pDoer = dto.Participants.Single(p => p.MemberId == doer.Id);
+        var pLurker = dto.Participants.Single(p => p.MemberId == lurker.Id);
+        Assert.True(pDoer.Responded["capture"]);
+        Assert.True(pDoer.Responded["vote"]);
+        Assert.False(pLurker.Responded["capture"]);   // anonymous note can't be attributed to anyone
+        Assert.False(pLurker.Responded["vote"]);
+    }
+
+    [Fact]
+    public async Task HasGivenFeedback_is_true_only_when_all_prompts_rated()
+    {
+        using var db = NewDb();
+        var facil = Member("Fac");
+        var rater = Member("Rater");
+        var quiet = Member("Quiet");
+        db.TeamMembers.AddRange(facil, rater, quiet);
+        var s = Session(facil.Id, status: "live");
+        s.Participants =
+        [
+            new RetroBoardParticipant { Id = Guid.NewGuid(), MemberId = rater.Id, Role = "participant" },
+            new RetroBoardParticipant { Id = Guid.NewGuid(), MemberId = quiet.Id, Role = "participant" },
+        ];
+        db.RetroBoardSessions.Add(s);
+        var p1 = new RetroBoardFeedbackPrompt { Id = Guid.NewGuid(), RetroBoardSessionId = s.Id, Text = "A", SortOrder = 0 };
+        var p2 = new RetroBoardFeedbackPrompt { Id = Guid.NewGuid(), RetroBoardSessionId = s.Id, Text = "B", SortOrder = 1 };
+        db.RetroBoardFeedbackPrompts.AddRange(p1, p2);
+        db.RetroBoardFeedbackResponses.AddRange(
+            new RetroBoardFeedbackResponse { Id = Guid.NewGuid(), RetroBoardFeedbackPromptId = p1.Id, MemberId = rater.Id, Score = 5 },
+            new RetroBoardFeedbackResponse { Id = Guid.NewGuid(), RetroBoardFeedbackPromptId = p2.Id, MemberId = rater.Id, Score = 4 },
+            new RetroBoardFeedbackResponse { Id = Guid.NewGuid(), RetroBoardFeedbackPromptId = p1.Id, MemberId = quiet.Id, Score = 3 });   // only 1 of 2
+        await db.SaveChangesAsync();
+
+        var dto = (await Svc(db).GetSessionAsync(s.Id, facil.Id))!;
+        Assert.True(dto.Participants.Single(p => p.MemberId == rater.Id).Responded["reflect"]);
+        Assert.False(dto.Participants.Single(p => p.MemberId == quiet.Id).Responded["reflect"]);
+    }
+
+    // ---- Session structure (phase config) ----
+
+    [Fact]
+    public async Task EnabledPhases_auto_skips_empty_checkin_and_reflect()
+    {
+        using var db = NewDb();
+        var m = Member();
+        db.TeamMembers.Add(m);
+        var s = Session(m.Id, status: "live");
+        s.Phase = "capture";
+        db.RetroBoardSessions.Add(s);                       // no check-in questions, no feedback prompts
+        await db.SaveChangesAsync();
+
+        var dto = (await Svc(db).GetSessionAsync(s.Id, m.Id))!;
+        Assert.DoesNotContain("checkin", dto.EnabledPhases);
+        Assert.DoesNotContain("reflect", dto.EnabledPhases);
+        Assert.Contains("capture", dto.EnabledPhases);
+        Assert.Contains("discuss", dto.EnabledPhases);
+        Assert.Contains("summary", dto.EnabledPhases);
+    }
+
+    [Fact]
+    public async Task EnabledPhases_honours_a_disabled_toggle_even_with_content()
+    {
+        using var db = NewDb();
+        var m = Member();
+        db.TeamMembers.Add(m);
+        var s = Session(m.Id, status: "live");
+        s.PhaseConfigJson = "{\"checkin\":{\"enabled\":false,\"enforced\":true,\"timed\":true}}";
+        db.RetroBoardSessions.Add(s);
+        db.RetroBoardCheckinQuestions.Add(new RetroBoardCheckinQuestion { Id = Guid.NewGuid(), RetroBoardSessionId = s.Id, Text = "Q", SortOrder = 0 });
+        db.RetroBoardFeedbackPrompts.Add(new RetroBoardFeedbackPrompt { Id = Guid.NewGuid(), RetroBoardSessionId = s.Id, Text = "P", SortOrder = 0 });
+        await db.SaveChangesAsync();
+
+        var dto = (await Svc(db).GetSessionAsync(s.Id, m.Id))!;
+        Assert.DoesNotContain("checkin", dto.EnabledPhases);   // toggled off despite having a question
+        Assert.Contains("reflect", dto.EnabledPhases);         // enabled and has a prompt
+    }
+
+    [Fact]
+    public async Task GoLive_starts_at_capture_when_checkin_is_skipped()
+    {
+        using var db = NewDb();
+        var m = Member();
+        db.TeamMembers.Add(m);
+        var s = Session(m.Id, status: "open");             // no check-in questions → checkin auto-skips
+        db.RetroBoardSessions.Add(s);
+        await db.SaveChangesAsync();
+
+        var (result, live) = await Svc(db).GoLiveAsync(s.Id, m.Id);
+        Assert.Equal(RetroActionResult.Ok, result);
+        Assert.Equal("capture", live!.Phase);
+
+        // With a question present, GoLive starts at check-in.
+        var s2 = Session(m.Id, status: "open");
+        db.RetroBoardSessions.Add(s2);
+        db.RetroBoardCheckinQuestions.Add(new RetroBoardCheckinQuestion { Id = Guid.NewGuid(), RetroBoardSessionId = s2.Id, Text = "Q", SortOrder = 0 });
+        await db.SaveChangesAsync();
+        var (_, live2) = await Svc(db).GoLiveAsync(s2.Id, m.Id);
+        Assert.Equal("checkin", live2!.Phase);
+    }
+
     // ---- Close-lock (A1) ----
 
     [Fact]

@@ -123,7 +123,6 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<RetroBoardCheckinQuestion> RetroBoardCheckinQuestions => Set<RetroBoardCheckinQuestion>();
     public DbSet<RetroBoardCheckinResponse> RetroBoardCheckinResponses => Set<RetroBoardCheckinResponse>();
     public DbSet<RetroBoardParticipant> RetroBoardParticipants => Set<RetroBoardParticipant>();
-    public DbSet<RetroBoardParticipantProgress> RetroBoardParticipantProgress => Set<RetroBoardParticipantProgress>();
     public DbSet<RetroBoardAction> RetroBoardActions => Set<RetroBoardAction>();
     public DbSet<RetroBoardFeedbackPrompt> RetroBoardFeedbackPrompts => Set<RetroBoardFeedbackPrompt>();
     public DbSet<RetroBoardFeedbackResponse> RetroBoardFeedbackResponses => Set<RetroBoardFeedbackResponse>();
@@ -234,7 +233,6 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         modelBuilder.ApplyConfiguration(new RetroBoardCheckinQuestionConfiguration());
         modelBuilder.ApplyConfiguration(new RetroBoardCheckinResponseConfiguration());
         modelBuilder.ApplyConfiguration(new RetroBoardParticipantConfiguration());
-        modelBuilder.ApplyConfiguration(new RetroBoardParticipantProgressConfiguration());
         modelBuilder.ApplyConfiguration(new RetroBoardActionConfiguration());
         modelBuilder.ApplyConfiguration(new RetroBoardFeedbackPromptConfiguration());
         modelBuilder.ApplyConfiguration(new RetroBoardFeedbackResponseConfiguration());
