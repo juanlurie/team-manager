@@ -1,19 +1,16 @@
 // Pure, stateless formatting helpers for RetroBoard. Kept out of the store so they can be unit
 // tested in isolation and reused without pulling in view state. The store exposes thin delegates
 // so templates keep calling `store.fmt(...)` etc.
+//
+// Clock formatting (fmtDuration/parseDuration) now lives in core/utils/time-format.ts — it is
+// shared with wow-countdown. Re-exported here so the store's `F.*` delegates keep working.
+//
+// The name/avatar helpers below deliberately stay local: core/utils/member-display-name.ts and
+// core/components/k-picker/k-picker.utils.ts already solve initials and avatar colour differently
+// (a fixed hex palette vs the HSL hash here). Reconciling them is a design-system decision, not a
+// move — see the plan.
 
-/** Seconds → "m:ss" (clamped at 0), e.g. 90 → "1:30". */
-export function fmtDuration(sec: number): string {
-  const s = Math.max(0, sec);
-  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
-}
-
-/** "m:ss" (or "m") → seconds. Tolerates blanks/garbage by treating missing parts as 0. */
-export function parseDuration(str: string): number {
-  const parts = (str || '').split(':');
-  if (parts.length >= 2) return (+parts[0] || 0) * 60 + (+parts[1] || 0);
-  return (+parts[0] || 0) * 60;
-}
+export { fmtDuration, parseDuration } from '../../../core/utils/time-format';
 
 /** First word of a name, or an em-dash when empty. */
 export function shortName(name: string): string {
