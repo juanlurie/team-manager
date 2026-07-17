@@ -183,26 +183,9 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
         await db.Entry(nomination).Reference(n => n.TeamMember).LoadAsync();
         await db.Entry(nomination).Reference(n => n.Nominee).LoadAsync();
 
-        return new WinNominationDto
-        {
-            Id = nomination.Id,
-            WinWeekId = nomination.WinWeekId,
-            TeamMemberId = nomination.TeamMemberId,
-            TeamMemberName = nomination.TeamMember != null
-                ? $"{nomination.TeamMember.FirstName} {nomination.TeamMember.LastName}"
-                : (nomination.GuestName ?? "Guest"),
-            IsGuestNomination = nomination.TeamMemberId == null,
-            NomineeMemberId = nomination.NomineeMemberId,
-            NomineeName = $"{nomination.Nominee.FirstName} {nomination.Nominee.LastName}",
-            Title = nomination.Title,
-            Description = nomination.Description,
-            CreatedAt = nomination.CreatedAt,
-            VoteCount = 0,
-            HasVoted = false,
-            PowerUp = nomination.PowerUp,
-            ChaosCard = nomination.ChaosCard,
-            HypeMeterCount = nomination.HypeMeterCount
-        };
+        var dto = MapNominationDto(nomination, false);
+        _ = WebSocketMiddleware.BroadcastAsync("nomination_created", new { nomination = dto }, guestAllowed: true);
+        return dto;
     }
 
     public async Task<WinNominationDto> UpdateNominationAsync(Guid memberId, Guid nominationId, CreateNominationRequest request)
@@ -228,26 +211,14 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
 
         await db.SaveChangesAsync();
 
-        return new WinNominationDto
-        {
-            Id = nomination.Id,
-            WinWeekId = nomination.WinWeekId,
-            TeamMemberId = nomination.TeamMemberId,
-            TeamMemberName = nomination.TeamMember != null
-                ? $"{nomination.TeamMember.FirstName} {nomination.TeamMember.LastName}"
-                : (nomination.GuestName ?? "Guest"),
-            IsGuestNomination = nomination.TeamMemberId == null,
-            NomineeMemberId = nomination.NomineeMemberId,
-            NomineeName = $"{nomination.Nominee.FirstName} {nomination.Nominee.LastName}",
-            Title = nomination.Title,
-            Description = nomination.Description,
-            CreatedAt = nomination.CreatedAt,
-            VoteCount = nomination.Votes.Count,
-            HasVoted = false,
-            PowerUp = nomination.PowerUp,
-            ChaosCard = nomination.ChaosCard,
-            HypeMeterCount = nomination.HypeMeterCount
-        };
+        // KNOWN BUG (pre-existing, left as-is): NomineeMemberId changed above, but the Nominee
+        // navigation was fixed up at query time and the new nominee isn't tracked, so NomineeName
+        // below is the PREVIOUS nominee's. Fixing it changes what the UI shows, so it wants a test
+        // first — see the plan's Phase 4. VoteCount is 0 for the same shape of reason: Votes was
+        // never Include()d. Harmless only because edits are confined to the Nominating phase.
+        var dto = MapNominationDto(nomination, false);
+        _ = WebSocketMiddleware.BroadcastAsync("nomination_updated", new { nomination = dto }, guestAllowed: true);
+        return dto;
     }
 
     public async Task<bool> DeleteNominationAsync(Guid memberId, Guid nominationId)
@@ -268,6 +239,7 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
         db.WinNominations.Remove(nomination);
         await db.SaveChangesAsync();
 
+        _ = WebSocketMiddleware.BroadcastAsync("nomination_deleted", new { nominationId }, guestAllowed: true);
         return true;
     }
 
@@ -314,6 +286,8 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
         db.WinVotes.Add(vote);
         await db.SaveChangesAsync();
 
+        _ = WebSocketMiddleware.BroadcastAsync("vote_cast", new { nominationId, voterId = memberId }, guestAllowed: true);
+
         return new WinVoteDto
         {
             Id = vote.Id,
@@ -333,6 +307,8 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
         db.WinVotes.Remove(vote);
         await db.SaveChangesAsync();
 
+        // Only broadcast when a vote was actually removed — mirrors the controller's `if (success)`.
+        _ = WebSocketMiddleware.BroadcastAsync("vote_removed", new { nominationId, voterId = memberId }, guestAllowed: true);
         return true;
     }
 
@@ -351,23 +327,11 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
         if (nomination is null)
             throw new KeyNotFoundException("The specified nomination does not belong to the current week.");
 
-        week.Status = WinWeekStatus.Closed;
-        week.WinnerNominationId = request.WinnerNominationId;
-        week.ClosedAt = DateTimeOffset.UtcNow;
-
-        await db.SaveChangesAsync();
-
-        // Award weekly achievement to the winner
-        await AwardWeeklyAchievementAsync(nomination.NomineeMemberId, week.WeekStart);
-
-        // Grant bonus token to whoever nominated the winner
-        if (nomination.TeamMemberId.HasValue)
-            await GrantBonusTokenAsync(nomination.TeamMemberId.Value, week.Id);
-
-        // Load nominee name for story generation
-        await db.Entry(nomination).Reference(n => n.Nominee).LoadAsync();
-        var winnerName = $"{nomination.Nominee.FirstName} {nomination.Nominee.LastName}";
-        EnqueueAndGenerateWinStory(week.Id, winnerName, nomination.Title, nomination.Description);
+        // Delegate rather than re-implement. This path used to set Status/Winner/ClosedAt itself and
+        // leave TiedNominationIds, SuddenDeathEndsAt, HypeBattleEndsAt and the quiz columns dirty —
+        // CloseWeekWithWinnerAsync clears them all, awards the achievement, grants the bonus token,
+        // kicks off the win story and broadcasts voting_closed.
+        await CloseWeekWithWinnerAsync(week, request.WinnerNominationId);
 
         return (await GetCurrentWeekAsync(memberId, seriesId))!;
     }
@@ -441,6 +405,7 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
         week.Status = WinWeekStatus.Voting;
         await db.SaveChangesAsync();
 
+        _ = WebSocketMiddleware.BroadcastAsync("voting_opened", new { }, guestAllowed: true);
         return (await GetCurrentWeekAsync(memberId, seriesId))!;
     }
 
@@ -472,6 +437,7 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
 
         await db.SaveChangesAsync();
 
+        _ = WebSocketMiddleware.BroadcastAsync("nominations_reopened", new { }, guestAllowed: true);
         return (await GetCurrentWeekAsync(memberId, seriesId))!;
     }
 
@@ -787,7 +753,9 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
         nomination.PowerUp = type;
         await db.SaveChangesAsync();
 
-        return MapNominationDto(nomination, false);
+        var dto = MapNominationDto(nomination, false);
+        _ = WebSocketMiddleware.BroadcastAsync("nomination_updated", new { nomination = dto }, guestAllowed: true);
+        return dto;
     }
 
     public async Task<WinNominationDto> ApplyChaosCardAsync(Guid memberId, Guid nominationId, string type)
@@ -817,7 +785,9 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
         nomination.ChaosCard = type;
         await db.SaveChangesAsync();
 
-        return MapNominationDto(nomination, false);
+        var dto = MapNominationDto(nomination, false);
+        _ = WebSocketMiddleware.BroadcastAsync("nomination_updated", new { nomination = dto }, guestAllowed: true);
+        return dto;
     }
 
     public async Task<int> IncrementHypeMeterAsync(Guid nominationId)
@@ -835,6 +805,10 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
         nomination.HypeMeterCount++;
         await db.SaveChangesAsync();
 
+        // Both the member and guest paths reach this method (GuestWinOfTheWeekService delegates
+        // here), so broadcasting once from here covers both — see both controllers.
+        _ = WebSocketMiddleware.BroadcastAsync("hype_meter_tapped",
+            new { nominationId, count = nomination.HypeMeterCount }, guestAllowed: true);
         return nomination.HypeMeterCount;
     }
 

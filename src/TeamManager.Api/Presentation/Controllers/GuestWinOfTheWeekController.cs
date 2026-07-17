@@ -131,7 +131,6 @@ public class GuestWinOfTheWeekController(GuestWinOfTheWeekService service) : Con
         try
         {
             var result = await service.ApplyGuestPowerUpAsync(token, nominationId, sessionId, request.Type);
-            _ = WebSocketMiddleware.BroadcastAsync("nomination_updated", new { nomination = result }, guestAllowed: true);
             return Ok(result);
         }
         catch (KeyNotFoundException ex) { return NotFound(new { error = ex.Message }); }
@@ -144,7 +143,6 @@ public class GuestWinOfTheWeekController(GuestWinOfTheWeekService service) : Con
         try
         {
             var result = await service.ApplyGuestChaosCardAsync(token, nominationId, sessionId, request.Type);
-            _ = WebSocketMiddleware.BroadcastAsync("nomination_updated", new { nomination = result }, guestAllowed: true);
             return Ok(result);
         }
         catch (KeyNotFoundException ex) { return NotFound(new { error = ex.Message }); }
@@ -156,8 +154,9 @@ public class GuestWinOfTheWeekController(GuestWinOfTheWeekService service) : Con
     {
         try
         {
+            // hype_meter_tapped is broadcast by WinOfTheWeekService.IncrementHypeMeterAsync, which
+            // IncrementGuestHypeMeterAsync delegates to — broadcasting here too would double-fire.
             var count = await service.IncrementGuestHypeMeterAsync(token, nominationId);
-            _ = WebSocketMiddleware.BroadcastAsync("hype_meter_tapped", new { nominationId, count }, guestAllowed: true);
             return Ok(new { count });
         }
         catch (KeyNotFoundException ex) { return NotFound(new { error = ex.Message }); }

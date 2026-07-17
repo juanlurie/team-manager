@@ -102,7 +102,10 @@ export class WowSeriesSheetComponent {
       animation: alertPulse 2s ease-in-out infinite;
     }
   `],
-  changeDetection: ChangeDetectionStrategy.Default,
+  // All template state is signals/computeds (no plain fields are bound), and the 1s interval, the
+  // WebSocket handlers and the visibilitychange listener all update via .set() — which notifies
+  // regardless of zone. Default was walking the whole tree every second for nothing.
+  changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <app-wow-tie-break-spinner [show]="isSpinning()" [name]="spinnerName()" />
 

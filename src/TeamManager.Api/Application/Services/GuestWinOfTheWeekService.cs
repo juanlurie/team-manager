@@ -398,7 +398,9 @@ public class GuestWinOfTheWeekService(AppDbContext db, IHttpContextAccessor http
         nomination.GuestCardAppliedBySessionId = guestSessionId;
         await db.SaveChangesAsync();
 
-        return MapGuestNominationDto(nomination, guestSessionId);
+        var dto = MapGuestNominationDto(nomination, guestSessionId);
+        _ = WebSocketMiddleware.BroadcastAsync("nomination_updated", new { nomination = dto }, guestAllowed: true);
+        return dto;
     }
 
     public async Task<GuestNominationDto> ApplyGuestChaosCardAsync(string token, Guid nominationId, string guestSessionId, string type)
@@ -438,7 +440,9 @@ public class GuestWinOfTheWeekService(AppDbContext db, IHttpContextAccessor http
         nomination.GuestCardAppliedBySessionId = guestSessionId;
         await db.SaveChangesAsync();
 
-        return MapGuestNominationDto(nomination, guestSessionId);
+        var dto = MapGuestNominationDto(nomination, guestSessionId);
+        _ = WebSocketMiddleware.BroadcastAsync("nomination_updated", new { nomination = dto }, guestAllowed: true);
+        return dto;
     }
 
     public async Task<int> IncrementGuestHypeMeterAsync(string token, Guid nominationId)
