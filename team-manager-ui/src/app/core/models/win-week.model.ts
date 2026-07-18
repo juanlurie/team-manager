@@ -227,7 +227,6 @@ export interface ApplyWowCardRequest {
 }
 
 export interface GuestCreateNominationRequest {
-  guestSessionId: string;
   guestName: string;
   nomineeMemberId: string;
   title: string;
