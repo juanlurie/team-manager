@@ -272,11 +272,20 @@ public class GuestWinOfTheWeekService(AppDbContext db, IHttpContextAccessor http
     public Task<bool> RemoveVoteAsync(string token, Guid nominationId, string guestSessionId) =>
         voting.RemoveVoteAsync(nominationId, WowVoter.Guest(guestSessionId), requireGuestToken: token);
 
-    public async Task<GuestNominationDto> ApplyGuestPowerUpAsync(string token, Guid nominationId, string guestSessionId, string type)
+    public Task<GuestNominationDto> ApplyGuestPowerUpAsync(string token, Guid nominationId, string guestSessionId, string type) =>
+        ApplyGuestCardAsync(token, nominationId, guestSessionId, WowCardKind.PowerUp, type);
+
+    public Task<GuestNominationDto> ApplyGuestChaosCardAsync(string token, Guid nominationId, string guestSessionId, string type) =>
+        ApplyGuestCardAsync(token, nominationId, guestSessionId, WowCardKind.ChaosCard, type);
+
+    // Guest power-up and chaos card differ only by the valid-type set, the field and the noun. Note
+    // this keeps the guest-specific checks (token, series-enabled, not-own, one-card-per-session) in
+    // their original order — the shared bits (valid type, phase, already-applied) come from WowCards
+    // but stay at the same positions, so which error surfaces first is unchanged.
+    private async Task<GuestNominationDto> ApplyGuestCardAsync(string token, Guid nominationId, string guestSessionId, WowCardKind kind, string type)
     {
-        var validPowerUps = new HashSet<string> { "Spotlight" };
-        if (!validPowerUps.Contains(type))
-            throw new InvalidOperationException($"Invalid power-up type: {type}");
+        if (!WowCards.TypesFor(kind).Contains(type))
+            throw new InvalidOperationException($"Invalid {WowCards.Noun(kind)} type: {type}");
 
         var nomination = await db.WinNominations
             .Include(n => n.WinWeek).ThenInclude(w => w.Series)
@@ -292,62 +301,20 @@ public class GuestWinOfTheWeekService(AppDbContext db, IHttpContextAccessor http
             throw new InvalidOperationException("Power-ups are disabled for this series.");
 
         if (nomination.WinWeek.Status != WinWeekStatus.Voting && nomination.WinWeek.Status != WinWeekStatus.SuddenDeath)
-            throw new InvalidOperationException("Power-ups can only be applied during voting.");
+            throw new InvalidOperationException($"{WowCards.Plural(kind)} can only be applied during voting.");
 
         if (nomination.GuestSessionId == guestSessionId)
-            throw new InvalidOperationException("You cannot apply a power-up to your own nomination.");
+            throw new InvalidOperationException($"You cannot apply a {WowCards.Noun(kind)} to your own nomination.");
 
-        if (nomination.PowerUp is not null)
-            throw new InvalidOperationException("A power-up has already been applied to this nomination.");
+        if (WowCards.IsApplied(nomination, kind))
+            throw new InvalidOperationException($"A {WowCards.Noun(kind)} has already been applied to this nomination.");
 
         var alreadySpent = await db.WinNominations
             .AnyAsync(n => n.WinWeekId == nomination.WinWeekId && n.GuestCardAppliedBySessionId == guestSessionId);
         if (alreadySpent)
             throw new InvalidOperationException("You have already spent your token this week.");
 
-        nomination.PowerUp = type;
-        nomination.GuestCardAppliedBySessionId = guestSessionId;
-        await db.SaveChangesAsync();
-
-        var dto = MapGuestNominationDto(nomination, guestSessionId);
-        notifier.Broadcast("nomination_updated", new { nomination = dto }, guestAllowed: true);
-        return dto;
-    }
-
-    public async Task<GuestNominationDto> ApplyGuestChaosCardAsync(string token, Guid nominationId, string guestSessionId, string type)
-    {
-        var validCards = new HashSet<string> { "TinyText", "Autocorrect", "RandomCase", "Hangman" };
-        if (!validCards.Contains(type))
-            throw new InvalidOperationException($"Invalid chaos card type: {type}");
-
-        var nomination = await db.WinNominations
-            .Include(n => n.WinWeek).ThenInclude(w => w.Series)
-            .Include(n => n.Nominee)
-            .Include(n => n.Votes)
-            .FirstOrDefaultAsync(n => n.Id == nominationId)
-            ?? throw new KeyNotFoundException("Nomination not found.");
-
-        if (nomination.WinWeek.GuestToken != token)
-            throw new KeyNotFoundException("Invalid or expired guest link.");
-
-        if (!(nomination.WinWeek.Series?.PowerUpsEnabled ?? true))
-            throw new InvalidOperationException("Power-ups are disabled for this series.");
-
-        if (nomination.WinWeek.Status != WinWeekStatus.Voting && nomination.WinWeek.Status != WinWeekStatus.SuddenDeath)
-            throw new InvalidOperationException("Chaos cards can only be applied during voting.");
-
-        if (nomination.GuestSessionId == guestSessionId)
-            throw new InvalidOperationException("You cannot apply a chaos card to your own nomination.");
-
-        if (nomination.ChaosCard is not null)
-            throw new InvalidOperationException("A chaos card has already been applied to this nomination.");
-
-        var alreadySpent = await db.WinNominations
-            .AnyAsync(n => n.WinWeekId == nomination.WinWeekId && n.GuestCardAppliedBySessionId == guestSessionId);
-        if (alreadySpent)
-            throw new InvalidOperationException("You have already spent your token this week.");
-
-        nomination.ChaosCard = type;
+        WowCards.Set(nomination, kind, type);
         nomination.GuestCardAppliedBySessionId = guestSessionId;
         await db.SaveChangesAsync();
 

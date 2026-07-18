@@ -659,11 +659,18 @@ public class WinOfTheWeekService(
             .CountAsync(t => t.TeamMemberId == memberId && t.WinWeekId == week.Id && t.SpentAt == null);
     }
 
-    public async Task<WinNominationDto> ApplyPowerUpAsync(Guid memberId, Guid nominationId, string type)
+    public Task<WinNominationDto> ApplyPowerUpAsync(Guid memberId, Guid nominationId, string type) =>
+        ApplyCardAsync(memberId, nominationId, WowCardKind.PowerUp, type);
+
+    public Task<WinNominationDto> ApplyChaosCardAsync(Guid memberId, Guid nominationId, string type) =>
+        ApplyCardAsync(memberId, nominationId, WowCardKind.ChaosCard, type);
+
+    // Power-up and chaos card are the same operation for a member: validate, spend the weekly token,
+    // set the field. They differed only by the valid-type set, the field and the message noun.
+    private async Task<WinNominationDto> ApplyCardAsync(Guid memberId, Guid nominationId, WowCardKind kind, string type)
     {
-        var validPowerUps = new HashSet<string> { "Spotlight" };
-        if (!validPowerUps.Contains(type))
-            throw new InvalidOperationException($"Invalid power-up type: {type}");
+        if (!WowCards.TypesFor(kind).Contains(type))
+            throw new InvalidOperationException($"Invalid {WowCards.Noun(kind)} type: {type}");
 
         var nomination = await db.WinNominations
             .Include(n => n.TeamMember)
@@ -676,46 +683,14 @@ public class WinOfTheWeekService(
             throw new KeyNotFoundException("Nomination not found.");
 
         if (nomination.WinWeek.Status != WinWeekStatus.Voting && nomination.WinWeek.Status != WinWeekStatus.SuddenDeath)
-            throw new InvalidOperationException("Power-ups can only be applied during voting.");
+            throw new InvalidOperationException($"{WowCards.Plural(kind)} can only be applied during voting.");
 
-        if (nomination.PowerUp is not null)
-            throw new InvalidOperationException("A power-up has already been applied to this nomination.");
-
-        await SpendTokenAsync(memberId, nomination.WinWeekId, nominationId);
-
-        nomination.PowerUp = type;
-        await db.SaveChangesAsync();
-
-        var dto = MapNominationDto(nomination, false);
-        notifier.Broadcast("nomination_updated", new { nomination = dto }, guestAllowed: true);
-        return dto;
-    }
-
-    public async Task<WinNominationDto> ApplyChaosCardAsync(Guid memberId, Guid nominationId, string type)
-    {
-        var validCards = new HashSet<string> { "TinyText", "Autocorrect", "RandomCase", "Hangman" };
-        if (!validCards.Contains(type))
-            throw new InvalidOperationException($"Invalid chaos card type: {type}");
-
-        var nomination = await db.WinNominations
-            .Include(n => n.TeamMember)
-            .Include(n => n.Nominee)
-            .Include(n => n.Votes)
-            .Include(n => n.WinWeek)
-            .FirstOrDefaultAsync(n => n.Id == nominationId);
-
-        if (nomination is null)
-            throw new KeyNotFoundException("Nomination not found.");
-
-        if (nomination.WinWeek.Status != WinWeekStatus.Voting && nomination.WinWeek.Status != WinWeekStatus.SuddenDeath)
-            throw new InvalidOperationException("Chaos cards can only be applied during voting.");
-
-        if (nomination.ChaosCard is not null)
-            throw new InvalidOperationException("A chaos card has already been applied to this nomination.");
+        if (WowCards.IsApplied(nomination, kind))
+            throw new InvalidOperationException($"A {WowCards.Noun(kind)} has already been applied to this nomination.");
 
         await SpendTokenAsync(memberId, nomination.WinWeekId, nominationId);
 
-        nomination.ChaosCard = type;
+        WowCards.Set(nomination, kind, type);
         await db.SaveChangesAsync();
 
         var dto = MapNominationDto(nomination, false);

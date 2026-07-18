@@ -383,6 +383,33 @@ public class WinOfTheWeekServiceTests
         await Assert.ThrowsAsync<InvalidOperationException>(() => svc.ApplyPowerUpAsync(me.Id, nom2.Id, "Spotlight"));
     }
 
+    // ─── Shared card definitions (WowCards) ───
+
+    [Fact]
+    public void WowCards_is_the_single_source_of_valid_types_and_nouns()
+    {
+        Assert.Contains("Spotlight", WowCards.TypesFor(WowCardKind.PowerUp));
+        Assert.Contains("Hangman", WowCards.TypesFor(WowCardKind.ChaosCard));
+        Assert.DoesNotContain("Hangman", WowCards.TypesFor(WowCardKind.PowerUp));
+        Assert.Equal("power-up", WowCards.Noun(WowCardKind.PowerUp));
+        Assert.Equal("chaos card", WowCards.Noun(WowCardKind.ChaosCard));
+    }
+
+    [Fact]
+    public void WowCards_set_and_isapplied_target_the_right_field()
+    {
+        var n = new WinNomination { Title = "n" };
+        Assert.False(WowCards.IsApplied(n, WowCardKind.PowerUp));
+
+        WowCards.Set(n, WowCardKind.PowerUp, "Spotlight");
+        Assert.Equal("Spotlight", n.PowerUp);
+        Assert.True(WowCards.IsApplied(n, WowCardKind.PowerUp));
+        Assert.False(WowCards.IsApplied(n, WowCardKind.ChaosCard)); // set PowerUp didn't touch ChaosCard
+
+        WowCards.Set(n, WowCardKind.ChaosCard, "Hangman");
+        Assert.Equal("Hangman", n.ChaosCard);
+    }
+
     // ─── Shared voting (WowVotingService — the guest branch + token guard the member tests don't hit) ───
 
     [Fact]
