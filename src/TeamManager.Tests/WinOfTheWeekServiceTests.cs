@@ -382,6 +382,30 @@ public class WinOfTheWeekServiceTests
         await Assert.ThrowsAsync<InvalidOperationException>(() => svc.ApplyPowerUpAsync(me.Id, nom2.Id, "Spotlight"));
     }
 
+    // ─── History (PF2: vote count projected as SQL COUNT, not Include+count) ───
+
+    [Fact]
+    public async Task History_reports_the_winner_name_title_and_vote_count()
+    {
+        await using var db = NewDb();
+        var (_, week, _, nominee) = await SeedSimpleWeekAsync(db, WinWeekStatus.Voting);
+        var winner = new WinNomination { Id = Guid.NewGuid(), WinWeekId = week.Id, NomineeMemberId = nominee.Id, Title = "Shipped it" };
+        db.Add(winner);
+        await db.SaveChangesAsync();
+        await AddVotesAsync(db, winner.Id, 4);
+        week.Status = WinWeekStatus.Closed;
+        week.WinnerNominationId = winner.Id;
+        week.ClosedAt = DateTimeOffset.UtcNow;
+        await db.SaveChangesAsync();
+
+        var history = await Svc(db, new StubWowPresence()).GetHistoryAsync(week.WinSeriesId);
+
+        var entry = Assert.Single(history);
+        Assert.Equal("Shipped it", entry.WinnerTitle);
+        Assert.Equal($"{nominee.FirstName} {nominee.LastName}", entry.WinnerNomineeName);
+        Assert.Equal(4, entry.WinnerVoteCount);
+    }
+
     // ─── Quiz Duel elimination model (pure decision) ───
     // The resolver itself uses ExecuteUpdateAsync (unsupported by EF InMemory) to atomically claim
     // the reveal; DecideQuizRound is the pure elimination logic pulled out of it, tested here

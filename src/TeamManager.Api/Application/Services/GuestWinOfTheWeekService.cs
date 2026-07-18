@@ -11,8 +11,8 @@ namespace TeamManager.Api.Application.Services;
 
 public class GuestWinOfTheWeekService(AppDbContext db, IHttpContextAccessor httpContextAccessor, IWinOfTheWeekService wowService, IWowNotifier notifier)
 {
-    private const int MaxVotesPerPerson = 3;
-    private const int MaxNominationsPerPerson = 3;
+    private const int MaxVotesPerPerson = WinOfTheWeekLimits.MaxVotesPerPerson;
+    private const int MaxNominationsPerPerson = WinOfTheWeekLimits.MaxNominationsPerPerson;
     public async Task<GuestTokenDto> GetOrGenerateGuestTokenAsync(Guid weekId)
     {
         var week = await db.WinWeeks.FindAsync(weekId)
@@ -51,25 +51,9 @@ public class GuestWinOfTheWeekService(AppDbContext db, IHttpContextAccessor http
             .FirstOrDefaultAsync(w => w.GuestToken == token)
             ?? throw new KeyNotFoundException("Invalid or expired guest link.");
 
-        if (week.Status == WinWeekStatus.SuddenDeath &&
-            week.SuddenDeathEndsAt.HasValue &&
-            DateTimeOffset.UtcNow > week.SuddenDeathEndsAt.Value)
-        {
-            await wowService.AutoCloseExpiredSuddenDeathAsync(week.Id);
-            // Reload week state after auto-close
-            db.Entry(week).State = Microsoft.EntityFrameworkCore.EntityState.Detached;
-            week = await db.WinWeeks.FirstAsync(w => w.GuestToken == token);
-        }
-
-        if (week.Status != WinWeekStatus.Closed &&
-            week.HypeBattleEndsAt.HasValue &&
-            DateTimeOffset.UtcNow > week.HypeBattleEndsAt.Value)
-        {
-            await wowService.AutoResolveExpiredHypeBattleAsync(week.Id);
-            db.Entry(week).State = Microsoft.EntityFrameworkCore.EntityState.Detached;
-            week = await db.WinWeeks.FirstAsync(w => w.GuestToken == token);
-        }
-
+        // Expired sudden-death / hype-battle resolution moved to WowTiebreakerProgressWorker so this
+        // GET (polled by every guest) doesn't race member polls into a double close. Quiz stays here
+        // — it self-guards with an atomic claim. See WinOfTheWeekService.GetCurrentWeekAsync.
         await wowService.ClearExpiredQuizAsync(week);
 
         var nominations = await db.WinNominations

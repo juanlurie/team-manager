@@ -99,7 +99,7 @@ builder.Services.AddScoped<IScrumPokerService, ScrumPokerService>();
 builder.Services.AddScoped<IFeaturePermissionService, FeaturePermissionService>();
 builder.Services.AddHostedService<RunDeadlineWorker>();
 builder.Services.AddHostedService<QuizGameProgressWorker>();
-builder.Services.AddHostedService<WowQuizDuelProgressWorker>();
+builder.Services.AddHostedService<WowTiebreakerProgressWorker>();
 builder.Services.AddHostedService<PollProgressWorker>();
 
 builder.Services.AddScoped<ILeaveFetcher, ConfigurableLeaveFetcher>();

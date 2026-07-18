@@ -17,8 +17,8 @@ public class WinOfTheWeekService(
     IWowNotifier notifier,
     IWowPresence presence) : IWinOfTheWeekService
 {
-    private const int MaxNominationsPerPerson = 3;
-    private const int MaxVotesPerPerson = 3;
+    private const int MaxNominationsPerPerson = WinOfTheWeekLimits.MaxNominationsPerPerson;
+    private const int MaxVotesPerPerson = WinOfTheWeekLimits.MaxVotesPerPerson;
     internal const int QuizRevealDisplaySeconds = 5;
 
     public async Task<WinWeekDto?> GetCurrentWeekAsync(Guid currentMemberId, Guid seriesId)
@@ -26,20 +26,12 @@ public class WinOfTheWeekService(
         var week = await GetActiveWeekAsync(seriesId);
         if (week is null) return null;
 
-        if (week.Status == WinWeekStatus.SuddenDeath &&
-            week.SuddenDeathEndsAt.HasValue &&
-            DateTimeOffset.UtcNow > week.SuddenDeathEndsAt.Value)
-        {
-            await CheckAndAutoCloseSuddenDeathAsync(week, force: true);
-        }
-
-        if (week.Status != WinWeekStatus.Closed &&
-            week.HypeBattleEndsAt.HasValue &&
-            DateTimeOffset.UtcNow > week.HypeBattleEndsAt.Value)
-        {
-            await ResolveHypeBattleAsync(week);
-        }
-
+        // Expired sudden-death and hype-battle resolution is NOT done here anymore. This is a GET,
+        // polled by every connected client every few seconds; resolving inline meant N callers raced
+        // into CloseWeekWithWinnerAsync, double-granting the bonus token and firing two AI stories.
+        // WowTiebreakerProgressWorker now owns that resolution on a single serial loop — no race.
+        // The quiz auto-loop keeps advancing on GET because it already guards itself with an atomic
+        // ExecuteUpdateAsync claim (see TryResolveQuizAsync) and benefits from snappier progression.
         await ClearExpiredQuizAsync(week);
 
         var nominations = await db.WinNominations
@@ -583,10 +575,18 @@ public class WinOfTheWeekService(
         var winnerIds = weeks.Where(w => w.WinnerNominationId.HasValue).Select(w => w.WinnerNominationId!.Value).ToList();
         if (winnerIds.Count == 0) return [];
 
+        // Project the vote count as a SQL COUNT rather than Include(Votes) + .Count in memory — this
+        // runs across up to `limit` (52) winners, so materialising every vote row was pure waste.
         var winners = await db.WinNominations
-            .Include(n => n.Nominee)
-            .Include(n => n.Votes)
             .Where(n => winnerIds.Contains(n.Id))
+            .Select(n => new
+            {
+                n.Id,
+                NomineeName = n.Nominee.FirstName + " " + n.Nominee.LastName,
+                n.Title,
+                n.Description,
+                VoteCount = n.Votes.Count
+            })
             .ToListAsync();
 
         var winnerLookup = winners.ToDictionary(w => w.Id);
@@ -599,10 +599,10 @@ public class WinOfTheWeekService(
                 Id = week.Id,
                 WeekStart = week.WeekStart,
                 WeekEnd = week.WeekEnd,
-                WinnerNomineeName = winner != null ? $"{winner.Nominee.FirstName} {winner.Nominee.LastName}" : null,
+                WinnerNomineeName = winner?.NomineeName,
                 WinnerTitle = winner?.Title,
                 WinnerDescription = winner?.Description,
-                WinnerVoteCount = winner?.Votes.Count ?? 0,
+                WinnerVoteCount = winner?.VoteCount ?? 0,
                 ClosedAt = week.ClosedAt ?? DateTimeOffset.UtcNow
             };
         }).ToList();
