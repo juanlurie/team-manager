@@ -1,6 +1,5 @@
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
 using TeamManager.Api.Application.DTOs;
 using TeamManager.Api.Application.DTOs.WinOfTheWeek;
 using TeamManager.Api.Application.Realtime;
@@ -13,8 +12,8 @@ namespace TeamManager.Api.Application.Services;
 
 public class WinOfTheWeekService(
     AppDbContext db,
-    IServiceScopeFactory scopeFactory,
     QuizQuestionGeneratorService questionGenerator,
+    IWinStoryGenerator winStory,
     IWowNotifier notifier,
     IWowPresence presence) : IWinOfTheWeekService
 {
@@ -711,41 +710,6 @@ public class WinOfTheWeekService(
         return date.AddDays(-diff);
     }
 
-    private void EnqueueAndGenerateWinStory(Guid weekId, string winnerName, string title, string? description)
-    {
-        _ = Task.Run(async () =>
-        {
-            await using var scope = scopeFactory.CreateAsyncScope();
-            var bgDb = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-            var bgExecutor = scope.ServiceProvider.GetRequiredService<AiPromptExecutorService>();
-            try
-            {
-                var promptParams = new Dictionary<string, string>
-                {
-                    ["nominee"] = winnerName,
-                    ["title"] = title,
-                    ["description"] = description ?? ""
-                };
-
-                var story = await bgExecutor.ExecuteAsync("AiChatWinStory", promptParams, "WinWeek", $"Win Story — {winnerName}", weekId.ToString());
-                if (!string.IsNullOrWhiteSpace(story))
-                {
-                    var winWeek = await bgDb.WinWeeks.FindAsync(weekId);
-                    if (winWeek is not null)
-                    {
-                        winWeek.WinnerStory = story.Trim();
-                        await bgDb.SaveChangesAsync();
-                        notifier.Broadcast("win_story_ready", new { weekId }, guestAllowed: true);
-                    }
-                    // Resolve the dispatcher from the background scope so it shares bgDb.
-                    var dispatcher = scope.ServiceProvider.GetRequiredService<WinStoryWebhookDispatcher>();
-                    await dispatcher.DispatchAsync(story.Trim(), winnerName, weekId);
-                }
-            }
-            catch { /* best-effort */ }
-        });
-    }
-
     public async Task<int> GetTokenBalanceAsync(Guid memberId, Guid seriesId)
     {
         var week = await GetActiveWeekAsync(seriesId);
@@ -1027,7 +991,7 @@ public class WinOfTheWeekService(
         if (winnerNom.TeamMemberId.HasValue)
             await GrantBonusTokenAsync(winnerNom.TeamMemberId.Value, week.Id);
 
-        EnqueueAndGenerateWinStory(week.Id, $"{winnerNom.Nominee.FirstName} {winnerNom.Nominee.LastName}", winnerNom.Title, winnerNom.Description);
+        winStory.Enqueue(week.Id, $"{winnerNom.Nominee.FirstName} {winnerNom.Nominee.LastName}", winnerNom.Title, winnerNom.Description);
 
         notifier.Broadcast("voting_closed", new
         {

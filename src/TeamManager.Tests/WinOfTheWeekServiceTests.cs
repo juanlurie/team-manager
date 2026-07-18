@@ -1,7 +1,7 @@
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
 using TeamManager.Api.Application.Realtime;
 using TeamManager.Api.Application.Services;
+using TeamManager.Api.Application.Services.Interfaces;
 using TeamManager.Api.Domain.Entities;
 using TeamManager.Api.Domain.Enums;
 using TeamManager.Api.Infrastructure.Data;
@@ -25,6 +25,12 @@ internal sealed class StubWowPresence : IWowPresence
     public int GetSessionCount(string sessionKey) => 0;
 }
 
+/// <summary>No-op win-story generator: closing a week must not spin up a real background AI task.</summary>
+internal sealed class NullWinStoryGenerator : IWinStoryGenerator
+{
+    public void Enqueue(Guid weekId, string winnerName, string title, string? description) { }
+}
+
 /// <summary>
 /// First unit tests of WinOfTheWeekService. Before A3 this class could not be constructed without a
 /// running WebSocket server (it called WebSocketMiddleware's statics directly); these exist to prove
@@ -40,11 +46,10 @@ public class WinOfTheWeekServiceTests
 
     private static WinOfTheWeekService Svc(AppDbContext db, IWowPresence presence, IWowNotifier? notifier = null)
     {
-        // scopeFactory is only touched by the background win-story task (fires on close), which these
-        // tests don't reach; questionGenerator only by the quiz-generation path. Constructed cheaply.
-        var scopeFactory = new ServiceCollection().BuildServiceProvider().GetRequiredService<IServiceScopeFactory>();
+        // questionGenerator is only touched by the quiz-generation path; winStory is a no-op so a
+        // close never spins up a real background task. Constructed cheaply, no DI container needed.
         var questionGenerator = new QuizQuestionGeneratorService(db, new AiPromptExecutorService(db));
-        return new WinOfTheWeekService(db, scopeFactory, questionGenerator, notifier ?? new FakeWowNotifier(), presence);
+        return new WinOfTheWeekService(db, questionGenerator, new NullWinStoryGenerator(), notifier ?? new FakeWowNotifier(), presence);
     }
 
     private static TeamMember Member() => new()

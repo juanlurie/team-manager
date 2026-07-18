@@ -89,6 +89,7 @@ builder.Services.AddScoped<GameUltimateTttService>();
 builder.Services.AddScoped<GameConnectionsService>();
 builder.Services.AddScoped<IWinOfTheWeekService, WinOfTheWeekService>();
 builder.Services.AddScoped<GuestWinOfTheWeekService>();
+builder.Services.AddSingleton<IWinStoryGenerator, WinStoryGenerator>();
 builder.Services.AddScoped<WinStoryWebhookDispatcher>();
 builder.Services.AddScoped<WinSeriesService>();
 builder.Services.AddHttpContextAccessor();
