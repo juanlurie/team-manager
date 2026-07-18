@@ -51,7 +51,9 @@ public class WinOfTheWeekServiceTests
         // close never spins up a real background task. Constructed cheaply, no DI container needed.
         var n = notifier ?? new FakeWowNotifier();
         var questionGenerator = new QuizQuestionGeneratorService(db, new AiPromptExecutorService(db));
-        return new WinOfTheWeekService(db, questionGenerator, new NullWinStoryGenerator(), new WowVotingService(db, n), new WowTokenService(db), n, presence);
+        var tokenSvc = new WowTokenService(db);
+        var closer = new WowWeekCloser(db, tokenSvc, new NullWinStoryGenerator(), n);
+        return new WinOfTheWeekService(db, questionGenerator, new NullWinStoryGenerator(), new WowVotingService(db, n), tokenSvc, closer, n, presence);
     }
 
     private static TeamMember Member() => new()

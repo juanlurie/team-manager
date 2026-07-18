@@ -16,6 +16,7 @@ public class WinOfTheWeekService(
     IWinStoryGenerator winStory,
     WowVotingService voting,
     WowTokenService tokens,
+    WowWeekCloser weekCloser,
     IWowNotifier notifier,
     IWowPresence presence) : IWinOfTheWeekService
 {
@@ -264,7 +265,7 @@ public class WinOfTheWeekService(
         // leave TiedNominationIds, SuddenDeathEndsAt, HypeBattleEndsAt and the quiz columns dirty —
         // CloseWeekWithWinnerAsync clears them all, awards the achievement, grants the bonus token,
         // kicks off the win story and broadcasts voting_closed.
-        await CloseWeekWithWinnerAsync(week, request.WinnerNominationId);
+        await weekCloser.CloseWithWinnerAsync(week, request.WinnerNominationId);
 
         return (await GetCurrentWeekAsync(memberId, seriesId))!;
     }
@@ -776,43 +777,7 @@ public class WinOfTheWeekService(
                 : tiedIds[Random.Shared.Next(tiedIds.Count)];
         }
 
-        await CloseWeekWithWinnerAsync(week, winnerId);
-    }
-
-    private async Task CloseWeekWithWinnerAsync(WinWeek week, Guid winnerNominationId, bool wasRandom = false)
-    {
-        week.Status = WinWeekStatus.Closed;
-        week.WinnerNominationId = winnerNominationId;
-        week.ClosedAt = DateTimeOffset.UtcNow;
-        week.TiedNominationIds = null;
-        week.SuddenDeathEndsAt = null;
-        week.HypeBattleEndsAt = null;
-        week.QuizEndsAt = null;
-        week.QuizQuestion = null;
-        week.QuizOptionsJson = null;
-        week.QuizCorrectIndex = null;
-        week.QuizRevealed = false;
-        week.QuizRevealedAt = null;
-        week.QuizWinnerMemberId = null;
-        week.QuizEliminatedMemberIds = null;
-        await db.SaveChangesAsync();
-
-        var winnerNom = await db.WinNominations
-            .Include(n => n.Nominee)
-            .FirstAsync(n => n.Id == week.WinnerNominationId!.Value);
-
-        await tokens.AwardWeeklyAchievementAsync(winnerNom.NomineeMemberId, week.WeekStart);
-        if (winnerNom.TeamMemberId.HasValue)
-            await tokens.GrantBonusTokenAsync(winnerNom.TeamMemberId.Value, week.Id);
-
-        winStory.Enqueue(week.Id, $"{winnerNom.Nominee.FirstName} {winnerNom.Nominee.LastName}", winnerNom.Title, winnerNom.Description);
-
-        notifier.Broadcast("voting_closed", new
-        {
-            weekId = week.Id,
-            winnerId = week.WinnerNominationId,
-            wasRandom
-        }, guestAllowed: true);
+        await weekCloser.CloseWithWinnerAsync(week, winnerId);
     }
 
     private async Task CheckAndAutoCloseSuddenDeathAsync(WinWeek week, bool force = false)
@@ -853,7 +818,7 @@ public class WinOfTheWeekService(
             wasRandom = true;
         }
 
-        await CloseWeekWithWinnerAsync(week, winnerId, wasRandom);
+        await weekCloser.CloseWithWinnerAsync(week, winnerId, wasRandom);
     }
 
     public async Task ClearExpiredQuizAsync(WinWeek week)
@@ -979,7 +944,7 @@ public class WinOfTheWeekService(
         if (winningNomination is null)
             throw new InvalidOperationException("The winning nomination could not be found.");
 
-        await CloseWeekWithWinnerAsync(week, winningNomination.Id);
+        await weekCloser.CloseWithWinnerAsync(week, winningNomination.Id);
         return await GetCurrentWeekAsync(memberId, week.WinSeriesId)
             ?? throw new InvalidOperationException("Week not found after closing.");
     }
