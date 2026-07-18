@@ -1063,14 +1063,31 @@ public class WinOfTheWeekService(
     private static List<Guid> ParseGuidListOrEmpty(string? json) =>
         string.IsNullOrEmpty(json) ? [] : JsonSerializer.Deserialize<List<Guid>>(json) ?? [];
 
-    // Resolves once every still-active nominee has answered, or (force) once the timer has
-    // expired. Elimination model: anyone active who answers wrong (or doesn't answer in time)
-    // is eliminated for the rest of the duel. If exactly one nominee survives the round, they win
-    // outright. If 2+ survive, nobody's eliminated this round was wasted -- wait, no: if 2+
-    // survive, everyone else active this round who didn't survive gets eliminated and the duel
-    // continues with just the survivors. If 0 survive (everyone active got it wrong), nobody is
-    // eliminated -- the round is wasted and retried with the same active set, so the duel can
-    // never deadlock with zero people left.
+    // The pure elimination decision for one Quiz Duel round, given the still-active nominees, those
+    // already eliminated, and who answered correctly this round. Three cases:
+    //   • exactly 1 survivor  → that nominee wins.
+    //   • 2+ survivors        → everyone active who missed is eliminated; the duel continues.
+    //   • 0 survivors         → nobody is eliminated; the round is retried with the same active set,
+    //                           so the duel can never deadlock with nobody left.
+    // `changed` is true only when the eliminated set grew (case 2), so the caller writes it back only
+    // then — preserving the original behaviour of leaving QuizEliminatedMemberIds untouched otherwise.
+    internal static (Guid? winner, List<Guid> eliminated, bool changed) DecideQuizRound(
+        List<Guid> activeIds, List<Guid> alreadyEliminated, HashSet<Guid> correctIds)
+    {
+        var survivors = activeIds.Where(correctIds.Contains).ToList();
+        if (survivors.Count == 1)
+            return (survivors[0], alreadyEliminated, false);
+        if (survivors.Count > 1)
+        {
+            var eliminated = alreadyEliminated.Concat(activeIds.Except(survivors)).Distinct().ToList();
+            return (null, eliminated, true);
+        }
+        return (null, alreadyEliminated, false);
+    }
+
+    // Resolves once every still-active nominee has answered, or (force) once the timer has expired,
+    // then persists the round outcome (see DecideQuizRound). The ExecuteUpdateAsync below atomically
+    // claims the reveal so concurrent polls don't double-broadcast.
     private async Task TryResolveQuizAsync(WinWeek week, bool force)
     {
         if (week.QuizQuestion is null || week.Status == WinWeekStatus.Closed || week.QuizRevealed) return;
@@ -1086,20 +1103,8 @@ public class WinOfTheWeekService(
         if (!allAnswered && !force) return;
 
         var correctThisRound = answers.Where(a => a.IsCorrect).Select(a => a.MemberId).ToHashSet();
-        var survivors = activeIds.Where(correctThisRound.Contains).ToList();
-
-        Guid? winnerMemberId = null;
-        var newEliminatedJson = week.QuizEliminatedMemberIds;
-        if (survivors.Count == 1)
-        {
-            winnerMemberId = survivors[0];
-        }
-        else if (survivors.Count > 1)
-        {
-            var allEliminated = eliminatedIds.Concat(activeIds.Except(survivors)).Distinct().ToList();
-            newEliminatedJson = JsonSerializer.Serialize(allEliminated);
-        }
-        // survivors.Count == 0: nobody eliminated -- retry the same active set next round.
+        var (winnerMemberId, eliminated, eliminatedChanged) = DecideQuizRound(activeIds, eliminatedIds, correctThisRound);
+        var newEliminatedJson = eliminatedChanged ? JsonSerializer.Serialize(eliminated) : week.QuizEliminatedMemberIds;
 
         var revealedAt = DateTimeOffset.UtcNow;
 
