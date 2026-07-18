@@ -1,11 +1,8 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 using TeamManager.Api.Application.DTOs.WinOfTheWeek;
 using TeamManager.Api.Application.Services;
 using TeamManager.Api.Application.Services.Interfaces;
-using TeamManager.Api.Domain.Enums;
-using TeamManager.Api.Infrastructure.Data;
 using TeamManager.Api.Middleware;
 
 namespace TeamManager.Api.Presentation.Controllers;
@@ -13,7 +10,7 @@ namespace TeamManager.Api.Presentation.Controllers;
 [ApiController]
 [RequireFeature("win-of-week")]
 [Route("api/v1/win-of-the-week")]
-public class WinOfTheWeekController(IWinOfTheWeekService service, WinSeriesService seriesService, AppDbContext db, GuestWinOfTheWeekService guestService) : ControllerBase
+public class WinOfTheWeekController(IWinOfTheWeekService service, WinSeriesService seriesService, GuestWinOfTheWeekService guestService) : ControllerBase
 {
     [HttpGet("current")]
     public async Task<IActionResult> GetCurrent([FromQuery] Guid? seriesId = null)
@@ -328,13 +325,8 @@ public class WinOfTheWeekController(IWinOfTheWeekService service, WinSeriesServi
     [RequireFeature("wow-host")]
     public async Task<IActionResult> IsQuizEligible([FromQuery] Guid? seriesId = null)
     {
-        var sid = await ResolveSeriesIdAsync(seriesId);
-        var week = await db.WinWeeks
-            .Where(w => w.WinSeriesId == sid && w.Status != WinWeekStatus.Closed)
-            .OrderByDescending(w => w.WeekStart)
-            .FirstOrDefaultAsync();
-
-        var eligible = week is not null && await service.IsQuizEligibleAsync(week.Id);
+        var weekId = await ResolveActiveWeekIdAsync(seriesId);
+        var eligible = weekId is not null && await service.IsQuizEligibleAsync(weekId.Value);
         return Ok(new { eligible });
     }
 
@@ -343,16 +335,12 @@ public class WinOfTheWeekController(IWinOfTheWeekService service, WinSeriesServi
     public async Task<IActionResult> StartQuiz([FromQuery] Guid? seriesId = null, [FromQuery] int? difficultyLevel = null)
     {
         var memberId = GetCurrentMemberId();
-        var sid = await ResolveSeriesIdAsync(seriesId);
-        var week = await db.WinWeeks
-            .Where(w => w.WinSeriesId == sid && w.Status != WinWeekStatus.Closed)
-            .OrderByDescending(w => w.WeekStart)
-            .FirstOrDefaultAsync();
-        if (week is null) return NotFound(new { error = "No active week found." });
+        var weekId = await ResolveActiveWeekIdAsync(seriesId);
+        if (weekId is null) return NotFound(new { error = "No active week found." });
 
         try
         {
-            var result = await service.StartQuizAsync(memberId, week.Id, difficultyLevel);
+            var result = await service.StartQuizAsync(memberId, weekId.Value, difficultyLevel);
             return Ok(result);
         }
         catch (KeyNotFoundException ex) { return NotFound(new { error = ex.Message }); }
@@ -363,16 +351,12 @@ public class WinOfTheWeekController(IWinOfTheWeekService service, WinSeriesServi
     public async Task<IActionResult> SubmitQuizAnswer([FromBody] SubmitQuizAnswerRequest request, [FromQuery] Guid? seriesId = null)
     {
         var memberId = GetCurrentMemberId();
-        var sid = await ResolveSeriesIdAsync(seriesId);
-        var week = await db.WinWeeks
-            .Where(w => w.WinSeriesId == sid && w.Status != WinWeekStatus.Closed)
-            .OrderByDescending(w => w.WeekStart)
-            .FirstOrDefaultAsync();
-        if (week is null) return NotFound(new { error = "No active week found." });
+        var weekId = await ResolveActiveWeekIdAsync(seriesId);
+        if (weekId is null) return NotFound(new { error = "No active week found." });
 
         try
         {
-            var isCorrect = await service.SubmitQuizAnswerAsync(memberId, week.Id, request.SelectedIndex);
+            var isCorrect = await service.SubmitQuizAnswerAsync(memberId, weekId.Value, request.SelectedIndex);
             return Ok(new { isCorrect });
         }
         catch (KeyNotFoundException ex) { return NotFound(new { error = ex.Message }); }
@@ -384,16 +368,12 @@ public class WinOfTheWeekController(IWinOfTheWeekService service, WinSeriesServi
     public async Task<IActionResult> CompleteQuizWinner([FromQuery] Guid? seriesId = null)
     {
         var memberId = GetCurrentMemberId();
-        var sid = await ResolveSeriesIdAsync(seriesId);
-        var week = await db.WinWeeks
-            .Where(w => w.WinSeriesId == sid && w.Status != WinWeekStatus.Closed)
-            .OrderByDescending(w => w.WeekStart)
-            .FirstOrDefaultAsync();
-        if (week is null) return NotFound(new { error = "No active week found." });
+        var weekId = await ResolveActiveWeekIdAsync(seriesId);
+        if (weekId is null) return NotFound(new { error = "No active week found." });
 
         try
         {
-            var result = await service.CompleteQuizWinnerAsync(memberId, week.Id);
+            var result = await service.CompleteQuizWinnerAsync(memberId, weekId.Value);
             return Ok(result);
         }
         catch (KeyNotFoundException ex) { return NotFound(new { error = ex.Message }); }
@@ -405,16 +385,12 @@ public class WinOfTheWeekController(IWinOfTheWeekService service, WinSeriesServi
     public async Task<IActionResult> StopQuiz([FromQuery] Guid? seriesId = null)
     {
         var memberId = GetCurrentMemberId();
-        var sid = await ResolveSeriesIdAsync(seriesId);
-        var week = await db.WinWeeks
-            .Where(w => w.WinSeriesId == sid && w.Status != WinWeekStatus.Closed)
-            .OrderByDescending(w => w.WeekStart)
-            .FirstOrDefaultAsync();
-        if (week is null) return NotFound(new { error = "No active week found." });
+        var weekId = await ResolveActiveWeekIdAsync(seriesId);
+        if (weekId is null) return NotFound(new { error = "No active week found." });
 
         try
         {
-            var result = await service.StopQuizAsync(memberId, week.Id);
+            var result = await service.StopQuizAsync(memberId, weekId.Value);
             return Ok(result);
         }
         catch (KeyNotFoundException ex) { return NotFound(new { error = ex.Message }); }
@@ -444,13 +420,14 @@ public class WinOfTheWeekController(IWinOfTheWeekService service, WinSeriesServi
         }
     }
 
-    private async Task<Guid> ResolveSeriesIdAsync(Guid? seriesId)
-    {
-        if (seriesId.HasValue && seriesId.Value != Guid.Empty)
-            return seriesId.Value;
+    private Task<Guid> ResolveSeriesIdAsync(Guid? seriesId) => seriesService.ResolveSeriesIdAsync(seriesId);
 
-        var first = await db.WinSeries.OrderBy(s => s.CreatedAt).Select(s => (Guid?)s.Id).FirstOrDefaultAsync();
-        return first ?? Guid.Empty;
+    // Resolve the series (given or default), then its active non-closed week. Null when either is
+    // missing — the quiz/tiebreaker endpoints all need a live week to act on.
+    private async Task<Guid?> ResolveActiveWeekIdAsync(Guid? seriesId)
+    {
+        var sid = await ResolveSeriesIdAsync(seriesId);
+        return sid == Guid.Empty ? null : await service.GetActiveWeekIdAsync(sid);
     }
 
     // Single source of truth for the caller's member id (TMID/NameIdentifier claim). No fallback:

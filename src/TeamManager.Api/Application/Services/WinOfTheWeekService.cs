@@ -526,6 +526,16 @@ public class WinOfTheWeekService(
             .FirstOrDefaultAsync();
     }
 
+    // The most-recent *non-closed* week for a series (what the quiz/tiebreaker commands act on).
+    // Distinct from GetActiveWeekAsync, which returns the latest week even when it's closed so the
+    // read model can still show the winner.
+    public async Task<Guid?> GetActiveWeekIdAsync(Guid seriesId) =>
+        await db.WinWeeks
+            .Where(w => w.WinSeriesId == seriesId && w.Status != WinWeekStatus.Closed)
+            .OrderByDescending(w => w.WeekStart)
+            .Select(w => (Guid?)w.Id)
+            .FirstOrDefaultAsync();
+
     private static DateOnly GetWeekStart(DateOnly date)
     {
         var diff = (7 + (int)date.DayOfWeek - (int)DayOfWeek.Monday) % 7;
