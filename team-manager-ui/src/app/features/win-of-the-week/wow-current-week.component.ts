@@ -39,7 +39,10 @@ import { AiBadgeComponent } from '../../shared/components/ai-badge/ai-badge.comp
     MatProgressSpinnerModule,
     AiBadgeComponent
   ],
-  changeDetection: ChangeDetectionStrategy.Default,
+  // Presentational: state arrives via input() and local state (quizDifficulty, mobileTab) is
+  // signals mutated only from template clicks. Default meant the parent's 1s countdown tick
+  // dirty-checked this whole 745-line child every second; OnPush stops that.
+  changeDetection: ChangeDetectionStrategy.OnPush,
   styles: [`
     @keyframes hypePulse { 0%,100%{opacity:1} 50%{opacity:0.7} }
     .hype-battle-banner { animation: hypePulse 1.5s ease-in-out infinite; }
