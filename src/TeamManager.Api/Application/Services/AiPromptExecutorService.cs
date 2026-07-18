@@ -1,6 +1,7 @@
 using System.Text;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
+using TeamManager.Api.Application.Common;
 using TeamManager.Api.Application.DTOs;
 using TeamManager.Api.Domain.Entities;
 using TeamManager.Api.Infrastructure.Data;
@@ -122,7 +123,7 @@ public class AiPromptExecutorService(AppDbContext db)
                 return null;
             }
 
-            var extracted = WinOfTheWeekService.ExtractTextAtPath(responseBody, textPath ?? "");
+            var extracted = JsonPath.ExtractText(responseBody, textPath ?? "");
             if (string.IsNullOrWhiteSpace(extracted))
             {
                 evt.Status = "failed";

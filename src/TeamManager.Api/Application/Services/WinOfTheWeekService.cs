@@ -1,19 +1,22 @@
-using System.Net.Http;
-using System.Text;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using TeamManager.Api.Application.DTOs;
 using TeamManager.Api.Application.DTOs.WinOfTheWeek;
+using TeamManager.Api.Application.Realtime;
 using TeamManager.Api.Application.Services.Interfaces;
 using TeamManager.Api.Domain.Entities;
 using TeamManager.Api.Domain.Enums;
 using TeamManager.Api.Infrastructure.Data;
-using TeamManager.Api.Middleware;
 
 namespace TeamManager.Api.Application.Services;
 
-public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFactory, QuizQuestionGeneratorService questionGenerator) : IWinOfTheWeekService
+public class WinOfTheWeekService(
+    AppDbContext db,
+    IServiceScopeFactory scopeFactory,
+    QuizQuestionGeneratorService questionGenerator,
+    IWowNotifier notifier,
+    IWowPresence presence) : IWinOfTheWeekService
 {
     private const int MaxNominationsPerPerson = 3;
     private const int MaxVotesPerPerson = 3;
@@ -121,7 +124,7 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
             UserNominationsRemaining = MaxNominationsPerPerson - userNominationCount,
             TotalVotesCast = totalVotesCast,
             ActiveMemberCount = activeMemberCount,
-            ConnectedMemberCount = week.GuestToken != null ? WebSocketMiddleware.GetSessionCount(week.GuestToken) : 0,
+            ConnectedMemberCount = week.GuestToken != null ? presence.GetSessionCount(week.GuestToken) : 0,
             TiedNominationIds = week.TiedNominationIds != null
                 ? JsonSerializer.Deserialize<List<Guid>>(week.TiedNominationIds) ?? []
                 : [],
@@ -184,7 +187,7 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
         await db.Entry(nomination).Reference(n => n.Nominee).LoadAsync();
 
         var dto = MapNominationDto(nomination, false);
-        _ = WebSocketMiddleware.BroadcastAsync("nomination_created", new { nomination = dto }, guestAllowed: true);
+        notifier.Broadcast("nomination_created", new { nomination = dto }, guestAllowed: true);
         return dto;
     }
 
@@ -217,7 +220,7 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
         // first — see the plan's Phase 4. VoteCount is 0 for the same shape of reason: Votes was
         // never Include()d. Harmless only because edits are confined to the Nominating phase.
         var dto = MapNominationDto(nomination, false);
-        _ = WebSocketMiddleware.BroadcastAsync("nomination_updated", new { nomination = dto }, guestAllowed: true);
+        notifier.Broadcast("nomination_updated", new { nomination = dto }, guestAllowed: true);
         return dto;
     }
 
@@ -239,7 +242,7 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
         db.WinNominations.Remove(nomination);
         await db.SaveChangesAsync();
 
-        _ = WebSocketMiddleware.BroadcastAsync("nomination_deleted", new { nominationId }, guestAllowed: true);
+        notifier.Broadcast("nomination_deleted", new { nominationId }, guestAllowed: true);
         return true;
     }
 
@@ -286,7 +289,7 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
         db.WinVotes.Add(vote);
         await db.SaveChangesAsync();
 
-        _ = WebSocketMiddleware.BroadcastAsync("vote_cast", new { nominationId, voterId = memberId }, guestAllowed: true);
+        notifier.Broadcast("vote_cast", new { nominationId, voterId = memberId }, guestAllowed: true);
 
         return new WinVoteDto
         {
@@ -308,7 +311,7 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
         await db.SaveChangesAsync();
 
         // Only broadcast when a vote was actually removed — mirrors the controller's `if (success)`.
-        _ = WebSocketMiddleware.BroadcastAsync("vote_removed", new { nominationId, voterId = memberId }, guestAllowed: true);
+        notifier.Broadcast("vote_removed", new { nominationId, voterId = memberId }, guestAllowed: true);
         return true;
     }
 
@@ -405,7 +408,7 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
         week.Status = WinWeekStatus.Voting;
         await db.SaveChangesAsync();
 
-        _ = WebSocketMiddleware.BroadcastAsync("voting_opened", new { }, guestAllowed: true);
+        notifier.Broadcast("voting_opened", new { }, guestAllowed: true);
         return (await GetCurrentWeekAsync(memberId, seriesId))!;
     }
 
@@ -437,7 +440,7 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
 
         await db.SaveChangesAsync();
 
-        _ = WebSocketMiddleware.BroadcastAsync("nominations_reopened", new { }, guestAllowed: true);
+        notifier.Broadcast("nominations_reopened", new { }, guestAllowed: true);
         return (await GetCurrentWeekAsync(memberId, seriesId))!;
     }
 
@@ -475,7 +478,7 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
         week.SuddenDeathEndsAt = DateTimeOffset.UtcNow.AddSeconds(request.DurationSeconds ?? 90);
         await db.SaveChangesAsync();
 
-        _ = WebSocketMiddleware.BroadcastAsync("sudden_death_started", new
+        notifier.Broadcast("sudden_death_started", new
         {
             weekId = week.Id,
             endsAt = week.SuddenDeathEndsAt,
@@ -484,6 +487,85 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
 
         return (await GetCurrentWeekAsync(memberId, seriesId))!;
     }
+
+    // A presentation-only countdown the host shows on screen; not persisted, just announced. Scoped
+    // to the week's guest token when there is one so a shared screen and the guest link stay in sync.
+    public async Task<DateTimeOffset> StartTimerAsync(Guid seriesId, int durationSeconds)
+    {
+        var token = await GetActiveNonClosedWeekGuestTokenAsync(seriesId);
+        var endsAt = DateTimeOffset.UtcNow.AddSeconds(durationSeconds);
+        if (token is not null)
+            notifier.BroadcastToSession("wow_timer_started", token, new { endsAt });
+        else
+            notifier.Broadcast("wow_timer_started", new { endsAt }, guestAllowed: true);
+        return endsAt;
+    }
+
+    public async Task StopTimerAsync(Guid seriesId)
+    {
+        var token = await GetActiveNonClosedWeekGuestTokenAsync(seriesId);
+        if (token is not null)
+            notifier.BroadcastToSession("wow_timer_stopped", token, new { });
+        else
+            notifier.Broadcast("wow_timer_stopped", new { }, guestAllowed: true);
+    }
+
+    public async Task<DateTimeOffset> StartHypeBattleAsync(Guid seriesId, int durationSeconds)
+    {
+        var week = await GetActiveNonClosedWeekAsync(seriesId);
+
+        if (week?.QuizQuestion is not null)
+            throw new InvalidOperationException("Stop Quiz Duel before starting Hype Battle.");
+
+        var endsAt = DateTimeOffset.UtcNow.AddSeconds(durationSeconds);
+        if (week is not null)
+        {
+            week.HypeBattleEndsAt = endsAt;
+            // Always start fresh -- clear any taps left over from a previous battle this week.
+            await db.WinNominations
+                .Where(n => n.WinWeekId == week.Id)
+                .ExecuteUpdateAsync(s => s.SetProperty(n => n.HypeMeterCount, 0));
+            await db.SaveChangesAsync();
+        }
+
+        if (week?.GuestToken is { } token)
+            notifier.BroadcastToSession("wow_hype_battle_started", token, new { endsAt });
+        else
+            notifier.Broadcast("wow_hype_battle_started", new { endsAt }, guestAllowed: true);
+        return endsAt;
+    }
+
+    public async Task EndHypeBattleAsync(Guid seriesId)
+    {
+        var week = await GetActiveNonClosedWeekAsync(seriesId);
+
+        // Manual stop just ends the mini-game -- no auto-resolve, unlike letting the timer run out.
+        if (week is not null)
+        {
+            week.HypeBattleEndsAt = null;
+            await db.SaveChangesAsync();
+        }
+
+        if (week?.GuestToken is { } token)
+            notifier.BroadcastToSession("wow_hype_battle_ended", token, new { });
+        else
+            notifier.Broadcast("wow_hype_battle_ended", new { }, guestAllowed: true);
+    }
+
+    // The most-recent non-closed week for a series, or null. Mirrors the query the controller used
+    // for timer/hype-battle before this logic moved into the service.
+    private async Task<WinWeek?> GetActiveNonClosedWeekAsync(Guid seriesId) =>
+        await db.WinWeeks
+            .Where(w => w.WinSeriesId == seriesId && w.Status != WinWeekStatus.Closed)
+            .OrderByDescending(w => w.WeekStart)
+            .FirstOrDefaultAsync();
+
+    private async Task<string?> GetActiveNonClosedWeekGuestTokenAsync(Guid seriesId) =>
+        await db.WinWeeks
+            .Where(w => w.WinSeriesId == seriesId && w.Status != WinWeekStatus.Closed)
+            .OrderByDescending(w => w.WeekStart)
+            .Select(w => w.GuestToken)
+            .FirstOrDefaultAsync();
 
     public async Task<IReadOnlyList<WinWeekHistoryDto>> GetHistoryAsync(Guid seriesId, int? year = null, int limit = 52)
     {
@@ -653,66 +735,15 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
                     {
                         winWeek.WinnerStory = story.Trim();
                         await bgDb.SaveChangesAsync();
-                        _ = WebSocketMiddleware.BroadcastAsync("win_story_ready", new { weekId }, guestAllowed: true);
+                        notifier.Broadcast("win_story_ready", new { weekId }, guestAllowed: true);
                     }
-                    await DispatchWinStoryNotificationsAsync(bgDb, story.Trim(), winnerName, weekId);
+                    // Resolve the dispatcher from the background scope so it shares bgDb.
+                    var dispatcher = scope.ServiceProvider.GetRequiredService<WinStoryWebhookDispatcher>();
+                    await dispatcher.DispatchAsync(story.Trim(), winnerName, weekId);
                 }
             }
             catch { /* best-effort */ }
         });
-    }
-
-    private static async Task DispatchWinStoryNotificationsAsync(AppDbContext db, string story, string winnerName, Guid weekId)
-    {
-        var webhooks = await db.ApiRequestConfigs
-            .Where(c => c.Action == "AiChatWinStory" && !c.IsAiConnection && c.Enabled)
-            .ToListAsync();
-
-        if (webhooks.Count == 0) return;
-
-        var escaped = JsonSerializer.Serialize(story)[1..^1]; // JSON-escape without surrounding quotes
-        var events = webhooks.Select(w => new ApiSyncEvent
-        {
-            Action = w.Action,
-            ConfigName = w.Name,
-            Label = $"Win Story — {winnerName}",
-            SourceType = "WinWeek",
-            SourceId = weekId.ToString(),
-            HttpMethod = w.Method.ToUpper(),
-            ResolvedUrl = w.Url,
-            ResolvedHeadersJson = w.HeadersJson,
-            ResolvedBody = (w.BodyTemplate ?? "").Replace("{userMessage}", escaped),
-            BodyFormat = w.BodyFormat,
-            Status = "pending"
-        }).ToList();
-
-        db.ApiSyncEvents.AddRange(events);
-        await db.SaveChangesAsync();
-
-        foreach (var evt in events)
-        {
-            try
-            {
-                using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(15) };
-                var headers = JsonSerializer.Deserialize<Dictionary<string, string>>(
-                    string.IsNullOrWhiteSpace(evt.ResolvedHeadersJson) ? "{}" : evt.ResolvedHeadersJson) ?? [];
-                foreach (var (k, v) in headers) client.DefaultRequestHeaders.TryAddWithoutValidation(k, v);
-
-                var mediaType = evt.BodyFormat == "urlencoded" ? "application/x-www-form-urlencoded" : "application/json";
-                var content = new StringContent(evt.ResolvedBody, Encoding.UTF8, mediaType);
-                var response = await client.PostAsync(evt.ResolvedUrl, content);
-                evt.ResponseStatus = (int)response.StatusCode;
-                evt.ResponseBody = await response.Content.ReadAsStringAsync();
-                evt.SentAt = DateTimeOffset.UtcNow;
-                evt.Status = response.IsSuccessStatusCode ? "sent" : "failed";
-            }
-            catch (Exception ex)
-            {
-                evt.Status = "failed";
-                evt.ResponseBody = ex.Message;
-            }
-        }
-        await db.SaveChangesAsync();
     }
 
     public async Task<int> GetTokenBalanceAsync(Guid memberId, Guid seriesId)
@@ -754,7 +785,7 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
         await db.SaveChangesAsync();
 
         var dto = MapNominationDto(nomination, false);
-        _ = WebSocketMiddleware.BroadcastAsync("nomination_updated", new { nomination = dto }, guestAllowed: true);
+        notifier.Broadcast("nomination_updated", new { nomination = dto }, guestAllowed: true);
         return dto;
     }
 
@@ -786,7 +817,7 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
         await db.SaveChangesAsync();
 
         var dto = MapNominationDto(nomination, false);
-        _ = WebSocketMiddleware.BroadcastAsync("nomination_updated", new { nomination = dto }, guestAllowed: true);
+        notifier.Broadcast("nomination_updated", new { nomination = dto }, guestAllowed: true);
         return dto;
     }
 
@@ -807,7 +838,7 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
 
         // Both the member and guest paths reach this method (GuestWinOfTheWeekService delegates
         // here), so broadcasting once from here covers both — see both controllers.
-        _ = WebSocketMiddleware.BroadcastAsync("hype_meter_tapped",
+        notifier.Broadcast("hype_meter_tapped",
             new { nominationId, count = nomination.HypeMeterCount }, guestAllowed: true);
         return nomination.HypeMeterCount;
     }
@@ -894,38 +925,6 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
         await db.SaveChangesAsync();
     }
 
-    internal static string? ExtractTextAtPath(string json, string dotPath)
-    {
-        try
-        {
-            using var doc = JsonDocument.Parse(json);
-            var current = doc.RootElement;
-            foreach (var seg in dotPath.Split('.'))
-            {
-                if (int.TryParse(seg, out var idx))
-                {
-                    current = current[idx];
-                }
-                else if (seg.Contains('['))
-                {
-                    // Handle field[N] notation e.g. content[0], choices[0]
-                    var bracket = seg.IndexOf('[');
-                    var propName = seg[..bracket];
-                    var indexStr = seg[(bracket + 1)..seg.IndexOf(']')];
-                    if (!current.TryGetProperty(propName, out var arr)) return null;
-                    if (!int.TryParse(indexStr, out var arrIdx)) return null;
-                    current = arr[arrIdx];
-                }
-                else if (current.TryGetProperty(seg, out var next))
-                {
-                    current = next;
-                }
-                else return null;
-            }
-            return current.ValueKind == JsonValueKind.String ? current.GetString() : null;
-        }
-        catch { return null; }
-    }
 
     public async Task AutoCloseExpiredSuddenDeathAsync(Guid weekId)
     {
@@ -1030,7 +1029,7 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
 
         EnqueueAndGenerateWinStory(week.Id, $"{winnerNom.Nominee.FirstName} {winnerNom.Nominee.LastName}", winnerNom.Title, winnerNom.Description);
 
-        _ = WebSocketMiddleware.BroadcastAsync("voting_closed", new
+        notifier.Broadcast("voting_closed", new
         {
             weekId = week.Id,
             winnerId = week.WinnerNominationId,
@@ -1152,7 +1151,7 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
                 .SetProperty(x => x.QuizEliminatedMemberIds, newEliminatedJson));
         if (claimed == 0) return;
 
-        _ = WebSocketMiddleware.BroadcastAsync("wow_quiz_revealed", new { weekId = week.Id, winnerMemberId }, guestAllowed: true);
+        notifier.Broadcast("wow_quiz_revealed", new { weekId = week.Id, winnerMemberId }, guestAllowed: true);
     }
 
     // Auto-loop: nobody won this round, so generate a fresh question and start again, until someone
@@ -1181,9 +1180,9 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
         if (claimed == 0) return;
 
         if (week.GuestToken is { } token)
-            _ = WebSocketMiddleware.BroadcastToSessionAsync("wow_quiz_started", token, new { question, options, endsAt });
+            notifier.BroadcastToSession("wow_quiz_started", token, new { question, options, endsAt });
         else
-            _ = WebSocketMiddleware.BroadcastAsync("wow_quiz_started", new { question, options, endsAt }, guestAllowed: true);
+            notifier.Broadcast("wow_quiz_started", new { question, options, endsAt }, guestAllowed: true);
     }
 
     public async Task<WinWeekDto> CompleteQuizWinnerAsync(Guid memberId, Guid weekId)
@@ -1217,7 +1216,7 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
         db.WinQuizAnswers.RemoveRange(db.WinQuizAnswers.Where(a => a.WinWeekId == weekId));
         await db.SaveChangesAsync();
 
-        _ = WebSocketMiddleware.BroadcastAsync("wow_quiz_stopped", new { weekId }, guestAllowed: true);
+        notifier.Broadcast("wow_quiz_stopped", new { weekId }, guestAllowed: true);
 
         return await GetCurrentWeekAsync(memberId, week.WinSeriesId)
             ?? throw new InvalidOperationException("Week not found after stopping quiz.");
@@ -1231,7 +1230,7 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
         var tiedNomineeIds = await GetTiedNomineeMemberIdsAsync(week);
         if (tiedNomineeIds.Count < 2) return false;
 
-        return tiedNomineeIds.All(WebSocketMiddleware.IsMemberConnected);
+        return tiedNomineeIds.All(presence.IsMemberConnected);
     }
 
     private async Task<List<Guid>> GetTiedNomineeMemberIdsAsync(WinWeek week)
@@ -1294,9 +1293,9 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
 
         var endsAt = week.QuizEndsAt;
         if (week.GuestToken is { } token)
-            _ = WebSocketMiddleware.BroadcastToSessionAsync("wow_quiz_started", token, new { question, options, endsAt });
+            notifier.BroadcastToSession("wow_quiz_started", token, new { question, options, endsAt });
         else
-            _ = WebSocketMiddleware.BroadcastAsync("wow_quiz_started", new { question, options, endsAt }, guestAllowed: true);
+            notifier.Broadcast("wow_quiz_started", new { question, options, endsAt }, guestAllowed: true);
 
         return await GetCurrentWeekAsync(memberId, week.WinSeriesId)
             ?? throw new InvalidOperationException("Week not found after starting quiz.");
@@ -1331,7 +1330,7 @@ public class WinOfTheWeekService(AppDbContext db, IServiceScopeFactory scopeFact
         });
         await db.SaveChangesAsync();
 
-        _ = WebSocketMiddleware.BroadcastAsync("wow_quiz_answer_submitted", new { weekId, memberId }, guestAllowed: true);
+        notifier.Broadcast("wow_quiz_answer_submitted", new { weekId, memberId }, guestAllowed: true);
 
         // Doesn't resolve yet just because this answer is correct -- waits for everyone to answer
         // (or the timer to expire) so nobody sees "wrong" the instant they submit.

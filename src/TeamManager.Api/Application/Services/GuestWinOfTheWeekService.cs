@@ -1,15 +1,15 @@
 using Microsoft.EntityFrameworkCore;
 using TeamManager.Api.Application.DTOs.WinOfTheWeek;
+using TeamManager.Api.Application.Realtime;
 using TeamManager.Api.Application.Services.Interfaces;
 using TeamManager.Api.Domain.Entities;
 using TeamManager.Api.Domain.Enums;
 using TeamManager.Api.Infrastructure.Data;
 using TeamManager.Api.Infrastructure.Slugs;
-using TeamManager.Api.Middleware;
 
 namespace TeamManager.Api.Application.Services;
 
-public class GuestWinOfTheWeekService(AppDbContext db, IHttpContextAccessor httpContextAccessor, IWinOfTheWeekService wowService)
+public class GuestWinOfTheWeekService(AppDbContext db, IHttpContextAccessor httpContextAccessor, IWinOfTheWeekService wowService, IWowNotifier notifier)
 {
     private const int MaxVotesPerPerson = 3;
     private const int MaxNominationsPerPerson = 3;
@@ -215,7 +215,7 @@ public class GuestWinOfTheWeekService(AppDbContext db, IHttpContextAccessor http
             CreatedAt = nomination.CreatedAt
         };
 
-        _ = WebSocketMiddleware.BroadcastAsync("nomination_created", new { nomination = dto }, guestAllowed: true);
+        notifier.Broadcast("nomination_created", new { nomination = dto }, guestAllowed: true);
 
         return dto;
     }
@@ -259,7 +259,7 @@ public class GuestWinOfTheWeekService(AppDbContext db, IHttpContextAccessor http
             CreatedAt = nomination.CreatedAt
         };
 
-        _ = WebSocketMiddleware.BroadcastAsync("nomination_updated", new { nomination = dto }, guestAllowed: true);
+        notifier.Broadcast("nomination_updated", new { nomination = dto }, guestAllowed: true);
         return dto;
     }
 
@@ -279,7 +279,7 @@ public class GuestWinOfTheWeekService(AppDbContext db, IHttpContextAccessor http
         db.WinNominations.Remove(nomination);
         await db.SaveChangesAsync();
 
-        _ = WebSocketMiddleware.BroadcastAsync("nomination_deleted", new { nominationId }, guestAllowed: true);
+        notifier.Broadcast("nomination_deleted", new { nominationId }, guestAllowed: true);
     }
 
     public async Task<WinVoteDto> VoteAsync(string token, Guid nominationId, string guestSessionId)
@@ -327,7 +327,7 @@ public class GuestWinOfTheWeekService(AppDbContext db, IHttpContextAccessor http
         db.WinVotes.Add(vote);
         await db.SaveChangesAsync();
 
-        _ = WebSocketMiddleware.BroadcastAsync("vote_cast", new { nominationId }, guestAllowed: true);
+        notifier.Broadcast("vote_cast", new { nominationId }, guestAllowed: true);
 
         return new WinVoteDto
         {
@@ -356,7 +356,7 @@ public class GuestWinOfTheWeekService(AppDbContext db, IHttpContextAccessor http
         db.WinVotes.Remove(vote);
         await db.SaveChangesAsync();
 
-        _ = WebSocketMiddleware.BroadcastAsync("vote_removed", new { nominationId }, guestAllowed: true);
+        notifier.Broadcast("vote_removed", new { nominationId }, guestAllowed: true);
 
         return true;
     }
@@ -399,7 +399,7 @@ public class GuestWinOfTheWeekService(AppDbContext db, IHttpContextAccessor http
         await db.SaveChangesAsync();
 
         var dto = MapGuestNominationDto(nomination, guestSessionId);
-        _ = WebSocketMiddleware.BroadcastAsync("nomination_updated", new { nomination = dto }, guestAllowed: true);
+        notifier.Broadcast("nomination_updated", new { nomination = dto }, guestAllowed: true);
         return dto;
     }
 
@@ -441,7 +441,7 @@ public class GuestWinOfTheWeekService(AppDbContext db, IHttpContextAccessor http
         await db.SaveChangesAsync();
 
         var dto = MapGuestNominationDto(nomination, guestSessionId);
-        _ = WebSocketMiddleware.BroadcastAsync("nomination_updated", new { nomination = dto }, guestAllowed: true);
+        notifier.Broadcast("nomination_updated", new { nomination = dto }, guestAllowed: true);
         return dto;
     }
 

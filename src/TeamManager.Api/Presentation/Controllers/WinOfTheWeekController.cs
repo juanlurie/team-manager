@@ -286,18 +286,7 @@ public class WinOfTheWeekController(IWinOfTheWeekService service, WinSeriesServi
     public async Task<IActionResult> StartTimer([FromBody] WowTimerRequest request, [FromQuery] Guid? seriesId = null)
     {
         var sid = await ResolveSeriesIdAsync(seriesId);
-        var week = await db.WinWeeks
-            .Where(w => w.WinSeriesId == sid && w.Status != WinWeekStatus.Closed)
-            .OrderByDescending(w => w.WeekStart)
-            .Select(w => new { w.GuestToken })
-            .FirstOrDefaultAsync();
-
-        var endsAt = DateTimeOffset.UtcNow.AddSeconds(request.DurationSeconds);
-        if (week?.GuestToken is { } token)
-            _ = WebSocketMiddleware.BroadcastToSessionAsync("wow_timer_started", token, new { endsAt });
-        else
-            _ = WebSocketMiddleware.BroadcastAsync("wow_timer_started", new { endsAt }, guestAllowed: true);
-
+        var endsAt = await service.StartTimerAsync(sid, request.DurationSeconds);
         return Ok(new { endsAt });
     }
 
@@ -306,17 +295,7 @@ public class WinOfTheWeekController(IWinOfTheWeekService service, WinSeriesServi
     public async Task<IActionResult> StopTimer([FromQuery] Guid? seriesId = null)
     {
         var sid = await ResolveSeriesIdAsync(seriesId);
-        var week = await db.WinWeeks
-            .Where(w => w.WinSeriesId == sid && w.Status != WinWeekStatus.Closed)
-            .OrderByDescending(w => w.WeekStart)
-            .Select(w => new { w.GuestToken })
-            .FirstOrDefaultAsync();
-
-        if (week?.GuestToken is { } token)
-            _ = WebSocketMiddleware.BroadcastToSessionAsync("wow_timer_stopped", token, new { });
-        else
-            _ = WebSocketMiddleware.BroadcastAsync("wow_timer_stopped", new { }, guestAllowed: true);
-
+        await service.StopTimerAsync(sid);
         return Ok();
     }
 
@@ -325,31 +304,15 @@ public class WinOfTheWeekController(IWinOfTheWeekService service, WinSeriesServi
     public async Task<IActionResult> StartHypeBattle([FromBody] WowTimerRequest request, [FromQuery] Guid? seriesId = null)
     {
         var sid = await ResolveSeriesIdAsync(seriesId);
-        var week = await db.WinWeeks
-            .Where(w => w.WinSeriesId == sid && w.Status != WinWeekStatus.Closed)
-            .OrderByDescending(w => w.WeekStart)
-            .FirstOrDefaultAsync();
-
-        if (week?.QuizQuestion is not null)
-            return BadRequest(new { error = "Stop Quiz Duel before starting Hype Battle." });
-
-        var endsAt = DateTimeOffset.UtcNow.AddSeconds(request.DurationSeconds);
-        if (week is not null)
+        try
         {
-            week.HypeBattleEndsAt = endsAt;
-            // Always start fresh -- clear any taps left over from a previous battle this week.
-            await db.WinNominations
-                .Where(n => n.WinWeekId == week.Id)
-                .ExecuteUpdateAsync(s => s.SetProperty(n => n.HypeMeterCount, 0));
-            await db.SaveChangesAsync();
+            var endsAt = await service.StartHypeBattleAsync(sid, request.DurationSeconds);
+            return Ok(new { endsAt });
         }
-
-        if (week?.GuestToken is { } token)
-            _ = WebSocketMiddleware.BroadcastToSessionAsync("wow_hype_battle_started", token, new { endsAt });
-        else
-            _ = WebSocketMiddleware.BroadcastAsync("wow_hype_battle_started", new { endsAt }, guestAllowed: true);
-
-        return Ok(new { endsAt });
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
     }
 
     [HttpPost("hype-battle/end")]
@@ -357,23 +320,7 @@ public class WinOfTheWeekController(IWinOfTheWeekService service, WinSeriesServi
     public async Task<IActionResult> EndHypeBattle([FromQuery] Guid? seriesId = null)
     {
         var sid = await ResolveSeriesIdAsync(seriesId);
-        var week = await db.WinWeeks
-            .Where(w => w.WinSeriesId == sid && w.Status != WinWeekStatus.Closed)
-            .OrderByDescending(w => w.WeekStart)
-            .FirstOrDefaultAsync();
-
-        // Manual stop just ends the mini-game -- no auto-resolve, unlike letting the timer run out.
-        if (week is not null)
-        {
-            week.HypeBattleEndsAt = null;
-            await db.SaveChangesAsync();
-        }
-
-        if (week?.GuestToken is { } token)
-            _ = WebSocketMiddleware.BroadcastToSessionAsync("wow_hype_battle_ended", token, new { });
-        else
-            _ = WebSocketMiddleware.BroadcastAsync("wow_hype_battle_ended", new { }, guestAllowed: true);
-
+        await service.EndHypeBattleAsync(sid);
         return Ok();
     }
 

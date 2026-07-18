@@ -15,6 +15,10 @@ public interface IWinOfTheWeekService
     Task<WinWeekDto> OpenVotingAsync(Guid memberId, Guid seriesId);
     Task<WinWeekDto> ReopenNominationsAsync(Guid memberId, Guid seriesId);
     Task<WinWeekDto> StartSuddenDeathAsync(Guid memberId, Guid seriesId, StartSuddenDeathRequest request);
+    Task<DateTimeOffset> StartTimerAsync(Guid seriesId, int durationSeconds);
+    Task StopTimerAsync(Guid seriesId);
+    Task<DateTimeOffset> StartHypeBattleAsync(Guid seriesId, int durationSeconds);
+    Task EndHypeBattleAsync(Guid seriesId);
     Task<IReadOnlyList<WinWeekHistoryDto>> GetHistoryAsync(Guid seriesId, int? year = null, int limit = 52);
     Task<WinWeekDetailDto> GetWeekDetailAsync(Guid weekId, Guid memberId);
     Task AutoCloseExpiredSuddenDeathAsync(Guid weekId);
