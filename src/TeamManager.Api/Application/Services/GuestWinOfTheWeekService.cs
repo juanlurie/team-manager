@@ -9,7 +9,7 @@ using TeamManager.Api.Infrastructure.Slugs;
 
 namespace TeamManager.Api.Application.Services;
 
-public class GuestWinOfTheWeekService(AppDbContext db, IHttpContextAccessor httpContextAccessor, IWinOfTheWeekService wowService, IWowNotifier notifier)
+public class GuestWinOfTheWeekService(AppDbContext db, IHttpContextAccessor httpContextAccessor, IWinOfTheWeekService wowService, WowVotingService voting, IWowNotifier notifier)
 {
     private const int MaxVotesPerPerson = WinOfTheWeekLimits.MaxVotesPerPerson;
     private const int MaxNominationsPerPerson = WinOfTheWeekLimits.MaxNominationsPerPerson;
@@ -266,84 +266,11 @@ public class GuestWinOfTheWeekService(AppDbContext db, IHttpContextAccessor http
         notifier.Broadcast("nomination_deleted", new { nominationId }, guestAllowed: true);
     }
 
-    public async Task<WinVoteDto> VoteAsync(string token, Guid nominationId, string guestSessionId)
-    {
-        var nomination = await db.WinNominations
-            .Include(n => n.WinWeek)
-            .FirstOrDefaultAsync(n => n.Id == nominationId)
-            ?? throw new KeyNotFoundException("Nomination not found.");
+    public Task<WinVoteDto> VoteAsync(string token, Guid nominationId, string guestSessionId) =>
+        voting.CastVoteAsync(nominationId, WowVoter.Guest(guestSessionId), requireGuestToken: token);
 
-        if (nomination.WinWeek.GuestToken != token)
-            throw new KeyNotFoundException("Invalid or expired guest link.");
-
-        var week = nomination.WinWeek;
-        if (week.Status != WinWeekStatus.Voting && week.Status != WinWeekStatus.SuddenDeath)
-            throw new InvalidOperationException("Voting is not open for the current week.");
-
-        if (week.Status == WinWeekStatus.SuddenDeath)
-        {
-            var tiedIds = System.Text.Json.JsonSerializer.Deserialize<List<Guid>>(week.TiedNominationIds ?? "[]") ?? [];
-            var alreadyVoted = await db.WinVotes
-                .AnyAsync(v => v.GuestSessionId == guestSessionId && tiedIds.Contains(v.WinNominationId));
-            if (alreadyVoted)
-                throw new InvalidOperationException("You have already cast your sudden death vote.");
-        }
-        else
-        {
-            var existingVote = await db.WinVotes
-                .FirstOrDefaultAsync(v => v.WinNominationId == nominationId && v.GuestSessionId == guestSessionId);
-            if (existingVote is not null)
-                throw new InvalidOperationException("You have already voted for this nomination.");
-
-            var weekVoteCount = await db.WinVotes
-                .CountAsync(v => v.GuestSessionId == guestSessionId && v.WinNomination.WinWeekId == week.Id);
-            if (weekVoteCount >= MaxVotesPerPerson)
-                throw new InvalidOperationException($"You can only vote up to {MaxVotesPerPerson} times per week.");
-        }
-
-        var vote = new WinVote
-        {
-            WinNominationId = nominationId,
-            TeamMemberId = null,
-            GuestSessionId = guestSessionId
-        };
-
-        db.WinVotes.Add(vote);
-        await db.SaveChangesAsync();
-
-        notifier.Broadcast("vote_cast", new { nominationId }, guestAllowed: true);
-
-        return new WinVoteDto
-        {
-            Id = vote.Id,
-            WinNominationId = vote.WinNominationId,
-            TeamMemberId = null,
-            VotedAt = vote.VotedAt
-        };
-    }
-
-    public async Task<bool> RemoveVoteAsync(string token, Guid nominationId, string guestSessionId)
-    {
-        var nomination = await db.WinNominations
-            .Include(n => n.WinWeek)
-            .FirstOrDefaultAsync(n => n.Id == nominationId)
-            ?? throw new KeyNotFoundException("Nomination not found.");
-
-        if (nomination.WinWeek.GuestToken != token)
-            throw new KeyNotFoundException("Invalid or expired guest link.");
-
-        var vote = await db.WinVotes
-            .FirstOrDefaultAsync(v => v.WinNominationId == nominationId && v.GuestSessionId == guestSessionId);
-
-        if (vote is null) return false;
-
-        db.WinVotes.Remove(vote);
-        await db.SaveChangesAsync();
-
-        notifier.Broadcast("vote_removed", new { nominationId }, guestAllowed: true);
-
-        return true;
-    }
+    public Task<bool> RemoveVoteAsync(string token, Guid nominationId, string guestSessionId) =>
+        voting.RemoveVoteAsync(nominationId, WowVoter.Guest(guestSessionId), requireGuestToken: token);
 
     public async Task<GuestNominationDto> ApplyGuestPowerUpAsync(string token, Guid nominationId, string guestSessionId, string type)
     {

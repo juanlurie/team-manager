@@ -14,6 +14,7 @@ public class WinOfTheWeekService(
     AppDbContext db,
     QuizQuestionGeneratorService questionGenerator,
     IWinStoryGenerator winStory,
+    WowVotingService voting,
     IWowNotifier notifier,
     IWowPresence presence) : IWinOfTheWeekService
 {
@@ -237,74 +238,11 @@ public class WinOfTheWeekService(
         return true;
     }
 
-    public async Task<WinVoteDto> VoteAsync(Guid memberId, Guid nominationId)
-    {
-        var nomination = await db.WinNominations
-            .Include(n => n.WinWeek)
-            .FirstOrDefaultAsync(n => n.Id == nominationId);
+    public Task<WinVoteDto> VoteAsync(Guid memberId, Guid nominationId) =>
+        voting.CastVoteAsync(nominationId, WowVoter.Member(memberId));
 
-        if (nomination is null)
-            throw new KeyNotFoundException("Nomination not found.");
-
-        var week = nomination.WinWeek;
-        if (week.Status != WinWeekStatus.Voting && week.Status != WinWeekStatus.SuddenDeath)
-            throw new InvalidOperationException("Voting is not open for the current week.");
-
-        if (week.Status == WinWeekStatus.SuddenDeath)
-        {
-            var tiedIds = JsonSerializer.Deserialize<List<Guid>>(week.TiedNominationIds ?? "[]") ?? [];
-            var alreadyVoted = await db.WinVotes
-                .AnyAsync(v => v.TeamMemberId == memberId && tiedIds.Contains(v.WinNominationId));
-            if (alreadyVoted)
-                throw new InvalidOperationException("You have already cast your sudden death vote.");
-        }
-        else
-        {
-            var existingVote = await db.WinVotes
-                .FirstOrDefaultAsync(v => v.WinNominationId == nominationId && v.TeamMemberId == memberId);
-            if (existingVote is not null)
-                throw new InvalidOperationException("You have already voted for this nomination.");
-
-            var weekVoteCount = await db.WinVotes
-                .CountAsync(v => v.TeamMemberId == memberId && v.TeamMemberId != null && v.WinNomination.WinWeekId == nomination.WinWeekId);
-            if (weekVoteCount >= MaxVotesPerPerson)
-                throw new InvalidOperationException($"You can only vote up to {MaxVotesPerPerson} times per week.");
-        }
-
-        var vote = new WinVote
-        {
-            WinNominationId = nominationId,
-            TeamMemberId = memberId
-        };
-
-        db.WinVotes.Add(vote);
-        await db.SaveChangesAsync();
-
-        notifier.Broadcast("vote_cast", new { nominationId, voterId = memberId }, guestAllowed: true);
-
-        return new WinVoteDto
-        {
-            Id = vote.Id,
-            WinNominationId = vote.WinNominationId,
-            TeamMemberId = vote.TeamMemberId,
-            VotedAt = vote.VotedAt
-        };
-    }
-
-    public async Task<bool> RemoveVoteAsync(Guid memberId, Guid nominationId)
-    {
-        var vote = await db.WinVotes
-            .FirstOrDefaultAsync(v => v.WinNominationId == nominationId && v.TeamMemberId == memberId && v.TeamMemberId != null);
-
-        if (vote is null) return false;
-
-        db.WinVotes.Remove(vote);
-        await db.SaveChangesAsync();
-
-        // Only broadcast when a vote was actually removed — mirrors the controller's `if (success)`.
-        notifier.Broadcast("vote_removed", new { nominationId, voterId = memberId }, guestAllowed: true);
-        return true;
-    }
+    public Task<bool> RemoveVoteAsync(Guid memberId, Guid nominationId) =>
+        voting.RemoveVoteAsync(nominationId, WowVoter.Member(memberId));
 
     public async Task<WinWeekDto> CloseWeekAsync(Guid memberId, Guid seriesId, CloseWeekRequest request)
     {

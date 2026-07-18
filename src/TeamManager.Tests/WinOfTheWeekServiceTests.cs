@@ -49,8 +49,9 @@ public class WinOfTheWeekServiceTests
     {
         // questionGenerator is only touched by the quiz-generation path; winStory is a no-op so a
         // close never spins up a real background task. Constructed cheaply, no DI container needed.
+        var n = notifier ?? new FakeWowNotifier();
         var questionGenerator = new QuizQuestionGeneratorService(db, new AiPromptExecutorService(db));
-        return new WinOfTheWeekService(db, questionGenerator, new NullWinStoryGenerator(), notifier ?? new FakeWowNotifier(), presence);
+        return new WinOfTheWeekService(db, questionGenerator, new NullWinStoryGenerator(), new WowVotingService(db, n), n, presence);
     }
 
     private static TeamMember Member() => new()
@@ -380,6 +381,57 @@ public class WinOfTheWeekServiceTests
         await svc.ApplyPowerUpAsync(me.Id, nom1.Id, "Spotlight"); // spends the one weekly token
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => svc.ApplyPowerUpAsync(me.Id, nom2.Id, "Spotlight"));
+    }
+
+    // ─── Shared voting (WowVotingService — the guest branch + token guard the member tests don't hit) ───
+
+    [Fact]
+    public async Task Guest_cannot_vote_twice_for_the_same_nomination()
+    {
+        await using var db = NewDb();
+        var (_, week, _, nominee) = await SeedSimpleWeekAsync(db, WinWeekStatus.Voting);
+        week.GuestToken = "tok-123";
+        var nom = new WinNomination { Id = Guid.NewGuid(), WinWeekId = week.Id, NomineeMemberId = nominee.Id, Title = "n" };
+        db.Add(nom);
+        await db.SaveChangesAsync();
+        var voting = new WowVotingService(db, new FakeWowNotifier());
+
+        await voting.CastVoteAsync(nom.Id, WowVoter.Guest("sess-A"), requireGuestToken: "tok-123");
+
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => voting.CastVoteAsync(nom.Id, WowVoter.Guest("sess-A"), requireGuestToken: "tok-123"));
+    }
+
+    [Fact]
+    public async Task Guest_vote_is_rejected_with_the_wrong_week_token()
+    {
+        await using var db = NewDb();
+        var (_, week, _, nominee) = await SeedSimpleWeekAsync(db, WinWeekStatus.Voting);
+        week.GuestToken = "tok-123";
+        var nom = new WinNomination { Id = Guid.NewGuid(), WinWeekId = week.Id, NomineeMemberId = nominee.Id, Title = "n" };
+        db.Add(nom);
+        await db.SaveChangesAsync();
+        var voting = new WowVotingService(db, new FakeWowNotifier());
+
+        await Assert.ThrowsAsync<KeyNotFoundException>(
+            () => voting.CastVoteAsync(nom.Id, WowVoter.Guest("sess-A"), requireGuestToken: "WRONG"));
+    }
+
+    [Fact]
+    public async Task Guest_and_member_votes_on_the_same_nomination_are_independent()
+    {
+        await using var db = NewDb();
+        var (_, week, me, nominee) = await SeedSimpleWeekAsync(db, WinWeekStatus.Voting);
+        week.GuestToken = "tok-123";
+        var nom = new WinNomination { Id = Guid.NewGuid(), WinWeekId = week.Id, NomineeMemberId = nominee.Id, Title = "n" };
+        db.Add(nom);
+        await db.SaveChangesAsync();
+        var voting = new WowVotingService(db, new FakeWowNotifier());
+
+        await voting.CastVoteAsync(nom.Id, WowVoter.Member(me.Id));
+        await voting.CastVoteAsync(nom.Id, WowVoter.Guest("sess-A"), requireGuestToken: "tok-123");
+
+        Assert.Equal(2, db.WinVotes.Count(v => v.WinNominationId == nom.Id));
     }
 
     // ─── History (PF2: vote count projected as SQL COUNT, not Include+count) ───
