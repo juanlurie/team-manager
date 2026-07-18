@@ -113,7 +113,7 @@ public class GuestWinOfTheWeekService(AppDbContext db, IHttpContextAccessor http
             QuizAnsweredMemberIds = await db.WinQuizAnswers.Where(a => a.WinWeekId == week.Id).Select(a => a.MemberId).ToListAsync(),
             QuizRevealed = week.QuizRevealed,
             QuizRevealEndsAt = week.QuizRevealed && !week.QuizWinnerMemberId.HasValue
-                ? week.QuizRevealedAt?.AddSeconds(WinOfTheWeekService.QuizRevealDisplaySeconds) : null,
+                ? week.QuizRevealedAt?.AddSeconds(WowQuizService.QuizRevealDisplaySeconds) : null,
             QuizCorrectIndex = week.QuizRevealed ? week.QuizCorrectIndex : null,
             QuizIsAiGenerated = week.QuizIsAiGenerated,
             QuizWinnerName = week.QuizWinnerMemberId.HasValue

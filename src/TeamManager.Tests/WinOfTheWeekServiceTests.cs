@@ -54,7 +54,8 @@ public class WinOfTheWeekServiceTests
         var tokenSvc = new WowTokenService(db);
         var closer = new WowWeekCloser(db, tokenSvc, new NullWinStoryGenerator(), n);
         var tiebreaker = new WowTiebreakerService(db, n, closer);
-        return new WinOfTheWeekService(db, questionGenerator, new WowVotingService(db, n), tokenSvc, closer, tiebreaker, n, presence);
+        var quiz = new WowQuizService(db, questionGenerator, closer, n, presence);
+        return new WinOfTheWeekService(db, new WowVotingService(db, n), tokenSvc, closer, tiebreaker, quiz, n, presence);
     }
 
     private static TeamMember Member() => new()
@@ -535,7 +536,7 @@ public class WinOfTheWeekServiceTests
 
     private static (Guid? winner, List<Guid> eliminated, bool changed) Decide(
         IEnumerable<Guid> active, IEnumerable<Guid> alreadyOut, IEnumerable<Guid> correct) =>
-        WinOfTheWeekService.DecideQuizRound(active.ToList(), alreadyOut.ToList(), correct.ToHashSet());
+        WowQuizService.DecideQuizRound(active.ToList(), alreadyOut.ToList(), correct.ToHashSet());
 
     [Fact]
     public void Quiz_exactly_one_correct_wins_outright()
