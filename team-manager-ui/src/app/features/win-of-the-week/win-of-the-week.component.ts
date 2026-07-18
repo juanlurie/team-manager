@@ -148,7 +148,7 @@ export class WowSeriesSheetComponent {
             [guestToken]="currentWeek()?.guestToken ?? null"
             [hasWinOfMonth]="hasWinOfMonth()"
             [reactionEvents]="reactionEvents()"
-            (switchSeriesClick)="series().length > 1 && openSeriesPicker()"
+            (switchSeriesClick)="openSeriesPicker()"
             (nominateClick)="showNominateDialog()"
             (openWeekClick)="openNextWeek()"
             (voteClick)="vote($event)"
@@ -690,6 +690,9 @@ export class WinOfTheWeekComponent implements OnInit, OnDestroy {
   }
 
   openNextWeek() {
+    // First run: there's no series yet, so "Open First Week" would 404 ("No series found").
+    // Prompt series creation instead — submitNewSeries selects it, then the user can open a week.
+    if (!this.currentSeriesId()) { this.showNewSeriesPrompt(); return; }
     this.winSvc.openNextWeek(this.currentSeriesId() ?? undefined).subscribe({
       next: () => { this.snackBar.open('New week opened!', 'Close', { duration: 3000 }); this.refresh(); },
       error: (err) => this.snackBar.open(err.error?.error || 'Failed to open next week', 'Close', { duration: 3000 })
