@@ -51,7 +51,7 @@ public class WinOfTheWeekServiceTests
         // close never spins up a real background task. Constructed cheaply, no DI container needed.
         var n = notifier ?? new FakeWowNotifier();
         var questionGenerator = new QuizQuestionGeneratorService(db, new AiPromptExecutorService(db));
-        return new WinOfTheWeekService(db, questionGenerator, new NullWinStoryGenerator(), new WowVotingService(db, n), n, presence);
+        return new WinOfTheWeekService(db, questionGenerator, new NullWinStoryGenerator(), new WowVotingService(db, n), new WowTokenService(db), n, presence);
     }
 
     private static TeamMember Member() => new()
@@ -381,6 +381,46 @@ public class WinOfTheWeekServiceTests
         await svc.ApplyPowerUpAsync(me.Id, nom1.Id, "Spotlight"); // spends the one weekly token
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => svc.ApplyPowerUpAsync(me.Id, nom2.Id, "Spotlight"));
+    }
+
+    // ─── Token wallet (WowTokenService, extracted from the god service) ───
+
+    [Fact]
+    public async Task Weekly_grant_gives_every_active_member_exactly_one_token()
+    {
+        await using var db = NewDb();
+        var (_, week, _, _) = await SeedSimpleWeekAsync(db, WinWeekStatus.Nominating);
+        var active1 = Member();
+        var active2 = Member();
+        var inactive = Member();
+        inactive.IsActive = false;
+        db.AddRange(active1, active2, inactive);
+        await db.SaveChangesAsync();
+        var tokens = new WowTokenService(db);
+
+        await tokens.GrantWeeklyTokensAsync(week.Id);
+
+        db.ChangeTracker.Clear();
+        Assert.Equal(1, db.WowMemberTokens.Count(t => t.TeamMemberId == active1.Id && t.WinWeekId == week.Id));
+        Assert.Equal(1, db.WowMemberTokens.Count(t => t.TeamMemberId == active2.Id && t.WinWeekId == week.Id));
+        Assert.Equal(0, db.WowMemberTokens.Count(t => t.TeamMemberId == inactive.Id)); // inactive excluded
+    }
+
+    [Fact]
+    public async Task Balance_reflects_grant_then_spend()
+    {
+        await using var db = NewDb();
+        var (_, week, me, nominee) = await SeedSimpleWeekAsync(db, WinWeekStatus.Voting);
+        var nom = new WinNomination { Id = Guid.NewGuid(), WinWeekId = week.Id, NomineeMemberId = nominee.Id, Title = "n" };
+        db.Add(nom);
+        await db.SaveChangesAsync();
+        var tokens = new WowTokenService(db);
+
+        Assert.Equal(1, await tokens.GetBalanceAsync(me.Id, week.Id)); // ensures + counts the weekly token
+        await tokens.SpendTokenAsync(me.Id, week.Id, nom.Id);
+        Assert.Equal(0, await tokens.GetBalanceAsync(me.Id, week.Id));
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => tokens.SpendTokenAsync(me.Id, week.Id, nom.Id));
     }
 
     // ─── Shared card definitions (WowCards) ───

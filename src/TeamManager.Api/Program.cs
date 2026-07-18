@@ -88,6 +88,7 @@ builder.Services.AddScoped<GameThreesService>();
 builder.Services.AddScoped<GameUltimateTttService>();
 builder.Services.AddScoped<GameConnectionsService>();
 builder.Services.AddScoped<WowVotingService>();
+builder.Services.AddScoped<WowTokenService>();
 builder.Services.AddScoped<IWinOfTheWeekService, WinOfTheWeekService>();
 builder.Services.AddScoped<GuestWinOfTheWeekService>();
 builder.Services.AddSingleton<IWinStoryGenerator, WinStoryGenerator>();

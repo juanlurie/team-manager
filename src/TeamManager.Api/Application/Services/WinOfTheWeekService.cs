@@ -15,6 +15,7 @@ public class WinOfTheWeekService(
     QuizQuestionGeneratorService questionGenerator,
     IWinStoryGenerator winStory,
     WowVotingService voting,
+    WowTokenService tokens,
     IWowNotifier notifier,
     IWowPresence presence) : IWinOfTheWeekService
 {
@@ -312,7 +313,7 @@ public class WinOfTheWeekService(
         db.WinWeeks.Add(week);
         await db.SaveChangesAsync();
 
-        await GrantWeeklyTokensAsync(week.Id);
+        await tokens.GrantWeeklyTokensAsync(week.Id);
 
         return (await GetCurrentWeekAsync(memberId, seriesId))!;
     }
@@ -599,40 +600,6 @@ public class WinOfTheWeekService(
         };
     }
 
-    private async Task AwardWeeklyAchievementAsync(Guid winnerMemberId, DateOnly weekStart)
-    {
-        var achievement = await db.Achievements
-            .FirstOrDefaultAsync(a => a.Key == "win-of-the-week");
-
-        if (achievement is null) return;
-
-        var monthLabel = weekStart.ToString("MMMM yyyy");
-        var alreadyAwarded = await db.MemberAchievements
-            .AnyAsync(ma => ma.TeamMemberId == winnerMemberId
-                         && ma.AchievementId == achievement.Id
-                         && ma.Note == monthLabel);
-
-        if (alreadyAwarded) return;
-
-        db.MemberAchievements.Add(new MemberAchievement
-        {
-            TeamMemberId = winnerMemberId,
-            AchievementId = achievement.Id,
-            AwardedAt = DateTimeOffset.UtcNow,
-            Note = monthLabel
-        });
-
-        db.PointAwards.Add(new PointAward
-        {
-            TeamMemberId = winnerMemberId,
-            Points = achievement.Points,
-            Reason = $"Win of the Week Champion — {monthLabel}",
-            AwardedAt = DateTimeOffset.UtcNow
-        });
-
-        await db.SaveChangesAsync();
-    }
-
     private async Task<WinWeek?> GetActiveWeekAsync(Guid seriesId)
     {
         return await db.WinWeeks
@@ -652,11 +619,7 @@ public class WinOfTheWeekService(
     {
         var week = await GetActiveWeekAsync(seriesId);
         if (week is null) return 0;
-
-        await EnsureWeeklyTokenAsync(memberId, week.Id);
-
-        return await db.WowMemberTokens
-            .CountAsync(t => t.TeamMemberId == memberId && t.WinWeekId == week.Id && t.SpentAt == null);
+        return await tokens.GetBalanceAsync(memberId, week.Id);
     }
 
     public Task<WinNominationDto> ApplyPowerUpAsync(Guid memberId, Guid nominationId, string type) =>
@@ -688,7 +651,7 @@ public class WinOfTheWeekService(
         if (WowCards.IsApplied(nomination, kind))
             throw new InvalidOperationException($"A {WowCards.Noun(kind)} has already been applied to this nomination.");
 
-        await SpendTokenAsync(memberId, nomination.WinWeekId, nominationId);
+        await tokens.SpendTokenAsync(memberId, nomination.WinWeekId, nominationId);
 
         WowCards.Set(nomination, kind, type);
         await db.SaveChangesAsync();
@@ -740,68 +703,6 @@ public class WinOfTheWeekService(
         ChaosCard = n.ChaosCard,
         HypeMeterCount = n.HypeMeterCount
     };
-
-    private async Task SpendTokenAsync(Guid memberId, Guid winWeekId, Guid nominationId)
-    {
-        await EnsureWeeklyTokenAsync(memberId, winWeekId);
-
-        var token = await db.WowMemberTokens
-            .FirstOrDefaultAsync(t => t.TeamMemberId == memberId && t.WinWeekId == winWeekId && t.SpentAt == null);
-
-        if (token is null)
-            throw new InvalidOperationException("You don't have any tokens available this week.");
-
-        token.SpentAt = DateTimeOffset.UtcNow;
-        token.SpentOnNominationId = nominationId;
-        await db.SaveChangesAsync();
-    }
-
-    private async Task EnsureWeeklyTokenAsync(Guid memberId, Guid winWeekId)
-    {
-        var alreadyGranted = await db.WowMemberTokens
-            .AnyAsync(t => t.TeamMemberId == memberId && t.WinWeekId == winWeekId && t.Source == "Weekly");
-
-        if (!alreadyGranted)
-        {
-            db.WowMemberTokens.Add(new WowMemberToken
-            {
-                TeamMemberId = memberId,
-                WinWeekId = winWeekId,
-                Source = "Weekly"
-            });
-            await db.SaveChangesAsync();
-        }
-    }
-
-    private async Task GrantWeeklyTokensAsync(Guid winWeekId)
-    {
-        var activeMembers = await db.TeamMembers
-            .Where(m => m.IsActive)
-            .Select(m => m.Id)
-            .ToListAsync();
-
-        var tokens = activeMembers.Select(memberId => new WowMemberToken
-        {
-            TeamMemberId = memberId,
-            WinWeekId = winWeekId,
-            Source = "Weekly"
-        });
-
-        db.WowMemberTokens.AddRange(tokens);
-        await db.SaveChangesAsync();
-    }
-
-    private async Task GrantBonusTokenAsync(Guid memberId, Guid winWeekId)
-    {
-        db.WowMemberTokens.Add(new WowMemberToken
-        {
-            TeamMemberId = memberId,
-            WinWeekId = winWeekId,
-            Source = "WinnerBonus"
-        });
-        await db.SaveChangesAsync();
-    }
-
 
     public async Task AutoCloseExpiredSuddenDeathAsync(Guid weekId)
     {
@@ -900,9 +801,9 @@ public class WinOfTheWeekService(
             .Include(n => n.Nominee)
             .FirstAsync(n => n.Id == week.WinnerNominationId!.Value);
 
-        await AwardWeeklyAchievementAsync(winnerNom.NomineeMemberId, week.WeekStart);
+        await tokens.AwardWeeklyAchievementAsync(winnerNom.NomineeMemberId, week.WeekStart);
         if (winnerNom.TeamMemberId.HasValue)
-            await GrantBonusTokenAsync(winnerNom.TeamMemberId.Value, week.Id);
+            await tokens.GrantBonusTokenAsync(winnerNom.TeamMemberId.Value, week.Id);
 
         winStory.Enqueue(week.Id, $"{winnerNom.Nominee.FirstName} {winnerNom.Nominee.LastName}", winnerNom.Title, winnerNom.Description);
 
