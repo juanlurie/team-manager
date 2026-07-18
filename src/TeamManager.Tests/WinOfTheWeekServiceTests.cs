@@ -53,7 +53,8 @@ public class WinOfTheWeekServiceTests
         var questionGenerator = new QuizQuestionGeneratorService(db, new AiPromptExecutorService(db));
         var tokenSvc = new WowTokenService(db);
         var closer = new WowWeekCloser(db, tokenSvc, new NullWinStoryGenerator(), n);
-        return new WinOfTheWeekService(db, questionGenerator, new NullWinStoryGenerator(), new WowVotingService(db, n), tokenSvc, closer, n, presence);
+        var tiebreaker = new WowTiebreakerService(db, n, closer);
+        return new WinOfTheWeekService(db, questionGenerator, new WowVotingService(db, n), tokenSvc, closer, tiebreaker, n, presence);
     }
 
     private static TeamMember Member() => new()
