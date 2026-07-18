@@ -132,9 +132,11 @@ public class WowQuizService(
         if (claimed == 0) return;
 
         if (week.GuestToken is { } token)
-            notifier.BroadcastToSession("wow_quiz_started", token, new { question, options, endsAt });
+            notifier.BroadcastToSession("wow_quiz_started", token, new { endsAt });
         else
-            notifier.Broadcast("wow_quiz_started", new { question, options, endsAt }, guestAllowed: true);
+            // Only the timer goes on the wire — the question/options are fetched via the caller's
+            // authenticated (member) or token-scoped (guest) GET, so trivia never broadcasts globally.
+            notifier.Broadcast("wow_quiz_started", new { endsAt }, guestAllowed: true);
     }
 
     public async Task<Guid> CompleteQuizWinnerAsync(Guid weekId)
@@ -243,9 +245,11 @@ public class WowQuizService(
 
         var endsAt = week.QuizEndsAt;
         if (week.GuestToken is { } token)
-            notifier.BroadcastToSession("wow_quiz_started", token, new { question, options, endsAt });
+            notifier.BroadcastToSession("wow_quiz_started", token, new { endsAt });
         else
-            notifier.Broadcast("wow_quiz_started", new { question, options, endsAt }, guestAllowed: true);
+            // Only the timer goes on the wire — the question/options are fetched via the caller's
+            // authenticated (member) or token-scoped (guest) GET, so trivia never broadcasts globally.
+            notifier.Broadcast("wow_quiz_started", new { endsAt }, guestAllowed: true);
 
         return week.WinSeriesId;
     }
