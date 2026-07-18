@@ -453,20 +453,8 @@ public class WinOfTheWeekController(IWinOfTheWeekService service, WinSeriesServi
         return first ?? Guid.Empty;
     }
 
-    private Guid GetCurrentMemberId()
-    {
-        if (Guid.TryParse(User.FindFirst("TMID")?.Value, out var tmid))
-            return tmid;
-
-        if (Guid.TryParse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value, out var nameId))
-            return nameId;
-
-        var firstMember = db.Set<Domain.Entities.TeamMember>()
-            .Where(m => m.IsActive)
-            .OrderBy(m => m.CreatedAt)
-            .Select(m => (Guid?)m.Id)
-            .FirstOrDefault();
-
-        return firstMember ?? Guid.Empty;
-    }
+    // Single source of truth for the caller's member id (TMID/NameIdentifier claim). No fallback:
+    // the class-level [RequireFeature] fails closed on Guid.Empty, so no action body runs without a
+    // resolved member — we never silently impersonate the oldest member.
+    private Guid GetCurrentMemberId() => HttpContext.GetCurrentMemberId();
 }
