@@ -1,7 +1,9 @@
 import { Injectable, OnDestroy, inject, signal, computed, effect } from '@angular/core';
 import { HttpResponse } from '@angular/common/http';
 import { Router } from '@angular/router';
-import { Subject, EMPTY, takeUntil, debounceTime, switchMap, catchError } from 'rxjs';
+import { Subject, EMPTY, Observable, takeUntil, debounceTime, switchMap, catchError, map } from 'rxjs';
+import { MatDialog } from '@angular/material/dialog';
+import { ConfirmDialogComponent, ConfirmDialogData } from '../../../shared/components/confirm-dialog/confirm-dialog.component';
 
 import { RetroBoardService } from '../../../core/services/retro-board.service';
 import { SquadService } from '../../../core/services/squad.service';
@@ -122,6 +124,14 @@ export class RetroBoardStore implements OnDestroy {
   private ws = inject(WebSocketService);
   private auth = inject(AuthService);
   private router = inject(Router);
+  private dialog = inject(MatDialog);
+
+  // In-app confirm modal in place of the browser's native confirm() popup. Returns true only when
+  // the user hits the confirm action (Cancel / dismiss → false). See docs/session-identity.md.
+  private confirmDialog(data: ConfirmDialogData): Observable<boolean> {
+    return this.dialog.open(ConfirmDialogComponent, { width: '360px', data })
+      .afterClosed().pipe(map(ok => ok === true));
+  }
 
   private destroy$ = new Subject<void>();
   // Coalesces refetches: bursts of rb_* events (and rapid local actions) collapse into a single
@@ -383,7 +393,11 @@ export class RetroBoardStore implements OnDestroy {
     const m = v.match(/retro-board\/([^/?#]+)/i);
     return m ? decodeURIComponent(m[1]) : v;
   }
-  del(id: string, ev: Event) { ev.stopPropagation(); if (!confirm('Delete this retro permanently? This cannot be undone.')) return; this.svc.deleteSession(id).subscribe({ next: () => this.reloadLists() }); }
+  del(id: string, ev: Event) {
+    ev.stopPropagation();
+    this.confirmDialog({ title: 'Delete this retro?', message: 'This retro will be permanently removed — this cannot be undone.', confirmLabel: 'Delete', danger: true })
+      .subscribe(ok => { if (ok) this.svc.deleteSession(id).subscribe({ next: () => this.reloadLists() }); });
+  }
   leave() { this.leaveWs(); this.session.set(null); this.viewAs.set('facilitator'); this.router.navigate(['/pulse/retro-board']); this.reloadLists(); }
 
   // ---- lobby lifecycle actions ----
@@ -391,7 +405,12 @@ export class RetroBoardStore implements OnDestroy {
   archive(id: string, ev: Event) { ev.stopPropagation(); this.svc.archive(id).subscribe({ next: () => this.reloadLists() }); }
   unarchive(id: string, ev: Event) { ev.stopPropagation(); this.svc.unarchive(id).subscribe({ next: () => this.reloadLists() }); }
   // ---- in-session lifecycle actions ----
-  closeCurrent() { const s = this.session(); if (s && confirm('Close this retro? It will be marked closed. You can reopen or archive it anytime.')) this.svc.close(s.id).subscribe({ next: r => this.setSession(r) }); }
+  closeCurrent() {
+    const s = this.session();
+    if (!s) return;
+    this.confirmDialog({ title: 'Close this retro?', message: 'It will be marked closed. You can reopen or archive it anytime.', confirmLabel: 'Close retro', danger: false })
+      .subscribe(ok => { if (ok) this.svc.close(s.id).subscribe({ next: r => this.setSession(r) }); });
+  }
   reopenCurrent() { const s = this.session(); if (s) this.svc.reopen(s.id).subscribe({ next: r => this.setSession(r) }); }
   // draft → open (pre-capture). A Freeform retro has no separate synced "live" step, so it goes
   // straight to the navigable working session (draft → open → live in one action).
@@ -529,7 +548,12 @@ export class RetroBoardStore implements OnDestroy {
   addNote(colId: string) { const s = this.session(); const v = (this.draft[colId] || '').trim(); if (!s || !v) return; this.svc.addNote(s.id, colId, v, !!this.draftAnon[colId]).subscribe({ next: r => { this.draft[colId] = ''; this.setSession(r); } }); }
   toggleFlag(n: RetroBoardNote) { const s = this.session(); if (s) this.svc.flagNote(s.id, n.id, !n.flagged).subscribe({ next: () => this.refresh(s.id) }); }
   // Delete a note while the session is open (author or facilitator; server-enforced).
-  delNote(n: RetroBoardNote) { const s = this.session(); if (s && confirm('Delete this note?')) this.svc.deleteNote(s.id, n.id).subscribe({ next: () => this.refresh(s.id) }); }
+  delNote(n: RetroBoardNote) {
+    const s = this.session();
+    if (!s) return;
+    this.confirmDialog({ title: 'Delete this note?', confirmLabel: 'Delete', danger: true })
+      .subscribe(ok => { if (ok) this.svc.deleteNote(s.id, n.id).subscribe({ next: () => this.refresh(s.id) }); });
+  }
   canDelNote(n: RetroBoardNote) { return !this.masked(n) && (n.isOwn || this.amFacilitator()); }
 
   vote(n: { id: string }) { const s = this.session(); if (s) this.svc.addVote(s.id, n.id).subscribe({ next: () => this.refresh(s.id), error: () => {} }); }
