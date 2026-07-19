@@ -149,6 +149,18 @@ export class WebSocketService {
     }
   }
 
+  // Session-platform primitive: subscribe/unsubscribe this connection to a generic room by its
+  // namespaced key (e.g. "poll:{id}"). The server fans out to the room via BroadcastToRoomAsync.
+  // Re-send joinRoom after every reconnect -- room membership lives only in the server's in-memory
+  // connection state, so a dropped socket forgets it. See docs/session-platform.md.
+  joinRoom(room: string, displayName?: string): void {
+    this.send(displayName === undefined ? { type: 'join_room', room } : { type: 'join_room', room, displayName });
+  }
+
+  leaveRoom(room: string): void {
+    this.send({ type: 'leave_room', room });
+  }
+
   disconnect(): void {
     clearTimeout(this.reconnectTimer);
     this.stopHeartbeat();

@@ -5,6 +5,8 @@ namespace TeamManager.Api.Application.Services.Interfaces;
 public interface IWinOfTheWeekService
 {
     Task<WinWeekDto?> GetCurrentWeekAsync(Guid currentMemberId, Guid seriesId);
+    /// <summary>Id of the series' most-recent non-closed week, or null if there isn't one.</summary>
+    Task<Guid?> GetActiveWeekIdAsync(Guid seriesId);
     Task<WinNominationDto> CreateNominationAsync(Guid memberId, CreateNominationRequest request, Guid seriesId = default);
     Task<WinNominationDto> UpdateNominationAsync(Guid memberId, Guid nominationId, CreateNominationRequest request);
     Task<bool> DeleteNominationAsync(Guid memberId, Guid nominationId);
@@ -15,6 +17,10 @@ public interface IWinOfTheWeekService
     Task<WinWeekDto> OpenVotingAsync(Guid memberId, Guid seriesId);
     Task<WinWeekDto> ReopenNominationsAsync(Guid memberId, Guid seriesId);
     Task<WinWeekDto> StartSuddenDeathAsync(Guid memberId, Guid seriesId, StartSuddenDeathRequest request);
+    Task<DateTimeOffset> StartTimerAsync(Guid seriesId, int durationSeconds);
+    Task StopTimerAsync(Guid seriesId);
+    Task<DateTimeOffset> StartHypeBattleAsync(Guid seriesId, int durationSeconds);
+    Task EndHypeBattleAsync(Guid seriesId);
     Task<IReadOnlyList<WinWeekHistoryDto>> GetHistoryAsync(Guid seriesId, int? year = null, int limit = 52);
     Task<WinWeekDetailDto> GetWeekDetailAsync(Guid weekId, Guid memberId);
     Task AutoCloseExpiredSuddenDeathAsync(Guid weekId);

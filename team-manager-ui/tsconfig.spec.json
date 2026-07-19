@@ -2,7 +2,10 @@
   "extends": "./tsconfig.json",
   "compilerOptions": {
     "outDir": "./dist/out-tsc/spec",
-    "types": ["jasmine"]
+    "types": ["vitest/globals", "node"]
   },
+  // tsconfig.json excludes specs so they stay out of the app build. That exclude is inherited,
+  // and would cancel the include below — reset it here or tsc reports TS18003 (no inputs).
+  "exclude": [],
   "include": ["src/**/*.spec.ts", "src/**/*.d.ts"]
 }

@@ -1,17 +1,20 @@
 import { TestBed } from '@angular/core/testing';
 import { Router } from '@angular/router';
 
-import { RetroBoardStore } from './retro-board.store';
+import { RetroBoardStore, PHASES } from './retro-board.store';
 import { RetroBoardService } from '../../../core/services/retro-board.service';
 import { SquadService } from '../../../core/services/squad.service';
 import { TeamMemberService } from '../../../core/services/team-member.service';
 import { WebSocketService } from '../../../core/websocket/websocket.service';
 import { AuthService } from '../../../core/auth/auth.service';
 
-/** Minimal session graph — only the fields the pure computeds read; cast to bypass the full type. */
+/** Minimal session graph — only the fields the pure computeds read; cast to bypass the full type.
+ *  `enabledPhases` defaults to the whole flow: visibleSteps filters PHASES by it, so omitting it
+ *  makes every step invisible. Tests that care about auto-skip should override it. */
 function session(over: Record<string, unknown> = {}): any {
   return {
     id: 's1', status: 'live', phase: 'checkin', isFacilitator: true,
+    enabledPhases: PHASES.map(p => p.key),
     participants: [], columns: [], notes: [], checkinQuestions: [], feedbackPrompts: [], actions: [],
     ...over,
   };
@@ -64,13 +67,15 @@ describe('RetroBoardStore', () => {
   describe('stepDone', () => {
     it('marks steps before the current phase done, by full-flow position', () => {
       store.session.set(session({ phase: 'vote' }));   // vote is index 4
-      expect(store.stepDone('checkin')).toBeTrue();
-      expect(store.stepDone('vote')).toBeFalse();      // the current step is not "done"
-      expect(store.stepDone('discuss')).toBeFalse();
+      expect(store.stepDone('checkin')).toBe(true);
+      expect(store.stepDone('vote')).toBe(false);      // the current step is not "done"
+      expect(store.stepDone('discuss')).toBe(false);
     });
   });
 
-  describe('responded meters count non-facilitator participants (M6)', () => {
+  // The original M6 rule excluded facilitators from the total. That was REVERTED deliberately: a
+  // solo admin's meter read 0/0. `respondents` is now every participant — don't "fix" this back.
+  describe('responded meters count every participant, facilitator included', () => {
     beforeEach(() => {
       store.session.set(session({
         participants: [
@@ -80,8 +85,8 @@ describe('RetroBoardStore', () => {
         ],
       }));
     });
-    it('excludes the facilitator from the total', () => {
-      expect(store.respondedTotal()).toBe(2);
+    it('counts the facilitator in the total', () => {
+      expect(store.respondedTotal()).toBe(3);
     });
     it('counts only participants who responded to the phase', () => {
       expect(store.respondedFor('checkin')).toBe(1);

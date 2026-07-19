@@ -1,6 +1,16 @@
 export type WowPowerUp = 'Spotlight';
 export type WowChaosCard = 'TinyText' | 'Autocorrect' | 'RandomCase' | 'Hangman';
 
+/**
+ * Per-week Win of the Week budgets. Mirrors the backend WinOfTheWeekLimits — the server is the
+ * authority (it enforces these), these values only drive display (e.g. "N / cap votes cast" and the
+ * "X/cap remaining" hints). Keep the two in sync if the caps ever change.
+ */
+export const WOW_LIMITS = {
+  maxVotesPerPerson: 3,
+  maxNominationsPerPerson: 3,
+} as const;
+
 export interface WinNomination {
   id: string;
   winWeekId: string;
@@ -217,7 +227,6 @@ export interface ApplyWowCardRequest {
 }
 
 export interface GuestCreateNominationRequest {
-  guestSessionId: string;
   guestName: string;
   nomineeMemberId: string;
   title: string;

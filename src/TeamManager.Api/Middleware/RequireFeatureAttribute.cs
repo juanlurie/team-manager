@@ -21,7 +21,13 @@ public class RequireFeatureAttribute : Attribute, IAsyncActionFilter
         var memberId = context.HttpContext.GetCurrentMemberId();
         if (memberId == Guid.Empty)
         {
-            await next();
+            // Fail closed: a request with no resolvable team member has no business behind a
+            // feature gate. The global auth policy + TeamMemberRequiredMiddleware should already
+            // have stopped it; denying here keeps this filter safe if that ordering ever changes.
+            context.HttpContext.Response.StatusCode = StatusCodes.Status403Forbidden;
+            context.HttpContext.Response.ContentType = "application/json";
+            await context.HttpContext.Response.WriteAsJsonAsync(new { error = "not_a_team_member" });
+            context.Result = new EmptyResult();
             return;
         }
 

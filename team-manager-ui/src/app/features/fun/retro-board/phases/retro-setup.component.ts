@@ -2,7 +2,6 @@ import { Component, ChangeDetectionStrategy, inject, signal } from '@angular/cor
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RetroBoardStore } from '../retro-board.store';
-import { RetroBoardSession } from '../../../../core/models/retro-board.model';
 import { RETRO_STYLES } from '../retro-board.styles';
 
 @Component({
@@ -30,28 +29,19 @@ import { RETRO_STYLES } from '../retro-board.styles';
           <div class="muted" style="font-size:11.5px;margin-top:4px">Pick a team to add everyone on it at once. {{ s.participants.length }} in this retro so far.</div>
         </div>
 
-        <div class="row" style="gap:16px;align-items:flex-end;margin-top:16px">
-          <div><label class="lbl">Team size</label><input class="f" style="width:80px" type="number" min="1" [(ngModel)]="store.teamSize" (ngModelChange)="store.onTeamSizeInput()" [disabled]="!store.amFacilitator()"></div>
-          <span class="muted" style="font-size:12.5px">Auto-detected from who's joined — edit if more will join before you open.</span>
-        </div>
-
-        <div class="row between" style="margin-top:18px">
-          <label class="lbl" style="margin:0">Structure level
-            <span (click)="showInfo.set(!showInfo())" title="Why this level?" style="cursor:pointer;color:var(--dim);margin-left:4px">ⓘ</span>
-          </label>
-          <span class="muted" style="font-size:12px">Suggested for {{ store.teamSize }}: <b style="color:var(--accent)">{{ store.structureLabel(store.recommendedLevel()) }}</b></span>
+        <div class="row between" style="margin-top:16px">
+          <label class="lbl" style="margin:0">Structure level</label>
+          <span class="muted" style="font-size:12px">Suggested for {{ store.teamSize() }}: <b style="color:var(--accent)">{{ store.structureLabel(store.recommendedLevel()) }}</b></span>
         </div>
         <div class="row" style="gap:8px;flex-wrap:wrap;margin-top:8px">
           @for (l of store.structureLevels; track l.key) {
             <button class="btn ghost sm" [class.primary]="store.structureLevelOf(s.phaseConfig) === l.key" [disabled]="!store.amFacilitator()" (click)="store.applyStructureLevel(l.key)">{{ l.label }}</button>
           }
         </div>
-        @if (showInfo()) {
-          <div class="muted" style="font-size:12.5px;margin-top:8px;border-left:2px solid var(--accent);padding-left:10px">
-            {{ store.structureBlurb(store.structureLevelOf(s.phaseConfig)) }} Groups above ~12–15 tend to fragment into side conversations without phase structure — a facilitator keeping pace helps everyone stay engaged.
-            <a (click)="showPanel.set(!showPanel()); $event.preventDefault()" style="color:var(--accent);cursor:pointer">Read more</a>
-          </div>
-        }
+        <div class="muted" style="font-size:12.5px;margin-top:8px;border-left:2px solid var(--accent);padding-left:10px">
+          {{ store.structureBlurb(store.structureLevelOf(s.phaseConfig)) }}
+          <a (click)="showPanel.set(!showPanel()); $event.preventDefault()" style="color:var(--accent);cursor:pointer">Read more</a>
+        </div>
         @if (showPanel()) {
           <div class="card" style="margin-top:10px;background:var(--surface2)">
             <div style="font-weight:600;margin-bottom:8px">Choosing a structure level</div>
@@ -72,16 +62,6 @@ import { RETRO_STYLES } from '../retro-board.styles';
           </select>
         }
 
-        <label class="lbl" style="margin-top:18px">Phases in this retro</label>
-        <div class="row" style="gap:18px;flex-wrap:wrap;margin-top:4px">
-          @for (ph of phaseToggles; track ph.key) {
-            <label class="row" style="gap:8px;cursor:pointer">
-              <input type="checkbox" [checked]="s.phaseConfig[ph.key]?.enabled" (change)="store.togglePhase(ph.key)" [disabled]="!store.amFacilitator()"> {{ ph.label }}
-              @if (ph.empty(s)) { <span class="muted" style="font-size:11.5px">· auto-skipped, none configured</span> }
-            </label>
-          }
-          <span class="muted" style="font-size:11.5px;align-self:center">Capture, Vote &amp; Discuss are always included.</span>
-        </div>
       </div>
 
       <div class="card">
@@ -109,7 +89,7 @@ import { RETRO_STYLES } from '../retro-board.styles';
             }
           }
         </div>
-        <div class="muted" style="font-size:12.5px;margin-top:10px">For a team of <b style="color:var(--text)">{{ store.teamSize }}</b>, <b style="color:var(--accent)">{{ store.presetLabel(store.recommendedPreset()) }}</b> is a good starting point.</div>
+        <div class="muted" style="font-size:12.5px;margin-top:10px">For a team of <b style="color:var(--text)">{{ store.teamSize() }}</b>, <b style="color:var(--accent)">{{ store.presetLabel(store.recommendedPreset()) }}</b> is a good starting point.</div>
 
         <label class="lbl" style="margin-top:18px">Phase timers (m:ss)</label>
         <div class="timers">
@@ -140,26 +120,41 @@ import { RETRO_STYLES } from '../retro-board.styles';
       </div>
 
       <div class="card">
-        <label class="lbl">Check-in questions</label>
-        @for (q of s.checkinQuestions; track q.id) {
-          <div class="row between" style="margin-bottom:10px">
-            <div><div style="font-weight:600">{{ q.text }}</div><div class="muted" style="font-size:12px;font-style:italic">{{ q.contextText }}</div></div>
-            @if (store.amFacilitator()) { <button class="btn ghost sm" (click)="store.delQuestion(q.id)">✕</button> }
-          </div>
-        }
-        @if (store.amFacilitator()) { <div class="row" style="margin-top:12px"><input class="f" [(ngModel)]="store.newQuestion" placeholder="Add check-in question…" (keydown.enter)="store.addQuestion()"><button class="btn primary" (click)="store.addQuestion()">+</button></div> }
+        <div class="row between" style="margin-bottom:2px">
+          <label class="lbl" style="margin:0">Check-in questions</label>
+          <label class="sw-row" style="font-size:12.5px;color:var(--dim)" title="Include the Check-in phase in this retro">
+            <input type="checkbox" class="sw" [checked]="s.phaseConfig['checkin']?.enabled" (change)="store.togglePhase('checkin')" [disabled]="!store.amFacilitator()"><span class="sw-track"></span> Include
+          </label>
+        </div>
+        <div [class.section-off]="!s.phaseConfig['checkin']?.enabled">
+          @if (s.checkinQuestions.length === 0) { <div class="muted" style="font-size:11.5px;margin-bottom:8px">Auto-skipped until you add a question.</div> }
+          @for (q of s.checkinQuestions; track q.id) {
+            <div class="row between" style="margin-bottom:10px">
+              <div><div style="font-weight:600">{{ q.text }}</div><div class="muted" style="font-size:12px;font-style:italic">{{ q.contextText }}</div></div>
+              @if (store.amFacilitator()) { <button class="btn ghost sm" (click)="store.delQuestion(q.id)">✕</button> }
+            </div>
+          }
+          @if (store.amFacilitator()) { <div class="row" style="margin-top:12px"><input class="f" [(ngModel)]="store.newQuestion" placeholder="Add check-in question…" (keydown.enter)="store.addQuestion()"><button class="btn primary" (click)="store.addQuestion()">+</button></div> }
+        </div>
       </div>
 
       <div class="card">
-        <label class="lbl">Feedback prompts</label>
-        <div class="muted" style="font-size:12px;margin:-2px 0 12px">Participants rate each of these 1–5 stars after the retro and can add a comment. Ratings are anonymous — you'll see the aggregate.</div>
-        @for (p of s.feedbackPrompts; track p.id) {
-          <div class="row between" style="margin-bottom:10px">
-            <div style="font-weight:600">{{ p.text }}</div>
-            @if (store.amFacilitator()) { <button class="btn ghost sm" (click)="store.delPrompt(p.id)">✕</button> }
-          </div>
-        }
-        @if (store.amFacilitator()) { <div class="row" style="margin-top:12px"><input class="f" [(ngModel)]="store.newPrompt" placeholder="Add feedback prompt…" (keydown.enter)="store.addPrompt()"><button class="btn primary" (click)="store.addPrompt()">+</button></div> }
+        <div class="row between" style="margin-bottom:2px">
+          <label class="lbl" style="margin:0">Feedback prompts</label>
+          <label class="sw-row" style="font-size:12.5px;color:var(--dim)" title="Include the Reflect (feedback survey) phase in this retro">
+            <input type="checkbox" class="sw" [checked]="s.phaseConfig['reflect']?.enabled" (change)="store.togglePhase('reflect')" [disabled]="!store.amFacilitator()"><span class="sw-track"></span> Include
+          </label>
+        </div>
+        <div [class.section-off]="!s.phaseConfig['reflect']?.enabled">
+          <div class="muted" style="font-size:12px;margin:-2px 0 12px">Participants rate each of these 1–5 stars after the retro and can add a comment. Ratings are anonymous — you'll see the aggregate.</div>
+          @for (p of s.feedbackPrompts; track p.id) {
+            <div class="row between" style="margin-bottom:10px">
+              <div style="font-weight:600">{{ p.text }}</div>
+              @if (store.amFacilitator()) { <button class="btn ghost sm" (click)="store.delPrompt(p.id)">✕</button> }
+            </div>
+          }
+          @if (store.amFacilitator()) { <div class="row" style="margin-top:12px"><input class="f" [(ngModel)]="store.newPrompt" placeholder="Add feedback prompt…" (keydown.enter)="store.addPrompt()"><button class="btn primary" (click)="store.addPrompt()">+</button></div> }
+        </div>
       </div>
 
       <div class="card">
@@ -181,12 +176,5 @@ import { RETRO_STYLES } from '../retro-board.styles';
 })
 export class RetroSetupComponent {
   store = inject(RetroBoardStore);
-  showInfo = signal(false);
   showPanel = signal(false);
-  // The optional phases that carry an "include in this retro" toggle (with an auto-skip hint when empty).
-  phaseToggles: { key: string; label: string; empty: (s: RetroBoardSession) => boolean }[] = [
-    { key: 'checkin', label: 'Check-in', empty: s => s.checkinQuestions.length === 0 },
-    { key: 'introduce', label: 'Introduce', empty: () => false },
-    { key: 'reflect', label: 'Reflect', empty: s => s.feedbackPrompts.length === 0 },
-  ];
 }
