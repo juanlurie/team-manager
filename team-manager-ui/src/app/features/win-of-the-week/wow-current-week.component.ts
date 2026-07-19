@@ -17,6 +17,7 @@ import { AppEmptyStateComponent } from '../../shared/components/app-empty-state/
 import { AppInfoBannerComponent } from '../../shared/components/app-info-banner/app-info-banner.component';
 import { RevealProgressBarComponent } from '../../shared/components/reveal-progress-bar/reveal-progress-bar.component';
 import { AiBadgeComponent } from '../../shared/components/ai-badge/ai-badge.component';
+import { SessionJoinComponent } from '../../shared/components/session-join/session-join.component';
 
 @Component({
   selector: 'app-wow-current-week',
@@ -36,6 +37,7 @@ import { AiBadgeComponent } from '../../shared/components/ai-badge/ai-badge.comp
     AppEmptyStateComponent,
     AppInfoBannerComponent,
     RevealProgressBarComponent,
+    SessionJoinComponent,
     MatProgressSpinnerModule,
     AiBadgeComponent
   ],
@@ -540,9 +542,8 @@ import { AiBadgeComponent } from '../../shared/components/ai-badge/ai-badge.comp
       <!-- Desktop sidebar (QR + host controls) -->
       @if (isHost() && !isMobile()) {
         <div style="flex-shrink:0;width:248px;position:sticky;top:16px;display:flex;flex-direction:column;gap:12px;margin-right:16px">
-          @if (qrDataUrl()) {
-            <img [src]="qrDataUrl()!" alt="Guest QR code"
-                 style="width:248px;height:280px;border-radius:8px;display:block" />
+          @if (guestUrl()) {
+            <app-session-join [url]="guestUrl()" [size]="248" />
           }
           <ng-container [ngTemplateOutlet]="ctrlsTpl" />
         </div>
@@ -565,7 +566,7 @@ export class WowCurrentWeekComponent {
   isHost           = input(false);
   isGuest          = input(false);
   isMobile         = input(false);
-  qrDataUrl        = input<string | null>(null);
+  guestUrl         = input<string | null>(null);
   currentUserId    = input('');
   tokenBalance     = input(0);
   powerUpsEnabled  = input(true);

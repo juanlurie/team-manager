@@ -145,7 +145,7 @@ function adaptToWinWeek(week: GuestWinWeek): WinWeek {
             [isHost]="false"
             [isGuest]="true"
             [isMobile]="isMobile"
-            [qrDataUrl]="null"
+            [guestUrl]="null"
             [currentUserId]="GUEST_OWNED_ID"
             [tokenBalance]="week()?.guestTokenBalance ?? 0"
             [powerUpsEnabled]="week()?.powerUpsEnabled ?? false"

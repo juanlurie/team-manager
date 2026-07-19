@@ -1,5 +1,4 @@
 import { Component, OnInit, OnDestroy, inject, signal, computed, effect, ElementRef, ViewChild, AfterViewInit, ChangeDetectionStrategy } from '@angular/core';
-import QRCode from 'qrcode';
 
 import { FormsModule } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
@@ -133,7 +132,7 @@ export class WowSeriesSheetComponent {
             [loading]="loading()"
             [isHost]="isHost()"
             [isMobile]="isMobile"
-            [qrDataUrl]="qrDataUrl()"
+            [guestUrl]="guestUrl()"
             [currentUserId]="currentUserId"
             [tokenBalance]="tokenBalance()"
             [powerUpsEnabled]="powerUpsEnabled()"
@@ -284,13 +283,6 @@ export class WinOfTheWeekComponent implements OnInit, OnDestroy {
   private suddenDeathSnapshot: { nominations: WinNomination[], tiedNominationIds: string[] } | null = null;
 
   constructor() {
-    effect(() => {
-      const url = this.guestUrl();
-      if (!url) { this.qrDataUrl.set(null); return; }
-      QRCode.toDataURL(url, { width: 320, margin: 2, color: { dark: '#000000', light: '#ffffff' } })
-        .then(dataUrl => this.qrDataUrl.set(dataUrl));
-    });
-
     let lastTokenWeekId: string | null = null;
     effect(() => {
       const week = this.currentWeek();
@@ -319,7 +311,6 @@ export class WinOfTheWeekComponent implements OnInit, OnDestroy {
   spinnerName         = signal('');
   currentUserId       = '';
   guestUrl            = signal<string | null>(null);
-  qrDataUrl           = signal<string | null>(null);
   series              = signal<WinSeries[]>([]);
   currentSeriesId     = signal<string | null>(null);
   showNewSeriesDialog = signal(false);
@@ -546,7 +537,6 @@ export class WinOfTheWeekComponent implements OnInit, OnDestroy {
     this.currentSeriesId.set(id);
     this.currentWeek.set(null);
     this.guestUrl.set(null);
-    this.qrDataUrl.set(null);
     this.refresh();
   }
 
