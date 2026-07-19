@@ -1,5 +1,6 @@
 import { Component, ChangeDetectionStrategy, inject, viewChild, ElementRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { MatSnackBar } from '@angular/material/snack-bar';
 import { RetroBoardStore } from '../retro-board.store';
 import { RETRO_STYLES } from '../retro-board.styles';
 
@@ -141,6 +142,7 @@ const PRINT_CSS = `
 })
 export class RetroSummaryComponent {
   store = inject(RetroBoardStore);
+  private snackBar = inject(MatSnackBar);
   private printArea = viewChild<ElementRef<HTMLElement>>('printArea');
 
   /** Open the recap in a clean, light, self-contained window and hand off to the browser's
@@ -150,7 +152,7 @@ export class RetroSummaryComponent {
     if (!el) return;
     const title = this.store.session()?.title || 'Retro';
     const w = window.open('', '_blank', 'width=920,height=1200');
-    if (!w) { alert('Couldn’t open the print view — allow pop-ups for this site and try again.'); return; }
+    if (!w) { this.snackBar.open('Couldn’t open the print view — allow pop-ups for this site and try again.', 'Close', { duration: 5000 }); return; }
     w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${this.escape(title)} — Summary</title>`
       + `<style>${PRINT_CSS}</style></head><body>`
       + `<h1>${this.escape(title)}</h1><p class="sub">Retro summary</p>${el.innerHTML}</body></html>`);
