@@ -40,36 +40,48 @@ The takeaways that shape the design:
 3. **Recognition is currently all-or-nothing** (you have an auth token or you don't). The
    spec's low-friction "select your name" middle path is new.
 
-## The three controls — independent booleans, not an enum
+## The two controls — independent booleans, not an enum
 
-Set at Setup, editable by anyone with **host permission** for that session (the same check
-that gates facilitator actions — note: that's a facilitator *guard* today, not yet a grantable
-permission; see open questions). Per-session, never global config.
+> **Decision (locked):** the earlier `allowAnonymousJoin` / `allowGuestJoin` split is **collapsed
+> into one concept — Guest.** "Guest is clearer than anonymous, and a guest must provide a name."
+> A **guest is anyone who joins without being a recognized member of this session's team** —
+> whether they're a member of *another* team or not logged in at all. There is no nameless
+> "anonymous join." That leaves two independent controls:
+
+Set at Setup, editable by anyone with **host permission** for that session (a facilitator *guard*
+today, not yet a grantable permission — see open questions). Per-session, never global config.
 
 | Flag | Question it answers | Default | Notes |
 |---|---|---|---|
-| `allowAnonymousJoin` | Can someone join **without being recognized as an existing Member**? | `false` | When false, the join flow skips "Continue anonymously" — every joiner is identified before a Participant is created. When true, both "Continue anonymously" and "Log in" show (Phase 2). |
-| `allowGuestJoin` | Can someone with **no Member record in this Team** join by entering a display name? | `false` | The outsider escape hatch (contractors, stakeholders). Explicit opt-in, never a silent fallback. Grants a session-scoped identity (display name + stable token for rejoining) — WoW's guest pattern, promoted. |
+| `allowGuestJoin` | Can someone who **isn't a recognized member of this session's team** join by entering a **display name**? | `false` | Covers both cases: another team's member, or nobody logged in. Explicit opt-in, never a silent fallback. Grants a session-scoped identity (display name + stable token for rejoining) — WoW's `GuestSessionId` pattern, promoted. A name is **required** — there is no anonymous nameless join. |
 | `allowAnonymousContent` | Can a joined participant's **contributions** (notes, votes) stay unattributed *within* the session? | `false`* | **Already built for Retro** as `AllowAnonymous` ("Allow anonymous notes"). Fully independent of how they joined. *Retro's existing default is `true`; keep it for Retro. |
 
-They are **independent** because facilitators need combinations an enum can't express:
-identified-join + anonymous-notes (sensitive retro), or open-guest-join + fully-attributed
-content (public demo). Do **not** collapse them into one "anonymous mode."
+They stay **independent** because facilitators need combinations an enum can't express:
+guests-allowed + fully-attributed content (public demo), or members-only + anonymous notes
+(sensitive retro). Do **not** collapse them into one "anonymous mode."
+
+**Why the design got trickier (and why this is still clean):** "Guest" now spans a *logged-in
+member of another team* and a *not-logged-in stranger*. The simplifier: **membership is
+session-scoped.** If your auth token doesn't resolve to a member of *this* session's team, you're
+a guest here — even with an account elsewhere. Identity-of-join (member vs guest, both named) and
+attribution-of-content (named vs anonymous) remain the **two axes**; nothing is nameless.
 
 ### Suggested per-type defaults (facilitator can override at Setup)
 
-| Type | `allowAnonymousJoin` | `allowGuestJoin` | Rationale |
-|---|---|---|---|
-| WoW | false | false | Recognition is the point — a win must be attributable. |
-| Retro, Games | false | true | Keeps low-friction large-group joining, but guest access is an *explicit* choice, not silent. |
-| Meetings | n/a | n/a | 1:1s have no open join flow. |
+| Type | `allowGuestJoin` | Rationale |
+|---|---|---|
+| WoW | false | Recognition is the point — a win must be attributable. |
+| Retro, Games | true | Keeps low-friction large-group joining, but guest access is an *explicit* choice, not silent. |
+| Meetings | n/a | 1:1s have no open join flow. |
 
 ## Participant — three identity states
 
 Promote to a shared shape (Retro's participant is the seed; WoW gains one):
 
-- **Member** — linked to a `Member` id; name/avatar from the profile. (Retro today.)
-- **Guest** — no member link; a display name + a **session-scoped token/cookie** for stable
+- **Member** — auth token resolves to a member of *this session's team*; name/avatar from the
+  profile. (Retro today.)
+- **Guest** — everyone else who joins: another team's member, or nobody logged in. **No member
+  link for this session**; a **required display name** + a session-scoped token/cookie for stable
   rejoin. Requires `allowGuestJoin`. (Generalizes WoW's `GuestSessionId`.)
 - **Anonymous-content** — *not a join state.* An orthogonal flag on a contribution
   (`IsAnonymous`), allowed when `allowAnonymousContent` is on, regardless of how the author
@@ -80,35 +92,29 @@ So identity-of-join (member vs guest) and attribution-of-content (named vs anony
 
 ## The recognition ladder (friction requirement)
 
-When `allowAnonymousJoin` is false, "being recognized" must stay cheap for the common case —
-a known team member joining their own team's session — without a full login every time:
+"Being recognized" as a member must stay cheap for the common case — a known team member joining
+their own team's session — without a full login every time:
 
 1. **Auto-recognize** an already-authenticated device silently (we have the `TMID` token today).
 2. Else offer a lightweight **"select your name"** from the Team's member list (new — the
    default path; `TeamMemberService` already exposes the roster).
 3. Reserve **full credential/SSO login** for first-time devices only.
 
-Guest friction (`allowGuestJoin`) is a separate, deliberately opt-in path and may be slightly
-heavier (display-name entry + the session token).
-
-> **Clarify before building:** `allowAnonymousJoin` ("Continue anonymously", any joiner) and
-> `allowGuestJoin` ("display name", true outsiders) both yield a non-member participant with a
-> display name + token. The intended distinction is *who the option is offered to* and *whether
-> a Team member record is required*. Worth confirming the exact UX split so we don't build two
-> paths that collapse into one.
+The **guest path** (`allowGuestJoin`) is separate and deliberately opt-in: enter a display name,
+get the session token. It may be slightly heavier — guest friction is acceptable in a way member
+friction is not.
 
 ## Architecture — incremental, not a big-bang Session table
 
 Do **not** create a unified `Session` table and migrate ~15 features onto it. Instead, same
 strangler pattern as the rest of the platform:
 
-1. Define the three flags + the Participant identity-state as a **shared contract**
+1. Define the two flags + the Participant identity-state as a **shared contract**
    (interface / value objects), not a shared table.
 2. **Retro first** — it already has `AllowAnonymous` (=`allowAnonymousContent`) and a participant
-   table. Add `allowAnonymousJoin` + `allowGuestJoin` to `RetroBoardSession`; make
-   `RetroBoardParticipant.MemberId` **nullable** + add `DisplayName` + a guest session token to
-   carry the guest state. Surface all three in the Retro Setup card (next to the existing
-   "Allow anonymous notes").
+   table. Add `allowGuestJoin` to `RetroBoardSession`; make `RetroBoardParticipant.MemberId`
+   **nullable** + add `DisplayName` + a guest session token to carry the guest state. Surface the
+   guest toggle in the Retro Setup card (next to the existing "Allow anonymous notes").
 3. **WoW next** — promote its per-row `GuestSessionId`/`GuestName` into the shared Participant
    shape; wire the two join flags (defaults keep it recognition-only, so no behaviour change).
 4. **Games / future types** adopt the contract when they grow a join flow.
@@ -117,12 +123,12 @@ Each feature moves when touched; nothing is rewritten wholesale.
 
 ## First code slice (recommended)
 
-**Retro, join flags + guest participant.** Concretely:
-- `RetroBoardSession`: `+ AllowAnonymousJoin (false)`, `+ AllowGuestJoin (true)`.
+**Retro, guest join + guest participant.** Concretely:
+- `RetroBoardSession`: `+ AllowGuestJoin (true)`. (`AllowAnonymous` already covers content.)
 - `RetroBoardParticipant`: `MemberId` → nullable, `+ DisplayName`, `+ GuestSessionId`.
-- Setup card: two toggles beside "Allow anonymous notes".
+- Setup card: one guest toggle beside "Allow anonymous notes".
 - Join flow: the Phase 2 modal (reuse [`confirm-dialog`](../team-manager-ui/src/app/shared/components/confirm-dialog/confirm-dialog.component.ts))
-  with the recognition ladder; guest path gated on `AllowGuestJoin`.
+  with the recognition ladder; guest path gated on `AllowGuestJoin`, name required.
 
 This is meaningful but contained, and proves the model end-to-end before WoW.
 
@@ -131,8 +137,9 @@ This is meaningful but contained, and proves the model end-to-end before WoW.
 - **Host permission is not a grantable permission yet** — it's a facilitator *guard*
   (`GuardAsync(facilitatorOnly:true)`) + participant `Role`. The spec's "same check as Phase 3"
   assumes a permission model that isn't built. These flags should ride whatever host-check exists
-  when they land; a real grantable "retro host" permission is its own piece.
-- The `allowAnonymousJoin` vs `allowGuestJoin` UX split (see Clarify box) needs a decision.
+  when they land; a real grantable "retro host" permission is its own piece. **Open for the user:**
+  ride the existing facilitator guard for now, or wait on the permission model?
+- ~~`allowAnonymousJoin` vs `allowGuestJoin` split~~ — **resolved**: collapsed into Guest (named).
 - Meetings are explicitly out (no open join).
 - Not a unified `Session` table — deliberately (see Architecture).
 
