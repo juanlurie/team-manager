@@ -19,7 +19,6 @@ import { WowTieBreakSpinnerComponent } from '../../shared/components/wow-tie-bre
 import { AppModalComponent } from '../../shared/components/app-modal/app-modal.component';
 import { runTieBreakSpin } from '../../shared/utils/wow.utils';
 
-const SESSION_ID_KEY = 'wow_guest_session_id';
 // Unique sentinel so WowCurrentWeekComponent knows which nominations the guest owns
 const GUEST_OWNED_ID = '__guest__';
 
@@ -403,7 +402,6 @@ export class GuestWowComponent implements OnInit, OnDestroy {
   });
 
   private token    = '';
-  private sessionId = '';
   private wsSub: Subscription | null = null;
   private pollInterval: ReturnType<typeof setInterval> | null = null;
   private expiryCheckInterval: ReturnType<typeof setInterval> | null = null;
@@ -417,7 +415,6 @@ export class GuestWowComponent implements OnInit, OnDestroy {
 
   ngOnInit() {
     this.token = this.route.snapshot.paramMap.get('token') ?? '';
-    this.sessionId = this.getOrCreateSessionId();
 
     this.wsSub = this.wsSvc.messages$.subscribe(msg => {
       if (!msg || !this.guestName() || this.tokenInvalid()) return;
@@ -523,7 +520,6 @@ export class GuestWowComponent implements OnInit, OnDestroy {
     this.formError.set('');
     this.submitting.set(true);
     const request: GuestCreateNominationRequest = {
-      guestSessionId: this.sessionId,
       guestName: this.guestName(),
       nomineeMemberId: this.nomForm.nomineeMemberId,
       title: this.nomForm.title.trim(),
@@ -549,7 +545,7 @@ export class GuestWowComponent implements OnInit, OnDestroy {
     if (this.submitting()) return;
     this.submitting.set(true);
     this.formError.set('');
-    this.service.updateNomination(this.token, nominationId, this.sessionId, {
+    this.service.updateNomination(this.token, nominationId, {
       nomineeMemberId: this.editForm.nomineeMemberId,
       title: this.editForm.title.trim(),
       description: this.editForm.description.trim() || undefined
@@ -562,7 +558,7 @@ export class GuestWowComponent implements OnInit, OnDestroy {
   deleteNomination(nominationId: string) {
     if (this.deletingId()) return;
     this.deletingId.set(nominationId);
-    this.service.deleteNomination(this.token, nominationId, this.sessionId).subscribe({
+    this.service.deleteNomination(this.token, nominationId).subscribe({
       next: () => { this.deletingId.set(null); this.refreshWeek(); },
       error: () => { this.deletingId.set(null); }
     });
@@ -571,7 +567,7 @@ export class GuestWowComponent implements OnInit, OnDestroy {
   vote(nominationId: string) {
     if (this.votingId()) return;
     this.votingId.set(nominationId);
-    this.service.vote(this.token, nominationId, this.sessionId).subscribe({
+    this.service.vote(this.token, nominationId).subscribe({
       next: () => { this.votingId.set(null); this.refreshWeek(); },
       error: () => { this.votingId.set(null); }
     });
@@ -580,7 +576,7 @@ export class GuestWowComponent implements OnInit, OnDestroy {
   removeVote(nominationId: string) {
     if (this.votingId()) return;
     this.votingId.set(nominationId);
-    this.service.removeVote(this.token, nominationId, this.sessionId).subscribe({
+    this.service.removeVote(this.token, nominationId).subscribe({
       next: () => { this.votingId.set(null); this.refreshWeek(); },
       error: () => { this.votingId.set(null); }
     });
@@ -595,14 +591,14 @@ export class GuestWowComponent implements OnInit, OnDestroy {
   }
 
   applyPowerUp(event: { nominationId: string; type: string }) {
-    this.service.applyPowerUp(this.token, event.nominationId, this.sessionId, event.type).subscribe({
+    this.service.applyPowerUp(this.token, event.nominationId, event.type).subscribe({
       next: () => this.refreshWeek(),
       error: () => {}
     });
   }
 
   applyChaosCard(event: { nominationId: string; type: string }) {
-    this.service.applyChaosCard(this.token, event.nominationId, this.sessionId, event.type).subscribe({
+    this.service.applyChaosCard(this.token, event.nominationId, event.type).subscribe({
       next: () => this.refreshWeek(),
       error: () => {}
     });
@@ -610,7 +606,7 @@ export class GuestWowComponent implements OnInit, OnDestroy {
 
   private loadWeek() {
     this.loading.set(true);
-    this.service.getWeek(this.token, this.sessionId).subscribe({
+    this.service.getWeek(this.token).subscribe({
       next: (week) => {
         this.updateWeek(week);
         this.loading.set(false);
@@ -626,7 +622,7 @@ export class GuestWowComponent implements OnInit, OnDestroy {
 
   private refreshWeek() {
     clearCacheForPattern('/api/v1/guest/wow');
-    this.service.getWeek(this.token, this.sessionId).subscribe({
+    this.service.getWeek(this.token).subscribe({
       next: (week) => this.updateWeek(week),
       error: () => {
         if (this.pollInterval) { clearInterval(this.pollInterval); this.pollInterval = null; }
@@ -720,12 +716,5 @@ export class GuestWowComponent implements OnInit, OnDestroy {
   private resetForm() {
     this.nomForm = { nomineeMemberId: '', title: '', description: '' };
     this.formError.set('');
-  }
-
-  private getOrCreateSessionId(): string {
-    const key = `${SESSION_ID_KEY}_${this.token}`;
-    let id = sessionStorage.getItem(key);
-    if (!id) { id = crypto.randomUUID(); sessionStorage.setItem(key, id); }
-    return id;
   }
 }

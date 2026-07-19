@@ -150,7 +150,7 @@ public class GuestWinOfTheWeekService(AppDbContext db, IHttpContextAccessor http
         };
     }
 
-    public async Task<GuestNominationDto> CreateGuestNominationAsync(string token, GuestCreateNominationRequest request)
+    public async Task<GuestNominationDto> CreateGuestNominationAsync(string token, string guestSessionId, GuestCreateNominationRequest request)
     {
         var week = await db.WinWeeks
             .FirstOrDefaultAsync(w => w.GuestToken == token)
@@ -160,7 +160,7 @@ public class GuestWinOfTheWeekService(AppDbContext db, IHttpContextAccessor http
             throw new InvalidOperationException("Nominations are not open for the current week.");
 
         var guestNominationCount = await db.WinNominations
-            .CountAsync(n => n.WinWeekId == week.Id && n.GuestSessionId == request.GuestSessionId);
+            .CountAsync(n => n.WinWeekId == week.Id && n.GuestSessionId == guestSessionId);
 
         if (guestNominationCount >= MaxNominationsPerPerson)
             throw new InvalidOperationException($"You can only submit up to {MaxNominationsPerPerson} nominations per week.");
@@ -176,7 +176,7 @@ public class GuestWinOfTheWeekService(AppDbContext db, IHttpContextAccessor http
             WinWeekId = week.Id,
             TeamMemberId = null,
             GuestName = request.GuestName.Trim(),
-            GuestSessionId = request.GuestSessionId,
+            GuestSessionId = guestSessionId,
             NomineeMemberId = request.NomineeMemberId,
             Title = request.Title,
             Description = request.Description

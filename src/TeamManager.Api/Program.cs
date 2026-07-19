@@ -94,6 +94,7 @@ builder.Services.AddScoped<WowTiebreakerService>();
 builder.Services.AddScoped<WowQuizService>();
 builder.Services.AddScoped<IWinOfTheWeekService, WinOfTheWeekService>();
 builder.Services.AddScoped<GuestWinOfTheWeekService>();
+builder.Services.AddSingleton<GuestSessionManager>();
 builder.Services.AddSingleton<IWinStoryGenerator, WinStoryGenerator>();
 builder.Services.AddScoped<WinStoryWebhookDispatcher>();
 builder.Services.AddScoped<WinSeriesService>();
@@ -113,6 +114,11 @@ builder.Services.AddScoped<ITimesheetApprovalService, TimesheetApprovalService>(
 
 builder.Services.AddHealthChecks()
     .AddDbContextCheck<AppDbContext>();
+
+// Signs the guest-session cookie (GuestSessionManager). Default key ring persistence — matches the
+// single-instance assumption already documented in WebSocketMiddleware; a multi-instance deploy
+// would point this at shared key storage so signed cookies stay valid across replicas/restarts.
+builder.Services.AddDataProtection();
 
 builder.Services.AddCors(options =>
     options.AddPolicy("AllowAll", policy =>
@@ -190,8 +196,6 @@ app.UseMiddleware<WebSocketMiddleware>();
 
 app.UseAuthorization();
 app.MapHealthChecks("/health").AllowAnonymous();
-app.MapGet("/ws-status", () => Results.Ok(new { connections = TeamManager.Api.Middleware.WebSocketMiddleware.GetConnectedMemberCount(), total = TeamManager.Api.Middleware.WebSocketMiddleware.GetTotalConnectionCount() })).AllowAnonymous();
-app.MapPost("/ws-test", async () => { await TeamManager.Api.Middleware.WebSocketMiddleware.BroadcastAsync("ws_test", new { message = "ping", ts = DateTimeOffset.UtcNow }, guestAllowed: true); return Results.Ok(new { sent = true }); }).AllowAnonymous();
 app.MapControllers();
 
 app.Run();

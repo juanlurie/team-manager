@@ -5,6 +5,8 @@ namespace TeamManager.Api.Application.Services.Interfaces;
 public interface IWinOfTheWeekService
 {
     Task<WinWeekDto?> GetCurrentWeekAsync(Guid currentMemberId, Guid seriesId);
+    /// <summary>Id of the series' most-recent non-closed week, or null if there isn't one.</summary>
+    Task<Guid?> GetActiveWeekIdAsync(Guid seriesId);
     Task<WinNominationDto> CreateNominationAsync(Guid memberId, CreateNominationRequest request, Guid seriesId = default);
     Task<WinNominationDto> UpdateNominationAsync(Guid memberId, Guid nominationId, CreateNominationRequest request);
     Task<bool> DeleteNominationAsync(Guid memberId, Guid nominationId);

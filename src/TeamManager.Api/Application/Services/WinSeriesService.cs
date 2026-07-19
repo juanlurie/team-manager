@@ -7,6 +7,17 @@ namespace TeamManager.Api.Application.Services;
 
 public class WinSeriesService(AppDbContext db)
 {
+    /// <summary>Resolves the series to act on: the one requested, or the oldest series as the default
+    /// when none is given. Returns Guid.Empty when no series exists yet.</summary>
+    public async Task<Guid> ResolveSeriesIdAsync(Guid? seriesId)
+    {
+        if (seriesId.HasValue && seriesId.Value != Guid.Empty)
+            return seriesId.Value;
+
+        var first = await db.WinSeries.OrderBy(s => s.CreatedAt).Select(s => (Guid?)s.Id).FirstOrDefaultAsync();
+        return first ?? Guid.Empty;
+    }
+
     public async Task<IReadOnlyList<WinSeriesDto>> GetAllAsync()
     {
         return await db.WinSeries
