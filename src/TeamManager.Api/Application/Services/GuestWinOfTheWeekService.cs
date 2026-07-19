@@ -1,18 +1,18 @@
 using Microsoft.EntityFrameworkCore;
 using TeamManager.Api.Application.DTOs.WinOfTheWeek;
+using TeamManager.Api.Application.Realtime;
 using TeamManager.Api.Application.Services.Interfaces;
 using TeamManager.Api.Domain.Entities;
 using TeamManager.Api.Domain.Enums;
 using TeamManager.Api.Infrastructure.Data;
 using TeamManager.Api.Infrastructure.Slugs;
-using TeamManager.Api.Middleware;
 
 namespace TeamManager.Api.Application.Services;
 
-public class GuestWinOfTheWeekService(AppDbContext db, IHttpContextAccessor httpContextAccessor, IWinOfTheWeekService wowService)
+public class GuestWinOfTheWeekService(AppDbContext db, IHttpContextAccessor httpContextAccessor, IWinOfTheWeekService wowService, WowVotingService voting, IWowNotifier notifier)
 {
-    private const int MaxVotesPerPerson = 3;
-    private const int MaxNominationsPerPerson = 3;
+    private const int MaxVotesPerPerson = WinOfTheWeekLimits.MaxVotesPerPerson;
+    private const int MaxNominationsPerPerson = WinOfTheWeekLimits.MaxNominationsPerPerson;
     public async Task<GuestTokenDto> GetOrGenerateGuestTokenAsync(Guid weekId)
     {
         var week = await db.WinWeeks.FindAsync(weekId)
@@ -51,25 +51,9 @@ public class GuestWinOfTheWeekService(AppDbContext db, IHttpContextAccessor http
             .FirstOrDefaultAsync(w => w.GuestToken == token)
             ?? throw new KeyNotFoundException("Invalid or expired guest link.");
 
-        if (week.Status == WinWeekStatus.SuddenDeath &&
-            week.SuddenDeathEndsAt.HasValue &&
-            DateTimeOffset.UtcNow > week.SuddenDeathEndsAt.Value)
-        {
-            await wowService.AutoCloseExpiredSuddenDeathAsync(week.Id);
-            // Reload week state after auto-close
-            db.Entry(week).State = Microsoft.EntityFrameworkCore.EntityState.Detached;
-            week = await db.WinWeeks.FirstAsync(w => w.GuestToken == token);
-        }
-
-        if (week.Status != WinWeekStatus.Closed &&
-            week.HypeBattleEndsAt.HasValue &&
-            DateTimeOffset.UtcNow > week.HypeBattleEndsAt.Value)
-        {
-            await wowService.AutoResolveExpiredHypeBattleAsync(week.Id);
-            db.Entry(week).State = Microsoft.EntityFrameworkCore.EntityState.Detached;
-            week = await db.WinWeeks.FirstAsync(w => w.GuestToken == token);
-        }
-
+        // Expired sudden-death / hype-battle resolution moved to WowTiebreakerProgressWorker so this
+        // GET (polled by every guest) doesn't race member polls into a double close. Quiz stays here
+        // — it self-guards with an atomic claim. See WinOfTheWeekService.GetCurrentWeekAsync.
         await wowService.ClearExpiredQuizAsync(week);
 
         var nominations = await db.WinNominations
@@ -129,7 +113,7 @@ public class GuestWinOfTheWeekService(AppDbContext db, IHttpContextAccessor http
             QuizAnsweredMemberIds = await db.WinQuizAnswers.Where(a => a.WinWeekId == week.Id).Select(a => a.MemberId).ToListAsync(),
             QuizRevealed = week.QuizRevealed,
             QuizRevealEndsAt = week.QuizRevealed && !week.QuizWinnerMemberId.HasValue
-                ? week.QuizRevealedAt?.AddSeconds(WinOfTheWeekService.QuizRevealDisplaySeconds) : null,
+                ? week.QuizRevealedAt?.AddSeconds(WowQuizService.QuizRevealDisplaySeconds) : null,
             QuizCorrectIndex = week.QuizRevealed ? week.QuizCorrectIndex : null,
             QuizIsAiGenerated = week.QuizIsAiGenerated,
             QuizWinnerName = week.QuizWinnerMemberId.HasValue
@@ -215,7 +199,7 @@ public class GuestWinOfTheWeekService(AppDbContext db, IHttpContextAccessor http
             CreatedAt = nomination.CreatedAt
         };
 
-        _ = WebSocketMiddleware.BroadcastAsync("nomination_created", new { nomination = dto }, guestAllowed: true);
+        notifier.Broadcast("nomination_created", new { nomination = dto }, guestAllowed: true);
 
         return dto;
     }
@@ -259,7 +243,7 @@ public class GuestWinOfTheWeekService(AppDbContext db, IHttpContextAccessor http
             CreatedAt = nomination.CreatedAt
         };
 
-        _ = WebSocketMiddleware.BroadcastAsync("nomination_updated", new { nomination = dto }, guestAllowed: true);
+        notifier.Broadcast("nomination_updated", new { nomination = dto }, guestAllowed: true);
         return dto;
     }
 
@@ -279,93 +263,29 @@ public class GuestWinOfTheWeekService(AppDbContext db, IHttpContextAccessor http
         db.WinNominations.Remove(nomination);
         await db.SaveChangesAsync();
 
-        _ = WebSocketMiddleware.BroadcastAsync("nomination_deleted", new { nominationId }, guestAllowed: true);
+        notifier.Broadcast("nomination_deleted", new { nominationId }, guestAllowed: true);
     }
 
-    public async Task<WinVoteDto> VoteAsync(string token, Guid nominationId, string guestSessionId)
+    public Task<WinVoteDto> VoteAsync(string token, Guid nominationId, string guestSessionId) =>
+        voting.CastVoteAsync(nominationId, WowVoter.Guest(guestSessionId), requireGuestToken: token);
+
+    public Task<bool> RemoveVoteAsync(string token, Guid nominationId, string guestSessionId) =>
+        voting.RemoveVoteAsync(nominationId, WowVoter.Guest(guestSessionId), requireGuestToken: token);
+
+    public Task<GuestNominationDto> ApplyGuestPowerUpAsync(string token, Guid nominationId, string guestSessionId, string type) =>
+        ApplyGuestCardAsync(token, nominationId, guestSessionId, WowCardKind.PowerUp, type);
+
+    public Task<GuestNominationDto> ApplyGuestChaosCardAsync(string token, Guid nominationId, string guestSessionId, string type) =>
+        ApplyGuestCardAsync(token, nominationId, guestSessionId, WowCardKind.ChaosCard, type);
+
+    // Guest power-up and chaos card differ only by the valid-type set, the field and the noun. Note
+    // this keeps the guest-specific checks (token, series-enabled, not-own, one-card-per-session) in
+    // their original order — the shared bits (valid type, phase, already-applied) come from WowCards
+    // but stay at the same positions, so which error surfaces first is unchanged.
+    private async Task<GuestNominationDto> ApplyGuestCardAsync(string token, Guid nominationId, string guestSessionId, WowCardKind kind, string type)
     {
-        var nomination = await db.WinNominations
-            .Include(n => n.WinWeek)
-            .FirstOrDefaultAsync(n => n.Id == nominationId)
-            ?? throw new KeyNotFoundException("Nomination not found.");
-
-        if (nomination.WinWeek.GuestToken != token)
-            throw new KeyNotFoundException("Invalid or expired guest link.");
-
-        var week = nomination.WinWeek;
-        if (week.Status != WinWeekStatus.Voting && week.Status != WinWeekStatus.SuddenDeath)
-            throw new InvalidOperationException("Voting is not open for the current week.");
-
-        if (week.Status == WinWeekStatus.SuddenDeath)
-        {
-            var tiedIds = System.Text.Json.JsonSerializer.Deserialize<List<Guid>>(week.TiedNominationIds ?? "[]") ?? [];
-            var alreadyVoted = await db.WinVotes
-                .AnyAsync(v => v.GuestSessionId == guestSessionId && tiedIds.Contains(v.WinNominationId));
-            if (alreadyVoted)
-                throw new InvalidOperationException("You have already cast your sudden death vote.");
-        }
-        else
-        {
-            var existingVote = await db.WinVotes
-                .FirstOrDefaultAsync(v => v.WinNominationId == nominationId && v.GuestSessionId == guestSessionId);
-            if (existingVote is not null)
-                throw new InvalidOperationException("You have already voted for this nomination.");
-
-            var weekVoteCount = await db.WinVotes
-                .CountAsync(v => v.GuestSessionId == guestSessionId && v.WinNomination.WinWeekId == week.Id);
-            if (weekVoteCount >= MaxVotesPerPerson)
-                throw new InvalidOperationException($"You can only vote up to {MaxVotesPerPerson} times per week.");
-        }
-
-        var vote = new WinVote
-        {
-            WinNominationId = nominationId,
-            TeamMemberId = null,
-            GuestSessionId = guestSessionId
-        };
-
-        db.WinVotes.Add(vote);
-        await db.SaveChangesAsync();
-
-        _ = WebSocketMiddleware.BroadcastAsync("vote_cast", new { nominationId }, guestAllowed: true);
-
-        return new WinVoteDto
-        {
-            Id = vote.Id,
-            WinNominationId = vote.WinNominationId,
-            TeamMemberId = null,
-            VotedAt = vote.VotedAt
-        };
-    }
-
-    public async Task<bool> RemoveVoteAsync(string token, Guid nominationId, string guestSessionId)
-    {
-        var nomination = await db.WinNominations
-            .Include(n => n.WinWeek)
-            .FirstOrDefaultAsync(n => n.Id == nominationId)
-            ?? throw new KeyNotFoundException("Nomination not found.");
-
-        if (nomination.WinWeek.GuestToken != token)
-            throw new KeyNotFoundException("Invalid or expired guest link.");
-
-        var vote = await db.WinVotes
-            .FirstOrDefaultAsync(v => v.WinNominationId == nominationId && v.GuestSessionId == guestSessionId);
-
-        if (vote is null) return false;
-
-        db.WinVotes.Remove(vote);
-        await db.SaveChangesAsync();
-
-        _ = WebSocketMiddleware.BroadcastAsync("vote_removed", new { nominationId }, guestAllowed: true);
-
-        return true;
-    }
-
-    public async Task<GuestNominationDto> ApplyGuestPowerUpAsync(string token, Guid nominationId, string guestSessionId, string type)
-    {
-        var validPowerUps = new HashSet<string> { "Spotlight" };
-        if (!validPowerUps.Contains(type))
-            throw new InvalidOperationException($"Invalid power-up type: {type}");
+        if (!WowCards.TypesFor(kind).Contains(type))
+            throw new InvalidOperationException($"Invalid {WowCards.Noun(kind)} type: {type}");
 
         var nomination = await db.WinNominations
             .Include(n => n.WinWeek).ThenInclude(w => w.Series)
@@ -381,64 +301,26 @@ public class GuestWinOfTheWeekService(AppDbContext db, IHttpContextAccessor http
             throw new InvalidOperationException("Power-ups are disabled for this series.");
 
         if (nomination.WinWeek.Status != WinWeekStatus.Voting && nomination.WinWeek.Status != WinWeekStatus.SuddenDeath)
-            throw new InvalidOperationException("Power-ups can only be applied during voting.");
+            throw new InvalidOperationException($"{WowCards.Plural(kind)} can only be applied during voting.");
 
         if (nomination.GuestSessionId == guestSessionId)
-            throw new InvalidOperationException("You cannot apply a power-up to your own nomination.");
+            throw new InvalidOperationException($"You cannot apply a {WowCards.Noun(kind)} to your own nomination.");
 
-        if (nomination.PowerUp is not null)
-            throw new InvalidOperationException("A power-up has already been applied to this nomination.");
+        if (WowCards.IsApplied(nomination, kind))
+            throw new InvalidOperationException($"A {WowCards.Noun(kind)} has already been applied to this nomination.");
 
         var alreadySpent = await db.WinNominations
             .AnyAsync(n => n.WinWeekId == nomination.WinWeekId && n.GuestCardAppliedBySessionId == guestSessionId);
         if (alreadySpent)
             throw new InvalidOperationException("You have already spent your token this week.");
 
-        nomination.PowerUp = type;
+        WowCards.Set(nomination, kind, type);
         nomination.GuestCardAppliedBySessionId = guestSessionId;
         await db.SaveChangesAsync();
 
-        return MapGuestNominationDto(nomination, guestSessionId);
-    }
-
-    public async Task<GuestNominationDto> ApplyGuestChaosCardAsync(string token, Guid nominationId, string guestSessionId, string type)
-    {
-        var validCards = new HashSet<string> { "TinyText", "Autocorrect", "RandomCase", "Hangman" };
-        if (!validCards.Contains(type))
-            throw new InvalidOperationException($"Invalid chaos card type: {type}");
-
-        var nomination = await db.WinNominations
-            .Include(n => n.WinWeek).ThenInclude(w => w.Series)
-            .Include(n => n.Nominee)
-            .Include(n => n.Votes)
-            .FirstOrDefaultAsync(n => n.Id == nominationId)
-            ?? throw new KeyNotFoundException("Nomination not found.");
-
-        if (nomination.WinWeek.GuestToken != token)
-            throw new KeyNotFoundException("Invalid or expired guest link.");
-
-        if (!(nomination.WinWeek.Series?.PowerUpsEnabled ?? true))
-            throw new InvalidOperationException("Power-ups are disabled for this series.");
-
-        if (nomination.WinWeek.Status != WinWeekStatus.Voting && nomination.WinWeek.Status != WinWeekStatus.SuddenDeath)
-            throw new InvalidOperationException("Chaos cards can only be applied during voting.");
-
-        if (nomination.GuestSessionId == guestSessionId)
-            throw new InvalidOperationException("You cannot apply a chaos card to your own nomination.");
-
-        if (nomination.ChaosCard is not null)
-            throw new InvalidOperationException("A chaos card has already been applied to this nomination.");
-
-        var alreadySpent = await db.WinNominations
-            .AnyAsync(n => n.WinWeekId == nomination.WinWeekId && n.GuestCardAppliedBySessionId == guestSessionId);
-        if (alreadySpent)
-            throw new InvalidOperationException("You have already spent your token this week.");
-
-        nomination.ChaosCard = type;
-        nomination.GuestCardAppliedBySessionId = guestSessionId;
-        await db.SaveChangesAsync();
-
-        return MapGuestNominationDto(nomination, guestSessionId);
+        var dto = MapGuestNominationDto(nomination, guestSessionId);
+        notifier.Broadcast("nomination_updated", new { nomination = dto }, guestAllowed: true);
+        return dto;
     }
 
     public async Task<int> IncrementGuestHypeMeterAsync(string token, Guid nominationId)

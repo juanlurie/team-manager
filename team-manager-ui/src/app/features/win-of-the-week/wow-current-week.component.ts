@@ -7,7 +7,7 @@ import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatDividerModule } from '@angular/material/divider';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { WinWeek, WinNomination, WowNominationDisplay } from '../../core/models/win-week.model';
+import { WinWeek, WinNomination, WowNominationDisplay, WOW_LIMITS } from '../../core/models/win-week.model';
 import { wowPhaseInfo } from '../../shared/utils/wow.utils';
 import { WowNominationCardComponent, ReactionBurst } from '../../shared/components/wow-nomination-card/wow-nomination-card.component';
 import { WowWinnerBannerComponent } from '../../shared/components/wow-winner-banner/wow-winner-banner.component';
@@ -39,7 +39,10 @@ import { AiBadgeComponent } from '../../shared/components/ai-badge/ai-badge.comp
     MatProgressSpinnerModule,
     AiBadgeComponent
   ],
-  changeDetection: ChangeDetectionStrategy.Default,
+  // Presentational: state arrives via input() and local state (quizDifficulty, mobileTab) is
+  // signals mutated only from template clicks. Default meant the parent's 1s countdown tick
+  // dirty-checked this whole 745-line child every second; OnPush stops that.
+  changeDetection: ChangeDetectionStrategy.OnPush,
   styles: [`
     @keyframes hypePulse { 0%,100%{opacity:1} 50%{opacity:0.7} }
     .hype-battle-banner { animation: hypePulse 1.5s ease-in-out infinite; }
@@ -281,12 +284,12 @@ import { AiBadgeComponent } from '../../shared/components/ai-badge/ai-badge.comp
             }
             @if (w?.status === 'Voting') {
               <span style="font-size:0.8rem;opacity:0.6">
-                Votes remaining: <strong>{{ w?.userVotesRemaining ?? 0 }}</strong>/3
+                Votes remaining: <strong>{{ w?.userVotesRemaining ?? 0 }}</strong>/{{ limits.maxVotesPerPerson }}
               </span>
             }
             @if (w?.status === 'Nominating') {
               <span style="font-size:0.8rem;opacity:0.6">
-                Nominations remaining: <strong>{{ w?.userNominationsRemaining ?? 0 }}</strong>/3
+                Nominations remaining: <strong>{{ w?.userNominationsRemaining ?? 0 }}</strong>/{{ limits.maxNominationsPerPerson }}
               </span>
             }
             <!-- Token balance pill -->
@@ -475,7 +478,7 @@ import { AiBadgeComponent } from '../../shared/components/ai-badge/ai-badge.comp
                   <mat-icon style="font-size:12px;width:12px;height:12px;vertical-align:middle">people</mat-icon>
                   {{ connectedCount() }} connected
                 </span>
-                <span>{{ w.totalVotesCast }}{{ connectedCount() > 0 ? ' / ' + (connectedCount() * 3) : '' }} votes cast</span>
+                <span>{{ w.totalVotesCast }}{{ connectedCount() > 0 ? ' / ' + (connectedCount() * limits.maxVotesPerPerson) : '' }} votes cast</span>
               </div>
               <div style="height:4px;border-radius:2px;background:rgba(255,255,255,0.08);overflow:hidden">
                 <div [style.width]="pct + '%'" style="height:100%;background:#4caf50;border-radius:2px;transition:width 0.4s ease"></div>
@@ -549,6 +552,10 @@ import { AiBadgeComponent } from '../../shared/components/ai-badge/ai-badge.comp
   `
 })
 export class WowCurrentWeekComponent {
+  // Per-week caps, single-sourced from the model (mirrors the backend WinOfTheWeekLimits) so the
+  // template can reference them instead of hardcoding "3".
+  protected readonly limits = WOW_LIMITS;
+
   // Host's Quiz Duel difficulty pick (1-15 scale) -- transient UI state, not persisted here;
   // sent along with startQuizClick and persisted on the WinWeek server-side.
   quizDifficulty = signal(8);
@@ -697,7 +704,7 @@ export class WowCurrentWeekComponent {
     const w = this.week();
     const cc = this.connectedCount();
     if (!w || cc === 0) return 0;
-    return Math.min(100, Math.round((w.totalVotesCast / (cc * 3)) * 100));
+    return Math.min(100, Math.round((w.totalVotesCast / (cc * WOW_LIMITS.maxVotesPerPerson)) * 100));
   });
 
   readonly hypeBattleTotal = computed(() => {

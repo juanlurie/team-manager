@@ -88,7 +88,10 @@ function adaptToWinWeek(week: GuestWinWeek): WinWeek {
   selector: 'app-guest-wow',
   standalone: true,
   imports: [FormsModule, MatButtonModule, MatFormFieldModule, MatSelectModule, MatInputModule, MatIconModule, MatTooltipModule, WowCurrentWeekComponent, WowTieBreakSpinnerComponent, AppModalComponent],
-  changeDetection: ChangeDetectionStrategy.Default,
+  // Reactive state (week, timers, reactions) is all signals — the WebSocket handler and every poll
+  // interval update via .set()/.update(). The only plain fields are the ngModel form state
+  // (nomForm/editForm/nameInput), mutated solely from user events, which trigger CD under OnPush.
+  changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <app-wow-tie-break-spinner [show]="isSpinning()" [name]="spinnerName()" />
 

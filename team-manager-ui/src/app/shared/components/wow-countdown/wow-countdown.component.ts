@@ -1,5 +1,6 @@
 import { Component, OnInit, OnDestroy, signal, computed, input, ChangeDetectionStrategy } from '@angular/core';
 
+import { fmtDuration } from '../../../core/utils/time-format';
 
 @Component({
   selector: 'app-wow-countdown',
@@ -45,9 +46,7 @@ export class WowCountdownComponent implements OnInit, OnDestroy {
   readonly display = computed(() => {
     const r = this.remaining();
     if (r === null) return '—';
-    const mins = Math.floor(r / 60000);
-    const secs = Math.floor((r % 60000) / 1000);
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
+    return fmtDuration(Math.floor(r / 1000));
   });
 
   readonly isWarning = computed(() => {
