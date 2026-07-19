@@ -1,0 +1,146 @@
+// ═══════════════════════════════════════════════════════════════════════════
+//  Design System — Tokens (source of truth)
+//  Namespace: --ds-*   ·   Theme: unified dark   ·   Font: Geist
+//
+//  RULE: product code references these tokens, never raw hex.
+//  Change a value here → it changes everywhere, once.
+//
+//  Semantic colour language (shared across WoW, RetroBoard, everything):
+//    primary  azure   · success green · warn amber
+//    danger   red     · accent  pink  · info purple
+//  Retro's pos/neg/act map onto success/warn/accent — same meanings, one palette.
+// ═══════════════════════════════════════════════════════════════════════════
+
+:root {
+  // ── Surfaces (dark ladder, low → high) ───────────────────────────────────
+  --ds-surface-canvas: #0f1117; // app background
+  --ds-surface-1:      #151b24; // cards, panels
+  --ds-surface-2:      #1a2230; // raised: dialogs, sheets, menus
+  --ds-surface-3:      #212b3b; // overlays: popovers, tooltips
+  --ds-surface-sunken: #0b0d12; // wells, inset areas
+
+  --ds-border:         rgba(255, 255, 255, 0.08); // hairlines
+  --ds-border-strong:  rgba(255, 255, 255, 0.14); // dividers, input outlines
+  --ds-overlay-scrim:  rgba(0, 0, 0, 0.60);        // modal backdrop
+
+  // ── Text ──────────────────────────────────────────────────────────────────
+  --ds-text:        #e6e9ef; // primary
+  --ds-text-muted:  #9aa6b8; // secondary / labels
+  --ds-text-faint:  #667085; // hints, disabled, timestamps
+  --ds-text-invert: #0f1117; // on light fills
+
+  // ── Semantic colours ──────────────────────────────────────────────────────
+  //  Each colour: base · hover · soft (tinted bg) · border (tinted) · on (text on solid)
+  --ds-primary:        #5b9df0;
+  --ds-primary-hover:  #74aef4;
+  --ds-primary-soft:   rgba(91, 157, 240, 0.14);
+  --ds-primary-border: rgba(91, 157, 240, 0.35);
+  --ds-primary-on:     #081120;
+
+  --ds-success:        #45b97c;
+  --ds-success-hover:  #5cc78d;
+  --ds-success-soft:   rgba(69, 185, 124, 0.14);
+  --ds-success-border: rgba(69, 185, 124, 0.32);
+  --ds-success-on:     #05130c;
+
+  --ds-warn:           #e6a641;
+  --ds-warn-hover:     #f0b95f;
+  --ds-warn-soft:      rgba(230, 166, 65, 0.14);
+  --ds-warn-border:    rgba(230, 166, 65, 0.32);
+  --ds-warn-on:        #1a1102;
+
+  --ds-danger:         #ef5b58;
+  --ds-danger-hover:   #f37472;
+  --ds-danger-soft:    rgba(239, 91, 88, 0.14);
+  --ds-danger-border:  rgba(239, 91, 88, 0.34);
+  --ds-danger-on:      #1a0605;
+
+  --ds-accent:         #e8628d;
+  --ds-accent-hover:   #ef7ea3;
+  --ds-accent-soft:    rgba(232, 98, 141, 0.14);
+  --ds-accent-border:  rgba(232, 98, 141, 0.32);
+  --ds-accent-on:      #1a0710;
+
+  --ds-info:           #b083e6;
+  --ds-info-hover:     #c29cec;
+  --ds-info-soft:      rgba(176, 131, 230, 0.14);
+  --ds-info-border:    rgba(176, 131, 230, 0.32);
+  --ds-info-on:        #120720;
+
+  --ds-gold:           #f5c542; // trophies, WoW winners, highlights
+
+  // ── Focus ───────────────────────────────────────────────────────────────
+  --ds-focus:      rgba(91, 157, 240, 0.55);
+  --ds-focus-ring: 0 0 0 3px var(--ds-focus);
+
+  // ── Spacing (4px base) ────────────────────────────────────────────────────
+  --ds-space-1:  4px;
+  --ds-space-2:  8px;
+  --ds-space-3:  12px;
+  --ds-space-4:  16px;
+  --ds-space-5:  20px;
+  --ds-space-6:  24px;
+  --ds-space-8:  32px;
+  --ds-space-10: 40px;
+  --ds-space-12: 48px;
+  --ds-space-16: 64px;
+
+  // ── Radius ────────────────────────────────────────────────────────────────
+  --ds-radius-xs:   4px;
+  --ds-radius-sm:   8px;
+  --ds-radius-md:   12px;
+  --ds-radius-lg:   16px;
+  --ds-radius-xl:   20px;
+  --ds-radius-2xl:  28px;
+  --ds-radius-pill: 999px;
+
+  // ── Elevation ─────────────────────────────────────────────────────────────
+  --ds-elev-1: 0 1px 2px rgba(0, 0, 0, 0.35), 0 1px 3px rgba(0, 0, 0, 0.20);
+  --ds-elev-2: 0 4px 12px rgba(0, 0, 0, 0.40);
+  --ds-elev-3: 0 12px 28px rgba(0, 0, 0, 0.50);
+  --ds-elev-4: 0 24px 60px rgba(0, 0, 0, 0.60);
+
+  // ── Typography ────────────────────────────────────────────────────────────
+  --ds-font-sans: 'Geist', Roboto, 'Helvetica Neue', -apple-system, system-ui, sans-serif;
+  --ds-font-mono: 'Geist Mono', ui-monospace, 'SF Mono', 'Cascadia Code', monospace;
+
+  --ds-text-xs:   0.75rem;  // 12
+  --ds-text-sm:   0.8125rem;// 13
+  --ds-text-base: 0.875rem; // 14 — body default
+  --ds-text-md:   0.9375rem;// 15
+  --ds-text-lg:   1.125rem; // 18
+  --ds-text-xl:   1.375rem; // 22
+  --ds-text-2xl:  1.75rem;  // 28
+  --ds-text-3xl:  2.25rem;  // 36 — display
+
+  --ds-weight-regular:  400;
+  --ds-weight-medium:   500;
+  --ds-weight-semibold: 600;
+  --ds-weight-bold:     700;
+
+  --ds-leading-tight:   1.15;
+  --ds-leading-normal:  1.5;
+  --ds-leading-relaxed: 1.65;
+
+  --ds-tracking-tight: -0.01em;
+  --ds-tracking-wide:   0.02em;
+  --ds-tracking-caps:   0.14em; // eyebrows / all-caps labels
+
+  // ── Motion ────────────────────────────────────────────────────────────────
+  --ds-duration-fast: 120ms;
+  --ds-duration-base: 200ms;
+  --ds-duration-slow: 320ms;
+  --ds-ease-standard:   cubic-bezier(0.2, 0, 0, 1);
+  --ds-ease-emphasized: cubic-bezier(0.3, 0, 0, 1);
+  --ds-ease-out:        cubic-bezier(0, 0, 0, 1);
+
+  // ── Layout ────────────────────────────────────────────────────────────────
+  --ds-container-max: 1400px;
+
+  // ── Z-index scale ─────────────────────────────────────────────────────────
+  --ds-z-nav:      100;
+  --ds-z-dropdown: 200;
+  --ds-z-sticky:   300;
+  --ds-z-dialog:   400;
+  --ds-z-toast:    500;
+}

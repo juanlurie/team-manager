@@ -1,4 +1,5 @@
 @use '@angular/material' as mat;
+@use './styles/tokens'; // design-system tokens (--ds-*) — source of truth
 
 $theme: mat.define-theme((
   color: (
@@ -17,7 +18,7 @@ html {
 }
 
 html, body { height: 100%; margin: 0; }
-body { font-family: 'Geist', Roboto, "Helvetica Neue", sans-serif; background: #0f1117; color: #e0e0e0; }
+body { font-family: var(--ds-font-sans); background: var(--ds-surface-canvas); color: var(--ds-text); }
 
 /* ── Self-hosted fonts ── */
 @import '@fontsource/geist/400.css';
@@ -32,8 +33,8 @@ mat-sidenav-content {
 }
 
 .page-container {
-  padding: 24px;
-  max-width: 1400px;
+  padding: var(--ds-space-6);
+  max-width: var(--ds-container-max);
   margin: 0 auto;
   box-sizing: border-box;
 }
@@ -47,8 +48,8 @@ mat-sidenav-content {
 .mat-elevation-z2 { box-shadow: 0 2px 4px rgba(0,0,0,.12); }
 .spacer { flex: 1 1 auto; }
 
-.error-snackbar .mdc-snackbar__surface { background: #c62828 !important; }
-.error-snackbar .mdc-snackbar__label { color: #fff !important; }
+.error-snackbar .mdc-snackbar__surface { background: var(--ds-danger) !important; }
+.error-snackbar .mdc-snackbar__label { color: var(--ds-danger-on) !important; }
 
 /* Prevent iOS Safari auto-zoom on input focus (triggers when font-size < 16px) */
 @media (max-width: 767px) {
@@ -57,7 +58,7 @@ mat-sidenav-content {
   }
 }
 
-.dark-dialog .mat-mdc-dialog-container .mdc-dialog__surface { background: #131e2b !important; }
+.dark-dialog .mat-mdc-dialog-container .mdc-dialog__surface { background: var(--ds-surface-2) !important; }
 
 /* Dialogs full-width on mobile -- scoped to dialog panes only (:has(.mat-mdc-dialog-container)),
    not every .cdk-overlay-pane, since that selector is shared with mat-select/menu/autocomplete
@@ -95,7 +96,7 @@ mat-sidenav-content {
   box-shadow: none !important;
   padding: 0 !important;
   overflow: visible !important;
-  border-radius: 16px !important;
+  border-radius: var(--ds-radius-lg) !important;
 }
 
 .k-picker-panel .mat-mdc-dialog-container .mdc-dialog__content {
@@ -104,7 +105,7 @@ mat-sidenav-content {
 
 /* Semi-transparent backdrop with blur */
 .k-picker-backdrop {
-  background: rgba(0, 0, 0, 0.6) !important;
+  background: var(--ds-overlay-scrim) !important;
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
 }
@@ -133,8 +134,8 @@ mat-sidenav-content {
 
 /* WoW series bottom sheet */
 .wow-series-sheet .mat-bottom-sheet-container {
-  background: #1a2636;
-  border-radius: 16px 16px 0 0;
+  background: var(--ds-surface-2);
+  border-radius: var(--ds-radius-lg) var(--ds-radius-lg) 0 0;
   padding: 0;
   min-width: 100vw;
 }
