@@ -3,11 +3,12 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RetroBoardStore } from '../retro-board.store';
 import { RETRO_STYLES } from '../retro-board.styles';
+import { SessionJoinComponent } from '../../../../shared/components/session-join/session-join.component';
 
 @Component({
   selector: 'app-retro-setup',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, SessionJoinComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   styles: [RETRO_STYLES],
   template: `
@@ -160,6 +161,11 @@ import { RETRO_STYLES } from '../retro-board.styles';
       <div class="card">
         <label class="lbl">Participants · {{ s.participants.length }}</label>
         <div class="muted" style="font-size:12px;margin:-2px 0 12px">Set the team at the top to add everyone at once; anyone else joins with the code.</div>
+        @if (joinUrl(s.slug); as ju) {
+          <div style="display:flex;justify-content:center;margin:4px 0 14px">
+            <app-session-join [url]="ju" [code]="s.slug" [size]="150" />
+          </div>
+        }
         <div style="margin-top:4px">
           @for (p of s.participants; track p.id) {
             <div class="p-row" style="padding:5px 0">
@@ -177,4 +183,10 @@ import { RETRO_STYLES } from '../retro-board.styles';
 export class RetroSetupComponent {
   store = inject(RetroBoardStore);
   showPanel = signal(false);
+
+  /** Public join link for this retro — the slug route the QR encodes and the code button copies.
+   *  Mirrors the store's own join navigation target (['/pulse/retro-board', slug]). */
+  joinUrl(slug: string | null | undefined): string | null {
+    return slug ? `${location.origin}/pulse/retro-board/${slug}` : null;
+  }
 }
