@@ -11,7 +11,7 @@ import { WinWeek, WinNomination, WowNominationDisplay, WOW_LIMITS } from '../../
 import { wowPhaseInfo } from '../../shared/utils/wow.utils';
 import { WowNominationCardComponent, ReactionBurst } from '../../shared/components/wow-nomination-card/wow-nomination-card.component';
 import { WowWinnerBannerComponent } from '../../shared/components/wow-winner-banner/wow-winner-banner.component';
-import { WowCountdownComponent } from '../../shared/components/wow-countdown/wow-countdown.component';
+import { SharedCountdownComponent } from '../../shared/components/shared-countdown/shared-countdown.component';
 import { AppLoadingComponent } from '../../shared/components/app-loading/app-loading.component';
 import { AppEmptyStateComponent } from '../../shared/components/app-empty-state/app-empty-state.component';
 import { AppInfoBannerComponent } from '../../shared/components/app-info-banner/app-info-banner.component';
@@ -31,7 +31,7 @@ import { AiBadgeComponent } from '../../shared/components/ai-badge/ai-badge.comp
     MatDividerModule,
     WowNominationCardComponent,
     WowWinnerBannerComponent,
-    WowCountdownComponent,
+    SharedCountdownComponent,
     AppLoadingComponent,
     AppEmptyStateComponent,
     AppInfoBannerComponent,
@@ -334,7 +334,7 @@ import { AiBadgeComponent } from '../../shared/components/ai-badge/ai-badge.comp
                 <div style="font-size:0.75rem;opacity:0.6;margin-top:2px">Time's ticking!</div>
               </div>
               <div style="text-align:center;min-width:64px">
-                <app-wow-countdown [endsAt]="activeTimerEndsAt()" />
+                <app-shared-countdown [endsAt]="activeTimerEndsAt()" />
               </div>
             </div>
           }
@@ -347,7 +347,7 @@ import { AiBadgeComponent } from '../../shared/components/ai-badge/ai-badge.comp
                 <div style="font-size:0.75rem;opacity:0.6;margin-top:2px">Tap 🔥 Hype on your favourite nomination!</div>
               </div>
               <div style="text-align:center;min-width:64px">
-                <app-wow-countdown [endsAt]="hypeBattleEndsAt()" />
+                <app-shared-countdown [endsAt]="hypeBattleEndsAt()" />
               </div>
             </div>
           }
@@ -374,7 +374,7 @@ import { AiBadgeComponent } from '../../shared/components/ai-badge/ai-badge.comp
                 </div>
                 @if (!w.quizRevealed) {
                   <div style="text-align:center;min-width:64px">
-                    <app-wow-countdown [endsAt]="w.quizEndsAt" />
+                    <app-shared-countdown [endsAt]="w.quizEndsAt" />
                   </div>
                 }
               </div>
@@ -443,7 +443,7 @@ import { AiBadgeComponent } from '../../shared/components/ai-badge/ai-badge.comp
                 <div style="font-size:0.75rem;opacity:0.6;margin-top:2px">Vote now — highest vote wins when time expires</div>
               </div>
               <div style="text-align:center;min-width:64px">
-                <app-wow-countdown [endsAt]="w?.suddenDeathEndsAt ?? null" />
+                <app-shared-countdown [endsAt]="w?.suddenDeathEndsAt ?? null" />
               </div>
             </div>
           }
