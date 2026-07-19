@@ -12,7 +12,7 @@ import { takeUntil, filter } from 'rxjs/operators';
 import { QuizGameService } from '../../core/services/quiz-game.service';
 import { QuizGameMode, QuizGameSession, QuizGameSessionSummary } from '../../core/models/quiz-game.model';
 import { WebSocketService } from '../../core/websocket/websocket.service';
-import { WowCountdownComponent } from '../../shared/components/wow-countdown/wow-countdown.component';
+import { SharedCountdownComponent } from '../../shared/components/shared-countdown/shared-countdown.component';
 import { RevealProgressBarComponent } from '../../shared/components/reveal-progress-bar/reveal-progress-bar.component';
 import { FeatureAccessService } from '../../core/services/feature-access.service';
 import { AiBadgeComponent } from '../../shared/components/ai-badge/ai-badge.component';
@@ -92,7 +92,7 @@ export class CreateQuizGameDialogComponent {
   standalone: true,
   imports: [
     DecimalPipe, FormsModule, MatButtonModule, MatIconModule, MatDialogModule,
-    MatSnackBarModule, MatProgressSpinnerModule, WowCountdownComponent, RevealProgressBarComponent,
+    MatSnackBarModule, MatProgressSpinnerModule, SharedCountdownComponent, RevealProgressBarComponent,
     AiBadgeComponent
   ],
   changeDetection: ChangeDetectionStrategy.Default,
@@ -211,10 +211,10 @@ export class CreateQuizGameDialogComponent {
                 @if (s.gameMode === 'Millionaire') { <span class="mode-tag">Millionaire</span> }
               </div>
               @if (s.gameMode === 'Classic' && s.status === 'InProgress' && !s.currentQuestionRevealed) {
-                <app-wow-countdown [endsAt]="s.currentQuestionEndsAt" />
+                <app-shared-countdown [endsAt]="s.currentQuestionEndsAt" />
               }
               @if (s.gameMode === 'Millionaire' && s.myMillionaireRun?.status === 'Playing' && s.myMillionaireRun?.endsAt) {
-                <app-wow-countdown [endsAt]="s.myMillionaireRun!.endsAt" />
+                <app-shared-countdown [endsAt]="s.myMillionaireRun!.endsAt" />
               }
             </div>
 
