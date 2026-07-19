@@ -48,6 +48,16 @@ export const RETRO_STYLES = `
     /* A selected chip carries both ghost + primary; make primary win (higher specificity) so it highlights. */
     .btn.ghost.primary { background:var(--accent); color:#fff; border-color:transparent; }
     .btn:disabled { opacity:.4; cursor:default; } .btn.sm { padding:6px 11px; font-size:12.5px; }
+    /* Modern toggle switch — the hidden checkbox drives the track/knob via the sibling selector. */
+    .sw-row { display:inline-flex; align-items:center; gap:8px; cursor:pointer; }
+    .sw { width:0; height:0; opacity:0; margin:0; pointer-events:none; }
+    .sw-track { position:relative; width:36px; height:20px; flex-shrink:0; border-radius:20px; background:var(--surface2); border:1px solid var(--border); transition:background .15s, border-color .15s; }
+    .sw-track::before { content:''; position:absolute; top:2px; left:2px; width:14px; height:14px; border-radius:50%; background:var(--mute); transition:transform .15s, background .15s; }
+    .sw:checked + .sw-track { background:color-mix(in srgb, var(--accent) 35%, transparent); border-color:var(--accent); }
+    .sw:checked + .sw-track::before { transform:translateX(16px); background:var(--accent); }
+    .sw:disabled + .sw-track { opacity:.45; } .sw-row:has(.sw:disabled) { cursor:default; }
+    /* A setup section whose phase is switched off: dimmed and non-interactive (re-enable via its switch). */
+    .section-off { opacity:.4; pointer-events:none; filter:grayscale(.4); }
     .card { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:20px; margin-bottom:16px; }
     label.lbl { font-size:11px; letter-spacing:.1em; color:var(--mute); text-transform:uppercase; display:block; margin-bottom:6px; }
     input.f, textarea.f, select.f { width:100%; background:var(--surface2); border:1px solid var(--border); border-radius:9px; padding:10px 12px; color:var(--text); font:inherit; }
@@ -87,7 +97,9 @@ export const RETRO_STYLES = `
     .bar-row { display:flex; align-items:center; gap:8px; margin:2px 0; }
     .bar-track { flex:1; height:8px; border-radius:4px; background:var(--surface2); overflow:hidden; }
     .bar-fill { display:block; height:100%; background:#f5b544; }
-    /* Presentation view — projector-friendly: fill the screen and scale text up. */
+    /* Presentation view — an in-page overlay that fills the viewport and covers the app chrome
+       (nav/whitespace), without browser F11 fullscreen. Scales text up for a projector. */
+    .wrap.present { position:fixed; inset:0; z-index:1000; border-radius:0; height:100vh; overflow-y:auto; }
     .wrap:fullscreen { border-radius:0; height:100vh; overflow-y:auto; }
     .wrap.present .main { font-size:16.5px; } .wrap.present h1 { font-size:30px; }
     .wrap.present .note { padding:14px 16px; } .wrap.present .seg { display:none; }
