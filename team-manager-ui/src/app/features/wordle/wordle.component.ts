@@ -6,12 +6,13 @@ import { MatDialog, MatDialogModule, MatDialogRef } from '@angular/material/dial
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { Subject } from 'rxjs';
-import { takeUntil, filter } from 'rxjs/operators';
+import { takeUntil } from 'rxjs/operators';
 import { WordleService } from '../../core/services/wordle.service';
 import { WordleRoyaleService } from '../../core/services/wordle-royale.service';
 import { WordleSession, WordleSessionSummary } from '../../core/models/wordle.model';
 import { RoyaleStanding, WeeklyRoyale } from '../../core/models/wordle-royale.model';
 import { WebSocketService } from '../../core/websocket/websocket.service';
+import { WordleEvent, WORDLE_EVENT_MATCH } from '../../core/websocket/events/wordle.events';
 import { FeatureAccessService } from '../../core/services/feature-access.service';
 import { NavService } from '../../core/nav/nav.service';
 import { AiBadgeComponent } from '../../shared/components/ai-badge/ai-badge.component';
@@ -639,11 +640,10 @@ export class WordleComponent implements OnInit, OnDestroy, AfterViewChecked {
     this.isMobile.set('ontouchstart' in window || navigator.maxTouchPoints > 0);
     this.loadSessions();
     this.ws.connect();
-    this.ws.messages$.pipe(
+    this.ws.roomEvents<WordleEvent>(WORDLE_EVENT_MATCH).pipe(
       takeUntil(this.destroy$),
-      filter(msg => msg !== null && msg.type.startsWith('wordle_'))
     ).subscribe(msg => {
-      const sessionId = msg!.data['sessionId'] as string | undefined;
+      const sessionId = msg.data['sessionId'] as string | undefined;
       const current = this.selectedSession();
 
       if (current && sessionId === current.id) {

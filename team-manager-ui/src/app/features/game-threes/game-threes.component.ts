@@ -9,6 +9,7 @@ import { Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
 import { GameThreesService } from '../../core/services/game-threes.service';
 import { WebSocketService } from '../../core/websocket/websocket.service';
+import { GameThreesEvent, GAME_THREES_EVENT_TYPES } from '../../core/websocket/events/games.events';
 import { FeatureAccessService } from '../../core/services/feature-access.service';
 import { NavService } from '../../core/nav/nav.service';
 import { GameThreesSession, GameThreesSessionSummary } from '../../core/models/game-threes.model';
@@ -414,8 +415,7 @@ export class GameThreesComponent implements OnInit, OnDestroy, AfterViewInit {
 
   ngOnInit() {
     this.loadSessions();
-    this.ws.messages$.pipe(takeUntil(this.destroy$)).subscribe(msg => {
-      if (!msg) return;
+    this.ws.roomEvents<GameThreesEvent>(GAME_THREES_EVENT_TYPES).pipe(takeUntil(this.destroy$)).subscribe(msg => {
       if (msg.type === 'game_threes_update') {
         const current = this.session();
         if (current) {

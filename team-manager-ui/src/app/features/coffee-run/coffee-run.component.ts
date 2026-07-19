@@ -17,6 +17,7 @@ import { CoffeeRunList, CoffeeRunDetail, CoffeeRunMenuItem, CreateOrderRequest, 
 import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/confirm-dialog.component';
 import { TeamMemberService } from '../../core/services/team-member.service';
 import { WebSocketService } from '../../core/websocket/websocket.service';
+import { CoffeeEvent, COFFEE_EVENT_TYPES } from '../../core/websocket/events/coffee.events';
 
 @Component({
   selector: 'app-coffee-run',
@@ -107,9 +108,8 @@ export class CoffeeRunComponent implements OnInit, OnDestroy {
 
   ngOnInit() {
     this.ws.connect();
-    this.wsSub = this.ws.messages$.subscribe(msg => {
-      if (!msg) return;
-      const type = msg.type as string;
+    this.wsSub = this.ws.roomEvents<CoffeeEvent>(COFFEE_EVENT_TYPES).subscribe(msg => {
+      const type = msg.type;
       if (type === 'coffee_run_status_changed' || type === 'coffee_order_placed' ||
           type === 'coffee_order_updated' || type === 'coffee_order_deleted' ||
           type === 'coffee_menu_updated' || type === 'coffee_item_availability_changed') {

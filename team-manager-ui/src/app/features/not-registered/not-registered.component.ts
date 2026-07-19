@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { AuthService } from '../../core/auth/auth.service';
 import { WebSocketService } from '../../core/websocket/websocket.service';
+import { AccessRequestEvent, ACCESS_REQUEST_EVENT_TYPES } from '../../core/websocket/events/access-request.events';
 
 @Component({
   selector: 'app-not-registered',
@@ -322,8 +323,8 @@ export class NotRegisteredComponent implements OnDestroy {
 
   private listenForApproval() {
     this.wsSvc.connect();
-    this.wsSub = this.wsSvc.messages$.subscribe(msg => {
-      if (!msg || msg.type !== 'access_request_approved') return;
+    this.wsSub = this.wsSvc.roomEvents<AccessRequestEvent>(ACCESS_REQUEST_EVENT_TYPES).subscribe(msg => {
+      if (msg.type !== 'access_request_approved') return;
       const requestId = msg.data['requestId'] as string;
       if (requestId === this.pendingRequestId) {
         this.wsSub?.unsubscribe();

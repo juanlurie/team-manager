@@ -17,6 +17,7 @@ import {
 import { TimesheetDefaultsService } from '../../../../core/services/timesheet-defaults.service';
 import { TimesheetConfigDialogComponent } from '../timesheet-config-dialog/timesheet-config-dialog.component';
 import { WebSocketService } from '../../../../core/websocket/websocket.service';
+import { TimesheetEvent, TIMESHEET_EVENT_TYPES } from '../../../../core/websocket/events/timesheet.events';
 import { TimesheetEntryCardComponent } from '../timesheet-entry-card/timesheet-entry-card.component';
 import { TimesheetQuickAddModalComponent, QuickAddData } from '../timesheet-quick-add-modal/timesheet-quick-add-modal.component';
 import { TimesheetImportDialogComponent, ImportDialogData, ImportResult } from '../timesheet-import-dialog/timesheet-import-dialog.component';
@@ -147,10 +148,8 @@ export class TimesheetTabComponent implements OnInit, OnDestroy {
     });
     this.load();
     this.ws.connect();
-    this.wsSub = this.ws.messages$.subscribe(msg => {
-      if (!msg) return;
-      const types = ['timesheet_entry_created', 'timesheet_entry_updated', 'timesheet_entry_deleted'];
-      if (types.includes(msg.type) && msg.data['memberId'] === this.memberId()) {
+    this.wsSub = this.ws.roomEvents<TimesheetEvent>(TIMESHEET_EVENT_TYPES).subscribe(msg => {
+      if (msg.data['memberId'] === this.memberId()) {
         this.load();
       }
     });

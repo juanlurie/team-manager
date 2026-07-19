@@ -1,16 +1,24 @@
 import { Injectable, inject } from '@angular/core';
-import { BehaviorSubject } from 'rxjs';
+import { BehaviorSubject, Observable } from 'rxjs';
+import { filter, map } from 'rxjs/operators';
 import { OAuthService } from 'angular-oauth2-oidc';
 
-export interface WsMessage {
-  type: 'vote_cast' | 'vote_removed' | 'voting_opened' | 'voting_closed' | 'sudden_death_started' | 'nominations_reopened' | 'nomination_created' | 'nomination_updated' | 'nomination_deleted' | 'retro_action_created' | 'retro_action_updated' | 'retro_action_deleted' | 'retro_card_added' | 'retro_card_deleted' | 'retro_voted' | 'retro_phase_changed' | 'retro_timer_updated' | 'retro_reaction_toggled' | 'retro_icebreaker_answered' | 'presence_changed' | 'scrum_poker_session_created' | 'scrum_poker_vote_cast' | 'scrum_poker_votes_revealed' | 'scrum_poker_session_reset' | 'scrum_poker_session_deleted' | 'timesheet_entry_created' | 'timesheet_entry_updated' | 'timesheet_entry_deleted' | 'win_story_ready' | 'joke_generated' | 'hype_meter_tapped' | 'reaction_sent' | 'wow_timer_started' | 'wow_timer_stopped' | 'wow_hype_battle_started' | 'wow_hype_battle_ended' | 'wow_quiz_started' | 'wow_quiz_answer_submitted' | 'wow_quiz_revealed' | 'wow_quiz_stopped' | 'poll_created' | 'poll_vote_cast' | 'poll_closed' | 'poll_deleted' | 'poll_settings_updated' | 'quiz_game_session_created' | 'quiz_game_participant_joined' | 'quiz_game_started' | 'quiz_game_answer_submitted' | 'quiz_game_question_revealed' | 'quiz_game_next_question' | 'quiz_game_completed' | 'access_request_submitted' | 'access_request_approved' | 'fun_retro_card_added' | 'fun_retro_phase_changed' | 'fun_retro_revealed' | 'fun_retro_voted' | 'fun_retro_reacted' | 'fun_retro_analysed' | 'fun_retro_card_moved' | 'fun_retro_card_color_changed' | 'fun_retro_card_grouped' | 'fun_retro_card_text_updated' | 'fun_retro_timer_updated' | 'fun_retro_settings_updated' | 'fun_retro_icebreaker_answered' | 'fun_retro_presence' | 'fun_retro_comment_added' | 'fun_retro_comment_deleted' | 'fun_retro_token_added' | 'fun_retro_token_moved' | 'fun_retro_token_deleted' | 'fun_retro_token_resized' | 'dots_boxes_update' | 'game_2048_update' | 'game_threes_update' | 'game_ultimate_ttt_update' | 'connections_update' | 'process_flow_node_added' | 'process_flow_node_moved' | 'process_flow_node_resized' | 'process_flow_node_color_changed' | 'process_flow_node_shape_changed' | 'process_flow_node_text_updated' | 'process_flow_node_deleted' | 'process_flow_edge_added' | 'process_flow_edge_deleted' | 'process_flow_edge_reshaped' | 'process_flow_edge_endpoints_changed' | 'process_flow_edge_color_changed' | 'personal_map_node_added' | 'personal_map_node_moved' | 'personal_map_node_resized' | 'personal_map_node_color_changed' | 'personal_map_node_text_updated' | 'personal_map_node_deleted'
-    | 'rb_phase_changed' | 'rb_settings_updated' | 'rb_revealed' | 'rb_live_state' | 'rb_note_added' | 'rb_note_updated' | 'rb_note_deleted' | 'rb_voted' | 'rb_checkin_changed' | 'rb_checkin_responded' | 'rb_action_changed' | 'rb_columns_changed' | 'rb_participant_changed' | 'rb_progress_updated' | 'rb_summary_ready' | 'rb_feedback_changed' | 'rb_feedback_responded' | 'rb_lifecycle_changed' | 'rb_session_deleted';
-  data: Record<string, unknown>;
+// One raw event envelope on the shared socket. `TType`/`TData` let each feature declare its own
+// discriminated union of the events it actually cares about (see core/websocket/events/*), so a
+// consumer works with a stream narrowed to its own room instead of the app-wide god-union that
+// used to live here. The wire shape is unchanged.
+export interface WsEvent<TType extends string = string, TData = Record<string, unknown>> {
+  type: TType;
+  data: TData;
   // Monotonic per-server sequence stamped on every broadcast. Lets consumers discard a message
   // they've already applied (e.g. an event also captured by a post-reconnect snapshot) or a stale
   // straggler. Optional: not every historical producer/path sets it.
   seq?: number;
 }
+
+// The untyped envelope, for the raw firehose (`messages$`) and the few genuinely cross-feature
+// consumers. Feature code should prefer `roomEvents<FeatureEvent>(prefix)` instead.
+export type WsMessage = WsEvent;
 
 @Injectable({ providedIn: 'root' })
 export class WebSocketService {
@@ -33,6 +41,20 @@ export class WebSocketService {
 
   messages$ = this._messages$.asObservable();
   connected$ = this._connected$.asObservable();
+
+  // Typed, feature-scoped view of the shared socket. Give it the event-name prefix(es) that
+  // namespace a feature (e.g. 'poll_', or ['wow_', 'hype_meter_tapped']) and the discriminated
+  // union it produces; you get a non-null stream of only that feature's events, with `type`
+  // narrowing on the union. Replaces the per-consumer `messages$.pipe(filter(m => m && m.type
+  // .startsWith(...)))` boilerplate. Room-id disambiguation (e.g. data['sessionId'] === myId)
+  // stays in the consumer, since it's usually conditional feature logic. See docs/session-platform.md.
+  roomEvents<T extends WsEvent>(match: string | readonly string[]): Observable<T> {
+    const prefixes = typeof match === 'string' ? [match] : match;
+    return this._messages$.pipe(
+      filter((m): m is WsMessage => m !== null && prefixes.some(p => m.type.startsWith(p))),
+      map(m => m as unknown as T),
+    );
+  }
 
   constructor() {
     // A backgrounded/inactive tab has setInterval throttled by the browser (Chrome clamps it to

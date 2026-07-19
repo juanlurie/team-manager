@@ -17,6 +17,7 @@ import { WinOfTheWeekService } from '../../core/services/win-of-the-week.service
 import { WinOfTheMonthService } from '../../core/services/win-of-the-month.service';
 import { TeamMemberService } from '../../core/services/team-member.service';
 import { WebSocketService } from '../../core/websocket/websocket.service';
+import { WowEvent, WOW_EVENT_TYPES } from '../../core/websocket/events/wow.events';
 import { MobileService } from '../../core/services/mobile.service';
 import { WinWeek, WinNomination, WinSeries, CreateNominationRequest, WowNominationDisplay } from '../../core/models/win-week.model';
 import { TeamMember } from '../../core/models/team-member.model';
@@ -414,8 +415,8 @@ export class WinOfTheWeekComponent implements OnInit, OnDestroy {
       }
     });
     this.wsSub?.add(connSub);
-    this.wsSub = this.wsSvc.messages$.subscribe(msg => {
-      if (!msg || this.activeTab() !== 'current') return;
+    this.wsSub = this.wsSvc.roomEvents<WowEvent>(WOW_EVENT_TYPES).subscribe(msg => {
+      if (this.activeTab() !== 'current') return;
       switch (msg.type) {
         case 'presence_changed': {
           const count = msg.data['connectedCount'] as number;

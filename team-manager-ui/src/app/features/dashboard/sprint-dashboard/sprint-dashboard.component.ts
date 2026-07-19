@@ -27,6 +27,7 @@ import { IconButtonComponent } from '../../../shared/components/icon-btn/icon-bt
 import { CurrentSprintCardComponent } from '../../../shared/components/current-sprint-card/current-sprint-card.component';
 import { LeaveSummaryCardComponent } from '../leave-summary-card/leave-summary-card.component';
 import { WebSocketService } from '../../../core/websocket/websocket.service';
+import { RetroEvent, RETRO_EVENT_TYPES } from '../../../core/websocket/events/retro.events';
 
 const STATUS_ORDER  = ['Released', 'ReadyForRelease', 'InProgress', 'Completed', 'Planned'] as const;
 const STATUS_LABEL: Record<string, string> = {
@@ -156,8 +157,7 @@ export class SprintDashboardComponent implements OnInit, OnDestroy {
     });
 
     this.wsSvc.connect();
-    this.wsSub = this.wsSvc.messages$.subscribe(msg => {
-      if (!msg) return;
+    this.wsSub = this.wsSvc.roomEvents<RetroEvent>(RETRO_EVENT_TYPES).subscribe(msg => {
       if (msg.type === 'retro_action_created' || msg.type === 'retro_action_updated' || msg.type === 'retro_action_deleted') {
         const sprint = this.currentSprint();
         if (sprint) {

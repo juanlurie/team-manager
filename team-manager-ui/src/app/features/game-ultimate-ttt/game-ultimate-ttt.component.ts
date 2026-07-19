@@ -8,6 +8,7 @@ import { Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
 import { GameUltimateTttService } from '../../core/services/game-ultimate-ttt.service';
 import { WebSocketService } from '../../core/websocket/websocket.service';
+import { GameUltimateTttEvent, GAME_ULTIMATE_TTT_EVENT_TYPES } from '../../core/websocket/events/games.events';
 import { FeatureAccessService } from '../../core/services/feature-access.service';
 import { NavService } from '../../core/nav/nav.service';
 import { GameUltimateTttSession, GameUltimateTttSessionSummary } from '../../core/models/game-ultimate-ttt.model';
@@ -422,8 +423,7 @@ export class GameUltimateTttComponent implements OnInit, OnDestroy {
 
   ngOnInit() {
     this.loadSessions();
-    this.ws.messages$.pipe(takeUntil(this.destroy$)).subscribe(msg => {
-      if (!msg) return;
+    this.ws.roomEvents<GameUltimateTttEvent>(GAME_ULTIMATE_TTT_EVENT_TYPES).pipe(takeUntil(this.destroy$)).subscribe(msg => {
       if (msg.type === 'game_ultimate_ttt_update') {
         const current = this.session();
         if (current) {
