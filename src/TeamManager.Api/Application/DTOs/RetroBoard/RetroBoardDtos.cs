@@ -18,6 +18,7 @@ public record RetroBoardSessionDto
     public int VotesPerUser { get; init; }
     public int MyVotesUsed { get; init; }
     public bool AllowAnonymous { get; init; }
+    public bool AllowGuestJoin { get; init; }
     public bool HideNotesUntilReveal { get; init; }
     public bool NotesRevealed { get; init; }
     public bool IsArchived { get; init; }
@@ -100,7 +101,10 @@ public record RetroBoardCheckinQuestionDto
 public record RetroBoardParticipantDto
 {
     public Guid Id { get; init; }
-    public Guid MemberId { get; init; }
+    /// <summary>Null for a guest participant (no member record); see <see cref="IsGuest"/>.</summary>
+    public Guid? MemberId { get; init; }
+    /// <summary>True when this participant joined as a guest (name-only, no member link).</summary>
+    public bool IsGuest { get; init; }
     public string Name { get; init; } = "";
     public string? AvatarSeed { get; init; }
     public string Role { get; init; } = "participant";

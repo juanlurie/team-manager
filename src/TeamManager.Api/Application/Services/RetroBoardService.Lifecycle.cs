@@ -173,8 +173,8 @@ public partial class RetroBoardService
                 .Select(sm => sm.TeamMemberId)
                 .ToListAsync();
             var already = await db.RetroBoardParticipants
-                .Where(p => p.RetroBoardSessionId == sessionId)
-                .Select(p => p.MemberId)
+                .Where(p => p.RetroBoardSessionId == sessionId && p.MemberId != null)
+                .Select(p => p.MemberId!.Value)
                 .ToListAsync();
             foreach (var newMemberId in squadMemberIds.Except(already))
                 db.RetroBoardParticipants.Add(new RetroBoardParticipant { RetroBoardSessionId = sessionId, MemberId = newMemberId, Role = Role.Participant });
