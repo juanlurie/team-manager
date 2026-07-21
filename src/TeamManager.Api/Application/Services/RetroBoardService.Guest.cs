@@ -29,7 +29,7 @@ public partial class RetroBoardService
 
         return new GuestRetroBoardDto
         {
-            Board = ToDto(session, memberId: null),
+            Board = ToDto(session, memberId: null, guestSessionId: guestSessionId),
             HasJoined = me is not null,
             DisplayName = me?.DisplayName,
         };
@@ -76,6 +76,101 @@ public partial class RetroBoardService
         Broadcast(sessionId.Value, "rb_participant_changed");
 
         return (RetroActionResult.Ok, await GetGuestBoardAsync(slug, guestSessionId));
+    }
+
+    // ---------- Guest contributions (notes + votes) ----------
+
+    /// <summary>Add a note as a guest. Attribution is the guest's session id (or nothing, when the
+    /// board allows anonymous content and the guest opts in) — never a member id.</summary>
+    public async Task<(RetroActionResult result, GuestRetroBoardDto? board)> AddGuestNoteAsync(
+        string slug, string guestSessionId, AddRetroBoardNoteRequest req)
+    {
+        var (guard, session, _) = await GuardGuestAsync(slug, guestSessionId);
+        if (guard != RetroActionResult.Ok) return (guard, null);
+        if (string.IsNullOrWhiteSpace(req.Text)) return (RetroActionResult.Invalid, null);
+        if (!await db.RetroBoardColumns.AnyAsync(c => c.Id == req.ColumnId && c.RetroBoardSessionId == session!.Id))
+            return (RetroActionResult.NotFound, null);
+
+        var anon = req.IsAnonymous && session!.AllowAnonymous;
+        db.RetroBoardNotes.Add(new RetroBoardNote
+        {
+            RetroBoardSessionId = session!.Id,
+            RetroBoardColumnId = req.ColumnId,
+            AuthorGuestSessionId = anon ? null : guestSessionId,   // authorship isn't stored for anonymous notes
+            IsAnonymous = anon,
+            Text = req.Text.Trim(),
+        });
+        await db.SaveChangesAsync();
+        Broadcast(session.Id, "rb_note_added", new { sessionId = session.Id });
+        return (RetroActionResult.Ok, await GetGuestBoardAsync(slug, guestSessionId));
+    }
+
+    /// <summary>Delete a note as a guest — only the guest's own note.</summary>
+    public async Task<(RetroActionResult result, GuestRetroBoardDto? board)> DeleteGuestNoteAsync(
+        string slug, string guestSessionId, Guid noteId)
+    {
+        var (guard, session, _) = await GuardGuestAsync(slug, guestSessionId);
+        if (guard != RetroActionResult.Ok) return (guard, null);
+        var note = await db.RetroBoardNotes.FirstOrDefaultAsync(n => n.Id == noteId && n.RetroBoardSessionId == session!.Id);
+        if (note is null) return (RetroActionResult.NotFound, null);
+        if (note.AuthorGuestSessionId != guestSessionId) return (RetroActionResult.Forbidden, null);   // own notes only
+        db.RetroBoardNotes.Remove(note);
+        await db.SaveChangesAsync();
+        Broadcast(session!.Id, "rb_note_deleted", new { sessionId = session.Id, noteId });
+        return (RetroActionResult.Ok, await GetGuestBoardAsync(slug, guestSessionId));
+    }
+
+    /// <summary>Cast a vote as a guest. Same caps as a member (VotesPerUser total, 3 per note), counted
+    /// against the guest's session id.</summary>
+    public async Task<(RetroActionResult result, string? error)> AddGuestVoteAsync(string slug, string guestSessionId, Guid noteId)
+    {
+        var (guard, session, _) = await GuardGuestAsync(slug, guestSessionId);
+        if (guard != RetroActionResult.Ok) return (guard, guard == RetroActionResult.Closed ? "This retro is closed." : null);
+        if (!await db.RetroBoardNotes.AnyAsync(n => n.Id == noteId && n.RetroBoardSessionId == session!.Id))
+            return (RetroActionResult.NotFound, "Note not found.");
+
+        var used = await db.RetroBoardVotes.CountAsync(v => v.Note!.RetroBoardSessionId == session!.Id && v.GuestSessionId == guestSessionId);
+        if (used >= session!.VotesPerUser) return (RetroActionResult.Conflict, "No votes left.");
+        var onThisNote = await db.RetroBoardVotes.CountAsync(v => v.RetroBoardNoteId == noteId && v.GuestSessionId == guestSessionId);
+        if (onThisNote >= 3) return (RetroActionResult.Conflict, "Max 3 votes per topic.");
+
+        db.RetroBoardVotes.Add(new RetroBoardVote { RetroBoardNoteId = noteId, GuestSessionId = guestSessionId });
+        await db.SaveChangesAsync();
+        Broadcast(session.Id, "rb_voted", new { sessionId = session.Id, noteId });
+        return (RetroActionResult.Ok, null);
+    }
+
+    /// <summary>Remove one of the guest's own votes from a note.</summary>
+    public async Task<RetroActionResult> RemoveGuestVoteAsync(string slug, string guestSessionId, Guid noteId)
+    {
+        var (guard, session, _) = await GuardGuestAsync(slug, guestSessionId);
+        if (guard != RetroActionResult.Ok) return guard;
+        var vote = await db.RetroBoardVotes
+            .Where(v => v.RetroBoardNoteId == noteId && v.GuestSessionId == guestSessionId && v.Note!.RetroBoardSessionId == session!.Id)
+            .OrderByDescending(v => v.CreatedAt)
+            .FirstOrDefaultAsync();
+        if (vote is null) return RetroActionResult.NotFound;
+        db.RetroBoardVotes.Remove(vote);
+        await db.SaveChangesAsync();
+        Broadcast(session!.Id, "rb_voted", new { sessionId = session.Id, noteId });
+        return RetroActionResult.Ok;
+    }
+
+    /// <summary>The gate for a guest mutation: the board must exist, allow guests, be open, and the
+    /// caller must already be a joined guest participant (named themselves via <see cref="JoinGuestAsync"/>).
+    /// Returns the tracked session + the caller's participant row for the write to use.</summary>
+    private async Task<(RetroActionResult result, RetroBoardSession? session, RetroBoardParticipant? me)> GuardGuestAsync(
+        string slug, string guestSessionId)
+    {
+        var sessionId = await ResolveSessionIdAsync(slug);
+        if (sessionId is null) return (RetroActionResult.NotFound, null, null);
+        var session = await db.RetroBoardSessions.FindAsync(sessionId.Value);
+        if (session is null || !session.AllowGuestJoin) return (RetroActionResult.NotFound, null, null);
+        if (session.Status == Status.Closed) return (RetroActionResult.Closed, null, null);
+        var me = await db.RetroBoardParticipants
+            .FirstOrDefaultAsync(p => p.RetroBoardSessionId == sessionId.Value && p.GuestSessionId == guestSessionId);
+        if (me is null) return (RetroActionResult.Forbidden, null, null);   // must join (name yourself) first
+        return (RetroActionResult.Ok, session, me);
     }
 
     /// <summary>Loads the full board graph for the guest read path, but only when the session opts into

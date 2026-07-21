@@ -7,8 +7,14 @@ public class RetroBoardNote
     public Guid RetroBoardSessionId { get; set; }
     public Guid RetroBoardColumnId { get; set; }
 
-    /// <summary>Author, or null when posted anonymously (AllowAnonymous).</summary>
+    /// <summary>Authoring member, or null when the note is anonymous OR was posted by a guest
+    /// (see <see cref="AuthorGuestSessionId"/>).</summary>
     public Guid? AuthorMemberId { get; set; }
+
+    /// <summary>Authoring guest's server-issued session id, or null when a member posted it (or it's
+    /// anonymous). At most one of AuthorMemberId / AuthorGuestSessionId is set.</summary>
+    public string? AuthorGuestSessionId { get; set; }
+
     public bool IsAnonymous { get; set; }
     public string Text { get; set; } = string.Empty;
 
