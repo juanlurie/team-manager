@@ -116,10 +116,16 @@ import { RetroSummaryComponent } from './phases/retro-summary.component';
           <h4>Participants · {{ s.participants.length }}</h4>
           @for (p of s.participants; track p.id) {
             <div class="p-row">
-              <span class="avatar" [style.background]="store.tint(p.memberId)" [style.color]="store.ink(p.memberId)">{{ store.initials(p.name) }}</span>
+              <span class="avatar" [style.background]="store.tint(p.memberId ?? p.id)" [style.color]="store.ink(p.memberId ?? p.id)">{{ store.initials(p.name) }}</span>
               <span>{{ store.shortName(p.name) }}</span>
               @if (p.role === 'facilitator') { <span class="crown">★</span> }
               @else if (store.amFacilitator() && (s.status === 'open' || s.phase === 'checkin') && p.responded['checkin']) { <span class="tick" title="Checked in">✓</span> }
+              @if (store.canManageHost(p)) {
+                <button class="host-btn" (click)="store.setHost(p, p.role !== 'facilitator')"
+                        [title]="p.role === 'facilitator' ? 'Remove host' : 'Make host'">
+                  {{ p.role === 'facilitator' ? '− host' : '+ host' }}
+                </button>
+              }
             </div>
           }
         </aside>
