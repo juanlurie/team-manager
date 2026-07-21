@@ -68,7 +68,10 @@ export interface RetroBoardCheckinQuestion {
 
 export interface RetroBoardParticipant {
   id: string;
-  memberId: string;
+  /** Null for a guest participant (no member record). */
+  memberId: string | null;
+  /** True when this participant joined as a guest (name-only, no member link). */
+  isGuest: boolean;
   name: string;
   avatarSeed: string | null;
   role: 'facilitator' | 'participant';
@@ -123,6 +126,8 @@ export interface RetroBoardSession {
   votesPerUser: number;
   myVotesUsed: number;
   allowAnonymous: boolean;
+  /** Whether someone with no member record for this session's team may join as a named guest. */
+  allowGuestJoin: boolean;
   hideNotesUntilReveal: boolean;
   notesRevealed: boolean;
   isArchived: boolean;
@@ -143,6 +148,14 @@ export interface RetroBoardSession {
   participants: RetroBoardParticipant[];
   actions: RetroBoardAction[];
   feedbackPrompts: RetroBoardFeedbackPrompt[];
+}
+
+/** What a guest sees for a board reached by its slug: the board (guest projection), whether this
+ *  caller has already joined, and the name they joined under. Mirrors the API's GuestRetroBoardDto. */
+export interface GuestRetroBoard {
+  board: RetroBoardSession;
+  hasJoined: boolean;
+  displayName: string | null;
 }
 
 export interface RetroBoardSummary {

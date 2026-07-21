@@ -169,7 +169,7 @@ import { SessionJoinComponent } from '../../../../shared/components/session-join
         <div style="margin-top:4px">
           @for (p of s.participants; track p.id) {
             <div class="p-row" style="padding:5px 0">
-              <span class="avatar" [style.background]="store.tint(p.memberId)" [style.color]="store.ink(p.memberId)">{{ store.initials(p.name) }}</span>
+              <span class="avatar" [style.background]="store.tint(p.memberId ?? p.id)" [style.color]="store.ink(p.memberId ?? p.id)">{{ store.initials(p.name) }}</span>
               <span>{{ p.name }}</span>
               @if (p.role === 'facilitator') { <span class="crown">★</span> }
             </div>
@@ -185,8 +185,9 @@ export class RetroSetupComponent {
   showPanel = signal(false);
 
   /** Public join link for this retro — the slug route the QR encodes and the code button copies.
-   *  Mirrors the store's own join navigation target (['/pulse/retro-board', slug]). */
+   *  Points at the unguarded guest landing so a not-signed-in scanner isn't bounced to login;
+   *  signed-in members are auto-recognized there and forwarded to the authed board. */
   joinUrl(slug: string | null | undefined): string | null {
-    return slug ? `${location.origin}/pulse/retro-board/${slug}` : null;
+    return slug ? `${location.origin}/guest/retro-board/${slug}` : null;
   }
 }

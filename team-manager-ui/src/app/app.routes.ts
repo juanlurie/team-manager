@@ -122,6 +122,11 @@ export const routes: Routes = [
     ]
   },
   // Guest access (no auth required)
+  // Listed before the 'guest' loadChildren so this fuller path matches first.
+  {
+    path: 'guest/retro-board/:slug',
+    loadComponent: () => import('./features/fun/retro-board/guest/guest-retro.component').then(m => m.GuestRetroComponent)
+  },
   {
     path: 'guest',
     loadChildren: () => import('./features/guest-wow/guest-wow.routes').then(m => m.GUEST_WOW_ROUTES)
