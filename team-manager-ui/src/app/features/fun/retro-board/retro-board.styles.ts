@@ -33,6 +33,7 @@ export const RETRO_STYLES = `
     .crown { margin-left:auto; color:#f5b544; font-size:12px; } .tick { margin-left:auto; color:#34d67f; }
     .host-btn { margin-left:auto; font-size:10.5px; font-weight:600; padding:2px 8px; border-radius:999px; border:1px solid var(--ds-border-strong, rgba(255,255,255,.16)); background:transparent; color:var(--ds-text-muted, #9aa6b8); cursor:pointer; white-space:nowrap; }
     .host-btn:hover { border-color:var(--ds-primary, #5b9df0); color:var(--ds-primary, #5b9df0); }
+    .guest-tag { font-size:9.5px; font-weight:700; letter-spacing:.4px; text-transform:uppercase; padding:1px 6px; border-radius:999px; background:var(--ds-primary-soft, rgba(91,157,240,.14)); color:var(--ds-primary, #5b9df0); }
     .main { padding:26px 30px; overflow-y:auto; }
     /* Setup renders outside the rail/grid, so centre it for a focused single-column config screen. */
     .setup-main { max-width:920px; margin:0 auto; }

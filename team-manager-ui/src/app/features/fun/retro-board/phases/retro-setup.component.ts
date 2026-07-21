@@ -171,6 +171,7 @@ import { SessionJoinComponent } from '../../../../shared/components/session-join
             <div class="p-row" style="padding:5px 0">
               <span class="avatar" [style.background]="store.tint(p.memberId ?? p.id)" [style.color]="store.ink(p.memberId ?? p.id)">{{ store.initials(p.name) }}</span>
               <span>{{ p.name }}</span>
+              @if (p.isGuest) { <span class="guest-tag">guest</span> }
               @if (p.role === 'facilitator') { <span class="crown">★</span> }
               @if (store.canManageHost(p)) {
                 <button class="host-btn" (click)="store.setHost(p, p.role !== 'facilitator')"

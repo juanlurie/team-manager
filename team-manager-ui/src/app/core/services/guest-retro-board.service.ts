@@ -24,4 +24,24 @@ export class GuestRetroBoardService {
   join(slug: string, displayName: string): Observable<GuestRetroBoard> {
     return this.http.post<GuestRetroBoard>(`${this.base}/${encodeURIComponent(slug)}/join`, { displayName });
   }
+
+  /** Add a note as a guest. Returns the refreshed board. */
+  addNote(slug: string, req: { columnId: string; text: string; isAnonymous: boolean }): Observable<GuestRetroBoard> {
+    return this.http.post<GuestRetroBoard>(`${this.base}/${encodeURIComponent(slug)}/notes`, req);
+  }
+
+  /** Delete one of the guest's own notes. Returns the refreshed board. */
+  deleteNote(slug: string, noteId: string): Observable<GuestRetroBoard> {
+    return this.http.delete<GuestRetroBoard>(`${this.base}/${encodeURIComponent(slug)}/notes/${noteId}`);
+  }
+
+  /** Cast a vote on a note (204). */
+  vote(slug: string, noteId: string): Observable<void> {
+    return this.http.post<void>(`${this.base}/${encodeURIComponent(slug)}/notes/${noteId}/vote`, {});
+  }
+
+  /** Remove one of the guest's votes from a note (204). */
+  unvote(slug: string, noteId: string): Observable<void> {
+    return this.http.delete<void>(`${this.base}/${encodeURIComponent(slug)}/notes/${noteId}/vote`);
+  }
 }
