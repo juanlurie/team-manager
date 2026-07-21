@@ -266,3 +266,19 @@ public record UpdateRetroBoardActionRequest
     public DateOnly? DueDate { get; init; }
     public List<Guid>? AssigneeMemberIds { get; init; }
 }
+
+// ---------- Guest (non-member) access ----------
+
+/// <summary>What a guest sees for a board reached by its slug: the board itself (guest projection),
+/// plus whether this caller has already joined and the name they joined under.</summary>
+public record GuestRetroBoardDto
+{
+    public RetroBoardSessionDto Board { get; init; } = null!;
+    public bool HasJoined { get; init; }
+    public string? DisplayName { get; init; }
+}
+
+public record GuestJoinRetroRequest
+{
+    public string DisplayName { get; init; } = "";
+}
