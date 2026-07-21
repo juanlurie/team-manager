@@ -1,21 +1,21 @@
 import { Component, OnInit, OnDestroy, inject, signal, ChangeDetectionStrategy } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
-import { Subject, interval } from 'rxjs';
+import { Subject, interval, Observable, EMPTY } from 'rxjs';
 import { filter, take, takeUntil, switchMap, catchError } from 'rxjs/operators';
-import { EMPTY } from 'rxjs';
 import { AuthService } from '../../../../core/auth/auth.service';
 import { GuestRetroBoardService } from '../../../../core/services/guest-retro-board.service';
 import { GuestRetroBoard } from '../../../../core/models/retro-board.model';
-import { GuestRetroBoardViewComponent } from './guest-retro-board-view.component';
+import { GuestRetroBoardViewComponent, GuestNoteDraft } from './guest-retro-board-view.component';
 
 type View = 'loading' | 'notFound' | 'join' | 'board';
 
 /**
  * Public (unguarded) landing for a RetroBoard join link / QR. Recognizes an already-signed-in member
  * and sends them to the authed board; otherwise offers the guest path (name entry, when the board
- * allows guests) or sign-in. Once joined, hosts the read-only guest board and keeps it fresh by
- * polling (guests have no WebSocket yet). See docs/session-identity.md.
+ * allows guests) or sign-in. Once joined, hosts the guest board — the guest can add/delete their own
+ * notes and vote — and keeps it fresh by polling (guests have no WebSocket yet). Contribution intents
+ * come up from the board view; this owns the calls and the board state. See docs/session-identity.md.
  */
 @Component({
   selector: 'app-guest-retro',
@@ -96,7 +96,10 @@ type View = 'loading' | 'notFound' | 'join' | 'board';
               <span class="chip" [class.guest]="p.isGuest">{{ p.name }}{{ p.isGuest ? ' (guest)' : '' }}</span>
             }
           </div>
-          <app-guest-retro-board-view [board]="board()!.board" />
+          @if (error()) { <p class="err" style="text-align:left;margin:-8px 0 14px">{{ error() }}</p> }
+          <app-guest-retro-board-view [board]="board()!.board" [interactive]="interactive()"
+            (addNote)="onAddNote($event)" (deleteNote)="onDeleteNote($event)"
+            (vote)="onVote($event)" (unvote)="onUnvote($event)" />
         </div>
       }
     }
@@ -112,6 +115,7 @@ export class GuestRetroComponent implements OnInit, OnDestroy {
   view = signal<View>('loading');
   board = signal<GuestRetroBoard | null>(null);
   joining = signal(false);
+  busy = signal(false);
   error = signal<string | null>(null);
   name = '';
 
@@ -119,6 +123,8 @@ export class GuestRetroComponent implements OnInit, OnDestroy {
 
   title() { return this.board()?.board.title || 'Retrospective'; }
   allowGuest() { return this.board()?.board.allowGuestJoin ?? false; }
+  /** Contributions are allowed while the retro is open (not closed) and no action is in flight. */
+  interactive() { return this.board()?.board.status !== 'closed' && !this.busy(); }
 
   ngOnInit() {
     this.slug = this.route.snapshot.paramMap.get('slug') ?? '';
@@ -168,7 +174,37 @@ export class GuestRetroComponent implements OnInit, OnDestroy {
 
   signIn() { this.auth.login(this.router.url); }
 
-  // Guests have no WebSocket yet, so refresh the read-only board on a gentle poll.
+  // ── Contributions (the view emits intents; we perform them and feed back the board) ──
+  onAddNote(d: GuestNoteDraft) { this.applyBoard(this.svc.addNote(this.slug, d), "Couldn't add that note — try again."); }
+  onDeleteNote(noteId: string) { this.applyBoard(this.svc.deleteNote(this.slug, noteId), "Couldn't delete that note."); }
+  onVote(noteId: string) { this.applyVote(this.svc.vote(this.slug, noteId), "Vote didn't go through — you may be out of votes."); }
+  onUnvote(noteId: string) { this.applyVote(this.svc.unvote(this.slug, noteId), "Couldn't remove that vote."); }
+
+  // Note add/delete return the refreshed board; use it directly.
+  private applyBoard(obs: Observable<GuestRetroBoard>, errMsg: string) {
+    if (this.busy()) return;
+    this.busy.set(true); this.error.set(null);
+    obs.pipe(takeUntil(this.destroy$)).subscribe({
+      next: b => { this.board.set(b); this.busy.set(false); },
+      error: () => { this.busy.set(false); this.error.set(errMsg); this.reload(); },
+    });
+  }
+
+  // Vote/unvote return 204; refetch to reflect the new counts.
+  private applyVote(obs: Observable<void>, errMsg: string) {
+    if (this.busy()) return;
+    this.busy.set(true); this.error.set(null);
+    obs.pipe(takeUntil(this.destroy$)).subscribe({
+      next: () => { this.busy.set(false); this.reload(); },
+      error: () => { this.busy.set(false); this.error.set(errMsg); this.reload(); },
+    });
+  }
+
+  private reload() {
+    this.svc.getBoard(this.slug).pipe(takeUntil(this.destroy$)).subscribe({ next: b => this.board.set(b) });
+  }
+
+  // Guests have no WebSocket yet, so refresh the board on a gentle poll.
   private startPolling() {
     interval(4000).pipe(
       switchMap(() => this.svc.getBoard(this.slug).pipe(catchError(() => EMPTY))),

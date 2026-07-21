@@ -118,6 +118,7 @@ import { RetroSummaryComponent } from './phases/retro-summary.component';
             <div class="p-row">
               <span class="avatar" [style.background]="store.tint(p.memberId ?? p.id)" [style.color]="store.ink(p.memberId ?? p.id)">{{ store.initials(p.name) }}</span>
               <span>{{ store.shortName(p.name) }}</span>
+              @if (p.isGuest) { <span class="guest-tag">guest</span> }
               @if (p.role === 'facilitator') { <span class="crown">★</span> }
               @else if (store.amFacilitator() && (s.status === 'open' || s.phase === 'checkin') && p.responded['checkin']) { <span class="tick" title="Checked in">✓</span> }
               @if (store.canManageHost(p)) {
