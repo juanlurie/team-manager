@@ -8,10 +8,11 @@ import { MatDialog, MatDialogModule, MatDialogRef } from '@angular/material/dial
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { Subject } from 'rxjs';
-import { takeUntil, filter } from 'rxjs/operators';
+import { takeUntil } from 'rxjs/operators';
 import { QuizGameService } from '../../core/services/quiz-game.service';
 import { QuizGameMode, QuizGameSession, QuizGameSessionSummary } from '../../core/models/quiz-game.model';
 import { WebSocketService } from '../../core/websocket/websocket.service';
+import { QuizGameEvent, QUIZ_GAME_EVENT_TYPES } from '../../core/websocket/events/quiz-game.events';
 import { SharedCountdownComponent } from '../../shared/components/shared-countdown/shared-countdown.component';
 import { RevealProgressBarComponent } from '../../shared/components/reveal-progress-bar/reveal-progress-bar.component';
 import { FeatureAccessService } from '../../core/services/feature-access.service';
@@ -498,11 +499,10 @@ export class QuizGameComponent implements OnInit, OnDestroy {
   ngOnInit() {
     this.loadSessions();
     this.ws.connect();
-    this.ws.messages$.pipe(
+    this.ws.roomEvents<QuizGameEvent>(QUIZ_GAME_EVENT_TYPES).pipe(
       takeUntil(this.destroy$),
-      filter(msg => msg !== null && msg.type.startsWith('quiz_game_'))
     ).subscribe(msg => {
-      const sessionId = msg!.data['sessionId'] as string | undefined;
+      const sessionId = msg.data['sessionId'] as string | undefined;
       const current = this.selectedSession();
 
       if (current && sessionId === current.id) {

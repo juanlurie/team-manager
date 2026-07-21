@@ -14,6 +14,7 @@ import { takeUntil, filter } from 'rxjs/operators';
 import { PollService } from '../../core/services/poll.service';
 import { PollDetail, PollSummary } from '../../core/models/poll.model';
 import { WebSocketService } from '../../core/websocket/websocket.service';
+import { PollEvent, POLL_EVENT_TYPES } from '../../core/websocket/events/poll.events';
 import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/confirm-dialog.component';
 import { FeatureAccessService } from '../../core/services/feature-access.service';
 
@@ -343,14 +344,13 @@ export class PollComponent implements OnInit, OnDestroy {
 
   ngOnInit() {
     this.ws.connect();
-    this.ws.messages$.pipe(
+    this.ws.roomEvents<PollEvent>(POLL_EVENT_TYPES).pipe(
       takeUntil(this.destroy$),
-      filter(msg => msg !== null && msg.type.startsWith('poll_'))
     ).subscribe(msg => {
-      const pollId = msg!.data['pollId'] as string | undefined;
+      const pollId = msg.data['pollId'] as string | undefined;
       const current = this.selectedPoll();
 
-      if (msg!.type === 'poll_deleted' && current && pollId === current.id) {
+      if (msg.type === 'poll_deleted' && current && pollId === current.id) {
         this.snackBar.open('This poll was deleted', 'Close', { duration: 4000 });
         this.backToLobby();
         return;

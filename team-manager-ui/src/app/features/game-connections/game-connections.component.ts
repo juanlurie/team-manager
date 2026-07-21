@@ -6,6 +6,7 @@ import { Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
 import { GameConnectionsService } from '../../core/services/game-connections.service';
 import { WebSocketService } from '../../core/websocket/websocket.service';
+import { ConnectionsEvent, CONNECTIONS_EVENT_TYPES } from '../../core/websocket/events/games.events';
 import { FeatureAccessService } from '../../core/services/feature-access.service';
 import { NavService } from '../../core/nav/nav.service';
 import { GameConnectionsSession, GameConnectionsSessionSummary } from '../../core/models/game-connections.model';
@@ -370,8 +371,7 @@ export class GameConnectionsComponent implements OnInit, OnDestroy {
 
   ngOnInit() {
     this.loadSessions();
-    this.ws.messages$.pipe(takeUntil(this.destroy$)).subscribe(msg => {
-      if (!msg) return;
+    this.ws.roomEvents<ConnectionsEvent>(CONNECTIONS_EVENT_TYPES).pipe(takeUntil(this.destroy$)).subscribe(msg => {
       if (msg.type === 'connections_update') {
         const current = this.session();
         if (current) {

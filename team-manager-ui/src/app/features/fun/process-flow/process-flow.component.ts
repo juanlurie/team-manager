@@ -14,6 +14,7 @@ import { Router, ActivatedRoute } from '@angular/router';
 import { ProcessFlowService } from '../../../core/services/process-flow.service';
 import { ProcessFlowSession, ProcessFlowSessionSummary, ProcessFlowNode, ProcessFlowEdge } from '../../../core/models/process-flow.model';
 import { WebSocketService } from '../../../core/websocket/websocket.service';
+import { ProcessFlowEvent, PROCESS_FLOW_EVENT_TYPES } from '../../../core/websocket/events/process-flow.events';
 import { AuthService } from '../../../core/auth/auth.service';
 import { NavService } from '../../../core/nav/nav.service';
 import { ConfirmDialogComponent } from '../../../shared/components/confirm-dialog/confirm-dialog.component';
@@ -225,8 +226,7 @@ export class ProcessFlowComponent implements OnInit, OnDestroy {
       this.loadSessions();
     }
     this.wsSvc.connect();
-    this.wsSvc.messages$.pipe(takeUntil(this.destroy$)).subscribe(msg => {
-      if (!msg) return;
+    this.wsSvc.roomEvents<ProcessFlowEvent>(PROCESS_FLOW_EVENT_TYPES).pipe(takeUntil(this.destroy$)).subscribe(msg => {
       const s = this.session();
       if (!s) return;
       try {

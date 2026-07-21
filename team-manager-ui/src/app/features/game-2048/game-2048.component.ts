@@ -9,6 +9,7 @@ import { Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
 import { Game2048Service } from '../../core/services/game-2048.service';
 import { WebSocketService } from '../../core/websocket/websocket.service';
+import { Game2048Event, GAME_2048_EVENT_TYPES } from '../../core/websocket/events/games.events';
 import { FeatureAccessService } from '../../core/services/feature-access.service';
 import { NavService } from '../../core/nav/nav.service';
 import { Game2048Session, Game2048SessionSummary } from '../../core/models/game-2048.model';
@@ -420,8 +421,7 @@ export class Game2048Component implements OnInit, OnDestroy, AfterViewInit {
 
   ngOnInit() {
     this.loadSessions();
-    this.ws.messages$.pipe(takeUntil(this.destroy$)).subscribe(msg => {
-      if (!msg) return;
+    this.ws.roomEvents<Game2048Event>(GAME_2048_EVENT_TYPES).pipe(takeUntil(this.destroy$)).subscribe(msg => {
       if (msg.type === 'game_2048_update') {
         const current = this.session();
         if (current) {

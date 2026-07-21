@@ -6,6 +6,7 @@ import { Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
 import { DotsAndBoxesService } from '../../core/services/dots-and-boxes.service';
 import { WebSocketService } from '../../core/websocket/websocket.service';
+import { DotsAndBoxesEvent, DOTS_AND_BOXES_EVENT_TYPES } from '../../core/websocket/events/games.events';
 import { FeatureAccessService } from '../../core/services/feature-access.service';
 import { DotsAndBoxesSession, DotsAndBoxesSessionSummary } from '../../core/models/dots-and-boxes.model';
 
@@ -454,8 +455,7 @@ export class DotsAndBoxesComponent implements OnInit, OnDestroy {
 
   ngOnInit() {
     this.loadSessions();
-    this.ws.messages$.pipe(takeUntil(this.destroy$)).subscribe(msg => {
-      if (!msg) return;
+    this.ws.roomEvents<DotsAndBoxesEvent>(DOTS_AND_BOXES_EVENT_TYPES).pipe(takeUntil(this.destroy$)).subscribe(msg => {
       if (msg.type === 'dots_boxes_update') {
         const currentSession = this.session();
         if (currentSession) {

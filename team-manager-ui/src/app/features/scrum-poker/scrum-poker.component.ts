@@ -8,7 +8,7 @@ import { MatDialog, MatDialogModule, MatDialogRef } from '@angular/material/dial
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { Subject } from 'rxjs';
-import { takeUntil, filter } from 'rxjs/operators';
+import { takeUntil } from 'rxjs/operators';
 import { ScrumPokerService } from '../../core/services/scrum-poker.service';
 import {
   ScrumPokerSession, ScrumPokerSessionDetail, ScrumPokerVote,
@@ -16,6 +16,7 @@ import {
 } from '../../core/models/scrum-poker.model';
 import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/confirm-dialog.component';
 import { WebSocketService } from '../../core/websocket/websocket.service';
+import { ScrumPokerEvent, SCRUM_POKER_EVENT_TYPES } from '../../core/websocket/events/scrum-poker.events';
 
 @Component({
   selector: 'app-create-session-dialog',
@@ -133,14 +134,13 @@ export class ScrumPokerComponent implements OnInit, OnDestroy {
   ngOnInit() {
     this.loadSessions();
     this.ws.connect();
-    this.ws.messages$.pipe(
+    this.ws.roomEvents<ScrumPokerEvent>(SCRUM_POKER_EVENT_TYPES).pipe(
       takeUntil(this.destroy$),
-      filter(msg => msg !== null && msg.type.startsWith('scrum_poker_'))
     ).subscribe(msg => {
-      const sessionId = msg!.data['sessionId'] as string | undefined;
+      const sessionId = msg.data['sessionId'] as string | undefined;
       const current = this.selectedSession();
 
-      if (msg!.type === 'scrum_poker_session_deleted') {
+      if (msg.type === 'scrum_poker_session_deleted') {
         if (current && current.id === sessionId) {
           this.selectedSession.set(null);
           this.snackBar.open('This session was deleted', 'Close', { duration: 4000 });
@@ -149,7 +149,7 @@ export class ScrumPokerComponent implements OnInit, OnDestroy {
         return;
       }
 
-      if (msg!.type === 'scrum_poker_session_created') {
+      if (msg.type === 'scrum_poker_session_created') {
         if (!current) this.loadSessions();
         return;
       }

@@ -19,6 +19,7 @@ import { RetroActionService } from '../../../core/services/retro-action.service'
 import { SprintService } from '../../../core/services/sprint.service';
 import { API_BASE } from '../../../core/services/api.config';
 import { WebSocketService } from '../../../core/websocket/websocket.service';
+import { RetroEvent, RETRO_EVENT_TYPES } from '../../../core/websocket/events/retro.events';
 import { IconButtonComponent } from '../../../shared/components/icon-btn/icon-btn.component';
 
 const PHASES: RetroPhase[] = ['lobby', 'add', 'vote', 'discuss', 'actions'];
@@ -796,8 +797,7 @@ export class SprintRetroComponent implements OnInit, OnDestroy {
       .subscribe(list => this.icebreakerAnswers.set(list ?? []));
 
     this.wsSvc.connect();
-    this.wsSub = this.wsSvc.messages$.subscribe(msg => {
-      if (!msg) return;
+    this.wsSub = this.wsSvc.roomEvents<RetroEvent>(RETRO_EVENT_TYPES).subscribe(msg => {
       const d = msg.data as any;
       if (d?.sprintId !== this.sprintId) return;
 
