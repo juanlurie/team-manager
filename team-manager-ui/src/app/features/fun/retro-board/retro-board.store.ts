@@ -13,7 +13,7 @@ import { WebSocketService } from '../../../core/websocket/websocket.service';
 import { RetroBoardEvent, RETRO_BOARD_EVENT_TYPES } from '../../../core/websocket/events/retro-board.events';
 import { AuthService } from '../../../core/auth/auth.service';
 import {
-  RetroBoardSession, RetroBoardSummary, RetroPhase, RetroBoardNote,
+  RetroBoardSession, RetroBoardSummary, RetroPhase, RetroBoardNote, RetroBoardParticipant,
   RetroBoardFeedbackPrompt, RetroStepDurations, RetroPhaseFlags, RetroColumnInput, DEFAULT_STEP_DURATIONS,
 } from '../../../core/models/retro-board.model';
 import * as F from './retro-format';
@@ -399,6 +399,26 @@ export class RetroBoardStore implements OnDestroy {
       .subscribe(ok => { if (ok) this.svc.deleteSession(id).subscribe({ next: () => this.reloadLists() }); });
   }
   leave() { this.leaveWs(); this.session.set(null); this.viewAs.set('facilitator'); this.router.navigate(['/pulse/retro-board']); this.reloadLists(); }
+
+  // ── Host delegation (Phase 3) ──────────────────────────────────────────────────
+  // The per-session host (facilitator) role is grantable to any member participant, independent of
+  // Team Lead — this surfaces the existing backend so a facilitator can actually hand it over.
+  /** Whether the current viewer may grant/revoke this participant's host role. Facilitators only;
+   *  never for a guest (no member id) or the creator (the server won't demote them either). */
+  canManageHost(p: RetroBoardParticipant): boolean {
+    const s = this.session();
+    return this.amFacilitator() && !!p.memberId && p.memberId !== s?.createdByMemberId;
+  }
+  /** Grant (makeHost=true) or revoke the host role for a member participant. The rb_participant_changed
+   *  broadcast refreshes every client; refresh locally too so the acting facilitator sees it at once. */
+  setHost(p: RetroBoardParticipant, makeHost: boolean) {
+    const s = this.session();
+    if (!s || !p.memberId) return;
+    this.svc.setParticipantRole(s.id, p.memberId, makeHost ? 'facilitator' : 'participant').subscribe({
+      next: () => this.refresh(s.id),
+      error: () => this.error.set('Could not change host.'),
+    });
+  }
 
   // ---- lobby lifecycle actions ----
   reopen(id: string, ev: Event) { ev.stopPropagation(); this.svc.reopen(id).subscribe({ next: () => this.reloadLists() }); }

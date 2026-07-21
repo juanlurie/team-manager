@@ -172,6 +172,12 @@ import { SessionJoinComponent } from '../../../../shared/components/session-join
               <span class="avatar" [style.background]="store.tint(p.memberId ?? p.id)" [style.color]="store.ink(p.memberId ?? p.id)">{{ store.initials(p.name) }}</span>
               <span>{{ p.name }}</span>
               @if (p.role === 'facilitator') { <span class="crown">★</span> }
+              @if (store.canManageHost(p)) {
+                <button class="host-btn" (click)="store.setHost(p, p.role !== 'facilitator')"
+                        [title]="p.role === 'facilitator' ? 'Remove host' : 'Make host'">
+                  {{ p.role === 'facilitator' ? '− host' : '+ host' }}
+                </button>
+              }
             </div>
           }
           @if (s.participants.length === 0) { <p class="muted">No one has joined yet.</p> }

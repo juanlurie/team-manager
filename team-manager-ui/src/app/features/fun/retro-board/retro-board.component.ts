@@ -120,6 +120,12 @@ import { RetroSummaryComponent } from './phases/retro-summary.component';
               <span>{{ store.shortName(p.name) }}</span>
               @if (p.role === 'facilitator') { <span class="crown">★</span> }
               @else if (store.amFacilitator() && (s.status === 'open' || s.phase === 'checkin') && p.responded['checkin']) { <span class="tick" title="Checked in">✓</span> }
+              @if (store.canManageHost(p)) {
+                <button class="host-btn" (click)="store.setHost(p, p.role !== 'facilitator')"
+                        [title]="p.role === 'facilitator' ? 'Remove host' : 'Make host'">
+                  {{ p.role === 'facilitator' ? '− host' : '+ host' }}
+                </button>
+              }
             </div>
           }
         </aside>
