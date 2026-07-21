@@ -12,6 +12,7 @@ import { GuestWinOfTheWeekService } from './guest-wow.service';
 import { clearCacheForPattern } from '../../core/interceptors/http-cache.interceptor';
 import { GuestWinWeek, GuestNomination, GuestCreateNominationRequest, WowNominationDisplay, WinWeek, WinNomination } from '../../core/models/win-week.model';
 import { WebSocketService } from '../../core/websocket/websocket.service';
+import { WowEvent, WOW_EVENT_TYPES } from '../../core/websocket/events/wow.events';
 import { AuthService } from '../../core/auth/auth.service';
 import { MobileService } from '../../core/services/mobile.service';
 import { WowCurrentWeekComponent } from '../win-of-the-week/wow-current-week.component';
@@ -416,8 +417,8 @@ export class GuestWowComponent implements OnInit, OnDestroy {
   ngOnInit() {
     this.token = this.route.snapshot.paramMap.get('token') ?? '';
 
-    this.wsSub = this.wsSvc.messages$.subscribe(msg => {
-      if (!msg || !this.guestName() || this.tokenInvalid()) return;
+    this.wsSub = this.wsSvc.roomEvents<WowEvent>(WOW_EVENT_TYPES).subscribe(msg => {
+      if (!this.guestName() || this.tokenInvalid()) return;
       if (msg.type === 'wow_timer_started') {
         this.activeTimerEndsAt.set(msg.data['endsAt'] as string);
       } else if (msg.type === 'wow_timer_stopped') {

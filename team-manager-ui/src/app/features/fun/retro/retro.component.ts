@@ -15,6 +15,8 @@ import { FunRetroService } from '../../../core/services/fun-retro.service';
 import { RetroThemeLibraryService } from '../../../core/services/retro-theme-library.service';
 import { FunRetroAnalysis, FunRetroSession, FunRetroSessionSummary, FunRetroCard, RetroColumn, RetroTheme, RetroCanvasLayout, FunRetroCardComment, FunRetroToken, FunRetroTokenSize, RetroCustomTheme } from '../../../core/models/fun-retro.model';
 import { WebSocketService } from '../../../core/websocket/websocket.service';
+import { FunRetroEvent, FUN_RETRO_EVENT_TYPES } from '../../../core/websocket/events/fun-retro.events';
+import { PollEvent, POLL_EVENT_TYPES } from '../../../core/websocket/events/poll.events';
 import { AvatarCircleComponent } from '../../../core/components/k-picker/avatar-circle.component';
 import { AuthService } from '../../../core/auth/auth.service';
 import { TextFieldModule } from '@angular/cdk/text-field';
@@ -2057,8 +2059,9 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
     // singleton socket first. Anyone landing here directly (shared link, fresh tab,
     // page refresh) never got real-time updates.
     this.wsSvc.connect();
-    this.wsSub = this.wsSvc.messages$.pipe(takeUntil(this.destroy$)).subscribe(msg => {
-      if (!msg) return;
+    // The retro board embeds a polls sidebar, so it consumes both its own `fun_retro_*` events and
+    // the `poll_*` events for that sidebar.
+    this.wsSub = this.wsSvc.roomEvents<FunRetroEvent | PollEvent>([...FUN_RETRO_EVENT_TYPES, ...POLL_EVENT_TYPES]).pipe(takeUntil(this.destroy$)).subscribe(msg => {
       const s = this.session();
       if (!s) return;
       // A throw inside this callback would error the observable and permanently unsubscribe us

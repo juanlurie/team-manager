@@ -12,6 +12,7 @@ import { Router, ActivatedRoute } from '@angular/router';
 import { PersonalMapService } from '../../../core/services/personal-map.service';
 import { PersonalMapSession, PersonalMapSessionSummary, PersonalMapNode } from '../../../core/models/personal-map.model';
 import { WebSocketService } from '../../../core/websocket/websocket.service';
+import { PersonalMapEvent, PERSONAL_MAP_EVENT_TYPES } from '../../../core/websocket/events/personal-map.events';
 import { NavService } from '../../../core/nav/nav.service';
 import { ConfirmDialogComponent } from '../../../shared/components/confirm-dialog/confirm-dialog.component';
 import { CanvasBoardComponent, CanvasNode } from '../../../core/components/canvas-board/canvas-board.component';
@@ -159,8 +160,7 @@ export class PersonalMapComponent implements OnInit, OnDestroy {
       this.loadSessions();
     }
     this.wsSvc.connect();
-    this.wsSvc.messages$.pipe(takeUntil(this.destroy$)).subscribe(msg => {
-      if (!msg) return;
+    this.wsSvc.roomEvents<PersonalMapEvent>(PERSONAL_MAP_EVENT_TYPES).pipe(takeUntil(this.destroy$)).subscribe(msg => {
       const s = this.session();
       if (!s) return;
       try {

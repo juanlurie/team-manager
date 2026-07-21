@@ -10,6 +10,7 @@ import { SquadService } from '../../../core/services/squad.service';
 import { Squad } from '../../../core/models/squad.model';
 import { TeamMemberService } from '../../../core/services/team-member.service';
 import { WebSocketService } from '../../../core/websocket/websocket.service';
+import { RetroBoardEvent, RETRO_BOARD_EVENT_TYPES } from '../../../core/websocket/events/retro-board.events';
 import { AuthService } from '../../../core/auth/auth.service';
 import {
   RetroBoardSession, RetroBoardSummary, RetroPhase, RetroBoardNote,
@@ -333,10 +334,9 @@ export class RetroBoardStore implements OnDestroy {
       switchMap(id => this.svc.getSessionResponse(id).pipe(catchError(() => EMPTY))),
       takeUntil(this.destroy$),
     ).subscribe(resp => { this.updateOffset(resp); if (resp.body) this.setSession(resp.body); });
-    this.ws.messages$.pipe(takeUntil(this.destroy$)).subscribe(msg => {
-      if (!msg) return;
+    this.ws.roomEvents<RetroBoardEvent>(RETRO_BOARD_EVENT_TYPES).pipe(takeUntil(this.destroy$)).subscribe(msg => {
       const s = this.session();
-      if (s && typeof msg.type === 'string' && msg.type.startsWith('rb_') && msg.data?.['sessionId'] === s.id) this.refresh(s.id);
+      if (s && msg.data?.['sessionId'] === s.id) this.refresh(s.id);
     });
     if (routeId) this.load(routeId); else this.loadLobby();
   }

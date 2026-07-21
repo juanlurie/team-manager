@@ -14,6 +14,7 @@ import { TimesheetDefaultsService } from './core/services/timesheet-defaults.ser
 import { NavService } from './core/nav/nav.service';
 import { MobileService } from './core/services/mobile.service';
 import { WebSocketService } from './core/websocket/websocket.service';
+import { AccessRequestEvent, ACCESS_REQUEST_EVENT_TYPES } from './core/websocket/events/access-request.events';
 import { AppSidebarComponent } from './shared/components/app-sidebar/app-sidebar.component';
 import { AppBottomNavComponent } from './shared/components/app-bottom-nav/app-bottom-nav.component';
 import { AccessRequestsService } from './core/services/access-requests.service';
@@ -202,8 +203,7 @@ export class AppComponent {
       }
     });
 
-    this.wsSvc.messages$.subscribe(msg => {
-      if (!msg) return;
+    this.wsSvc.roomEvents<AccessRequestEvent>(ACCESS_REQUEST_EVENT_TYPES).subscribe(msg => {
       if (msg.type === 'access_request_submitted' && this.featureAccess.hasAccess('access-requests')) {
         this.accessReqs.refreshCount();
         const name = msg.data['name'] as string;

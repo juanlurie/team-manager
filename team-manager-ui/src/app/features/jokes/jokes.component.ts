@@ -7,6 +7,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { Subscription } from 'rxjs';
 import { API_BASE } from '../../core/services/api.config';
 import { WebSocketService } from '../../core/websocket/websocket.service';
+import { JokesEvent, JOKES_EVENT_TYPES } from '../../core/websocket/events/jokes.events';
 import { AiBadgeComponent } from '../../shared/components/ai-badge/ai-badge.component';
 
 interface JokeType {
@@ -170,8 +171,8 @@ export class JokesComponent implements OnInit, OnDestroy {
       error: () => this.configured.set(false),
     });
 
-    this.wsSub = this.ws.messages$.subscribe(msg => {
-      if (msg?.type !== 'joke_generated') return;
+    this.wsSub = this.ws.roomEvents<JokesEvent>(JOKES_EVENT_TYPES).subscribe(msg => {
+      if (msg.type !== 'joke_generated') return;
       if (!this.loading()) return;
       const data = msg.data as { jokeTypeId: string; joke: string | null; status: string; eventId: string };
       const text = data.joke?.trim() || null;

@@ -4,11 +4,11 @@ import { Observable } from 'rxjs';
 import { CoffeeRunList, CoffeeRunDetail, CreateMenuItemRequest, UpdateMenuItemRequest, CreateOrderRequest, UpdateOrderRequest, MenuTemplateList, MenuTemplateDetail, CreateMenuTemplateRequest, ImportMenuTemplateRequest, UpdateMenuTemplateRequest, CreateTemplateItemRequest, UpdateTemplateItemRequest, PagedResult, CreateRunRequest, UpdateRunRequest, RunSummaryDetail, UpdateOrderStatusRequest } from '../models/coffee-run.model';
 import { API_BASE } from './api.config';
 import { WebSocketService } from '../websocket/websocket.service';
+import { CoffeeEvent, COFFEE_EVENT_TYPES } from '../websocket/events/coffee.events';
 
-export interface CoffeeRunWsMessage {
-  type: 'coffee_run_created' | 'coffee_run_status_changed' | 'coffee_order_placed' | 'coffee_order_updated' | 'coffee_order_deleted' | 'coffee_menu_updated' | 'coffee_item_availability_changed';
-  data: Record<string, unknown>;
-}
+// Kept as a back-compat alias; the coffee event union now lives with the other feature event
+// definitions under core/websocket/events/.
+export type CoffeeRunWsMessage = CoffeeEvent;
 
 @Injectable({ providedIn: 'root' })
 export class CoffeeRunService {
@@ -96,11 +96,7 @@ export class CoffeeRunService {
 
   // ── WebSocket helpers ──
 
-  onCoffeeRunEvent(callback: (msg: CoffeeRunWsMessage) => void): void {
-    this.ws.messages$.subscribe(msg => {
-      if (msg && (msg.type as string).startsWith('coffee_')) {
-        callback(msg as unknown as CoffeeRunWsMessage);
-      }
-    });
+  onCoffeeRunEvent(callback: (msg: CoffeeEvent) => void): void {
+    this.ws.roomEvents<CoffeeEvent>(COFFEE_EVENT_TYPES).subscribe(callback);
   }
 }
