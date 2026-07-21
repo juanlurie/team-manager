@@ -1,11 +1,13 @@
 import { Component, OnInit, OnDestroy, inject, signal, ChangeDetectionStrategy } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
-import { Subject, interval, Observable, EMPTY } from 'rxjs';
-import { filter, take, takeUntil, switchMap, catchError } from 'rxjs/operators';
+import { Subject, Observable, EMPTY } from 'rxjs';
+import { filter, take, takeUntil, switchMap, catchError, debounceTime } from 'rxjs/operators';
 import { AuthService } from '../../../../core/auth/auth.service';
 import { GuestRetroBoardService } from '../../../../core/services/guest-retro-board.service';
 import { GuestRetroBoard } from '../../../../core/models/retro-board.model';
+import { WebSocketService } from '../../../../core/websocket/websocket.service';
+import { RetroBoardEvent, RETRO_BOARD_EVENT_TYPES } from '../../../../core/websocket/events/retro-board.events';
 import { GuestRetroBoardViewComponent, GuestNoteDraft } from './guest-retro-board-view.component';
 
 type View = 'loading' | 'notFound' | 'join' | 'board';
@@ -14,8 +16,9 @@ type View = 'loading' | 'notFound' | 'join' | 'board';
  * Public (unguarded) landing for a RetroBoard join link / QR. Recognizes an already-signed-in member
  * and sends them to the authed board; otherwise offers the guest path (name entry, when the board
  * allows guests) or sign-in. Once joined, hosts the guest board — the guest can add/delete their own
- * notes and vote — and keeps it fresh by polling (guests have no WebSocket yet). Contribution intents
- * come up from the board view; this owns the calls and the board state. See docs/session-identity.md.
+ * notes and vote — and keeps it live over the shared WebSocket (joins the retro room and refetches on
+ * this session's rb_* events, the same channel members use). Contribution intents come up from the
+ * board view; this owns the calls and the board state. See docs/session-identity.md.
  */
 @Component({
   selector: 'app-guest-retro',
@@ -110,7 +113,10 @@ export class GuestRetroComponent implements OnInit, OnDestroy {
   private router = inject(Router);
   private auth = inject(AuthService);
   private svc = inject(GuestRetroBoardService);
+  private ws = inject(WebSocketService);
   private destroy$ = new Subject<void>();
+  private refresh$ = new Subject<void>();
+  private sessionId: string | null = null;
 
   view = signal<View>('loading');
   board = signal<GuestRetroBoard | null>(null);
@@ -129,6 +135,13 @@ export class GuestRetroComponent implements OnInit, OnDestroy {
   ngOnInit() {
     this.slug = this.route.snapshot.paramMap.get('slug') ?? '';
 
+    // Coalesce refetches: a burst of rb_* events (or a reconnect catch-up) collapses into one GET.
+    this.refresh$.pipe(
+      debounceTime(150),
+      switchMap(() => this.svc.getBoard(this.slug).pipe(catchError(() => EMPTY))),
+      takeUntil(this.destroy$),
+    ).subscribe(b => this.board.set(b));
+
     // Recognize an already-signed-in member and hand them the real (authed) board, which enrols them
     // as a member participant. Guests fall through to the join card.
     this.auth.authStatus$.pipe(
@@ -144,16 +157,18 @@ export class GuestRetroComponent implements OnInit, OnDestroy {
     });
   }
 
-  ngOnDestroy() { this.destroy$.next(); this.destroy$.complete(); }
+  ngOnDestroy() {
+    if (this.sessionId) this.ws.leaveRoom(`retro:${this.sessionId}`);
+    this.destroy$.next(); this.destroy$.complete();
+  }
 
   private loadBoard(initial: boolean) {
     this.svc.getBoard(this.slug).pipe(takeUntil(this.destroy$)).subscribe({
       next: b => {
         this.board.set(b);
         if (b.hasJoined) {
-          const wasBoard = this.view() === 'board';
           this.view.set('board');
-          if (!wasBoard) this.startPolling();   // arm live refresh the first time we show the board
+          this.startRealtime();   // arm live updates (no-op if already armed)
         } else {
           this.view.set('join');
         }
@@ -167,7 +182,7 @@ export class GuestRetroComponent implements OnInit, OnDestroy {
     if (!displayName || this.joining()) return;
     this.joining.set(true); this.error.set(null);
     this.svc.join(this.slug, displayName).pipe(takeUntil(this.destroy$)).subscribe({
-      next: b => { this.joining.set(false); this.board.set(b); this.view.set('board'); this.startPolling(); },
+      next: b => { this.joining.set(false); this.board.set(b); this.view.set('board'); this.startRealtime(); },
       error: () => { this.joining.set(false); this.error.set('Could not join — the retro may have closed.'); },
     });
   }
@@ -204,11 +219,25 @@ export class GuestRetroComponent implements OnInit, OnDestroy {
     this.svc.getBoard(this.slug).pipe(takeUntil(this.destroy$)).subscribe({ next: b => this.board.set(b) });
   }
 
-  // Guests have no WebSocket yet, so refresh the board on a gentle poll.
-  private startPolling() {
-    interval(4000).pipe(
-      switchMap(() => this.svc.getBoard(this.slug).pipe(catchError(() => EMPTY))),
+  // Real-time updates over the shared WebSocket, same channel members use: join the retro room and
+  // refetch on this session's rb_* broadcasts. Guests connect tokenless (like guest WoW).
+  private startRealtime() {
+    const sid = this.board()?.board.id;
+    if (!sid || this.sessionId) return;   // need a loaded board; arm once
+    this.sessionId = sid;
+    const room = `retro:${sid}`;
+
+    this.ws.connect();
+    // Room membership lives only in the server's in-memory connection state, so (re)join on every
+    // connect and catch up with a refetch — covers the initial connect and any reconnect.
+    this.ws.connected$.pipe(filter(c => c), takeUntil(this.destroy$)).subscribe(() => {
+      this.ws.joinRoom(room);
+      this.refresh$.next();
+    });
+    // Any rb_* event for this session → refetch (debounced upstream to coalesce bursts).
+    this.ws.roomEvents<RetroBoardEvent>(RETRO_BOARD_EVENT_TYPES).pipe(
+      filter(e => e.data?.['sessionId'] === sid),
       takeUntil(this.destroy$),
-    ).subscribe(b => this.board.set(b));
+    ).subscribe(() => this.refresh$.next());
   }
 }
