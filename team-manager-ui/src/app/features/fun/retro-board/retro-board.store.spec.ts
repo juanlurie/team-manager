@@ -109,4 +109,31 @@ describe('RetroBoardStore', () => {
       expect(extract('  spaced  ')).toBe('spaced');
     });
   });
+
+  describe('canManageHost (Phase 3 host delegation)', () => {
+    const roster = () => store.session()!.participants;
+
+    it('a facilitator can manage a non-creator member, but not the creator or a guest', () => {
+      store.session.set(session({
+        createdByMemberId: 'creator', isFacilitator: true,
+        participants: [
+          { id: '1', memberId: 'creator', role: 'facilitator', name: 'Creator' },
+          { id: '2', memberId: 'm2', role: 'participant', name: 'Member' },
+          { id: '3', memberId: null, isGuest: true, role: 'participant', name: 'Guest' },
+        ],
+      }));
+      const [creator, member, guest] = roster();
+      expect(store.canManageHost(creator)).toBe(false);   // creator is the un-removable default host
+      expect(store.canManageHost(member)).toBe(true);
+      expect(store.canManageHost(guest)).toBe(false);      // guests have no member id and can't host
+    });
+
+    it('a non-facilitator can manage nobody', () => {
+      store.session.set(session({
+        createdByMemberId: 'creator', isFacilitator: false,
+        participants: [{ id: '2', memberId: 'm2', role: 'participant', name: 'Member' }],
+      }));
+      expect(store.canManageHost(roster()[0])).toBe(false);
+    });
+  });
 });
