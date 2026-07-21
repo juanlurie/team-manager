@@ -35,4 +35,59 @@ public class GuestRetroBoardController(RetroBoardService service, GuestSessionMa
             _ => NotFound(),
         };
     }
+
+    [HttpPost("{slug}/notes")]
+    public async Task<IActionResult> AddNote(string slug, [FromBody] AddRetroBoardNoteRequest req)
+    {
+        var guestSessionId = sessions.GetOrIssue(HttpContext, GuestSessionScope.Retro);
+        return BoardResult(await service.AddGuestNoteAsync(slug, guestSessionId, req));
+    }
+
+    [HttpDelete("{slug}/notes/{noteId:guid}")]
+    public async Task<IActionResult> DeleteNote(string slug, Guid noteId)
+    {
+        var guestSessionId = sessions.GetOrIssue(HttpContext, GuestSessionScope.Retro);
+        return BoardResult(await service.DeleteGuestNoteAsync(slug, guestSessionId, noteId));
+    }
+
+    [HttpPost("{slug}/notes/{noteId:guid}/vote")]
+    public async Task<IActionResult> Vote(string slug, Guid noteId)
+    {
+        var guestSessionId = sessions.GetOrIssue(HttpContext, GuestSessionScope.Retro);
+        var (result, error) = await service.AddGuestVoteAsync(slug, guestSessionId, noteId);
+        return result switch
+        {
+            RetroActionResult.Ok => NoContent(),
+            RetroActionResult.Conflict => Conflict(new { error }),
+            RetroActionResult.Closed => Conflict(new { error }),
+            RetroActionResult.Forbidden => StatusCode(StatusCodes.Status403Forbidden),
+            _ => NotFound(new { error }),
+        };
+    }
+
+    [HttpDelete("{slug}/notes/{noteId:guid}/vote")]
+    public async Task<IActionResult> RemoveVote(string slug, Guid noteId)
+    {
+        var guestSessionId = sessions.GetOrIssue(HttpContext, GuestSessionScope.Retro);
+        var result = await service.RemoveGuestVoteAsync(slug, guestSessionId, noteId);
+        return result switch
+        {
+            RetroActionResult.Ok => NoContent(),
+            RetroActionResult.Closed => Conflict(new { error = "This retro is closed." }),
+            RetroActionResult.Forbidden => StatusCode(StatusCodes.Status403Forbidden),
+            _ => NotFound(),
+        };
+    }
+
+    // Guest note mutations return the refreshed guest board on success; a Forbidden here means the
+    // caller hasn't joined (named themselves) yet, Closed means the retro is closed.
+    private IActionResult BoardResult((RetroActionResult result, GuestRetroBoardDto? board) outcome) =>
+        outcome.result switch
+        {
+            RetroActionResult.Ok => Ok(outcome.board),
+            RetroActionResult.Invalid => BadRequest(new { error = "A note needs some text." }),
+            RetroActionResult.Forbidden => StatusCode(StatusCodes.Status403Forbidden, new { error = "Join the retro before contributing." }),
+            RetroActionResult.Closed => Conflict(new { error = "This retro is closed." }),
+            _ => NotFound(),
+        };
 }
