@@ -560,4 +560,94 @@ public class RetroBoardServiceTests
         await svc.RevealNotesAsync(s.Id, facil.Id);
         Assert.Equal("secret", (await svc.GetSessionAsync(s.Id, other.Id))!.Notes.Single().Text);
     }
+
+    // ---- Guest join (slice 2a) ----
+
+    private static RetroBoardSession GuestBoard(Guid createdBy, bool allowGuest = true, string status = "live")
+    {
+        var s = Session(createdBy, status);
+        s.Slug = "quiet-lobster";
+        s.AllowGuestJoin = allowGuest;
+        return s;
+    }
+
+    [Fact]
+    public async Task Guest_can_join_an_allowed_board_and_becomes_a_guest_participant()
+    {
+        using var db = NewDb();
+        var facil = Member("Fac");
+        db.TeamMembers.Add(facil);
+        db.RetroBoardSessions.Add(GuestBoard(facil.Id));
+        await db.SaveChangesAsync();
+
+        var (result, board) = await Svc(db).JoinGuestAsync("quiet-lobster", "guest-tok-1", "  Gilbert  ");
+
+        Assert.Equal(RetroActionResult.Ok, result);
+        Assert.True(board!.HasJoined);
+        Assert.Equal("Gilbert", board.DisplayName);                          // trimmed
+        var guest = board.Board.Participants.Single(p => p.IsGuest);
+        Assert.Null(guest.MemberId);
+        Assert.Equal("Gilbert", guest.Name);
+        Assert.False(board.Board.IsFacilitator);                             // a guest is never a facilitator
+    }
+
+    [Fact]
+    public async Task Guest_rejoin_with_the_same_token_updates_instead_of_duplicating()
+    {
+        using var db = NewDb();
+        var facil = Member("Fac");
+        db.TeamMembers.Add(facil);
+        db.RetroBoardSessions.Add(GuestBoard(facil.Id));
+        await db.SaveChangesAsync();
+        var svc = Svc(db);
+
+        await svc.JoinGuestAsync("quiet-lobster", "guest-tok-1", "Gilbert");
+        var (result, board) = await svc.JoinGuestAsync("quiet-lobster", "guest-tok-1", "Gil");
+
+        Assert.Equal(RetroActionResult.Ok, result);
+        Assert.Single(board!.Board.Participants.Where(p => p.IsGuest));      // not duplicated
+        Assert.Equal("Gil", board.DisplayName);                             // name updated on rejoin
+    }
+
+    [Fact]
+    public async Task Guest_join_is_rejected_when_guest_join_is_disabled()
+    {
+        using var db = NewDb();
+        var facil = Member("Fac");
+        db.TeamMembers.Add(facil);
+        db.RetroBoardSessions.Add(GuestBoard(facil.Id, allowGuest: false));
+        await db.SaveChangesAsync();
+
+        var (result, board) = await Svc(db).JoinGuestAsync("quiet-lobster", "guest-tok-1", "Gilbert");
+
+        Assert.Equal(RetroActionResult.NotFound, result);                   // no enumeration signal
+        Assert.Null(board);
+        Assert.Null(await Svc(db).GetGuestBoardAsync("quiet-lobster", "guest-tok-1"));
+    }
+
+    [Fact]
+    public async Task Guest_join_requires_a_display_name()
+    {
+        using var db = NewDb();
+        var facil = Member("Fac");
+        db.TeamMembers.Add(facil);
+        db.RetroBoardSessions.Add(GuestBoard(facil.Id));
+        await db.SaveChangesAsync();
+
+        var (result, _) = await Svc(db).JoinGuestAsync("quiet-lobster", "guest-tok-1", "   ");
+        Assert.Equal(RetroActionResult.Invalid, result);
+    }
+
+    [Fact]
+    public async Task Guest_cannot_join_a_closed_board()
+    {
+        using var db = NewDb();
+        var facil = Member("Fac");
+        db.TeamMembers.Add(facil);
+        db.RetroBoardSessions.Add(GuestBoard(facil.Id, status: "closed"));
+        await db.SaveChangesAsync();
+
+        var (result, _) = await Svc(db).JoinGuestAsync("quiet-lobster", "guest-tok-1", "Gilbert");
+        Assert.Equal(RetroActionResult.Closed, result);
+    }
 }

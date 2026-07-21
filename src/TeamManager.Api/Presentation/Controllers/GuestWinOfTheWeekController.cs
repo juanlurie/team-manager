@@ -17,7 +17,7 @@ public class GuestWinOfTheWeekController(GuestWinOfTheWeekService service, Guest
     [HttpGet("{token}")]
     public async Task<IActionResult> GetWeek(string token)
     {
-        var sessionId = sessions.GetOrIssue(HttpContext);
+        var sessionId = sessions.GetOrIssue(HttpContext, GuestSessionScope.Wow);
         try
         {
             var result = await service.GetWeekByTokenAsync(token, sessionId);
@@ -46,7 +46,7 @@ public class GuestWinOfTheWeekController(GuestWinOfTheWeekService service, Guest
     [HttpPost("{token}/nominations")]
     public async Task<IActionResult> CreateNomination(string token, [FromBody] GuestCreateNominationRequest request)
     {
-        var sessionId = sessions.GetOrIssue(HttpContext);
+        var sessionId = sessions.GetOrIssue(HttpContext, GuestSessionScope.Wow);
         try
         {
             var result = await service.CreateGuestNominationAsync(token, sessionId, request);
@@ -65,7 +65,7 @@ public class GuestWinOfTheWeekController(GuestWinOfTheWeekService service, Guest
     [HttpPut("{token}/nominations/{nominationId:guid}")]
     public async Task<IActionResult> UpdateNomination(string token, Guid nominationId, [FromBody] GuestUpdateNominationRequest request)
     {
-        var sessionId = sessions.GetOrIssue(HttpContext);
+        var sessionId = sessions.GetOrIssue(HttpContext, GuestSessionScope.Wow);
         try
         {
             var result = await service.UpdateGuestNominationAsync(token, nominationId, sessionId, request);
@@ -84,7 +84,7 @@ public class GuestWinOfTheWeekController(GuestWinOfTheWeekService service, Guest
     [HttpDelete("{token}/nominations/{nominationId:guid}")]
     public async Task<IActionResult> DeleteNomination(string token, Guid nominationId)
     {
-        var sessionId = sessions.GetOrIssue(HttpContext);
+        var sessionId = sessions.GetOrIssue(HttpContext, GuestSessionScope.Wow);
         try
         {
             await service.DeleteGuestNominationAsync(token, nominationId, sessionId);
@@ -103,7 +103,7 @@ public class GuestWinOfTheWeekController(GuestWinOfTheWeekService service, Guest
     [HttpPost("{token}/nominations/{nominationId:guid}/vote")]
     public async Task<IActionResult> Vote(string token, Guid nominationId)
     {
-        var sessionId = sessions.GetOrIssue(HttpContext);
+        var sessionId = sessions.GetOrIssue(HttpContext, GuestSessionScope.Wow);
         try
         {
             var result = await service.VoteAsync(token, nominationId, sessionId);
@@ -122,7 +122,7 @@ public class GuestWinOfTheWeekController(GuestWinOfTheWeekService service, Guest
     [HttpDelete("{token}/nominations/{nominationId:guid}/vote")]
     public async Task<IActionResult> RemoveVote(string token, Guid nominationId)
     {
-        var sessionId = sessions.GetOrIssue(HttpContext);
+        var sessionId = sessions.GetOrIssue(HttpContext, GuestSessionScope.Wow);
         try
         {
             var success = await service.RemoveVoteAsync(token, nominationId, sessionId);
@@ -137,7 +137,7 @@ public class GuestWinOfTheWeekController(GuestWinOfTheWeekService service, Guest
     [HttpPost("{token}/nominations/{nominationId:guid}/powerup")]
     public async Task<IActionResult> ApplyPowerUp(string token, Guid nominationId, [FromBody] ApplyWowCardRequest request)
     {
-        var sessionId = sessions.GetOrIssue(HttpContext);
+        var sessionId = sessions.GetOrIssue(HttpContext, GuestSessionScope.Wow);
         try
         {
             var result = await service.ApplyGuestPowerUpAsync(token, nominationId, sessionId, request.Type);
@@ -150,7 +150,7 @@ public class GuestWinOfTheWeekController(GuestWinOfTheWeekService service, Guest
     [HttpPost("{token}/nominations/{nominationId:guid}/chaoscard")]
     public async Task<IActionResult> ApplyChaosCard(string token, Guid nominationId, [FromBody] ApplyWowCardRequest request)
     {
-        var sessionId = sessions.GetOrIssue(HttpContext);
+        var sessionId = sessions.GetOrIssue(HttpContext, GuestSessionScope.Wow);
         try
         {
             var result = await service.ApplyGuestChaosCardAsync(token, nominationId, sessionId, request.Type);
