@@ -17,12 +17,8 @@ public partial class RetroBoardService
 
     /// <summary>Visibility policy for a single note: during Capture, others' notes stay hidden until the
     /// global reveal (facilitators always see through). This is the one place that rule lives.</summary>
-    private static bool IsNoteHidden(RetroBoardNote n, Guid? memberId, bool isFacilitator, bool hideOthers)
-    {
-        if (!hideOthers || isFacilitator) return false;
-        var isOwn = n.AuthorMemberId.HasValue && n.AuthorMemberId == memberId;
-        return !isOwn;
-    }
+    private static bool IsNoteHidden(RetroBoardNote n, bool isOwn, bool isFacilitator, bool hideOthers) =>
+        hideOthers && !isFacilitator && !isOwn;
 
     private Task<RetroBoardSession?> LoadFullAsync(Guid sessionId) =>
         db.RetroBoardSessions
@@ -88,19 +84,30 @@ public partial class RetroBoardService
 
     // memberId is null for a guest viewer: a guest is never a facilitator and has no member-keyed
     // "mine" content (own notes, my votes/ratings), so those all fall out as empty/false/0.
-    private RetroBoardSessionDto ToDto(RetroBoardSession s, Guid? memberId)
+    // memberId/guestSessionId identify the viewer: a member (memberId set) or a guest (guestSessionId
+    // set), never both. A guest is never a facilitator; "mine" content is matched on whichever id the
+    // viewer carries.
+    private RetroBoardSessionDto ToDto(RetroBoardSession s, Guid? memberId, string? guestSessionId = null)
     {
         var isFacil = memberId is Guid viewerId && IsFacilitator(s, viewerId);
         var phaseCfg = ParsePhaseConfig(s.PhaseConfigJson);
         var hideOthers = s.HideNotesUntilReveal && !s.NotesRevealed && s.Phase == Phase.Capture;
         var colKeyById = s.Columns.ToDictionary(c => c.Id, c => c.Key);
-        var myVotesUsed = s.Notes.SelectMany(n => n.Votes).Count(v => v.MemberId == memberId);
 
-        // Precompute per-member participation once (O(1) lookups below) rather than scanning the
-        // whole graph per participant. "capture"/"vote" = did at least one; "checkin"/"reflect" =
-        // answered all items (a member is counted only if they responded to every question/prompt).
-        var capturedBy = s.Notes.Where(n => n.AuthorMemberId.HasValue).Select(n => n.AuthorMemberId!.Value).ToHashSet();
-        var votedBy = s.Notes.SelectMany(n => n.Votes).Select(v => v.MemberId).ToHashSet();
+        bool VotedByViewer(RetroBoardVote v) =>
+            (memberId is Guid vmid && v.MemberId == vmid) || (guestSessionId != null && v.GuestSessionId == guestSessionId);
+        var myVotesUsed = s.Notes.SelectMany(n => n.Votes).Count(VotedByViewer);
+
+        // Precompute per-participant participation once (O(1) lookups below) rather than scanning the
+        // whole graph per participant. Members and guests are keyed separately. "capture"/"vote" = did
+        // at least one; "checkin"/"reflect" = answered all items.
+        var capturedByMember = s.Notes.Where(n => n.AuthorMemberId.HasValue).Select(n => n.AuthorMemberId!.Value).ToHashSet();
+        var capturedByGuest = s.Notes.Where(n => n.AuthorGuestSessionId != null).Select(n => n.AuthorGuestSessionId!).ToHashSet();
+        var votedByMember = s.Notes.SelectMany(n => n.Votes).Where(v => v.MemberId.HasValue).Select(v => v.MemberId!.Value).ToHashSet();
+        var votedByGuest = s.Notes.SelectMany(n => n.Votes).Where(v => v.GuestSessionId != null).Select(v => v.GuestSessionId!).ToHashSet();
+        // Guest display names by session id, for attributing guest-authored notes.
+        var guestNames = s.Participants.Where(p => p.GuestSessionId != null)
+            .ToDictionary(p => p.GuestSessionId!, p => p.DisplayName ?? "");
         var checkinAnswers = CountAnsweredByMember(s.CheckinQuestions.SelectMany(q => q.Responses).Select(r => (r.MemberId, r.RetroBoardCheckinQuestionId)));
         var feedbackAnswers = CountAnsweredByMember(s.FeedbackPrompts.SelectMany(fp => fp.Responses).Where(r => r.Score is >= 1 and <= 5).Select(r => (r.MemberId, r.RetroBoardFeedbackPromptId)));
         var qCount = s.CheckinQuestions.Count;
@@ -144,8 +151,10 @@ public partial class RetroBoardService
             }).ToList(),
             Notes = s.Notes.OrderBy(n => n.CreatedAt).Select(n =>
             {
-                var isOwn = n.AuthorMemberId.HasValue && n.AuthorMemberId == memberId;
-                var hidden = IsNoteHidden(n, memberId, isFacil, hideOthers);
+                var isOwn = (memberId is Guid vm && n.AuthorMemberId == vm)
+                    || (guestSessionId != null && n.AuthorGuestSessionId == guestSessionId);
+                var hidden = IsNoteHidden(n, isOwn, isFacil, hideOthers);
+                var guestAuthorName = n.AuthorGuestSessionId != null ? guestNames.GetValueOrDefault(n.AuthorGuestSessionId) : null;
                 return new RetroBoardNoteDto
                 {
                     Id = n.Id,
@@ -153,7 +162,8 @@ public partial class RetroBoardService
                     ColumnKey = colKeyById.GetValueOrDefault(n.RetroBoardColumnId, ""),
                     Text = hidden ? null : n.Text,
                     AuthorId = (n.IsAnonymous || hidden) ? null : n.AuthorMemberId,
-                    AuthorName = (n.IsAnonymous || hidden) ? null : (n.Author is null ? null : $"{n.Author.FirstName} {n.Author.LastName}".Trim()),
+                    AuthorName = (n.IsAnonymous || hidden) ? null
+                        : (n.Author is not null ? $"{n.Author.FirstName} {n.Author.LastName}".Trim() : guestAuthorName),
                     AuthorAvatarSeed = (n.IsAnonymous || hidden) ? null : n.Author?.AvatarSeed,
                     IsAnonymous = n.IsAnonymous,
                     IsOwn = isOwn,
@@ -162,7 +172,7 @@ public partial class RetroBoardService
                     IntroducedAt = n.IntroducedAt,
                     CreatedAt = n.CreatedAt,
                     VoteCount = n.Votes.Count,
-                    MyVoteCount = n.Votes.Count(v => v.MemberId == memberId),
+                    MyVoteCount = n.Votes.Count(VotedByViewer),
                 };
             }).ToList(),
             CheckinQuestions = s.CheckinQuestions.OrderBy(q => q.SortOrder).Select(q => new RetroBoardCheckinQuestionDto
@@ -179,12 +189,15 @@ public partial class RetroBoardService
                 Id = p.Id, MemberId = p.MemberId, IsGuest = p.MemberId is null,
                 Name = p.Member is not null ? $"{p.Member.FirstName} {p.Member.LastName}".Trim() : (p.DisplayName ?? ""),
                 AvatarSeed = p.Member?.AvatarSeed, Role = p.Role,
-                // Progress is tracked per member; a guest has no member-keyed contributions, so all false.
+                // Capture/vote count for members and guests alike; check-in/reflect are member-only
+                // engagement, so a guest is never counted for those.
                 Responded = new Dictionary<string, bool>
                 {
                     [Phase.Checkin] = p.MemberId is Guid cm && qCount > 0 && checkinAnswers.GetValueOrDefault(cm) == qCount,
-                    [Phase.Capture] = p.MemberId is Guid capm && capturedBy.Contains(capm),
-                    [Phase.Vote] = p.MemberId is Guid vm && votedBy.Contains(vm),
+                    [Phase.Capture] = (p.MemberId is Guid capm && capturedByMember.Contains(capm))
+                        || (p.GuestSessionId is string capg && capturedByGuest.Contains(capg)),
+                    [Phase.Vote] = (p.MemberId is Guid vpm && votedByMember.Contains(vpm))
+                        || (p.GuestSessionId is string vpg && votedByGuest.Contains(vpg)),
                     [Phase.Reflect] = p.MemberId is Guid rm && fpCount > 0 && feedbackAnswers.GetValueOrDefault(rm) == fpCount,
                 },
             }).ToList(),

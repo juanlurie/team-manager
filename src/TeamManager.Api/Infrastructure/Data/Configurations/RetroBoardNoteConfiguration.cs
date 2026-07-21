@@ -28,6 +28,8 @@ public class RetroBoardNoteConfiguration : IEntityTypeConfiguration<RetroBoardNo
             .HasForeignKey(n => n.AuthorMemberId)
             .OnDelete(DeleteBehavior.SetNull);
 
+        builder.Property(n => n.AuthorGuestSessionId).HasMaxLength(64);
+
         builder.HasIndex(n => n.RetroBoardSessionId).HasDatabaseName("IX_RetroBoardNote_SessionId");
         builder.HasIndex(n => n.RetroBoardColumnId).HasDatabaseName("IX_RetroBoardNote_ColumnId");
     }

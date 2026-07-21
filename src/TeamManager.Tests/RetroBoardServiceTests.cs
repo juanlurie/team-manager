@@ -650,4 +650,105 @@ public class RetroBoardServiceTests
         var (result, _) = await Svc(db).JoinGuestAsync("quiet-lobster", "guest-tok-1", "Gilbert");
         Assert.Equal(RetroActionResult.Closed, result);
     }
+
+    // ---- Guest content: notes + votes (slice 2b) ----
+
+    private static RetroBoardColumn GuestCol(Guid sessionId) =>
+        new() { Id = Guid.NewGuid(), RetroBoardSessionId = sessionId, Key = "well", Label = "Well", Color = "#fff", Icon = "star", SortOrder = 0 };
+
+    [Fact]
+    public async Task Guest_note_is_attributed_to_the_guest_for_everyone()
+    {
+        using var db = NewDb();
+        var facil = Member("Fac");
+        db.TeamMembers.Add(facil);
+        var s = GuestBoard(facil.Id);
+        db.RetroBoardSessions.Add(s);
+        var col = GuestCol(s.Id);
+        db.RetroBoardColumns.Add(col);
+        await db.SaveChangesAsync();
+        var svc = Svc(db);
+        await svc.JoinGuestAsync("quiet-lobster", "g1", "Gilbert");
+
+        var (res, board) = await svc.AddGuestNoteAsync("quiet-lobster", "g1",
+            new AddRetroBoardNoteRequest { ColumnId = col.Id, Text = "  guest idea  " });
+
+        Assert.Equal(RetroActionResult.Ok, res);
+        var mine = board!.Board.Notes.Single();
+        Assert.True(mine.IsOwn);                                  // the author guest sees it as their own
+        Assert.Equal("guest idea", mine.Text);
+        Assert.Equal("Gilbert", mine.AuthorName);                // attributed to the display name
+
+        // A member sees the same guest attribution, and it isn't their own.
+        var memberView = (await svc.GetSessionAsync(s.Id, facil.Id))!.Notes.Single();
+        Assert.Equal("Gilbert", memberView.AuthorName);
+        Assert.Null(memberView.AuthorId);                        // no member id for a guest note
+        Assert.False(memberView.IsOwn);
+    }
+
+    [Fact]
+    public async Task Guest_must_join_before_contributing()
+    {
+        using var db = NewDb();
+        var facil = Member("Fac");
+        db.TeamMembers.Add(facil);
+        var s = GuestBoard(facil.Id);
+        db.RetroBoardSessions.Add(s);
+        var col = GuestCol(s.Id);
+        db.RetroBoardColumns.Add(col);
+        await db.SaveChangesAsync();
+
+        var (res, _) = await Svc(db).AddGuestNoteAsync("quiet-lobster", "never-joined",
+            new AddRetroBoardNoteRequest { ColumnId = col.Id, Text = "x" });
+        Assert.Equal(RetroActionResult.Forbidden, res);
+    }
+
+    [Fact]
+    public async Task Guest_votes_are_capped_at_three_per_note()
+    {
+        using var db = NewDb();
+        var facil = Member("Fac");
+        db.TeamMembers.Add(facil);
+        var s = GuestBoard(facil.Id);
+        db.RetroBoardSessions.Add(s);
+        var col = GuestCol(s.Id);
+        db.RetroBoardColumns.Add(col);
+        var note = new RetroBoardNote { Id = Guid.NewGuid(), RetroBoardSessionId = s.Id, RetroBoardColumnId = col.Id, AuthorMemberId = facil.Id, Text = "topic" };
+        db.RetroBoardNotes.Add(note);
+        await db.SaveChangesAsync();
+        var svc = Svc(db);
+        await svc.JoinGuestAsync("quiet-lobster", "g1", "Gilbert");
+
+        for (var i = 0; i < 3; i++)
+            Assert.Equal(RetroActionResult.Ok, (await svc.AddGuestVoteAsync("quiet-lobster", "g1", note.Id)).result);
+        var (result, error) = await svc.AddGuestVoteAsync("quiet-lobster", "g1", note.Id);
+        Assert.Equal(RetroActionResult.Conflict, result);
+        Assert.Equal("Max 3 votes per topic.", error);
+
+        // The guest sees their three votes reflected as "mine".
+        var board = (await svc.GetGuestBoardAsync("quiet-lobster", "g1"))!;
+        Assert.Equal(3, board.Board.Notes.Single().MyVoteCount);
+    }
+
+    [Fact]
+    public async Task Guest_can_delete_only_their_own_note()
+    {
+        using var db = NewDb();
+        var facil = Member("Fac");
+        db.TeamMembers.Add(facil);
+        var s = GuestBoard(facil.Id);
+        db.RetroBoardSessions.Add(s);
+        var col = GuestCol(s.Id);
+        db.RetroBoardColumns.Add(col);
+        await db.SaveChangesAsync();
+        var svc = Svc(db);
+        await svc.JoinGuestAsync("quiet-lobster", "g1", "Gilbert");
+        await svc.JoinGuestAsync("quiet-lobster", "g2", "Grace");
+        var (_, board) = await svc.AddGuestNoteAsync("quiet-lobster", "g1", new AddRetroBoardNoteRequest { ColumnId = col.Id, Text = "g1 note" });
+        var noteId = board!.Board.Notes.Single().Id;
+
+        Assert.Equal(RetroActionResult.Forbidden, (await svc.DeleteGuestNoteAsync("quiet-lobster", "g2", noteId)).result);
+        Assert.Equal(RetroActionResult.Ok, (await svc.DeleteGuestNoteAsync("quiet-lobster", "g1", noteId)).result);
+        Assert.Empty((await svc.GetGuestBoardAsync("quiet-lobster", "g1"))!.Board.Notes);
+    }
 }
