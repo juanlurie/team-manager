@@ -22,7 +22,7 @@ public class GuestSessionManagerTests
     {
         var ctx = new DefaultHttpContext();
 
-        var id = NewManager().GetOrIssue(ctx);
+        var id = NewManager().GetOrIssue(ctx, GuestSessionScope.Wow);
 
         Assert.False(string.IsNullOrEmpty(id));
         var cookie = SetCookieHeaderValue.Parse(ctx.Response.Headers.SetCookie.ToString());
@@ -35,14 +35,14 @@ public class GuestSessionManagerTests
     {
         var mgr = NewManager();
         var issueCtx = new DefaultHttpContext();
-        var issuedId = mgr.GetOrIssue(issueCtx);
+        var issuedId = mgr.GetOrIssue(issueCtx, GuestSessionScope.Wow);
 
         var nextCtx = new DefaultHttpContext();
         nextCtx.Request.Headers.Cookie = $"wow_gsid={CookieValueFrom(issueCtx)}";
 
         // Same manager (same key ring) unprotects the cookie back to the original id, and doesn't
         // reissue a new cookie when a valid one is already present.
-        Assert.Equal(issuedId, mgr.GetOrIssue(nextCtx));
+        Assert.Equal(issuedId, mgr.GetOrIssue(nextCtx, GuestSessionScope.Wow));
         Assert.True(StringValues.IsNullOrEmpty(nextCtx.Response.Headers.SetCookie));
     }
 
@@ -50,12 +50,12 @@ public class GuestSessionManagerTests
     public void Reissues_a_new_id_when_the_cookie_is_tampered()
     {
         var mgr = NewManager();
-        var issuedId = mgr.GetOrIssue(new DefaultHttpContext());
+        var issuedId = mgr.GetOrIssue(new DefaultHttpContext(), GuestSessionScope.Wow);
 
         var ctx = new DefaultHttpContext();
         ctx.Request.Headers.Cookie = "wow_gsid=not-a-valid-protected-value";
 
-        var reissued = mgr.GetOrIssue(ctx);
+        var reissued = mgr.GetOrIssue(ctx, GuestSessionScope.Wow);
         Assert.NotEqual(issuedId, reissued);
         Assert.False(string.IsNullOrEmpty(reissued));
         Assert.False(StringValues.IsNullOrEmpty(ctx.Response.Headers.SetCookie));
@@ -71,6 +71,24 @@ public class GuestSessionManagerTests
         // signed, so it must be rejected and a fresh server-issued id used instead.
         ctx.Request.Headers.Cookie = "wow_gsid=victim-session-guid";
 
-        Assert.NotEqual("victim-session-guid", mgr.GetOrIssue(ctx));
+        Assert.NotEqual("victim-session-guid", mgr.GetOrIssue(ctx, GuestSessionScope.Wow));
+    }
+
+    [Fact]
+    public void Scopes_are_isolated_a_wow_cookie_is_not_valid_for_retro()
+    {
+        var mgr = NewManager();
+
+        // Issue a WoW guest cookie, then present it to the retro scope.
+        var wowCtx = new DefaultHttpContext();
+        var wowId = mgr.GetOrIssue(wowCtx, GuestSessionScope.Wow);
+
+        var retroCtx = new DefaultHttpContext();
+        retroCtx.Request.Headers.Cookie = $"{GuestSessionScope.Wow.CookieName}={CookieValueFrom(wowCtx)}";
+
+        // The retro scope reads its own cookie name (absent here) and its own protector purpose, so it
+        // never picks up the WoW identity — TryRead sees nothing, GetOrIssue mints a fresh, different id.
+        Assert.Null(mgr.TryRead(retroCtx, GuestSessionScope.Retro));
+        Assert.NotEqual(wowId, mgr.GetOrIssue(retroCtx, GuestSessionScope.Retro));
     }
 }

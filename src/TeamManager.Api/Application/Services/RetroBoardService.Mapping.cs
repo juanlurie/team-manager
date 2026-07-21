@@ -17,7 +17,7 @@ public partial class RetroBoardService
 
     /// <summary>Visibility policy for a single note: during Capture, others' notes stay hidden until the
     /// global reveal (facilitators always see through). This is the one place that rule lives.</summary>
-    private static bool IsNoteHidden(RetroBoardNote n, Guid memberId, bool isFacilitator, bool hideOthers)
+    private static bool IsNoteHidden(RetroBoardNote n, Guid? memberId, bool isFacilitator, bool hideOthers)
     {
         if (!hideOthers || isFacilitator) return false;
         var isOwn = n.AuthorMemberId.HasValue && n.AuthorMemberId == memberId;
@@ -59,7 +59,7 @@ public partial class RetroBoardService
     /// (scores, distribution, comments) is exposed ONLY to facilitators; everyone else sees just their
     /// own response. This is the single source of truth for that rule — do not re-implement it inline.
     /// Requires the Responses navigation to be loaded.</summary>
-    private static RetroBoardFeedbackPromptDto MapFeedbackPrompt(RetroBoardFeedbackPrompt p, Guid memberId, bool isFacilitator)
+    private static RetroBoardFeedbackPromptDto MapFeedbackPrompt(RetroBoardFeedbackPrompt p, Guid? memberId, bool isFacilitator)
     {
         var mine = p.Responses.FirstOrDefault(r => r.MemberId == memberId);
         var scored = isFacilitator ? p.Responses.Where(r => r.Score is >= 1 and <= 5).ToList() : [];
@@ -86,9 +86,11 @@ public partial class RetroBoardService
     private static Dictionary<Guid, int> CountAnsweredByMember(IEnumerable<(Guid MemberId, Guid ItemId)> pairs) =>
         pairs.GroupBy(x => x.MemberId).ToDictionary(g => g.Key, g => g.Select(x => x.ItemId).Distinct().Count());
 
-    private RetroBoardSessionDto ToDto(RetroBoardSession s, Guid memberId)
+    // memberId is null for a guest viewer: a guest is never a facilitator and has no member-keyed
+    // "mine" content (own notes, my votes/ratings), so those all fall out as empty/false/0.
+    private RetroBoardSessionDto ToDto(RetroBoardSession s, Guid? memberId)
     {
-        var isFacil = IsFacilitator(s, memberId);
+        var isFacil = memberId is Guid viewerId && IsFacilitator(s, viewerId);
         var phaseCfg = ParsePhaseConfig(s.PhaseConfigJson);
         var hideOthers = s.HideNotesUntilReveal && !s.NotesRevealed && s.Phase == Phase.Capture;
         var colKeyById = s.Columns.ToDictionary(c => c.Id, c => c.Key);
