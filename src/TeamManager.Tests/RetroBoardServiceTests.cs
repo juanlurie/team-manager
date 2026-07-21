@@ -270,6 +270,34 @@ public class RetroBoardServiceTests
     }
 
     [Fact]
+    public async Task Guest_participant_maps_with_display_name_and_no_member()
+    {
+        using var db = NewDb();
+        var facil = Member("Fac");
+        db.TeamMembers.Add(facil);
+        var s = Session(facil.Id, status: "live");
+        s.AllowGuestJoin = true;
+        var memberPart = new RetroBoardParticipant { Id = Guid.NewGuid(), MemberId = facil.Id, Role = "facilitator" };
+        var guestPart = new RetroBoardParticipant { Id = Guid.NewGuid(), MemberId = null, DisplayName = "Guest Gilbert", GuestSessionId = "tok-123", Role = "participant" };
+        s.Participants = [memberPart, guestPart];
+        db.RetroBoardSessions.Add(s);
+        await db.SaveChangesAsync();
+
+        var dto = (await Svc(db).GetSessionAsync(s.Id, facil.Id))!;
+        Assert.True(dto.AllowGuestJoin);
+
+        var guest = dto.Participants.Single(p => p.Id == guestPart.Id);
+        Assert.Null(guest.MemberId);
+        Assert.True(guest.IsGuest);
+        Assert.Equal("Guest Gilbert", guest.Name);              // name comes from DisplayName, not a member profile
+        Assert.All(guest.Responded.Values, Assert.False);       // no member-keyed contributions
+
+        var member = dto.Participants.Single(p => p.Id == memberPart.Id);
+        Assert.False(member.IsGuest);
+        Assert.Equal(facil.Id, member.MemberId);
+    }
+
+    [Fact]
     public async Task HasCaptured_and_HasVoted_reflect_named_contributions_only()
     {
         using var db = NewDb();

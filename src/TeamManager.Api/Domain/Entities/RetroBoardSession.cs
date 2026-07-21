@@ -26,7 +26,13 @@ public class RetroBoardSession
     public string Status { get; set; } = "draft";
 
     public int VotesPerUser { get; set; } = 6;
+    /// <summary>Content-level anonymity: whether a note's author may be hidden ("anonymous notes").
+    /// Independent of how a participant joined. See docs/session-identity.md (allowAnonymousContent).</summary>
     public bool AllowAnonymous { get; set; } = true;
+    /// <summary>Join-level: whether someone with no member record for this session's team may join as
+    /// a guest (display name + session token). Off by default; the join flow itself lands in a later
+    /// slice. See docs/session-identity.md (allowGuestJoin).</summary>
+    public bool AllowGuestJoin { get; set; }
     public bool HideNotesUntilReveal { get; set; } = true;
     /// <summary>One-shot global reveal that shows every note during Capture, regardless of HideNotesUntilReveal.</summary>
     public bool NotesRevealed { get; set; }

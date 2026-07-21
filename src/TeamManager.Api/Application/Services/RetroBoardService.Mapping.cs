@@ -120,6 +120,7 @@ public partial class RetroBoardService
             VotesPerUser = s.VotesPerUser,
             MyVotesUsed = myVotesUsed,
             AllowAnonymous = s.AllowAnonymous,
+            AllowGuestJoin = s.AllowGuestJoin,
             HideNotesUntilReveal = s.HideNotesUntilReveal,
             NotesRevealed = s.NotesRevealed,
             IsArchived = s.IsArchived,
@@ -173,15 +174,16 @@ public partial class RetroBoardService
             }).ToList(),
             Participants = s.Participants.OrderBy(p => p.JoinedAt).Select(p => new RetroBoardParticipantDto
             {
-                Id = p.Id, MemberId = p.MemberId,
-                Name = p.Member is null ? "" : $"{p.Member.FirstName} {p.Member.LastName}".Trim(),
+                Id = p.Id, MemberId = p.MemberId, IsGuest = p.MemberId is null,
+                Name = p.Member is not null ? $"{p.Member.FirstName} {p.Member.LastName}".Trim() : (p.DisplayName ?? ""),
                 AvatarSeed = p.Member?.AvatarSeed, Role = p.Role,
+                // Progress is tracked per member; a guest has no member-keyed contributions, so all false.
                 Responded = new Dictionary<string, bool>
                 {
-                    [Phase.Checkin] = qCount > 0 && checkinAnswers.GetValueOrDefault(p.MemberId) == qCount,
-                    [Phase.Capture] = capturedBy.Contains(p.MemberId),
-                    [Phase.Vote] = votedBy.Contains(p.MemberId),
-                    [Phase.Reflect] = fpCount > 0 && feedbackAnswers.GetValueOrDefault(p.MemberId) == fpCount,
+                    [Phase.Checkin] = p.MemberId is Guid cm && qCount > 0 && checkinAnswers.GetValueOrDefault(cm) == qCount,
+                    [Phase.Capture] = p.MemberId is Guid capm && capturedBy.Contains(capm),
+                    [Phase.Vote] = p.MemberId is Guid vm && votedBy.Contains(vm),
+                    [Phase.Reflect] = p.MemberId is Guid rm && fpCount > 0 && feedbackAnswers.GetValueOrDefault(rm) == fpCount,
                 },
             }).ToList(),
             Actions = s.Actions.OrderBy(a => a.CreatedAt).Select(MapAction).ToList(),
