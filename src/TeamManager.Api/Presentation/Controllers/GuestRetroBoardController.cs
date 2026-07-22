@@ -79,6 +79,20 @@ public class GuestRetroBoardController(RetroBoardService service, GuestSessionMa
         };
     }
 
+    [HttpPost("{slug}/feedback-prompts/{promptId:guid}/respond")]
+    public async Task<IActionResult> RespondFeedback(string slug, Guid promptId, [FromBody] FeedbackResponseRequest req)
+    {
+        var guestSessionId = sessions.GetOrIssue(HttpContext, GuestSessionScope.Retro);
+        var result = await service.RespondGuestFeedbackAsync(slug, guestSessionId, promptId, req.Score, req.Comment);
+        return result switch
+        {
+            RetroActionResult.Ok => NoContent(),
+            RetroActionResult.Invalid => BadRequest(new { error = "Pick a rating from 1 to 5." }),
+            RetroActionResult.Forbidden => StatusCode(StatusCodes.Status403Forbidden, new { error = "Join the retro before reflecting." }),
+            _ => NotFound(),
+        };
+    }
+
     // Guest note mutations return the refreshed guest board on success; a Forbidden here means the
     // caller hasn't joined (named themselves) yet, Closed means the retro is closed.
     private IActionResult BoardResult((RetroActionResult result, GuestRetroBoardDto? board) outcome) =>

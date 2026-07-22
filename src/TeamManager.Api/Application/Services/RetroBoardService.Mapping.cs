@@ -55,9 +55,14 @@ public partial class RetroBoardService
     /// (scores, distribution, comments) is exposed ONLY to facilitators; everyone else sees just their
     /// own response. This is the single source of truth for that rule — do not re-implement it inline.
     /// Requires the Responses navigation to be loaded.</summary>
-    private static RetroBoardFeedbackPromptDto MapFeedbackPrompt(RetroBoardFeedbackPrompt p, Guid? memberId, bool isFacilitator)
+    private static RetroBoardFeedbackPromptDto MapFeedbackPrompt(RetroBoardFeedbackPrompt p, Guid? memberId, string? guestSessionId, bool isFacilitator)
     {
-        var mine = p.Responses.FirstOrDefault(r => r.MemberId == memberId);
+        // "Mine" is keyed on whichever identity the viewer has — a member (memberId) or a guest
+        // (guestSessionId). Never fall through to matching MemberId == null, or one guest would see
+        // another guest's (or an orphaned) response as their own.
+        var mine = memberId is Guid mid
+            ? p.Responses.FirstOrDefault(r => r.MemberId == mid)
+            : guestSessionId != null ? p.Responses.FirstOrDefault(r => r.GuestSessionId == guestSessionId) : null;
         var scored = isFacilitator ? p.Responses.Where(r => r.Score is >= 1 and <= 5).ToList() : [];
         var dist = new List<int> { 0, 0, 0, 0, 0 };
         foreach (var r in scored) dist[r.Score - 1]++;
@@ -109,7 +114,14 @@ public partial class RetroBoardService
         var guestNames = s.Participants.Where(p => p.GuestSessionId != null)
             .ToDictionary(p => p.GuestSessionId!, p => p.DisplayName ?? "");
         var checkinAnswers = CountAnsweredByMember(s.CheckinQuestions.SelectMany(q => q.Responses).Select(r => (r.MemberId, r.RetroBoardCheckinQuestionId)));
-        var feedbackAnswers = CountAnsweredByMember(s.FeedbackPrompts.SelectMany(fp => fp.Responses).Where(r => r.Score is >= 1 and <= 5).Select(r => (r.MemberId, r.RetroBoardFeedbackPromptId)));
+        // "Answered every prompt" drives the facilitator's Reflect responded meter. Members and guests
+        // are counted separately (each response carries exactly one of the two ids); both feed the
+        // anonymous aggregate in MapFeedbackPrompt, and both now show completion in the meter.
+        var validFeedback = s.FeedbackPrompts.SelectMany(fp => fp.Responses).Where(r => r.Score is >= 1 and <= 5).ToList();
+        var feedbackAnswers = CountAnsweredByMember(validFeedback.Where(r => r.MemberId.HasValue).Select(r => (r.MemberId!.Value, r.RetroBoardFeedbackPromptId)));
+        var feedbackAnswersByGuest = validFeedback.Where(r => r.GuestSessionId != null)
+            .GroupBy(r => r.GuestSessionId!)
+            .ToDictionary(g => g.Key, g => g.Select(r => r.RetroBoardFeedbackPromptId).Distinct().Count());
         var qCount = s.CheckinQuestions.Count;
         var fpCount = s.FeedbackPrompts.Count;
 
@@ -189,8 +201,8 @@ public partial class RetroBoardService
                 Id = p.Id, MemberId = p.MemberId, IsGuest = p.MemberId is null,
                 Name = p.Member is not null ? $"{p.Member.FirstName} {p.Member.LastName}".Trim() : (p.DisplayName ?? ""),
                 AvatarSeed = p.Member?.AvatarSeed, Role = p.Role,
-                // Capture/vote count for members and guests alike; check-in/reflect are member-only
-                // engagement, so a guest is never counted for those.
+                // Capture/vote/reflect count for members and guests alike; check-in is member-only
+                // engagement, so a guest is never counted for that.
                 Responded = new Dictionary<string, bool>
                 {
                     [Phase.Checkin] = p.MemberId is Guid cm && qCount > 0 && checkinAnswers.GetValueOrDefault(cm) == qCount,
@@ -198,12 +210,14 @@ public partial class RetroBoardService
                         || (p.GuestSessionId is string capg && capturedByGuest.Contains(capg)),
                     [Phase.Vote] = (p.MemberId is Guid vpm && votedByMember.Contains(vpm))
                         || (p.GuestSessionId is string vpg && votedByGuest.Contains(vpg)),
-                    [Phase.Reflect] = p.MemberId is Guid rm && fpCount > 0 && feedbackAnswers.GetValueOrDefault(rm) == fpCount,
+                    [Phase.Reflect] = fpCount > 0 && (
+                        (p.MemberId is Guid rm && feedbackAnswers.GetValueOrDefault(rm) == fpCount)
+                        || (p.GuestSessionId is string rg && feedbackAnswersByGuest.GetValueOrDefault(rg) == fpCount)),
                 },
             }).ToList(),
             Actions = s.Actions.OrderBy(a => a.CreatedAt).Select(MapAction).ToList(),
             FeedbackPrompts = s.FeedbackPrompts.OrderBy(p => p.SortOrder)
-                .Select(p => MapFeedbackPrompt(p, memberId, isFacil)).ToList(),
+                .Select(p => MapFeedbackPrompt(p, memberId, guestSessionId, isFacil)).ToList(),
         };
     }
 }

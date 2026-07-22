@@ -44,4 +44,9 @@ export class GuestRetroBoardService {
   unvote(slug: string, noteId: string): Observable<void> {
     return this.http.delete<void>(`${this.base}/${encodeURIComponent(slug)}/notes/${noteId}/vote`);
   }
+
+  /** Submit (or update) the guest's rating + optional comment for a feedback prompt (204). */
+  respondFeedback(slug: string, promptId: string, score: number, comment: string | null): Observable<void> {
+    return this.http.post<void>(`${this.base}/${encodeURIComponent(slug)}/feedback-prompts/${promptId}/respond`, { score, comment });
+  }
 }

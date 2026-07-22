@@ -9,6 +9,7 @@ import { GuestRetroBoard } from '../../../../core/models/retro-board.model';
 import { WebSocketService } from '../../../../core/websocket/websocket.service';
 import { RetroBoardEvent, RETRO_BOARD_EVENT_TYPES } from '../../../../core/websocket/events/retro-board.events';
 import { GuestRetroBoardViewComponent, GuestNoteDraft } from './guest-retro-board-view.component';
+import { GuestRetroReflectComponent, GuestFeedbackResponse } from './guest-retro-reflect.component';
 
 type View = 'loading' | 'notFound' | 'join' | 'board';
 
@@ -23,7 +24,7 @@ type View = 'loading' | 'notFound' | 'join' | 'board';
 @Component({
   selector: 'app-guest-retro',
   standalone: true,
-  imports: [FormsModule, GuestRetroBoardViewComponent],
+  imports: [FormsModule, GuestRetroBoardViewComponent, GuestRetroReflectComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   styles: [`
     :host { display: block; min-height: 100vh; background: var(--ds-surface-canvas, #0f1117); color: var(--ds-text, #e6e9ef); }
@@ -50,6 +51,8 @@ type View = 'loading' | 'notFound' | 'join' | 'board';
     .roster { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 20px; }
     .chip { font-size: .74rem; padding: 3px 9px; border-radius: 999px; background: var(--ds-surface-2, #1a2230); border: 1px solid var(--ds-border, rgba(255,255,255,.08)); color: var(--ds-text-muted, #9aa6b8); }
     .chip.guest { border-color: var(--ds-primary-border, rgba(91,157,240,.35)); }
+    .reflect { margin-bottom: 24px; }
+    .reflect h2 { font-size: 1.05rem; margin: 0 0 10px; }
   `],
   template: `
     @switch (view()) {
@@ -100,6 +103,13 @@ type View = 'loading' | 'notFound' | 'join' | 'board';
             }
           </div>
           @if (error()) { <p class="err" style="text-align:left;margin:-8px 0 14px">{{ error() }}</p> }
+          @if (showReflect()) {
+            <section class="reflect">
+              <h2>Reflect</h2>
+              <app-guest-retro-reflect [prompts]="board()!.board.feedbackPrompts" [interactive]="reflectInteractive()"
+                (respond)="onRespondFeedback($event)" />
+            </section>
+          }
           <app-guest-retro-board-view [board]="board()!.board" [interactive]="interactive()"
             (addNote)="onAddNote($event)" (deleteNote)="onDeleteNote($event)"
             (vote)="onVote($event)" (unvote)="onUnvote($event)" />
@@ -131,6 +141,12 @@ export class GuestRetroComponent implements OnInit, OnDestroy {
   allowGuest() { return this.board()?.board.allowGuestJoin ?? false; }
   /** Contributions are allowed while the retro is open (not closed) and no action is in flight. */
   interactive() { return this.board()?.board.status !== 'closed' && !this.busy(); }
+  /** The Reflect step: shown once the facilitator reaches the Reflect phase and while the retro is
+   *  closed (feedback is collected as the retro wraps up), whenever there are prompts to rate. */
+  showReflect() { const b = this.board()?.board; return !!b && b.feedbackPrompts.length > 0 && (b.phase === 'reflect' || b.status === 'closed'); }
+  /** Reflect is exempt from the close-lock (submitted after close), so unlike notes/votes it stays
+   *  active on a closed retro — only an in-flight action disables it. */
+  reflectInteractive() { return !this.busy(); }
 
   ngOnInit() {
     this.slug = this.route.snapshot.paramMap.get('slug') ?? '';
@@ -194,6 +210,7 @@ export class GuestRetroComponent implements OnInit, OnDestroy {
   onDeleteNote(noteId: string) { this.applyBoard(this.svc.deleteNote(this.slug, noteId), "Couldn't delete that note."); }
   onVote(noteId: string) { this.applyVote(this.svc.vote(this.slug, noteId), "Vote didn't go through — you may be out of votes."); }
   onUnvote(noteId: string) { this.applyVote(this.svc.unvote(this.slug, noteId), "Couldn't remove that vote."); }
+  onRespondFeedback(r: GuestFeedbackResponse) { this.applyVote(this.svc.respondFeedback(this.slug, r.promptId, r.score, r.comment), "Couldn't save your rating — try again."); }
 
   // Note add/delete return the refreshed board; use it directly.
   private applyBoard(obs: Observable<GuestRetroBoard>, errMsg: string) {
