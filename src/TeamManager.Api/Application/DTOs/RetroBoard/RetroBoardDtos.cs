@@ -191,6 +191,7 @@ public record CreateRetroBoardSessionRequest
     public List<FeedbackPromptInput>? FeedbackPrompts { get; init; }
     public int? VotesPerUser { get; init; }
     public bool? AllowAnonymous { get; init; }
+    public bool? AllowGuestJoin { get; init; }
     public bool? HideNotesUntilReveal { get; init; }
     public RetroStepDurations? StepDurations { get; init; }
     public bool SeedFromPreviousRetro { get; init; } = true;     // carry forward check-in from last closed session (when Squad set)
@@ -222,6 +223,7 @@ public record UpdateRetroBoardSettingsRequest
 {
     public int? VotesPerUser { get; init; }
     public bool? AllowAnonymous { get; init; }
+    public bool? AllowGuestJoin { get; init; }
     public bool? HideNotesUntilReveal { get; init; }
     public RetroStepDurations? StepDurations { get; init; }
     public Dictionary<string, RetroPhaseFlags>? PhaseConfig { get; init; }

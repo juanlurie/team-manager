@@ -751,4 +751,125 @@ public class RetroBoardServiceTests
         Assert.Equal(RetroActionResult.Ok, (await svc.DeleteGuestNoteAsync("quiet-lobster", "g1", noteId)).result);
         Assert.Empty((await svc.GetGuestBoardAsync("quiet-lobster", "g1"))!.Board.Notes);
     }
+
+    // ---- Guest reflect (feedback ratings) ----
+
+    [Fact]
+    public async Task Guest_can_rate_a_prompt_seeing_only_their_own_response_while_the_aggregate_stays_facilitator_only()
+    {
+        using var db = NewDb();
+        var facil = Member("Fac");
+        db.TeamMembers.Add(facil);
+        var s = GuestBoard(facil.Id);
+        db.RetroBoardSessions.Add(s);
+        var prompt = new RetroBoardFeedbackPrompt { Id = Guid.NewGuid(), RetroBoardSessionId = s.Id, Text = "Flow", SortOrder = 0 };
+        db.RetroBoardFeedbackPrompts.Add(prompt);
+        await db.SaveChangesAsync();
+        var svc = Svc(db);
+        await svc.JoinGuestAsync("quiet-lobster", "g1", "Gilbert");
+
+        Assert.Equal(RetroActionResult.Ok, await svc.RespondGuestFeedbackAsync("quiet-lobster", "g1", prompt.Id, 4, "  solid  "));
+
+        // The guest sees their own rating (comment trimmed) but never the anonymous aggregate.
+        var mine = (await svc.GetGuestBoardAsync("quiet-lobster", "g1"))!.Board.FeedbackPrompts.Single();
+        Assert.Equal(4, mine.MyScore);
+        Assert.Equal("solid", mine.MyComment);
+        Assert.Equal(0, mine.ResponseCount);
+        Assert.Null(mine.AverageScore);
+
+        // The facilitator's aggregate includes the guest's rating.
+        var agg = (await svc.GetSessionAsync(s.Id, facil.Id))!.FeedbackPrompts.Single();
+        Assert.Equal(1, agg.ResponseCount);
+        Assert.Equal(4, agg.AverageScore);
+    }
+
+    [Fact]
+    public async Task Guest_rating_upserts_and_validates_the_score()
+    {
+        using var db = NewDb();
+        var facil = Member("Fac");
+        db.TeamMembers.Add(facil);
+        var s = GuestBoard(facil.Id);
+        db.RetroBoardSessions.Add(s);
+        var prompt = new RetroBoardFeedbackPrompt { Id = Guid.NewGuid(), RetroBoardSessionId = s.Id, Text = "Flow", SortOrder = 0 };
+        db.RetroBoardFeedbackPrompts.Add(prompt);
+        await db.SaveChangesAsync();
+        var svc = Svc(db);
+        await svc.JoinGuestAsync("quiet-lobster", "g1", "Gilbert");
+
+        Assert.Equal(RetroActionResult.Invalid, await svc.RespondGuestFeedbackAsync("quiet-lobster", "g1", prompt.Id, 0, null));
+        await svc.RespondGuestFeedbackAsync("quiet-lobster", "g1", prompt.Id, 2, null);
+        await svc.RespondGuestFeedbackAsync("quiet-lobster", "g1", prompt.Id, 5, "changed my mind");
+
+        // One row per guest per prompt — the second call updated the first, it didn't add another.
+        Assert.Single(db.RetroBoardFeedbackResponses);
+        var mine = (await svc.GetGuestBoardAsync("quiet-lobster", "g1"))!.Board.FeedbackPrompts.Single();
+        Assert.Equal(5, mine.MyScore);
+        Assert.Equal("changed my mind", mine.MyComment);
+    }
+
+    [Fact]
+    public async Task Guest_reflection_is_accepted_after_the_retro_closes_unlike_notes()
+    {
+        using var db = NewDb();
+        var facil = Member("Fac");
+        db.TeamMembers.Add(facil);
+        var s = GuestBoard(facil.Id, status: "closed");
+        db.RetroBoardSessions.Add(s);
+        var prompt = new RetroBoardFeedbackPrompt { Id = Guid.NewGuid(), RetroBoardSessionId = s.Id, Text = "Flow", SortOrder = 0 };
+        db.RetroBoardFeedbackPrompts.Add(prompt);
+        var col = GuestCol(s.Id);
+        db.RetroBoardColumns.Add(col);
+        // The guest joined while the retro was open; their participant row persists past close.
+        db.RetroBoardParticipants.Add(new RetroBoardParticipant { Id = Guid.NewGuid(), RetroBoardSessionId = s.Id, GuestSessionId = "g1", DisplayName = "Gilbert" });
+        await db.SaveChangesAsync();
+        var svc = Svc(db);
+
+        // Board contributions are locked on a closed retro…
+        Assert.Equal(RetroActionResult.Closed,
+            (await svc.AddGuestNoteAsync("quiet-lobster", "g1", new AddRetroBoardNoteRequest { ColumnId = col.Id, Text = "x" })).result);
+        // …but reflection is exempt from the close-lock, mirroring members'.
+        Assert.Equal(RetroActionResult.Ok, await svc.RespondGuestFeedbackAsync("quiet-lobster", "g1", prompt.Id, 5, null));
+    }
+
+    [Fact]
+    public async Task Guest_must_join_before_reflecting()
+    {
+        using var db = NewDb();
+        var facil = Member("Fac");
+        db.TeamMembers.Add(facil);
+        var s = GuestBoard(facil.Id);
+        db.RetroBoardSessions.Add(s);
+        var prompt = new RetroBoardFeedbackPrompt { Id = Guid.NewGuid(), RetroBoardSessionId = s.Id, Text = "Flow", SortOrder = 0 };
+        db.RetroBoardFeedbackPrompts.Add(prompt);
+        await db.SaveChangesAsync();
+
+        Assert.Equal(RetroActionResult.Forbidden,
+            await Svc(db).RespondGuestFeedbackAsync("quiet-lobster", "never-joined", prompt.Id, 4, null));
+    }
+
+    [Fact]
+    public async Task Guest_reflection_counts_toward_the_facilitators_responded_meter()
+    {
+        using var db = NewDb();
+        var facil = Member("Fac");
+        db.TeamMembers.Add(facil);
+        var s = GuestBoard(facil.Id);
+        db.RetroBoardSessions.Add(s);
+        var prompt = new RetroBoardFeedbackPrompt { Id = Guid.NewGuid(), RetroBoardSessionId = s.Id, Text = "Flow", SortOrder = 0 };
+        db.RetroBoardFeedbackPrompts.Add(prompt);
+        await db.SaveChangesAsync();
+        var svc = Svc(db);
+        await svc.JoinGuestAsync("quiet-lobster", "g1", "Gilbert");
+
+        // Before rating, the guest is in the roster but not yet counted as having reflected.
+        var before = (await svc.GetSessionAsync(s.Id, facil.Id))!.Participants.Single(p => p.IsGuest);
+        Assert.False(before.Responded["reflect"]);
+
+        await svc.RespondGuestFeedbackAsync("quiet-lobster", "g1", prompt.Id, 5, null);
+
+        // Once they've rated every prompt, the facilitator's meter counts them like any member.
+        var after = (await svc.GetSessionAsync(s.Id, facil.Id))!.Participants.Single(p => p.IsGuest);
+        Assert.True(after.Responded["reflect"]);
+    }
 }

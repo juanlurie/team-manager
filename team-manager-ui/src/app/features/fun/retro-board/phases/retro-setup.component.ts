@@ -161,6 +161,9 @@ import { SessionJoinComponent } from '../../../../shared/components/session-join
       <div class="card">
         <label class="lbl">Participants · {{ s.participants.length }}</label>
         <div class="muted" style="font-size:12px;margin:-2px 0 12px">Set the team at the top to add everyone at once; anyone else joins with the code.</div>
+        <label class="row" style="gap:8px;cursor:pointer;margin-bottom:10px" title="Let people without a team account join as named guests via the link below">
+          <input type="checkbox" [(ngModel)]="store.edit.guest" (change)="store.saveSettings()" [disabled]="!store.amFacilitator()"> Allow guests to join with the link
+        </label>
         @if (joinUrl(s.slug); as ju) {
           <div style="display:flex;justify-content:center;margin:4px 0 14px">
             <app-session-join [url]="ju" [code]="s.slug" [size]="150" />

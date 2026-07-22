@@ -156,21 +156,44 @@ public partial class RetroBoardService
         return RetroActionResult.Ok;
     }
 
-    /// <summary>The gate for a guest mutation: the board must exist, allow guests, be open, and the
-    /// caller must already be a joined guest participant (named themselves via <see cref="JoinGuestAsync"/>).
-    /// Returns the tracked session + the caller's participant row for the write to use.</summary>
+    /// <summary>The gate for a guest mutation: the board must exist, allow guests, and the caller must
+    /// already be a joined guest participant (named themselves via <see cref="JoinGuestAsync"/>). Open
+    /// (non-closed) is required unless <paramref name="blockClosed"/> is false — reflection is submitted
+    /// after the retro closes, like members'. Returns the tracked session + the caller's participant row.</summary>
     private async Task<(RetroActionResult result, RetroBoardSession? session, RetroBoardParticipant? me)> GuardGuestAsync(
-        string slug, string guestSessionId)
+        string slug, string guestSessionId, bool blockClosed = true)
     {
         var sessionId = await ResolveSessionIdAsync(slug);
         if (sessionId is null) return (RetroActionResult.NotFound, null, null);
         var session = await db.RetroBoardSessions.FindAsync(sessionId.Value);
         if (session is null || !session.AllowGuestJoin) return (RetroActionResult.NotFound, null, null);
-        if (session.Status == Status.Closed) return (RetroActionResult.Closed, null, null);
+        if (blockClosed && session.Status == Status.Closed) return (RetroActionResult.Closed, null, null);
         var me = await db.RetroBoardParticipants
             .FirstOrDefaultAsync(p => p.RetroBoardSessionId == sessionId.Value && p.GuestSessionId == guestSessionId);
         if (me is null) return (RetroActionResult.Forbidden, null, null);   // must join (name yourself) first
         return (RetroActionResult.Ok, session, me);
+    }
+
+    /// <summary>Submit (or update) a guest's rating + optional comment for a feedback prompt. Exempt from
+    /// the close-lock — guest reflection, like a member's, is collected as the retro wraps up — but the
+    /// caller must be a joined guest so the anonymous aggregate can't be poisoned.</summary>
+    public async Task<RetroActionResult> RespondGuestFeedbackAsync(string slug, string guestSessionId, Guid promptId, int score, string? comment)
+    {
+        if (score is < 1 or > 5) return RetroActionResult.Invalid;
+        var (guard, session, _) = await GuardGuestAsync(slug, guestSessionId, blockClosed: false);
+        if (guard != RetroActionResult.Ok) return guard;
+        if (!await db.RetroBoardFeedbackPrompts.AnyAsync(p => p.Id == promptId && p.RetroBoardSessionId == session!.Id))
+            return RetroActionResult.NotFound;
+
+        var trimmed = string.IsNullOrWhiteSpace(comment) ? null : comment.Trim();
+        var existing = await db.RetroBoardFeedbackResponses
+            .FirstOrDefaultAsync(r => r.RetroBoardFeedbackPromptId == promptId && r.GuestSessionId == guestSessionId);
+        if (existing is null)
+            db.RetroBoardFeedbackResponses.Add(new RetroBoardFeedbackResponse { RetroBoardFeedbackPromptId = promptId, GuestSessionId = guestSessionId, Score = score, Comment = trimmed });
+        else { existing.Score = score; existing.Comment = trimmed; existing.UpdatedAt = DateTimeOffset.UtcNow; }
+        await db.SaveChangesAsync();
+        Broadcast(session!.Id, "rb_feedback_responded", new { sessionId = session.Id, promptId });
+        return RetroActionResult.Ok;
     }
 
     /// <summary>Loads the full board graph for the guest read path, but only when the session opts into

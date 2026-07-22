@@ -1,12 +1,15 @@
 import { Component, OnInit, OnDestroy, inject, signal, ChangeDetectionStrategy } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
-import { Subject, interval, Observable, EMPTY } from 'rxjs';
-import { filter, take, takeUntil, switchMap, catchError } from 'rxjs/operators';
+import { Subject, Observable, EMPTY } from 'rxjs';
+import { filter, take, takeUntil, switchMap, catchError, debounceTime } from 'rxjs/operators';
 import { AuthService } from '../../../../core/auth/auth.service';
 import { GuestRetroBoardService } from '../../../../core/services/guest-retro-board.service';
 import { GuestRetroBoard } from '../../../../core/models/retro-board.model';
+import { WebSocketService } from '../../../../core/websocket/websocket.service';
+import { RetroBoardEvent, RETRO_BOARD_EVENT_TYPES } from '../../../../core/websocket/events/retro-board.events';
 import { GuestRetroBoardViewComponent, GuestNoteDraft } from './guest-retro-board-view.component';
+import { GuestRetroReflectComponent, GuestFeedbackResponse } from './guest-retro-reflect.component';
 
 type View = 'loading' | 'notFound' | 'join' | 'board';
 
@@ -14,13 +17,14 @@ type View = 'loading' | 'notFound' | 'join' | 'board';
  * Public (unguarded) landing for a RetroBoard join link / QR. Recognizes an already-signed-in member
  * and sends them to the authed board; otherwise offers the guest path (name entry, when the board
  * allows guests) or sign-in. Once joined, hosts the guest board — the guest can add/delete their own
- * notes and vote — and keeps it fresh by polling (guests have no WebSocket yet). Contribution intents
- * come up from the board view; this owns the calls and the board state. See docs/session-identity.md.
+ * notes and vote — and keeps it live over the shared WebSocket (joins the retro room and refetches on
+ * this session's rb_* events, the same channel members use). Contribution intents come up from the
+ * board view; this owns the calls and the board state. See docs/session-identity.md.
  */
 @Component({
   selector: 'app-guest-retro',
   standalone: true,
-  imports: [FormsModule, GuestRetroBoardViewComponent],
+  imports: [FormsModule, GuestRetroBoardViewComponent, GuestRetroReflectComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   styles: [`
     :host { display: block; min-height: 100vh; background: var(--ds-surface-canvas, #0f1117); color: var(--ds-text, #e6e9ef); }
@@ -47,6 +51,8 @@ type View = 'loading' | 'notFound' | 'join' | 'board';
     .roster { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 20px; }
     .chip { font-size: .74rem; padding: 3px 9px; border-radius: 999px; background: var(--ds-surface-2, #1a2230); border: 1px solid var(--ds-border, rgba(255,255,255,.08)); color: var(--ds-text-muted, #9aa6b8); }
     .chip.guest { border-color: var(--ds-primary-border, rgba(91,157,240,.35)); }
+    .reflect { margin-bottom: 24px; }
+    .reflect h2 { font-size: 1.05rem; margin: 0 0 10px; }
   `],
   template: `
     @switch (view()) {
@@ -97,6 +103,13 @@ type View = 'loading' | 'notFound' | 'join' | 'board';
             }
           </div>
           @if (error()) { <p class="err" style="text-align:left;margin:-8px 0 14px">{{ error() }}</p> }
+          @if (showReflect()) {
+            <section class="reflect">
+              <h2>Reflect</h2>
+              <app-guest-retro-reflect [prompts]="board()!.board.feedbackPrompts" [interactive]="reflectInteractive()"
+                (respond)="onRespondFeedback($event)" />
+            </section>
+          }
           <app-guest-retro-board-view [board]="board()!.board" [interactive]="interactive()"
             (addNote)="onAddNote($event)" (deleteNote)="onDeleteNote($event)"
             (vote)="onVote($event)" (unvote)="onUnvote($event)" />
@@ -110,7 +123,10 @@ export class GuestRetroComponent implements OnInit, OnDestroy {
   private router = inject(Router);
   private auth = inject(AuthService);
   private svc = inject(GuestRetroBoardService);
+  private ws = inject(WebSocketService);
   private destroy$ = new Subject<void>();
+  private refresh$ = new Subject<void>();
+  private sessionId: string | null = null;
 
   view = signal<View>('loading');
   board = signal<GuestRetroBoard | null>(null);
@@ -125,9 +141,22 @@ export class GuestRetroComponent implements OnInit, OnDestroy {
   allowGuest() { return this.board()?.board.allowGuestJoin ?? false; }
   /** Contributions are allowed while the retro is open (not closed) and no action is in flight. */
   interactive() { return this.board()?.board.status !== 'closed' && !this.busy(); }
+  /** The Reflect step: shown once the facilitator reaches the Reflect phase and while the retro is
+   *  closed (feedback is collected as the retro wraps up), whenever there are prompts to rate. */
+  showReflect() { const b = this.board()?.board; return !!b && b.feedbackPrompts.length > 0 && (b.phase === 'reflect' || b.status === 'closed'); }
+  /** Reflect is exempt from the close-lock (submitted after close), so unlike notes/votes it stays
+   *  active on a closed retro — only an in-flight action disables it. */
+  reflectInteractive() { return !this.busy(); }
 
   ngOnInit() {
     this.slug = this.route.snapshot.paramMap.get('slug') ?? '';
+
+    // Coalesce refetches: a burst of rb_* events (or a reconnect catch-up) collapses into one GET.
+    this.refresh$.pipe(
+      debounceTime(150),
+      switchMap(() => this.svc.getBoard(this.slug).pipe(catchError(() => EMPTY))),
+      takeUntil(this.destroy$),
+    ).subscribe(b => this.board.set(b));
 
     // Recognize an already-signed-in member and hand them the real (authed) board, which enrols them
     // as a member participant. Guests fall through to the join card.
@@ -144,16 +173,18 @@ export class GuestRetroComponent implements OnInit, OnDestroy {
     });
   }
 
-  ngOnDestroy() { this.destroy$.next(); this.destroy$.complete(); }
+  ngOnDestroy() {
+    if (this.sessionId) this.ws.leaveRoom(`retro:${this.sessionId}`);
+    this.destroy$.next(); this.destroy$.complete();
+  }
 
   private loadBoard(initial: boolean) {
     this.svc.getBoard(this.slug).pipe(takeUntil(this.destroy$)).subscribe({
       next: b => {
         this.board.set(b);
         if (b.hasJoined) {
-          const wasBoard = this.view() === 'board';
           this.view.set('board');
-          if (!wasBoard) this.startPolling();   // arm live refresh the first time we show the board
+          this.startRealtime();   // arm live updates (no-op if already armed)
         } else {
           this.view.set('join');
         }
@@ -167,7 +198,7 @@ export class GuestRetroComponent implements OnInit, OnDestroy {
     if (!displayName || this.joining()) return;
     this.joining.set(true); this.error.set(null);
     this.svc.join(this.slug, displayName).pipe(takeUntil(this.destroy$)).subscribe({
-      next: b => { this.joining.set(false); this.board.set(b); this.view.set('board'); this.startPolling(); },
+      next: b => { this.joining.set(false); this.board.set(b); this.view.set('board'); this.startRealtime(); },
       error: () => { this.joining.set(false); this.error.set('Could not join — the retro may have closed.'); },
     });
   }
@@ -179,6 +210,7 @@ export class GuestRetroComponent implements OnInit, OnDestroy {
   onDeleteNote(noteId: string) { this.applyBoard(this.svc.deleteNote(this.slug, noteId), "Couldn't delete that note."); }
   onVote(noteId: string) { this.applyVote(this.svc.vote(this.slug, noteId), "Vote didn't go through — you may be out of votes."); }
   onUnvote(noteId: string) { this.applyVote(this.svc.unvote(this.slug, noteId), "Couldn't remove that vote."); }
+  onRespondFeedback(r: GuestFeedbackResponse) { this.applyVote(this.svc.respondFeedback(this.slug, r.promptId, r.score, r.comment), "Couldn't save your rating — try again."); }
 
   // Note add/delete return the refreshed board; use it directly.
   private applyBoard(obs: Observable<GuestRetroBoard>, errMsg: string) {
@@ -204,11 +236,25 @@ export class GuestRetroComponent implements OnInit, OnDestroy {
     this.svc.getBoard(this.slug).pipe(takeUntil(this.destroy$)).subscribe({ next: b => this.board.set(b) });
   }
 
-  // Guests have no WebSocket yet, so refresh the board on a gentle poll.
-  private startPolling() {
-    interval(4000).pipe(
-      switchMap(() => this.svc.getBoard(this.slug).pipe(catchError(() => EMPTY))),
+  // Real-time updates over the shared WebSocket, same channel members use: join the retro room and
+  // refetch on this session's rb_* broadcasts. Guests connect tokenless (like guest WoW).
+  private startRealtime() {
+    const sid = this.board()?.board.id;
+    if (!sid || this.sessionId) return;   // need a loaded board; arm once
+    this.sessionId = sid;
+    const room = `retro:${sid}`;
+
+    this.ws.connect();
+    // Room membership lives only in the server's in-memory connection state, so (re)join on every
+    // connect and catch up with a refetch — covers the initial connect and any reconnect.
+    this.ws.connected$.pipe(filter(c => c), takeUntil(this.destroy$)).subscribe(() => {
+      this.ws.joinRoom(room);
+      this.refresh$.next();
+    });
+    // Any rb_* event for this session → refetch (debounced upstream to coalesce bursts).
+    this.ws.roomEvents<RetroBoardEvent>(RETRO_BOARD_EVENT_TYPES).pipe(
+      filter(e => e.data?.['sessionId'] === sid),
       takeUntil(this.destroy$),
-    ).subscribe(b => this.board.set(b));
+    ).subscribe(() => this.refresh$.next());
   }
 }
