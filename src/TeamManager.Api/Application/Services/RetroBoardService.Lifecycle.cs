@@ -25,6 +25,7 @@ public partial class RetroBoardService
             Status = Status.Draft,
             VotesPerUser = req.VotesPerUser is > 0 and <= 99 ? req.VotesPerUser.Value : 6,
             AllowAnonymous = req.AllowAnonymous ?? true,
+            AllowGuestJoin = req.AllowGuestJoin ?? true,   // guests can join by default — the QR/join link is front-and-centre in Setup
             HideNotesUntilReveal = req.HideNotesUntilReveal ?? true,
             StepDurationsJson = JsonSerializer.Serialize(req.StepDurations ?? new RetroStepDurations(), Json),
             Slug = await GenerateUniqueSlugAsync(),
@@ -232,6 +233,7 @@ public partial class RetroBoardService
 
         if (req.VotesPerUser is > 0 and <= 99) session!.VotesPerUser = req.VotesPerUser.Value;
         if (req.AllowAnonymous is { } anon) session!.AllowAnonymous = anon;
+        if (req.AllowGuestJoin is { } guest) session!.AllowGuestJoin = guest;
         if (req.HideNotesUntilReveal is { } hide) session!.HideNotesUntilReveal = hide;
         if (req.StepDurations is { } dur) session!.StepDurationsJson = JsonSerializer.Serialize(dur, Json);
         if (req.PhaseConfig is { } cfg) session!.PhaseConfigJson = JsonSerializer.Serialize(cfg, Json);

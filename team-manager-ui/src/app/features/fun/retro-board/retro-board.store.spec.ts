@@ -1,11 +1,14 @@
 import { TestBed } from '@angular/core/testing';
 import { Router } from '@angular/router';
+import { HttpResponse } from '@angular/common/http';
+import { BehaviorSubject, Subject, of } from 'rxjs';
 
 import { RetroBoardStore, PHASES } from './retro-board.store';
 import { RetroBoardService } from '../../../core/services/retro-board.service';
 import { SquadService } from '../../../core/services/squad.service';
 import { TeamMemberService } from '../../../core/services/team-member.service';
 import { WebSocketService } from '../../../core/websocket/websocket.service';
+import { RetroBoardEvent } from '../../../core/websocket/events/retro-board.events';
 import { AuthService } from '../../../core/auth/auth.service';
 
 /** Minimal session graph — only the fields the pure computeds read; cast to bypass the full type.
@@ -135,5 +138,77 @@ describe('RetroBoardStore', () => {
       }));
       expect(store.canManageHost(roster()[0])).toBe(false);
     });
+  });
+});
+
+// The real-time contract that makes a live session update for a passive participant: the client must
+// (re)join the server-side retro room on every socket (re)connect, because room membership lives only
+// in the server's in-memory connection state and is forgotten on any drop. A one-shot join after the
+// HTTP load — the old behavior — raced the handshake and never recovered from a reconnect, which is
+// exactly why a participant only saw the facilitator's changes after taking an action themselves.
+describe('RetroBoardStore — live-session WebSocket (re)join', () => {
+  let store: RetroBoardStore;
+  let ws: { connect: ReturnType<typeof vi.fn>; send: ReturnType<typeof vi.fn>; connected$: BehaviorSubject<boolean>; roomEvents: ReturnType<typeof vi.fn> };
+  let events$: Subject<RetroBoardEvent>;
+  let getSessionResponse: ReturnType<typeof vi.fn>;
+
+  const live = (over: Record<string, unknown> = {}): any => ({
+    id: 's1', slug: 's1', status: 'live', phase: 'checkin', isFacilitator: true,
+    votesPerUser: 6, allowAnonymous: true, allowGuestJoin: true,
+    stepDurations: {}, phaseConfig: {}, enabledPhases: [],
+    participants: [], columns: [], notes: [], checkinQuestions: [], feedbackPrompts: [], actions: [],
+    ...over,
+  });
+
+  const joinRetroCalls = () => ws.send.mock.calls.filter((c: unknown[]) => (c[0] as { type?: string })?.type === 'join_retro');
+
+  beforeEach(() => {
+    events$ = new Subject<RetroBoardEvent>();
+    ws = {
+      connect: vi.fn(),
+      send: vi.fn(),
+      connected$: new BehaviorSubject<boolean>(false),
+      roomEvents: vi.fn(() => events$),
+    };
+    getSessionResponse = vi.fn(() => of(new HttpResponse({ body: live() })));
+
+    TestBed.configureTestingModule({
+      providers: [
+        RetroBoardStore,
+        { provide: RetroBoardService, useValue: { join: vi.fn(() => of(live())), getSessionResponse, getLobbySessions: vi.fn(() => of([])) } },
+        { provide: SquadService, useValue: { getAll: () => of([]) } },
+        { provide: TeamMemberService, useValue: { getAll: () => of([]) } },
+        { provide: WebSocketService, useValue: ws },
+        { provide: AuthService, useValue: { me: { firstName: 'A', lastName: 'B' } } },
+        { provide: Router, useValue: { navigate: vi.fn() } },
+      ],
+    });
+    store = TestBed.inject(RetroBoardStore);
+  });
+
+  it('connects and joins the retro room, then re-joins on every reconnect', () => {
+    store.init('s1');
+
+    // The HTTP load resolved synchronously (mock), so the board is open and the first join was sent.
+    expect(ws.connect).toHaveBeenCalled();
+    expect(joinRetroCalls().length).toBe(1);
+    expect(joinRetroCalls()[0][0]).toMatchObject({ type: 'join_retro', sessionId: 's1' });
+
+    // Socket comes up → re-join (covers the initial open racing the HTTP load).
+    ws.connected$.next(true);
+    expect(joinRetroCalls().length).toBe(2);
+
+    // Drop + reconnect → re-join again. Without this a passive participant goes silent after any blip.
+    ws.connected$.next(false);
+    ws.connected$.next(true);
+    expect(joinRetroCalls().length).toBe(3);
+  });
+
+  it('does not join any room while sitting in the lobby (no open session)', () => {
+    store.init(null);            // lobby, no board loaded
+    ws.connected$.next(true);
+    ws.connected$.next(false);
+    ws.connected$.next(true);
+    expect(joinRetroCalls().length).toBe(0);
   });
 });

@@ -70,7 +70,7 @@ export class RetroBoardService {
     return this.http.post<void>(`${this.base}/${id}/unarchive`, {});
   }
   updateSettings(id: string, req: {
-    votesPerUser?: number; allowAnonymous?: boolean; hideNotesUntilReveal?: boolean; stepDurations?: RetroStepDurations;
+    votesPerUser?: number; allowAnonymous?: boolean; allowGuestJoin?: boolean; hideNotesUntilReveal?: boolean; stepDurations?: RetroStepDurations;
     phaseConfig?: Record<string, RetroPhaseFlags>;
   }): Observable<void> {
     return this.http.patch<void>(`${this.base}/${id}/settings`, req);

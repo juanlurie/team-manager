@@ -1,7 +1,7 @@
 import { Injectable, OnDestroy, inject, signal, computed, effect } from '@angular/core';
 import { HttpResponse } from '@angular/common/http';
 import { Router } from '@angular/router';
-import { Subject, EMPTY, Observable, takeUntil, debounceTime, switchMap, catchError, map } from 'rxjs';
+import { Subject, EMPTY, Observable, takeUntil, debounceTime, switchMap, catchError, map, filter } from 'rxjs';
 import { MatDialog } from '@angular/material/dialog';
 import { ConfirmDialogComponent, ConfirmDialogData } from '../../../shared/components/confirm-dialog/confirm-dialog.component';
 
@@ -302,7 +302,7 @@ export class RetroBoardStore implements OnDestroy {
 
   newTitle = '';
   joinCode = '';
-  edit = { votes: 6, anon: true, d: { ...DEFAULT_STEP_DURATIONS } };
+  edit = { votes: 6, anon: true, guest: true, d: { ...DEFAULT_STEP_DURATIONS } };
   // Facilitator's estimate of how many topics will be discussed; the per-topic timers
   // (intro + discuss) are multiplied by this for the Allocated/Remaining budget. UI-only.
   topicEstimate = 5;
@@ -338,6 +338,16 @@ export class RetroBoardStore implements OnDestroy {
       const s = this.session();
       if (s && msg.data?.['sessionId'] === s.id) this.refresh(s.id);
     });
+    // Room membership lives only in the server's in-memory connection state, so (re)join the retro
+    // room on every (re)connect and catch up with a refetch. `joinWs`'s own send is a no-op unless
+    // the socket is already OPEN, so the one-shot join after the HTTP load can race the handshake and
+    // be dropped; and a reconnect (mobile sleep, wifi blip, zombie-socket recovery) silently forgets
+    // the room. Without this a passive participant stops receiving the facilitator's phase/timer
+    // broadcasts until they take an action of their own. Mirrors the guest board's realtime arming.
+    this.ws.connected$.pipe(filter(c => c), takeUntil(this.destroy$)).subscribe(() => {
+      const s = this.session();
+      if (s) { this.joinWs(s.id); this.refresh(s.id); }
+    });
     if (routeId) this.load(routeId); else this.loadLobby();
   }
 
@@ -358,7 +368,7 @@ export class RetroBoardStore implements OnDestroy {
   private load(idOrSlug: string) { this.svc.join(idOrSlug).subscribe({ next: s => { this.setSession(s); this.joinWs(s.id); }, error: () => this.error.set('Could not open retro.') }); }
   private refresh(id: string) { this.refresh$.next(id); }
   private setSession(s: RetroBoardSession) {
-    this.session.set(s); this.edit.votes = s.votesPerUser; this.edit.anon = s.allowAnonymous; this.edit.d = { ...s.stepDurations };
+    this.session.set(s); this.edit.votes = s.votesPerUser; this.edit.anon = s.allowAnonymous; this.edit.guest = s.allowGuestJoin; this.edit.d = { ...s.stepDurations };
     // Local (self-paced) navigation applies to a live freeform/guided run; otherwise snap to the shared phase.
     if (!(s.status === 'live' && this.structureLevelOf(s.phaseConfig) !== 'structured')) this.localPhase.set(null);
     // Seed local comment drafts once so in-progress typing survives WS refreshes.
@@ -454,7 +464,7 @@ export class RetroBoardStore implements OnDestroy {
   // Auto-start the phase clock on advance so every participant sees a running timer without the facilitator
   // starting it — but not for an untimed (Freeform) phase.
   private autoStartTimer(s: RetroBoardSession) { const key = PHASE_TIMER[s.phase]; if (!key || s.phaseConfig[s.phase]?.timed === false) return; this.svc.setLiveState(s.id, JSON.stringify({ startedAt: new Date(this.serverNow()).toISOString(), seconds: s.stepDurations[key] })).subscribe({ next: () => this.refresh(s.id) }); }
-  saveSettings() { const s = this.session(); if (s) this.svc.updateSettings(s.id, { votesPerUser: this.edit.votes, allowAnonymous: this.edit.anon, stepDurations: this.edit.d }).subscribe({ next: () => this.refresh(s.id) }); }
+  saveSettings() { const s = this.session(); if (s) this.svc.updateSettings(s.id, { votesPerUser: this.edit.votes, allowAnonymous: this.edit.anon, allowGuestJoin: this.edit.guest, stepDurations: this.edit.d }).subscribe({ next: () => this.refresh(s.id) }); }
   // A manual timer edit persists as the new "last used" — and because the preset selector reads
   // presetOf(edit.d), it silently flips to Custom whenever the values stop matching a preset.
   setTimer(key: keyof RetroStepDurations, ev: Event) { this.edit.d[key] = F.parseDuration((ev.target as HTMLInputElement).value); this.saveSettings(); this.saveSetupPrefs(); }
