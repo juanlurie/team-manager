@@ -12,6 +12,11 @@ const SKIP_PATTERNS = [
   // serving a cached response there means every card/vote/phase/reveal update goes silently stale for
   // up to TTL_MS after the first fetch, since the WS-triggered GET never actually reaches the server.
   '/fun-retro',
+  // RetroBoard (the newer /retro-board feature) is the same story: both the member board and the
+  // guest board refetch on every rb_* broadcast, so a cached GET freezes a passive participant's or
+  // guest's view until they happen to make a mutation (which clears the cache). This substring covers
+  // both '/api/v1/retro-board' and '/api/v1/guest/retro-board'.
+  '/retro-board',
 ];
 
 export function clearCacheForPattern(pattern: string): void {
