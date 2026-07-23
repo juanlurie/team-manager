@@ -10,8 +10,28 @@ import { WebSocketService } from '../../../../core/websocket/websocket.service';
 import { RetroBoardEvent, RETRO_BOARD_EVENT_TYPES } from '../../../../core/websocket/events/retro-board.events';
 import { GuestRetroBoardViewComponent, GuestNoteDraft } from './guest-retro-board-view.component';
 import { GuestRetroReflectComponent, GuestFeedbackResponse } from './guest-retro-reflect.component';
+import { GuestRetroTimerComponent } from './guest-retro-timer.component';
+import { RetroPhase } from '../../../../core/models/retro-board.model';
 
 type View = 'loading' | 'notFound' | 'join' | 'board';
+
+// Guest-facing phase names + a one-line "what's happening" for each, so the board reads as the step the
+// facilitator is on rather than a static list of columns. Keyed by RetroPhase; closed/open are handled
+// separately (see phaseHint) since they're a session status, not a phase.
+const PHASE_LABEL: Record<string, string> = {
+  setup: 'Setup', checkin: 'Check-in', capture: 'Capture', introduce: 'Introduce',
+  vote: 'Vote', discuss: 'Discuss', reflect: 'Reflect', summary: 'Summary',
+};
+const PHASE_HINT: Record<string, string> = {
+  setup: 'The facilitator is still setting things up.',
+  checkin: 'Check-in — the team is warming up.',
+  capture: 'Capture — add your thoughts to the board below.',
+  introduce: 'Introduce — notes are being read out. Sit tight.',
+  vote: 'Vote — pick the topics that matter most to you.',
+  discuss: 'Discuss — the team is talking through the top topics.',
+  reflect: 'Reflect — rate the session below.',
+  summary: 'Summary — the retro is wrapping up.',
+};
 
 /**
  * Public (unguarded) landing for a RetroBoard join link / QR. Recognizes an already-signed-in member
@@ -24,7 +44,7 @@ type View = 'loading' | 'notFound' | 'join' | 'board';
 @Component({
   selector: 'app-guest-retro',
   standalone: true,
-  imports: [FormsModule, GuestRetroBoardViewComponent, GuestRetroReflectComponent],
+  imports: [FormsModule, GuestRetroBoardViewComponent, GuestRetroReflectComponent, GuestRetroTimerComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   styles: [`
     :host { display: block; min-height: 100vh; background: var(--ds-surface-canvas, #0f1117); color: var(--ds-text, #e6e9ef); }
@@ -53,6 +73,8 @@ type View = 'loading' | 'notFound' | 'join' | 'board';
     .chip.guest { border-color: var(--ds-primary-border, rgba(91,157,240,.35)); }
     .reflect { margin-bottom: 24px; }
     .reflect h2 { font-size: 1.05rem; margin: 0 0 10px; }
+    .board-head app-guest-retro-timer { margin-left: 4px; }
+    .phase-hint { color: var(--ds-text-muted, #9aa6b8); font-size: .9rem; margin: -6px 0 18px; }
   `],
   template: `
     @switch (view()) {
@@ -94,9 +116,11 @@ type View = 'loading' | 'notFound' | 'join' | 'board';
         <div class="wrap">
           <div class="board-head">
             <h1>{{ title() }}</h1>
-            <span class="badge">{{ board()!.board.phase }}</span>
+            <span class="badge">{{ phaseLabel() }}</span>
+            <app-guest-retro-timer [liveStateJson]="liveState()" [label]="phaseLabel()" />
             <span class="you">You're in as <strong>{{ board()!.displayName }}</strong></span>
           </div>
+          <p class="phase-hint">{{ phaseHint() }}</p>
           <div class="roster">
             @for (p of board()!.board.participants; track p.id) {
               <span class="chip" [class.guest]="p.isGuest">{{ p.name }}{{ p.isGuest ? ' (guest)' : '' }}</span>
@@ -110,7 +134,7 @@ type View = 'loading' | 'notFound' | 'join' | 'board';
                 (respond)="onRespondFeedback($event)" />
             </section>
           }
-          <app-guest-retro-board-view [board]="board()!.board" [interactive]="interactive()"
+          <app-guest-retro-board-view [board]="board()!.board" [interactive]="interactive()" [canCompose]="canCompose()"
             (addNote)="onAddNote($event)" (deleteNote)="onDeleteNote($event)"
             (vote)="onVote($event)" (unvote)="onUnvote($event)" />
         </div>
@@ -147,6 +171,25 @@ export class GuestRetroComponent implements OnInit, OnDestroy {
   /** Reflect is exempt from the close-lock (submitted after close), so unlike notes/votes it stays
    *  active on a closed retro — only an in-flight action disables it. */
   reflectInteractive() { return !this.busy(); }
+
+  // ── Phase-awareness: the guest board follows the facilitator through the retro, so it must read as
+  //    the current step (label + one-line "what's happening"), not a static wall of columns. ──
+  private phase(): RetroPhase | undefined { return this.board()?.board.phase; }
+  private closed() { return this.board()?.board.status === 'closed'; }
+  /** Friendly name for the current step (or "Closed" once the retro ends). */
+  phaseLabel() { return this.closed() ? 'Closed' : (PHASE_LABEL[this.phase() ?? ''] ?? this.phase() ?? ''); }
+  /** One line telling the guest what's happening now and what, if anything, they can do. */
+  phaseHint() {
+    const b = this.board()?.board; if (!b) return '';
+    if (b.status === 'closed') return 'This retro has closed — thanks for taking part.';
+    if (b.status === 'open') return 'The retro is open — add your thoughts to the board below.';
+    return PHASE_HINT[b.phase] ?? '';
+  }
+  /** Adding notes only makes sense while capturing (pre-capture "open", or the Capture phase); once the
+   *  facilitator moves on, the board goes view/vote-only for the guest. */
+  canCompose() { const b = this.board()?.board; return !!b && b.status !== 'closed' && (b.status === 'open' || b.phase === 'capture'); }
+  /** Don't count down a stale timer on a closed board. */
+  liveState() { return this.closed() ? null : (this.board()?.board.liveStateJson ?? null); }
 
   ngOnInit() {
     this.slug = this.route.snapshot.paramMap.get('slug') ?? '';

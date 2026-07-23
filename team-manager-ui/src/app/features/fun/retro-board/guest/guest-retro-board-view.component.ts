@@ -85,16 +85,18 @@ export interface GuestNoteDraft { columnId: string; text: string; isAnonymous: b
             }
           </div>
 
-          <div class="composer">
-            <input type="text" [(ngModel)]="drafts[col.id]" maxlength="500"
-                   placeholder="Add a note…" (keyup.enter)="submit(col.id)" [disabled]="!interactive" />
-            <div class="composer-row">
-              @if (board.allowAnonymous) {
-                <label class="anon"><input type="checkbox" [(ngModel)]="anon[col.id]" [disabled]="!interactive" /> Anonymous</label>
-              }
-              <button class="add-btn" (click)="submit(col.id)" [disabled]="!interactive || !(drafts[col.id] || '').trim()">Add</button>
+          @if (canCompose) {
+            <div class="composer">
+              <input type="text" [(ngModel)]="drafts[col.id]" maxlength="500"
+                     placeholder="Add a note…" (keyup.enter)="submit(col.id)" [disabled]="!interactive" />
+              <div class="composer-row">
+                @if (board.allowAnonymous) {
+                  <label class="anon"><input type="checkbox" [(ngModel)]="anon[col.id]" [disabled]="!interactive" /> Anonymous</label>
+                }
+                <button class="add-btn" (click)="submit(col.id)" [disabled]="!interactive || !(drafts[col.id] || '').trim()">Add</button>
+              </div>
             </div>
-          </div>
+          }
         </section>
       }
     </div>
@@ -104,6 +106,9 @@ export class GuestRetroBoardViewComponent {
   @Input({ required: true }) board!: RetroBoardSession;
   /** When false (a closed retro, or an action in flight), the controls are disabled. */
   @Input() interactive = true;
+  /** When false, the per-column "add a note" composer is hidden — capture is over (the facilitator
+   *  has moved past the capture phase), so the board is view/vote-only for the guest. */
+  @Input() canCompose = true;
 
   @Output() addNote = new EventEmitter<GuestNoteDraft>();
   @Output() deleteNote = new EventEmitter<string>();
