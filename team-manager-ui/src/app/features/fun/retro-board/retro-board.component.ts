@@ -42,7 +42,7 @@ import { RetroSummaryComponent } from './phases/retro-summary.component';
         <div class="topbar">
           <div class="brand">Retro<span>Board</span></div>
           <span class="grow"></span>
-          <span class="tag" style="cursor:pointer" (click)="copyCode(s.slug)" [title]="copied() ? 'Copied!' : 'Click to copy the join code'">{{ copied() ? '✓ copied' : s.slug }}</span>
+          <span class="tag" style="cursor:pointer" (click)="copyCode(s.slug)" [title]="copied() ? 'Copied!' : 'Click to copy the join link'">{{ copied() ? '✓ copied' : s.slug }}</span>
           <button class="btn ghost sm" (click)="store.leave()">← Lobby</button>
         </div>
         <div class="body" style="grid-template-columns:1fr">
@@ -60,7 +60,7 @@ import { RetroSummaryComponent } from './phases/retro-summary.component';
             <button [class.on]="store.viewAs()==='participant'" (click)="store.viewAs.set('participant')">Participant</button>
           </div>
         }
-        <span class="tag" [class.closed]="s.status==='closed'" style="cursor:pointer" (click)="copyCode(s.slug)" [title]="copied() ? 'Copied!' : 'Click to copy the join code'">{{ copied() ? '✓ copied' : (s.status==='closed' ? 'closed' : s.slug) }}</span>
+        <span class="tag" [class.closed]="s.status==='closed'" style="cursor:pointer" (click)="copyCode(s.slug)" [title]="copied() ? 'Copied!' : 'Click to copy the join link'">{{ copied() ? '✓ copied' : (s.status==='closed' ? 'closed' : s.slug) }}</span>
         @if (store.amFacilitator()) {
           @if (s.status==='open') { <button class="btn primary sm" (click)="store.goLive()">Go Live →</button> }
           @if (s.status !== 'closed') { <button class="btn ghost sm" [class.primary]="store.editingSetup()" (click)="store.editingSetup.set(!store.editingSetup())" title="Edit questions, structure & timers mid-session">{{ store.editingSetup() ? '✓ Done' : '⚙ Setup' }}</button> }
@@ -170,10 +170,13 @@ export class RetroBoardComponent implements OnInit {
   @HostListener('document:keydown.escape')
   onEscape() { if (this.presenting()) this.presenting.set(false); }
 
-  /** Copy the retro's share code to the clipboard, with brief feedback. */
-  copyCode(code: string | null) {
-    if (!code) return;
-    navigator.clipboard?.writeText(code).then(() => {
+  /** Copy the full guest join link (not just the bare code) to the clipboard, with brief feedback —
+   *  it's the shareable URL people actually paste. Matches the link the QR encodes (retro-setup's
+   *  joinUrl). The tag still *shows* the short code; clicking it copies the whole link. */
+  copyCode(slug: string | null) {
+    if (!slug) return;
+    const url = `${location.origin}/guest/retro-board/${slug}`;
+    navigator.clipboard?.writeText(url).then(() => {
       this.copied.set(true);
       setTimeout(() => this.copied.set(false), 1200);
     }).catch(() => { /* clipboard may be unavailable */ });
