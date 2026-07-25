@@ -48,6 +48,9 @@ const EMPTY_FORM: EditForm = { key: '', label: '', systemPrompt: '', userMessage
     .prompt-meta { font-size:0.75rem;opacity:0.5 }
     .badge { font-size:0.7rem;padding:2px 8px;border-radius:10px;background:rgba(76,175,80,0.15);color:#4caf50 }
     .badge.inactive { background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.35) }
+    .test-params { display:flex;flex-wrap:wrap;gap:8px;margin-top:4px }
+    .test-params mat-form-field { flex:1 1 160px;min-width:140px }
+    .test-hint { font-size:0.75rem;opacity:0.5;margin-top:2px }
     .test-result { font-size:0.82rem;padding:10px 12px;border-radius:8px;margin-top:4px;white-space:pre-wrap;word-break:break-word }
     .test-result.success { background:rgba(76,175,80,0.08);border:1px solid rgba(76,175,80,0.25) }
     .test-result.error { background:rgba(239,83,80,0.08);border:1px solid rgba(239,83,80,0.25);color:#ef5350 }
@@ -129,6 +132,18 @@ const EMPTY_FORM: EditForm = { key: '', label: '', systemPrompt: '', userMessage
             <button mat-icon-button (click)="deletePrompt(p)" style="color:#ef5350"><mat-icon style="font-size:1.1rem">delete</mat-icon></button>
           </div>
           <div class="prompt-meta">Connection: {{ p.connectionName || '(none)' }}</div>
+          @if (varsFor(p).length) {
+            <div class="test-params">
+              @for (v of varsFor(p); track v) {
+                <mat-form-field appearance="outline">
+                  <mat-label>{{ '{' + v + '}' }}</mat-label>
+                  <input matInput [ngModel]="testParams()[p.id!]?.[v] ?? ''"
+                         (ngModelChange)="setParam(p, v, $event)" placeholder="test value">
+                </mat-form-field>
+              }
+            </div>
+            <div class="test-hint">These values replace the placeholders for this test run only.</div>
+          }
           <div>
             <button mat-stroked-button [disabled]="testingId() === p.id" (click)="testPrompt(p)">
               @if (testingId() === p.id) { Testing… } @else { Test }
@@ -161,6 +176,7 @@ export class AiPromptsComponent implements OnInit {
   editingNew = signal(false);
   testingId = signal<string | null>(null);
   testResults = signal<Record<string, { success: boolean; extractedText: string | null; error: string | null } | undefined>>({});
+  testParams = signal<Record<string, Record<string, string>>>({});
 
   editForm: EditForm = { ...EMPTY_FORM };
 
@@ -233,13 +249,25 @@ export class AiPromptsComponent implements OnInit {
     });
   }
 
-  testPrompt(p: AiPrompt) {
+  varsFor(p: AiPrompt): string[] {
     const meta = this.promptKeys.find(k => k.value === p.key);
-    const sampleParams: Record<string, string> = meta
-      ? Object.fromEntries(Object.entries(meta.vars).map(([k, v]) => [k, String(v)]))
-      : {};
+    return meta ? Object.keys(meta.vars) : [];
+  }
+
+  setParam(p: AiPrompt, name: string, value: string) {
+    this.testParams.update(all => {
+      const forPrompt = { ...(all[p.id!] ?? {}), [name]: value };
+      return { ...all, [p.id!]: forPrompt };
+    });
+  }
+
+  testPrompt(p: AiPrompt) {
+    const params: Record<string, string> = {};
+    for (const v of this.varsFor(p)) {
+      params[v] = this.testParams()[p.id!]?.[v] ?? '';
+    }
     this.testingId.set(p.id!);
-    this.svc.test(p.id!, sampleParams).subscribe({
+    this.svc.test(p.id!, params).subscribe({
       next: (result) => {
         this.testingId.set(null);
         this.testResults.update(r => ({ ...r, [p.id!]: result }));
