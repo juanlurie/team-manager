@@ -144,6 +144,12 @@ export class ApiRequestConfigsService {
     return this.http.get<string[]>(`${this.baseUrl}/${id}/ai-models`);
   }
 
+  // Switches only the connection's default model. Leaves the stored API key/secret headers alone,
+  // so the model can be changed without reconfiguring credentials.
+  updateAiModel(id: string, model: string | null): Observable<ApiRequestConfig> {
+    return this.http.put<ApiRequestConfig>(`${this.baseUrl}/${id}/ai-model`, { model });
+  }
+
   export(): Observable<Blob> {
     return this.http.get(`${this.baseUrl}/export`, { responseType: 'blob' });
   }

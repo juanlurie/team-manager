@@ -23,6 +23,8 @@ public record ApiRequestConfigDto(
     string? AiModel = null
 );
 
+public record UpdateAiModelRequest(string? Model = null);
+
 public record SuccessCriteriaDto(
     int? RequiredStatus = null,
     string? JsonPath = null,
