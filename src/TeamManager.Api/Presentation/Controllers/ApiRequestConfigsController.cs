@@ -153,6 +153,22 @@ public class ApiRequestConfigsController : ControllerBase
         return NoContent();
     }
 
+    // Switch an AI connection's default model without re-submitting credentials. Touches only
+    // AiModel, so the stored API key/secret headers are untouched.
+    [HttpPut("{id:guid}/ai-model")]
+    [Authorize(Roles = "TeamLead")]
+    public async Task<IActionResult> UpdateAiModel(Guid id, [FromBody] UpdateAiModelRequest request)
+    {
+        var config = await _db.ApiRequestConfigs.FindAsync(id);
+        if (config == null) return NotFound();
+        if (!config.IsAiConnection) return BadRequest("Not an AI connection.");
+
+        config.AiModel = string.IsNullOrWhiteSpace(request.Model) ? null : request.Model.Trim();
+        config.UpdatedAt = DateTimeOffset.UtcNow;
+        await _db.SaveChangesAsync();
+        return Ok(ToDto(config));
+    }
+
     [HttpGet("export")]
     [Authorize(Roles = "TeamLead")]
     public async Task<IActionResult> Export()

@@ -449,16 +449,40 @@ const CATEGORIES = [
                       @if (status.isConfigured) {
                         <div class="existing-configs">
                           @for (cfg of status.configs; track cfg.id) {
-                            <div class="existing-cfg-row">
-                              <mat-icon class="cfg-icon">link</mat-icon>
-                              <span class="cfg-name">{{ cfg.name }}</span>
-                              <button class="cfg-delete-btn" (click)="cfg.id && deleteConfig(cfg.id)" [disabled]="saving()" title="Delete">
-                                <mat-icon>delete_outline</mat-icon>
-                              </button>
+                            <div class="existing-cfg-item">
+                              <div class="existing-cfg-row">
+                                <mat-icon class="cfg-icon">link</mat-icon>
+                                <span class="cfg-name">{{ cfg.name }}</span>
+                                <button class="cfg-delete-btn" (click)="cfg.id && deleteConfig(cfg.id)" [disabled]="saving()" title="Delete">
+                                  <mat-icon>delete_outline</mat-icon>
+                                </button>
+                              </div>
+                              @if (p.category === 'AI' && cfg.id) {
+                                <div class="cfg-model-row">
+                                  <span class="cfg-model-label">Model</span>
+                                  <div class="cfg-model-input-wrap">
+                                    <input class="field-input cfg-model-input" type="text"
+                                           [(ngModel)]="cfgModelDraft[cfg.id]" [name]="'m-' + cfg.id"
+                                           [attr.list]="'cfg-models-' + cfg.id"
+                                           placeholder="model id" />
+                                    <button type="button" class="load-models-btn" (click)="loadModelsFor(cfg.id!)"
+                                            [disabled]="loadingModelsFor() === cfg.id" title="Fetch available models">
+                                      <mat-icon [class.spin]="loadingModelsFor() === cfg.id">refresh</mat-icon>
+                                    </button>
+                                  </div>
+                                  <datalist [id]="'cfg-models-' + cfg.id">
+                                    @for (m of cfgModelOptions()[cfg.id] ?? []; track m) { <option [value]="m"></option> }
+                                  </datalist>
+                                  <button class="cfg-model-save" (click)="saveModel(cfg)"
+                                          [disabled]="savingModel() === cfg.id || (cfgModelDraft[cfg.id] ?? '') === (cfg.aiModel ?? '')">
+                                    {{ savingModel() === cfg.id ? 'Saving…' : 'Save model' }}
+                                  </button>
+                                </div>
+                              }
                             </div>
                           }
                         </div>
-                        <p class="reconfigure-note">Add new credentials below, or delete individual connections above.</p>
+                        <p class="reconfigure-note">Change a connection's model above — no need to re-enter the API key. Add new credentials below only to rotate the key.</p>
                       }
                       @for (field of p.fields; track field.key) {
                         <div class="field-group">
@@ -584,8 +608,16 @@ const CATEGORIES = [
     .configure-btn:hover { background: rgba(100,181,246,0.2); border-color: #64b5f6; }
 
     .config-form { display: flex; flex-direction: column; gap: 10px; padding-top: 4px; border-top: 1px solid rgba(255,255,255,0.06); }
-    .existing-configs { display: flex; flex-direction: column; gap: 4px; }
-    .existing-cfg-row { display: flex; align-items: center; gap: 8px; padding: 5px 8px; background: rgba(255,255,255,0.03); border-radius: 6px; }
+    .existing-configs { display: flex; flex-direction: column; gap: 8px; }
+    .existing-cfg-item { background: rgba(255,255,255,0.03); border-radius: 6px; padding: 5px 8px; }
+    .existing-cfg-row { display: flex; align-items: center; gap: 8px; }
+    .cfg-model-row { display: flex; align-items: center; gap: 8px; margin-top: 6px; padding-top: 6px; border-top: 1px solid rgba(255,255,255,0.05); }
+    .cfg-model-label { font-size: 0.72rem; font-weight: 600; color: rgba(255,255,255,0.5); flex-shrink: 0; }
+    .cfg-model-input-wrap { position: relative; display: flex; align-items: center; flex: 1; }
+    .cfg-model-input { padding: 5px 28px 5px 8px; font-size: 0.78rem; }
+    .cfg-model-save { padding: 5px 10px; background: rgba(100,181,246,0.15); border: 1px solid rgba(100,181,246,0.4); border-radius: 6px; color: #64b5f6; font-size: 0.74rem; font-weight: 600; font-family: inherit; cursor: pointer; white-space: nowrap; flex-shrink: 0; transition: all 0.12s; }
+    .cfg-model-save:hover:not(:disabled) { background: rgba(100,181,246,0.28); border-color: #64b5f6; }
+    .cfg-model-save:disabled { opacity: 0.4; cursor: not-allowed; }
     .cfg-icon { font-size: 14px; width: 14px; height: 14px; color: rgba(255,255,255,0.3); flex-shrink: 0; }
     .cfg-name { flex: 1; font-size: 0.78rem; color: rgba(255,255,255,0.6); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .cfg-delete-btn { background: transparent; border: none; cursor: pointer; color: rgba(255,100,100,0.5); display: flex; align-items: center; padding: 2px; border-radius: 4px; transition: color 0.12s; }
@@ -635,6 +667,11 @@ export class IntegrationLibraryComponent implements OnInit {
   fieldValues: Record<string, string> = {};
   modelOptions = signal<string[]>([]);
   loadingModels = signal(false);
+  // Per-existing-connection inline model editor state, keyed by config id.
+  cfgModelDraft: Record<string, string> = {};
+  cfgModelOptions = signal<Record<string, string[]>>({});
+  loadingModelsFor = signal<string | null>(null);
+  savingModel = signal<string | null>(null);
 
   providerStatuses = computed(() => {
     const configs = this.existingConfigs();
@@ -666,11 +703,48 @@ export class IntegrationLibraryComponent implements OnInit {
       this.fieldValues[f.key] = f.default ?? '';
     }
     // Prefill the model with the connection's current global model so the form shows what's live.
-    const existing = this.providerStatuses()[p.id].configs[0];
+    const configs = this.providerStatuses()[p.id].configs;
+    const existing = configs[0];
     if (existing?.aiModel) this.fieldValues['model'] = existing.aiModel;
+    // Seed the inline per-connection model editors with each connection's current model.
+    for (const c of configs) if (c.id) this.cfgModelDraft[c.id] = c.aiModel ?? '';
     this.modelOptions.set([]);
     this.showField.set({});
     this.activeProvider.set(p.id);
+  }
+
+  // Fetch models for one existing connection's inline editor.
+  loadModelsFor(id: string) {
+    this.loadingModelsFor.set(id);
+    this.svc.getAiModels(id).subscribe({
+      next: models => {
+        this.loadingModelsFor.set(null);
+        this.cfgModelOptions.update(o => ({ ...o, [id]: models }));
+        if (!models.length) this.snackBar.open('No models returned — type the model id manually', 'Close', { duration: 4000 });
+      },
+      error: (err) => {
+        this.loadingModelsFor.set(null);
+        this.snackBar.open(err.error || 'Could not fetch models — type the model id manually', 'Close', { duration: 4000 });
+      },
+    });
+  }
+
+  // Change only the connection's model — leaves the stored API key untouched.
+  saveModel(cfg: ApiRequestConfig) {
+    if (!cfg.id) return;
+    const model = (this.cfgModelDraft[cfg.id] ?? '').trim();
+    this.savingModel.set(cfg.id);
+    this.svc.updateAiModel(cfg.id, model || null).subscribe({
+      next: () => {
+        this.savingModel.set(null);
+        this.snackBar.open(`Model updated${model ? ` to ${model}` : ''}`, 'Close', { duration: 3000 });
+        this.loadConfigs();
+      },
+      error: (err) => {
+        this.savingModel.set(null);
+        this.snackBar.open(err.error || 'Failed to update model', 'Close', { duration: 4000 });
+      },
+    });
   }
 
   // Live-fetches the provider's model list for the first existing connection of this provider and
