@@ -5,6 +5,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatSelectModule } from '@angular/material/select';
+import { MatAutocompleteModule } from '@angular/material/autocomplete';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { AiPromptsService } from '../../core/services/ai-prompts.service';
 import { ApiRequestConfigsService, ApiRequestConfig } from '../api-request-configs/api-request-configs.service';
@@ -17,14 +18,15 @@ interface EditForm {
   userMessageTemplate: string;
   enabled: boolean;
   connectionId: string;
+  model: string;
 }
 
-const EMPTY_FORM: EditForm = { key: '', label: '', systemPrompt: '', userMessageTemplate: '', enabled: true, connectionId: '' };
+const EMPTY_FORM: EditForm = { key: '', label: '', systemPrompt: '', userMessageTemplate: '', enabled: true, connectionId: '', model: '' };
 
 @Component({
   selector: 'app-ai-prompts',
   standalone: true,
-  imports: [FormsModule, MatButtonModule, MatIconModule, MatInputModule, MatFormFieldModule, MatSelectModule],
+  imports: [FormsModule, MatButtonModule, MatIconModule, MatInputModule, MatFormFieldModule, MatSelectModule, MatAutocompleteModule],
   changeDetection: ChangeDetectionStrategy.Default,
   styles: [`
     .wrap { max-width:900px;margin:0 auto;padding:0 8px }
@@ -112,6 +114,21 @@ const EMPTY_FORM: EditForm = { key: '', label: '', systemPrompt: '', userMessage
                       placeholder="Generate one trivia question about {angle} {topic}..."></textarea>
           </mat-form-field>
 
+          <mat-form-field appearance="outline">
+            <mat-label>Model override (optional)</mat-label>
+            <input matInput [(ngModel)]="editForm.model" [matAutocomplete]="modelAuto"
+                   placeholder="Leave blank to use the connection's default model">
+            <mat-autocomplete #modelAuto="matAutocomplete">
+              @for (m of modelOptions(); track m) { <mat-option [value]="m">{{ m }}</mat-option> }
+            </mat-autocomplete>
+            <button matSuffix mat-icon-button type="button" (click)="loadModels()"
+                    [disabled]="loadingModels() || !editForm.connectionId"
+                    [title]="editForm.connectionId ? 'Fetch available models' : 'Pick a connection first'">
+              <mat-icon>{{ loadingModels() ? 'hourglass_empty' : 'refresh' }}</mat-icon>
+            </button>
+            <mat-hint>Overrides the connection's model for this prompt only. Blank = connection default.</mat-hint>
+          </mat-form-field>
+
           <label style="display:flex;align-items:center;gap:6px;font-size:0.85rem">
             <input type="checkbox" [(ngModel)]="editForm.enabled"> Enabled
           </label>
@@ -177,6 +194,8 @@ export class AiPromptsComponent implements OnInit {
   testingId = signal<string | null>(null);
   testResults = signal<Record<string, { success: boolean; extractedText: string | null; error: string | null } | undefined>>({});
   testParams = signal<Record<string, Record<string, string>>>({});
+  modelOptions = signal<string[]>([]);
+  loadingModels = signal(false);
 
   editForm: EditForm = { ...EMPTY_FORM };
 
@@ -206,6 +225,7 @@ export class AiPromptsComponent implements OnInit {
     this.editingNew.set(true);
     this.editingId.set(null);
     this.editForm = { ...EMPTY_FORM };
+    this.modelOptions.set([]);
   }
 
   startEdit(p: AiPrompt) {
@@ -213,8 +233,30 @@ export class AiPromptsComponent implements OnInit {
     this.editingId.set(p.id!);
     this.editForm = {
       key: p.key, label: p.label, systemPrompt: p.systemPrompt,
-      userMessageTemplate: p.userMessageTemplate, enabled: p.enabled, connectionId: p.connectionId
+      userMessageTemplate: p.userMessageTemplate, enabled: p.enabled, connectionId: p.connectionId,
+      model: p.model ?? ''
     };
+    this.modelOptions.set([]);
+  }
+
+  // Live-fetches the chosen connection's provider models to populate the override autocomplete.
+  // Any provider error just leaves the field as free text.
+  loadModels() {
+    const id = this.editForm.connectionId;
+    if (!id) return;
+    this.loadingModels.set(true);
+    this.connSvc.getAiModels(id).subscribe({
+      next: models => {
+        this.loadingModels.set(false);
+        this.modelOptions.set(models);
+        if (!models.length) this.snack.open('No models returned — type the model id manually', 'OK', { duration: 3500 });
+      },
+      error: (err) => {
+        this.loadingModels.set(false);
+        this.modelOptions.set([]);
+        this.snack.open(err.error || 'Could not fetch models — type the model id manually', 'OK', { duration: 3500 });
+      }
+    });
   }
 
   cancelEdit() {

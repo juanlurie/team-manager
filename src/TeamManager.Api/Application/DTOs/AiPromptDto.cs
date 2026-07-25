@@ -8,7 +8,8 @@ public record AiPromptDto(
     string UserMessageTemplate = "",
     bool Enabled = true,
     Guid ConnectionId = default,
-    string? ConnectionName = null
+    string? ConnectionName = null,
+    string? Model = null
 );
 
 public record TestAiPromptRequest(Dictionary<string, string>? PromptParams = null);

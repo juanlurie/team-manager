@@ -59,6 +59,13 @@ public class AiPromptExecutorService(AppDbContext db)
         parameters["systemPrompt"] = JsonEscapeInner(systemPrompt);
         parameters["userMessage"] = JsonEscapeInner(userMessage);
 
+        // Per-prompt override wins over the connection default. Fills the BodyTemplate's {model}
+        // placeholder; legacy templates with a literal model (and no placeholder) are unaffected.
+        var effectiveModel = !string.IsNullOrWhiteSpace(prompt.Model) ? prompt.Model
+            : !string.IsNullOrWhiteSpace(config.AiModel) ? config.AiModel : null;
+        if (effectiveModel is not null)
+            parameters["model"] = JsonEscapeInner(effectiveModel);
+
         var publicConfigVars = await ConfigVariableResolver.LoadPublicAsync(db);
         var allConfigVars = await ConfigVariableResolver.LoadAsync(db);
 

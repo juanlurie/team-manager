@@ -7,6 +7,8 @@ export interface AiPrompt {
   enabled: boolean;
   connectionId: string;
   connectionName?: string | null;
+  // Optional per-prompt model override; blank = use the connection's default model.
+  model?: string | null;
 }
 
 export interface TestAiPromptResult {

@@ -67,7 +67,8 @@ const PROVIDERS: LibraryProvider[] = [
       method: 'POST',
       headers: { 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
       secretHeaders: { 'x-api-key': apiKey },
-      bodyTemplate: `{"model":"${model || 'claude-sonnet-4-6'}","max_tokens":1024,"system":"{systemPrompt}","messages":[{"role":"user","content":"{userMessage}"}]}`,
+      aiModel: model || 'claude-sonnet-4-6',
+      bodyTemplate: `{"model":"{model}","max_tokens":1024,"system":"{systemPrompt}","messages":[{"role":"user","content":"{userMessage}"}]}`,
       mapping: { ...EMPTY_MAPPING, textResponsePath: 'content[0].text' },
     }],
   },
@@ -90,7 +91,8 @@ const PROVIDERS: LibraryProvider[] = [
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       secretHeaders: { 'Authorization': `Bearer ${apiKey}` },
-      bodyTemplate: `{"model":"${model || 'gpt-4o-mini'}","messages":[{"role":"system","content":"{systemPrompt}"},{"role":"user","content":"{userMessage}"}]}`,
+      aiModel: model || 'gpt-4o-mini',
+      bodyTemplate: `{"model":"{model}","messages":[{"role":"system","content":"{systemPrompt}"},{"role":"user","content":"{userMessage}"}]}`,
       mapping: { ...EMPTY_MAPPING, textResponsePath: 'choices[0].message.content' },
     }],
   },
@@ -109,10 +111,11 @@ const PROVIDERS: LibraryProvider[] = [
     build: ({ apiKey, model }) => [{
       ...AI_BASE,
       name: 'Google Gemini',
-      url: `https://generativelanguage.googleapis.com/v1beta/models/${model || 'gemini-2.0-flash'}:generateContent?key=${apiKey}`,
+      url: `https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key=${apiKey}`,
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       secretHeaders: {},
+      aiModel: model || 'gemini-2.0-flash',
       bodyTemplate: '{"system_instruction":{"parts":[{"text":"{systemPrompt}"}]},"contents":[{"parts":[{"text":"{userMessage}"}]}]}',
       mapping: { ...EMPTY_MAPPING, textResponsePath: 'candidates[0].content.parts[0].text' },
     }],
@@ -136,7 +139,8 @@ const PROVIDERS: LibraryProvider[] = [
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       secretHeaders: { 'Authorization': `Bearer ${apiKey}` },
-      bodyTemplate: `{"model":"${model || 'llama-3.3-70b-versatile'}","messages":[{"role":"system","content":"{systemPrompt}"},{"role":"user","content":"{userMessage}"}]}`,
+      aiModel: model || 'llama-3.3-70b-versatile',
+      bodyTemplate: `{"model":"{model}","messages":[{"role":"system","content":"{systemPrompt}"},{"role":"user","content":"{userMessage}"}]}`,
       mapping: { ...EMPTY_MAPPING, textResponsePath: 'choices[0].message.content' },
     }],
   },
@@ -159,7 +163,8 @@ const PROVIDERS: LibraryProvider[] = [
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       secretHeaders: {},
-      bodyTemplate: `{"model":"${model || 'llama3.2'}","stream":false,"messages":[{"role":"system","content":"{systemPrompt}"},{"role":"user","content":"{userMessage}"}]}`,
+      aiModel: model || 'llama3.2',
+      bodyTemplate: `{"model":"{model}","stream":false,"messages":[{"role":"system","content":"{systemPrompt}"},{"role":"user","content":"{userMessage}"}]}`,
       mapping: { ...EMPTY_MAPPING, textResponsePath: 'message.content' },
     }],
   },
@@ -458,22 +463,54 @@ const CATEGORIES = [
                       @for (field of p.fields; track field.key) {
                         <div class="field-group">
                           <label class="field-label">{{ field.label }}</label>
-                          <div class="field-input-wrap">
-                            <input
-                              class="field-input"
-                              [type]="field.type === 'password' ? (showField()[field.key] ? 'text' : 'password') : field.type"
-                              [(ngModel)]="fieldValues[field.key]"
-                              [name]="field.key"
-                              [placeholder]="field.default ?? ''"
-                            />
-                            @if (field.type === 'password') {
-                              <button type="button" class="eye-btn" (click)="toggleShow(field.key)">
-                                <mat-icon>{{ showField()[field.key] ? 'visibility_off' : 'visibility' }}</mat-icon>
+                          @if (field.key === 'model') {
+                            <div class="field-input-wrap">
+                              <input
+                                class="field-input"
+                                type="text"
+                                [(ngModel)]="fieldValues['model']"
+                                name="model"
+                                [attr.list]="'models-' + p.id"
+                                [placeholder]="field.default ?? ''"
+                              />
+                              <button type="button" class="load-models-btn"
+                                      (click)="loadModels(p)"
+                                      [disabled]="loadingModels() || !providerStatuses()[p.id].isConfigured"
+                                      [title]="providerStatuses()[p.id].isConfigured ? 'Fetch available models' : 'Save this connection first, then fetch models'">
+                                @if (loadingModels()) { <mat-icon class="spin">progress_activity</mat-icon> }
+                                @else { <mat-icon>refresh</mat-icon> }
                               </button>
+                            </div>
+                            <datalist [id]="'models-' + p.id">
+                              @for (m of modelOptions(); track m) { <option [value]="m"></option> }
+                            </datalist>
+                            <span class="field-hint">
+                              @if (!providerStatuses()[p.id].isConfigured) {
+                                Save the connection first, then use ↻ to fetch available models. You can also type any model id.
+                              } @else if (modelOptions().length) {
+                                {{ modelOptions().length }} models available — pick one or type any id. Switching here changes the model globally.
+                              } @else {
+                                Use ↻ to fetch available models, or type any model id. {{ field.hint }}
+                              }
+                            </span>
+                          } @else {
+                            <div class="field-input-wrap">
+                              <input
+                                class="field-input"
+                                [type]="field.type === 'password' ? (showField()[field.key] ? 'text' : 'password') : field.type"
+                                [(ngModel)]="fieldValues[field.key]"
+                                [name]="field.key"
+                                [placeholder]="field.default ?? ''"
+                              />
+                              @if (field.type === 'password') {
+                                <button type="button" class="eye-btn" (click)="toggleShow(field.key)">
+                                  <mat-icon>{{ showField()[field.key] ? 'visibility_off' : 'visibility' }}</mat-icon>
+                                </button>
+                              }
+                            </div>
+                            @if (field.hint) {
+                              <span class="field-hint">{{ field.hint }}</span>
                             }
-                          </div>
-                          @if (field.hint) {
-                            <span class="field-hint">{{ field.hint }}</span>
                           }
                         </div>
                       }
@@ -566,6 +603,12 @@ const CATEGORIES = [
     .eye-btn:hover { color: rgba(255,255,255,0.6); }
     .eye-btn mat-icon { font-size: 17px; width: 17px; height: 17px; }
     .field-hint { font-size: 0.7rem; color: rgba(255,255,255,0.28); }
+    .load-models-btn { position: absolute; right: 6px; background: none; border: none; padding: 2px; cursor: pointer; color: rgba(100,181,246,0.7); display: flex; align-items: center; transition: color 0.12s; }
+    .load-models-btn:hover:not(:disabled) { color: #64b5f6; }
+    .load-models-btn:disabled { color: rgba(255,255,255,0.2); cursor: not-allowed; }
+    .load-models-btn mat-icon { font-size: 17px; width: 17px; height: 17px; }
+    .load-models-btn .spin { animation: spin 0.9s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
 
     .form-actions { display: flex; gap: 8px; justify-content: flex-end; padding-top: 2px; }
     .cancel-btn { padding: 6px 14px; background: transparent; border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; color: rgba(255,255,255,0.45); font-size: 0.82rem; font-family: inherit; cursor: pointer; transition: all 0.12s; }
@@ -590,6 +633,8 @@ export class IntegrationLibraryComponent implements OnInit {
   activeProvider = signal<string | null>(null);
   showField = signal<Record<string, boolean>>({});
   fieldValues: Record<string, string> = {};
+  modelOptions = signal<string[]>([]);
+  loadingModels = signal(false);
 
   providerStatuses = computed(() => {
     const configs = this.existingConfigs();
@@ -620,8 +665,35 @@ export class IntegrationLibraryComponent implements OnInit {
     for (const f of p.fields) {
       this.fieldValues[f.key] = f.default ?? '';
     }
+    // Prefill the model with the connection's current global model so the form shows what's live.
+    const existing = this.providerStatuses()[p.id].configs[0];
+    if (existing?.aiModel) this.fieldValues['model'] = existing.aiModel;
+    this.modelOptions.set([]);
     this.showField.set({});
     this.activeProvider.set(p.id);
+  }
+
+  // Live-fetches the provider's model list for the first existing connection of this provider and
+  // feeds the datalist. Falls back silently to free-text entry on any provider error.
+  loadModels(p: LibraryProvider) {
+    const existing = this.providerStatuses()[p.id].configs[0];
+    if (!existing?.id) {
+      this.snackBar.open('Save this connection first, then fetch models', 'Close', { duration: 3000 });
+      return;
+    }
+    this.loadingModels.set(true);
+    this.svc.getAiModels(existing.id).subscribe({
+      next: models => {
+        this.loadingModels.set(false);
+        this.modelOptions.set(models);
+        if (!models.length) this.snackBar.open('No models returned — type the model id manually', 'Close', { duration: 4000 });
+      },
+      error: (err) => {
+        this.loadingModels.set(false);
+        this.modelOptions.set([]);
+        this.snackBar.open(err.error || 'Could not fetch models — type the model id manually', 'Close', { duration: 4000 });
+      },
+    });
   }
 
   closeForm() { this.activeProvider.set(null); }
