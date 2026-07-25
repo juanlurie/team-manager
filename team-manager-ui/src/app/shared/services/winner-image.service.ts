@@ -122,6 +122,12 @@ export class WinnerImageService {
     } catch { return false; }
   }
 
+  // Whether the browser can share image files via the native sheet — true on most mobile browsers,
+  // false on typical desktop browsers. Used to pick the button set (native share vs desktop paths).
+  canShareImages(): boolean {
+    return this.canShareFiles(new Blob([new Uint8Array([0])], { type: 'image/png' }));
+  }
+
   async copyImage(blob: Blob): Promise<void> {
     const w = window as unknown as { ClipboardItem?: typeof ClipboardItem };
     if (!navigator.clipboard || typeof navigator.clipboard.write !== 'function' || !w.ClipboardItem) {
