@@ -34,16 +34,35 @@ import { WinnerImageService } from '../../services/winner-image.service';
         </div>
       }
       <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:16px">
-        <button mat-stroked-button (click)="copyImage()" [disabled]="copying() || sharing()"
-                style="font-size:0.75rem;height:30px;line-height:30px;min-width:0;padding:0 12px;color:rgba(255,215,0,0.85);border-color:rgba(255,215,0,0.3)">
-          <mat-icon style="font-size:15px;width:15px;height:15px;vertical-align:middle;margin-right:4px">image</mat-icon>
-          {{ copying() ? 'Copying…' : 'Copy image' }}
-        </button>
-        <button mat-stroked-button (click)="shareImage()" [disabled]="copying() || sharing()"
-                style="font-size:0.75rem;height:30px;line-height:30px;min-width:0;padding:0 12px;color:rgba(255,215,0,0.85);border-color:rgba(255,215,0,0.3)">
-          <mat-icon style="font-size:15px;width:15px;height:15px;vertical-align:middle;margin-right:4px">share</mat-icon>
-          {{ sharing() ? 'Preparing…' : 'Share image' }}
-        </button>
+        @if (nativeShare) {
+          <button mat-stroked-button (click)="shareImage()" [disabled]="busy()"
+                  style="font-size:0.75rem;height:30px;line-height:30px;min-width:0;padding:0 12px;color:rgba(255,215,0,0.85);border-color:rgba(255,215,0,0.3)">
+            <mat-icon style="font-size:15px;width:15px;height:15px;vertical-align:middle;margin-right:4px">share</mat-icon>
+            {{ sharing() ? 'Preparing…' : 'Share image' }}
+          </button>
+          <button mat-stroked-button (click)="copyImage()" [disabled]="busy()"
+                  style="font-size:0.75rem;height:30px;line-height:30px;min-width:0;padding:0 12px;color:rgba(255,215,0,0.85);border-color:rgba(255,215,0,0.3)">
+            <mat-icon style="font-size:15px;width:15px;height:15px;vertical-align:middle;margin-right:4px">image</mat-icon>
+            {{ copying() ? 'Copying…' : 'Copy image' }}
+          </button>
+        } @else {
+          <!-- Desktop: no native file share. Copy → Teams paste; WhatsApp → copy + open web chat to paste; Download → save PNG. -->
+          <button mat-stroked-button (click)="copyImage()" [disabled]="busy()"
+                  style="font-size:0.75rem;height:30px;line-height:30px;min-width:0;padding:0 12px;color:rgba(255,215,0,0.85);border-color:rgba(255,215,0,0.3)">
+            <mat-icon style="font-size:15px;width:15px;height:15px;vertical-align:middle;margin-right:4px">content_copy</mat-icon>
+            {{ copying() ? 'Copying…' : 'Copy image' }}
+          </button>
+          <button mat-stroked-button (click)="shareWhatsApp()" [disabled]="busy()"
+                  style="font-size:0.75rem;height:30px;line-height:30px;min-width:0;padding:0 12px;color:rgba(255,215,0,0.85);border-color:rgba(255,215,0,0.3)">
+            <mat-icon style="font-size:15px;width:15px;height:15px;vertical-align:middle;margin-right:4px">chat</mat-icon>
+            {{ sharing() ? 'Preparing…' : 'WhatsApp' }}
+          </button>
+          <button mat-stroked-button (click)="downloadImage()" [disabled]="busy()"
+                  style="font-size:0.75rem;height:30px;line-height:30px;min-width:0;padding:0 12px;color:rgba(255,215,0,0.85);border-color:rgba(255,215,0,0.3)">
+            <mat-icon style="font-size:15px;width:15px;height:15px;vertical-align:middle;margin-right:4px">download</mat-icon>
+            {{ downloading() ? 'Saving…' : 'Download' }}
+          </button>
+        }
       </div>
 
       <div style="font-size:0.75rem;opacity:0.45;margin-top:12px">Winner of the Week</div>
@@ -63,6 +82,12 @@ export class WowWinnerBannerComponent {
 
   copying = signal(false);
   sharing = signal(false);
+  downloading = signal(false);
+
+  // Picks the button set: native share sheet on mobile, desktop-specific paths otherwise.
+  readonly nativeShare = this.images.canShareImages();
+
+  busy() { return this.copying() || this.sharing() || this.downloading(); }
 
   private cardData() {
     return { name: this.winnerNomineeName(), title: this.winnerTitle(), story: this.winnerStory() };
@@ -117,6 +142,43 @@ export class WowWinnerBannerComponent {
       this.snack.open('Could not create the winner image', 'OK', { duration: 3500 });
     } finally {
       this.sharing.set(false);
+    }
+  }
+
+  // Desktop WhatsApp: it can't receive a file via a URL, but WhatsApp Web accepts a pasted image.
+  // So copy the image to the clipboard, open the web chat, and tell the user to paste.
+  async shareWhatsApp() {
+    if (this.busy()) return;
+    this.sharing.set(true);
+    try {
+      const blob = await this.images.buildCard(this.cardData());
+      try {
+        await this.images.copyImage(blob);
+        window.open('https://web.whatsapp.com/', '_blank', 'noopener');
+        this.snack.open('Image copied — pick a chat in WhatsApp and paste it (Ctrl/Cmd+V)', 'OK', { duration: 6000 });
+      } catch {
+        // No clipboard image support — download and let the user attach it in WhatsApp Web.
+        this.images.download(blob, this.fileName());
+        window.open('https://web.whatsapp.com/', '_blank', 'noopener');
+        this.snack.open('Image downloaded — attach it in the WhatsApp chat', 'OK', { duration: 6000 });
+      }
+    } catch {
+      this.snack.open('Could not create the winner image', 'OK', { duration: 3500 });
+    } finally {
+      this.sharing.set(false);
+    }
+  }
+
+  async downloadImage() {
+    if (this.busy()) return;
+    this.downloading.set(true);
+    try {
+      const blob = await this.images.buildCard(this.cardData());
+      this.images.download(blob, this.fileName());
+    } catch {
+      this.snack.open('Could not create the winner image', 'OK', { duration: 3500 });
+    } finally {
+      this.downloading.set(false);
     }
   }
 }
