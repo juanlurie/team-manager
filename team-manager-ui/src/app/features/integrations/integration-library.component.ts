@@ -738,7 +738,12 @@ export class IntegrationLibraryComponent implements OnInit {
     this.saving.set(true);
     this.svc.delete(id).subscribe({
       next: () => { this.saving.set(false); this.loadConfigs(); },
-      error: () => { this.saving.set(false); this.snackBar.open('Failed to delete', 'Close', { duration: 3000 }); },
+      error: (err) => {
+        this.saving.set(false);
+        this.snackBar.open(
+          typeof err.error === 'string' && err.error ? err.error : 'Failed to delete',
+          'Close', { duration: err.status === 409 ? 7000 : 3000 });
+      },
     });
   }
 
