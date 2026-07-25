@@ -44,6 +44,7 @@ public class AiPromptsController(AppDbContext db, AiPromptExecutorService execut
             UserMessageTemplate = dto.UserMessageTemplate,
             Enabled = dto.Enabled,
             ConnectionId = dto.ConnectionId,
+            Model = string.IsNullOrWhiteSpace(dto.Model) ? null : dto.Model.Trim(),
         };
         db.AiPrompts.Add(prompt);
         await db.SaveChangesAsync();
@@ -64,6 +65,7 @@ public class AiPromptsController(AppDbContext db, AiPromptExecutorService execut
         prompt.UserMessageTemplate = dto.UserMessageTemplate;
         prompt.Enabled = dto.Enabled;
         prompt.ConnectionId = dto.ConnectionId;
+        prompt.Model = string.IsNullOrWhiteSpace(dto.Model) ? null : dto.Model.Trim();
         prompt.UpdatedAt = DateTimeOffset.UtcNow;
 
         await db.SaveChangesAsync();
@@ -115,6 +117,7 @@ public class AiPromptsController(AppDbContext db, AiPromptExecutorService execut
         UserMessageTemplate: prompt.UserMessageTemplate,
         Enabled: prompt.Enabled,
         ConnectionId: prompt.ConnectionId,
-        ConnectionName: prompt.Connection?.Name
+        ConnectionName: prompt.Connection?.Name,
+        Model: prompt.Model
     );
 }

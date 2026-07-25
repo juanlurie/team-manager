@@ -15,6 +15,9 @@ public class AiPrompt
     public string UserMessageTemplate { get; set; } = "";
     public bool Enabled { get; set; } = true;
     public Guid ConnectionId { get; set; }
+    // Optional per-prompt model override. When set, wins over the connection's AiModel for this
+    // prompt only; null means "use the connection default".
+    public string? Model { get; set; }
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
     public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.UtcNow;
 

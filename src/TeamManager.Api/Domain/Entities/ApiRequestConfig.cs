@@ -24,6 +24,10 @@ public class ApiRequestConfig
     // screen's connection picker from listing every integration (timesheet/calendar/leave
     // fetchers included).
     public bool IsAiConnection { get; set; } = false;
+    // For AI connections: the default model id (e.g. "claude-sonnet-4-6"). The BodyTemplate carries
+    // a {model} placeholder the executor fills from here, so the model can be switched globally
+    // without hand-editing JSON. Null on non-AI configs and legacy AI configs with a literal model.
+    public string? AiModel { get; set; }
     public int RetryCount { get; set; } = 0;
     public string? SuccessCriteriaJson { get; set; }
     public bool AutoSync { get; set; } = false;
