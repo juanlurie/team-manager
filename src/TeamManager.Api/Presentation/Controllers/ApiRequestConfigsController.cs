@@ -134,6 +134,20 @@ public class ApiRequestConfigsController : ControllerBase
         var config = await _db.ApiRequestConfigs.FindAsync(id);
         if (config == null) return NotFound();
 
+        // AiPrompt.ConnectionId references this config with OnDelete(Restrict), so the DB would
+        // throw a DbUpdateException (surfacing as a 500) if any prompt still uses it. Check first
+        // and return a friendly 409 telling the caller to repoint those prompts.
+        var referencingPrompts = await _db.AiPrompts
+            .Where(p => p.ConnectionId == id)
+            .Select(p => p.Label)
+            .ToListAsync();
+        if (referencingPrompts.Count > 0)
+        {
+            var names = string.Join(", ", referencingPrompts);
+            return Conflict($"In use by {referencingPrompts.Count} AI prompt(s): {names}. " +
+                            "Repoint them to another connection first, then delete this one.");
+        }
+
         _db.ApiRequestConfigs.Remove(config);
         await _db.SaveChangesAsync();
         return NoContent();
