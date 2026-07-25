@@ -22,6 +22,7 @@ import { MobileService } from '../../core/services/mobile.service';
 import { WinWeek, WinNomination, WinSeries, CreateNominationRequest, WowNominationDisplay } from '../../core/models/win-week.model';
 import { TeamMember } from '../../core/models/team-member.model';
 import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/confirm-dialog.component';
+import { WowCloseWeekDialogComponent, WowCloseWeekDialogData, WowCloseWeekResult } from './wow-close-week-dialog.component';
 import { WinOfTheWeekHistoryComponent } from '../win-of-the-week-history/win-of-the-week-history.component';
 import { WinOfTheMonthComponent } from '../win-of-the-month/win-of-the-month.component';
 import { FeatureAccessService } from '../../core/services/feature-access.service';
@@ -667,13 +668,13 @@ export class WinOfTheWeekComponent implements OnInit, OnDestroy {
     const week = this.currentWeek();
     if (!week || week.nominations.length === 0) return;
     const topNom = [...week.nominations].sort((a, b) => b.voteCount - a.voteCount)[0];
-    const ref = this.dialog.open(ConfirmDialogComponent, {
-      width: '360px',
-      data: { title: 'Close week?', message: `Winner: "${topNom.nomineeName} — ${topNom.title}" (${topNom.voteCount} vote(s)).`, confirmLabel: 'Close', danger: false }
+    const ref = this.dialog.open(WowCloseWeekDialogComponent, {
+      width: '380px',
+      data: { winnerLabel: `${topNom.nomineeName} — ${topNom.title}`, voteCount: topNom.voteCount } as WowCloseWeekDialogData
     });
-    ref.afterClosed().subscribe(ok => {
-      if (!ok) return;
-      this.winSvc.closeWeek({ winnerNominationId: topNom.id }, this.currentSeriesId() ?? undefined).subscribe({
+    ref.afterClosed().subscribe((result?: WowCloseWeekResult) => {
+      if (!result) return;
+      this.winSvc.closeWeek({ winnerNominationId: topNom.id, theme: result.theme }, this.currentSeriesId() ?? undefined).subscribe({
         next: () => { this.snackBar.open('Week closed! Winner announced.', 'Close', { duration: 3000 }); this.refresh(); },
         error: (err) => this.snackBar.open(err.error?.error || 'Failed to close week', 'Close', { duration: 3000 })
       });

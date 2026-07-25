@@ -264,7 +264,7 @@ public class WinOfTheWeekService(
         // leave TiedNominationIds, SuddenDeathEndsAt, HypeBattleEndsAt and the quiz columns dirty —
         // CloseWeekWithWinnerAsync clears them all, awards the achievement, grants the bonus token,
         // kicks off the win story and broadcasts voting_closed.
-        await weekCloser.CloseWithWinnerAsync(week, request.WinnerNominationId);
+        await weekCloser.CloseWithWinnerAsync(week, request.WinnerNominationId, theme: request.Theme);
 
         return (await GetCurrentWeekAsync(memberId, seriesId))!;
     }
