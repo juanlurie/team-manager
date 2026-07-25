@@ -150,6 +150,8 @@ export interface CreateNominationRequest {
 
 export interface CloseWeekRequest {
   winnerNominationId: string;
+  // Optional hero-story theme; drives the AiChatWinStory prompt's {theme}. Omitted = generator default.
+  theme?: string;
 }
 
 export interface StartSuddenDeathRequest {

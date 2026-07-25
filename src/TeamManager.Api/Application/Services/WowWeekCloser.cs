@@ -21,7 +21,7 @@ public class WowWeekCloser(AppDbContext db, WowTokenService tokens, IWinStoryGen
 {
     /// <param name="wasRandom">True when the winner was picked at random (a dead-heat tie-break),
     /// which the client uses to decide whether to play the spinner animation.</param>
-    public async Task CloseWithWinnerAsync(WinWeek week, Guid winnerNominationId, bool wasRandom = false)
+    public async Task CloseWithWinnerAsync(WinWeek week, Guid winnerNominationId, bool wasRandom = false, string? theme = null)
     {
         week.Status = WinWeekStatus.Closed;
         week.WinnerNominationId = winnerNominationId;
@@ -47,7 +47,7 @@ public class WowWeekCloser(AppDbContext db, WowTokenService tokens, IWinStoryGen
         if (winnerNom.TeamMemberId.HasValue)
             await tokens.GrantBonusTokenAsync(winnerNom.TeamMemberId.Value, week.Id);
 
-        winStory.Enqueue(week.Id, $"{winnerNom.Nominee.FirstName} {winnerNom.Nominee.LastName}", winnerNom.Title, winnerNom.Description);
+        winStory.Enqueue(week.Id, $"{winnerNom.Nominee.FirstName} {winnerNom.Nominee.LastName}", winnerNom.Title, winnerNom.Description, theme);
 
         notifier.Broadcast("voting_closed", new
         {

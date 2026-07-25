@@ -21,6 +21,6 @@ export const AI_PROMPT_KEYS = [
   { value: 'GenerateQuizQuestion', label: 'Generate Quiz Question', vars: { topic: '', angle: '', recentTopics: '', difficulty: '' } },
   { value: 'GenerateWordleWord', label: 'Generate Wordle Word', vars: { wordLength: '', recentWords: '' } },
   { value: 'GenerateJoke', label: 'Generate Joke', vars: { jokeType: '', seed: '' } },
-  { value: 'AiChatWinStory', label: 'AI Chat — Win Story', vars: { nominee: '', title: '', description: '' } },
+  { value: 'AiChatWinStory', label: 'AI Chat — Win Story', vars: { nominee: '', title: '', description: '', theme: '' } },
   { value: 'AnalyzeTimesheetQuality', label: 'Analyze Timesheet Quality', vars: { timesheetData: '', memberName: '', start: '', end: '' } },
 ] as const;

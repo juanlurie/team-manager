@@ -8,6 +8,7 @@ namespace TeamManager.Api.Application.Services.Interfaces;
 /// </summary>
 public interface IWinStoryGenerator
 {
-    /// <summary>Enqueue generation for a week's winner. Returns immediately; work runs in the background.</summary>
-    void Enqueue(Guid weekId, string winnerName, string title, string? description);
+    /// <summary>Enqueue generation for a week's winner. Returns immediately; work runs in the background.
+    /// <paramref name="theme"/> is the optional hero-story theme; null/blank uses a default.</summary>
+    void Enqueue(Guid weekId, string winnerName, string title, string? description, string? theme = null);
 }
