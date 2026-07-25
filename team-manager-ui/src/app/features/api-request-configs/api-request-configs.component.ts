@@ -245,7 +245,9 @@ export class ApiRequestConfigsComponent implements OnInit {
         this.snackBar.open('Config deleted', 'Close', { duration: 3000 });
         this.load();
       },
-      error: () => this.snackBar.open('Failed to delete config', 'Close', { duration: 3000 })
+      error: (err) => this.snackBar.open(
+        typeof err.error === 'string' && err.error ? err.error : 'Failed to delete config',
+        'Close', { duration: err.status === 409 ? 7000 : 3000 })
     });
   }
 
