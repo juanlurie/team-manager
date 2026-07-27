@@ -7,7 +7,6 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatDialogModule, MatDialog } from '@angular/material/dialog';
 import { MatSnackBarModule, MatSnackBar } from '@angular/material/snack-bar';
 import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatSelectModule } from '@angular/material/select';
 import { MatInputModule } from '@angular/material/input';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatDividerModule } from '@angular/material/divider';
@@ -28,6 +27,7 @@ import { WinOfTheMonthComponent } from '../win-of-the-month/win-of-the-month.com
 import { FeatureAccessService } from '../../core/services/feature-access.service';
 import { WinSeriesService } from '../../core/services/win-series.service';
 import { AppModalComponent } from '../../shared/components/app-modal/app-modal.component';
+import { SearchableSelectComponent } from '../../shared/components/searchable-select/searchable-select.component';
 import { WowTieBreakSpinnerComponent } from '../../shared/components/wow-tie-break-spinner/wow-tie-break-spinner.component';
 import { WowCurrentWeekComponent } from './wow-current-week.component';
 import { runTieBreakSpin } from '../../shared/utils/wow.utils';
@@ -80,7 +80,6 @@ export class WowSeriesSheetComponent {
     MatDialogModule,
     MatSnackBarModule,
     MatFormFieldModule,
-    MatSelectModule,
     MatInputModule,
     MatMenuModule,
     MatDividerModule,
@@ -89,6 +88,7 @@ export class WowSeriesSheetComponent {
     WinOfTheWeekHistoryComponent,
     WinOfTheMonthComponent,
     AppModalComponent,
+    SearchableSelectComponent,
     WowTieBreakSpinnerComponent,
     WowCurrentWeekComponent
   ],
@@ -192,14 +192,14 @@ export class WowSeriesSheetComponent {
     <app-modal [title]="editingNominationId() ? 'Edit Nomination' : 'Nominate a Win'"
                [show]="showDialog()" (closed)="closeDialog()">
       <div style="display:flex;flex-direction:column;gap:12px">
-        <mat-form-field appearance="outline" style="width:100%">
-          <mat-label>Who are you nominating?</mat-label>
-          <mat-select [(ngModel)]="nominateForm.nomineeMemberId">
-            @for (m of allMembers(); track m.id) {
-              <mat-option [value]="m.id">{{ memberName(m) }}</mat-option>
-            }
-          </mat-select>
-        </mat-form-field>
+        <app-searchable-select
+          label="Who are you nominating?"
+          placeholder="Search team members"
+          width="100%"
+          [nullable]="false"
+          [options]="allMembers()"
+          [displayFn]="memberName"
+          [(ngModel)]="nominateForm.nomineeMemberId" />
         <mat-form-field appearance="outline" style="width:100%">
           <mat-label>Title</mat-label>
           <input matInput [(ngModel)]="nominateForm.title" placeholder="e.g. Fixed the production DB issue" maxlength="200">
