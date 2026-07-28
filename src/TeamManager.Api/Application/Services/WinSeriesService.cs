@@ -22,7 +22,7 @@ public class WinSeriesService(AppDbContext db)
     {
         return await db.WinSeries
             .OrderBy(s => s.CreatedAt)
-            .Select(s => new WinSeriesDto { Id = s.Id, Name = s.Name, CreatedAt = s.CreatedAt, PowerUpsEnabled = s.PowerUpsEnabled, HideVoteCounts = s.HideVoteCounts })
+            .Select(s => new WinSeriesDto { Id = s.Id, Name = s.Name, CreatedAt = s.CreatedAt, PowerUpsEnabled = s.PowerUpsEnabled, HideVoteCounts = s.HideVoteCounts, MaxNominationsPerPerson = s.MaxNominationsPerPerson, MaxVotesPerPerson = s.MaxVotesPerPerson })
             .ToListAsync();
     }
 
@@ -37,7 +37,7 @@ public class WinSeriesService(AppDbContext db)
         db.WinSeries.Add(series);
         await db.SaveChangesAsync();
 
-        return new WinSeriesDto { Id = series.Id, Name = series.Name, CreatedAt = series.CreatedAt, PowerUpsEnabled = series.PowerUpsEnabled, HideVoteCounts = series.HideVoteCounts };
+        return ToDto(series);
     }
 
     public async Task<WinSeriesDto> TogglePowerUpsAsync(Guid seriesId)
@@ -46,7 +46,7 @@ public class WinSeriesService(AppDbContext db)
             ?? throw new KeyNotFoundException("Series not found.");
         series.PowerUpsEnabled = !series.PowerUpsEnabled;
         await db.SaveChangesAsync();
-        return new WinSeriesDto { Id = series.Id, Name = series.Name, CreatedAt = series.CreatedAt, PowerUpsEnabled = series.PowerUpsEnabled, HideVoteCounts = series.HideVoteCounts };
+        return ToDto(series);
     }
 
     public async Task<WinSeriesDto> ToggleHideVoteCountsAsync(Guid seriesId)
@@ -55,6 +55,29 @@ public class WinSeriesService(AppDbContext db)
             ?? throw new KeyNotFoundException("Series not found.");
         series.HideVoteCounts = !series.HideVoteCounts;
         await db.SaveChangesAsync();
-        return new WinSeriesDto { Id = series.Id, Name = series.Name, CreatedAt = series.CreatedAt, PowerUpsEnabled = series.PowerUpsEnabled, HideVoteCounts = series.HideVoteCounts };
+        return ToDto(series);
     }
+
+    /// <summary>Host control over the per-person weekly nomination/vote budgets. Values are clamped
+    /// rather than rejected so a slider or stepper can't 400 on an out-of-range edge.</summary>
+    public async Task<WinSeriesDto> UpdateLimitsAsync(Guid seriesId, int maxNominations, int maxVotes)
+    {
+        var series = await db.WinSeries.FindAsync(seriesId)
+            ?? throw new KeyNotFoundException("Series not found.");
+        series.MaxNominationsPerPerson = WinOfTheWeekLimits.Clamp(maxNominations);
+        series.MaxVotesPerPerson = WinOfTheWeekLimits.Clamp(maxVotes);
+        await db.SaveChangesAsync();
+        return ToDto(series);
+    }
+
+    private static WinSeriesDto ToDto(WinSeries series) => new()
+    {
+        Id = series.Id,
+        Name = series.Name,
+        CreatedAt = series.CreatedAt,
+        PowerUpsEnabled = series.PowerUpsEnabled,
+        HideVoteCounts = series.HideVoteCounts,
+        MaxNominationsPerPerson = series.MaxNominationsPerPerson,
+        MaxVotesPerPerson = series.MaxVotesPerPerson
+    };
 }

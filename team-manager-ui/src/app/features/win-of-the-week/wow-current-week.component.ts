@@ -8,6 +8,7 @@ import { MatMenuModule } from '@angular/material/menu';
 import { MatDividerModule } from '@angular/material/divider';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { WinWeek, WinNomination, WowNominationDisplay, WOW_LIMITS } from '../../core/models/win-week.model';
+import { WowLimitsControlComponent } from '../../shared/components/wow-limits-control/wow-limits-control.component';
 import { wowPhaseInfo } from '../../shared/utils/wow.utils';
 import { WowNominationCardComponent, ReactionBurst } from '../../shared/components/wow-nomination-card/wow-nomination-card.component';
 import { WowWinnerBannerComponent } from '../../shared/components/wow-winner-banner/wow-winner-banner.component';
@@ -39,7 +40,8 @@ import { SessionJoinComponent } from '../../shared/components/session-join/sessi
     RevealProgressBarComponent,
     SessionJoinComponent,
     MatProgressSpinnerModule,
-    AiBadgeComponent
+    AiBadgeComponent,
+    WowLimitsControlComponent
   ],
   // Presentational: state arrives via input() and local state (quizDifficulty, mobileTab) is
   // signals mutated only from template clicks. Default meant the parent's 1s countdown tick
@@ -106,6 +108,14 @@ import { SessionJoinComponent } from '../../shared/components/session-join/sessi
             <span style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;opacity:0.45">Hide Vote Counts</span>
             <mat-slide-toggle [checked]="hideVoteCounts()" (change)="toggleHideVoteCountsClick.emit()" color="accent" />
           </div>
+
+          <!-- Per-person budgets -->
+          <app-wow-limits-control
+            [maxNominations]="maxNominationsPerPerson()"
+            [maxVotes]="maxVotesPerPerson()"
+            [min]="limits.minPerPerson"
+            [max]="limits.maxPerPerson"
+            (limitsChange)="limitsChange.emit($event)" />
 
           @if (w.status === 'Nominating') {
             <div class="ctrl-sep"></div>
@@ -286,12 +296,12 @@ import { SessionJoinComponent } from '../../shared/components/session-join/sessi
             }
             @if (w?.status === 'Voting') {
               <span style="font-size:0.8rem;opacity:0.6">
-                Votes remaining: <strong>{{ w?.userVotesRemaining ?? 0 }}</strong>/{{ limits.maxVotesPerPerson }}
+                Votes remaining: <strong>{{ w?.userVotesRemaining ?? 0 }}</strong>/{{ maxVotesPerPerson() }}
               </span>
             }
             @if (w?.status === 'Nominating') {
               <span style="font-size:0.8rem;opacity:0.6">
-                Nominations remaining: <strong>{{ w?.userNominationsRemaining ?? 0 }}</strong>/{{ limits.maxNominationsPerPerson }}
+                Nominations remaining: <strong>{{ w?.userNominationsRemaining ?? 0 }}</strong>/{{ maxNominationsPerPerson() }}
               </span>
             }
             <!-- Token balance pill -->
@@ -480,7 +490,7 @@ import { SessionJoinComponent } from '../../shared/components/session-join/sessi
                   <mat-icon style="font-size:12px;width:12px;height:12px;vertical-align:middle">people</mat-icon>
                   {{ connectedCount() }} connected
                 </span>
-                <span>{{ w.totalVotesCast }}{{ connectedCount() > 0 ? ' / ' + (connectedCount() * limits.maxVotesPerPerson) : '' }} votes cast</span>
+                <span>{{ w.totalVotesCast }}{{ connectedCount() > 0 ? ' / ' + (connectedCount() * maxVotesPerPerson()) : '' }} votes cast</span>
               </div>
               <div style="height:4px;border-radius:2px;background:rgba(255,255,255,0.08);overflow:hidden">
                 <div [style.width]="pct + '%'" style="height:100%;background:#4caf50;border-radius:2px;transition:width 0.4s ease"></div>
@@ -553,9 +563,11 @@ import { SessionJoinComponent } from '../../shared/components/session-join/sessi
   `
 })
 export class WowCurrentWeekComponent {
-  // Per-week caps, single-sourced from the model (mirrors the backend WinOfTheWeekLimits) so the
-  // template can reference them instead of hardcoding "3".
+  // Per-week caps. Host-configurable per series and carried on the week payload; WOW_LIMITS is only
+  // the fallback for before a week has loaded.
   protected readonly limits = WOW_LIMITS;
+  readonly maxVotesPerPerson = computed(() => this.week()?.maxVotesPerPerson || WOW_LIMITS.maxVotesPerPerson);
+  readonly maxNominationsPerPerson = computed(() => this.week()?.maxNominationsPerPerson || WOW_LIMITS.maxNominationsPerPerson);
 
   // Host's Quiz Duel difficulty pick (1-15 scale) -- transient UI state, not persisted here;
   // sent along with startQuizClick and persisted on the WinWeek server-side.
@@ -661,6 +673,7 @@ export class WowCurrentWeekComponent {
   startSuddenDeathClick     = output();
   togglePowerUpsClick       = output();
   toggleHideVoteCountsClick = output();
+  limitsChange              = output<{ maxNominations: number; maxVotes: number }>();
   reopenNominationsClick    = output();
   suddenDeathDurationChange = output<number>();
   historyClick              = output();
@@ -705,7 +718,7 @@ export class WowCurrentWeekComponent {
     const w = this.week();
     const cc = this.connectedCount();
     if (!w || cc === 0) return 0;
-    return Math.min(100, Math.round((w.totalVotesCast / (cc * WOW_LIMITS.maxVotesPerPerson)) * 100));
+    return Math.min(100, Math.round((w.totalVotesCast / (cc * this.maxVotesPerPerson())) * 100));
   });
 
   readonly hypeBattleTotal = computed(() => {

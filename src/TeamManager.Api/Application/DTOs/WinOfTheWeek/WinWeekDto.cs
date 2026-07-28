@@ -30,6 +30,8 @@ public record WinWeekDto
     public Guid CurrentMemberId { get; init; }
     public int UserVotesRemaining { get; init; }
     public int UserNominationsRemaining { get; init; }
+    public int MaxNominationsPerPerson { get; init; }
+    public int MaxVotesPerPerson { get; init; }
     public int TotalVotesCast { get; init; }
     public int ActiveMemberCount { get; init; }
     public int ConnectedMemberCount { get; init; }

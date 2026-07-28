@@ -9,6 +9,10 @@ public record WinSeriesDto
     public DateTimeOffset CreatedAt { get; init; }
     public bool PowerUpsEnabled { get; init; }
     public bool HideVoteCounts { get; init; }
+    public int MaxNominationsPerPerson { get; init; }
+    public int MaxVotesPerPerson { get; init; }
 }
 
 public record CreateWinSeriesRequest([Required][MaxLength(100)] string Name);
+
+public record UpdateWinSeriesLimitsRequest(int MaxNominationsPerPerson, int MaxVotesPerPerson);

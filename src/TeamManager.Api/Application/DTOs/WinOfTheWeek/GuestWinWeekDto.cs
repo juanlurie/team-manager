@@ -9,6 +9,8 @@ public record GuestWinWeekDto
     public bool IsVotingOpen { get; init; }
     public int UserNominationsRemaining { get; init; }
     public int UserVotesRemaining { get; init; }
+    public int MaxNominationsPerPerson { get; init; }
+    public int MaxVotesPerPerson { get; init; }
     public string? WinnerNomineeName { get; init; }
     public string? WinnerTitle { get; init; }
     public string? WinnerStory { get; init; }
