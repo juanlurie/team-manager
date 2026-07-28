@@ -176,6 +176,7 @@ export class WowSeriesSheetComponent {
             (startSuddenDeathClick)="startTieBreaker()"
             (togglePowerUpsClick)="togglePowerUps()"
             (toggleHideVoteCountsClick)="toggleHideVoteCounts()"
+            (limitsChange)="updateLimits($event)"
             (reopenNominationsClick)="reopenNominations()"
             (suddenDeathDurationChange)="onSuddenDeathDurationChange($event)"
             (historyClick)="activeTab.set('history')"
@@ -557,6 +558,20 @@ export class WinOfTheWeekComponent implements OnInit, OnDestroy {
     this.seriesSvc.toggleHideVoteCounts(sid).subscribe({
       next: (updated) => this.series.update(list => list.map(s => s.id === updated.id ? updated : s)),
       error: () => this.snackBar.open('Failed to toggle vote count visibility', 'Close', { duration: 3000 })
+    });
+  }
+
+  updateLimits(limits: { maxNominations: number; maxVotes: number }) {
+    const sid = this.currentSeriesId();
+    if (!sid) return;
+    this.seriesSvc.updateLimits(sid, limits.maxNominations, limits.maxVotes).subscribe({
+      next: (updated) => {
+        this.series.update(list => list.map(s => s.id === updated.id ? updated : s));
+        // The week payload carries the caps and everyone's remaining budget — re-pull so the
+        // change lands on the board rather than only in the host panel.
+        this.refresh();
+      },
+      error: () => this.snackBar.open('Failed to update limits', 'Close', { duration: 3000 })
     });
   }
 

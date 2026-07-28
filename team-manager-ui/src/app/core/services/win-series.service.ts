@@ -22,4 +22,8 @@ export class WinSeriesService {
   toggleHideVoteCounts(seriesId: string) {
     return this.http.patch<WinSeries>(`${this.base}/${seriesId}/hide-vote-counts`, {});
   }
+
+  updateLimits(seriesId: string, maxNominationsPerPerson: number, maxVotesPerPerson: number) {
+    return this.http.patch<WinSeries>(`${this.base}/${seriesId}/limits`, { maxNominationsPerPerson, maxVotesPerPerson });
+  }
 }

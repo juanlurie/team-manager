@@ -72,6 +72,8 @@ function adaptToWinWeek(week: GuestWinWeek): WinWeek {
     currentMemberId: GUEST_OWNED_ID,
     userVotesRemaining: week.userVotesRemaining,
     userNominationsRemaining: week.userNominationsRemaining,
+    maxNominationsPerPerson: week.maxNominationsPerPerson,
+    maxVotesPerPerson: week.maxVotesPerPerson,
     totalVotesCast: 0,
     activeMemberCount: 0,
     connectedMemberCount: 0,
