@@ -3,12 +3,13 @@ import { RouterOutlet } from '@angular/router';
 import { NavService } from '../../../core/nav/nav.service';
 import { HubTabsComponent, HubTab } from '../../../shared/components/hub-tabs/hub-tabs.component';
 
-// The two retro variants (classic timed retro and the freeform board) plus theme admin, split off
-// the Pulse tab row so Pulse only carries one "Retro" entry.
+// The two retro variants (classic timed retro and the freeform board), split off the Pulse tab
+// row so Pulse only carries one "Retro" entry. Theme admin isn't a tab here -- it's reachable
+// from classic Retro's own "Manage Themes" button (RetroBoard has no theme concept) -- but the
+// 'themes' route stays live in pulse.routes.ts since it's a real page, just not tab-level nav.
 const RETRO_TABS: HubTab[] = [
   { label: 'Retro', route: 'classic' },
   { label: 'RetroBoard', route: 'board' },
-  { label: 'Themes', route: 'themes' },
 ];
 
 @Component({
