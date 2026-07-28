@@ -1,32 +1,31 @@
 import { Component, inject, computed, ChangeDetectionStrategy } from '@angular/core';
 
-import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { RouterOutlet } from '@angular/router';
 import { FeatureAccessService } from '../../core/services/feature-access.service';
+import { NavService } from '../../core/nav/nav.service';
+import { HubTabsComponent, HubTab } from '../../shared/components/hub-tabs/hub-tabs.component';
 
-interface DeliveryTab {
-  label: string;
-  route: string;
+interface DeliveryTab extends HubTab {
   featureKey: string;
 }
 
 const DELIVERY_TABS: DeliveryTab[] = [
-  { label: 'Sprints',  route: 'sprints',  featureKey: 'sprints' },
-  { label: 'Features', route: 'features', featureKey: 'features' },
-  { label: 'Progress', route: 'progress', featureKey: 'progress' },
-  { label: 'Export',   route: 'export',   featureKey: 'export' },
+  { label: 'Sprints',       route: 'sprints',       featureKey: 'sprints' },
+  { label: 'Features',      route: 'features',      featureKey: 'features' },
+  { label: 'Progress',      route: 'progress',      featureKey: 'progress' },
+  { label: 'Process Flows', route: 'process-flows', featureKey: 'process-flows' },
+  { label: 'Export',        route: 'export',        featureKey: 'export' },
 ];
 
 @Component({
   selector: 'app-delivery-hub',
   standalone: true,
-  imports: [RouterLink, RouterLinkActive, RouterOutlet],
+  imports: [RouterOutlet, HubTabsComponent],
   template: `
-    <div class="hub">
-      <nav class="hub-tabs" role="tablist">
-        @for (tab of visibleTabs(); track tab.route) {
-          <a class="hub-tab" [routerLink]="tab.route" routerLinkActive="active" role="tab">{{ tab.label }}</a>
-        }
-      </nav>
+    <div class="hub" [class.immersive]="nav.hideNav() || nav.hideSubNav()">
+      @if (!nav.hideNav() && !nav.hideSubNav()) {
+        <app-hub-tabs [tabs]="visibleTabs()" />
+      }
       <div class="hub-content">
         <router-outlet />
       </div>
@@ -35,27 +34,13 @@ const DELIVERY_TABS: DeliveryTab[] = [
   changeDetection: ChangeDetectionStrategy.Default,
   styles: [`
     .hub { padding:8px; }
-    .hub-tabs {
-      display:flex;gap:0;margin-bottom:16px;
-      border-bottom:1px solid rgba(255,255,255,0.08);
-      overflow-x:auto;scrollbar-width:none;
-      -ms-overflow-style:none;
-    }
-    .hub-tabs::-webkit-scrollbar { display:none; }
-    .hub-tab {
-      padding:12px 16px;font-size:0.85rem;font-weight:500;
-      color:rgba(255,255,255,0.45);text-decoration:none;
-      border-bottom:2px solid transparent;
-      transition:all 0.15s;white-space:nowrap;cursor:pointer;
-      font-family:inherit;background:none;border-top:none;border-left:none;border-right:none;
-    }
-    .hub-tab:hover { color:rgba(255,255,255,0.75);background:rgba(255,255,255,0.04); }
-    .hub-tab.active { color:#64b5f6;border-bottom-color:#64b5f6; }
-    .hub-tab:focus-visible { outline:2px solid #64b5f6;outline-offset:-2px; }
+    .hub.immersive { padding:0 }
+    .hub.immersive .hub-content { min-height:0 }
     .hub-content { min-height:200px; }
   `]
 })
 export class DeliveryHubComponent {
   private featureAccess = inject(FeatureAccessService);
+  nav = inject(NavService);
   visibleTabs = computed(() => DELIVERY_TABS.filter(t => this.featureAccess.hasAccess(t.featureKey)));
 }

@@ -8,8 +8,9 @@ export class PersonalMapService {
   private http = inject(HttpClient);
   private base = '/api/v1/personal-maps';
 
-  getSessions(): Observable<PersonalMapSessionSummary[]> {
-    return this.http.get<PersonalMapSessionSummary[]>(this.base);
+  /** Omit memberId for your own boards; passing someone else's requires a lead role. */
+  getSessions(memberId?: string): Observable<PersonalMapSessionSummary[]> {
+    return this.http.get<PersonalMapSessionSummary[]>(this.base, memberId ? { params: { memberId } } : {});
   }
 
   getSession(id: string): Observable<PersonalMapSession> {

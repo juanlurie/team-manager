@@ -166,7 +166,7 @@ export class GuestRetroComponent implements OnInit, OnDestroy {
       takeUntil(this.destroy$),
     ).subscribe(status => {
       if (status === 'authorized') {
-        this.router.navigate(['/pulse/retro-board', this.slug]);
+        this.router.navigate(['/pulse/retro/board', this.slug]);
       } else {
         this.loadBoard(true);
       }

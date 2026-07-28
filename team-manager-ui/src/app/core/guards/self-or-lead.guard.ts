@@ -9,7 +9,8 @@ export const selfOrLeadGuard: CanActivateFn = (route: ActivatedRouteSnapshot) =>
   const router = inject(Router);
   const snackBar = inject(MatSnackBar);
 
-  const memberId = route.paramMap.get('id');
+  // 'memberId' is used where a route also carries a second id (e.g. /team/:memberId/personal-maps/:mapId).
+  const memberId = route.paramMap.get('id') ?? route.paramMap.get('memberId');
   if (!memberId) return true;
 
   return auth.me$.pipe(
