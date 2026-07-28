@@ -217,6 +217,17 @@ public class FunRetroController(FunRetroService service, PollService pollService
         return Ok(analysis);
     }
 
+    [HttpPost("{id:guid}/group-similar")]
+    public async Task<IActionResult> GroupSimilarCards(Guid id)
+    {
+        var memberId = GetCurrentMemberId();
+        if (!memberId.HasValue) return Unauthorized();
+
+        var (success, error) = await service.GroupSimilarCardsAsync(id, memberId.Value);
+        if (!success) return BadRequest(new { error });
+        return NoContent();
+    }
+
     [HttpPatch("{id:guid}/settings")]
     public async Task<IActionResult> UpdateSettings(Guid id, [FromBody] UpdateRetroSettingsRequest request)
     {

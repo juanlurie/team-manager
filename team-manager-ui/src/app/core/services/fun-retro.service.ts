@@ -101,6 +101,10 @@ export class FunRetroService {
     return this.http.post<FunRetroAnalysis>(`${this.base}/${sessionId}/analyse`, {});
   }
 
+  groupSimilarCards(sessionId: string): Observable<void> {
+    return this.http.post<void>(`${this.base}/${sessionId}/group-similar`, {});
+  }
+
   setTimer(sessionId: string, timer: { totalSeconds: number; startedAt: string | null; pausedAt: string | null; elapsedBeforePause: number }): Observable<{ timerJson: string }> {
     return this.http.post<{ timerJson: string }>(`${this.base}/${sessionId}/timer`, timer);
   }
