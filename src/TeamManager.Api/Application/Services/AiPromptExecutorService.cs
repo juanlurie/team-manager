@@ -140,7 +140,12 @@ public class AiPromptExecutorService(AppDbContext db)
 
             evt.Status = "sent";
             await db.SaveChangesAsync();
-            return extracted;
+            // Models -- Claude especially -- routinely wrap a response in a ```json ... ``` fence
+            // even when the prompt explicitly says "respond with ONLY JSON, no other text". Every
+            // caller either JSON.Deserialize()s this return value directly or shows it as plain
+            // text, and stripping a wrapping fence is correct either way, so it's done once here
+            // rather than re-implemented (or missed) in each generator.
+            return StripCodeFence(extracted);
         }
         catch (Exception ex)
         {
@@ -159,5 +164,21 @@ public class AiPromptExecutorService(AppDbContext db)
     {
         var serialized = JsonSerializer.Serialize(value);
         return serialized[1..^1];
+    }
+
+    // Strips a leading/trailing ``` fence (optionally with a language tag on the opening line,
+    // e.g. ```json) if the whole response is wrapped in one. Text that doesn't start with a fence
+    // is returned untouched -- this only ever removes wrapping, never touches real content.
+    private static string StripCodeFence(string text)
+    {
+        var trimmed = text.Trim();
+        if (!trimmed.StartsWith("```", StringComparison.Ordinal)) return text;
+
+        var firstNewline = trimmed.IndexOf('\n');
+        if (firstNewline < 0) return text; // opening fence with no content after it -- leave as-is
+
+        var afterOpenFence = trimmed[(firstNewline + 1)..];
+        var closeIdx = afterOpenFence.LastIndexOf("```", StringComparison.Ordinal);
+        return (closeIdx < 0 ? afterOpenFence : afterOpenFence[..closeIdx]).Trim();
     }
 }
