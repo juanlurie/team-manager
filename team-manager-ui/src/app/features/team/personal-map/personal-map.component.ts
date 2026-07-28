@@ -14,6 +14,7 @@ import { PersonalMapSession, PersonalMapSessionSummary, PersonalMapNode } from '
 import { WebSocketService } from '../../../core/websocket/websocket.service';
 import { PersonalMapEvent, PERSONAL_MAP_EVENT_TYPES } from '../../../core/websocket/events/personal-map.events';
 import { NavService } from '../../../core/nav/nav.service';
+import { AuthService } from '../../../core/auth/auth.service';
 import { ConfirmDialogComponent } from '../../../shared/components/confirm-dialog/confirm-dialog.component';
 import { CanvasBoardComponent, CanvasNode } from '../../../core/components/canvas-board/canvas-board.component';
 
@@ -52,16 +53,19 @@ import { CanvasBoardComponent, CanvasNode } from '../../../core/components/canva
     @if (!session()) {
       <div class="lobby-wrap">
         <div class="lobby-header">
+          <button mat-icon-button title="Back to member" (click)="backToMember()"><mat-icon>arrow_back</mat-icon></button>
           <span class="lobby-title">Personal Maps</span>
-          <button mat-flat-button color="primary" (click)="createSession()" [disabled]="creating()">
-            <mat-icon>add</mat-icon> New Map
-          </button>
+          @if (!readOnly()) {
+            <button mat-flat-button color="primary" (click)="createSession()" [disabled]="creating()">
+              <mat-icon>add</mat-icon> New Map
+            </button>
+          }
         </div>
         @if (loading()) {
           <div style="text-align:center;padding:32px"><mat-spinner diameter="32" style="margin:0 auto" /></div>
         } @else {
           @if (sessions().length === 0) {
-            <div class="empty-state">No personal maps yet. Start one!</div>
+            <div class="empty-state">{{ readOnly() ? 'This member has no personal maps yet.' : 'No personal maps yet. Start one!' }}</div>
           }
           <div class="session-list">
             @for (s of sessions(); track s.id) {
@@ -72,9 +76,11 @@ import { CanvasBoardComponent, CanvasNode } from '../../../core/components/canva
                     <span>{{ s.nodeCount }} node{{ s.nodeCount !== 1 ? 's' : '' }}</span>
                   </div>
                 </div>
-                <button mat-icon-button title="Delete map" (click)="deleteSession($event, s)">
-                  <mat-icon>delete_outline</mat-icon>
-                </button>
+                @if (!readOnly()) {
+                  <button mat-icon-button title="Delete map" (click)="deleteSession($event, s)">
+                    <mat-icon>delete_outline</mat-icon>
+                  </button>
+                }
               </div>
             }
           </div>
@@ -85,11 +91,12 @@ import { CanvasBoardComponent, CanvasNode } from '../../../core/components/canva
         <div class="board-header">
           <button mat-icon-button (click)="backToList()"><mat-icon>arrow_back</mat-icon></button>
           <span class="board-title">{{ session()!.title || 'Untitled Map' }}</span>
-          <span class="board-hint">Double-click canvas to add an idea. Drag to reposition.</span>
+          <span class="board-hint">{{ readOnly() ? 'View only — this board belongs to another member.' : 'Double-click canvas to add an idea. Drag to reposition.' }}</span>
         </div>
         <div class="board-canvas">
           <app-canvas-board
             [nodes]="canvasNodes()"
+            [readOnly]="readOnly()"
             [connectMode]="false"
             [resizable]="true"
             [colorPicker]="true"
@@ -113,6 +120,12 @@ export class PersonalMapComponent implements OnInit, OnDestroy {
   private route = inject(ActivatedRoute);
   private snackBar = inject(MatSnackBar);
   private dialog = inject(MatDialog);
+  private auth = inject(AuthService);
+
+  /** Whose boards this page shows -- always present, the route lives under /team/:memberId. */
+  memberId = '';
+  /** A lead viewing someone else's boards gets a look, never a write (the API enforces the same). */
+  readOnly = signal(false);
 
   sessions = signal<PersonalMapSessionSummary[]>([]);
   session = signal<PersonalMapSession | null>(null);
@@ -127,7 +140,7 @@ export class PersonalMapComponent implements OnInit, OnDestroy {
   canvasNodes = signal<CanvasNode[]>([]);
   editNodeId = signal<string | null>(null);
 
-  /** Hide the Pulse hub's tab row + width cap while a map is open, so the canvas goes full-bleed (matches Retro). */
+  /** Hide the surrounding hub's tab row + width cap while a map is open, so the canvas goes full-bleed (matches Retro). */
   private hideSubNavEffect = effect(() => {
     this.navSvc.hideSubNav.set(!!this.session());
   });
@@ -153,9 +166,11 @@ export class PersonalMapComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
-    const id = this.route.snapshot.params['id'];
-    if (id) {
-      this.openSession(id);
+    this.memberId = this.route.snapshot.params['memberId'] ?? '';
+    this.readOnly.set(!!this.memberId && this.auth.me?.id !== this.memberId);
+    const mapId = this.route.snapshot.params['mapId'];
+    if (mapId) {
+      this.openSession(mapId);
     } else {
       this.loadSessions();
     }
@@ -255,9 +270,19 @@ export class PersonalMapComponent implements OnInit, OnDestroy {
     });
   }
 
+  /** Routes stay under the member the board belongs to, so a lead's URL keeps its owner context. */
+  private mapUrl(mapId?: string): unknown[] {
+    const base = ['/team', this.memberId, 'personal-maps'];
+    return mapId ? [...base, mapId] : base;
+  }
+
+  backToMember(): void {
+    this.router.navigate(['/team', this.memberId]);
+  }
+
   loadSessions(): void {
     this.loading.set(true);
-    this.svc.getSessions().subscribe({
+    this.svc.getSessions(this.readOnly() ? this.memberId : undefined).subscribe({
       next: list => { this.sessions.set(list); this.loading.set(false); },
       error: () => { this.loading.set(false); this.snackBar.open('Failed to load personal maps', 'OK', { duration: 3000 }); },
     });
@@ -271,7 +296,7 @@ export class PersonalMapComponent implements OnInit, OnDestroy {
         this.lastWsSeq = -1;
         this.session.set(s);
         this.syncCanvas();
-        this.router.navigate(['/pulse/personal-maps', s.id], { replaceUrl: true });
+        this.router.navigate(this.mapUrl(s.id), { replaceUrl: true });
         this.joinBoardPresence(s.id);
       },
       error: () => {
@@ -289,7 +314,7 @@ export class PersonalMapComponent implements OnInit, OnDestroy {
         this.session.set(s);
         this.syncCanvas();
         this.loading.set(false);
-        this.router.navigate(['/pulse/personal-maps', s.id], { replaceUrl: true });
+        this.router.navigate(this.mapUrl(s.id), { replaceUrl: true });
         this.joinBoardPresence(s.id);
       },
       error: () => {
@@ -307,7 +332,7 @@ export class PersonalMapComponent implements OnInit, OnDestroy {
     }
     this.connectedSub?.unsubscribe();
     this.session.set(null);
-    this.router.navigate(['/pulse/personal-maps'], { replaceUrl: true });
+    this.router.navigate(this.mapUrl(), { replaceUrl: true });
     this.loadSessions();
   }
 

@@ -1,5 +1,6 @@
 import { Routes } from '@angular/router';
 import { PulseHubComponent } from './fun-hub.component';
+import { RetroHubComponent } from './retro/retro-hub.component';
 
 export const PULSE_ROUTES: Routes = [
   {
@@ -40,46 +41,55 @@ export const PULSE_ROUTES: Routes = [
         loadChildren: () => import('../polls/poll.routes').then(m => m.POLL_ROUTES)
       },
       {
+        // Nested hub: one Pulse tab, its own row for classic retro / board / themes.
         path: 'retro',
-        loadComponent: () => import('./retro/retro.component').then(m => m.FunRetroComponent)
+        component: RetroHubComponent,
+        children: [
+          { path: '', redirectTo: 'classic', pathMatch: 'full' },
+          {
+            path: 'classic',
+            loadComponent: () => import('./retro/retro.component').then(m => m.FunRetroComponent)
+          },
+          {
+            path: 'classic/:id',
+            loadComponent: () => import('./retro/retro.component').then(m => m.FunRetroComponent)
+          },
+          {
+            path: 'themes',
+            loadComponent: () => import('./retro/retro-theme-manager.component').then(m => m.RetroThemeManagerComponent)
+          },
+          {
+            path: 'board',
+            loadComponent: () => import('./retro-board/retro-board.component').then(m => m.RetroBoardComponent)
+          },
+          {
+            path: 'board/:id',
+            loadComponent: () => import('./retro-board/retro-board.component').then(m => m.RetroBoardComponent)
+          },
+          // Legacy /pulse/retro/<slug> share links. Must stay last -- a param segment listed before
+          // the static ones would greedily swallow 'classic', 'board' and 'themes'.
+          { path: ':id', redirectTo: 'classic/:id' },
+        ]
       },
-      {
-        // Must precede 'retro/:id' -- static segments have to be listed before param segments
-        // in the same array or 'retro/:id' greedily matches 'retro/themes' with id='themes'.
-        path: 'retro/themes',
-        loadComponent: () => import('./retro/retro-theme-manager.component').then(m => m.RetroThemeManagerComponent)
-      },
-      {
-        path: 'retro/:id',
-        loadComponent: () => import('./retro/retro.component').then(m => m.FunRetroComponent)
-      },
-      {
-        path: 'retro-board',
-        loadComponent: () => import('./retro-board/retro-board.component').then(m => m.RetroBoardComponent)
-      },
-      {
-        path: 'retro-board/:id',
-        loadComponent: () => import('./retro-board/retro-board.component').then(m => m.RetroBoardComponent)
-      },
+      // Legacy retro-board links (shared before the retro hub existed).
+      { path: 'retro-board', redirectTo: 'retro/board', pathMatch: 'full' },
+      { path: 'retro-board/:id', redirectTo: 'retro/board/:id' },
+      // Moved out of Pulse; keep old links working.
+      { path: 'process-flows', redirectTo: '/delivery/process-flows', pathMatch: 'full' },
+      { path: 'process-flows/:id', redirectTo: '/delivery/process-flows/:id' },
       {
         path: 'jokes',
         loadComponent: () => import('../jokes/jokes.component').then(m => m.JokesComponent)
       },
-      {
-        path: 'process-flows',
-        loadComponent: () => import('./process-flow/process-flow.component').then(m => m.ProcessFlowComponent)
-      },
-      {
-        path: 'process-flows/:id',
-        loadComponent: () => import('./process-flow/process-flow.component').then(m => m.ProcessFlowComponent)
-      },
+      // Personal maps moved to the individual team member (/team/:memberId/personal-maps). The
+      // target depends on who is asking, so a shim component resolves it against the current user.
       {
         path: 'personal-maps',
-        loadComponent: () => import('./personal-map/personal-map.component').then(m => m.PersonalMapComponent)
+        loadComponent: () => import('../team/personal-map/personal-map-redirect.component').then(m => m.PersonalMapRedirectComponent)
       },
       {
         path: 'personal-maps/:id',
-        loadComponent: () => import('./personal-map/personal-map.component').then(m => m.PersonalMapComponent)
+        loadComponent: () => import('../team/personal-map/personal-map-redirect.component').then(m => m.PersonalMapRedirectComponent)
       }
     ]
   }

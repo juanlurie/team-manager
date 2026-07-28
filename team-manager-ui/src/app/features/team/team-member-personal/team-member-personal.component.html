@@ -36,6 +36,11 @@
               @if (mapSaved()) {
                 <span style="font-size:0.78rem;color:#81c784">Saved</span>
               }
+              <!-- Freeform canvas boards (moved here from Pulse) open full-screen on their own route. -->
+              <button mat-button (click)="openMapBoards()" style="margin-left:auto;color:#64b5f6;gap:4px">
+                <mat-icon style="font-size:18px;width:18px;height:18px;line-height:18px">account_tree</mat-icon>
+                Map boards
+              </button>
             </div>
             <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,280px),1fr));gap:12px">
               @for (cat of mapCategories; track cat.key) {

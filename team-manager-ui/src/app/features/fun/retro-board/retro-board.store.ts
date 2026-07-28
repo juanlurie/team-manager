@@ -380,11 +380,11 @@ export class RetroBoardStore implements OnDestroy {
     // Seed a new retro from the facilitator's last-used timers so Setup doesn't reset to defaults.
     const stepDurations = this.loadSetupPrefs()?.durations;
     this.svc.createSession({ title: t || undefined, stepDurations }).subscribe({
-      next: s => { this.creating.set(false); this.router.navigate(['/pulse/retro-board', s.id]); this.setSession(s); this.joinWs(s.id); },
+      next: s => { this.creating.set(false); this.router.navigate(['/pulse/retro/board', s.id]); this.setSession(s); this.joinWs(s.id); },
       error: () => { this.creating.set(false); this.error.set('Create failed.'); },
     });
   }
-  open(id: string) { this.router.navigate(['/pulse/retro-board', id]); this.load(id); }
+  open(id: string) { this.router.navigate(['/pulse/retro/board', id]); this.load(id); }
 
   // Join by the friendly session code (slug). Validates before navigating so a bad code shows an
   // inline lobby error rather than dropping the user on a broken board. Tolerates a pasted share
@@ -394,13 +394,14 @@ export class RetroBoardStore implements OnDestroy {
     if (!code) return;
     this.joining.set(true); this.error.set(null);
     this.svc.join(code).subscribe({
-      next: s => { this.joining.set(false); this.joinCode = ''; this.router.navigate(['/pulse/retro-board', s.slug ?? s.id]); this.setSession(s); this.joinWs(s.id); },
+      next: s => { this.joining.set(false); this.joinCode = ''; this.router.navigate(['/pulse/retro/board', s.slug ?? s.id]); this.setSession(s); this.joinWs(s.id); },
       error: () => { this.joining.set(false); this.error.set('No open retro with that code.'); },
     });
   }
   private extractJoinCode(raw: string): string {
     const v = (raw || '').trim();
-    const m = v.match(/retro-board\/([^/?#]+)/i);
+    // Accepts both the current /pulse/retro/board/<code> and legacy /pulse/retro-board/<code> links.
+    const m = v.match(/(?:retro-board|retro\/board)\/([^/?#]+)/i);
     return m ? decodeURIComponent(m[1]) : v;
   }
   del(id: string, ev: Event) {
@@ -408,7 +409,7 @@ export class RetroBoardStore implements OnDestroy {
     this.confirmDialog({ title: 'Delete this retro?', message: 'This retro will be permanently removed — this cannot be undone.', confirmLabel: 'Delete', danger: true })
       .subscribe(ok => { if (ok) this.svc.deleteSession(id).subscribe({ next: () => this.reloadLists() }); });
   }
-  leave() { this.leaveWs(); this.session.set(null); this.viewAs.set('facilitator'); this.router.navigate(['/pulse/retro-board']); this.reloadLists(); }
+  leave() { this.leaveWs(); this.session.set(null); this.viewAs.set('facilitator'); this.router.navigate(['/pulse/retro/board']); this.reloadLists(); }
 
   // ── Host delegation (Phase 3) ──────────────────────────────────────────────────
   // The per-session host (facilitator) role is grantable to any member participant, independent of

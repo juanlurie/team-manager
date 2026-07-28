@@ -2311,7 +2311,7 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
         this.session.set(s);
         this.applyExtras(s, true);
         this.loading.set(false);
-        this.router.navigate(['/pulse/retro', s.slug ?? s.id], { replaceUrl: true });
+        this.router.navigate(['/pulse/retro/classic', s.slug ?? s.id], { replaceUrl: true });
         this.joinRetroPresence(s.id);
         this.loadRetroPolls(s.id);
       },
@@ -2778,7 +2778,7 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   shareSession(s: FunRetroSession): void {
-    const url = `${window.location.origin}/pulse/retro/${s.slug ?? s.id}`;
+    const url = `${window.location.origin}/pulse/retro/classic/${s.slug ?? s.id}`;
     const title = s.title || 'Retro Session';
     const text = `Join our retro — "${title}"`;
 
@@ -2793,7 +2793,7 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
   backToList(): void {
     this.session.set(null);
     this.loadSessions();
-    this.router.navigate(['/pulse/retro'], { replaceUrl: true });
+    this.router.navigate(['/pulse/retro/classic'], { replaceUrl: true });
   }
 
   openNewRetroDialog(): void {
