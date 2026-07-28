@@ -880,7 +880,10 @@ interface TimerState {
               @else { <mat-icon>auto_awesome</mat-icon> }
               Analyse with AI
             </button>
-            <button mat-stroked-button (click)="groupSimilarCards()" [disabled]="grouping()" title="Cluster cards that say the same thing">
+          }
+          @if (s.isCreator && (s.phase === 'vote' || s.phase === 'discuss' || s.phase === 'done')) {
+            <button mat-stroked-button (click)="groupSimilarCards()" [disabled]="grouping()"
+                    title="Cluster cards that say the same thing -- useful before voting so duplicate ideas aren't splitting votes">
               @if (grouping()) { <mat-spinner diameter="16" style="display:inline-block;margin-right:4px" /> }
               @else { <mat-icon>join_inner</mat-icon> }
               Group Similar
