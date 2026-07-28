@@ -735,6 +735,8 @@ export class RetroSingleCanvasComponent implements AfterViewInit {
   private readonly ZONE_TOP_PAD = 40;
   private readonly MIN_ZOOM = 0.15;
   private readonly MAX_ZOOM = 2;
+  /** Empty world-space margin pannable on every side of the zone strip (see clampPan). */
+  private readonly CANVAS_PAD = 400;
 
   activeTool = signal<RetroCanvasTool>('select');
   view = signal<{ zoom: number; panX: number; panY: number }>({ zoom: 1, panX: 0, panY: 0 });
@@ -895,21 +897,21 @@ export class RetroSingleCanvasComponent implements AfterViewInit {
     const outerH = outer.clientHeight || 400;
     const items = this.allItems();
     const cardW = this.STICKY_W;
-    const margin = 200;
     const zoneStripW = this.cols().length * (this.ZONE_WIDTH + this.ZONE_GAP);
     const contentMaxX = Math.max(zoneStripW, items.length ? Math.max(...items.map(i => i.x + cardW)) + 20 : 400);
     const contentMaxY = this.canvasHeight();
+    // Breathing room: the board is pannable a screenful past its own edges on every side, so a
+    // card near the rim isn't jammed against the viewport border. It is empty on purpose --
+    // cards and stickers still clamp to the zone strip (see placeCardAt/onMouseMove), so this
+    // margin can never accumulate content, it just stops the board feeling boxed in.
+    const padX = Math.min(this.CANVAS_PAD, outerW * 0.5) * zoom;
+    const padY = Math.min(this.CANVAS_PAD, outerH * 0.5) * zoom;
     const scaledW = contentMaxX * zoom;
     const scaledH = contentMaxY * zoom;
-    // Content starts at world (0,0) with nothing before it -- panning past panX/panY = 0
-    // would reveal grid background to the left/above that no card or sticker can ever
-    // actually occupy (they clamp at 0 too), so cap the pan there instead of leaving a
-    // pannable-but-dead strip. (The `outerW - margin` fallback only kicks in on a viewport
-    // so small that even that would clip too much of the content.)
-    const maxPanX = Math.min(0, outerW - margin);
-    const minPanX = margin - scaledW;
-    const maxPanY = Math.min(0, outerH - margin);
-    const minPanY = margin - scaledH;
+    const maxPanX = padX;
+    const minPanX = outerW - scaledW - padX;
+    const maxPanY = padY;
+    const minPanY = outerH - scaledH - padY;
     // Once the whole board (a zone axis) has zoomed down small enough to fit inside the
     // viewport, centre it on that axis instead of leaving it pinned to whichever edge the
     // cursor-anchored zoom-out dragged it to -- keeps the content that matters framed rather
@@ -1121,12 +1123,25 @@ export class RetroSingleCanvasComponent implements AfterViewInit {
    *  a deliberate "add a card" and should always land somewhere, not do nothing. */
   private placeCardAt(e: MouseEvent, clampToNearestZone: boolean): void {
     let { x: worldX, y: worldY } = this.worldPointFromEvent(e);
-    const stripWidth = this.cols().length * (this.ZONE_WIDTH + this.ZONE_GAP) - this.ZONE_GAP;
-    if (worldX < 0 || worldX > stripWidth) {
+    const stripWidth = this.stripWidth();
+    // The blank margin the board now pans into (clampPan's CANVAS_PAD) is deliberately not
+    // placeable -- a card dropped out there would belong to no zone.
+    if (worldX < 0 || worldX > stripWidth || worldY < 0) {
       if (!clampToNearestZone) return;
       worldX = Math.max(0, Math.min(stripWidth, worldX));
+      worldY = Math.max(0, worldY);
     }
     this.pendingCard.set({ x: worldX, y: worldY, text: '' });
+  }
+
+  /** Right edge of the last zone -- the outer bound of everything placeable. */
+  private stripWidth(): number {
+    return this.cols().length * (this.ZONE_WIDTH + this.ZONE_GAP) - this.ZONE_GAP;
+  }
+
+  /** Keeps a dragged card/sticker inside the zone strip rather than out in the blank margin. */
+  private clampToStrip(x: number, itemWidth: number): number {
+    return Math.max(0, Math.min(this.stripWidth() - itemWidth, x));
   }
 
   private confirmStickerPlacement(): void {
@@ -1136,9 +1151,13 @@ export class RetroSingleCanvasComponent implements AfterViewInit {
     this.placingWorld.set(null);
     this.placingScreenPos.set(null);
     if (!p || !emoji) return;
-    const col = this.cols()[this.zoneIndexForX(p.x)];
+    // Same rule as cards: a sticker belongs to a zone, so a click out in the blank margin
+    // lands on the nearest zone edge rather than floating in unowned space.
+    const x = this.clampToStrip(p.x, 0);
+    const y = Math.max(0, p.y);
+    const col = this.cols()[this.zoneIndexForX(x)];
     if (!col) return;
-    this.stickerPlaceRequested.emit({ emoji, column: col.key, x: p.x, y: p.y, size });
+    this.stickerPlaceRequested.emit({ emoji, column: col.key, x, y, size });
   }
 
   private confirmTimerPlacement(): void {
@@ -1261,7 +1280,7 @@ export class RetroSingleCanvasComponent implements AfterViewInit {
       const zoom = this.view().zoom;
       const dx = (e.clientX - this.tokenDragState.startMouseX) / zoom;
       const dy = (e.clientY - this.tokenDragState.startMouseY) / zoom;
-      const x = Math.max(0, this.tokenDragState.startX + dx);
+      const x = this.clampToStrip(this.tokenDragState.startX + dx, 0);
       const y = Math.max(0, this.tokenDragState.startY + dy);
       this.localTokenPositions.update(p => ({ ...p, [this.tokenDragState!.id]: { x, y } }));
       return;
@@ -1291,13 +1310,13 @@ export class RetroSingleCanvasComponent implements AfterViewInit {
     const zoom = this.view().zoom;
     const dx = (e.clientX - this.dragState.startMouseX) / zoom;
     const dy = (e.clientY - this.dragState.startMouseY) / zoom;
-    const x = Math.max(0, this.dragState.startX + dx);
+    const x = this.clampToStrip(this.dragState.startX + dx, this.STICKY_W);
     const y = Math.max(0, this.dragState.startY + dy);
     this.localPositions.update(p => ({ ...p, [this.dragState!.id]: { x, y } }));
     if (this.dragState.pinnedTokens.length) {
       this.localTokenPositions.update(p => {
         const next = { ...p };
-        for (const t of this.dragState!.pinnedTokens) next[t.id] = { x: Math.max(0, t.startX + dx), y: Math.max(0, t.startY + dy) };
+        for (const t of this.dragState!.pinnedTokens) next[t.id] = { x: this.clampToStrip(t.startX + dx, 0), y: Math.max(0, t.startY + dy) };
         return next;
       });
     }
