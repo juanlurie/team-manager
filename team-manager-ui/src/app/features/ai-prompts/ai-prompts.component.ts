@@ -219,6 +219,12 @@ export class AiPromptsComponent implements OnInit {
     if (!this.editForm.label) {
       this.editForm.label = this.keyLabel(this.editForm.key);
     }
+    // Only offer the starter text while the field is still blank -- never clobber something the
+    // admin already typed just because they re-picked the same key.
+    if (!this.editForm.systemPrompt.trim()) {
+      const meta = this.promptKeys.find(k => k.value === this.editForm.key);
+      if (meta?.systemPromptSuggestion) this.editForm.systemPrompt = meta.systemPromptSuggestion;
+    }
   }
 
   startAdd() {

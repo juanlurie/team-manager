@@ -48,6 +48,9 @@ export interface FunRetroToken {
 }
 
 export interface FunRetroAnalysis {
+  sentiment: string | null;
+  sentimentSummary: string | null;
+  celebrations: string[];
   wellThemes: string[];
   betterThemes: string[];
   actionThemes: string[];
