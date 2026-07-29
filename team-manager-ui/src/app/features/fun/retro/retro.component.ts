@@ -27,6 +27,7 @@ import { CreatePollDialogComponent } from '../../polls/poll.component';
 import { ConfirmDialogComponent } from '../../../shared/components/confirm-dialog/confirm-dialog.component';
 import { NavService } from '../../../core/nav/nav.service';
 import { NewRetroDialogComponent, NewRetroDialogResult } from './new-retro-dialog.component';
+import { RetroAiAnalysisDialogComponent } from './retro-ai-analysis-dialog.component';
 import { DEFAULT_COLS, RETRO_TEMPLATES, ICEBREAKER_QUESTIONS, RETRO_THEMES, RetroBgStyle, bgStyleFor, PHOTO_BG_STYLE } from './retro-constants';
 import { RetroSingleCanvasComponent } from './retro-single-canvas.component';
 import { RetroThemeEditorComponent } from './retro-theme-editor.component';
@@ -560,66 +561,6 @@ interface TimerState {
     .emoji-picker-option:hover { background:rgba(255,255,255,0.12); }
 
     /* AI analysis panel */
-    .ai-panel {
-      margin-top:16px;
-      background:rgba(100,181,246,0.06);border:1px solid rgba(100,181,246,0.2);
-      border-radius:10px;padding:16px;
-    }
-    .ai-panel-header {
-      display:flex;align-items:center;gap:8px;margin-bottom:14px;
-    }
-    .ai-badge {
-      display:inline-flex;align-items:center;gap:4px;
-      font-size:0.68rem;font-weight:600;letter-spacing:0.04em;
-      padding:3px 8px;border-radius:10px;
-      background:rgba(100,181,246,0.15);border:1px solid rgba(100,181,246,0.3);
-      color:#64b5f6;
-    }
-    .ai-panel-title {
-      font-size:0.9rem;font-weight:600;color:rgba(255,255,255,0.85);
-    }
-    .ai-section { margin-bottom:14px; }
-    .ai-section:last-child { margin-bottom:0; }
-    .ai-section-label {
-      font-size:0.72rem;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;
-      margin-bottom:6px;opacity:0.6;
-    }
-    .ai-chips {
-      display:flex;flex-wrap:wrap;gap:6px;
-    }
-    .ai-chip {
-      font-size:0.78rem;padding:4px 10px;border-radius:14px;
-      background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.1);
-      color:rgba(255,255,255,0.8);
-    }
-    .ai-list {
-      display:flex;flex-direction:column;gap:5px;
-    }
-    .ai-list-item {
-      font-size:0.82rem;color:rgba(255,255,255,0.75);line-height:1.4;
-      padding-left:12px;position:relative;
-    }
-    .ai-list-item::before {
-      content:'•';position:absolute;left:0;color:rgba(100,181,246,0.6);
-    }
-    /* Sentiment + celebrations lead the panel -- positive-first is deliberate (see runAnalysis). */
-    .ai-sentiment { display:flex;align-items:center;gap:8px;margin-bottom:4px; }
-    .ai-sentiment-chip {
-      font-size:0.72rem;font-weight:700;letter-spacing:0.03em;padding:3px 10px;border-radius:12px;
-      background:rgba(129,199,132,0.15);border:1px solid rgba(129,199,132,0.4);color:#81c784;
-    }
-    .ai-sentiment-summary { font-size:0.82rem;color:rgba(255,255,255,0.8); }
-    .ai-celebrate-section {
-      background:rgba(129,199,132,0.08);border:1px solid rgba(129,199,132,0.25);
-      border-radius:8px;padding:10px 12px;margin-bottom:14px;
-    }
-    .ai-celebrate-item {
-      font-size:0.85rem;color:rgba(255,255,255,0.9);line-height:1.4;
-      padding-left:20px;position:relative;margin-bottom:4px;
-    }
-    .ai-celebrate-item:last-child { margin-bottom:0; }
-    .ai-celebrate-item::before { content:'🎉';position:absolute;left:0;font-size:0.8rem; }
-
     /* Timer popover */
     .timer-ring-wrap { position:relative; width:80px; height:80px; flex-shrink:0; }
     .timer-svg { width:80px; height:80px; }
@@ -878,7 +819,13 @@ interface TimerState {
             <button mat-stroked-button (click)="runAnalysis()" [disabled]="analysing()">
               @if (analysing()) { <mat-spinner diameter="16" style="display:inline-block;margin-right:4px" /> }
               @else { <mat-icon>auto_awesome</mat-icon> }
-              Analyse with AI
+              {{ s.aiAnalysis ? 'Regenerate Analysis' : 'Analyse with AI' }}
+            </button>
+          }
+          @if (s.aiAnalysis) {
+            <button mat-stroked-button (click)="viewAnalysis()">
+              <mat-icon>auto_awesome</mat-icon>
+              View Analysis
             </button>
           }
           @if (s.isCreator && (s.phase === 'vote' || s.phase === 'discuss' || s.phase === 'done')) {
@@ -1125,7 +1072,7 @@ interface TimerState {
                     <div class="card-group-cluster">
                       <div class="card-group-label">
                         <mat-icon style="font-size:12px;height:12px;width:12px">link</mat-icon>
-                        Group ({{ group.cards.length }})
+                        {{ group.label ?? ('Group (' + group.cards.length + ')') }}
                       </div>
                       @for (card of group.cards; track card.id) {
                         <div class="retro-card" [class.hidden-card]="card.text === null" [class.own-card]="card.isOwn"
@@ -1303,82 +1250,6 @@ interface TimerState {
           </div>
         }
 
-        <!-- AI Analysis panel -->
-        @if (s.aiAnalysis) {
-          <div class="ai-panel">
-            <div class="ai-panel-header">
-              <span class="ai-badge"><mat-icon style="font-size:12px;height:12px;width:12px">auto_awesome</mat-icon>AI-generated</span>
-              <span class="ai-panel-title">Retro Analysis</span>
-            </div>
-
-            @if (s.aiAnalysis.sentiment) {
-              <div class="ai-sentiment">
-                <span class="ai-sentiment-chip">{{ s.aiAnalysis.sentiment }}</span>
-                @if (s.aiAnalysis.sentimentSummary) {
-                  <span class="ai-sentiment-summary">{{ s.aiAnalysis.sentimentSummary }}</span>
-                }
-              </div>
-            }
-            @if (s.aiAnalysis.celebrations.length) {
-              <div class="ai-celebrate-section">
-                @for (c of s.aiAnalysis.celebrations; track c) {
-                  <div class="ai-celebrate-item">{{ c }}</div>
-                }
-              </div>
-            }
-
-            @if (s.aiAnalysis.wellThemes.length) {
-              <div class="ai-section">
-                <div class="ai-section-label" style="color:#4caf50">What went well</div>
-                <div class="ai-chips">
-                  @for (t of s.aiAnalysis.wellThemes; track t) {
-                    <span class="ai-chip">{{ t }}</span>
-                  }
-                </div>
-              </div>
-            }
-            @if (s.aiAnalysis.betterThemes.length) {
-              <div class="ai-section">
-                <div class="ai-section-label" style="color:#ff9800">Areas to improve</div>
-                <div class="ai-chips">
-                  @for (t of s.aiAnalysis.betterThemes; track t) {
-                    <span class="ai-chip">{{ t }}</span>
-                  }
-                </div>
-              </div>
-            }
-            @if (s.aiAnalysis.actionThemes.length) {
-              <div class="ai-section">
-                <div class="ai-section-label" style="color:#e91e8c">Action item themes</div>
-                <div class="ai-chips">
-                  @for (t of s.aiAnalysis.actionThemes; track t) {
-                    <span class="ai-chip">{{ t }}</span>
-                  }
-                </div>
-              </div>
-            }
-            @if (s.aiAnalysis.keyInsights.length) {
-              <div class="ai-section">
-                <div class="ai-section-label">Key insights</div>
-                <div class="ai-list">
-                  @for (i of s.aiAnalysis.keyInsights; track i) {
-                    <div class="ai-list-item">{{ i }}</div>
-                  }
-                </div>
-              </div>
-            }
-            @if (s.aiAnalysis.suggestedActions.length) {
-              <div class="ai-section">
-                <div class="ai-section-label" style="color:#e91e8c">Suggested actions</div>
-                <div class="ai-list">
-                  @for (a of s.aiAnalysis.suggestedActions; track a) {
-                    <div class="ai-list-item">{{ a }}</div>
-                  }
-                </div>
-              </div>
-            }
-          </div>
-        }
         @if (emojiPickerFor() && emojiPickerPos(); as pos) {
           <div class="emoji-picker-popover" [style.top.px]="pos.top" [style.left.px]="pos.left"
                (mousedown)="$event.stopPropagation()" (click)="$event.stopPropagation()">
@@ -2665,7 +2536,7 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
     this.editingText.set('');
   }
 
-  groupsForCol(cards: FunRetroCard[]): { groupId: string; cards: FunRetroCard[] }[] {
+  groupsForCol(cards: FunRetroCard[]): { groupId: string; label: string | null; cards: FunRetroCard[] }[] {
     const map = new Map<string, FunRetroCard[]>();
     for (const c of cards) {
       if (c.groupId) {
@@ -2674,7 +2545,12 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
         map.set(c.groupId, list);
       }
     }
-    return Array.from(map.entries()).map(([groupId, cards]) => ({ groupId, cards }));
+    // The AI-provided label lives on the anchor card (the one whose own id is the groupId);
+    // manual drag-to-stack groups have no label.
+    return Array.from(map.entries()).map(([groupId, cards]) => ({
+      groupId, cards,
+      label: cards.find(c => c.id === groupId)?.groupLabel ?? null,
+    }));
   }
 
   ungroupedCardsForCol(cards: FunRetroCard[]): FunRetroCard[] {
@@ -2966,6 +2842,12 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
     this.svc.updateCardPosition(s.id, req.cardId, req.x, req.y).subscribe();
   }
 
+  viewAnalysis(): void {
+    const analysis = this.session()?.aiAnalysis;
+    if (!analysis) return;
+    this.dialog.open(RetroAiAnalysisDialogComponent, { width: '560px', maxHeight: '85vh', panelClass: 'dark-dialog', data: analysis });
+  }
+
   runAnalysis(): void {
     const s = this.session();
     if (!s) return;
@@ -2974,6 +2856,7 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
       next: analysis => {
         this.analysing.set(false);
         this.session.update(cur => cur ? { ...cur, aiAnalysis: analysis } : cur);
+        this.dialog.open(RetroAiAnalysisDialogComponent, { width: '560px', maxHeight: '85vh', panelClass: 'dark-dialog', data: analysis });
       },
       error: () => {
         this.analysing.set(false);

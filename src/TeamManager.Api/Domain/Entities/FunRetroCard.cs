@@ -13,6 +13,10 @@ public class FunRetroCard
     public double? PositionY { get; set; }
     public string? Color { get; set; }
     public Guid? GroupId { get; set; }
+    // Only meaningful on the anchor card (Id == GroupId) -- what the group is about. Set by the
+    // AI grouper from its suggested cluster label; null for manual drag-to-stack grouping, where
+    // there's no label to infer from.
+    public string? GroupLabel { get; set; }
     public FunRetroSession Session { get; set; } = null!;
     public TeamMember Author { get; set; } = null!;
     public ICollection<FunRetroVote> Votes { get; set; } = [];

@@ -21,6 +21,7 @@ export interface FunRetroCard {
   positionY: number | null;
   color: string | null;
   groupId: string | null;
+  groupLabel: string | null;
   commentCount: number;
 }
 
