@@ -8,7 +8,7 @@ import { GuestRetroBoardService } from '../../../../core/services/guest-retro-bo
 import { GuestRetroBoard } from '../../../../core/models/retro-board.model';
 import { WebSocketService } from '../../../../core/websocket/websocket.service';
 import { RetroBoardEvent, RETRO_BOARD_EVENT_TYPES } from '../../../../core/websocket/events/retro-board.events';
-import { GuestRetroBoardViewComponent, GuestNoteDraft } from './guest-retro-board-view.component';
+import { GuestRetroBoardViewComponent, GuestNoteDraft, GuestCommentDraft, GuestCommentRef } from './guest-retro-board-view.component';
 import { GuestRetroReflectComponent, GuestFeedbackResponse } from './guest-retro-reflect.component';
 import { GuestRetroTimerComponent } from './guest-retro-timer.component';
 import { RetroPhase } from '../../../../core/models/retro-board.model';
@@ -135,8 +135,10 @@ const PHASE_HINT: Record<string, string> = {
             </section>
           }
           <app-guest-retro-board-view [board]="board()!.board" [interactive]="interactive()" [canCompose]="canCompose()"
+            [canVote]="canVote()" [canComment]="canComment()"
             (addNote)="onAddNote($event)" (deleteNote)="onDeleteNote($event)"
-            (vote)="onVote($event)" (unvote)="onUnvote($event)" />
+            (vote)="onVote($event)" (unvote)="onUnvote($event)"
+            (addComment)="onAddComment($event)" (deleteComment)="onDeleteComment($event)" />
         </div>
       }
     }
@@ -185,9 +187,21 @@ export class GuestRetroComponent implements OnInit, OnDestroy {
     if (b.status === 'open') return 'The retro is open — add your thoughts to the board below.';
     return PHASE_HINT[b.phase] ?? '';
   }
-  /** Adding notes only makes sense while capturing (pre-capture "open", or the Capture phase); once the
-   *  facilitator moves on, the board goes view/vote-only for the guest. */
-  canCompose() { const b = this.board()?.board; return !!b && b.status !== 'closed' && (b.status === 'open' || b.phase === 'capture'); }
+  // ── What this step lets a guest do ──────────────────────────────────────────────────────────
+  // A guest always follows the facilitator's phase (they have no local navigation), and the API
+  // enforces exactly these rules — see RetroBoardService.CanAddNotes/CanVote/CanComment. Guests get
+  // no facilitator exemption, so these are the whole story for them.
+  /** Adding notes only makes sense while capturing (pre-capture "open", or the Capture phase). */
+  canCompose() { const b = this.board()?.board; return !!b && (b.status === 'open' || (b.status === 'live' && b.phase === 'capture')); }
+  /** Voting belongs to the Vote step — not Discuss, and not while the team is still capturing. */
+  canVote() { const b = this.board()?.board; return !!b && b.status === 'live' && b.phase === 'vote'; }
+  /** Comments run across the steps where notes are written, read out and talked through. */
+  canComment() {
+    const b = this.board()?.board;
+    if (!b) return false;
+    if (b.status === 'open') return true;
+    return b.status === 'live' && (b.phase === 'capture' || b.phase === 'introduce' || b.phase === 'discuss');
+  }
   /** Don't count down a stale timer on a closed board. */
   liveState() { return this.closed() ? null : (this.board()?.board.liveStateJson ?? null); }
 
@@ -242,7 +256,9 @@ export class GuestRetroComponent implements OnInit, OnDestroy {
     this.joining.set(true); this.error.set(null);
     this.svc.join(this.slug, displayName).pipe(takeUntil(this.destroy$)).subscribe({
       next: b => { this.joining.set(false); this.board.set(b); this.view.set('board'); this.startRealtime(); },
-      error: () => { this.joining.set(false); this.error.set('Could not join — the retro may have closed.'); },
+      // Surface the server's own reason when it gave one — a removed guest needs to be told they
+      // were removed, not left guessing that the retro closed.
+      error: e => { this.joining.set(false); this.error.set(e?.error?.error ?? 'Could not join — the retro may have closed.'); },
     });
   }
 
@@ -254,6 +270,8 @@ export class GuestRetroComponent implements OnInit, OnDestroy {
   onVote(noteId: string) { this.applyVote(this.svc.vote(this.slug, noteId), "Vote didn't go through — you may be out of votes."); }
   onUnvote(noteId: string) { this.applyVote(this.svc.unvote(this.slug, noteId), "Couldn't remove that vote."); }
   onRespondFeedback(r: GuestFeedbackResponse) { this.applyVote(this.svc.respondFeedback(this.slug, r.promptId, r.score, r.comment), "Couldn't save your rating — try again."); }
+  onAddComment(c: GuestCommentDraft) { this.applyBoard(this.svc.addComment(this.slug, c.noteId, c.text), "Couldn't add that comment."); }
+  onDeleteComment(c: GuestCommentRef) { this.applyBoard(this.svc.deleteComment(this.slug, c.noteId, c.commentId), "Couldn't delete that comment."); }
 
   // Note add/delete return the refreshed board; use it directly.
   private applyBoard(obs: Observable<GuestRetroBoard>, errMsg: string) {

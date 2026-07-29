@@ -35,6 +35,17 @@ export interface RetroBoardColumn {
   sortOrder: number;
 }
 
+/** A comment on a note — context added in place of a second sticky. Never anonymous. */
+export interface RetroBoardNoteComment {
+  id: string;
+  noteId: string;
+  authorId: string | null;      // null when a guest wrote it
+  authorName: string;
+  isOwn: boolean;               // the viewer wrote it, so they can delete it
+  text: string;
+  createdAt: string;
+}
+
 export interface RetroBoardNote {
   id: string;
   columnId: string;
@@ -51,6 +62,8 @@ export interface RetroBoardNote {
   createdAt: string;
   voteCount: number;
   myVoteCount: number;
+  /** Oldest-first. Always empty while the note is hidden until reveal. */
+  comments: RetroBoardNoteComment[];
 }
 
 export interface RetroBoardCheckinQuestion {
@@ -146,6 +159,9 @@ export interface RetroBoardSession {
   notes: RetroBoardNote[];
   checkinQuestions: RetroBoardCheckinQuestion[];
   participants: RetroBoardParticipant[];
+  /** Participants the host removed. Facilitator-only and deliberately separate from `participants`,
+   *  which the roster and every responded meter count — so removals don't skew them. */
+  removedParticipants: RetroBoardParticipant[];
   actions: RetroBoardAction[];
   feedbackPrompts: RetroBoardFeedbackPrompt[];
 }

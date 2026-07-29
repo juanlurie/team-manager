@@ -35,6 +35,10 @@ public partial class RetroBoardService(AppDbContext db, AiPromptExecutorService 
     private static readonly JsonSerializerOptions Json = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
     private static readonly JsonSerializerOptions JsonRead = new() { PropertyNameCaseInsensitive = true };
 
+    /// <summary>Longest note comment we store; anything longer is truncated, not rejected (matches the
+    /// column length and the guest-name policy).</summary>
+    public const int MaxCommentLength = 1000;
+
     // ---------- Queries ----------
 
     /// <summary>Active (non-archived) sessions for the lobby — draft/live first, then recently closed.
@@ -71,9 +75,9 @@ public partial class RetroBoardService(AppDbContext db, AiPromptExecutorService 
             SquadName = s.Squad!.Name,
             CreatedByMemberId = s.CreatedByMemberId,
             CreatedByName = s.CreatedBy!.FirstName + " " + s.CreatedBy.LastName,
-            IsFacilitator = s.CreatedByMemberId == memberId || s.Participants.Any(p => p.MemberId == memberId && p.Role == Role.Facilitator),
+            IsFacilitator = s.CreatedByMemberId == memberId || s.Participants.Any(p => p.MemberId == memberId && p.Role == Role.Facilitator && p.RemovedAt == null),
             IsArchived = s.IsArchived,
-            ParticipantCount = s.Participants.Count,
+            ParticipantCount = s.Participants.Count(p => p.RemovedAt == null),
             NoteCount = s.Notes.Count,
             CreatedAt = s.CreatedAt,
             ClosedAt = s.ClosedAt,
@@ -103,7 +107,9 @@ public partial class RetroBoardService(AppDbContext db, AiPromptExecutorService 
     }
 
     /// <summary>Loads the (tracked) session plus the caller's role in one round trip. The creator is
-    /// always treated as an enrolled facilitator even without an explicit participant row.</summary>
+    /// always treated as an enrolled facilitator even without an explicit participant row. A removed
+    /// participant (RemovedAt set) is deliberately not matched, so they read as un-enrolled and every
+    /// mutation guard rejects them — the creator is exempt because they can never be removed.</summary>
     private async Task<Access?> LoadAccessAsync(Guid sessionId, Guid memberId)
     {
         var row = await db.RetroBoardSessions
@@ -112,7 +118,7 @@ public partial class RetroBoardService(AppDbContext db, AiPromptExecutorService 
             {
                 Session = s,
                 IsCreator = s.CreatedByMemberId == memberId,
-                MyRole = s.Participants.Where(p => p.MemberId == memberId).Select(p => p.Role).FirstOrDefault(),
+                MyRole = s.Participants.Where(p => p.MemberId == memberId && p.RemovedAt == null).Select(p => p.Role).FirstOrDefault(),
             })
             .FirstOrDefaultAsync();
         if (row is null) return null;
@@ -121,9 +127,49 @@ public partial class RetroBoardService(AppDbContext db, AiPromptExecutorService 
         return new Access(row.Session, isFacilitator, isParticipant);
     }
 
+    // ---------- Phase gating ----------
+
+    /// <summary>The step of the retro decides what anyone may contribute, member or guest alike. Notes
+    /// belong to pre-capture (status <c>open</c>) and the Capture phase; votes to the Vote phase;
+    /// comments to the phases where a note is being read and talked about. Once the facilitator moves
+    /// on, the board is read-only for that kind of contribution — this is what stops someone quietly
+    /// adding a note or a vote while the team is in Discuss.
+    ///
+    /// Enforced here rather than only in the UI, because both boards refetch asynchronously: a stale
+    /// tab, a slow WebSocket, or a direct API call would otherwise sail straight past a hidden button.
+    /// Facilitators are exempt for notes and comments only (housekeeping mid-discussion); voting is
+    /// gated for everyone, since an out-of-phase vote skews the result the team is looking at.</summary>
+    private static bool CanAddNotes(RetroBoardSession s) =>
+        s.Status == Status.Open || (s.Status == Status.Live && s.Phase == Phase.Capture);
+
+    private static bool CanVote(RetroBoardSession s) =>
+        s.Status == Status.Live && s.Phase == Phase.Vote;
+
+    /// <summary>Comments are the "add context without adding another sticky" affordance, so they're
+    /// open across the phases where notes are being written, read out and discussed.</summary>
+    private static bool CanComment(RetroBoardSession s) =>
+        s.Status == Status.Open
+        || (s.Status == Status.Live && s.Phase is Phase.Capture or Phase.Introduce or Phase.Discuss);
+
+    /// <summary>Message shown when a contribution arrives out of phase — names the step it belongs to
+    /// so the board can explain itself rather than showing a bare conflict.</summary>
+    private const string NotesClosedError = "Notes can only be added during Capture.";
+    private const string VotingClosedError = "Voting is only open during the Vote step.";
+    private const string CommentsClosedError = "Comments are open during Capture, Introduce and Discuss.";
+
     /// <summary>Single entry point for authorising a mutation. Returns the tracked session on
     /// <see cref="RetroActionResult.Ok"/>; otherwise the reason (NotFound / Forbidden / Closed).</summary>
     private async Task<(RetroActionResult result, RetroBoardSession? session)> GuardAsync(
+        Guid sessionId, Guid memberId, bool facilitatorOnly, bool blockClosed)
+    {
+        var (result, access) = await GuardAccessAsync(sessionId, memberId, facilitatorOnly, blockClosed);
+        return (result, access?.Session);
+    }
+
+    /// <summary>As <see cref="GuardAsync"/>, but hands back the whole <see cref="Access"/> — use it when
+    /// the caller also needs to know whether they're a facilitator (e.g. the phase gates, which exempt
+    /// the host) instead of re-querying the role.</summary>
+    private async Task<(RetroActionResult result, Access? access)> GuardAccessAsync(
         Guid sessionId, Guid memberId, bool facilitatorOnly, bool blockClosed)
     {
         var access = await LoadAccessAsync(sessionId, memberId);
@@ -131,7 +177,7 @@ public partial class RetroBoardService(AppDbContext db, AiPromptExecutorService 
         var allowed = facilitatorOnly ? access.IsFacilitator : access.IsParticipant;
         if (!allowed) return (RetroActionResult.Forbidden, null);
         if (blockClosed && access.IsClosed) return (RetroActionResult.Closed, null);
-        return (RetroActionResult.Ok, access.Session);
+        return (RetroActionResult.Ok, access);
     }
 
     /// <summary>A note may be edited/cleared by its (non-anonymous) author or any facilitator.</summary>

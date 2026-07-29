@@ -13,12 +13,23 @@ public partial class RetroBoardService
     /// <summary>In-memory "is this member a facilitator" check for a loaded session (single source of
     /// truth for the imperative paths; the EF projection mirrors the same rule in expression form).</summary>
     private static bool IsFacilitator(RetroBoardSession s, Guid memberId) =>
-        s.CreatedByMemberId == memberId || s.Participants.Any(p => p.MemberId == memberId && p.Role == Role.Facilitator);
+        s.CreatedByMemberId == memberId
+        || s.Participants.Any(p => p.MemberId == memberId && p.Role == Role.Facilitator && p.RemovedAt == null);
 
     /// <summary>Visibility policy for a single note: during Capture, others' notes stay hidden until the
     /// global reveal (facilitators always see through). This is the one place that rule lives.</summary>
     private static bool IsNoteHidden(RetroBoardNote n, bool isOwn, bool isFacilitator, bool hideOthers) =>
         hideOthers && !isFacilitator && !isOwn;
+
+    /// <summary>Is the session masking others' notes at this instant? Extracted so the write paths
+    /// (which must refuse to comment on a note the caller can't see) apply the identical condition the
+    /// read projection does, instead of restating it.</summary>
+    private static bool HidingOthers(RetroBoardSession s) =>
+        s.HideNotesUntilReveal && !s.NotesRevealed && s.Phase == Phase.Capture;
+
+    /// <summary><see cref="IsNoteHidden"/> resolved against a loaded session — the form the write paths want.</summary>
+    private static bool IsNoteHiddenFrom(RetroBoardSession s, RetroBoardNote n, bool isOwn, bool isFacilitator) =>
+        IsNoteHidden(n, isOwn, isFacilitator, HidingOthers(s));
 
     private Task<RetroBoardSession?> LoadFullAsync(Guid sessionId) =>
         db.RetroBoardSessions
@@ -28,6 +39,7 @@ public partial class RetroBoardService
             .Include(s => s.Columns)
             .Include(s => s.Notes).ThenInclude(n => n.Author)
             .Include(s => s.Notes).ThenInclude(n => n.Votes)
+            .Include(s => s.Notes).ThenInclude(n => n.Comments).ThenInclude(c => c.Author)
             .Include(s => s.CheckinQuestions).ThenInclude(q => q.Responses)
             .Include(s => s.Participants).ThenInclude(p => p.Member)
             .Include(s => s.Actions).ThenInclude(a => a.Owner)
@@ -96,7 +108,7 @@ public partial class RetroBoardService
     {
         var isFacil = memberId is Guid viewerId && IsFacilitator(s, viewerId);
         var phaseCfg = ParsePhaseConfig(s.PhaseConfigJson);
-        var hideOthers = s.HideNotesUntilReveal && !s.NotesRevealed && s.Phase == Phase.Capture;
+        var hideOthers = HidingOthers(s);
         var colKeyById = s.Columns.ToDictionary(c => c.Id, c => c.Key);
 
         bool VotedByViewer(RetroBoardVote v) =>
@@ -185,6 +197,21 @@ public partial class RetroBoardService
                     CreatedAt = n.CreatedAt,
                     VoteCount = n.Votes.Count,
                     MyVoteCount = n.Votes.Count(VotedByViewer),
+                    // Hidden note → no comments either; a comment would leak both the note's existence
+                    // and, through the quoted context people write, its content.
+                    Comments = hidden ? [] : n.Comments.OrderBy(c => c.CreatedAt).Select(c => new RetroBoardNoteCommentDto
+                    {
+                        Id = c.Id,
+                        NoteId = n.Id,
+                        AuthorId = c.AuthorMemberId,
+                        AuthorName = c.Author is not null
+                            ? $"{c.Author.FirstName} {c.Author.LastName}".Trim()
+                            : (c.AuthorDisplayName ?? ""),
+                        IsOwn = (memberId is Guid cvm && c.AuthorMemberId == cvm)
+                                || (guestSessionId != null && c.AuthorGuestSessionId == guestSessionId),
+                        Text = c.Text,
+                        CreatedAt = c.CreatedAt,
+                    }).ToList(),
                 };
             }).ToList(),
             CheckinQuestions = s.CheckinQuestions.OrderBy(q => q.SortOrder).Select(q => new RetroBoardCheckinQuestionDto
@@ -196,7 +223,7 @@ public partial class RetroBoardService
                 Worse = q.Responses.Count(r => r.Rating == Rating.Worse),
                 Na = q.Responses.Count(r => r.Rating == Rating.Na),
             }).ToList(),
-            Participants = s.Participants.OrderBy(p => p.JoinedAt).Select(p => new RetroBoardParticipantDto
+            Participants = s.Participants.Where(p => p.RemovedAt is null).OrderBy(p => p.JoinedAt).Select(p => new RetroBoardParticipantDto
             {
                 Id = p.Id, MemberId = p.MemberId, IsGuest = p.MemberId is null,
                 Name = p.Member is not null ? $"{p.Member.FirstName} {p.Member.LastName}".Trim() : (p.DisplayName ?? ""),
@@ -215,6 +242,15 @@ public partial class RetroBoardService
                         || (p.GuestSessionId is string rg && feedbackAnswersByGuest.GetValueOrDefault(rg) == fpCount)),
                 },
             }).ToList(),
+            // Facilitator-only, and only ever populated when there's something to undo.
+            RemovedParticipants = isFacil
+                ? s.Participants.Where(p => p.RemovedAt is not null).OrderBy(p => p.RemovedAt).Select(p => new RetroBoardParticipantDto
+                {
+                    Id = p.Id, MemberId = p.MemberId, IsGuest = p.MemberId is null,
+                    Name = p.Member is not null ? $"{p.Member.FirstName} {p.Member.LastName}".Trim() : (p.DisplayName ?? ""),
+                    AvatarSeed = p.Member?.AvatarSeed, Role = p.Role,
+                }).ToList()
+                : [],
             Actions = s.Actions.OrderBy(a => a.CreatedAt).Select(MapAction).ToList(),
             FeedbackPrompts = s.FeedbackPrompts.OrderBy(p => p.SortOrder)
                 .Select(p => MapFeedbackPrompt(p, memberId, guestSessionId, isFacil)).ToList(),

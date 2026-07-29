@@ -138,7 +138,7 @@ public class RetroBoardController(RetroBoardService service) : ControllerBase
 
     [HttpPost("{id:guid}/notes")]
     public async Task<IActionResult> AddNote(Guid id, [FromBody] AddRetroBoardNoteRequest req) =>
-        await RunSession(m => service.AddNoteAsync(id, m, req));
+        await RunSessionMsg(m => service.AddNoteAsync(id, m, req));
 
     [HttpPatch("{id:guid}/notes/{noteId:guid}/text")]
     public async Task<IActionResult> UpdateNoteText(Guid id, Guid noteId, [FromBody] NoteTextRequest req) =>
@@ -146,7 +146,7 @@ public class RetroBoardController(RetroBoardService service) : ControllerBase
 
     [HttpDelete("{id:guid}/notes/{noteId:guid}")]
     public async Task<IActionResult> DeleteNote(Guid id, Guid noteId) =>
-        await Run(m => service.DeleteNoteAsync(id, m, noteId));
+        await RunMsg(m => service.DeleteNoteAsync(id, m, noteId));
 
     [HttpPatch("{id:guid}/notes/{noteId:guid}/flag")]
     public async Task<IActionResult> FlagNote(Guid id, Guid noteId, [FromBody] FlagRequest req) =>
@@ -173,7 +173,22 @@ public class RetroBoardController(RetroBoardService service) : ControllerBase
 
     [HttpDelete("{id:guid}/notes/{noteId:guid}/vote")]
     public async Task<IActionResult> RemoveVote(Guid id, Guid noteId) =>
-        await Run(m => service.RemoveVoteAsync(id, m, noteId));
+        await RunMsg(m => service.RemoveVoteAsync(id, m, noteId));
+
+    // ---------- Note comments ----------
+
+    [HttpPost("{id:guid}/notes/{noteId:guid}/comments")]
+    public async Task<IActionResult> AddNoteComment(Guid id, Guid noteId, [FromBody] NoteCommentRequest req)
+    {
+        var memberId = GetMemberId();
+        if (memberId is null) return Unauthorized();
+        var (result, value, error) = await service.AddNoteCommentAsync(id, memberId.Value, noteId, req.Text);
+        return result == RetroActionResult.Ok ? Ok(value) : MapResult(result, error);
+    }
+
+    [HttpDelete("{id:guid}/notes/{noteId:guid}/comments/{commentId:guid}")]
+    public async Task<IActionResult> DeleteNoteComment(Guid id, Guid noteId, Guid commentId) =>
+        await RunMsg(m => service.DeleteNoteCommentAsync(id, m, commentId));
 
     // ---------- Check-in ----------
 
@@ -223,6 +238,16 @@ public class RetroBoardController(RetroBoardService service) : ControllerBase
     public async Task<IActionResult> SetParticipantRole(Guid id, [FromBody] SetParticipantRoleRequest req) =>
         await Run(m => service.SetParticipantRoleAsync(id, m, req.MemberId, req.Role));
 
+    /// <summary>Facilitator removes a participant (member or guest) and revokes their votes.</summary>
+    [HttpDelete("{id:guid}/participants/{participantId:guid}")]
+    public async Task<IActionResult> RemoveParticipant(Guid id, Guid participantId) =>
+        await RunMsg(m => service.RemoveParticipantAsync(id, m, participantId));
+
+    /// <summary>Undo a removal — the votes revoked at removal time are not restored.</summary>
+    [HttpPost("{id:guid}/participants/{participantId:guid}/readmit")]
+    public async Task<IActionResult> ReadmitParticipant(Guid id, Guid participantId) =>
+        await RunMsg(m => service.ReadmitParticipantAsync(id, m, participantId));
+
     // ---------- Plumbing ----------
 
     private Guid? GetMemberId()
@@ -261,6 +286,17 @@ public class RetroBoardController(RetroBoardService service) : ControllerBase
         return result == RetroActionResult.Ok ? Ok(value) : MapResult(result);
     }
 
+    /// <summary>As <see cref="Run"/>, but the action supplies its own failure message — used where a
+    /// bare "that isn't allowed right now" would leave the user guessing (the phase gates in
+    /// particular, which need to name the step the action belongs to).</summary>
+    private async Task<IActionResult> RunMsg(Func<Guid, Task<(RetroActionResult result, string? error)>> action)
+    {
+        var memberId = GetMemberId();
+        if (memberId is null) return Unauthorized();
+        var (result, error) = await action(memberId.Value);
+        return MapResult(result, error);
+    }
+
     /// <summary>Runs a mutation that returns the full session snapshot (200 with body on success).</summary>
     private async Task<IActionResult> RunSession(Func<Guid, Task<(RetroActionResult result, RetroBoardSessionDto? session)>> action)
     {
@@ -268,6 +304,15 @@ public class RetroBoardController(RetroBoardService service) : ControllerBase
         if (memberId is null) return Unauthorized();
         var (result, session) = await action(memberId.Value);
         return result == RetroActionResult.Ok ? Ok(session) : MapResult(result);
+    }
+
+    /// <summary><see cref="RunSession"/> with a caller-supplied failure message.</summary>
+    private async Task<IActionResult> RunSessionMsg(Func<Guid, Task<(RetroActionResult result, RetroBoardSessionDto? session, string? error)>> action)
+    {
+        var memberId = GetMemberId();
+        if (memberId is null) return Unauthorized();
+        var (result, session, error) = await action(memberId.Value);
+        return result == RetroActionResult.Ok ? Ok(session) : MapResult(result, error);
     }
 
     /// <summary>Legacy bool guard, retained for the creator-only delete (404 hides existence).</summary>

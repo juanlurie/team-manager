@@ -120,6 +120,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<RetroBoardColumn> RetroBoardColumns => Set<RetroBoardColumn>();
     public DbSet<RetroBoardNote> RetroBoardNotes => Set<RetroBoardNote>();
     public DbSet<RetroBoardVote> RetroBoardVotes => Set<RetroBoardVote>();
+    public DbSet<RetroBoardNoteComment> RetroBoardNoteComments => Set<RetroBoardNoteComment>();
     public DbSet<RetroBoardCheckinQuestion> RetroBoardCheckinQuestions => Set<RetroBoardCheckinQuestion>();
     public DbSet<RetroBoardCheckinResponse> RetroBoardCheckinResponses => Set<RetroBoardCheckinResponse>();
     public DbSet<RetroBoardParticipant> RetroBoardParticipants => Set<RetroBoardParticipant>();
@@ -230,6 +231,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         modelBuilder.ApplyConfiguration(new RetroBoardColumnConfiguration());
         modelBuilder.ApplyConfiguration(new RetroBoardNoteConfiguration());
         modelBuilder.ApplyConfiguration(new RetroBoardVoteConfiguration());
+        modelBuilder.ApplyConfiguration(new RetroBoardNoteCommentConfiguration());
         modelBuilder.ApplyConfiguration(new RetroBoardCheckinQuestionConfiguration());
         modelBuilder.ApplyConfiguration(new RetroBoardCheckinResponseConfiguration());
         modelBuilder.ApplyConfiguration(new RetroBoardParticipantConfiguration());
