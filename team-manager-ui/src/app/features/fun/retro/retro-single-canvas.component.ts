@@ -254,6 +254,16 @@ const REACTION_EMOJIS = ['👍', '❤️', '😂', '🎉', '🤔'];
       border-radius:12px;padding:2px 8px;cursor:pointer;
       box-shadow:0 2px 4px rgba(0,0,0,0.3);
     }
+    .sticky.grouped { border-style:dashed; }
+    .sticky-group-badge {
+      position:absolute;bottom:-10px;left:8px;
+      display:flex;align-items:center;gap:2px;
+      font-size:0.68rem;font-weight:700;color:#fff;font-family:inherit;
+      background:#64b5f6;border:2px solid rgba(255,255,255,0.9);
+      border-radius:12px;padding:2px 8px;cursor:pointer;
+      box-shadow:0 2px 4px rgba(0,0,0,0.3);
+    }
+    .sticky-group-badge mat-icon { font-size:12px;width:12px;height:12px;line-height:12px; }
     .sticky-footer { display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:4px; }
     .sticky-vote-row { display:flex;align-items:center;gap:0;margin-top:4px; }
     .sticky-vote-count { min-width:22px;text-align:center;font-size:0.7rem;font-weight:700;color:rgba(0,0,0,0.45);font-variant-numeric:tabular-nums; }
@@ -342,6 +352,7 @@ const REACTION_EMOJIS = ['👍', '❤️', '😂', '🎉', '🤔'];
                [class.dragging]="draggingId() === item.card.id"
                [class.selected]="selectedCardId() === item.card.id"
                [class.no-drag]="s?.phase === 'done'"
+               [class.grouped]="!!item.card.groupId"
                [style.left.px]="item.x"
                [style.top.px]="item.y"
                [style.background]="resolveCardColor()(item.card)"
@@ -353,6 +364,13 @@ const REACTION_EMOJIS = ['👍', '❤️', '😂', '🎉', '🤔'];
             @if (item.card.commentCount > 0) {
               <button class="sticky-comment-badge" (mousedown)="$event.stopPropagation()"
                       (click)="commentThreadRequested.emit({ event: $event, card: item.card })">💬{{ item.card.commentCount }}</button>
+            }
+            @if (item.card.groupId; as groupId) {
+              <button class="sticky-group-badge" (mousedown)="$event.stopPropagation()"
+                      title="Grouped with {{ (groupSizes().get(groupId) ?? 1) - 1 }} other card(s) -- click to ungroup"
+                      (click)="ungroupRequested.emit(item.card)">
+                <mat-icon>link</mat-icon>{{ groupSizes().get(groupId) ?? 1 }}
+              </button>
             }
             @if (item.card.text === null) {
               <div class="sticky-header">
@@ -611,6 +629,7 @@ export class RetroSingleCanvasComponent implements AfterViewInit {
   positionCommitted = output<{ cardId: string; x: number; y: number }>();
   cardSelected = output<FunRetroCard>();
   commentThreadRequested = output<{ event: MouseEvent; card: FunRetroCard }>();
+  ungroupRequested = output<FunRetroCard>();
   stickerPaletteRequested = output<{ event: MouseEvent; column: string; x: number; y: number }>();
   tokenPositionCommitted = output<{ tokenId: string; x: number; y: number }>();
   timerPositionCommitted = output<{ x: number; y: number }>();
@@ -851,6 +870,19 @@ export class RetroSingleCanvasComponent implements AfterViewInit {
   });
 
   allItems = computed<ZoneCardItem[]>(() => this.zoneItems().flat());
+
+  /** Card counts per groupId (manual drag-to-stack or AI "Group Similar"), for the badge on
+   *  each grouped sticky -- positions stay freeform/independent, this is purely an indicator. */
+  groupSizes = computed<Map<string, number>>(() => {
+    const s = this.session();
+    const sizes = new Map<string, number>();
+    if (!s) return sizes;
+    for (const card of s.cards) {
+      if (!card.groupId) continue;
+      sizes.set(card.groupId, (sizes.get(card.groupId) ?? 0) + 1);
+    }
+    return sizes;
+  });
 
   allTokenItems = computed<{ token: FunRetroToken; x: number; y: number }[]>(() => {
     const s = this.session();
