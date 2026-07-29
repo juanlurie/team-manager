@@ -256,14 +256,15 @@ const REACTION_EMOJIS = ['👍', '❤️', '😂', '🎉', '🤔'];
     }
     .sticky.grouped { border-style:dashed; }
     .sticky-group-badge {
-      position:absolute;bottom:-10px;left:8px;
-      display:flex;align-items:center;gap:2px;
+      position:absolute;bottom:-10px;left:8px;max-width:calc(100% - 16px);
+      display:flex;align-items:center;gap:3px;
       font-size:0.68rem;font-weight:700;color:#fff;font-family:inherit;
       background:#64b5f6;border:2px solid rgba(255,255,255,0.9);
       border-radius:12px;padding:2px 8px;cursor:pointer;
       box-shadow:0 2px 4px rgba(0,0,0,0.3);
     }
-    .sticky-group-badge mat-icon { font-size:12px;width:12px;height:12px;line-height:12px; }
+    .sticky-group-badge mat-icon { font-size:12px;width:12px;height:12px;line-height:12px;flex-shrink:0; }
+    .sticky-group-badge-text { overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
     .sticky-footer { display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:4px; }
     .sticky-vote-row { display:flex;align-items:center;gap:0;margin-top:4px; }
     .sticky-vote-count { min-width:22px;text-align:center;font-size:0.7rem;font-weight:700;color:rgba(0,0,0,0.45);font-variant-numeric:tabular-nums; }
@@ -367,9 +368,10 @@ const REACTION_EMOJIS = ['👍', '❤️', '😂', '🎉', '🤔'];
             }
             @if (item.card.groupId; as groupId) {
               <button class="sticky-group-badge" (mousedown)="$event.stopPropagation()"
-                      title="Grouped with {{ (groupSizes().get(groupId) ?? 1) - 1 }} other card(s) -- click to ungroup"
+                      [title]="(groupLabels().get(groupId) ?? 'Grouped') + ' -- ' + (groupSizes().get(groupId) ?? 1) + ' cards -- click to ungroup this card'"
                       (click)="ungroupRequested.emit(item.card)">
-                <mat-icon>link</mat-icon>{{ groupSizes().get(groupId) ?? 1 }}
+                <mat-icon>link</mat-icon>
+                <span class="sticky-group-badge-text">{{ groupLabels().get(groupId) ?? ('Grouped (' + (groupSizes().get(groupId) ?? 1) + ')') }}</span>
               </button>
             }
             @if (item.card.text === null) {
@@ -747,6 +749,7 @@ export class RetroSingleCanvasComponent implements AfterViewInit {
   private readonly STICKY_GAP = 16;
   private readonly STICKY_MARGIN = 10;
   private readonly STICKY_MIN_H = 220;
+  private readonly GROUP_CASCADE_OFFSET = 16;
   // Vertical space reserved at the top of every zone for its header (label/count/Tidy) --
   // rendered inside the pannable canvas content (not above it, unlike the old per-column
   // header which lived in its own DOM row outside a clipped .canvas-outer), so cards must
@@ -865,6 +868,31 @@ export class RetroSingleCanvasComponent implements AfterViewInit {
         result.push({ card, x, y });
         occupied.push({ x, y });
       }
+      // Physically cluster grouped cards -- cascade the rest of each group a fixed offset from
+      // the anchor (the card whose own id is the groupId) so a group reads as one stack instead
+      // of scattered cards linked only by an invisible id. Anchor's position (its stored/local/
+      // dragged position, already resolved above) is the stack origin; if the anchor itself was
+      // dragged, the whole stack moves with it. Cross-column groups can't be clustered spatially
+      // since each zone only lays out its own column's cards -- those still get the label badge.
+      const byGroup = new Map<string, ZoneCardItem[]>();
+      for (const item of result) {
+        if (!item.card.groupId) continue;
+        const list = byGroup.get(item.card.groupId) ?? [];
+        list.push(item);
+        byGroup.set(item.card.groupId, list);
+      }
+      for (const [groupId, members] of byGroup) {
+        if (members.length < 2) continue;
+        const anchor = members.find(m => m.card.id === groupId) ?? members[0];
+        let cascade = 0;
+        for (const member of members) {
+          if (member === anchor || localPos[member.card.id]) continue;
+          cascade++;
+          member.x = anchor.x + cascade * this.GROUP_CASCADE_OFFSET;
+          member.y = anchor.y + cascade * this.GROUP_CASCADE_OFFSET;
+        }
+      }
+
       return result;
     });
   });
@@ -872,7 +900,7 @@ export class RetroSingleCanvasComponent implements AfterViewInit {
   allItems = computed<ZoneCardItem[]>(() => this.zoneItems().flat());
 
   /** Card counts per groupId (manual drag-to-stack or AI "Group Similar"), for the badge on
-   *  each grouped sticky -- positions stay freeform/independent, this is purely an indicator. */
+   *  each grouped sticky. */
   groupSizes = computed<Map<string, number>>(() => {
     const s = this.session();
     const sizes = new Map<string, number>();
@@ -882,6 +910,20 @@ export class RetroSingleCanvasComponent implements AfterViewInit {
       sizes.set(card.groupId, (sizes.get(card.groupId) ?? 0) + 1);
     }
     return sizes;
+  });
+
+  /** AI-provided label per groupId, read off the anchor card (the one whose own id is the
+   *  groupId) -- manual drag-to-stack groups have no label. */
+  groupLabels = computed<Map<string, string>>(() => {
+    const s = this.session();
+    const labels = new Map<string, string>();
+    if (!s) return labels;
+    for (const card of s.cards) {
+      if (card.groupId && card.id === card.groupId && card.groupLabel) {
+        labels.set(card.groupId, card.groupLabel);
+      }
+    }
+    return labels;
   });
 
   allTokenItems = computed<{ token: FunRetroToken; x: number; y: number }[]>(() => {

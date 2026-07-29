@@ -156,6 +156,7 @@ public class FunRetroService(AppDbContext db, AiPromptExecutorService aiExecutor
                     PositionY = c.PositionY,
                     Color = c.Color,
                     GroupId = c.GroupId,
+                    GroupLabel = c.GroupLabel,
                     CommentCount = c.Comments.Count,
                 };
             })
@@ -813,6 +814,7 @@ public class FunRetroService(AppDbContext db, AiPromptExecutorService aiExecutor
         if (card is null) return false;
 
         card.GroupId = groupId;
+        if (groupId is null) card.GroupLabel = null;
         await db.SaveChangesAsync();
 
         _ = WebSocketMiddleware.BroadcastToRetroSessionAsync("fun_retro_card_grouped", sessionId.ToString(), new { sessionId, cardId, groupId });
@@ -912,6 +914,7 @@ public class FunRetroService(AppDbContext db, AiPromptExecutorService aiExecutor
             if (ids.Count < 2) continue;
 
             var anchorId = ids[0];
+            byId[anchorId].GroupLabel = string.IsNullOrWhiteSpace(group.Label) ? null : group.Label.Trim();
             foreach (var cardId in ids)
             {
                 byId[cardId].GroupId = anchorId;
