@@ -142,6 +142,161 @@ describe('RetroBoardStore', () => {
       expect(store.canManageHost(roster()[0])).toBe(false);
     });
   });
+
+  // The step of the retro decides what anyone can contribute. These read the SHARED phase, not the
+  // viewer's local one, and mirror RetroBoardService.CanAddNotes/CanVote/CanComment — a participant
+  // who walks their Freeform view back to Capture must still see an inert composer, because the
+  // server will reject the write.
+  describe('phase gating', () => {
+    const at = (phase: string, over: Record<string, unknown> = {}) =>
+      store.session.set(session({ phase, isFacilitator: false, ...over }));
+
+    it('allows notes during pre-capture and Capture only', () => {
+      at('capture', { status: 'open' });
+      expect(store.canAddNotes()).toBe(true);
+      at('capture');
+      expect(store.canAddNotes()).toBe(true);
+      for (const p of ['checkin', 'introduce', 'vote', 'discuss', 'reflect']) {
+        at(p);
+        expect(store.canAddNotes()).toBe(false);
+      }
+    });
+
+    it('allows voting during Vote only', () => {
+      at('vote');
+      expect(store.canVote()).toBe(true);
+      for (const p of ['capture', 'introduce', 'discuss']) {
+        at(p);
+        expect(store.canVote()).toBe(false);
+      }
+      at('vote', { status: 'open' });          // votes aren't open before the session goes live
+      expect(store.canVote()).toBe(false);
+    });
+
+    it('allows comments across Capture, Introduce and Discuss', () => {
+      for (const p of ['capture', 'introduce', 'discuss']) {
+        at(p);
+        expect(store.canComment()).toBe(true);
+      }
+      at('vote');
+      expect(store.canComment()).toBe(false);
+    });
+
+    // The reported bug: a guest (and anyone else) could still add notes and vote in Discuss.
+    it('blocks both notes and votes in Discuss', () => {
+      at('discuss');
+      expect(store.canAddNotes()).toBe(false);
+      expect(store.canVote()).toBe(false);
+    });
+
+    // The host still needs to capture something said mid-discussion; voting has no such exemption,
+    // since an out-of-phase vote skews the tally the team is reading.
+    it('exempts the facilitator for notes but never for votes', () => {
+      store.session.set(session({ phase: 'discuss', isFacilitator: true }));
+      expect(store.canAddNotes()).toBe(true);
+      expect(store.canVote()).toBe(false);
+    });
+
+    it('closes everything once the retro is closed', () => {
+      store.session.set(session({ status: 'closed', phase: 'capture', isFacilitator: true }));
+      expect(store.canAddNotes()).toBe(false);
+      expect(store.canVote()).toBe(false);
+      expect(store.canComment()).toBe(false);
+    });
+  });
+
+  describe('canRemove', () => {
+    it('lets a facilitator remove others, but not the creator or themselves', () => {
+      store.session.set(session({
+        createdByMemberId: 'creator', isFacilitator: true,
+        participants: [
+          { id: '1', memberId: 'creator', role: 'facilitator', name: 'Creator' },
+          { id: '2', memberId: 'me-1', role: 'facilitator', name: 'Me' },
+          { id: '3', memberId: 'm3', role: 'participant', name: 'Member' },
+          { id: '4', memberId: null, isGuest: true, role: 'participant', name: 'Guest' },
+        ],
+      }));
+      const [creator, me, member, guest] = store.session()!.participants;
+      expect(store.canRemove(creator)).toBe(false);
+      expect(store.canRemove(me)).toBe(false);
+      expect(store.canRemove(member)).toBe(true);
+      expect(store.canRemove(guest)).toBe(true);    // guests are removable too
+    });
+
+    it('a non-facilitator can remove nobody', () => {
+      store.session.set(session({
+        createdByMemberId: 'creator', isFacilitator: false,
+        participants: [{ id: '3', memberId: 'm3', role: 'participant', name: 'Member' }],
+      }));
+      expect(store.canRemove(store.session()!.participants[0])).toBe(false);
+    });
+  });
+});
+
+// Clicking + faster than the round trip used to fire one request per click: every click read the
+// same stale `myVotesUsed` (the refetch is debounced 150ms), so the surplus reached the server and
+// came back as a 409 the user saw as "An unexpected error occurred". The budget is now spent against
+// local state that already counts the in-flight clicks, so the extra clicks are simply no-ops.
+describe('RetroBoardStore — vote spend is capped locally', () => {
+  let store: RetroBoardStore;
+  let addVote: ReturnType<typeof vi.fn>;
+  let removeVote: ReturnType<typeof vi.fn>;
+
+  const note = (over: Record<string, unknown> = {}): any => ({ id: 'n1', columnId: 'c1', myVoteCount: 0, voteCount: 0, ...over });
+  const voting = (over: Record<string, unknown> = {}): any => ({
+    id: 's1', status: 'live', phase: 'vote', isFacilitator: false,
+    votesPerUser: 3, myVotesUsed: 0, enabledPhases: PHASES.map(p => p.key),
+    participants: [], columns: [], notes: [note()], checkinQuestions: [], feedbackPrompts: [], actions: [],
+    ...over,
+  });
+
+  beforeEach(() => {
+    addVote = vi.fn(() => new Subject<void>());        // never completes: the request stays "in flight"
+    removeVote = vi.fn(() => new Subject<void>());
+    TestBed.configureTestingModule({
+      providers: [
+        RetroBoardStore,
+        { provide: RetroBoardService, useValue: { addVote, removeVote } },
+        { provide: SquadService, useValue: {} },
+        { provide: TeamMemberService, useValue: {} },
+        { provide: WebSocketService, useValue: {} },
+        { provide: AuthService, useValue: { me: { id: 'me-1' } } },
+        { provide: Router, useValue: {} },
+      ],
+    });
+    store = TestBed.inject(RetroBoardStore);
+  });
+
+  const currentNote = () => store.session()!.notes[0];
+
+  it('stops at the total budget however fast you click', () => {
+    store.session.set(voting({ votesPerUser: 3 }));
+    for (let i = 0; i < 10; i++) store.vote(currentNote());
+    expect(addVote).toHaveBeenCalledTimes(3);          // not 10 — the surplus never leaves the client
+    expect(store.votesLeft()).toBe(0);
+    expect(store.canVoteOn(currentNote())).toBe(false);
+  });
+
+  it('stops at 3 votes on a single note even with budget to spare', () => {
+    store.session.set(voting({ votesPerUser: 9 }));
+    for (let i = 0; i < 10; i++) store.vote(currentNote());
+    expect(addVote).toHaveBeenCalledTimes(3);
+    expect(currentNote().myVoteCount).toBe(3);
+  });
+
+  it('never unvotes below zero', () => {
+    store.session.set(voting({ votesPerUser: 3, myVotesUsed: 1, notes: [note({ myVoteCount: 1, voteCount: 1 })] }));
+    store.unvote(currentNote());
+    store.unvote(currentNote());
+    expect(removeVote).toHaveBeenCalledTimes(1);
+    expect(currentNote().myVoteCount).toBe(0);
+  });
+
+  it('refuses to vote at all outside the Vote phase', () => {
+    store.session.set(voting({ phase: 'discuss' }));
+    store.vote(currentNote());
+    expect(addVote).not.toHaveBeenCalled();
+  });
 });
 
 // The real-time contract that makes a live session update for a passive participant: the client must

@@ -29,7 +29,7 @@ internal sealed class StubWowPresence : IWowPresence
 /// <summary>No-op win-story generator: closing a week must not spin up a real background AI task.</summary>
 internal sealed class NullWinStoryGenerator : IWinStoryGenerator
 {
-    public void Enqueue(Guid weekId, string winnerName, string title, string? description) { }
+    public void Enqueue(Guid weekId, string winnerName, string title, string? description, string? theme = null) { }
 }
 
 /// <summary>

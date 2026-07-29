@@ -26,6 +26,13 @@ public class RetroBoardParticipant
     /// <summary>facilitator|participant. The creator is a facilitator and may promote others.</summary>
     public string Role { get; set; } = "participant";
 
+    /// <summary>Set when a facilitator removed this participant from the retro. The row is kept
+    /// rather than deleted so the removal sticks: a guest still holding their session cookie (and a
+    /// member who still has the board link) is refused on rejoin instead of silently reappearing.
+    /// A removed participant is treated as not enrolled by every guard, drops off the roster, and
+    /// has their votes revoked at removal time. A facilitator can clear this to re-admit them.</summary>
+    public DateTimeOffset? RemovedAt { get; set; }
+
     public DateTimeOffset JoinedAt { get; set; } = DateTimeOffset.UtcNow;
     public DateTimeOffset LastSeenAt { get; set; } = DateTimeOffset.UtcNow;
 

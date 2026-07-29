@@ -8,8 +8,8 @@ namespace TeamManager.Api.Application.Services;
 // Guest (non-member) access to a retro board: join by slug with a display name, gated by
 // AllowGuestJoin. The guest's identity is a server-issued session id (see GuestSessionManager);
 // this layer only ever *receives* it, never mints or trusts a client-supplied one.
-// See docs/session-identity.md. NOTE: guest authoring of notes/votes is a later slice — a guest
-// here can join and watch, not yet contribute.
+// See docs/session-identity.md. A joined guest contributes on the same terms as a member — notes,
+// votes, comments and reflection — subject to the same phase gates, with no facilitator exemption.
 public partial class RetroBoardService
 {
     /// <summary>Longest guest display name we store; anything longer is truncated, not rejected.</summary>
@@ -23,9 +23,11 @@ public partial class RetroBoardService
         var session = await ResolveGuestBoardAsync(slug);
         if (session is null) return null;
 
+        // A removed guest reads as "not joined", so the client drops them back to the join card — where
+        // JoinGuestAsync then tells them plainly that they were removed.
         var me = guestSessionId is null
             ? null
-            : session.Participants.FirstOrDefault(p => p.GuestSessionId == guestSessionId);
+            : session.Participants.FirstOrDefault(p => p.GuestSessionId == guestSessionId && p.RemovedAt is null);
 
         return new GuestRetroBoardDto
         {
@@ -55,6 +57,9 @@ public partial class RetroBoardService
 
         var existing = await db.RetroBoardParticipants
             .FirstOrDefaultAsync(p => p.RetroBoardSessionId == sessionId.Value && p.GuestSessionId == guestSessionId);
+        // Removal has to survive a rejoin, or it's meaningless: the guest still holds the cookie that
+        // identifies them, so without this they'd simply re-enter under any name.
+        if (existing is { RemovedAt: not null }) return (RetroActionResult.Forbidden, null);
         if (existing is null)
         {
             db.RetroBoardParticipants.Add(new RetroBoardParticipant
@@ -82,14 +87,16 @@ public partial class RetroBoardService
 
     /// <summary>Add a note as a guest. Attribution is the guest's session id (or nothing, when the
     /// board allows anonymous content and the guest opts in) — never a member id.</summary>
-    public async Task<(RetroActionResult result, GuestRetroBoardDto? board)> AddGuestNoteAsync(
+    public async Task<(RetroActionResult result, GuestRetroBoardDto? board, string? error)> AddGuestNoteAsync(
         string slug, string guestSessionId, AddRetroBoardNoteRequest req)
     {
         var (guard, session, _) = await GuardGuestAsync(slug, guestSessionId);
-        if (guard != RetroActionResult.Ok) return (guard, null);
-        if (string.IsNullOrWhiteSpace(req.Text)) return (RetroActionResult.Invalid, null);
+        if (guard != RetroActionResult.Ok) return (guard, null, null);
+        // A guest has no facilitator exemption — the phase gate is absolute for them.
+        if (!CanAddNotes(session!)) return (RetroActionResult.Conflict, null, NotesClosedError);
+        if (string.IsNullOrWhiteSpace(req.Text)) return (RetroActionResult.Invalid, null, null);
         if (!await db.RetroBoardColumns.AnyAsync(c => c.Id == req.ColumnId && c.RetroBoardSessionId == session!.Id))
-            return (RetroActionResult.NotFound, null);
+            return (RetroActionResult.NotFound, null, null);
 
         var anon = req.IsAnonymous && session!.AllowAnonymous;
         db.RetroBoardNotes.Add(new RetroBoardNote
@@ -102,22 +109,70 @@ public partial class RetroBoardService
         });
         await db.SaveChangesAsync();
         Broadcast(session.Id, "rb_note_added", new { sessionId = session.Id });
-        return (RetroActionResult.Ok, await GetGuestBoardAsync(slug, guestSessionId));
+        return (RetroActionResult.Ok, await GetGuestBoardAsync(slug, guestSessionId), null);
     }
 
     /// <summary>Delete a note as a guest — only the guest's own note.</summary>
-    public async Task<(RetroActionResult result, GuestRetroBoardDto? board)> DeleteGuestNoteAsync(
+    public async Task<(RetroActionResult result, GuestRetroBoardDto? board, string? error)> DeleteGuestNoteAsync(
         string slug, string guestSessionId, Guid noteId)
     {
         var (guard, session, _) = await GuardGuestAsync(slug, guestSessionId);
-        if (guard != RetroActionResult.Ok) return (guard, null);
+        if (guard != RetroActionResult.Ok) return (guard, null, null);
+        if (!CanAddNotes(session!)) return (RetroActionResult.Conflict, null, NotesClosedError);
         var note = await db.RetroBoardNotes.FirstOrDefaultAsync(n => n.Id == noteId && n.RetroBoardSessionId == session!.Id);
-        if (note is null) return (RetroActionResult.NotFound, null);
-        if (note.AuthorGuestSessionId != guestSessionId) return (RetroActionResult.Forbidden, null);   // own notes only
+        if (note is null) return (RetroActionResult.NotFound, null, null);
+        if (note.AuthorGuestSessionId != guestSessionId) return (RetroActionResult.Forbidden, null, null);   // own notes only
         db.RetroBoardNotes.Remove(note);
         await db.SaveChangesAsync();
         Broadcast(session!.Id, "rb_note_deleted", new { sessionId = session.Id, noteId });
-        return (RetroActionResult.Ok, await GetGuestBoardAsync(slug, guestSessionId));
+        return (RetroActionResult.Ok, await GetGuestBoardAsync(slug, guestSessionId), null);
+    }
+
+    /// <summary>Add a comment to a note as a guest. Attributed by the guest's session id, with their
+    /// display name copied in so the comment still reads correctly later.</summary>
+    public async Task<(RetroActionResult result, GuestRetroBoardDto? board, string? error)> AddGuestNoteCommentAsync(
+        string slug, string guestSessionId, Guid noteId, string text)
+    {
+        var (guard, session, me) = await GuardGuestAsync(slug, guestSessionId);
+        if (guard != RetroActionResult.Ok) return (guard, null, null);
+        if (!CanComment(session!)) return (RetroActionResult.Conflict, null, CommentsClosedError);
+        var trimmed = text?.Trim();
+        if (string.IsNullOrEmpty(trimmed)) return (RetroActionResult.Invalid, null, null);
+        if (trimmed.Length > MaxCommentLength) trimmed = trimmed[..MaxCommentLength];
+
+        var note = await db.RetroBoardNotes.FirstOrDefaultAsync(n => n.Id == noteId && n.RetroBoardSessionId == session!.Id);
+        if (note is null) return (RetroActionResult.NotFound, null, null);
+        // Same rule as the member path: no commenting on a note that's still masked for this viewer.
+        if (IsNoteHiddenFrom(session!, note, note.AuthorGuestSessionId == guestSessionId, isFacilitator: false))
+            return (RetroActionResult.Forbidden, null, null);
+
+        db.RetroBoardNoteComments.Add(new RetroBoardNoteComment
+        {
+            RetroBoardNoteId = noteId,
+            AuthorGuestSessionId = guestSessionId,
+            AuthorDisplayName = me!.DisplayName,
+            Text = trimmed,
+        });
+        await db.SaveChangesAsync();
+        Broadcast(session!.Id, "rb_note_updated", new { sessionId = session.Id, noteId });
+        return (RetroActionResult.Ok, await GetGuestBoardAsync(slug, guestSessionId), null);
+    }
+
+    /// <summary>Delete one of the guest's own comments.</summary>
+    public async Task<(RetroActionResult result, GuestRetroBoardDto? board, string? error)> DeleteGuestNoteCommentAsync(
+        string slug, string guestSessionId, Guid commentId)
+    {
+        var (guard, session, _) = await GuardGuestAsync(slug, guestSessionId);
+        if (guard != RetroActionResult.Ok) return (guard, null, null);
+        var comment = await db.RetroBoardNoteComments
+            .FirstOrDefaultAsync(c => c.Id == commentId && c.Note!.RetroBoardSessionId == session!.Id);
+        if (comment is null) return (RetroActionResult.NotFound, null, null);
+        if (comment.AuthorGuestSessionId != guestSessionId) return (RetroActionResult.Forbidden, null, null);
+        var noteId = comment.RetroBoardNoteId;
+        db.RetroBoardNoteComments.Remove(comment);
+        await db.SaveChangesAsync();
+        Broadcast(session!.Id, "rb_note_updated", new { sessionId = session.Id, noteId });
+        return (RetroActionResult.Ok, await GetGuestBoardAsync(slug, guestSessionId), null);
     }
 
     /// <summary>Cast a vote as a guest. Same caps as a member (VotesPerUser total, 3 per note), counted
@@ -126,6 +181,7 @@ public partial class RetroBoardService
     {
         var (guard, session, _) = await GuardGuestAsync(slug, guestSessionId);
         if (guard != RetroActionResult.Ok) return (guard, guard == RetroActionResult.Closed ? "This retro is closed." : null);
+        if (!CanVote(session!)) return (RetroActionResult.Conflict, VotingClosedError);
         if (!await db.RetroBoardNotes.AnyAsync(n => n.Id == noteId && n.RetroBoardSessionId == session!.Id))
             return (RetroActionResult.NotFound, "Note not found.");
 
@@ -141,19 +197,20 @@ public partial class RetroBoardService
     }
 
     /// <summary>Remove one of the guest's own votes from a note.</summary>
-    public async Task<RetroActionResult> RemoveGuestVoteAsync(string slug, string guestSessionId, Guid noteId)
+    public async Task<(RetroActionResult result, string? error)> RemoveGuestVoteAsync(string slug, string guestSessionId, Guid noteId)
     {
         var (guard, session, _) = await GuardGuestAsync(slug, guestSessionId);
-        if (guard != RetroActionResult.Ok) return guard;
+        if (guard != RetroActionResult.Ok) return (guard, null);
+        if (!CanVote(session!)) return (RetroActionResult.Conflict, VotingClosedError);
         var vote = await db.RetroBoardVotes
             .Where(v => v.RetroBoardNoteId == noteId && v.GuestSessionId == guestSessionId && v.Note!.RetroBoardSessionId == session!.Id)
             .OrderByDescending(v => v.CreatedAt)
             .FirstOrDefaultAsync();
-        if (vote is null) return RetroActionResult.NotFound;
+        if (vote is null) return (RetroActionResult.NotFound, null);
         db.RetroBoardVotes.Remove(vote);
         await db.SaveChangesAsync();
         Broadcast(session!.Id, "rb_voted", new { sessionId = session.Id, noteId });
-        return RetroActionResult.Ok;
+        return (RetroActionResult.Ok, null);
     }
 
     /// <summary>The gate for a guest mutation: the board must exist, allow guests, and the caller must
@@ -170,7 +227,8 @@ public partial class RetroBoardService
         if (blockClosed && session.Status == Status.Closed) return (RetroActionResult.Closed, null, null);
         var me = await db.RetroBoardParticipants
             .FirstOrDefaultAsync(p => p.RetroBoardSessionId == sessionId.Value && p.GuestSessionId == guestSessionId);
-        if (me is null) return (RetroActionResult.Forbidden, null, null);   // must join (name yourself) first
+        // Not joined, or removed by the host — either way they aren't an enrolled contributor.
+        if (me is null || me.RemovedAt is not null) return (RetroActionResult.Forbidden, null, null);
         return (RetroActionResult.Ok, session, me);
     }
 

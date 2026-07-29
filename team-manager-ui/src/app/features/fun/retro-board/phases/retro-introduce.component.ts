@@ -2,11 +2,12 @@ import { Component, ChangeDetectionStrategy, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RetroBoardStore } from '../retro-board.store';
 import { RETRO_STYLES } from '../retro-board.styles';
+import { NoteCommentsComponent } from '../note-comments.component';
 
 @Component({
   selector: 'app-retro-introduce',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, NoteCommentsComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   styles: [RETRO_STYLES],
   template: `
@@ -32,6 +33,10 @@ import { RETRO_STYLES } from '../retro-board.styles';
                   @if (n.flagged) { <span class="intro-by">will introduce</span> }
                   <span class="pill" [class.on]="n.flagged" (click)="store.toggleFlag(n)">⚑ {{ n.flagged ? 'Flagged to introduce' : 'Flag to introduce' }}</span>
                 </div>
+                <app-note-comments [comments]="n.comments" [canComment]="store.canComment()"
+                  [canModerate]="store.amFacilitator()"
+                  (addComment)="store.addComment(n.id, $event)"
+                  (deleteComment)="store.delComment(n.id, $event)" />
               </div>
             }
           </div>
