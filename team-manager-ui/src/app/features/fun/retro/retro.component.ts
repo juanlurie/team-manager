@@ -1281,6 +1281,7 @@ interface TimerState {
             (positionCommitted)="onSingleCanvasPositionCommitted($event)"
             (cardSelected)="selectCard($event.id)"
             (commentThreadRequested)="openCommentThread($event.event, $event.card)"
+            (ungroupRequested)="ungroupCard($event.id)"
             (stickerPaletteRequested)="onSingleCanvasStickerPaletteRequested($event)"
             (tokenPositionCommitted)="onSingleCanvasTokenPositionCommitted($event)"
             (timerPositionCommitted)="onSingleCanvasTimerPositionCommitted($event)"
