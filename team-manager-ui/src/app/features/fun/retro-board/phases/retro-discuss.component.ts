@@ -3,11 +3,12 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RetroBoardStore } from '../retro-board.store';
 import { RETRO_STYLES } from '../retro-board.styles';
+import { NoteCommentsComponent } from '../note-comments.component';
 
 @Component({
   selector: 'app-retro-discuss',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, NoteCommentsComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   styles: [RETRO_STYLES],
   template: `
@@ -21,6 +22,12 @@ import { RETRO_STYLES } from '../retro-board.styles';
               <div class="row between"><div class="row" style="gap:12px"><span class="avatar" [style.background]="store.columnColor(n.columnId)+'22'" [style.color]="store.columnColor(n.columnId)">{{ n.voteCount }}</span>
                 <div><div>{{ n.text }}</div><div class="muted" style="font-size:12px"><span [style.color]="store.columnColor(n.columnId)" style="font-weight:600">{{ n.columnKey }}</span>{{ n.isAnonymous ? '' : ' · ' + n.authorName }}</div></div></div>
                 @if (store.amFacilitator()) { <button class="btn ghost sm" (click)="store.startAction(n)">+ Action</button> }</div>
+              <!-- Discuss is where most comments get written: the topic is on screen and someone
+                   wants to add the context that didn't fit on the sticky. -->
+              <app-note-comments [comments]="n.comments" [canComment]="store.canComment()"
+                [canModerate]="store.amFacilitator()"
+                (addComment)="store.addComment(n.id, $event)"
+                (deleteComment)="store.delComment(n.id, $event)" />
               @if (store.actionDraft()?.noteId === n.id) {
                 <div style="margin-top:12px;border-top:1px solid var(--border);padding-top:12px">
                   <input class="f" [(ngModel)]="store.actionDraft()!.title" placeholder="Action…">

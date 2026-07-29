@@ -4,7 +4,7 @@ import { Observable } from 'rxjs';
 import {
   RetroBoardSession, RetroBoardSummary, RetroBoardColumn, RetroBoardCheckinQuestion,
   RetroBoardAction, RetroBoardAiSummary, RetroColumnInput, CheckinQuestionInput, RetroStepDurations,
-  RetroBoardFeedbackPrompt, FeedbackPromptInput, RetroPhaseFlags,
+  RetroBoardFeedbackPrompt, FeedbackPromptInput, RetroPhaseFlags, RetroBoardNoteComment,
 } from '../models/retro-board.model';
 
 @Injectable({ providedIn: 'root' })
@@ -120,6 +120,14 @@ export class RetroBoardService {
     return this.http.post<void>(`${this.base}/${id}/notes/${noteId}/introduced`, { flagged: introduced });
   }
 
+  // ---- note comments ----
+  addNoteComment(id: string, noteId: string, text: string): Observable<RetroBoardNoteComment> {
+    return this.http.post<RetroBoardNoteComment>(`${this.base}/${id}/notes/${noteId}/comments`, { text });
+  }
+  deleteNoteComment(id: string, noteId: string, commentId: string): Observable<void> {
+    return this.http.delete<void>(`${this.base}/${id}/notes/${noteId}/comments/${commentId}`);
+  }
+
   // ---- votes ----
   addVote(id: string, noteId: string): Observable<void> {
     return this.http.post<void>(`${this.base}/${id}/notes/${noteId}/vote`, {});
@@ -164,5 +172,13 @@ export class RetroBoardService {
   // ---- participants ----
   setParticipantRole(id: string, memberId: string, role: string): Observable<void> {
     return this.http.put<void>(`${this.base}/${id}/participants/role`, { memberId, role });
+  }
+  /** Host removes a participant (member or guest). Their votes are revoked server-side. */
+  removeParticipant(id: string, participantId: string): Observable<void> {
+    return this.http.delete<void>(`${this.base}/${id}/participants/${participantId}`);
+  }
+  /** Undo a removal. Revoked votes are not restored. */
+  readmitParticipant(id: string, participantId: string): Observable<void> {
+    return this.http.post<void>(`${this.base}/${id}/participants/${participantId}/readmit`, {});
   }
 }

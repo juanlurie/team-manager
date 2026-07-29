@@ -31,4 +31,5 @@ public class RetroBoardNote
     public RetroBoardColumn? Column { get; set; }
     public TeamMember? Author { get; set; }
     public ICollection<RetroBoardVote> Votes { get; set; } = [];
+    public ICollection<RetroBoardNoteComment> Comments { get; set; } = [];
 }

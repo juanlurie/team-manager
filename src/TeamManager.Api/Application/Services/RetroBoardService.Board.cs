@@ -76,15 +76,18 @@ public partial class RetroBoardService
 
     // ---------- Notes ----------
 
-    public async Task<(RetroActionResult result, RetroBoardSessionDto? session)> AddNoteAsync(Guid sessionId, Guid memberId, AddRetroBoardNoteRequest req)
+    public async Task<(RetroActionResult result, RetroBoardSessionDto? session, string? error)> AddNoteAsync(Guid sessionId, Guid memberId, AddRetroBoardNoteRequest req)
     {
-        var (guard, session) = await GuardAsync(sessionId, memberId, facilitatorOnly: false, blockClosed: true);
-        if (guard != RetroActionResult.Ok) return (guard, null);
-        if (string.IsNullOrWhiteSpace(req.Text)) return (RetroActionResult.Invalid, null);
+        var (guard, access) = await GuardAccessAsync(sessionId, memberId, facilitatorOnly: false, blockClosed: true);
+        if (guard != RetroActionResult.Ok) return (guard, null, null);
+        var session = access!.Session;
+        // Facilitators may still capture something said mid-discussion; everyone else is held to Capture.
+        if (!CanAddNotes(session) && !access.IsFacilitator) return (RetroActionResult.Conflict, null, NotesClosedError);
+        if (string.IsNullOrWhiteSpace(req.Text)) return (RetroActionResult.Invalid, null, null);
         var columnOk = await db.RetroBoardColumns.AnyAsync(c => c.Id == req.ColumnId && c.RetroBoardSessionId == sessionId);
-        if (!columnOk) return (RetroActionResult.NotFound, null);
+        if (!columnOk) return (RetroActionResult.NotFound, null, null);
 
-        var anon = req.IsAnonymous && session!.AllowAnonymous;
+        var anon = req.IsAnonymous && session.AllowAnonymous;
         db.RetroBoardNotes.Add(new RetroBoardNote
         {
             RetroBoardSessionId = sessionId,
@@ -95,7 +98,7 @@ public partial class RetroBoardService
         });
         await db.SaveChangesAsync();
         Broadcast(sessionId, "rb_note_added", new { sessionId });
-        return (RetroActionResult.Ok, await GetSessionAsync(sessionId, memberId));
+        return (RetroActionResult.Ok, await GetSessionAsync(sessionId, memberId), null);
     }
 
     public async Task<RetroActionResult> UpdateNoteTextAsync(Guid sessionId, Guid memberId, Guid noteId, string text)
@@ -112,17 +115,20 @@ public partial class RetroBoardService
         return RetroActionResult.Ok;
     }
 
-    public async Task<RetroActionResult> DeleteNoteAsync(Guid sessionId, Guid memberId, Guid noteId)
+    public async Task<(RetroActionResult result, string? error)> DeleteNoteAsync(Guid sessionId, Guid memberId, Guid noteId)
     {
-        var (guard, _) = await GuardAsync(sessionId, memberId, facilitatorOnly: false, blockClosed: true);
-        if (guard != RetroActionResult.Ok) return guard;
+        var (guard, access) = await GuardAccessAsync(sessionId, memberId, facilitatorOnly: false, blockClosed: true);
+        if (guard != RetroActionResult.Ok) return (guard, null);
         var note = await db.RetroBoardNotes.FirstOrDefaultAsync(n => n.Id == noteId && n.RetroBoardSessionId == sessionId);
-        if (note is null) return RetroActionResult.NotFound;
-        if (!await CanEditNoteAsync(sessionId, memberId, note)) return RetroActionResult.Forbidden;
+        if (note is null) return (RetroActionResult.NotFound, null);
+        if (!await CanEditNoteAsync(sessionId, memberId, note)) return (RetroActionResult.Forbidden, null);
+        // An author can retract a note while the board is still capturing; a facilitator can clear one
+        // at any point (they're moderating, not contributing).
+        if (!CanAddNotes(access!.Session) && !access.IsFacilitator) return (RetroActionResult.Conflict, NotesClosedError);
         db.RetroBoardNotes.Remove(note);
         await db.SaveChangesAsync();
         Broadcast(sessionId, "rb_note_deleted", new { sessionId, noteId });
-        return RetroActionResult.Ok;
+        return (RetroActionResult.Ok, null);
     }
 
     public async Task<RetroActionResult> FlagNoteAsync(Guid sessionId, Guid memberId, Guid noteId, bool flagged)
@@ -169,6 +175,7 @@ public partial class RetroBoardService
     {
         var (guard, session) = await GuardAsync(sessionId, memberId, facilitatorOnly: false, blockClosed: true);
         if (guard != RetroActionResult.Ok) return (guard, guard == RetroActionResult.Closed ? "This retro is closed." : null);
+        if (!CanVote(session!)) return (RetroActionResult.Conflict, VotingClosedError);
         var noteOk = await db.RetroBoardNotes.AnyAsync(n => n.Id == noteId && n.RetroBoardSessionId == sessionId);
         if (!noteOk) return (RetroActionResult.NotFound, "Note not found.");
 
@@ -184,18 +191,70 @@ public partial class RetroBoardService
         return (RetroActionResult.Ok, null);
     }
 
-    public async Task<RetroActionResult> RemoveVoteAsync(Guid sessionId, Guid memberId, Guid noteId)
+    public async Task<(RetroActionResult result, string? error)> RemoveVoteAsync(Guid sessionId, Guid memberId, Guid noteId)
     {
-        var (guard, _) = await GuardAsync(sessionId, memberId, facilitatorOnly: false, blockClosed: true);
-        if (guard != RetroActionResult.Ok) return guard;
+        var (guard, session) = await GuardAsync(sessionId, memberId, facilitatorOnly: false, blockClosed: true);
+        if (guard != RetroActionResult.Ok) return (guard, null);
+        if (!CanVote(session!)) return (RetroActionResult.Conflict, VotingClosedError);
         var vote = await db.RetroBoardVotes
             .Where(v => v.RetroBoardNoteId == noteId && v.MemberId == memberId && v.Note!.RetroBoardSessionId == sessionId)
             .OrderByDescending(v => v.CreatedAt)
             .FirstOrDefaultAsync();
-        if (vote is null) return RetroActionResult.NotFound;
+        if (vote is null) return (RetroActionResult.NotFound, null);
         db.RetroBoardVotes.Remove(vote);
         await db.SaveChangesAsync();
         Broadcast(sessionId, "rb_voted", new { sessionId, noteId });
-        return RetroActionResult.Ok;
+        return (RetroActionResult.Ok, null);
+    }
+
+    // ---------- Note comments ----------
+
+    /// <summary>Add a comment to a note. Any enrolled participant may comment, on any note — the point
+    /// is asking the author for context rather than posting a second sticky to explain the first. Never
+    /// anonymous, even on an anonymous note (the note's author stays hidden; the commenter doesn't).</summary>
+    public async Task<(RetroActionResult result, RetroBoardNoteCommentDto? value, string? error)> AddNoteCommentAsync(
+        Guid sessionId, Guid memberId, Guid noteId, string text)
+    {
+        var (guard, access) = await GuardAccessAsync(sessionId, memberId, facilitatorOnly: false, blockClosed: true);
+        if (guard != RetroActionResult.Ok) return (guard, null, null);
+        if (!CanComment(access!.Session) && !access.IsFacilitator) return (RetroActionResult.Conflict, null, CommentsClosedError);
+        var trimmed = text?.Trim();
+        if (string.IsNullOrEmpty(trimmed)) return (RetroActionResult.Invalid, null, null);
+        if (trimmed.Length > MaxCommentLength) trimmed = trimmed[..MaxCommentLength];
+
+        var note = await db.RetroBoardNotes.FirstOrDefaultAsync(n => n.Id == noteId && n.RetroBoardSessionId == sessionId);
+        if (note is null) return (RetroActionResult.NotFound, null, null);
+        // Don't let a comment land on a note the caller can't even see yet — it would leak that the
+        // note exists, and the comment would surface the moment the facilitator reveals.
+        if (IsNoteHiddenFrom(access.Session, note, note.AuthorMemberId == memberId, access.IsFacilitator))
+            return (RetroActionResult.Forbidden, null, null);
+
+        var comment = new RetroBoardNoteComment { RetroBoardNoteId = noteId, AuthorMemberId = memberId, Text = trimmed };
+        db.RetroBoardNoteComments.Add(comment);
+        await db.SaveChangesAsync();
+        Broadcast(sessionId, "rb_note_updated", new { sessionId, noteId });
+
+        var author = await db.TeamMembers.AsNoTracking().FirstOrDefaultAsync(m => m.Id == memberId);
+        return (RetroActionResult.Ok, new RetroBoardNoteCommentDto
+        {
+            Id = comment.Id, NoteId = noteId, AuthorId = memberId,
+            AuthorName = author is null ? "" : $"{author.FirstName} {author.LastName}".Trim(),
+            IsOwn = true, Text = comment.Text, CreatedAt = comment.CreatedAt,
+        }, null);
+    }
+
+    /// <summary>Delete a comment — its author, or any facilitator moderating the board.</summary>
+    public async Task<(RetroActionResult result, string? error)> DeleteNoteCommentAsync(Guid sessionId, Guid memberId, Guid commentId)
+    {
+        var (guard, access) = await GuardAccessAsync(sessionId, memberId, facilitatorOnly: false, blockClosed: true);
+        if (guard != RetroActionResult.Ok) return (guard, null);
+        var comment = await db.RetroBoardNoteComments
+            .FirstOrDefaultAsync(c => c.Id == commentId && c.Note!.RetroBoardSessionId == sessionId);
+        if (comment is null) return (RetroActionResult.NotFound, null);
+        if (comment.AuthorMemberId != memberId && !access!.IsFacilitator) return (RetroActionResult.Forbidden, null);
+        db.RetroBoardNoteComments.Remove(comment);
+        await db.SaveChangesAsync();
+        Broadcast(sessionId, "rb_note_updated", new { sessionId, noteId = comment.RetroBoardNoteId });
+        return (RetroActionResult.Ok, null);
     }
 }

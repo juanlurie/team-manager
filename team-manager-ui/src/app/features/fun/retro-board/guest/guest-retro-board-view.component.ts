@@ -1,9 +1,14 @@
 import { Component, Input, Output, EventEmitter, ChangeDetectionStrategy } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RetroBoardSession, RetroBoardColumn, RetroBoardNote } from '../../../../core/models/retro-board.model';
+import { NoteCommentsComponent } from '../note-comments.component';
 
 /** A note the guest wants to add: which column, the text, and whether it's anonymous. */
 export interface GuestNoteDraft { columnId: string; text: string; isAnonymous: boolean; }
+/** A comment the guest wants to add to a note. */
+export interface GuestCommentDraft { noteId: string; text: string; }
+/** A comment the guest wants to delete (their own). */
+export interface GuestCommentRef { noteId: string; commentId: string; }
 
 /**
  * The guest's board surface: columns with their notes, plus lightweight participation — add a note,
@@ -14,7 +19,7 @@ export interface GuestNoteDraft { columnId: string; text: string; isAnonymous: b
 @Component({
   selector: 'app-guest-retro-board-view',
   standalone: true,
-  imports: [FormsModule],
+  imports: [FormsModule, NoteCommentsComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   styles: [`
     :host { display: block; }
@@ -72,29 +77,41 @@ export interface GuestNoteDraft { columnId: string; text: string; isAnonymous: b
                     <button class="icon-btn del" (click)="deleteNote.emit(n.id)" [disabled]="!interactive" title="Delete">✕</button>
                   }
                   <span class="vote">
-                    @if (n.myVoteCount > 0) {
-                      <button class="icon-btn" (click)="unvote.emit(n.id)" [disabled]="!interactive" title="Remove a vote">−</button>
+                    <!-- Voting is the Vote step's business. Outside it the count still shows (it's
+                         part of reading the board) but the controls are gone, matching what the
+                         server will accept. -->
+                    @if (canVote) {
+                      @if (n.myVoteCount > 0) {
+                        <button class="icon-btn" (click)="unvote.emit(n.id)" [disabled]="!interactive" title="Remove a vote">−</button>
+                      }
+                      <button class="icon-btn" (click)="vote.emit(n.id)" [disabled]="!interactive" title="Vote">▲</button>
                     }
-                    <button class="icon-btn" (click)="vote.emit(n.id)" [disabled]="!interactive" title="Vote">▲</button>
                     <span [class.voted]="n.myVoteCount > 0">{{ n.voteCount }}</span>
                   </span>
                 </div>
+                @if (n.text !== null) {
+                  <app-note-comments [comments]="n.comments" [canComment]="canComment" [busy]="!interactive"
+                    (addComment)="addComment.emit({ noteId: n.id, text: $event })"
+                    (deleteComment)="deleteComment.emit({ noteId: n.id, commentId: $event })" />
+                }
               </article>
             } @empty {
               <div class="empty">No notes yet</div>
             }
           </div>
 
-          <div class="composer">
-            <input type="text" [(ngModel)]="drafts[col.id]" maxlength="500"
-                   placeholder="Add a note…" (keyup.enter)="submit(col.id)" [disabled]="!interactive" />
-            <div class="composer-row">
-              @if (board.allowAnonymous) {
-                <label class="anon"><input type="checkbox" [(ngModel)]="anon[col.id]" [disabled]="!interactive" /> Anonymous</label>
-              }
-              <button class="add-btn" (click)="submit(col.id)" [disabled]="!interactive || !(drafts[col.id] || '').trim()">Add</button>
+          @if (canCompose) {
+            <div class="composer">
+              <input type="text" [(ngModel)]="drafts[col.id]" maxlength="500"
+                     placeholder="Add a note…" (keyup.enter)="submit(col.id)" [disabled]="!interactive" />
+              <div class="composer-row">
+                @if (board.allowAnonymous) {
+                  <label class="anon"><input type="checkbox" [(ngModel)]="anon[col.id]" [disabled]="!interactive" /> Anonymous</label>
+                }
+                <button class="add-btn" (click)="submit(col.id)" [disabled]="!interactive || !(drafts[col.id] || '').trim()">Add</button>
+              </div>
             </div>
-          </div>
+          }
         </section>
       }
     </div>
@@ -104,11 +121,20 @@ export class GuestRetroBoardViewComponent {
   @Input({ required: true }) board!: RetroBoardSession;
   /** When false (a closed retro, or an action in flight), the controls are disabled. */
   @Input() interactive = true;
+  /** When false, the per-column "add a note" composer is hidden — capture is over (the facilitator
+   *  has moved past the capture phase), so the board is read-only for notes. */
+  @Input() canCompose = true;
+  /** When false, the vote controls are hidden — the retro isn't on the Vote step. */
+  @Input() canVote = false;
+  /** When false, the comment composers are hidden — the retro is on a step that doesn't take them. */
+  @Input() canComment = false;
 
   @Output() addNote = new EventEmitter<GuestNoteDraft>();
   @Output() deleteNote = new EventEmitter<string>();
   @Output() vote = new EventEmitter<string>();
   @Output() unvote = new EventEmitter<string>();
+  @Output() addComment = new EventEmitter<GuestCommentDraft>();
+  @Output() deleteComment = new EventEmitter<GuestCommentRef>();
 
   // Local composer state (presentational): per-column draft text and anonymous toggle.
   drafts: Record<string, string> = {};

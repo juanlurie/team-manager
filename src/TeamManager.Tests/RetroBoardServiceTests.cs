@@ -42,13 +42,16 @@ public class RetroBoardServiceTests
             IsActive = true,
         };
 
-    private static RetroBoardSession Session(Guid createdBy, string status = "draft") =>
+    // `phase` matters for any test that adds a note, votes or comments: the service gates each of
+    // those on the step the retro is actually on (RetroBoardService.CanAddNotes/CanVote/CanComment),
+    // so a test exercising votes has to put the board on "vote".
+    private static RetroBoardSession Session(Guid createdBy, string status = "draft", string phase = "setup") =>
         new()
         {
             Id = Guid.NewGuid(),
             CreatedByMemberId = createdBy,
             Title = "Test Retro",
-            Phase = "setup",
+            Phase = phase,
             Status = status,
             AllowAnonymous = true,
         };
@@ -438,14 +441,14 @@ public class RetroBoardServiceTests
         var svc = Svc(db);
 
         // While live, a note can be added.
-        var (liveResult, liveSnapshot) = await svc.AddNoteAsync(s.Id, m.Id, new AddRetroBoardNoteRequest { ColumnId = col.Id, Text = "hi" });
+        var (liveResult, liveSnapshot, _) = await svc.AddNoteAsync(s.Id, m.Id, new AddRetroBoardNoteRequest { ColumnId = col.Id, Text = "hi" });
         Assert.Equal(RetroActionResult.Ok, liveResult);
         Assert.NotNull(liveSnapshot);
 
         await svc.CloseAsync(s.Id, m.Id);
 
         // Board mutation is blocked once closed…
-        var (closedResult, _) = await svc.AddNoteAsync(s.Id, m.Id, new AddRetroBoardNoteRequest { ColumnId = col.Id, Text = "nope" });
+        var (closedResult, _, _) = await svc.AddNoteAsync(s.Id, m.Id, new AddRetroBoardNoteRequest { ColumnId = col.Id, Text = "nope" });
         Assert.Equal(RetroActionResult.Closed, closedResult);
         // …but post-retro feedback is still accepted.
         Assert.Equal(RetroActionResult.Ok, await svc.RespondFeedbackAsync(s.Id, m.Id, prompt.Id, 4, "still fine"));
@@ -469,7 +472,7 @@ public class RetroBoardServiceTests
         await db.SaveChangesAsync();
         var svc = Svc(db);
 
-        var (noteResult, _) = await svc.AddNoteAsync(s.Id, outsider.Id, new AddRetroBoardNoteRequest { ColumnId = col.Id, Text = "sneaky" });
+        var (noteResult, _, _) = await svc.AddNoteAsync(s.Id, outsider.Id, new AddRetroBoardNoteRequest { ColumnId = col.Id, Text = "sneaky" });
         Assert.Equal(RetroActionResult.Forbidden, noteResult);
         // The aggregate must not be poisonable by a non-participant.
         Assert.Equal(RetroActionResult.Forbidden, await svc.RespondFeedbackAsync(s.Id, outsider.Id, prompt.Id, 1, "drive-by"));
@@ -504,7 +507,7 @@ public class RetroBoardServiceTests
         using var db = NewDb();
         var m = Member();
         db.TeamMembers.Add(m);
-        var s = Session(m.Id, status: "live");
+        var s = Session(m.Id, status: "live", phase: "vote");
         s.VotesPerUser = 4;
         db.RetroBoardSessions.Add(s);
         var col = new RetroBoardColumn { Id = Guid.NewGuid(), RetroBoardSessionId = s.Id, Key = "well", Label = "Well", Color = "#fff", Icon = "star", SortOrder = 0 };
@@ -563,9 +566,10 @@ public class RetroBoardServiceTests
 
     // ---- Guest join (slice 2a) ----
 
-    private static RetroBoardSession GuestBoard(Guid createdBy, bool allowGuest = true, string status = "live")
+    // Defaults to the Capture phase, since most guest tests contribute notes; vote tests pass "vote".
+    private static RetroBoardSession GuestBoard(Guid createdBy, bool allowGuest = true, string status = "live", string phase = "capture")
     {
-        var s = Session(createdBy, status);
+        var s = Session(createdBy, status, phase);
         s.Slug = "quiet-lobster";
         s.AllowGuestJoin = allowGuest;
         return s;
@@ -670,7 +674,7 @@ public class RetroBoardServiceTests
         var svc = Svc(db);
         await svc.JoinGuestAsync("quiet-lobster", "g1", "Gilbert");
 
-        var (res, board) = await svc.AddGuestNoteAsync("quiet-lobster", "g1",
+        var (res, board, _) = await svc.AddGuestNoteAsync("quiet-lobster", "g1",
             new AddRetroBoardNoteRequest { ColumnId = col.Id, Text = "  guest idea  " });
 
         Assert.Equal(RetroActionResult.Ok, res);
@@ -698,7 +702,7 @@ public class RetroBoardServiceTests
         db.RetroBoardColumns.Add(col);
         await db.SaveChangesAsync();
 
-        var (res, _) = await Svc(db).AddGuestNoteAsync("quiet-lobster", "never-joined",
+        var (res, _, _) = await Svc(db).AddGuestNoteAsync("quiet-lobster", "never-joined",
             new AddRetroBoardNoteRequest { ColumnId = col.Id, Text = "x" });
         Assert.Equal(RetroActionResult.Forbidden, res);
     }
@@ -709,7 +713,7 @@ public class RetroBoardServiceTests
         using var db = NewDb();
         var facil = Member("Fac");
         db.TeamMembers.Add(facil);
-        var s = GuestBoard(facil.Id);
+        var s = GuestBoard(facil.Id, phase: "vote");
         db.RetroBoardSessions.Add(s);
         var col = GuestCol(s.Id);
         db.RetroBoardColumns.Add(col);
@@ -744,7 +748,7 @@ public class RetroBoardServiceTests
         var svc = Svc(db);
         await svc.JoinGuestAsync("quiet-lobster", "g1", "Gilbert");
         await svc.JoinGuestAsync("quiet-lobster", "g2", "Grace");
-        var (_, board) = await svc.AddGuestNoteAsync("quiet-lobster", "g1", new AddRetroBoardNoteRequest { ColumnId = col.Id, Text = "g1 note" });
+        var (_, board, _) = await svc.AddGuestNoteAsync("quiet-lobster", "g1", new AddRetroBoardNoteRequest { ColumnId = col.Id, Text = "g1 note" });
         var noteId = board!.Board.Notes.Single().Id;
 
         Assert.Equal(RetroActionResult.Forbidden, (await svc.DeleteGuestNoteAsync("quiet-lobster", "g2", noteId)).result);
@@ -871,5 +875,290 @@ public class RetroBoardServiceTests
         // Once they've rated every prompt, the facilitator's meter counts them like any member.
         var after = (await svc.GetSessionAsync(s.Id, facil.Id))!.Participants.Single(p => p.IsGuest);
         Assert.True(after.Responded["reflect"]);
+    }
+
+    // ---- Phase gating ----
+    // The step the retro is on decides what anyone may contribute. Enforced here, not just in the
+    // UI, because both boards refetch asynchronously: a stale tab or a direct API call would sail
+    // past a hidden button. Facilitators are exempt for notes/comments (host housekeeping) but never
+    // for votes, since an out-of-phase vote skews the tally the team is reading.
+
+    /// <summary>A live board on <paramref name="phase"/> with one column, one facilitator-authored
+    /// note, and both members enrolled — `facil` as the creator/facilitator, `part` as an ordinary
+    /// participant. Notes are pre-revealed so hide-until-reveal masking (covered separately) doesn't
+    /// confound tests about the phase gates.</summary>
+    private static async Task<(RetroBoardService svc, RetroBoardSession s, RetroBoardColumn col, RetroBoardNote note, TeamMember facil, TeamMember part)>
+        LivePhaseBoard(AppDbContext db, string phase)
+    {
+        var facil = Member("Fac");
+        var part = Member("Par");
+        db.TeamMembers.AddRange(facil, part);
+        var s = Session(facil.Id, status: "live", phase: phase);
+        s.NotesRevealed = true;
+        db.RetroBoardSessions.Add(s);
+        var col = new RetroBoardColumn { Id = Guid.NewGuid(), RetroBoardSessionId = s.Id, Key = "well", Label = "Well", Color = "#fff", Icon = "star", SortOrder = 0 };
+        db.RetroBoardColumns.Add(col);
+        var note = new RetroBoardNote { Id = Guid.NewGuid(), RetroBoardSessionId = s.Id, RetroBoardColumnId = col.Id, AuthorMemberId = facil.Id, Text = "topic" };
+        db.RetroBoardNotes.Add(note);
+        await db.SaveChangesAsync();
+        var svc = Svc(db);
+        // The creator is a facilitator with or without a row; enrol them anyway so tests that need to
+        // address them as a participant (removal) have one.
+        await svc.JoinAsync(s.Id, facil.Id);
+        await svc.JoinAsync(s.Id, part.Id);
+        return (svc, s, col, note, facil, part);
+    }
+
+    [Theory]
+    [InlineData("capture", RetroActionResult.Ok)]
+    [InlineData("checkin", RetroActionResult.Conflict)]
+    [InlineData("introduce", RetroActionResult.Conflict)]
+    [InlineData("vote", RetroActionResult.Conflict)]
+    [InlineData("discuss", RetroActionResult.Conflict)]
+    public async Task Notes_are_only_accepted_during_capture(string phase, RetroActionResult expected)
+    {
+        using var db = NewDb();
+        var (svc, s, col, _, _, part) = await LivePhaseBoard(db, phase);
+
+        var (result, _, _) = await svc.AddNoteAsync(s.Id, part.Id, new AddRetroBoardNoteRequest { ColumnId = col.Id, Text = "late idea" });
+        Assert.Equal(expected, result);
+    }
+
+    [Fact]
+    public async Task Facilitator_may_still_capture_a_note_mid_discussion()
+    {
+        using var db = NewDb();
+        var (svc, s, col, _, facil, _) = await LivePhaseBoard(db, "discuss");
+
+        var (result, _, _) = await svc.AddNoteAsync(s.Id, facil.Id, new AddRetroBoardNoteRequest { ColumnId = col.Id, Text = "just said out loud" });
+        Assert.Equal(RetroActionResult.Ok, result);
+    }
+
+    [Theory]
+    [InlineData("vote", RetroActionResult.Ok)]
+    [InlineData("capture", RetroActionResult.Conflict)]
+    [InlineData("introduce", RetroActionResult.Conflict)]
+    [InlineData("discuss", RetroActionResult.Conflict)]
+    public async Task Votes_are_only_accepted_during_the_vote_phase(string phase, RetroActionResult expected)
+    {
+        using var db = NewDb();
+        var (svc, s, _, note, _, part) = await LivePhaseBoard(db, phase);
+
+        var (result, _) = await svc.AddVoteAsync(s.Id, part.Id, note.Id);
+        Assert.Equal(expected, result);
+    }
+
+    [Fact]
+    public async Task Facilitator_gets_no_exemption_from_the_vote_phase_gate()
+    {
+        using var db = NewDb();
+        var (svc, s, _, note, facil, _) = await LivePhaseBoard(db, "discuss");
+
+        var (result, error) = await svc.AddVoteAsync(s.Id, facil.Id, note.Id);
+        Assert.Equal(RetroActionResult.Conflict, result);
+        Assert.Equal("Voting is only open during the Vote step.", error);
+    }
+
+    // The reported bug: during Discuss a guest could still add notes and cast votes.
+    [Theory]
+    [InlineData("discuss")]
+    [InlineData("introduce")]
+    public async Task Guest_cannot_add_notes_or_vote_once_capture_and_voting_have_passed(string phase)
+    {
+        using var db = NewDb();
+        var facil = Member("Fac");
+        db.TeamMembers.Add(facil);
+        var s = GuestBoard(facil.Id, phase: phase);
+        db.RetroBoardSessions.Add(s);
+        var col = GuestCol(s.Id);
+        db.RetroBoardColumns.Add(col);
+        var note = new RetroBoardNote { Id = Guid.NewGuid(), RetroBoardSessionId = s.Id, RetroBoardColumnId = col.Id, AuthorMemberId = facil.Id, Text = "topic" };
+        db.RetroBoardNotes.Add(note);
+        await db.SaveChangesAsync();
+        var svc = Svc(db);
+        await svc.JoinGuestAsync("quiet-lobster", "g1", "Gilbert");
+
+        var (noteResult, _, noteError) = await svc.AddGuestNoteAsync("quiet-lobster", "g1",
+            new AddRetroBoardNoteRequest { ColumnId = col.Id, Text = "sneaking one in" });
+        Assert.Equal(RetroActionResult.Conflict, noteResult);
+        Assert.Equal("Notes can only be added during Capture.", noteError);
+
+        var (voteResult, _) = await svc.AddGuestVoteAsync("quiet-lobster", "g1", note.Id);
+        Assert.Equal(RetroActionResult.Conflict, voteResult);
+
+        Assert.DoesNotContain((await svc.GetGuestBoardAsync("quiet-lobster", "g1"))!.Board.Notes, n => n.Text == "sneaking one in");
+    }
+
+    // ---- Note comments ----
+
+    [Theory]
+    [InlineData("capture", RetroActionResult.Ok)]
+    [InlineData("introduce", RetroActionResult.Ok)]
+    [InlineData("discuss", RetroActionResult.Ok)]
+    [InlineData("vote", RetroActionResult.Conflict)]
+    public async Task Comments_are_open_across_capture_introduce_and_discuss(string phase, RetroActionResult expected)
+    {
+        using var db = NewDb();
+        var (svc, s, _, note, _, part) = await LivePhaseBoard(db, phase);
+
+        var (result, _, _) = await svc.AddNoteCommentAsync(s.Id, part.Id, note.Id, "what did you mean here?");
+        Assert.Equal(expected, result);
+    }
+
+    [Fact]
+    public async Task Comment_is_attributed_and_visible_to_everyone_on_the_note()
+    {
+        using var db = NewDb();
+        var (svc, s, _, note, facil, part) = await LivePhaseBoard(db, "discuss");
+
+        var (result, created, _) = await svc.AddNoteCommentAsync(s.Id, part.Id, note.Id, "  needs context  ");
+        Assert.Equal(RetroActionResult.Ok, result);
+        Assert.Equal("needs context", created!.Text);          // trimmed
+        Assert.True(created.IsOwn);
+
+        // The author sees it as their own; the facilitator sees the same comment attributed to them.
+        var mine = (await svc.GetSessionAsync(s.Id, part.Id))!.Notes.Single().Comments.Single();
+        Assert.True(mine.IsOwn);
+        Assert.Equal("Par Member", mine.AuthorName);
+
+        var theirs = (await svc.GetSessionAsync(s.Id, facil.Id))!.Notes.Single().Comments.Single();
+        Assert.False(theirs.IsOwn);
+        Assert.Equal("Par Member", theirs.AuthorName);
+    }
+
+    [Fact]
+    public async Task Comment_is_deletable_by_its_author_or_a_facilitator_but_nobody_else()
+    {
+        using var db = NewDb();
+        var (svc, s, _, note, facil, part) = await LivePhaseBoard(db, "discuss");
+        var other = Member("Other");
+        db.TeamMembers.Add(other);
+        await db.SaveChangesAsync();
+        await svc.JoinAsync(s.Id, other.Id);
+
+        var (_, mine, _) = await svc.AddNoteCommentAsync(s.Id, part.Id, note.Id, "mine");
+        Assert.Equal(RetroActionResult.Forbidden, (await svc.DeleteNoteCommentAsync(s.Id, other.Id, mine!.Id)).result);
+        Assert.Equal(RetroActionResult.Ok, (await svc.DeleteNoteCommentAsync(s.Id, part.Id, mine.Id)).result);
+
+        var (_, theirs, _) = await svc.AddNoteCommentAsync(s.Id, part.Id, note.Id, "also mine");
+        Assert.Equal(RetroActionResult.Ok, (await svc.DeleteNoteCommentAsync(s.Id, facil.Id, theirs!.Id)).result);   // facilitator moderates
+    }
+
+    [Fact]
+    public async Task Comments_are_withheld_while_the_note_is_hidden_until_reveal()
+    {
+        using var db = NewDb();
+        var (svc, s, col, _, facil, part) = await LivePhaseBoard(db, "capture");
+        s.HideNotesUntilReveal = true;
+        s.NotesRevealed = false;           // undo the helper's pre-reveal: masking is the point here
+        await db.SaveChangesAsync();
+
+        // The facilitator's seeded note carries a comment, but during Capture `part` can't see the
+        // note at all — so the comment must not leak either, and they can't add one to it.
+        var facilNote = (await svc.GetSessionAsync(s.Id, facil.Id))!.Notes.Single();
+        await svc.AddNoteCommentAsync(s.Id, facil.Id, facilNote.Id, "host context");
+
+        var masked = (await svc.GetSessionAsync(s.Id, part.Id))!.Notes.Single();
+        Assert.Null(masked.Text);
+        Assert.Empty(masked.Comments);
+        Assert.Equal(RetroActionResult.Forbidden,
+            (await svc.AddNoteCommentAsync(s.Id, part.Id, facilNote.Id, "prying")).result);
+    }
+
+    // ---- Participant removal ----
+
+    [Fact]
+    public async Task Removing_a_participant_revokes_their_votes_and_drops_them_from_the_roster()
+    {
+        using var db = NewDb();
+        var (svc, s, _, note, facil, part) = await LivePhaseBoard(db, "vote");
+        Assert.Equal(RetroActionResult.Ok, (await svc.AddVoteAsync(s.Id, part.Id, note.Id)).result);
+        Assert.Equal(1, (await svc.GetSessionAsync(s.Id, facil.Id))!.Notes.Single().VoteCount);
+
+        var target = (await svc.GetSessionAsync(s.Id, facil.Id))!.Participants.Single(p => p.MemberId == part.Id);
+        Assert.Equal(RetroActionResult.Ok, (await svc.RemoveParticipantAsync(s.Id, facil.Id, target.Id)).result);
+
+        var after = (await svc.GetSessionAsync(s.Id, facil.Id))!;
+        Assert.DoesNotContain(after.Participants, p => p.MemberId == part.Id);      // off the roster
+        Assert.Contains(after.RemovedParticipants, p => p.MemberId == part.Id);     // but re-admittable
+        Assert.Equal(0, after.Notes.Single().VoteCount);                            // their vote is gone
+        Assert.Single(after.Notes);                                                 // their content stays
+    }
+
+    [Fact]
+    public async Task Removed_member_cannot_contribute_and_rejoining_does_not_re_enrol_them()
+    {
+        using var db = NewDb();
+        var (svc, s, col, note, facil, part) = await LivePhaseBoard(db, "capture");
+        var target = (await svc.GetSessionAsync(s.Id, facil.Id))!.Participants.Single(p => p.MemberId == part.Id);
+        await svc.RemoveParticipantAsync(s.Id, facil.Id, target.Id);
+
+        // Opening the board again must not quietly put them back in the room.
+        await svc.JoinAsync(s.Id, part.Id);
+        Assert.DoesNotContain((await svc.GetSessionAsync(s.Id, facil.Id))!.Participants, p => p.MemberId == part.Id);
+
+        Assert.Equal(RetroActionResult.Forbidden,
+            (await svc.AddNoteAsync(s.Id, part.Id, new AddRetroBoardNoteRequest { ColumnId = col.Id, Text = "still here" })).result);
+        Assert.Equal(RetroActionResult.Forbidden, (await svc.AddNoteCommentAsync(s.Id, part.Id, note.Id, "hi")).result);
+    }
+
+    [Fact]
+    public async Task Removed_guest_cannot_rejoin_with_the_same_session_cookie()
+    {
+        using var db = NewDb();
+        var facil = Member("Fac");
+        db.TeamMembers.Add(facil);
+        var s = GuestBoard(facil.Id);
+        db.RetroBoardSessions.Add(s);
+        var col = GuestCol(s.Id);
+        db.RetroBoardColumns.Add(col);
+        await db.SaveChangesAsync();
+        var svc = Svc(db);
+        await svc.JoinGuestAsync("quiet-lobster", "g1", "Gilbert");
+
+        var target = (await svc.GetSessionAsync(s.Id, facil.Id))!.Participants.Single(p => p.IsGuest);
+        Assert.Equal(RetroActionResult.Ok, (await svc.RemoveParticipantAsync(s.Id, facil.Id, target.Id)).result);
+
+        // Their cookie is still valid, so removal is only real if the rejoin is refused.
+        Assert.Equal(RetroActionResult.Forbidden, (await svc.JoinGuestAsync("quiet-lobster", "g1", "Gilbert")).result);
+        Assert.False((await svc.GetGuestBoardAsync("quiet-lobster", "g1"))!.HasJoined);
+        Assert.Equal(RetroActionResult.Forbidden,
+            (await svc.AddGuestNoteAsync("quiet-lobster", "g1", new AddRetroBoardNoteRequest { ColumnId = col.Id, Text = "back again" })).result);
+    }
+
+    [Fact]
+    public async Task Readmitting_restores_access_but_not_the_revoked_votes()
+    {
+        using var db = NewDb();
+        var (svc, s, _, note, facil, part) = await LivePhaseBoard(db, "vote");
+        await svc.AddVoteAsync(s.Id, part.Id, note.Id);
+        var target = (await svc.GetSessionAsync(s.Id, facil.Id))!.Participants.Single(p => p.MemberId == part.Id);
+        await svc.RemoveParticipantAsync(s.Id, facil.Id, target.Id);
+
+        Assert.Equal(RetroActionResult.Ok, (await svc.ReadmitParticipantAsync(s.Id, facil.Id, target.Id)).result);
+
+        var after = (await svc.GetSessionAsync(s.Id, facil.Id))!;
+        Assert.Contains(after.Participants, p => p.MemberId == part.Id);
+        Assert.Empty(after.RemovedParticipants);
+        Assert.Equal(0, after.Notes.Single().VoteCount);         // the revoked vote does NOT come back
+        Assert.Equal(RetroActionResult.Ok, (await svc.AddVoteAsync(s.Id, part.Id, note.Id)).result);   // they can vote again
+    }
+
+    [Fact]
+    public async Task Creator_and_self_cannot_be_removed_and_only_a_facilitator_may_remove()
+    {
+        using var db = NewDb();
+        var (svc, s, _, _, facil, part) = await LivePhaseBoard(db, "vote");
+        var roster = (await svc.GetSessionAsync(s.Id, facil.Id))!.Participants;
+        var creatorRow = roster.Single(p => p.MemberId == facil.Id);
+        var partRow = roster.Single(p => p.MemberId == part.Id);
+
+        // The creator owns the retro — removing them would orphan it.
+        Assert.Equal(RetroActionResult.Conflict, (await svc.RemoveParticipantAsync(s.Id, facil.Id, creatorRow.Id)).result);
+        // An ordinary participant can't remove anyone.
+        Assert.Equal(RetroActionResult.Forbidden, (await svc.RemoveParticipantAsync(s.Id, part.Id, creatorRow.Id)).result);
+        // A second facilitator can't remove themselves mid-facilitation.
+        await svc.SetParticipantRoleAsync(s.Id, facil.Id, part.Id, "facilitator");
+        Assert.Equal(RetroActionResult.Conflict, (await svc.RemoveParticipantAsync(s.Id, part.Id, partRow.Id)).result);
     }
 }

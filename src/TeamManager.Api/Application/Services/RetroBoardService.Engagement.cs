@@ -163,7 +163,7 @@ public partial class RetroBoardService
         if (role is not (Role.Facilitator or Role.Participant)) return RetroActionResult.Invalid;
         var (guard, session) = await GuardAsync(sessionId, actingMemberId, facilitatorOnly: true, blockClosed: false);
         if (guard != RetroActionResult.Ok) return guard;
-        var target = await db.RetroBoardParticipants.FirstOrDefaultAsync(p => p.RetroBoardSessionId == sessionId && p.MemberId == targetMemberId);
+        var target = await db.RetroBoardParticipants.FirstOrDefaultAsync(p => p.RetroBoardSessionId == sessionId && p.MemberId == targetMemberId && p.RemovedAt == null);
         if (target is null) return RetroActionResult.NotFound;
         // The creator can't be demoted.
         if (target.MemberId == session!.CreatedByMemberId && role != Role.Facilitator) return RetroActionResult.Conflict;
@@ -171,5 +171,57 @@ public partial class RetroBoardService
         await db.SaveChangesAsync();
         Broadcast(sessionId, "rb_participant_changed");
         return RetroActionResult.Ok;
+    }
+
+    /// <summary>Facilitator removes a participant (member or guest) from the retro and revokes every
+    /// vote they cast, so the tallies the team is about to discuss reflect only the people still in
+    /// the room. Their notes and comments are left alone — the content stands on its own, and silently
+    /// deleting a chunk of the board mid-session is a far bigger surprise than a vote count moving.
+    ///
+    /// The row is marked (<see cref="RetroBoardParticipant.RemovedAt"/>) rather than deleted: both
+    /// identities are self-service (a guest holds their cookie, a member has the board link), so a
+    /// hard delete would let them walk straight back in. <see cref="ReadmitParticipantAsync"/> undoes
+    /// it; revoked votes are not restored.</summary>
+    public async Task<(RetroActionResult result, string? error)> RemoveParticipantAsync(Guid sessionId, Guid actingMemberId, Guid participantId)
+    {
+        var (guard, session) = await GuardAsync(sessionId, actingMemberId, facilitatorOnly: true, blockClosed: false);
+        if (guard != RetroActionResult.Ok) return (guard, null);
+        var target = await db.RetroBoardParticipants
+            .FirstOrDefaultAsync(p => p.Id == participantId && p.RetroBoardSessionId == sessionId);
+        if (target is null) return (RetroActionResult.NotFound, null);
+        if (target.RemovedAt is not null) return (RetroActionResult.Ok, null);   // idempotent
+        // The creator owns the retro, and removing yourself mid-facilitation would lock the board.
+        if (target.MemberId == session!.CreatedByMemberId) return (RetroActionResult.Conflict, "The retro's creator can't be removed.");
+        if (target.MemberId == actingMemberId) return (RetroActionResult.Conflict, "You can't remove yourself.");
+
+        var votes = await db.RetroBoardVotes
+            .Where(v => v.Note!.RetroBoardSessionId == sessionId
+                        && ((target.MemberId != null && v.MemberId == target.MemberId)
+                            || (target.GuestSessionId != null && v.GuestSessionId == target.GuestSessionId)))
+            .ToListAsync();
+        if (votes.Count > 0) db.RetroBoardVotes.RemoveRange(votes);
+
+        target.RemovedAt = DateTimeOffset.UtcNow;
+        await db.SaveChangesAsync();
+        // rb_voted as well as the roster change: every board is showing vote counts that just moved.
+        Broadcast(sessionId, "rb_participant_changed");
+        if (votes.Count > 0) Broadcast(sessionId, "rb_voted", new { sessionId });
+        return (RetroActionResult.Ok, null);
+    }
+
+    /// <summary>Undo a removal. The participant rejoins with their notes and comments intact; the votes
+    /// revoked on removal are gone for good, so they simply spend their budget again.</summary>
+    public async Task<(RetroActionResult result, string? error)> ReadmitParticipantAsync(Guid sessionId, Guid actingMemberId, Guid participantId)
+    {
+        var (guard, _) = await GuardAsync(sessionId, actingMemberId, facilitatorOnly: true, blockClosed: false);
+        if (guard != RetroActionResult.Ok) return (guard, null);
+        var target = await db.RetroBoardParticipants
+            .FirstOrDefaultAsync(p => p.Id == participantId && p.RetroBoardSessionId == sessionId);
+        if (target is null) return (RetroActionResult.NotFound, null);
+        target.RemovedAt = null;
+        target.LastSeenAt = DateTimeOffset.UtcNow;
+        await db.SaveChangesAsync();
+        Broadcast(sessionId, "rb_participant_changed");
+        return (RetroActionResult.Ok, null);
     }
 }

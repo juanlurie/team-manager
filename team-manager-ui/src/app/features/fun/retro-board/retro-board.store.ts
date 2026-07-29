@@ -15,6 +15,7 @@ import { AuthService } from '../../../core/auth/auth.service';
 import {
   RetroBoardSession, RetroBoardSummary, RetroPhase, RetroBoardNote, RetroBoardParticipant,
   RetroBoardFeedbackPrompt, RetroStepDurations, RetroPhaseFlags, RetroColumnInput, DEFAULT_STEP_DURATIONS,
+  RetroBoardNoteComment,
 } from '../../../core/models/retro-board.model';
 import * as F from './retro-format';
 
@@ -111,6 +112,13 @@ const PHASE_TIMER: Record<string, keyof RetroBoardSession['stepDurations']> = {
 
 export interface Member { id: string; name: string; }
 export interface ActionDraft { noteId: string; title: string; assignees: string[]; }
+
+/** Server-enforced ceiling on how many of your votes can land on one note (RetroBoardService). */
+export const MAX_VOTES_PER_NOTE = 3;
+
+/** Quick timer nudges offered to the facilitator, in seconds — the same "give them another 30s"
+ *  affordance Win of the Week's host controls have. */
+export const TIMER_NUDGES = [-30, 30, 60];
 
 /**
  * Holds all RetroBoard view state and the service orchestration for a single mounted board.
@@ -249,6 +257,46 @@ export class RetroBoardStore implements OnDestroy {
     if (this.amFacilitator()) { this.localPhase.set(null); this.goPhase(key); }
     else this.localPhase.set(key);
   }
+  // ── What the current step allows ────────────────────────────────────────────────────────────
+  // These read the SHARED phase, never `viewPhase()`. In Freeform/Guided a participant can walk
+  // their own view back to Capture, but the retro itself has moved on — and the server gates on the
+  // shared phase — so the composer must be inert there rather than firing a request that 409s.
+  // The API enforces the identical rule (RetroBoardService.CanAddNotes/CanVote/CanComment); this is
+  // the affordance, not the enforcement.
+  /** Notes: pre-capture (`open`) and the Capture phase. Facilitators keep it (capturing something
+   *  said mid-discussion is a host job), which the server allows too. */
+  canAddNotes = computed(() => {
+    const s = this.session();
+    if (!s) return false;
+    if (s.status === 'open') return true;
+    if (s.status !== 'live') return false;
+    return s.phase === 'capture' || this.amFacilitator();
+  });
+  /** Votes: the Vote phase only, for everyone — an out-of-phase vote skews the tally the team is
+   *  looking at, so the host gets no exemption here. */
+  canVote = computed(() => { const s = this.session(); return !!s && s.status === 'live' && s.phase === 'vote'; });
+  /** Comments: the phases where notes are written, read out and talked through. */
+  canComment = computed(() => {
+    const s = this.session();
+    if (!s) return false;
+    if (s.status === 'open') return true;
+    if (s.status !== 'live') return false;
+    return s.phase === 'capture' || s.phase === 'introduce' || s.phase === 'discuss' || this.amFacilitator();
+  });
+  /** Why the composer is inert, phrased for whoever is looking at it. */
+  captureClosedHint = computed(() => {
+    const s = this.session();
+    if (!s || this.canAddNotes()) return '';
+    if (s.status === 'closed') return 'This retro has closed.';
+    return `Capture has closed — the retro is on ${this.phaseLabel(s.phase)}.`;
+  });
+  voteClosedHint = computed(() => {
+    const s = this.session();
+    if (!s || this.canVote()) return '';
+    if (s.status === 'closed') return 'This retro has closed.';
+    return `Voting is closed — the retro is on ${this.phaseLabel(s.phase)}.`;
+  });
+
   flagged = computed(() => this.session()?.notes.filter(n => n.flagged) ?? []);
   // Flagged notes grouped under their theme/column, in column order, skipping empty groups.
   flaggedByColumn = computed(() => {
@@ -431,6 +479,40 @@ export class RetroBoardStore implements OnDestroy {
     });
   }
 
+  // ── Removing someone from the retro ─────────────────────────────────────────────────────────
+  /** Whether the viewer may remove this participant. Facilitators only, and never the retro's
+   *  creator or themselves — the server refuses both. */
+  canRemove(p: RetroBoardParticipant): boolean {
+    const s = this.session();
+    return this.amFacilitator() && p.memberId !== s?.createdByMemberId && p.memberId !== this.myId;
+  }
+  /** Remove a participant or guest. Their votes are revoked server-side, so the counts everyone is
+   *  looking at move — hence the explicit confirm naming both consequences. */
+  removeParticipant(p: RetroBoardParticipant) {
+    const s = this.session();
+    if (!s || !this.canRemove(p)) return;
+    this.confirmDialog({
+      title: `Remove ${p.name}?`,
+      message: 'They lose access to this retro and any votes they cast are revoked. Their notes and comments stay on the board. You can re-admit them afterwards.',
+      confirmLabel: 'Remove', danger: true,
+    }).subscribe(ok => {
+      if (!ok) return;
+      this.svc.removeParticipant(s.id, p.id).subscribe({
+        next: () => this.refresh(s.id),
+        error: () => this.error.set('Could not remove that participant.'),
+      });
+    });
+  }
+  /** Undo a removal — the revoked votes don't come back, they just vote again. */
+  readmitParticipant(p: RetroBoardParticipant) {
+    const s = this.session();
+    if (!s || !this.amFacilitator()) return;
+    this.svc.readmitParticipant(s.id, p.id).subscribe({
+      next: () => this.refresh(s.id),
+      error: () => this.error.set('Could not re-admit that participant.'),
+    });
+  }
+
   // ---- lobby lifecycle actions ----
   reopen(id: string, ev: Event) { ev.stopPropagation(); this.svc.reopen(id).subscribe({ next: () => this.reloadLists() }); }
   archive(id: string, ev: Event) { ev.stopPropagation(); this.svc.archive(id).subscribe({ next: () => this.reloadLists() }); }
@@ -554,6 +636,23 @@ export class RetroBoardStore implements OnDestroy {
   // Freeze the clock at its current remaining; Resume continues from there.
   pauseTimer() { const s = this.session(); const rem = this.timer(); if (!s || rem === null) return; this.svc.setLiveState(s.id, JSON.stringify({ startedAt: null, seconds: rem, paused: true })).subscribe({ next: () => this.refresh(s.id) }); }
   resumeTimer() { const s = this.session(); if (!s?.liveStateJson) return; let secs = 0; try { secs = JSON.parse(s.liveStateJson).seconds || 0; } catch { /* ignore */ } if (secs <= 0) return; this.svc.setLiveState(s.id, JSON.stringify({ startedAt: new Date(this.serverNow()).toISOString(), seconds: secs })).subscribe({ next: () => this.refresh(s.id) }); }
+  readonly timerNudges = TIMER_NUDGES;
+  /** Nudge the phase clock by a few seconds without restarting it — what a facilitator actually
+   *  reaches for ("give them another 30"), mirroring Win of the Week's host timer presets. Rewrites
+   *  the same liveState the start/pause controls do, preserving whether the clock is running or
+   *  frozen, so every client's countdown follows. Starting from idle uses the nudge as the duration. */
+  addTime(seconds: number) {
+    const s = this.session();
+    if (!s || !this.amFacilitator() || !this.timerAllowed()) return;
+    const rem = this.timer();
+    const next = Math.max(0, (rem ?? 0) + seconds);
+    if (next <= 0 && rem === null) return;           // nothing running and nothing to add
+    const state = this.isPaused()
+      ? { startedAt: null, seconds: next, paused: true }
+      : { startedAt: new Date(this.serverNow()).toISOString(), seconds: next };
+    this.svc.setLiveState(s.id, JSON.stringify(state)).subscribe({ next: () => this.refresh(s.id) });
+  }
+  canAddTime(seconds: number) { const rem = this.timer(); return seconds > 0 || (rem !== null && rem > 0); }
 
   setColor(columnId: string, color: string) { const s = this.session(); const c = s?.columns.find(x => x.id === columnId); if (s && c) this.svc.updateColumn(s.id, columnId, { label: c.label, description: c.description, color, icon: c.icon }).subscribe({ next: () => this.refresh(s.id) }); }
   addColumn() { const s = this.session(); const v = this.newColumn.trim(); if (!s || !v) return; this.svc.addColumn(s.id, { label: v, color: '#5b9dff', icon: 'star' }).subscribe({ next: () => { this.newColumn = ''; this.refresh(s.id); } }); }
@@ -576,7 +675,7 @@ export class RetroBoardStore implements OnDestroy {
   columnColor(columnId: string) { return this.session()?.columns.find(c => c.id === columnId)?.color ?? '#7d5cff'; }
   masked(n: RetroBoardNote) { const s = this.session(); return this.viewAs() === 'participant' && !!s && s.phase === 'capture' && s.hideNotesUntilReveal && !s.notesRevealed && !n.isOwn; }
   introducer(n: RetroBoardNote) { return n.isAnonymous ? 'facilitator' : this.shortName(n.authorName ?? '?'); }
-  addNote(colId: string) { const s = this.session(); const v = (this.draft[colId] || '').trim(); if (!s || !v) return; this.svc.addNote(s.id, colId, v, !!this.draftAnon[colId]).subscribe({ next: r => { this.draft[colId] = ''; this.setSession(r); } }); }
+  addNote(colId: string) { const s = this.session(); const v = (this.draft[colId] || '').trim(); if (!s || !v || !this.canAddNotes()) return; this.svc.addNote(s.id, colId, v, !!this.draftAnon[colId]).subscribe({ next: r => { this.draft[colId] = ''; this.setSession(r); } }); }
   toggleFlag(n: RetroBoardNote) { const s = this.session(); if (s) this.svc.flagNote(s.id, n.id, !n.flagged).subscribe({ next: () => this.refresh(s.id) }); }
   // Delete a note while the session is open (author or facilitator; server-enforced).
   delNote(n: RetroBoardNote) {
@@ -585,10 +684,64 @@ export class RetroBoardStore implements OnDestroy {
     this.confirmDialog({ title: 'Delete this note?', confirmLabel: 'Delete', danger: true })
       .subscribe(ok => { if (ok) this.svc.deleteNote(s.id, n.id).subscribe({ next: () => this.refresh(s.id) }); });
   }
-  canDelNote(n: RetroBoardNote) { return !this.masked(n) && (n.isOwn || this.amFacilitator()); }
+  // An author can retract a note while the board is still capturing; a facilitator moderates at any
+  // point. Mirrors DeleteNoteAsync.
+  canDelNote(n: RetroBoardNote) { return !this.masked(n) && (this.amFacilitator() || (n.isOwn && this.canAddNotes())); }
 
-  vote(n: { id: string }) { const s = this.session(); if (s) this.svc.addVote(s.id, n.id).subscribe({ next: () => this.refresh(s.id), error: () => {} }); }
-  unvote(n: { id: string }) { const s = this.session(); if (s) this.svc.removeVote(s.id, n.id).subscribe({ next: () => this.refresh(s.id) }); }
+  // ---- Votes ----
+  // Every click is checked against local state that has ALREADY been credited with the clicks still
+  // in flight. Without that, a burst of rapid clicks all read the same `myVotesUsed` (the refetch is
+  // debounced by 150ms and the round trip is slower still), so each one looks legal, and the server
+  // rejects the surplus with a 409 the user sees as an error. Now the surplus clicks are simply
+  // no-ops — the button greys out the moment the budget is spent.
+  /** Credit/debit a vote locally so the caps below see it immediately; the next refetch overwrites
+   *  this with the server's truth (including after a rejection). */
+  private applyVoteDelta(noteId: string, delta: number) {
+    this.session.update(s => !s ? s : ({
+      ...s,
+      myVotesUsed: Math.max(0, s.myVotesUsed + delta),
+      notes: s.notes.map(n => n.id !== noteId ? n : ({
+        ...n,
+        myVoteCount: Math.max(0, n.myVoteCount + delta),
+        voteCount: Math.max(0, n.voteCount + delta),
+      })),
+    }));
+  }
+  votesLeft = computed(() => { const s = this.session(); return s ? Math.max(0, s.votesPerUser - s.myVotesUsed) : 0; });
+  canVoteOn(n: RetroBoardNote) { return this.canVote() && this.votesLeft() > 0 && n.myVoteCount < MAX_VOTES_PER_NOTE; }
+  canUnvoteOn(n: RetroBoardNote) { return this.canVote() && n.myVoteCount > 0; }
+  vote(n: RetroBoardNote) {
+    const s = this.session();
+    if (!s || !this.canVoteOn(n)) return;
+    this.applyVoteDelta(n.id, 1);
+    // Refetch either way: on success to pick up everyone else's votes, on failure to undo the
+    // optimistic credit rather than leave the board lying about the budget.
+    this.svc.addVote(s.id, n.id).subscribe({ next: () => this.refresh(s.id), error: () => this.refresh(s.id) });
+  }
+  unvote(n: RetroBoardNote) {
+    const s = this.session();
+    if (!s || !this.canUnvoteOn(n)) return;
+    this.applyVoteDelta(n.id, -1);
+    this.svc.removeVote(s.id, n.id).subscribe({ next: () => this.refresh(s.id), error: () => this.refresh(s.id) });
+  }
+
+  // ---- Note comments ----
+  // Context on a note without posting a second sticky to explain the first. The draft text lives in
+  // the NoteComments child (one thread per note), so this takes it as an argument.
+  addComment(noteId: string, text: string) {
+    const s = this.session();
+    const trimmed = text.trim();
+    if (!s || !trimmed || !this.canComment()) return;
+    this.svc.addNoteComment(s.id, noteId, trimmed).subscribe({
+      next: () => this.refresh(s.id),
+      error: () => this.error.set("Couldn't add that comment."),
+    });
+  }
+  delComment(noteId: string, commentId: string) {
+    const s = this.session(); if (!s) return;
+    this.svc.deleteNoteComment(s.id, noteId, commentId).subscribe({ next: () => this.refresh(s.id) });
+  }
+  canDelComment(c: RetroBoardNoteComment) { return c.isOwn || this.amFacilitator(); }
 
   startAction(n: RetroBoardNote) { this.actionDraft.set({ noteId: n.id, title: n.text ?? '', assignees: [] }); this.assigneeQuery = ''; }
   addAssignee(draft: { assignees: string[] }, id: string) { if (!draft.assignees.includes(id)) draft.assignees.push(id); this.assigneeQuery = ''; this.actionDraft.set(this.actionDraft()); }
