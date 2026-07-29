@@ -602,6 +602,23 @@ interface TimerState {
     .ai-list-item::before {
       content:'•';position:absolute;left:0;color:rgba(100,181,246,0.6);
     }
+    /* Sentiment + celebrations lead the panel -- positive-first is deliberate (see runAnalysis). */
+    .ai-sentiment { display:flex;align-items:center;gap:8px;margin-bottom:4px; }
+    .ai-sentiment-chip {
+      font-size:0.72rem;font-weight:700;letter-spacing:0.03em;padding:3px 10px;border-radius:12px;
+      background:rgba(129,199,132,0.15);border:1px solid rgba(129,199,132,0.4);color:#81c784;
+    }
+    .ai-sentiment-summary { font-size:0.82rem;color:rgba(255,255,255,0.8); }
+    .ai-celebrate-section {
+      background:rgba(129,199,132,0.08);border:1px solid rgba(129,199,132,0.25);
+      border-radius:8px;padding:10px 12px;margin-bottom:14px;
+    }
+    .ai-celebrate-item {
+      font-size:0.85rem;color:rgba(255,255,255,0.9);line-height:1.4;
+      padding-left:20px;position:relative;margin-bottom:4px;
+    }
+    .ai-celebrate-item:last-child { margin-bottom:0; }
+    .ai-celebrate-item::before { content:'🎉';position:absolute;left:0;font-size:0.8rem; }
 
     /* Timer popover */
     .timer-ring-wrap { position:relative; width:80px; height:80px; flex-shrink:0; }
@@ -862,6 +879,14 @@ interface TimerState {
               @if (analysing()) { <mat-spinner diameter="16" style="display:inline-block;margin-right:4px" /> }
               @else { <mat-icon>auto_awesome</mat-icon> }
               Analyse with AI
+            </button>
+          }
+          @if (s.isCreator && (s.phase === 'vote' || s.phase === 'discuss' || s.phase === 'done')) {
+            <button mat-stroked-button (click)="groupSimilarCards()" [disabled]="grouping()"
+                    title="Cluster cards that say the same thing -- useful before voting so duplicate ideas aren't splitting votes">
+              @if (grouping()) { <mat-spinner diameter="16" style="display:inline-block;margin-right:4px" /> }
+              @else { <mat-icon>join_inner</mat-icon> }
+              Group Similar
             </button>
           }
           @if (s.isCreator && s.phase !== 'lobby' && nextPhase()) {
@@ -1285,6 +1310,22 @@ interface TimerState {
               <span class="ai-panel-title">Retro Analysis</span>
             </div>
 
+            @if (s.aiAnalysis.sentiment) {
+              <div class="ai-sentiment">
+                <span class="ai-sentiment-chip">{{ s.aiAnalysis.sentiment }}</span>
+                @if (s.aiAnalysis.sentimentSummary) {
+                  <span class="ai-sentiment-summary">{{ s.aiAnalysis.sentimentSummary }}</span>
+                }
+              </div>
+            }
+            @if (s.aiAnalysis.celebrations.length) {
+              <div class="ai-celebrate-section">
+                @for (c of s.aiAnalysis.celebrations; track c) {
+                  <div class="ai-celebrate-item">{{ c }}</div>
+                }
+              </div>
+            }
+
             @if (s.aiAnalysis.wellThemes.length) {
               <div class="ai-section">
                 <div class="ai-section-label" style="color:#4caf50">What went well</div>
@@ -1300,6 +1341,16 @@ interface TimerState {
                 <div class="ai-section-label" style="color:#ff9800">Areas to improve</div>
                 <div class="ai-chips">
                   @for (t of s.aiAnalysis.betterThemes; track t) {
+                    <span class="ai-chip">{{ t }}</span>
+                  }
+                </div>
+              </div>
+            }
+            @if (s.aiAnalysis.actionThemes.length) {
+              <div class="ai-section">
+                <div class="ai-section-label" style="color:#e91e8c">Action item themes</div>
+                <div class="ai-chips">
+                  @for (t of s.aiAnalysis.actionThemes; track t) {
                     <span class="ai-chip">{{ t }}</span>
                   }
                 </div>
@@ -1495,6 +1546,7 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
   advancingPhase = signal(false);
   revealing = signal(false);
   analysing = signal(false);
+  grouping = signal(false);
 
   // ── Phase timer ──
   timer = signal<TimerState | null>(null);
@@ -2179,6 +2231,9 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
         case 'fun_retro_analysed':
           if (msg.data['sessionId'] === s.id) this.silentRefresh();
           break;
+        case 'fun_retro_ai_grouped':
+          if (msg.data['sessionId'] === s.id) this.silentRefresh();
+          break;
         case 'fun_retro_card_moved':
           if (msg.data['sessionId'] === s.id) {
             const { cardId, x, y } = msg.data as { cardId: string; x: number; y: number };
@@ -2311,7 +2366,7 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
         this.session.set(s);
         this.applyExtras(s, true);
         this.loading.set(false);
-        this.router.navigate(['/pulse/retro', s.slug ?? s.id], { replaceUrl: true });
+        this.router.navigate(['/pulse/retro/classic', s.slug ?? s.id], { replaceUrl: true });
         this.joinRetroPresence(s.id);
         this.loadRetroPolls(s.id);
       },
@@ -2778,7 +2833,7 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   shareSession(s: FunRetroSession): void {
-    const url = `${window.location.origin}/pulse/retro/${s.slug ?? s.id}`;
+    const url = `${window.location.origin}/pulse/retro/classic/${s.slug ?? s.id}`;
     const title = s.title || 'Retro Session';
     const text = `Join our retro — "${title}"`;
 
@@ -2793,7 +2848,7 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
   backToList(): void {
     this.session.set(null);
     this.loadSessions();
-    this.router.navigate(['/pulse/retro'], { replaceUrl: true });
+    this.router.navigate(['/pulse/retro/classic'], { replaceUrl: true });
   }
 
   openNewRetroDialog(): void {
@@ -2922,6 +2977,22 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
       error: () => {
         this.analysing.set(false);
         this.snackBar.open('AI analysis failed — check that an AnalyseRetroCards prompt is configured', 'OK', { duration: 5000 });
+      }
+    });
+  }
+
+  groupSimilarCards(): void {
+    const s = this.session();
+    if (!s) return;
+    this.grouping.set(true);
+    this.svc.groupSimilarCards(s.id).subscribe({
+      next: () => { this.grouping.set(false); this.silentRefresh(); },
+      error: (err) => {
+        this.grouping.set(false);
+        this.snackBar.open(
+          err.error?.error ?? 'AI grouping failed — check that a GroupRetroCards prompt is configured',
+          'OK', { duration: 5000 }
+        );
       }
     });
   }

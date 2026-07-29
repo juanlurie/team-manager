@@ -188,7 +188,7 @@ export class ProcessFlowComponent implements OnInit, OnDestroy {
   canvasEdges = signal<CanvasEdge[]>([]);
   editNodeId = signal<string | null>(null);
 
-  /** Hide the Pulse hub's tab row + width cap while a flow is open, so the canvas goes full-bleed (matches Retro). */
+  /** Hide the Delivery hub's tab row + width cap while a flow is open, so the canvas goes full-bleed (matches Retro). */
   private hideSubNavEffect = effect(() => {
     this.navSvc.hideSubNav.set(!!this.session());
   });
@@ -398,7 +398,7 @@ export class ProcessFlowComponent implements OnInit, OnDestroy {
         this.lastWsSeq = -1;
         this.session.set(s);
         this.syncCanvas();
-        this.router.navigate(['/pulse/process-flows', s.id], { replaceUrl: true });
+        this.router.navigate(['/delivery/process-flows', s.id], { replaceUrl: true });
         this.joinBoardPresence(s.id);
       },
       error: () => {
@@ -416,7 +416,7 @@ export class ProcessFlowComponent implements OnInit, OnDestroy {
         this.session.set(s);
         this.syncCanvas();
         this.loading.set(false);
-        this.router.navigate(['/pulse/process-flows', s.id], { replaceUrl: true });
+        this.router.navigate(['/delivery/process-flows', s.id], { replaceUrl: true });
         this.joinBoardPresence(s.id);
       },
       error: () => {
@@ -434,7 +434,7 @@ export class ProcessFlowComponent implements OnInit, OnDestroy {
     }
     this.connectedSub?.unsubscribe();
     this.session.set(null);
-    this.router.navigate(['/pulse/process-flows'], { replaceUrl: true });
+    this.router.navigate(['/delivery/process-flows'], { replaceUrl: true });
     this.loadSessions();
   }
 

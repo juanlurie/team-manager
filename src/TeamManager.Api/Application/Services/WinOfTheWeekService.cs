@@ -20,8 +20,13 @@ public class WinOfTheWeekService(
     IWowNotifier notifier,
     IWowPresence presence) : IWinOfTheWeekService
 {
-    private const int MaxNominationsPerPerson = WinOfTheWeekLimits.MaxNominationsPerPerson;
-    private const int MaxVotesPerPerson = WinOfTheWeekLimits.MaxVotesPerPerson;
+    // Budgets are per-series and host-configurable; fall back to the defaults when a week's series
+    // isn't loaded.
+    private static int MaxNominationsFor(WinWeek week) =>
+        week.Series?.MaxNominationsPerPerson ?? WinOfTheWeekLimits.DefaultMaxNominationsPerPerson;
+
+    private static int MaxVotesFor(WinWeek week) =>
+        week.Series?.MaxVotesPerPerson ?? WinOfTheWeekLimits.DefaultMaxVotesPerPerson;
 
     public async Task<WinWeekDto?> GetCurrentWeekAsync(Guid currentMemberId, Guid seriesId)
     {
@@ -113,8 +118,10 @@ public class WinOfTheWeekService(
             QuizWinnerName = quizWinnerNomination != null ? $"{quizWinnerNomination.Nominee.FirstName} {quizWinnerNomination.Nominee.LastName}" : null,
             QuizEliminatedMemberIds = WowQuizService.ParseGuidListOrEmpty(week.QuizEliminatedMemberIds),
             CurrentMemberId = currentMemberId,
-            UserVotesRemaining = week.Status == WinWeekStatus.SuddenDeath ? Math.Max(0, 1 - userSuddenDeathVoteCount) : MaxVotesPerPerson - userVoteCount,
-            UserNominationsRemaining = MaxNominationsPerPerson - userNominationCount,
+            UserVotesRemaining = week.Status == WinWeekStatus.SuddenDeath ? Math.Max(0, 1 - userSuddenDeathVoteCount) : MaxVotesFor(week) - userVoteCount,
+            UserNominationsRemaining = MaxNominationsFor(week) - userNominationCount,
+            MaxNominationsPerPerson = MaxNominationsFor(week),
+            MaxVotesPerPerson = MaxVotesFor(week),
             TotalVotesCast = totalVotesCast,
             ActiveMemberCount = activeMemberCount,
             ConnectedMemberCount = week.GuestToken != null ? presence.GetSessionCount(week.GuestToken) : 0,
@@ -161,8 +168,9 @@ public class WinOfTheWeekService(
         var count = await db.WinNominations
             .CountAsync(n => n.WinWeekId == week.Id && n.TeamMemberId == memberId && n.TeamMemberId != null);
 
-        if (count >= MaxNominationsPerPerson)
-            throw new InvalidOperationException($"You can only submit up to {MaxNominationsPerPerson} nominations per week.");
+        var maxNominations = MaxNominationsFor(week);
+        if (count >= maxNominations)
+            throw new InvalidOperationException($"You can only submit up to {maxNominations} nominations per week.");
 
         var nomination = new WinNomination
         {
@@ -264,7 +272,7 @@ public class WinOfTheWeekService(
         // leave TiedNominationIds, SuddenDeathEndsAt, HypeBattleEndsAt and the quiz columns dirty —
         // CloseWeekWithWinnerAsync clears them all, awards the achievement, grants the bonus token,
         // kicks off the win story and broadcasts voting_closed.
-        await weekCloser.CloseWithWinnerAsync(week, request.WinnerNominationId);
+        await weekCloser.CloseWithWinnerAsync(week, request.WinnerNominationId, theme: request.Theme);
 
         return (await GetCurrentWeekAsync(memberId, seriesId))!;
     }

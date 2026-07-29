@@ -19,8 +19,11 @@ public record ApiRequestConfigDto(
     int RetryCount = 0,
     SuccessCriteriaDto? SuccessCriteria = null,
     bool AutoSync = false,
-    bool IsAiConnection = false
+    bool IsAiConnection = false,
+    string? AiModel = null
 );
+
+public record UpdateAiModelRequest(string? Model = null);
 
 public record SuccessCriteriaDto(
     int? RequiredStatus = null,

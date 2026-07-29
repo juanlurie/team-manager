@@ -30,7 +30,7 @@ public class WowVotingService(AppDbContext db, IWowNotifier notifier)
     public async Task<WinVoteDto> CastVoteAsync(Guid nominationId, WowVoter voter, string? requireGuestToken = null)
     {
         var nomination = await db.WinNominations
-            .Include(n => n.WinWeek)
+            .Include(n => n.WinWeek).ThenInclude(w => w.Series)
             .FirstOrDefaultAsync(n => n.Id == nominationId)
             ?? throw new KeyNotFoundException("Nomination not found.");
 
@@ -62,8 +62,9 @@ public class WowVotingService(AppDbContext db, IWowNotifier notifier)
             var weekVoteCount = voter.IsGuest
                 ? await db.WinVotes.CountAsync(v => v.GuestSessionId == voter.GuestSessionId && v.WinNomination.WinWeekId == week.Id)
                 : await db.WinVotes.CountAsync(v => v.TeamMemberId == voter.MemberId && v.WinNomination.WinWeekId == week.Id);
-            if (weekVoteCount >= WinOfTheWeekLimits.MaxVotesPerPerson)
-                throw new InvalidOperationException($"You can only vote up to {WinOfTheWeekLimits.MaxVotesPerPerson} times per week.");
+            var maxVotes = week.Series?.MaxVotesPerPerson ?? WinOfTheWeekLimits.DefaultMaxVotesPerPerson;
+            if (weekVoteCount >= maxVotes)
+                throw new InvalidOperationException($"You can only vote up to {maxVotes} times per week.");
         }
 
         var vote = new WinVote

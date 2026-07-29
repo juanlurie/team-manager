@@ -71,6 +71,9 @@ export interface ApiRequestConfig {
   // Marks this as eligible to be picked as an AI Prompt's connection (see features/ai-prompts) --
   // keeps that screen's connection picker from listing every non-AI integration too.
   isAiConnection?: boolean;
+  // For AI connections: the default model id. The BodyTemplate carries a {model} placeholder the
+  // executor fills from here, so switching this switches the model globally.
+  aiModel?: string | null;
 }
 
 // `vars` is the single source of truth for an action's runtime-only template placeholders —
@@ -133,6 +136,18 @@ export class ApiRequestConfigsService {
 
   delete(id: string): Observable<void> {
     return this.http.delete<void>(`${this.baseUrl}/${id}`);
+  }
+
+  // Live-fetches the provider's available model ids for an AI connection. 502 from the API when
+  // the provider call fails — callers should fall back to free-text model entry.
+  getAiModels(id: string): Observable<string[]> {
+    return this.http.get<string[]>(`${this.baseUrl}/${id}/ai-models`);
+  }
+
+  // Switches only the connection's default model. Leaves the stored API key/secret headers alone,
+  // so the model can be changed without reconfiguring credentials.
+  updateAiModel(id: string, model: string | null): Observable<ApiRequestConfig> {
+    return this.http.put<ApiRequestConfig>(`${this.baseUrl}/${id}/ai-model`, { model });
   }
 
   export(): Observable<Blob> {

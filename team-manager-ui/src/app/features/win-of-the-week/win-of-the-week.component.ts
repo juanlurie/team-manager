@@ -7,7 +7,6 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatDialogModule, MatDialog } from '@angular/material/dialog';
 import { MatSnackBarModule, MatSnackBar } from '@angular/material/snack-bar';
 import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatSelectModule } from '@angular/material/select';
 import { MatInputModule } from '@angular/material/input';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatDividerModule } from '@angular/material/divider';
@@ -22,11 +21,13 @@ import { MobileService } from '../../core/services/mobile.service';
 import { WinWeek, WinNomination, WinSeries, CreateNominationRequest, WowNominationDisplay } from '../../core/models/win-week.model';
 import { TeamMember } from '../../core/models/team-member.model';
 import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/confirm-dialog.component';
+import { WowCloseWeekDialogComponent, WowCloseWeekDialogData, WowCloseWeekResult } from './wow-close-week-dialog.component';
 import { WinOfTheWeekHistoryComponent } from '../win-of-the-week-history/win-of-the-week-history.component';
 import { WinOfTheMonthComponent } from '../win-of-the-month/win-of-the-month.component';
 import { FeatureAccessService } from '../../core/services/feature-access.service';
 import { WinSeriesService } from '../../core/services/win-series.service';
 import { AppModalComponent } from '../../shared/components/app-modal/app-modal.component';
+import { SearchableSelectComponent } from '../../shared/components/searchable-select/searchable-select.component';
 import { WowTieBreakSpinnerComponent } from '../../shared/components/wow-tie-break-spinner/wow-tie-break-spinner.component';
 import { WowCurrentWeekComponent } from './wow-current-week.component';
 import { runTieBreakSpin } from '../../shared/utils/wow.utils';
@@ -79,7 +80,6 @@ export class WowSeriesSheetComponent {
     MatDialogModule,
     MatSnackBarModule,
     MatFormFieldModule,
-    MatSelectModule,
     MatInputModule,
     MatMenuModule,
     MatDividerModule,
@@ -88,6 +88,7 @@ export class WowSeriesSheetComponent {
     WinOfTheWeekHistoryComponent,
     WinOfTheMonthComponent,
     AppModalComponent,
+    SearchableSelectComponent,
     WowTieBreakSpinnerComponent,
     WowCurrentWeekComponent
   ],
@@ -175,6 +176,7 @@ export class WowSeriesSheetComponent {
             (startSuddenDeathClick)="startTieBreaker()"
             (togglePowerUpsClick)="togglePowerUps()"
             (toggleHideVoteCountsClick)="toggleHideVoteCounts()"
+            (limitsChange)="updateLimits($event)"
             (reopenNominationsClick)="reopenNominations()"
             (suddenDeathDurationChange)="onSuddenDeathDurationChange($event)"
             (historyClick)="activeTab.set('history')"
@@ -191,14 +193,14 @@ export class WowSeriesSheetComponent {
     <app-modal [title]="editingNominationId() ? 'Edit Nomination' : 'Nominate a Win'"
                [show]="showDialog()" (closed)="closeDialog()">
       <div style="display:flex;flex-direction:column;gap:12px">
-        <mat-form-field appearance="outline" style="width:100%">
-          <mat-label>Who are you nominating?</mat-label>
-          <mat-select [(ngModel)]="nominateForm.nomineeMemberId">
-            @for (m of allMembers(); track m.id) {
-              <mat-option [value]="m.id">{{ memberName(m) }}</mat-option>
-            }
-          </mat-select>
-        </mat-form-field>
+        <app-searchable-select
+          label="Who are you nominating?"
+          placeholder="Search team members"
+          width="100%"
+          [nullable]="false"
+          [options]="allMembers()"
+          [displayFn]="memberName"
+          [(ngModel)]="nominateForm.nomineeMemberId" />
         <mat-form-field appearance="outline" style="width:100%">
           <mat-label>Title</mat-label>
           <input matInput [(ngModel)]="nominateForm.title" placeholder="e.g. Fixed the production DB issue" maxlength="200">
@@ -559,6 +561,20 @@ export class WinOfTheWeekComponent implements OnInit, OnDestroy {
     });
   }
 
+  updateLimits(limits: { maxNominations: number; maxVotes: number }) {
+    const sid = this.currentSeriesId();
+    if (!sid) return;
+    this.seriesSvc.updateLimits(sid, limits.maxNominations, limits.maxVotes).subscribe({
+      next: (updated) => {
+        this.series.update(list => list.map(s => s.id === updated.id ? updated : s));
+        // The week payload carries the caps and everyone's remaining budget — re-pull so the
+        // change lands on the board rather than only in the host panel.
+        this.refresh();
+      },
+      error: () => this.snackBar.open('Failed to update limits', 'Close', { duration: 3000 })
+    });
+  }
+
   openSeriesPicker() {
     if (this.isMobile) {
       const ref = this.bottomSheet.open(WowSeriesSheetComponent, {
@@ -667,13 +683,13 @@ export class WinOfTheWeekComponent implements OnInit, OnDestroy {
     const week = this.currentWeek();
     if (!week || week.nominations.length === 0) return;
     const topNom = [...week.nominations].sort((a, b) => b.voteCount - a.voteCount)[0];
-    const ref = this.dialog.open(ConfirmDialogComponent, {
-      width: '360px',
-      data: { title: 'Close week?', message: `Winner: "${topNom.nomineeName} — ${topNom.title}" (${topNom.voteCount} vote(s)).`, confirmLabel: 'Close', danger: false }
+    const ref = this.dialog.open(WowCloseWeekDialogComponent, {
+      width: '380px',
+      data: { winnerLabel: `${topNom.nomineeName} — ${topNom.title}`, voteCount: topNom.voteCount } as WowCloseWeekDialogData
     });
-    ref.afterClosed().subscribe(ok => {
-      if (!ok) return;
-      this.winSvc.closeWeek({ winnerNominationId: topNom.id }, this.currentSeriesId() ?? undefined).subscribe({
+    ref.afterClosed().subscribe((result?: WowCloseWeekResult) => {
+      if (!result) return;
+      this.winSvc.closeWeek({ winnerNominationId: topNom.id, theme: result.theme }, this.currentSeriesId() ?? undefined).subscribe({
         next: () => { this.snackBar.open('Week closed! Winner announced.', 'Close', { duration: 3000 }); this.refresh(); },
         error: (err) => this.snackBar.open(err.error?.error || 'Failed to close week', 'Close', { duration: 3000 })
       });

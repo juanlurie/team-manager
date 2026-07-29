@@ -108,6 +108,8 @@ export class TeamMemberPersonalComponent implements OnInit {
 
   back() { this.router.navigate(['/team']); }
 
+  openMapBoards() { this.router.navigate(['/team', this.memberId, 'personal-maps']); }
+
   private parseMapJson(raw: string | null): Record<string, string> {
     if (!raw) return {};
     try { return JSON.parse(raw); } catch { return {}; }

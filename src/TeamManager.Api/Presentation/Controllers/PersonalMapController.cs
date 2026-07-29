@@ -10,13 +10,17 @@ namespace TeamManager.Api.Presentation.Controllers;
 [Route("api/v1/personal-maps")]
 public class PersonalMapController(PersonalMapService service) : ControllerBase
 {
+    /// <param name="memberId">Whose boards to list. Defaults to the caller; only leads may pass someone else.</param>
     [HttpGet]
-    public async Task<IActionResult> GetSessions()
+    public async Task<IActionResult> GetSessions([FromQuery] Guid? memberId)
     {
-        var memberId = GetCurrentMemberId();
-        if (!memberId.HasValue) return Unauthorized();
+        var currentId = GetCurrentMemberId();
+        if (!currentId.HasValue) return Unauthorized();
 
-        return Ok(await service.GetSessionsAsync(memberId.Value));
+        var ownerId = memberId ?? currentId.Value;
+        if (ownerId != currentId.Value && !IsLead()) return Forbid();
+
+        return Ok(await service.GetSessionsAsync(ownerId));
     }
 
     [HttpPost]
@@ -35,7 +39,7 @@ public class PersonalMapController(PersonalMapService service) : ControllerBase
         var memberId = GetCurrentMemberId();
         if (!memberId.HasValue) return Unauthorized();
 
-        var session = await service.GetSessionAsync(id, memberId.Value);
+        var session = await service.GetSessionAsync(id, memberId.Value, allowAnyOwner: IsLead());
         if (session is null) return NotFound();
         return Ok(session);
     }
@@ -122,4 +126,7 @@ public class PersonalMapController(PersonalMapService service) : ControllerBase
         var claim = User.FindFirst("TMID")?.Value;
         return Guid.TryParse(claim, out var id) ? id : null;
     }
+
+    // Read-only escape hatch: leads open a member's boards from the team member page. Writes stay owner-only.
+    private bool IsLead() => User.IsInRole("TeamLead") || User.IsInRole("TechLead");
 }

@@ -31,6 +31,6 @@ export class RetroThemeManagerComponent {
   private router = inject(Router);
 
   back(): void {
-    this.router.navigate(['/pulse/retro']);
+    this.router.navigate(['/pulse/retro/classic']);
   }
 }

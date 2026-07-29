@@ -13,7 +13,11 @@ namespace TeamManager.Api.Application.Services;
 /// </summary>
 public class WinStoryGenerator(IServiceScopeFactory scopeFactory, IWowNotifier notifier) : IWinStoryGenerator
 {
-    public void Enqueue(Guid weekId, string winnerName, string title, string? description)
+    // Used when the host closes a week without picking a theme (or an automatic tie-break close,
+    // which has no host to pick one). Keeps the prompt's {theme} placeholder from resolving to blank.
+    private const string DefaultTheme = "an epic hero saga";
+
+    public void Enqueue(Guid weekId, string winnerName, string title, string? description, string? theme = null)
     {
         _ = Task.Run(async () =>
         {
@@ -26,7 +30,8 @@ public class WinStoryGenerator(IServiceScopeFactory scopeFactory, IWowNotifier n
                 {
                     ["nominee"] = winnerName,
                     ["title"] = title,
-                    ["description"] = description ?? ""
+                    ["description"] = description ?? "",
+                    ["theme"] = string.IsNullOrWhiteSpace(theme) ? DefaultTheme : theme.Trim()
                 };
 
                 var story = await bgExecutor.ExecuteAsync("AiChatWinStory", promptParams, "WinWeek", $"Win Story — {winnerName}", weekId.ToString());

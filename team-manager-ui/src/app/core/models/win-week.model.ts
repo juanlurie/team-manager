@@ -2,13 +2,16 @@ export type WowPowerUp = 'Spotlight';
 export type WowChaosCard = 'TinyText' | 'Autocorrect' | 'RandomCase' | 'Hangman';
 
 /**
- * Per-week Win of the Week budgets. Mirrors the backend WinOfTheWeekLimits — the server is the
- * authority (it enforces these), these values only drive display (e.g. "N / cap votes cast" and the
- * "X/cap remaining" hints). Keep the two in sync if the caps ever change.
+ * Fallback Win of the Week budgets. The live caps are per-series and host-configurable, and arrive
+ * on the week payload (maxVotesPerPerson / maxNominationsPerPerson); these mirror the backend
+ * WinOfTheWeekLimits defaults and are only used before a week has loaded. The server is the
+ * authority — these values drive display only.
  */
 export const WOW_LIMITS = {
   maxVotesPerPerson: 3,
   maxNominationsPerPerson: 3,
+  minPerPerson: 1,
+  maxPerPerson: 20,
 } as const;
 
 export interface WinNomination {
@@ -42,6 +45,8 @@ export interface WinSeries {
   createdAt: string;
   powerUpsEnabled: boolean;
   hideVoteCounts: boolean;
+  maxNominationsPerPerson: number;
+  maxVotesPerPerson: number;
 }
 
 export interface WinWeek {
@@ -73,6 +78,8 @@ export interface WinWeek {
   currentMemberId: string;
   userVotesRemaining: number;
   userNominationsRemaining: number;
+  maxNominationsPerPerson: number;
+  maxVotesPerPerson: number;
   totalVotesCast: number;
   activeMemberCount: number;
   connectedMemberCount: number;
@@ -150,6 +157,8 @@ export interface CreateNominationRequest {
 
 export interface CloseWeekRequest {
   winnerNominationId: string;
+  // Optional hero-story theme; drives the AiChatWinStory prompt's {theme}. Omitted = generator default.
+  theme?: string;
 }
 
 export interface StartSuddenDeathRequest {
@@ -169,6 +178,8 @@ export interface GuestWinWeek {
   isVotingOpen: boolean;
   userNominationsRemaining: number;
   userVotesRemaining: number;
+  maxNominationsPerPerson: number;
+  maxVotesPerPerson: number;
   winnerNomineeName: string | null;
   winnerTitle: string | null;
   winnerStory: string | null;

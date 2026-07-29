@@ -75,11 +75,29 @@ public record FunRetroPrevActionDto
 
 public record FunRetroAnalysisDto
 {
+    // Overall mood read off the board -- free text (e.g. "Positive", "Mixed", "Concerned"), not a
+    // fixed enum, so whatever vocabulary the configured prompt returns renders as-is.
+    public string? Sentiment { get; init; }
+    public string? SentimentSummary { get; init; }
+    // One or two things worth reading aloud and celebrating with the team -- kept separate from
+    // WellThemes (short topic tags) because this is meant to be an actual line the host can say,
+    // not a chip. Keeping the summary weighted toward what to celebrate (vs. dwelling on what's
+    // wrong) is a prompt-authoring concern, not something this DTO can enforce -- see the
+    // AnalyseRetroCards prompt guidance in the AI Prompts tab.
+    public List<string> Celebrations { get; init; } = [];
     public List<string> WellThemes { get; init; } = [];
     public List<string> BetterThemes { get; init; } = [];
     public List<string> ActionThemes { get; init; } = [];
     public List<string> KeyInsights { get; init; } = [];
     public List<string> SuggestedActions { get; init; } = [];
+}
+
+// One AI-suggested cluster of similar cards. CardIds reference existing FunRetroCard.Id values --
+// anything the model hallucinated or that no longer exists on the board is dropped before applying.
+public record FunRetroGroupSuggestionDto
+{
+    public string? Label { get; init; }
+    public List<Guid> CardIds { get; init; } = [];
 }
 
 public record FunRetroCardDto

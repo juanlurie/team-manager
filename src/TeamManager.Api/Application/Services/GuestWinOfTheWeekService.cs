@@ -11,8 +11,14 @@ namespace TeamManager.Api.Application.Services;
 
 public class GuestWinOfTheWeekService(AppDbContext db, IHttpContextAccessor httpContextAccessor, IWinOfTheWeekService wowService, WowVotingService voting, IWowNotifier notifier)
 {
-    private const int MaxVotesPerPerson = WinOfTheWeekLimits.MaxVotesPerPerson;
-    private const int MaxNominationsPerPerson = WinOfTheWeekLimits.MaxNominationsPerPerson;
+    // Budgets are per-series and host-configurable; the defaults are the fallback when a week's
+    // series isn't loaded.
+    private static int MaxNominationsFor(WinWeek week) =>
+        week.Series?.MaxNominationsPerPerson ?? WinOfTheWeekLimits.DefaultMaxNominationsPerPerson;
+
+    private static int MaxVotesFor(WinWeek week) =>
+        week.Series?.MaxVotesPerPerson ?? WinOfTheWeekLimits.DefaultMaxVotesPerPerson;
+
     public async Task<GuestTokenDto> GetOrGenerateGuestTokenAsync(Guid weekId)
     {
         var week = await db.WinWeeks.FindAsync(weekId)
@@ -84,7 +90,7 @@ public class GuestWinOfTheWeekService(AppDbContext db, IHttpContextAccessor http
         }
         else if (week.Status == WinWeekStatus.Voting)
         {
-            votesRemaining = Math.Max(0, MaxVotesPerPerson - guestVoteCount);
+            votesRemaining = Math.Max(0, MaxVotesFor(week) - guestVoteCount);
         }
 
         WinNomination? winner = null;
@@ -98,7 +104,9 @@ public class GuestWinOfTheWeekService(AppDbContext db, IHttpContextAccessor http
             Status = week.Status.ToString(),
             IsNominatingOpen = week.Status == WinWeekStatus.Nominating,
             IsVotingOpen = week.Status == WinWeekStatus.Voting || week.Status == WinWeekStatus.SuddenDeath,
-            UserNominationsRemaining = Math.Max(0, MaxNominationsPerPerson - guestNominationCount),
+            UserNominationsRemaining = Math.Max(0, MaxNominationsFor(week) - guestNominationCount),
+            MaxNominationsPerPerson = MaxNominationsFor(week),
+            MaxVotesPerPerson = MaxVotesFor(week),
             UserVotesRemaining = votesRemaining,
             WinnerNomineeName = winner != null ? $"{winner.Nominee.FirstName} {winner.Nominee.LastName}" : null,
             WinnerTitle = winner?.Title,
@@ -153,6 +161,7 @@ public class GuestWinOfTheWeekService(AppDbContext db, IHttpContextAccessor http
     public async Task<GuestNominationDto> CreateGuestNominationAsync(string token, string guestSessionId, GuestCreateNominationRequest request)
     {
         var week = await db.WinWeeks
+            .Include(w => w.Series)
             .FirstOrDefaultAsync(w => w.GuestToken == token)
             ?? throw new KeyNotFoundException("Invalid or expired guest link.");
 
@@ -162,8 +171,9 @@ public class GuestWinOfTheWeekService(AppDbContext db, IHttpContextAccessor http
         var guestNominationCount = await db.WinNominations
             .CountAsync(n => n.WinWeekId == week.Id && n.GuestSessionId == guestSessionId);
 
-        if (guestNominationCount >= MaxNominationsPerPerson)
-            throw new InvalidOperationException($"You can only submit up to {MaxNominationsPerPerson} nominations per week.");
+        var maxNominations = MaxNominationsFor(week);
+        if (guestNominationCount >= maxNominations)
+            throw new InvalidOperationException($"You can only submit up to {maxNominations} nominations per week.");
 
         var nomineeExists = await db.TeamMembers
             .AnyAsync(m => m.Id == request.NomineeMemberId && m.IsActive);

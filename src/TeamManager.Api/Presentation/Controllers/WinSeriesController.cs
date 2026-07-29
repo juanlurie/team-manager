@@ -34,6 +34,14 @@ public class WinSeriesController(WinSeriesService service, AppDbContext db) : Co
         return Ok(result);
     }
 
+    [HttpPatch("{id:guid}/limits")]
+    [RequireFeature("wow-host")]
+    public async Task<IActionResult> UpdateLimits(Guid id, [FromBody] UpdateWinSeriesLimitsRequest request)
+    {
+        var result = await service.UpdateLimitsAsync(id, request.MaxNominationsPerPerson, request.MaxVotesPerPerson);
+        return Ok(result);
+    }
+
     [HttpPost]
     [RequireFeature("wow-host")]
     public async Task<IActionResult> Create([FromBody] CreateWinSeriesRequest request)

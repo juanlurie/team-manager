@@ -8,6 +8,7 @@ export const FUN_RETRO_EVENT_TYPES = [
   'fun_retro_voted',
   'fun_retro_reacted',
   'fun_retro_analysed',
+  'fun_retro_ai_grouped',
   'fun_retro_card_moved',
   'fun_retro_card_color_changed',
   'fun_retro_card_grouped',

@@ -103,6 +103,9 @@ describe('RetroBoardStore', () => {
       expect(extract('crisp-gecko')).toBe('crisp-gecko');
     });
     it('pulls the code out of a pasted share link', () => {
+      expect(extract('https://app.example/pulse/retro/board/brave-otter')).toBe('brave-otter');
+    });
+    it('still accepts a legacy /pulse/retro-board link', () => {
       expect(extract('https://app.example/pulse/retro-board/brave-otter')).toBe('brave-otter');
     });
     it('strips a query string on a pasted link', () => {

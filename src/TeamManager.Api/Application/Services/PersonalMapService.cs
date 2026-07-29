@@ -7,16 +7,18 @@ using TeamManager.Api.Middleware;
 namespace TeamManager.Api.Application.Services;
 
 // Freeform per-person mind-map/roadmap boards -- nodes only, no connectors. Unlike retro/process
-// flows, these are scoped to their creator: list/get/delete all require ownership, since a
-// personal map isn't a shared team artifact. Real-time sync still goes through the generic
+// flows, these are scoped to their creator: every write requires ownership, since a personal map
+// isn't a shared team artifact. Reads take a separate ownerMemberId so a lead can view a member's
+// boards from the member page (the controller decides who is allowed to ask). Real-time sync still
+// goes through the generic
 // BroadcastToBoardSessionAsync room (same as process flows) so a second tab/device for the same
 // person stays in sync.
 public class PersonalMapService(AppDbContext db)
 {
-    public async Task<List<PersonalMapSessionSummaryDto>> GetSessionsAsync(Guid memberId)
+    public async Task<List<PersonalMapSessionSummaryDto>> GetSessionsAsync(Guid ownerMemberId)
     {
         return await db.PersonalMapSessions
-            .Where(s => s.CreatedByMemberId == memberId)
+            .Where(s => s.CreatedByMemberId == ownerMemberId)
             .OrderByDescending(s => s.CreatedAt)
             .Select(s => new PersonalMapSessionSummaryDto
             {
@@ -42,11 +44,12 @@ public class PersonalMapService(AppDbContext db)
         return ToDto(session);
     }
 
-    public async Task<PersonalMapSessionDto?> GetSessionAsync(Guid sessionId, Guid memberId)
+    /// <param name="allowAnyOwner">Set by the controller when the caller is a lead viewing a member's boards.</param>
+    public async Task<PersonalMapSessionDto?> GetSessionAsync(Guid sessionId, Guid memberId, bool allowAnyOwner = false)
     {
         var session = await db.PersonalMapSessions
             .Include(s => s.Nodes)
-            .FirstOrDefaultAsync(s => s.Id == sessionId && s.CreatedByMemberId == memberId);
+            .FirstOrDefaultAsync(s => s.Id == sessionId && (allowAnyOwner || s.CreatedByMemberId == memberId));
         return session is null ? null : ToDto(session);
     }
 

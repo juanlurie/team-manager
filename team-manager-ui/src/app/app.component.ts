@@ -18,6 +18,7 @@ import { AccessRequestEvent, ACCESS_REQUEST_EVENT_TYPES } from './core/websocket
 import { AppSidebarComponent } from './shared/components/app-sidebar/app-sidebar.component';
 import { AppBottomNavComponent } from './shared/components/app-bottom-nav/app-bottom-nav.component';
 import { AccessRequestsService } from './core/services/access-requests.service';
+import { PollAnnouncerService } from './core/services/poll-announcer.service';
 import { PendingApprovalsDialogComponent } from './shared/components/pending-approvals-dialog/pending-approvals-dialog.component';
 import { buildDuplicateFirstNames, memberDisplayName } from './core/utils/member-display-name';
 
@@ -170,6 +171,7 @@ export class AppComponent {
   private accessReqs = inject(AccessRequestsService);
   private tsd = inject(TimesheetDefaultsService);
   private wsSvc = inject(WebSocketService);
+  private pollAnnouncer = inject(PollAnnouncerService);
 
   nav = inject(NavService);
   mobile = inject(MobileService);
@@ -200,6 +202,9 @@ export class AppComponent {
         this.featureAccess.loadPermissions();
         this.tsd.load();
         if (this.featureAccess.hasAccess('access-requests')) this.accessReqs.refreshCount();
+        // A poll can start while you're anywhere in the app, so this listens app-wide.
+        this.wsSvc.connect();
+        this.pollAnnouncer.start();
       }
     });
 

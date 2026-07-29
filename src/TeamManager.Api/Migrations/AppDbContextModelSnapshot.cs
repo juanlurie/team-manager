@@ -134,6 +134,9 @@ namespace TeamManager.Api.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
 
+                    b.Property<string>("Model")
+                        .HasColumnType("text");
+
                     b.Property<string>("SystemPrompt")
                         .IsRequired()
                         .HasColumnType("text");
@@ -206,6 +209,9 @@ namespace TeamManager.Api.Migrations
 
                     b.Property<string>("Action")
                         .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("AiModel")
                         .HasColumnType("text");
 
                     b.Property<bool>("AutoSync")
@@ -4294,6 +4300,12 @@ namespace TeamManager.Api.Migrations
 
                     b.Property<bool>("HideVoteCounts")
                         .HasColumnType("boolean");
+
+                    b.Property<int>("MaxNominationsPerPerson")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("MaxVotesPerPerson")
+                        .HasColumnType("integer");
 
                     b.Property<string>("Name")
                         .IsRequired()

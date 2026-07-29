@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
 using TeamManager.Api.Application.DTOs;
+using TeamManager.Api.Application.Services;
 using TeamManager.Api.Domain.Entities;
 using TeamManager.Api.Infrastructure.Data;
 
@@ -16,8 +17,33 @@ namespace TeamManager.Api.Presentation.Controllers;
 public class ApiRequestConfigsController : ControllerBase
 {
     private readonly AppDbContext _db;
+    private readonly AiModelCatalogService _modelCatalog;
 
-    public ApiRequestConfigsController(AppDbContext db) => _db = db;
+    public ApiRequestConfigsController(AppDbContext db, AiModelCatalogService modelCatalog)
+    {
+        _db = db;
+        _modelCatalog = modelCatalog;
+    }
+
+    // Live-fetches available model ids from the connection's provider (Anthropic/OpenAI/Groq/
+    // Gemini/Ollama). 502 on any provider error so the UI can fall back to free-text entry.
+    [HttpGet("{id:guid}/ai-models")]
+    [Authorize(Roles = "TeamLead")]
+    public async Task<IActionResult> GetAiModels(Guid id, CancellationToken ct)
+    {
+        var config = await _db.ApiRequestConfigs.FindAsync(id);
+        if (config == null) return NotFound();
+        if (!config.IsAiConnection) return BadRequest("Not an AI connection.");
+        try
+        {
+            var models = await _modelCatalog.FetchModelsAsync(config, ct);
+            return Ok(models);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(502, ex.Message);
+        }
+    }
 
     [HttpGet]
     public async Task<IActionResult> List()
@@ -61,6 +87,7 @@ public class ApiRequestConfigsController : ControllerBase
             SuccessCriteriaJson = dto.SuccessCriteria is null ? null : JsonSerializer.Serialize(dto.SuccessCriteria),
             AutoSync = dto.AutoSync,
             IsAiConnection = dto.IsAiConnection,
+            AiModel = string.IsNullOrWhiteSpace(dto.AiModel) ? null : dto.AiModel.Trim(),
         };
 
         _db.ApiRequestConfigs.Add(config);
@@ -93,6 +120,7 @@ public class ApiRequestConfigsController : ControllerBase
         config.SuccessCriteriaJson = dto.SuccessCriteria is null ? null : JsonSerializer.Serialize(dto.SuccessCriteria);
         config.AutoSync = dto.AutoSync;
         config.IsAiConnection = dto.IsAiConnection;
+        config.AiModel = string.IsNullOrWhiteSpace(dto.AiModel) ? null : dto.AiModel.Trim();
         config.UpdatedAt = DateTimeOffset.UtcNow;
 
         await _db.SaveChangesAsync();
@@ -106,9 +134,39 @@ public class ApiRequestConfigsController : ControllerBase
         var config = await _db.ApiRequestConfigs.FindAsync(id);
         if (config == null) return NotFound();
 
+        // AiPrompt.ConnectionId references this config with OnDelete(Restrict), so the DB would
+        // throw a DbUpdateException (surfacing as a 500) if any prompt still uses it. Check first
+        // and return a friendly 409 telling the caller to repoint those prompts.
+        var referencingPrompts = await _db.AiPrompts
+            .Where(p => p.ConnectionId == id)
+            .Select(p => p.Label)
+            .ToListAsync();
+        if (referencingPrompts.Count > 0)
+        {
+            var names = string.Join(", ", referencingPrompts);
+            return Conflict($"In use by {referencingPrompts.Count} AI prompt(s): {names}. " +
+                            "Repoint them to another connection first, then delete this one.");
+        }
+
         _db.ApiRequestConfigs.Remove(config);
         await _db.SaveChangesAsync();
         return NoContent();
+    }
+
+    // Switch an AI connection's default model without re-submitting credentials. Touches only
+    // AiModel, so the stored API key/secret headers are untouched.
+    [HttpPut("{id:guid}/ai-model")]
+    [Authorize(Roles = "TeamLead")]
+    public async Task<IActionResult> UpdateAiModel(Guid id, [FromBody] UpdateAiModelRequest request)
+    {
+        var config = await _db.ApiRequestConfigs.FindAsync(id);
+        if (config == null) return NotFound();
+        if (!config.IsAiConnection) return BadRequest("Not an AI connection.");
+
+        config.AiModel = string.IsNullOrWhiteSpace(request.Model) ? null : request.Model.Trim();
+        config.UpdatedAt = DateTimeOffset.UtcNow;
+        await _db.SaveChangesAsync();
+        return Ok(ToDto(config));
     }
 
     [HttpGet("export")]
@@ -624,7 +682,8 @@ public class ApiRequestConfigsController : ControllerBase
                 ? null
                 : JsonSerializer.Deserialize<SuccessCriteriaDto>(config.SuccessCriteriaJson, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }),
             AutoSync: config.AutoSync,
-            IsAiConnection: config.IsAiConnection
+            IsAiConnection: config.IsAiConnection,
+            AiModel: config.AiModel
         );
     }
 }
