@@ -749,7 +749,6 @@ export class RetroSingleCanvasComponent implements AfterViewInit {
   private readonly STICKY_GAP = 16;
   private readonly STICKY_MARGIN = 10;
   private readonly STICKY_MIN_H = 220;
-  private readonly GROUP_CASCADE_OFFSET = 16;
   // Vertical space reserved at the top of every zone for its header (label/count/Tidy) --
   // rendered inside the pannable canvas content (not above it, unlike the old per-column
   // header which lived in its own DOM row outside a clipped .canvas-outer), so cards must
@@ -887,9 +886,21 @@ export class RetroSingleCanvasComponent implements AfterViewInit {
         let cascade = 0;
         for (const member of members) {
           if (member === anchor || localPos[member.card.id]) continue;
-          cascade++;
-          member.x = anchor.x + cascade * this.GROUP_CASCADE_OFFSET;
-          member.y = anchor.y + cascade * this.GROUP_CASCADE_OFFSET;
+          // Place in a 2-wide grid growing down from the anchor, skipping any slot already
+          // occupied by another card -- a fixed small offset (the old approach) left cards
+          // mostly overlapping since STICKY_W/STICKY_MIN_H are far bigger than any offset
+          // small enough to still read as "clustered."
+          let x: number, y: number;
+          do {
+            cascade++;
+            const col = cascade % 2;
+            const row = Math.floor((cascade - 1) / 2) + 1;
+            x = anchor.x + col * (this.STICKY_W + this.STICKY_GAP);
+            y = anchor.y + row * (this.STICKY_MIN_H + this.STICKY_GAP);
+          } while (occupied.some(p => Math.abs(p.x - x) < (this.STICKY_W + this.STICKY_GAP) && Math.abs(p.y - y) < (this.STICKY_MIN_H + this.STICKY_GAP)));
+          member.x = x;
+          member.y = y;
+          occupied.push({ x, y });
         }
       }
 
