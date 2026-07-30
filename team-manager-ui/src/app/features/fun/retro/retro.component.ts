@@ -2858,9 +2858,12 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
         this.session.update(cur => cur ? { ...cur, aiAnalysis: analysis } : cur);
         this.dialog.open(RetroAiAnalysisDialogComponent, { width: '560px', maxHeight: '85vh', panelClass: 'dark-dialog', data: analysis });
       },
-      error: () => {
+      error: (err) => {
         this.analysing.set(false);
-        this.snackBar.open('AI analysis failed — check that an AnalyseRetroCards prompt is configured', 'OK', { duration: 5000 });
+        this.snackBar.open(
+          err.error?.error ?? 'AI analysis failed — check that an AnalyseRetroCards prompt is configured',
+          'OK', { duration: 5000 }
+        );
       }
     });
   }
