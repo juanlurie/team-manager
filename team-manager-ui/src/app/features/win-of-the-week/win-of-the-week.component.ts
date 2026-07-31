@@ -110,8 +110,11 @@ export class WowSeriesSheetComponent {
   template: `
     <app-wow-tie-break-spinner [show]="isSpinning()" [name]="spinnerName()" />
 
+    <!-- Breaks out of the shared Fun-hub's 900px max-width (fun-hub.component.ts .hub) so wide
+         desktop screens actually get a multi-column nomination grid, without widening that
+         shared wrapper and affecting the other Fun tabs (Coffee Run, Scrum Poker, etc). -->
     <div [class.sudden-death-wrap]="currentWeek()?.status === 'SuddenDeath'"
-         style="max-width:1440px;margin:0 auto;padding:0 8px 80px;overflow-x:hidden">
+         style="width:100vw;position:relative;left:50%;transform:translateX(-50%);max-width:1800px;margin:0 auto;padding:0 8px 80px;overflow-x:hidden;box-sizing:border-box">
 
 
       <!-- Back button for sub-views -->

@@ -467,6 +467,8 @@ import { SessionJoinComponent } from '../../shared/components/session-join/sessi
               [winnerTitle]="w.winnerTitle"
               [winnerStory]="w.winnerStory"
               [showPoints]="true"
+              [runnersUp]="runnersUp()"
+              [storyPending]="!w.winnerStory"
               (copyStory)="copyStory.emit($event)"
             />
           }
@@ -725,6 +727,16 @@ export class WowCurrentWeekComponent {
     const w = this.week();
     if (!w || !this.hypeBattleEndsAt()) return 0;
     return w.nominations.reduce((sum, n) => sum + n.hypeMeterCount, 0);
+  });
+
+  readonly runnersUp = computed(() => {
+    const w = this.week();
+    if (!w || w.status !== 'Closed') return [];
+    return [...w.nominations]
+      .filter(n => n.id !== w.winnerNominationId)
+      .sort((a, b) => b.voteCount - a.voteCount)
+      .slice(0, 2)
+      .map(n => ({ name: n.nomineeName, voteCount: n.voteCount }));
   });
 
   readonly sortedNominations = computed(() => {
