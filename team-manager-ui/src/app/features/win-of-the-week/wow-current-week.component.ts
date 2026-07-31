@@ -770,6 +770,7 @@ export class WowCurrentWeekComponent {
       id: nom.id,
       nomineeMemberId: nom.nomineeMemberId,
       nomineeName: nom.nomineeName,
+      nomineeAvatarSeed: nom.nomineeAvatarSeed,
       nominatorName: nom.teamMemberName,
       title: nom.title,
       description: nom.description,

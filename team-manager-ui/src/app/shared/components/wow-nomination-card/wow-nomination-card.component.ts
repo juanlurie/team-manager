@@ -4,6 +4,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatMenuModule } from '@angular/material/menu';
 import { WowNominationDisplay, WowPowerUp, WowChaosCard } from '../../../core/models/win-week.model';
+import { AvatarCircleComponent } from '../../../core/components/k-picker/avatar-circle.component';
 
 export interface ReactionBurst { id: string; emoji: string; }
 
@@ -49,7 +50,7 @@ const CHAOS_CARD_META: Record<WowChaosCard, { label: string }> = {
 @Component({
   selector: 'app-wow-nomination-card',
   standalone: true,
-  imports: [MatIconModule, MatButtonModule, MatTooltipModule, MatMenuModule],
+  imports: [MatIconModule, MatButtonModule, MatTooltipModule, MatMenuModule, AvatarCircleComponent],
   changeDetection: ChangeDetectionStrategy.Default,
   styles: [`
     /* z-index:0 forces .card to establish its own stacking context, so .hype-fill's
@@ -113,8 +114,12 @@ const CHAOS_CARD_META: Record<WowChaosCard, { label: string }> = {
 
       <!-- Avatar -->
       <div [style.background]="avatarBg()" [style.color]="avatarColor()" [style.border]="avatarBorder()"
-           style="width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:0.85rem;font-weight:700">
-        {{initials()}}
+           style="width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:0.85rem;font-weight:700;overflow:hidden">
+        @if (nom.nomineeAvatarSeed) {
+          <app-avatar-circle [memberId]="nom.nomineeMemberId" [name]="nom.nomineeName" [avatarSeed]="nom.nomineeAvatarSeed" [size]="40" />
+        } @else {
+          {{initials()}}
+        }
       </div>
 
       <!-- Content -->
