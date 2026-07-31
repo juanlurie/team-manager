@@ -1,7 +1,8 @@
-import { Component, Input, Output, EventEmitter, ChangeDetectionStrategy } from '@angular/core';
+import { Component, Input, Output, EventEmitter, ChangeDetectionStrategy, OnChanges } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { RetroBoardSession, RetroBoardColumn, RetroBoardNote } from '../../../../core/models/retro-board.model';
+import { RetroBoardSession, RetroBoardColumn, RetroTopic } from '../../../../core/models/retro-board.model';
 import { NoteCommentsComponent } from '../note-comments.component';
+import { buildTopics, topicComments } from '../retro-topics';
 
 /** A note the guest wants to add: which column, the text, and whether it's anonymous. */
 export interface GuestNoteDraft { columnId: string; text: string; isAnonymous: boolean; }
@@ -33,6 +34,12 @@ export interface GuestCommentRef { noteId: string; commentId: string; }
     .note.mine { border-color: var(--ds-primary-border, rgba(91,157,240,.35)); }
     .note-text { font-size: .9rem; line-height: 1.45; color: var(--ds-text, #e6e9ef); white-space: pre-wrap; word-break: break-word; }
     .note-hidden { font-style: italic; color: var(--ds-text-faint, #667085); }
+    .grp-head { display: flex; align-items: center; gap: 7px; margin-bottom: 7px; }
+    .grp-badge { font-size: 9.5px; font-weight: 700; letter-spacing: .4px; text-transform: uppercase; padding: 1px 7px; border-radius: 999px; flex: none; background: var(--ds-primary-soft, rgba(91,157,240,.14)); color: var(--ds-primary, #5b9df0); }
+    .grp-name { font-size: .84rem; font-weight: 600; color: var(--ds-text, #e6e9ef); min-width: 0; }
+    .grp-note { display: flex; align-items: flex-start; gap: 6px; font-size: .88rem; line-height: 1.45; margin-bottom: 4px; color: var(--ds-text, #e6e9ef); }
+    .grp-note::before { content: '·'; color: var(--ds-text-faint, #667085); flex: none; }
+    .grp-note .note-text { flex: 1; min-width: 0; }
     .note-meta { display: flex; align-items: center; gap: 8px; margin-top: 8px; font-size: .72rem; color: var(--ds-text-muted, #9aa6b8); }
     .note-author { font-weight: 600; }
     .spacer { margin-left: auto; }
@@ -58,41 +65,66 @@ export interface GuestCommentRef { noteId: string; commentId: string; }
           <header class="col-head">
             <span class="col-dot" [style.background]="col.color"></span>
             <span>{{ col.label }}</span>
-            <span class="col-count">{{ notesFor(col).length }}</span>
+            <span class="col-count">{{ topicsFor(col).length }}</span>
           </header>
 
           <div class="notes">
-            @for (n of notesFor(col); track n.id) {
-              <article class="note" [class.mine]="n.isOwn">
-                @if (n.text === null) {
-                  <div class="note-text note-hidden">Hidden until the facilitator reveals</div>
+            <!-- Topics, not raw notes: once the facilitator merges near-duplicates the retro votes on
+                 the merged idea, so a guest has to see the same unit a member does. Otherwise they'd
+                 see three notes with every vote piled on one of them. -->
+            @for (t of topicsFor(col); track t.id) {
+              <article class="note" [class.mine]="t.notes[0].isOwn">
+                @if (t.isGroup) {
+                  <div class="grp-head">
+                    <span class="grp-badge">{{ t.notes.length }} merged</span>
+                    @if (t.label) { <span class="grp-name">{{ t.label }}</span> }
+                  </div>
+                  @for (n of t.notes; track n.id) {
+                    <div class="grp-note">
+                      @if (n.text === null) { <span class="note-hidden">Hidden until the facilitator reveals</span> }
+                      @else { <span class="note-text">{{ n.text }}</span> }
+                      @if (n.isOwn) {
+                        <button class="icon-btn del" (click)="deleteNote.emit(n.id)" [disabled]="!interactive" title="Delete">✕</button>
+                      }
+                    </div>
+                  }
                 } @else {
-                  <div class="note-text">{{ n.text }}</div>
+                  @if (t.notes[0].text === null) {
+                    <div class="note-text note-hidden">Hidden until the facilitator reveals</div>
+                  } @else {
+                    <div class="note-text">{{ t.notes[0].text }}</div>
+                  }
                 }
+
                 <div class="note-meta">
-                  <span class="note-author">{{ n.isAnonymous ? 'Anonymous' : (n.authorName || '—') }}</span>
-                  @if (n.isOwn) { <span>· you</span> }
+                  @if (!t.isGroup) {
+                    <span class="note-author">{{ t.notes[0].isAnonymous ? 'Anonymous' : (t.notes[0].authorName || '—') }}</span>
+                    @if (t.notes[0].isOwn) { <span>· you</span> }
+                  }
                   <span class="spacer"></span>
-                  @if (n.isOwn) {
-                    <button class="icon-btn del" (click)="deleteNote.emit(n.id)" [disabled]="!interactive" title="Delete">✕</button>
+                  @if (!t.isGroup && t.notes[0].isOwn) {
+                    <button class="icon-btn del" (click)="deleteNote.emit(t.notes[0].id)" [disabled]="!interactive" title="Delete">✕</button>
                   }
                   <span class="vote">
                     <!-- Voting is the Vote step's business. Outside it the count still shows (it's
                          part of reading the board) but the controls are gone, matching what the
                          server will accept. -->
                     @if (canVote) {
-                      @if (n.myVoteCount > 0) {
-                        <button class="icon-btn" (click)="unvote.emit(n.id)" [disabled]="!interactive" title="Remove a vote">−</button>
+                      @if (t.myVoteCount > 0) {
+                        <button class="icon-btn" (click)="unvote.emit(t.id)" [disabled]="!interactive" title="Remove a vote">−</button>
                       }
-                      <button class="icon-btn" (click)="vote.emit(n.id)" [disabled]="!interactive" title="Vote">▲</button>
+                      <button class="icon-btn" (click)="vote.emit(t.id)" [disabled]="!interactive" title="Vote">▲</button>
                     }
-                    <span [class.voted]="n.myVoteCount > 0">{{ n.voteCount }}</span>
+                    <span [class.voted]="t.myVoteCount > 0">{{ t.voteCount }}</span>
                   </span>
                 </div>
-                @if (n.text !== null) {
-                  <app-note-comments [comments]="n.comments" [canComment]="canComment" [busy]="!interactive"
-                    (addComment)="addComment.emit({ noteId: n.id, text: $event })"
-                    (deleteComment)="deleteComment.emit({ noteId: n.id, commentId: $event })" />
+
+                @if (t.notes[0].text !== null) {
+                  <!-- A merged topic carries every member's comments; new ones go on the anchor and a
+                       delete is routed to whichever note actually holds that comment. -->
+                  <app-note-comments [comments]="commentsFor(t)" [canComment]="canComment" [busy]="!interactive"
+                    (addComment)="addComment.emit({ noteId: t.id, text: $event })"
+                    (deleteComment)="onDeleteComment(t, $event)" />
                 }
               </article>
             } @empty {
@@ -117,7 +149,7 @@ export interface GuestCommentRef { noteId: string; commentId: string; }
     </div>
   `,
 })
-export class GuestRetroBoardViewComponent {
+export class GuestRetroBoardViewComponent implements OnChanges {
   @Input({ required: true }) board!: RetroBoardSession;
   /** When false (a closed retro, or an action in flight), the controls are disabled. */
   @Input() interactive = true;
@@ -140,8 +172,15 @@ export class GuestRetroBoardViewComponent {
   drafts: Record<string, string> = {};
   anon: Record<string, boolean> = {};
 
-  notesFor(col: RetroBoardColumn): RetroBoardNote[] {
-    return this.board.notes.filter(n => n.columnId === col.id);
+  /** Rebuilt whenever the board changes; the shared builder keeps this identical to what a member
+   *  sees, which matters because the two are looking at the same retro. */
+  private topics: Record<string, RetroTopic[]> = {};
+  ngOnChanges() { this.topics = buildTopics(this.board?.notes ?? []); }
+  topicsFor(col: RetroBoardColumn): RetroTopic[] { return this.topics[col.id] ?? []; }
+  commentsFor(t: RetroTopic) { return topicComments(t); }
+  onDeleteComment(t: RetroTopic, commentId: string) {
+    const owner = t.notes.find(n => n.comments.some(c => c.id === commentId));
+    if (owner) this.deleteComment.emit({ noteId: owner.id, commentId });
   }
 
   submit(columnId: string) {

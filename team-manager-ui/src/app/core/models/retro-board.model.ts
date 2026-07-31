@@ -64,6 +64,29 @@ export interface RetroBoardNote {
   myVoteCount: number;
   /** Oldest-first. Always empty while the note is hidden until reveal. */
   comments: RetroBoardNoteComment[];
+  /** Anchor of the group this note was merged into, or null when it stands alone. The anchor points
+   *  at itself (`groupId === id`), and a group never spans columns. */
+  groupId: string | null;
+  /** What the group is about — only ever set on the anchor. */
+  groupLabel: string | null;
+}
+
+/** One votable topic on the board: a group of merged notes, or a single loose note. The retro votes
+ *  on these, not on raw notes — merging exists so an idea gets one vote budget rather than one per
+ *  wording of it. Built by the store from the flat note list. */
+export interface RetroTopic {
+  /** The anchor's id for a group, the note's own id when loose — what the vote endpoints take. */
+  id: string;
+  columnId: string;
+  /** Oldest-first; the anchor is `notes[0]` for a group. Always at least one note. */
+  notes: RetroBoardNote[];
+  /** True when this is a merged group rather than a single note. */
+  isGroup: boolean;
+  /** The group's name, or null to fall back to the anchor's text. */
+  label: string | null;
+  /** Summed across every note in the topic, so votes cast before a merge still count. */
+  voteCount: number;
+  myVoteCount: number;
 }
 
 export interface RetroBoardCheckinQuestion {

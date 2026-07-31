@@ -39,6 +39,10 @@ public partial class RetroBoardService(AppDbContext db, AiPromptExecutorService 
     /// column length and the guest-name policy).</summary>
     public const int MaxCommentLength = 1000;
 
+    /// <summary>How many of one voter's votes may land on a single topic — a loose note, or a whole
+    /// group of merged notes (see RetroBoardService.Grouping).</summary>
+    public const int MaxVotesPerTopic = 3;
+
     // ---------- Queries ----------
 
     /// <summary>Active (non-archived) sessions for the lobby — draft/live first, then recently closed.
@@ -151,11 +155,20 @@ public partial class RetroBoardService(AppDbContext db, AiPromptExecutorService 
         s.Status == Status.Open
         || (s.Status == Status.Live && s.Phase is Phase.Capture or Phase.Introduce or Phase.Discuss);
 
+    /// <summary>Merging near-duplicates belongs to the read-and-talk half of the retro: Introduce (as
+    /// the facilitator reads them out and spots the same idea three times), Vote (consolidating right
+    /// before or during voting is when it matters most — see the Fun Retro rationale in #203), and
+    /// Discuss (merging two topics that turned out to be one). Not during Capture: notes are still
+    /// arriving and half of them are masked until reveal.</summary>
+    private static bool CanGroup(RetroBoardSession s) =>
+        s.Status == Status.Live && s.Phase is Phase.Introduce or Phase.Vote or Phase.Discuss;
+
     /// <summary>Message shown when a contribution arrives out of phase — names the step it belongs to
     /// so the board can explain itself rather than showing a bare conflict.</summary>
     private const string NotesClosedError = "Notes can only be added during Capture.";
     private const string VotingClosedError = "Voting is only open during the Vote step.";
     private const string CommentsClosedError = "Comments are open during Capture, Introduce and Discuss.";
+    private const string GroupingClosedError = "Notes can be grouped during Introduce, Vote and Discuss.";
 
     /// <summary>Single entry point for authorising a mutation. Returns the tracked session on
     /// <see cref="RetroActionResult.Ok"/>; otherwise the reason (NotFound / Forbidden / Closed).</summary>

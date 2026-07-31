@@ -29,6 +29,12 @@ public class RetroBoardNoteConfiguration : IEntityTypeConfiguration<RetroBoardNo
             .OnDelete(DeleteBehavior.SetNull);
 
         builder.Property(n => n.AuthorGuestSessionId).HasMaxLength(64);
+        builder.Property(n => n.GroupLabel).HasMaxLength(120);
+
+        // Deliberately a plain column, not an FK to RetroBoardNote: the anchor points at itself, and a
+        // self-referencing FK would fight the session's single cascade path on delete. The service
+        // maintains the invariant (dissolve or promote when an anchor goes) -- see SetNoteGroupAsync.
+        builder.HasIndex(n => n.GroupId).HasDatabaseName("IX_RetroBoardNote_GroupId");
 
         builder.HasIndex(n => n.RetroBoardSessionId).HasDatabaseName("IX_RetroBoardNote_SessionId");
         builder.HasIndex(n => n.RetroBoardColumnId).HasDatabaseName("IX_RetroBoardNote_ColumnId");

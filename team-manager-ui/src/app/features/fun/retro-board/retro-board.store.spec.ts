@@ -267,35 +267,217 @@ describe('RetroBoardStore — vote spend is capped locally', () => {
     store = TestBed.inject(RetroBoardStore);
   });
 
-  const currentNote = () => store.session()!.notes[0];
+  // Votes are spent on a topic, so that's what the store's vote API takes.
+  const topic = () => store.topicsFor('c1')[0];
 
   it('stops at the total budget however fast you click', () => {
     store.session.set(voting({ votesPerUser: 3 }));
-    for (let i = 0; i < 10; i++) store.vote(currentNote());
+    for (let i = 0; i < 10; i++) store.vote(topic());
     expect(addVote).toHaveBeenCalledTimes(3);          // not 10 — the surplus never leaves the client
     expect(store.votesLeft()).toBe(0);
-    expect(store.canVoteOn(currentNote())).toBe(false);
+    expect(store.canVoteOn(topic())).toBe(false);
   });
 
-  it('stops at 3 votes on a single note even with budget to spare', () => {
+  it('stops at 3 votes on a single topic even with budget to spare', () => {
     store.session.set(voting({ votesPerUser: 9 }));
-    for (let i = 0; i < 10; i++) store.vote(currentNote());
+    for (let i = 0; i < 10; i++) store.vote(topic());
     expect(addVote).toHaveBeenCalledTimes(3);
-    expect(currentNote().myVoteCount).toBe(3);
+    expect(topic().myVoteCount).toBe(3);
   });
 
   it('never unvotes below zero', () => {
     store.session.set(voting({ votesPerUser: 3, myVotesUsed: 1, notes: [note({ myVoteCount: 1, voteCount: 1 })] }));
-    store.unvote(currentNote());
-    store.unvote(currentNote());
+    store.unvote(topic());
+    store.unvote(topic());
     expect(removeVote).toHaveBeenCalledTimes(1);
-    expect(currentNote().myVoteCount).toBe(0);
+    expect(topic().myVoteCount).toBe(0);
   });
 
   it('refuses to vote at all outside the Vote phase', () => {
     store.session.set(voting({ phase: 'discuss' }));
-    store.vote(currentNote());
+    store.vote(topic());
     expect(addVote).not.toHaveBeenCalled();
+  });
+
+  // Merging exists so an idea gets ONE budget instead of one per wording of it. The client has to
+  // agree with the server here, or the buttons stay enabled and every extra click 409s.
+  it('spends the per-topic cap across a whole merged group, not per note', () => {
+    store.session.set(voting({
+      votesPerUser: 20,
+      notes: [
+        note({ id: 'n1', groupId: 'n1', groupLabel: 'Deploys' }),   // anchor
+        note({ id: 'n2', groupId: 'n1' }),
+        note({ id: 'n3', groupId: 'n1' }),
+      ],
+    }));
+    expect(topic().isGroup).toBe(true);
+    expect(topic().notes.length).toBe(3);
+
+    for (let i = 0; i < 10; i++) store.vote(topic());
+    expect(addVote).toHaveBeenCalledTimes(3);          // three for the group, not three per note
+    expect(topic().myVoteCount).toBe(3);
+    // Every vote is addressed to the anchor, which is what the server records them against.
+    expect(addVote.mock.calls.every((c: unknown[]) => c[1] === 'n1')).toBe(true);
+  });
+
+  it('counts votes cast before a merge toward the group total', () => {
+    store.session.set(voting({
+      votesPerUser: 20,
+      notes: [
+        note({ id: 'n1', groupId: 'n1', myVoteCount: 1, voteCount: 2 }),
+        note({ id: 'n2', groupId: 'n1', myVoteCount: 2, voteCount: 3 }),
+      ],
+    }));
+    expect(topic().voteCount).toBe(5);                 // summed across the group
+    expect(topic().myVoteCount).toBe(3);
+    store.vote(topic());
+    expect(addVote).not.toHaveBeenCalled();            // already at the cap — nothing was reset by merging
+  });
+});
+
+describe('RetroBoardStore — topics', () => {
+  let store: RetroBoardStore;
+
+  const note = (over: Record<string, unknown> = {}): any =>
+    ({ id: 'n', columnId: 'c1', myVoteCount: 0, voteCount: 0, groupId: null, groupLabel: null, comments: [], ...over });
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      providers: [
+        RetroBoardStore,
+        { provide: RetroBoardService, useValue: {} },
+        { provide: SquadService, useValue: {} },
+        { provide: TeamMemberService, useValue: {} },
+        { provide: WebSocketService, useValue: {} },
+        { provide: AuthService, useValue: { me: { id: 'me-1' } } },
+        { provide: Router, useValue: {} },
+      ],
+    });
+    store = TestBed.inject(RetroBoardStore);
+  });
+
+  it('turns loose notes into one topic each and merged notes into one topic per group', () => {
+    store.session.set(session({
+      notes: [
+        note({ id: 'a', groupId: 'a', groupLabel: 'Deploys' }),
+        note({ id: 'b', groupId: 'a' }),
+        note({ id: 'c' }),
+        note({ id: 'd', columnId: 'c2' }),
+      ],
+    }));
+    const c1 = store.topicsFor('c1');
+    expect(c1.length).toBe(2);
+    expect(c1[0]).toMatchObject({ id: 'a', isGroup: true, label: 'Deploys' });
+    expect(c1[0].notes.map((n: any) => n.id)).toEqual(['a', 'b']);   // anchor first
+    expect(c1[1]).toMatchObject({ id: 'c', isGroup: false, label: null });
+    expect(store.topicsFor('c2').length).toBe(1);
+  });
+
+  it('names an unlabelled group after its anchor note', () => {
+    store.session.set(session({
+      notes: [note({ id: 'a', groupId: 'a', text: 'Deploys keep failing' }), note({ id: 'b', groupId: 'a', text: 'Pipeline is flaky' })],
+    }));
+    expect(store.topicTitle(store.topicsFor('c1')[0])).toBe('Deploys keep failing');
+  });
+
+  it('ranks Discuss by the combined votes of each topic', () => {
+    store.session.set(session({
+      notes: [
+        note({ id: 'a', groupId: 'a', voteCount: 2 }),
+        note({ id: 'b', groupId: 'a', voteCount: 2 }),   // group total 4
+        note({ id: 'c', voteCount: 3 }),                  // beats either member, loses to the group
+      ],
+    }));
+    expect(store.topicsByVotes().map(t => t.id)).toEqual(['a', 'c']);
+  });
+
+  describe('canGroup', () => {
+    it('is open to a facilitator from Introduce through Discuss', () => {
+      for (const phase of ['introduce', 'vote', 'discuss']) {
+        store.session.set(session({ phase, isFacilitator: true }));
+        expect(store.canGroup()).toBe(true);
+      }
+      for (const phase of ['checkin', 'capture', 'reflect']) {
+        store.session.set(session({ phase, isFacilitator: true }));
+        expect(store.canGroup()).toBe(false);
+      }
+    });
+
+    it('is closed to a participant — merging changes what everyone votes on', () => {
+      store.session.set(session({ phase: 'vote', isFacilitator: false }));
+      expect(store.canGroup()).toBe(false);
+    });
+  });
+
+  describe('canDropOn', () => {
+    beforeEach(() => {
+      store.session.set(session({
+        phase: 'vote', isFacilitator: true,
+        notes: [
+          note({ id: 'a', groupId: 'a' }), note({ id: 'b', groupId: 'a' }),
+          note({ id: 'c' }), note({ id: 'd', columnId: 'c2' }),
+        ],
+      }));
+    });
+    const byId = (id: string) => store.session()!.notes.find((n: any) => n.id === id)!;
+
+    it('refuses a drop on itself, on its own group, or across columns', () => {
+      store.dragNoteId.set('a');
+      expect(store.canDropOn(byId('a'))).toBe(false);   // itself
+      expect(store.canDropOn(byId('b'))).toBe(false);   // already the same group
+      expect(store.canDropOn(byId('d'))).toBe(false);   // different column
+      expect(store.canDropOn(byId('c'))).toBe(true);
+    });
+
+    it('refuses every drop when grouping isn\'t available', () => {
+      store.session.update((s: any) => ({ ...s, phase: 'capture' }));
+      store.dragNoteId.set('a');
+      expect(store.canDropOn(byId('c'))).toBe(false);
+    });
+  });
+});
+
+describe('RetroBoardStore — action ↔ note links', () => {
+  let store: RetroBoardStore;
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      providers: [
+        RetroBoardStore,
+        { provide: RetroBoardService, useValue: {} },
+        { provide: SquadService, useValue: {} },
+        { provide: TeamMemberService, useValue: {} },
+        { provide: WebSocketService, useValue: {} },
+        { provide: AuthService, useValue: { me: { id: 'me-1' } } },
+        { provide: Router, useValue: {} },
+      ],
+    });
+    store = TestBed.inject(RetroBoardStore);
+    store.session.set(session({
+      notes: [
+        { id: 'a', columnId: 'c1', text: 'Deploys keep failing', groupId: 'a', groupLabel: null, voteCount: 0, myVoteCount: 0, comments: [] },
+        { id: 'b', columnId: 'c1', text: 'Pipeline is flaky', groupId: 'a', voteCount: 0, myVoteCount: 0, comments: [] },
+      ],
+      actions: [
+        { id: 'x1', title: 'Fix the pipeline', sourceNoteId: 'b', assigneeMemberIds: [] },
+        { id: 'x2', title: 'Book a workshop', sourceNoteId: null, assigneeMemberIds: [] },
+        { id: 'x3', title: 'Orphan', sourceNoteId: 'deleted-note', assigneeMemberIds: [] },
+      ],
+    }) as any);
+  });
+
+  it('resolves the note an action came from', () => {
+    const [fromNote, manual, orphan] = store.session()!.actions;
+    expect(store.sourceNoteOf(fromNote)?.text).toBe('Pipeline is flaky');
+    expect(store.sourceNoteOf(manual)).toBeNull();      // added by hand, not from a note
+    expect(store.sourceNoteOf(orphan)).toBeNull();      // its note was deleted
+  });
+
+  it('rolls a member note\'s actions up to the topic', () => {
+    const t = store.topicsFor('c1')[0];
+    expect(store.actionsFromTopic(t).map(a => a.id)).toEqual(['x1']);
+    expect(store.actionsFromNote('a')).toEqual([]);
+    expect(store.actionsFromNote('b').map(a => a.id)).toEqual(['x1']);
   });
 });
 

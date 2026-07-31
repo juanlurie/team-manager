@@ -22,6 +22,7 @@ const PRINT_CSS = `
   .bar-row { display:flex; align-items:center; gap:8px; margin:2px 0; }
   .bar-track { flex:1; height:8px; border-radius:4px; background:#eceef3; overflow:hidden; }
   .bar-fill { display:block; height:100%; background:#f5b544; }
+  .from-note { font-size:12px; color:#6a6e7e; margin-top:4px; font-style:italic; }
   .grid { display:grid; gap:14px; } .g2 { grid-template-columns:1fr 1fr; }
   .row { display:flex; gap:10px; align-items:center; } .between { justify-content:space-between; }
   @page { margin:14mm; }
@@ -32,7 +33,9 @@ const PRINT_CSS = `
   standalone: true,
   imports: [CommonModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  styles: [RETRO_STYLES],
+  styles: [RETRO_STYLES, `
+    .from-note { font-size: 11.5px; color: var(--mute); margin-top: 4px; font-style: italic; }
+  `],
   template: `
     @if (store.session(); as s) {
       <div class="phase-head">
@@ -60,10 +63,12 @@ const PRINT_CSS = `
           }
         </div>
 
-        <!-- Action items -->
+        <!-- Action items. Each carries the note it came from, so the recap explains itself weeks
+             later when nobody remembers what prompted the action. -->
         <div class="card"><h3 style="margin:0 0 12px">Action items</h3>
           @for (a of s.actions; track a.id) {
             <div class="note">{{ a.title }}
+              @if (store.sourceNoteOf(a); as src) { <div class="from-note">from “{{ src.text }}”</div> }
               @if (a.assigneeMemberIds.length) { <div class="chips">@for (m of a.assigneeMemberIds; track m) { <span class="tag">{{ store.memberName(m) }}</span> }</div> }</div>
           }
           @if (s.actions.length === 0) { <p class="muted">No actions captured.</p> }
@@ -82,15 +87,25 @@ const PRINT_CSS = `
           @if (s.checkinQuestions.length === 0) { <p class="muted">No check-in questions.</p> }
         </div>
 
-        <!-- Notes grouped by theme -->
+        <!-- Notes by theme. Merged notes stay merged in the recap: the retro voted on the topic, so
+             showing its parts separately would misreport what the team actually ranked. -->
         <div class="card"><h3 style="margin:0 0 12px">Notes</h3>
           @for (c of s.columns; track c.id) {
-            @if (store.notesFor(c.id).length) {
+            @if (store.topicsFor(c.id).length) {
               <div style="margin-bottom:14px">
                 <div style="font-weight:600;font-size:13px" [style.color]="c.color">{{ c.label }}</div>
-                @for (n of store.notesFor(c.id); track n.id) {
-                  <div class="note">{{ n.text }}
-                    <div class="muted" style="font-size:12px;margin-top:4px">{{ n.isAnonymous ? 'anon' : n.authorName }}@if (n.voteCount) { <span> · {{ n.voteCount }} vote{{ n.voteCount === 1 ? '' : 's' }}</span> }</div>
+                @for (t of store.topicsFor(c.id); track t.id) {
+                  <div class="note">
+                    @if (t.isGroup) {
+                      <div style="font-weight:600">{{ store.topicTitle(t) }} <span class="muted" style="font-weight:400">· {{ t.notes.length }} merged</span></div>
+                      @for (n of t.notes; track n.id) { <div style="margin-top:3px">· {{ n.text }}</div> }
+                    } @else {
+                      {{ t.notes[0].text }}
+                    }
+                    <div class="muted" style="font-size:12px;margin-top:4px">
+                      @if (!t.isGroup) { <span>{{ t.notes[0].isAnonymous ? 'anon' : t.notes[0].authorName }}</span> }
+                      @if (t.voteCount) { <span>{{ t.isGroup ? '' : ' · ' }}{{ t.voteCount }} vote{{ t.voteCount === 1 ? '' : 's' }}</span> }
+                    </div>
                   </div>
                 }
               </div>
