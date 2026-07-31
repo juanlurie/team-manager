@@ -22,6 +22,7 @@ export interface WinNomination {
   isGuestNomination: boolean;
   nomineeMemberId: string;
   nomineeName: string;
+  nomineeAvatarSeed: string | null;
   title: string;
   description: string | null;
   createdAt: string;
@@ -222,6 +223,7 @@ export interface WowNominationDisplay {
   id: string;
   nomineeMemberId: string;
   nomineeName: string;
+  nomineeAvatarSeed: string | null;
   nominatorName: string;
   title: string;
   description: string | null;

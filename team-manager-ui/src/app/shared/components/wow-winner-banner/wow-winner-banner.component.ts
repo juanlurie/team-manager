@@ -2,6 +2,7 @@ import { Component, input, output, inject, signal, ChangeDetectionStrategy } fro
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatMenuModule } from '@angular/material/menu';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { AiBadgeComponent } from '../ai-badge/ai-badge.component';
 import { WinnerImageService } from '../../services/winner-image.service';
@@ -18,7 +19,7 @@ const CONFETTI = Array.from({ length: 14 }, (_, i) => ({
 @Component({
   selector: 'app-wow-winner-banner',
   standalone: true,
-  imports: [MatButtonModule, MatIconModule, MatProgressSpinnerModule, AiBadgeComponent],
+  imports: [MatButtonModule, MatIconModule, MatProgressSpinnerModule, MatMenuModule, AiBadgeComponent],
   changeDetection: ChangeDetectionStrategy.Default,
   styles: [`
     :host { display: block; }
@@ -29,10 +30,12 @@ const CONFETTI = Array.from({ length: 14 }, (_, i) => ({
       border: 1px solid rgba(245,197,66,0.35);
     }
     .confetti { position: absolute; inset: 0; pointer-events: none; z-index: 0; }
-    .confetti span { position: absolute; top: 0; width: 6px; height: 10px; opacity: 0; }
-    @media (prefers-reduced-motion: no-preference) {
-      .confetti span { animation: confettiFall 2.6s ease-in infinite; }
-    }
+    /* Deliberately unconditional (not gated behind prefers-reduced-motion): on Linux without a
+       running desktop settings portal (common on tiling-WM setups), Chromium/Firefox default
+       that media feature to "reduce" even when nobody enabled it, which silently killed this
+       for a real user. Not worth the accessibility nicety losing the feature outright for a
+       celebratory, non-critical animation. */
+    .confetti span { position: absolute; top: 0; width: 6px; height: 10px; opacity: 0; animation: confettiFall 2.6s ease-in infinite; }
     @keyframes confettiFall {
       0%   { transform: translateY(-40px) rotate(0deg); opacity: 0; }
       10%  { opacity: 1; }
@@ -43,9 +46,7 @@ const CONFETTI = Array.from({ length: 14 }, (_, i) => ({
       margin: 0 auto 12px; display: flex; align-items: center; justify-content: center;
       background: conic-gradient(from 0deg, var(--ds-gold), #fff3c4, var(--ds-gold));
       box-shadow: 0 0 30px rgba(245,197,66,0.4);
-    }
-    @media (prefers-reduced-motion: no-preference) {
-      .ring-outer { animation: ringSpin 6s linear infinite; }
+      animation: ringSpin 6s linear infinite;
     }
     @keyframes ringSpin { to { transform: rotate(360deg); } }
     .ring-inner {
@@ -129,33 +130,34 @@ const CONFETTI = Array.from({ length: 14 }, (_, i) => ({
 
       <div class="actions">
         @if (nativeShare) {
+          <!-- Mobile: one tap straight into the OS share sheet, no menu needed. -->
           <button mat-stroked-button (click)="shareImage()" [disabled]="busy()"
                   style="font-size:0.75rem;height:30px;line-height:30px;min-width:0;padding:0 12px;color:rgba(245,197,66,0.85);border-color:rgba(245,197,66,0.3)">
             <mat-icon style="font-size:15px;width:15px;height:15px;vertical-align:middle;margin-right:4px">share</mat-icon>
-            {{ sharing() ? 'Preparing…' : 'Share image' }}
-          </button>
-          <button mat-stroked-button (click)="copyImage()" [disabled]="busy()"
-                  style="font-size:0.75rem;height:30px;line-height:30px;min-width:0;padding:0 12px;color:rgba(245,197,66,0.85);border-color:rgba(245,197,66,0.3)">
-            <mat-icon style="font-size:15px;width:15px;height:15px;vertical-align:middle;margin-right:4px">image</mat-icon>
-            {{ copying() ? 'Copying…' : 'Copy image' }}
+            {{ sharing() ? 'Preparing…' : 'Share' }}
           </button>
         } @else {
-          <!-- Desktop: no native file share. Copy → Teams paste; WhatsApp → copy + open web chat to paste; Download → save PNG. -->
-          <button mat-stroked-button (click)="copyImage()" [disabled]="busy()"
+          <!-- Desktop: no native file share, so one Share button opens a menu with the
+               Copy/WhatsApp/Download paths instead of three separate buttons. -->
+          <button mat-stroked-button [matMenuTriggerFor]="shareMenu" [disabled]="busy()"
                   style="font-size:0.75rem;height:30px;line-height:30px;min-width:0;padding:0 12px;color:rgba(245,197,66,0.85);border-color:rgba(245,197,66,0.3)">
-            <mat-icon style="font-size:15px;width:15px;height:15px;vertical-align:middle;margin-right:4px">content_copy</mat-icon>
-            {{ copying() ? 'Copying…' : 'Copy image' }}
+            <mat-icon style="font-size:15px;width:15px;height:15px;vertical-align:middle;margin-right:4px">share</mat-icon>
+            {{ busy() ? 'Working…' : 'Share' }}
           </button>
-          <button mat-stroked-button (click)="shareWhatsApp()" [disabled]="busy()"
-                  style="font-size:0.75rem;height:30px;line-height:30px;min-width:0;padding:0 12px;color:rgba(245,197,66,0.85);border-color:rgba(245,197,66,0.3)">
-            <mat-icon style="font-size:15px;width:15px;height:15px;vertical-align:middle;margin-right:4px">chat</mat-icon>
-            {{ sharing() ? 'Preparing…' : 'WhatsApp' }}
-          </button>
-          <button mat-stroked-button (click)="downloadImage()" [disabled]="busy()"
-                  style="font-size:0.75rem;height:30px;line-height:30px;min-width:0;padding:0 12px;color:rgba(245,197,66,0.85);border-color:rgba(245,197,66,0.3)">
-            <mat-icon style="font-size:15px;width:15px;height:15px;vertical-align:middle;margin-right:4px">download</mat-icon>
-            {{ downloading() ? 'Saving…' : 'Download' }}
-          </button>
+          <mat-menu #shareMenu="matMenu">
+            <button mat-menu-item (click)="copyImage()">
+              <mat-icon>content_copy</mat-icon>
+              <span>Copy image</span>
+            </button>
+            <button mat-menu-item (click)="shareWhatsApp()">
+              <mat-icon>chat</mat-icon>
+              <span>WhatsApp</span>
+            </button>
+            <button mat-menu-item (click)="downloadImage()">
+              <mat-icon>download</mat-icon>
+              <span>Download</span>
+            </button>
+          </mat-menu>
         }
       </div>
 
