@@ -684,7 +684,8 @@ export class WinOfTheWeekComponent implements OnInit, OnDestroy {
     if (!week || week.nominations.length === 0) return;
     const topNom = [...week.nominations].sort((a, b) => b.voteCount - a.voteCount)[0];
     const ref = this.dialog.open(WowCloseWeekDialogComponent, {
-      width: '380px',
+      width: '620px',
+      maxWidth: '95vw',
       data: { winnerLabel: `${topNom.nomineeName} — ${topNom.title}`, voteCount: topNom.voteCount } as WowCloseWeekDialogData
     });
     ref.afterClosed().subscribe((result?: WowCloseWeekResult) => {
