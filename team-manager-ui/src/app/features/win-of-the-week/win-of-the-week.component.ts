@@ -111,7 +111,7 @@ export class WowSeriesSheetComponent {
     <app-wow-tie-break-spinner [show]="isSpinning()" [name]="spinnerName()" />
 
     <div [class.sudden-death-wrap]="currentWeek()?.status === 'SuddenDeath'"
-         style="max-width:1060px;margin:0 auto;padding:0 8px 80px;overflow-x:hidden">
+         style="max-width:1440px;margin:0 auto;padding:0 8px 80px;overflow-x:hidden">
 
 
       <!-- Back button for sub-views -->
@@ -666,7 +666,7 @@ export class WinOfTheWeekComponent implements OnInit, OnDestroy {
       next: () => {
         const remaining = (this.currentWeek()?.userVotesRemaining ?? 1) - 1;
         this.snackBar.open(`Vote cast! ${remaining} votes remaining.`, 'Close', { duration: 2000 });
-        this.refresh();
+        this.silentRefresh();
       },
       error: (err) => this.snackBar.open(err.error?.error || 'Failed to vote', 'Close', { duration: 3000 })
     });
@@ -674,7 +674,7 @@ export class WinOfTheWeekComponent implements OnInit, OnDestroy {
 
   removeVote(nominationId: string) {
     this.winSvc.removeVote(nominationId).subscribe({
-      next: () => { this.snackBar.open('Vote removed', 'Close', { duration: 2000 }); this.refresh(); },
+      next: () => { this.snackBar.open('Vote removed', 'Close', { duration: 2000 }); this.silentRefresh(); },
       error: () => this.snackBar.open('Failed to remove vote', 'Close', { duration: 3000 })
     });
   }
