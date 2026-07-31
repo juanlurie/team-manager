@@ -519,7 +519,7 @@ import { SessionJoinComponent } from '../../shared/components/session-join/sessi
 
           <!-- Nominations list -->
           @if (!loading() && w && w.nominations.length > 0) {
-            <div style="display:flex;flex-direction:column;gap:10px">
+            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(380px,1fr));gap:10px;align-items:start">
               @for (nom of sortedNominations(); track nom.id) {
                 <app-wow-nomination-card
                   [nomination]="toDisplay(nom)"
