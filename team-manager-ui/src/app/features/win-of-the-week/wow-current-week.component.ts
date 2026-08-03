@@ -475,7 +475,6 @@ import { SessionJoinComponent } from '../../shared/components/session-join/sessi
               [showPoints]="true"
               [runnersUp]="runnersUp()"
               [storyPending]="!w.winnerStory"
-              (copyStory)="copyStory.emit($event)"
             />
           }
 
@@ -662,7 +661,6 @@ export class WowCurrentWeekComponent {
   removeVoteClick         = output<string>();
   editClick               = output<WowNominationDisplay>();
   deleteClick             = output<string>();
-  copyStory               = output<string>();
   shareClick              = output();
   hypeClick               = output<string>();
   applyPowerUpClick       = output<{ nominationId: string; type: string }>();
