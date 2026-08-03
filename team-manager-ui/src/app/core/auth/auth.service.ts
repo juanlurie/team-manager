@@ -199,6 +199,17 @@ export class AuthService {
     return role === 'TeamLead' || role === 'Admin';
   }
 
+  /**
+   * May create, rename and delete teams. Same membership as canAssignRoles() today but a separate
+   * question -- managing org structure isn't granting privilege -- so they get separate names
+   * rather than one standing in for the other. Mirrors TeamsController's
+   * [Authorize(Roles = "TeamLead")]; TechLead is excluded, Admin passes via the implied claim.
+   */
+  canManageTeams(): boolean {
+    const role = this._me$.value?.role;
+    return role === 'TeamLead' || role === 'Admin';
+  }
+
   isSelfOrLead(memberId: string): boolean {
     return this.isLead() || this._me$.value?.id === memberId;
   }

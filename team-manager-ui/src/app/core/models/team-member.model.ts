@@ -5,11 +5,11 @@ export interface Badge {
   category: string;
 }
 
-export interface SquadSummary {
-  id: string;
-  name: string;
-  color: string | null;
-}
+// Re-exported rather than restated: this file used to carry its own copy of SquadSummary, which
+// would now need the team fields adding in two places to stay in step with the API.
+import type { SquadSummary } from './squad.model';
+import type { TeamSummary } from './team.model';
+export type { SquadSummary };
 
 export type MemberRole = 'Member' | 'TeamLead' | 'TechLead' | 'Admin';
 
@@ -41,6 +41,11 @@ export interface TeamMember {
   joinDate: string | null;
   achievements: Badge[];
   squads: SquadSummary[];
+  /**
+   * Derived by the API from the member's squads, never stored. Plural: a member in squads across
+   * different teams belongs to all of them, so there is no singular "their team" to read.
+   */
+  teams: TeamSummary[];
 }
 
 // No role field: role is set through TeamMemberService.changeRole(), never as part of a
