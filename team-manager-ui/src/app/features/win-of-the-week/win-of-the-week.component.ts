@@ -112,9 +112,12 @@ export class WowSeriesSheetComponent {
 
     <!-- Breaks out of the shared Fun-hub's 900px max-width (fun-hub.component.ts .hub) so wide
          desktop screens actually get a multi-column nomination grid, without widening that
-         shared wrapper and affecting the other Fun tabs (Coffee Run, Scrum Poker, etc). -->
+         shared wrapper and affecting the other Fun tabs (Coffee Run, Scrum Poker, etc).
+         Uses cqw (relative to app.component's .content, which has container-type: inline-size)
+         rather than vw — vw is the full browser viewport including the sidebar, so centering
+         against it bled this panel under the sidebar on narrower screens. -->
     <div [class.sudden-death-wrap]="currentWeek()?.status === 'SuddenDeath'"
-         style="width:100vw;position:relative;left:50%;transform:translateX(-50%);max-width:1800px;margin:0 auto;padding:0 8px 80px;overflow-x:hidden;box-sizing:border-box">
+         style="width:100cqw;position:relative;left:50%;transform:translateX(-50%);max-width:1800px;margin:0 auto;padding:0 8px 80px;overflow-x:hidden;box-sizing:border-box">
 
 
       <!-- Back button for sub-views -->
@@ -159,7 +162,6 @@ export class WowSeriesSheetComponent {
             (removeVoteClick)="removeVote($event)"
             (editClick)="showEditDialog($event)"
             (deleteClick)="deleteNomination($event)"
-            (copyStory)="copyStory($event)"
             (shareClick)="copyShareLink()"
             (hypeClick)="tapHype($event)"
             (reactionClick)="sendReaction($event)"
@@ -876,9 +878,4 @@ export class WinOfTheWeekComponent implements OnInit, OnDestroy {
     }
   }
 
-  copyStory(story: string) {
-    navigator.clipboard.writeText(story)
-      .then(() => this.snackBar.open('Hero story copied! 🦸', 'Close', { duration: 2000 }))
-      .catch(() => this.snackBar.open('Failed to copy story', 'Close', { duration: 3000 }));
-  }
 }
