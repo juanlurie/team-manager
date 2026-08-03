@@ -18,12 +18,44 @@ not depend on the schema work.
   There is deliberately **no** `TeamMember.TeamId`. Adding one creates a second
   source of truth that will drift from squad membership.
 
-Consequence to be aware of: `SquadMember` is many-to-many and
+Consequence: `SquadMember` is many-to-many and
 [`SetMemberSquadsAsync`](../src/TeamManager.Api/Application/Services/SquadService.cs)
 takes a *list*, so a member can sit in several squads resolving to different
-teams, one team, or none. "The member's team" is not a single well-defined
-value. Nothing reads it today; the rule (first-by-name vs. treat-ambiguous-as-
-unset) needs deciding before anything displays it.
+teams, one team, or none. "The member's team" is not a single well-defined value.
+
+### A member's teams are a set, not a value
+
+`TeamMemberDto` gains a plural `Teams` — an ordered, distinct list — and **never**
+a singular `Team`/`TeamId`. Same reasoning as the absent `TeamMember.TeamId` one
+level up: a singular field is a second source of truth that drifts from squad
+membership. The plural shape is what stops one being added later.
+
+The alternatives were considered and rejected:
+
+- **First-by-name** invents a value the data doesn't hold, and it's unstable —
+  renaming a team or adding a squad silently changes who someone "belongs to".
+- **Ambiguous-as-unset** discards the information for exactly the people it
+  matters for, the ones working across teams, and drops them out of *every*
+  team's filter. Showing them under both is strictly better than under neither.
+
+It also needs no new UI idiom: the member row already renders `squads` as chips
+and the squad filter already matches with `.some()`.
+
+Rules that follow, to hold to:
+
+1. **Derivation** — distinct non-null `Squad.Team` across the member's squads,
+   ordered by name. Squads with no team contribute nothing; they are not a
+   "No team" pseudo-team.
+2. **Filtering is any-match.** A member in two teams appears under both. The
+   "No team" filter option means *the derived set is empty*, which includes
+   members who are in no squad at all.
+3. **Counting.** "Members per team" summed across teams can exceed headcount.
+   Any aggregate needing one number per member counts squad memberships, or
+   states the overlap — it does not get fixed by picking one team.
+4. **One place a single team *is* well-defined**: D's approval flow, where the
+   reviewer picks exactly one squad, so `squad.TeamId` is unambiguous. That is
+   "the team implied by this assignment", not "the member's team" — it must not
+   be reused as the latter.
 
 ### Roles
 
@@ -236,6 +268,14 @@ idiom for idiom.
 - [SquadService.cs](../src/TeamManager.Api/Application/Services/SquadService.cs) —
   set in create/update, project in both `ToDto`s, `.Include(s => s.Team)` on both
   query chains.
+- [TeamMemberDto.cs](../src/TeamManager.Api/Application/DTOs/TeamMember/TeamMemberDto.cs) —
+  `IReadOnlyList<TeamSummaryDto> Teams`, beside the existing `Squads`. Plural, per
+  *A member's teams are a set*.
+- [TeamMemberService.cs](../src/TeamManager.Api/Application/Services/TeamMemberService.cs) —
+  `.ThenInclude(s => s.Team)` on the two query chains that already include
+  `SquadMemberships.Squad`, and the derivation in `ToDto`: distinct non-null
+  `Squad.Team`, ordered by name. Deriving server-side is what keeps the rule in
+  one place instead of in every component that displays it.
 
 **`SquadMember` is untouched.**
 
@@ -279,11 +319,11 @@ picker would assign a team nobody can see.
   inline edit + member picker, and must not absorb team management too.
 - **Team picker per squad** in `squad-manager-dialog` — a dropdown in the squad
   header row, including an explicit "No team" option since `TeamId` is optional.
-- **`team-list`**: a Team filter alongside the existing Squad filter, and team
-  shown on each member row. A member's team derives through their squads, so
-  this can display more than one — render what the *Multi-squad → multi-team*
-  decision settles on, and until then show all distinct teams rather than
-  picking one arbitrarily.
+- **`team-list`**: a Team filter alongside the existing Squad filter, and teams
+  shown on each member row. Per *A member's teams are a set*: render every
+  distinct team, mirroring how squad chips already render; filter is any-match
+  with an explicit "No team" option for the empty set. `TeamMemberDto` carries
+  `Teams` (plural) — the API does the deriving, not the component.
 - **New `Team` / `TeamSummary` models** and a `TeamService` in
   `team-manager-ui/src/app/core/`, mirroring the existing squad model/service pair.
 - `SquadDto` gaining `teamId`/`teamName` means the squad model in
@@ -432,12 +472,10 @@ action the API would happily perform.
    technical". Worth deciding whether TechLead belongs in `MemberRole` at all,
    or is really a per-team/per-squad attribute — before more code depends on the
    current shape.
-2. **Multi-squad → multi-team.** See *Domain model* above. Needs a rule before
-   anything displays a member's team.
-
 Resolved: teams **are** user-manageable (C includes API + UI); role-granting
 rules are settled under *Who can change roles*; the bootstrap user is now
-`Admin` (was open question 3, closed by B1).
+`Admin` (was open question 3, closed by B1); multi-squad → multi-team is settled
+under *A member's teams are a set, not a value* (was open question 2).
 
 ---
 
