@@ -39,6 +39,27 @@ plan, and no TeamLead↔Team association is required. If a Team detail view late
 wants to show "who leads this", a `TeamLead` join table can be added then — it's
 a standalone table with no data migration, so deferring costs nothing.
 
+### Who can change roles
+
+| Actor | May assign |
+|---|---|
+| `TeamLead` | `Member`, `TechLead`, `TeamLead` |
+| `Admin` | All roles, including granting and revoking `Admin` |
+
+**Only an Admin can grant or revoke Admin.** This is what keeps the tiers
+meaningful — if a TeamLead could grant Admin, then every TeamLead is already
+effectively an Admin and the distinction is cosmetic.
+
+It also makes the **last-Admin guard** load-bearing rather than decorative:
+because only an Admin can create an Admin, demoting the final Admin is
+**unrecoverable from inside the app** and would need database surgery. The role
+endpoint must refuse any change that would take the Admin count to zero,
+including an Admin demoting themselves.
+
+The role endpoint therefore cannot be a flat `[Authorize(Roles = "TeamLead")]`.
+It needs a body check: reject when the *target* role is `Admin`, or the target
+member currently *is* an Admin, unless the caller is an Admin.
+
 ---
 
 ## A. Privilege-escalation fix — ship first
@@ -57,14 +78,30 @@ feature for Member. Adding Admin raises the ceiling.
 Fix:
 
 - Split role assignment into `PUT /api/teammembers/{id}/role`, gated
-  `[Authorize(Roles = "TeamLead")]`.
+  `[Authorize(Roles = "TeamLead")]` **plus** the in-body escalation check from
+  *Who can change roles* above: a caller who is not an Admin may neither grant
+  `Admin` nor modify a member who currently holds it. The attribute alone is not
+  sufficient here.
 - **Remove** `Role` from `UpdateTeamMemberRequest` and `CreateTeamMemberRequest`
   rather than merely ignoring it — dropping the field is what stops it coming
   back.
-- Add a **last-Admin guard** on the new endpoint: the only Admin must not be
-  able to demote themselves and lock the org out of settings.
+- Add the **last-Admin guard**: refuse any change taking the Admin count to zero.
 - Add an **audit row** for role changes (`ApiSyncEvent` / `WorkItemEvent` are the
   existing precedents). "Who made this person an Admin, when" is worth recording.
+
+### UI
+
+The role `mat-select` in `team-member-form` currently posts role as part of the
+general member save. Once `Role` leaves that DTO it must move:
+
+- Remove the role control from the create/edit form's normal save path.
+- Add a distinct **Change role** action (member list row menu or member detail),
+  calling the new endpoint on its own.
+- Hide `Admin` from the options when the current user is not an Admin, and
+  disable the action entirely against a member who is an Admin. This mirrors the
+  server check — it is UX, not the boundary, but it stops users hitting an
+  avoidable 403.
+- Surface the last-Admin refusal as a readable message rather than a bare error.
 
 Files:
 [TeamMembersController.cs](../src/TeamManager.Api/Presentation/Controllers/TeamMembersController.cs),
@@ -117,6 +154,9 @@ degrades to Member:
 - [team-member-form.component.ts](../team-manager-ui/src/app/features/team/team-member-form/team-member-form.component.ts) and [team-list.component.ts](../team-manager-ui/src/app/features/team/team-list/team-list.component.ts) — role dropdowns
 - `roleLabel()` in team-list.component.ts — falls through to "Member" for
   anything unknown, so an Admin displays as Member until fixed
+- **Badge styling** in the same file — `.role-member` / `.role-teamlead` /
+  `.role-techlead` exist; without a `.role-admin` the Admin badge renders
+  unstyled
 
 No migration.
 
@@ -165,8 +205,40 @@ dotnet ef migrations add AddTeamEntityAndSquadTeamFk --project src/TeamManager.A
 Purely additive — create the table, add a nullable FK column. No backfill, no
 seed team, trivial `Down`, safe to deploy ahead of the code that uses it.
 
-A `TeamsController` / `TeamService` is only needed if teams are user-manageable.
-If they are fixed org structure for now, seed rows and skip the CRUD.
+### API
+
+Teams **are** user-manageable, so this workstream includes `TeamService` +
+`TeamsController` with list / create / rename / delete, mirroring
+[SquadsController](../../src/TeamManager.Api/Presentation/Controllers/SquadsController.cs)
+— but gated `[Authorize(Roles = "TeamLead")]` from the start, which
+SquadsController is missing (see workstream D).
+
+Delete semantics follow `SetNull`: deleting a team detaches its squads rather
+than deleting them. The UI must say so before confirming.
+
+### UI
+
+Without this, C ships a table and a column nothing can touch, and D's squad
+picker would assign a team nobody can see.
+
+- **New `team-manager-dialog` component**, sibling to
+  [squad-manager-dialog](../../team-manager-ui/src/app/features/team/squad-manager-dialog/squad-manager-dialog.component.ts):
+  list, inline create, rename, delete. Reached from the same overflow menu in
+  `team-list` that opens "Manage squads".
+  Per [CLAUDE.md](../../CLAUDE.md)'s component rule this is its **own**
+  component — `squad-manager-dialog` already carries list + inline create +
+  inline edit + member picker, and must not absorb team management too.
+- **Team picker per squad** in `squad-manager-dialog` — a dropdown in the squad
+  header row, including an explicit "No team" option since `TeamId` is optional.
+- **`team-list`**: a Team filter alongside the existing Squad filter, and team
+  shown on each member row. A member's team derives through their squads, so
+  this can display more than one — render what the *Multi-squad → multi-team*
+  decision settles on, and until then show all distinct teams rather than
+  picking one arbitrarily.
+- **New `Team` / `TeamSummary` models** and a `TeamService` in
+  `team-manager-ui/src/app/core/`, mirroring the existing squad model/service pair.
+- `SquadDto` gaining `teamId`/`teamName` means the squad model in
+  `core/models/squad.model.ts` needs the same fields.
 
 ---
 
@@ -315,8 +387,9 @@ action the API would happily perform.
    anything displays a member's team.
 3. **Bootstrap user role.** First-ever user currently becomes `TeamLead`;
    recommend `Admin`.
-4. **Are teams user-manageable?** Determines whether `TeamsController` /
-   `TeamService` are in scope for workstream C.
+
+Resolved: teams **are** user-manageable (C includes API + UI); role-granting
+rules are settled under *Who can change roles*.
 
 ---
 
@@ -324,10 +397,13 @@ action the API would happily perform.
 
 | # | Workstream | Migration | Notes |
 |---|---|---|---|
-| 1 | A — escalation fix | none | Small, security, ship immediately |
-| 2 | B — Admin role | none | Touches auth + broad UI, independently testable |
-| 3 | C — Team schema | `AddTeamEntityAndSquadTeamFk` | Additive; deployable ahead of consumers |
+| 1 | A — escalation fix + role endpoint | none | Security. API + the role-control move in the member form |
+| 2 | B — Admin role | none | Auth claim change + broad UI sweep, independently testable |
+| 3 | C — Team schema, API, UI | `AddTeamEntityAndSquadTeamFk` | Largest. Migration is additive and deployable ahead of the rest |
 | 4 | D — approval assignment + role gates | none | Depends on C |
+
+Every workstream except B carries UI. C carries the most: a new team-manager
+dialog, a team picker on squads, and team display/filtering in the member list.
 
 Each is a branch off fresh `main` per [CLAUDE.md](../CLAUDE.md), PR to `main`
 via `gh pr create --base main`.
