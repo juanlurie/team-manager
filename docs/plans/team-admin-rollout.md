@@ -199,8 +199,12 @@ idiom for idiom.
 Name: **`AddTeamEntityAndSquadTeamFk`**
 
 ```
-dotnet ef migrations add AddTeamEntityAndSquadTeamFk --project src/TeamManager.Api
+./dev.sh migrate:add AddTeamEntityAndSquadTeamFk
 ```
+
+There is **no local .NET SDK** on this machine — `dev.sh` runs the EF tooling in
+a one-off SDK container. `dotnet ef …` directly will fail. Same for tests:
+`./dev.sh test`.
 
 Purely additive — create the table, add a nullable FK column. No backfill, no
 seed team, trivial `Down`, safe to deploy ahead of the code that uses it.
