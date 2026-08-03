@@ -84,6 +84,22 @@
             "runner": "vitest",
             "tsConfig": "tsconfig.spec.json"
           }
+        },
+        "storybook": {
+          "builder": "@storybook/angular-vite:start-storybook",
+          "options": {
+            "configDir": ".storybook",
+            "browserTarget": "team-manager-ui:build",
+            "port": 6006
+          }
+        },
+        "build-storybook": {
+          "builder": "@storybook/angular-vite:build-storybook",
+          "options": {
+            "configDir": ".storybook",
+            "browserTarget": "team-manager-ui:build",
+            "outputDir": "storybook-static"
+          }
         }
       }
     }
