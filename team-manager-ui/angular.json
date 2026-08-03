@@ -90,7 +90,8 @@
           "options": {
             "configDir": ".storybook",
             "browserTarget": "team-manager-ui:build",
-            "port": 6006
+            "port": 6006,
+            "host": "0.0.0.0"
           }
         },
         "build-storybook": {
