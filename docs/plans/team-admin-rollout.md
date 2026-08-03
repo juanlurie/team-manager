@@ -241,6 +241,32 @@ No migration.
 
 ## C. Team schema
 
+Split in two, on the same divide as B — the part where a wrong choice is
+expensive, and the part the compiler and the existing idiom can carry.
+
+**C1 — schema, migration, API.** Everything under `src/`: the `Team` entity and
+its configuration, `Squad.TeamId`, the migration, `TeamService` +
+`TeamsController`, the `SquadDto`/`SquadService` threading, and the derived
+`TeamMemberDto.Teams`. Three decisions here are load-bearing and none are
+mechanical:
+
+- **`DeleteBehavior.SetNull`, never cascade.** `SquadMember` already cascades
+  from `Squad`, so a cascading team delete silently wipes every squad
+  membership beneath it. This is the single most damaging thing C could get
+  wrong, and it fails quietly.
+- **Gated `[Authorize(Roles = "TeamLead")]` from the start**, plus
+  `[RequireFeature]` — both, per *Practices to hold to*. `SquadsController` is
+  the cautionary tale (workstream D); a new controller does not get to repeat it.
+- **The `Teams` derivation** — server-side, per *A member's teams are a set*.
+
+**C2 — UI.** Everything under `team-manager-ui/`: the `Team`/`TeamSummary`
+models and `TeamService` mirroring the squad pair, `squad.model.ts` gaining
+`teamId`/`teamName`, the new `team-manager-dialog`, the per-squad team picker,
+and `team-list`'s team filter and chips. Broad but pattern-following — the squad
+equivalents exist for every piece, and C1's DTOs pin the shape. Blocked on C1
+only for the DTO contract, so C1 is worth landing first rather than developing
+both against a moving shape.
+
 ### New files
 
 | File | Contents |
@@ -472,6 +498,7 @@ action the API would happily perform.
    technical". Worth deciding whether TechLead belongs in `MemberRole` at all,
    or is really a per-team/per-squad attribute — before more code depends on the
    current shape.
+
 Resolved: teams **are** user-manageable (C includes API + UI); role-granting
 rules are settled under *Who can change roles*; the bootstrap user is now
 `Admin` (was open question 3, closed by B1); multi-squad → multi-team is settled
@@ -486,11 +513,15 @@ under *A member's teams are a set, not a value* (was open question 2).
 | 1 | A — escalation fix + role endpoint | `AddMemberRoleChangeAudit` | Security. API + the role-control move in the member form |
 | 2 | B1 — hierarchy, claims, feature gating | none | Auth claim change; the authorization boundary |
 | 2 | B2 — frontend sweep | none | Broad but mechanical; derive the lists and follow the compiler |
-| 3 | C — Team schema, API, UI | `AddTeamEntityAndSquadTeamFk` | Largest. Migration is additive and deployable ahead of the rest |
-| 4 | D — approval assignment + role gates | none | Depends on C |
+| 3 | C1 — Team schema, migration, API | `AddTeamEntityAndSquadTeamFk` | Additive and deployable ahead of the UI. `SetNull` is the decision that fails quietly |
+| 4 | C2 — Team UI | none | Largest surface; every piece has a squad equivalent to mirror. Needs C1's DTOs |
+| 5 | D — approval assignment + role gates | none | Depends on C |
 
-Every workstream except B carries UI. C carries the most: a new team-manager
+Every workstream except B1 carries UI. C2 carries the most: a new team-manager
 dialog, a team picker on squads, and team display/filtering in the member list.
 
 Each is a branch off fresh `main` per [CLAUDE.md](../CLAUDE.md), PR to `main`
-via `gh pr create --base main`.
+via `gh pr create --base main`. Where a workstream cannot compile without an
+unmerged one (B needed A's enum), stack the PR on its dependency's branch and
+let GitHub retarget to `main` when that merges — a PR to `main` would otherwise
+duplicate the dependency's whole diff for review.
