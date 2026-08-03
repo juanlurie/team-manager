@@ -19,7 +19,7 @@ not depend on the schema work.
 | B1 + B2 — Admin role, hierarchy, claims, frontend sweep | [#216](https://github.com/juanlurie/team-manager/pull/216) | ✅ merged |
 | C1 — Team schema, migration, API | [#217](https://github.com/juanlurie/team-manager/pull/217) | ✅ merged |
 | C2 — Team UI | [#218](https://github.com/juanlurie/team-manager/pull/218) | ✅ merged |
-| D — approval assignment + role gates | — | 🔵 in review |
+| D — approval assignment + role gates | [#220](https://github.com/juanlurie/team-manager/pull/220) | 🔵 in review |
 
 Both migrations are applied in order: `AddMemberRoleChangeAudit` (A) then
 `AddTeamEntityAndSquadTeamFk` (C1). D carries no migration.
@@ -374,7 +374,7 @@ picker would assign a team nobody can see.
 
 ---
 
-## D. Squad-on-approval + role gates 🔵 in review
+## D. Squad-on-approval + role gates 🔵 in review (#220)
 
 ### What the build decided
 
