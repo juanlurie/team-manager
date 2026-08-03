@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 using TeamManager.Api.Application.Services;
 using TeamManager.Api.Domain.Authorization;
@@ -40,9 +41,21 @@ public class AdminRoleTests
     private static ClaimsPrincipal Principal(params Claim[] claims) =>
         new(new ClaimsIdentity(claims, "Test", "name", "role"));
 
-    private static Task<ClaimsPrincipal> Transform(AppDbContext db, ClaimsPrincipal principal) =>
-        new TeamMemberClaimsTransformer(db, NullLogger<TeamMemberClaimsTransformer>.Instance)
+    private static Task<ClaimsPrincipal> Transform(
+        AppDbContext db, ClaimsPrincipal principal, string? bootstrapAdminEmail = null) =>
+        new TeamMemberClaimsTransformer(
+                db,
+                NullLogger<TeamMemberClaimsTransformer>.Instance,
+                Config(bootstrapAdminEmail))
             .TransformAsync(principal);
+
+    /// <summary>Null leaves Bootstrap:AdminEmail unset, which is how every deployment runs normally.</summary>
+    private static IConfiguration Config(string? bootstrapAdminEmail) =>
+        new ConfigurationBuilder()
+            .AddInMemoryCollection(bootstrapAdminEmail is null
+                ? []
+                : new Dictionary<string, string?> { ["Bootstrap:AdminEmail"] = bootstrapAdminEmail })
+            .Build();
 
     // --- RoleHierarchy ---------------------------------------------------------------------
 
@@ -226,5 +239,110 @@ public class AdminRoleTests
 
         Assert.NotEmpty(adminRows);
         Assert.All(adminRows, p => Assert.True(p.IsEnabled));
+    }
+
+    // --- Bootstrap:AdminEmail recovery hatch ------------------------------------------------
+    //
+    // A deployment that predates the Admin role has members but no Admin, and the first-login
+    // bootstrap only fires on an empty table -- so it is stuck below gates it cannot reach. The
+    // safety properties matter more here than the happy path: this promotes someone without any
+    // member having authorised it, so each thing stopping it being a back door gets a test.
+
+    private static async Task<(AppDbContext Db, TeamMember Member)> BootstrapSetup(
+        MemberRole role, string email = "lead@team.local")
+    {
+        var db = NewDb();
+        var member = Member(role, sub: "sub-bootstrap");
+        member.Email = email;
+        db.TeamMembers.Add(member);
+        await db.SaveChangesAsync();
+        return (db, member);
+    }
+
+    [Fact]
+    public async Task The_configured_email_is_promoted_when_the_deployment_has_no_admin()
+    {
+        var (db, member) = await BootstrapSetup(MemberRole.Member);
+
+        var result = await Transform(db, Principal(new Claim("sub", "sub-bootstrap")), "lead@team.local");
+
+        Assert.Equal(MemberRole.Admin, (await db.TeamMembers.FindAsync(member.Id))!.Role);
+        // And the claims for *this* request already carry it -- otherwise recovery would need a
+        // second sign-in to take effect, which is exactly the confusion this is meant to end.
+        Assert.True(result.IsInRole("Admin"));
+        Assert.True(result.IsInRole("TeamLead"));
+    }
+
+    [Fact]
+    public async Task Promotion_is_audited_like_any_other_role_change()
+    {
+        var (db, member) = await BootstrapSetup(MemberRole.TechLead);
+
+        await Transform(db, Principal(new Claim("sub", "sub-bootstrap")), "lead@team.local");
+
+        var audit = Assert.Single(await db.MemberRoleChanges.ToListAsync());
+        Assert.Equal(member.Id, audit.MemberId);
+        Assert.Equal(MemberRole.TechLead, audit.FromRole);
+        Assert.Equal(MemberRole.Admin, audit.ToRole);
+        // No member made this change, which is what ActorId being nullable is for.
+        Assert.Null(audit.ActorId);
+    }
+
+    [Fact]
+    public async Task Nothing_happens_once_the_deployment_already_has_an_admin()
+    {
+        // The property that stops this being a standing grant: left switched on, it cannot re-promote
+        // someone an Admin deliberately demoted, and it cannot be used to mint a second Admin.
+        var (db, member) = await BootstrapSetup(MemberRole.Member);
+        db.TeamMembers.Add(Member(MemberRole.Admin));
+        await db.SaveChangesAsync();
+
+        await Transform(db, Principal(new Claim("sub", "sub-bootstrap")), "lead@team.local");
+
+        Assert.Equal(MemberRole.Member, (await db.TeamMembers.FindAsync(member.Id))!.Role);
+        Assert.Empty(await db.MemberRoleChanges.ToListAsync());
+    }
+
+    [Fact]
+    public async Task A_member_whose_email_does_not_match_is_never_promoted()
+    {
+        var (db, member) = await BootstrapSetup(MemberRole.Member, "someone.else@team.local");
+
+        await Transform(db, Principal(new Claim("sub", "sub-bootstrap")), "lead@team.local");
+
+        Assert.Equal(MemberRole.Member, (await db.TeamMembers.FindAsync(member.Id))!.Role);
+    }
+
+    [Fact]
+    public async Task The_email_match_ignores_case_and_surrounding_whitespace()
+    {
+        // It is going into a k8s env var by hand at the point someone is locked out and frustrated.
+        var (db, member) = await BootstrapSetup(MemberRole.Member, "Lead@Team.Local");
+
+        await Transform(db, Principal(new Claim("sub", "sub-bootstrap")), "  lead@team.local  ");
+
+        Assert.Equal(MemberRole.Admin, (await db.TeamMembers.FindAsync(member.Id))!.Role);
+    }
+
+    [Fact]
+    public async Task Unset_config_changes_nothing()
+    {
+        // The normal state of every deployment, including the one that has never needed this.
+        var (db, member) = await BootstrapSetup(MemberRole.Member);
+
+        await Transform(db, Principal(new Claim("sub", "sub-bootstrap")));
+
+        Assert.Equal(MemberRole.Member, (await db.TeamMembers.FindAsync(member.Id))!.Role);
+        Assert.Empty(await db.MemberRoleChanges.ToListAsync());
+    }
+
+    [Fact]
+    public async Task An_empty_setting_is_treated_as_unset_rather_than_matching_a_blank_email()
+    {
+        var (db, member) = await BootstrapSetup(MemberRole.Member, email: "");
+
+        await Transform(db, Principal(new Claim("sub", "sub-bootstrap")), "   ");
+
+        Assert.Equal(MemberRole.Member, (await db.TeamMembers.FindAsync(member.Id))!.Role);
     }
 }
