@@ -1,4 +1,4 @@
-import { Component, input, output, inject, signal, ChangeDetectionStrategy } from '@angular/core';
+import { Component, input, inject, signal, ChangeDetectionStrategy } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
@@ -7,14 +7,18 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 import { AiBadgeComponent } from '../ai-badge/ai-badge.component';
 import { WinnerImageService } from '../../services/winner-image.service';
 
-// 14 pieces on a 2.6s loop, negative delays spread across the whole cycle so several are
-// always mid-fall from the moment the banner mounts, instead of trickling in one at a time.
+// 14 pieces on a ~2.6s loop. Left position, color, delay (so several are always mid-fall from
+// the moment the banner mounts) and fall duration are all randomized per piece so the rain
+// looks organic instead of a evenly-spaced sweep.
 const CONFETTI_COLORS = ['var(--ds-gold)', 'var(--ds-primary)', 'var(--ds-accent)', 'var(--ds-success)', 'var(--ds-info)'];
-const CONFETTI = Array.from({ length: 14 }, (_, i) => ({
-  left: `${4 + i * 7}%`,
-  color: CONFETTI_COLORS[i % CONFETTI_COLORS.length],
-  delay: `${(-i * 0.19).toFixed(2)}s`,
-}));
+function makeConfetti() {
+  return Array.from({ length: 14 }, () => ({
+    left: `${Math.random() * 96}%`,
+    color: CONFETTI_COLORS[Math.floor(Math.random() * CONFETTI_COLORS.length)],
+    delay: `${(-Math.random() * 2.6).toFixed(2)}s`,
+    duration: `${(2.1 + Math.random() * 1.4).toFixed(2)}s`,
+  }));
+}
 
 @Component({
   selector: 'app-wow-winner-banner',
@@ -35,7 +39,7 @@ const CONFETTI = Array.from({ length: 14 }, (_, i) => ({
        that media feature to "reduce" even when nobody enabled it, which silently killed this
        for a real user. Not worth the accessibility nicety losing the feature outright for a
        celebratory, non-critical animation. */
-    .confetti span { position: absolute; top: 0; width: 6px; height: 10px; opacity: 0; animation: confettiFall 2.6s ease-in infinite; }
+    .confetti span { position: absolute; top: 0; width: 6px; height: 10px; opacity: 0; animation-name: confettiFall; animation-timing-function: ease-in; animation-iteration-count: infinite; }
     @keyframes confettiFall {
       0%   { transform: translateY(-40px) rotate(0deg); opacity: 0; }
       10%  { opacity: 1; }
@@ -82,8 +86,9 @@ const CONFETTI = Array.from({ length: 14 }, (_, i) => ({
   template: `
     <div class="card">
       <div class="confetti">
-        @for (c of confetti; track c.left) {
-          <span [style.left]="c.left" [style.background]="c.color" [style.animation-delay]="c.delay"></span>
+        @for (c of confetti; track $index) {
+          <span [style.left]="c.left" [style.background]="c.color"
+                [style.animation-delay]="c.delay" [style.animation-duration]="c.duration"></span>
         }
       </div>
 
@@ -118,13 +123,10 @@ const CONFETTI = Array.from({ length: 14 }, (_, i) => ({
       }
       @if (winnerStory()) {
         <div class="story-block">
-          <div style="font-size:0.7rem;text-transform:uppercase;letter-spacing:1px;color:var(--ds-gold);opacity:0.7;margin-bottom:8px">✨ Hero Story<app-ai-badge /></div>
+          <div style="display:flex;align-items:center;gap:6px;font-size:0.7rem;text-transform:uppercase;letter-spacing:1px;color:var(--ds-gold);opacity:0.7;margin-bottom:8px">
+            <span>✨ Hero Story</span><app-ai-badge />
+          </div>
           <div style="font-size:0.88rem;line-height:1.6;opacity:0.85;white-space:pre-wrap">{{winnerStory()}}</div>
-          <button mat-stroked-button (click)="copyStory.emit(winnerStory()!)"
-                  style="margin-top:10px;font-size:0.75rem;height:28px;line-height:28px;min-width:0;padding:0 12px;color:rgba(245,197,66,0.8);border-color:rgba(245,197,66,0.3)">
-            <mat-icon style="font-size:14px;width:14px;height:14px;vertical-align:middle;margin-right:4px">content_copy</mat-icon>
-            Copy story
-          </button>
         </div>
       }
 
@@ -176,9 +178,7 @@ export class WowWinnerBannerComponent {
   runnersUp = input<{ name: string; voteCount: number }[]>([]);
   storyPending = input(false);
 
-  copyStory = output<string>();
-
-  readonly confetti = CONFETTI;
+  readonly confetti = makeConfetti();
 
   copying = signal(false);
   sharing = signal(false);
