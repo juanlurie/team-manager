@@ -73,6 +73,12 @@ import { SessionJoinComponent } from '../../shared/components/session-join/sessi
     .mob-tab { flex: 1; padding: 10px 0; font-size: 0.8rem; font-weight: 600; text-align: center; cursor: pointer; color: rgba(255,255,255,0.45); border: none; background: none; font-family: inherit; transition: color 0.15s; border-bottom: 2px solid transparent; margin-bottom: -1px; }
     .mob-tab.active { color: #64b5f6; border-bottom-color: #64b5f6; }
     .mob-more { flex: 0 0 44px; display: flex; align-items: center; justify-content: center; color: rgba(255,255,255,0.4); }
+    /* Cards vary in height (reactions, power-ups, hype meter...), so a plain grid leaves gaps
+       under shorter cards. CSS multi-column packs each column top-to-bottom like masonry,
+       without a JS layout library -- the tradeoff is reading order goes down a column before
+       wrapping, instead of left-to-right, which is fine for a card gallery like this. */
+    .nom-masonry { column-width: 380px; column-gap: 10px; }
+    .nom-masonry app-wow-nomination-card { display: block; break-inside: avoid; margin-bottom: 10px; }
   `],
   template: `
     @let w = week();
@@ -467,6 +473,8 @@ import { SessionJoinComponent } from '../../shared/components/session-join/sessi
               [winnerTitle]="w.winnerTitle"
               [winnerStory]="w.winnerStory"
               [showPoints]="true"
+              [runnersUp]="runnersUp()"
+              [storyPending]="!w.winnerStory"
               (copyStory)="copyStory.emit($event)"
             />
           }
@@ -519,7 +527,7 @@ import { SessionJoinComponent } from '../../shared/components/session-join/sessi
 
           <!-- Nominations list -->
           @if (!loading() && w && w.nominations.length > 0) {
-            <div style="display:flex;flex-direction:column;gap:10px">
+            <div class="nom-masonry">
               @for (nom of sortedNominations(); track nom.id) {
                 <app-wow-nomination-card
                   [nomination]="toDisplay(nom)"
@@ -727,6 +735,16 @@ export class WowCurrentWeekComponent {
     return w.nominations.reduce((sum, n) => sum + n.hypeMeterCount, 0);
   });
 
+  readonly runnersUp = computed(() => {
+    const w = this.week();
+    if (!w || w.status !== 'Closed') return [];
+    return [...w.nominations]
+      .filter(n => n.id !== w.winnerNominationId)
+      .sort((a, b) => b.voteCount - a.voteCount)
+      .slice(0, 2)
+      .map(n => ({ name: n.nomineeName, voteCount: n.voteCount }));
+  });
+
   readonly sortedNominations = computed(() => {
     const w = this.week();
     if (!w) return [];
@@ -752,6 +770,7 @@ export class WowCurrentWeekComponent {
       id: nom.id,
       nomineeMemberId: nom.nomineeMemberId,
       nomineeName: nom.nomineeName,
+      nomineeAvatarSeed: nom.nomineeAvatarSeed,
       nominatorName: nom.teamMemberName,
       title: nom.title,
       description: nom.description,

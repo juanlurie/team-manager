@@ -110,8 +110,11 @@ export class WowSeriesSheetComponent {
   template: `
     <app-wow-tie-break-spinner [show]="isSpinning()" [name]="spinnerName()" />
 
+    <!-- Breaks out of the shared Fun-hub's 900px max-width (fun-hub.component.ts .hub) so wide
+         desktop screens actually get a multi-column nomination grid, without widening that
+         shared wrapper and affecting the other Fun tabs (Coffee Run, Scrum Poker, etc). -->
     <div [class.sudden-death-wrap]="currentWeek()?.status === 'SuddenDeath'"
-         style="max-width:1060px;margin:0 auto;padding:0 8px 80px;overflow-x:hidden">
+         style="width:100vw;position:relative;left:50%;transform:translateX(-50%);max-width:1800px;margin:0 auto;padding:0 8px 80px;overflow-x:hidden;box-sizing:border-box">
 
 
       <!-- Back button for sub-views -->
@@ -666,7 +669,7 @@ export class WinOfTheWeekComponent implements OnInit, OnDestroy {
       next: () => {
         const remaining = (this.currentWeek()?.userVotesRemaining ?? 1) - 1;
         this.snackBar.open(`Vote cast! ${remaining} votes remaining.`, 'Close', { duration: 2000 });
-        this.refresh();
+        this.silentRefresh();
       },
       error: (err) => this.snackBar.open(err.error?.error || 'Failed to vote', 'Close', { duration: 3000 })
     });
@@ -674,7 +677,7 @@ export class WinOfTheWeekComponent implements OnInit, OnDestroy {
 
   removeVote(nominationId: string) {
     this.winSvc.removeVote(nominationId).subscribe({
-      next: () => { this.snackBar.open('Vote removed', 'Close', { duration: 2000 }); this.refresh(); },
+      next: () => { this.snackBar.open('Vote removed', 'Close', { duration: 2000 }); this.silentRefresh(); },
       error: () => this.snackBar.open('Failed to remove vote', 'Close', { duration: 3000 })
     });
   }
@@ -684,7 +687,8 @@ export class WinOfTheWeekComponent implements OnInit, OnDestroy {
     if (!week || week.nominations.length === 0) return;
     const topNom = [...week.nominations].sort((a, b) => b.voteCount - a.voteCount)[0];
     const ref = this.dialog.open(WowCloseWeekDialogComponent, {
-      width: '380px',
+      width: '620px',
+      maxWidth: '95vw',
       data: { winnerLabel: `${topNom.nomineeName} — ${topNom.title}`, voteCount: topNom.voteCount } as WowCloseWeekDialogData
     });
     ref.afterClosed().subscribe((result?: WowCloseWeekResult) => {
