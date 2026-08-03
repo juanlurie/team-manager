@@ -197,6 +197,10 @@ public partial class RetroBoardService
                     CreatedAt = n.CreatedAt,
                     VoteCount = n.Votes.Count,
                     MyVoteCount = n.Votes.Count(VotedByViewer),
+                    // Grouping survives masking: a merged note is still merged even while its text is
+                    // hidden, and the client needs that to lay the board out consistently.
+                    GroupId = n.GroupId,
+                    GroupLabel = n.GroupLabel,
                     // Hidden note → no comments either; a comment would leak both the note's existence
                     // and, through the quoted context people write, its content.
                     Comments = hidden ? [] : n.Comments.OrderBy(c => c.CreatedAt).Select(c => new RetroBoardNoteCommentDto

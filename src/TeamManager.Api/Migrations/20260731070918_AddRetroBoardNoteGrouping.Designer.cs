@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using TeamManager.Api.Infrastructure.Data;
@@ -11,9 +12,11 @@ using TeamManager.Api.Infrastructure.Data;
 namespace TeamManager.Api.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260731070918_AddRetroBoardNoteGrouping")]
+    partial class AddRetroBoardNoteGrouping
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -2065,39 +2068,6 @@ namespace TeamManager.Api.Migrations
                     b.ToTable("MemberPersonals");
                 });
 
-            modelBuilder.Entity("TeamManager.Api.Domain.Entities.MemberRoleChange", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasDefaultValueSql("gen_random_uuid()");
-
-                    b.Property<Guid?>("ActorId")
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("FromRole")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("character varying(50)");
-
-                    b.Property<Guid>("MemberId")
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("ToRole")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("character varying(50)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("MemberId", "CreatedAt");
-
-                    b.ToTable("MemberRoleChanges");
-                });
-
             modelBuilder.Entity("TeamManager.Api.Domain.Entities.MemberSkill", b =>
                 {
                     b.Property<Guid>("Id")
@@ -3861,12 +3831,7 @@ namespace TeamManager.Api.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
 
-                    b.Property<Guid?>("TeamId")
-                        .HasColumnType("uuid");
-
                     b.HasKey("Id");
-
-                    b.HasIndex("TeamId");
 
                     b.ToTable("Squads");
                 });
@@ -3892,26 +3857,6 @@ namespace TeamManager.Api.Migrations
                         .IsUnique();
 
                     b.ToTable("SquadMembers");
-                });
-
-            modelBuilder.Entity("TeamManager.Api.Domain.Entities.Team", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasDefaultValueSql("gen_random_uuid()");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("Name")
-                        .IsUnique();
-
-                    b.ToTable("Teams");
                 });
 
             modelBuilder.Entity("TeamManager.Api.Domain.Entities.TeamMember", b =>
@@ -6144,16 +6089,6 @@ namespace TeamManager.Api.Migrations
                     b.Navigation("Voter");
                 });
 
-            modelBuilder.Entity("TeamManager.Api.Domain.Entities.Squad", b =>
-                {
-                    b.HasOne("TeamManager.Api.Domain.Entities.Team", "Team")
-                        .WithMany("Squads")
-                        .HasForeignKey("TeamId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.Navigation("Team");
-                });
-
             modelBuilder.Entity("TeamManager.Api.Domain.Entities.SquadMember", b =>
                 {
                     b.HasOne("TeamManager.Api.Domain.Entities.Squad", "Squad")
@@ -6729,11 +6664,6 @@ namespace TeamManager.Api.Migrations
             modelBuilder.Entity("TeamManager.Api.Domain.Entities.Squad", b =>
                 {
                     b.Navigation("Members");
-                });
-
-            modelBuilder.Entity("TeamManager.Api.Domain.Entities.Team", b =>
-                {
-                    b.Navigation("Squads");
                 });
 
             modelBuilder.Entity("TeamManager.Api.Domain.Entities.TeamMember", b =>

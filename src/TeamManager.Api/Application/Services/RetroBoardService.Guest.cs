@@ -122,6 +122,7 @@ public partial class RetroBoardService
         var note = await db.RetroBoardNotes.FirstOrDefaultAsync(n => n.Id == noteId && n.RetroBoardSessionId == session!.Id);
         if (note is null) return (RetroActionResult.NotFound, null, null);
         if (note.AuthorGuestSessionId != guestSessionId) return (RetroActionResult.Forbidden, null, null);   // own notes only
+        await ReseatGroupAfterDeleteAsync(note);
         db.RetroBoardNotes.Remove(note);
         await db.SaveChangesAsync();
         Broadcast(session!.Id, "rb_note_deleted", new { sessionId = session.Id, noteId });
@@ -182,17 +183,20 @@ public partial class RetroBoardService
         var (guard, session, _) = await GuardGuestAsync(slug, guestSessionId);
         if (guard != RetroActionResult.Ok) return (guard, guard == RetroActionResult.Closed ? "This retro is closed." : null);
         if (!CanVote(session!)) return (RetroActionResult.Conflict, VotingClosedError);
-        if (!await db.RetroBoardNotes.AnyAsync(n => n.Id == noteId && n.RetroBoardSessionId == session!.Id))
-            return (RetroActionResult.NotFound, "Note not found.");
+        var note = await db.RetroBoardNotes.FirstOrDefaultAsync(n => n.Id == noteId && n.RetroBoardSessionId == session!.Id);
+        if (note is null) return (RetroActionResult.NotFound, "Note not found.");
 
         var used = await db.RetroBoardVotes.CountAsync(v => v.Note!.RetroBoardSessionId == session!.Id && v.GuestSessionId == guestSessionId);
         if (used >= session!.VotesPerUser) return (RetroActionResult.Conflict, "No votes left.");
-        var onThisNote = await db.RetroBoardVotes.CountAsync(v => v.RetroBoardNoteId == noteId && v.GuestSessionId == guestSessionId);
-        if (onThisNote >= 3) return (RetroActionResult.Conflict, "Max 3 votes per topic.");
+        // Same rule as a member: a group is one topic, so the vote lands on the anchor and the cap
+        // counts across the whole group.
+        var target = VoteTargetOf(note);
+        var onThisTopic = await CountVotesOnTopicAsync(session.Id, target, null, guestSessionId);
+        if (onThisTopic >= MaxVotesPerTopic) return (RetroActionResult.Conflict, $"Max {MaxVotesPerTopic} votes per topic.");
 
-        db.RetroBoardVotes.Add(new RetroBoardVote { RetroBoardNoteId = noteId, GuestSessionId = guestSessionId });
+        db.RetroBoardVotes.Add(new RetroBoardVote { RetroBoardNoteId = target, GuestSessionId = guestSessionId });
         await db.SaveChangesAsync();
-        Broadcast(session.Id, "rb_voted", new { sessionId = session.Id, noteId });
+        Broadcast(session.Id, "rb_voted", new { sessionId = session.Id, noteId = target });
         return (RetroActionResult.Ok, null);
     }
 
@@ -202,8 +206,11 @@ public partial class RetroBoardService
         var (guard, session, _) = await GuardGuestAsync(slug, guestSessionId);
         if (guard != RetroActionResult.Ok) return (guard, null);
         if (!CanVote(session!)) return (RetroActionResult.Conflict, VotingClosedError);
+        var note = await db.RetroBoardNotes.FirstOrDefaultAsync(n => n.Id == noteId && n.RetroBoardSessionId == session!.Id);
+        if (note is null) return (RetroActionResult.NotFound, null);
+        var groupIds = await TopicNoteIdsAsync(session!.Id, VoteTargetOf(note));
         var vote = await db.RetroBoardVotes
-            .Where(v => v.RetroBoardNoteId == noteId && v.GuestSessionId == guestSessionId && v.Note!.RetroBoardSessionId == session!.Id)
+            .Where(v => groupIds.Contains(v.RetroBoardNoteId) && v.GuestSessionId == guestSessionId && v.Note!.RetroBoardSessionId == session!.Id)
             .OrderByDescending(v => v.CreatedAt)
             .FirstOrDefaultAsync();
         if (vote is null) return (RetroActionResult.NotFound, null);

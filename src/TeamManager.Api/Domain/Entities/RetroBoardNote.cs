@@ -25,6 +25,19 @@ public class RetroBoardNote
     /// <summary>Set when the note was introduced in the spotlight (owner presented it).</summary>
     public DateTimeOffset? IntroducedAt { get; set; }
 
+    /// <summary>Groups near-duplicate notes into one topic so the team votes on the idea rather than
+    /// splitting its vote across three wordings of it. Null when the note stands alone; otherwise the
+    /// id of the group's <b>anchor</b> note, which points at itself (<c>GroupId == Id</c>). Modelled
+    /// exactly like <see cref="FunRetroCard.GroupId"/> so both retro surfaces behave the same.
+    ///
+    /// A group always lives inside one column — the columns are the themes, and merging across them
+    /// would erase the distinction they exist to draw.</summary>
+    public Guid? GroupId { get; set; }
+
+    /// <summary>What the group is about. Only meaningful on the anchor; set by the AI grouper or
+    /// edited by the facilitator, and cleared when the group dissolves.</summary>
+    public string? GroupLabel { get; set; }
+
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
 
     public RetroBoardSession? Session { get; set; }

@@ -175,6 +175,37 @@ public class RetroBoardController(RetroBoardService service) : ControllerBase
     public async Task<IActionResult> RemoveVote(Guid id, Guid noteId) =>
         await RunMsg(m => service.RemoveVoteAsync(id, m, noteId));
 
+    // ---------- Note grouping (merge near-duplicates into one votable topic) ----------
+
+    /// <summary>Drag a note onto another: joins the target's group, creating one if it has none.</summary>
+    [HttpPost("{id:guid}/notes/{noteId:guid}/group")]
+    public async Task<IActionResult> GroupNote(Guid id, Guid noteId, [FromBody] GroupNoteRequest req) =>
+        await RunMsg(m => service.GroupNoteAsync(id, m, noteId, req.TargetNoteId));
+
+    /// <summary>Pull a single note back out of its group.</summary>
+    [HttpDelete("{id:guid}/notes/{noteId:guid}/group")]
+    public async Task<IActionResult> UngroupNote(Guid id, Guid noteId) =>
+        await RunMsg(m => service.UngroupNoteAsync(id, m, noteId));
+
+    /// <summary>Break a whole group apart.</summary>
+    [HttpDelete("{id:guid}/groups/{anchorId:guid}")]
+    public async Task<IActionResult> Ungroup(Guid id, Guid anchorId) =>
+        await RunMsg(m => service.UngroupAsync(id, m, anchorId));
+
+    [HttpPatch("{id:guid}/groups/{anchorId:guid}/label")]
+    public async Task<IActionResult> SetGroupLabel(Guid id, Guid anchorId, [FromBody] GroupLabelRequest req) =>
+        await RunMsg(m => service.SetGroupLabelAsync(id, m, anchorId, req.Label));
+
+    /// <summary>Ask the AI to cluster near-duplicate notes and apply the result.</summary>
+    [HttpPost("{id:guid}/group-similar")]
+    public async Task<IActionResult> GroupSimilar(Guid id)
+    {
+        var memberId = GetMemberId();
+        if (memberId is null) return Unauthorized();
+        var (result, error, grouped) = await service.GroupSimilarNotesAsync(id, memberId.Value);
+        return result == RetroActionResult.Ok ? Ok(new { grouped }) : MapResult(result, error);
+    }
+
     // ---------- Note comments ----------
 
     [HttpPost("{id:guid}/notes/{noteId:guid}/comments")]

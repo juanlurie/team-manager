@@ -125,6 +125,8 @@ public partial class RetroBoardService
         // An author can retract a note while the board is still capturing; a facilitator can clear one
         // at any point (they're moderating, not contributing).
         if (!CanAddNotes(access!.Session) && !access.IsFacilitator) return (RetroActionResult.Conflict, NotesClosedError);
+        // Keep the group valid: deleting its anchor promotes a survivor, and a group of one dissolves.
+        await ReseatGroupAfterDeleteAsync(note);
         db.RetroBoardNotes.Remove(note);
         await db.SaveChangesAsync();
         Broadcast(sessionId, "rb_note_deleted", new { sessionId, noteId });
@@ -176,18 +178,22 @@ public partial class RetroBoardService
         var (guard, session) = await GuardAsync(sessionId, memberId, facilitatorOnly: false, blockClosed: true);
         if (guard != RetroActionResult.Ok) return (guard, guard == RetroActionResult.Closed ? "This retro is closed." : null);
         if (!CanVote(session!)) return (RetroActionResult.Conflict, VotingClosedError);
-        var noteOk = await db.RetroBoardNotes.AnyAsync(n => n.Id == noteId && n.RetroBoardSessionId == sessionId);
-        if (!noteOk) return (RetroActionResult.NotFound, "Note not found.");
+        var note = await db.RetroBoardNotes.FirstOrDefaultAsync(n => n.Id == noteId && n.RetroBoardSessionId == sessionId);
+        if (note is null) return (RetroActionResult.NotFound, "Note not found.");
 
         var used = await db.RetroBoardVotes.CountAsync(v => v.Note!.RetroBoardSessionId == sessionId && v.MemberId == memberId);
         if (used >= session!.VotesPerUser) return (RetroActionResult.Conflict, "No votes left.");
 
-        var onThisNote = await db.RetroBoardVotes.CountAsync(v => v.RetroBoardNoteId == noteId && v.MemberId == memberId);
-        if (onThisNote >= 3) return (RetroActionResult.Conflict, "Max 3 votes per topic.");
+        // A group is ONE topic: the vote lands on the anchor and the per-topic cap counts every vote
+        // the member has on any note in the group — otherwise merging three wordings of an idea would
+        // hand everyone 9 votes on it instead of 3.
+        var target = VoteTargetOf(note);
+        var onThisTopic = await CountVotesOnTopicAsync(sessionId, target, memberId, null);
+        if (onThisTopic >= MaxVotesPerTopic) return (RetroActionResult.Conflict, $"Max {MaxVotesPerTopic} votes per topic.");
 
-        db.RetroBoardVotes.Add(new RetroBoardVote { RetroBoardNoteId = noteId, MemberId = memberId });
+        db.RetroBoardVotes.Add(new RetroBoardVote { RetroBoardNoteId = target, MemberId = memberId });
         await db.SaveChangesAsync();
-        Broadcast(sessionId, "rb_voted", new { sessionId, noteId });
+        Broadcast(sessionId, "rb_voted", new { sessionId, noteId = target });
         return (RetroActionResult.Ok, null);
     }
 
@@ -196,8 +202,13 @@ public partial class RetroBoardService
         var (guard, session) = await GuardAsync(sessionId, memberId, facilitatorOnly: false, blockClosed: true);
         if (guard != RetroActionResult.Ok) return (guard, null);
         if (!CanVote(session!)) return (RetroActionResult.Conflict, VotingClosedError);
+        var note = await db.RetroBoardNotes.FirstOrDefaultAsync(n => n.Id == noteId && n.RetroBoardSessionId == sessionId);
+        if (note is null) return (RetroActionResult.NotFound, null);
+        // Take back the newest vote anywhere in the topic, so a member can undo a vote they cast on a
+        // note before it was merged into this group.
+        var groupIds = await TopicNoteIdsAsync(sessionId, VoteTargetOf(note));
         var vote = await db.RetroBoardVotes
-            .Where(v => v.RetroBoardNoteId == noteId && v.MemberId == memberId && v.Note!.RetroBoardSessionId == sessionId)
+            .Where(v => groupIds.Contains(v.RetroBoardNoteId) && v.MemberId == memberId && v.Note!.RetroBoardSessionId == sessionId)
             .OrderByDescending(v => v.CreatedAt)
             .FirstOrDefaultAsync();
         if (vote is null) return (RetroActionResult.NotFound, null);

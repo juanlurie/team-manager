@@ -86,6 +86,11 @@ public record RetroBoardNoteDto
     public DateTimeOffset CreatedAt { get; init; }
     public int VoteCount { get; init; }
     public int MyVoteCount { get; init; }
+    /// <summary>The anchor of the group this note was merged into, or null when it stands alone. The
+    /// anchor points at itself. Clients render one votable topic per group.</summary>
+    public Guid? GroupId { get; init; }
+    /// <summary>What the group is about — only ever set on the anchor.</summary>
+    public string? GroupLabel { get; init; }
     /// <summary>Oldest-first. Empty while the note is hidden until reveal — a comment would leak the
     /// note's existence and content the same way its text would.</summary>
     public List<RetroBoardNoteCommentDto> Comments { get; init; } = [];
@@ -270,6 +275,8 @@ public record FeedbackPromptInput { public string Text { get; init; } = ""; }
 public record FeedbackResponseRequest { public int Score { get; init; } public string? Comment { get; init; } }
 public record SetParticipantRoleRequest { public Guid MemberId { get; init; } public string Role { get; init; } = "participant"; }
 public record NoteCommentRequest { public string Text { get; init; } = ""; }
+public record GroupNoteRequest { public Guid TargetNoteId { get; init; } }
+public record GroupLabelRequest { public string? Label { get; init; } }
 public record SetSquadRequest { public Guid? SquadId { get; init; } }
 
 public record AddRetroBoardActionRequest

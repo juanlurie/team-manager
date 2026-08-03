@@ -1161,4 +1161,277 @@ public class RetroBoardServiceTests
         await svc.SetParticipantRoleAsync(s.Id, facil.Id, part.Id, "facilitator");
         Assert.Equal(RetroActionResult.Conflict, (await svc.RemoveParticipantAsync(s.Id, part.Id, partRow.Id)).result);
     }
+
+    // ---- Note grouping ----
+    // A group is the set of notes sharing a GroupId, which is the id of the anchor -- the one note
+    // pointing at itself. The service owns three invariants: a group never spans columns, never has
+    // fewer than two notes, and always has an anchor that is a member of it.
+
+    /// <summary>A live board on <paramref name="phase"/> with two columns and `count` notes in the
+    /// first, all authored by the facilitator, plus one note in the second column.</summary>
+    private static async Task<(RetroBoardService svc, RetroBoardSession s, List<RetroBoardNote> notes, RetroBoardNote other, TeamMember facil, TeamMember part)>
+        GroupingBoard(AppDbContext db, string phase = "vote", int count = 3)
+    {
+        var facil = Member("Fac");
+        var part = Member("Par");
+        db.TeamMembers.AddRange(facil, part);
+        var s = Session(facil.Id, status: "live", phase: phase);
+        s.NotesRevealed = true;
+        s.VotesPerUser = 20;                     // budget out of the way; the per-topic cap is the subject
+        db.RetroBoardSessions.Add(s);
+        var colA = new RetroBoardColumn { Id = Guid.NewGuid(), RetroBoardSessionId = s.Id, Key = "well", Label = "Well", Color = "#fff", Icon = "star", SortOrder = 0 };
+        var colB = new RetroBoardColumn { Id = Guid.NewGuid(), RetroBoardSessionId = s.Id, Key = "better", Label = "Better", Color = "#fff", Icon = "star", SortOrder = 1 };
+        db.RetroBoardColumns.AddRange(colA, colB);
+        var notes = Enumerable.Range(0, count).Select(i => new RetroBoardNote
+        {
+            Id = Guid.NewGuid(), RetroBoardSessionId = s.Id, RetroBoardColumnId = colA.Id,
+            AuthorMemberId = facil.Id, Text = $"note {i}", CreatedAt = DateTimeOffset.UtcNow.AddMinutes(i),
+        }).ToList();
+        var other = new RetroBoardNote { Id = Guid.NewGuid(), RetroBoardSessionId = s.Id, RetroBoardColumnId = colB.Id, AuthorMemberId = facil.Id, Text = "other column" };
+        db.RetroBoardNotes.AddRange(notes);
+        db.RetroBoardNotes.Add(other);
+        await db.SaveChangesAsync();
+        var svc = Svc(db);
+        await svc.JoinAsync(s.Id, facil.Id);
+        await svc.JoinAsync(s.Id, part.Id);
+        return (svc, s, notes, other, facil, part);
+    }
+
+    private static async Task<List<RetroBoardNote>> Reload(AppDbContext db, Guid sessionId) =>
+        await db.RetroBoardNotes.Where(n => n.RetroBoardSessionId == sessionId).ToListAsync();
+
+    [Fact]
+    public async Task Dragging_a_note_onto_a_loose_note_makes_that_target_the_anchor()
+    {
+        using var db = NewDb();
+        var (svc, s, notes, _, facil, _) = await GroupingBoard(db);
+
+        Assert.Equal(RetroActionResult.Ok, (await svc.GroupNoteAsync(s.Id, facil.Id, notes[0].Id, notes[1].Id)).result);
+
+        var after = await Reload(db, s.Id);
+        var anchor = after.Single(n => n.Id == notes[1].Id);
+        Assert.Equal(anchor.Id, anchor.GroupId);                                  // the anchor points at itself
+        Assert.Equal(anchor.Id, after.Single(n => n.Id == notes[0].Id).GroupId);
+        Assert.Null(after.Single(n => n.Id == notes[2].Id).GroupId);              // untouched
+    }
+
+    [Fact]
+    public async Task Dragging_a_group_onto_another_note_merges_the_whole_stack()
+    {
+        using var db = NewDb();
+        var (svc, s, notes, _, facil, _) = await GroupingBoard(db, count: 4);
+        await svc.GroupNoteAsync(s.Id, facil.Id, notes[0].Id, notes[1].Id);       // group A = {0,1}, anchor 1
+        await svc.GroupNoteAsync(s.Id, facil.Id, notes[2].Id, notes[3].Id);       // group B = {2,3}, anchor 3
+
+        // Drag group A's anchor onto group B — everything in A should follow, not just the anchor.
+        Assert.Equal(RetroActionResult.Ok, (await svc.GroupNoteAsync(s.Id, facil.Id, notes[1].Id, notes[3].Id)).result);
+
+        var after = await Reload(db, s.Id);
+        Assert.All(notes, n => Assert.Equal(notes[3].Id, after.Single(x => x.Id == n.Id).GroupId));
+    }
+
+    [Fact]
+    public async Task Groups_never_span_columns()
+    {
+        using var db = NewDb();
+        var (svc, s, notes, other, facil, _) = await GroupingBoard(db);
+
+        var (result, error) = await svc.GroupNoteAsync(s.Id, facil.Id, notes[0].Id, other.Id);
+        Assert.Equal(RetroActionResult.Conflict, result);
+        Assert.Equal("Notes can only be grouped within the same column.", error);
+    }
+
+    [Fact]
+    public async Task Ungrouping_the_whole_group_returns_every_note_to_standalone()
+    {
+        using var db = NewDb();
+        var (svc, s, notes, _, facil, _) = await GroupingBoard(db);
+        await svc.GroupNoteAsync(s.Id, facil.Id, notes[0].Id, notes[1].Id);
+        await svc.SetGroupLabelAsync(s.Id, facil.Id, notes[1].Id, "Deploy reliability");
+
+        Assert.Equal(RetroActionResult.Ok, (await svc.UngroupAsync(s.Id, facil.Id, notes[1].Id)).result);
+
+        var after = await Reload(db, s.Id);
+        Assert.All(after, n => Assert.Null(n.GroupId));
+        Assert.All(after, n => Assert.Null(n.GroupLabel));
+    }
+
+    [Fact]
+    public async Task Pulling_the_anchor_out_promotes_a_survivor_and_carries_the_label()
+    {
+        using var db = NewDb();
+        var (svc, s, notes, _, facil, _) = await GroupingBoard(db);
+        // Group of three, anchored on notes[2].
+        await svc.GroupNoteAsync(s.Id, facil.Id, notes[0].Id, notes[2].Id);
+        await svc.GroupNoteAsync(s.Id, facil.Id, notes[1].Id, notes[2].Id);
+        await svc.SetGroupLabelAsync(s.Id, facil.Id, notes[2].Id, "Flaky pipeline");
+
+        Assert.Equal(RetroActionResult.Ok, (await svc.UngroupNoteAsync(s.Id, facil.Id, notes[2].Id)).result);
+
+        var after = await Reload(db, s.Id);
+        Assert.Null(after.Single(n => n.Id == notes[2].Id).GroupId);              // it left
+        // The oldest survivor is promoted, still anchors the pair, and keeps the group's name.
+        var promoted = after.Single(n => n.Id == notes[0].Id);
+        Assert.Equal(promoted.Id, promoted.GroupId);
+        Assert.Equal("Flaky pipeline", promoted.GroupLabel);
+        Assert.Equal(promoted.Id, after.Single(n => n.Id == notes[1].Id).GroupId);
+    }
+
+    [Fact]
+    public async Task A_group_of_one_dissolves_rather_than_lingering()
+    {
+        using var db = NewDb();
+        var (svc, s, notes, _, facil, _) = await GroupingBoard(db);
+        await svc.GroupNoteAsync(s.Id, facil.Id, notes[0].Id, notes[1].Id);
+
+        await svc.UngroupNoteAsync(s.Id, facil.Id, notes[0].Id);
+
+        var after = await Reload(db, s.Id);
+        Assert.Null(after.Single(n => n.Id == notes[1].Id).GroupId);              // the leftover is loose again
+    }
+
+    [Fact]
+    public async Task Deleting_the_anchor_keeps_the_rest_of_the_group_intact()
+    {
+        using var db = NewDb();
+        var (svc, s, notes, _, facil, _) = await GroupingBoard(db, phase: "capture");
+        // Group while the board allows it, then move to Capture so the facilitator can delete.
+        s.Phase = "vote";
+        await db.SaveChangesAsync();
+        await svc.GroupNoteAsync(s.Id, facil.Id, notes[0].Id, notes[2].Id);
+        await svc.GroupNoteAsync(s.Id, facil.Id, notes[1].Id, notes[2].Id);
+        s.Phase = "capture";
+        await db.SaveChangesAsync();
+
+        Assert.Equal(RetroActionResult.Ok, (await svc.DeleteNoteAsync(s.Id, facil.Id, notes[2].Id)).result);
+
+        var after = await Reload(db, s.Id);
+        Assert.DoesNotContain(after, n => n.Id == notes[2].Id);
+        var promoted = after.Single(n => n.Id == notes[0].Id);
+        Assert.Equal(promoted.Id, promoted.GroupId);
+        Assert.Equal(promoted.Id, after.Single(n => n.Id == notes[1].Id).GroupId);
+    }
+
+    // ---- Voting on a group ----
+    // "Voting will then be on a group": the whole point of merging is that the idea gets one vote
+    // budget instead of one per wording.
+
+    [Fact]
+    public async Task A_vote_on_any_member_of_a_group_lands_on_the_anchor()
+    {
+        using var db = NewDb();
+        var (svc, s, notes, _, facil, part) = await GroupingBoard(db);
+        await svc.GroupNoteAsync(s.Id, facil.Id, notes[0].Id, notes[1].Id);
+
+        Assert.Equal(RetroActionResult.Ok, (await svc.AddVoteAsync(s.Id, part.Id, notes[0].Id)).result);
+
+        var votes = await db.RetroBoardVotes.ToListAsync();
+        Assert.Equal(notes[1].Id, Assert.Single(votes).RetroBoardNoteId);         // recorded against the anchor
+    }
+
+    [Fact]
+    public async Task The_per_topic_cap_applies_across_the_whole_group_not_per_note()
+    {
+        using var db = NewDb();
+        var (svc, s, notes, _, facil, part) = await GroupingBoard(db);
+        await svc.GroupNoteAsync(s.Id, facil.Id, notes[0].Id, notes[1].Id);
+
+        for (var i = 0; i < 3; i++)
+            Assert.Equal(RetroActionResult.Ok, (await svc.AddVoteAsync(s.Id, part.Id, notes[0].Id)).result);
+
+        // A 4th on the group is refused however it's addressed -- via either member note.
+        Assert.Equal(RetroActionResult.Conflict, (await svc.AddVoteAsync(s.Id, part.Id, notes[0].Id)).result);
+        Assert.Equal(RetroActionResult.Conflict, (await svc.AddVoteAsync(s.Id, part.Id, notes[1].Id)).result);
+        // A separate topic still has its own allowance.
+        Assert.Equal(RetroActionResult.Ok, (await svc.AddVoteAsync(s.Id, part.Id, notes[2].Id)).result);
+    }
+
+    [Fact]
+    public async Task Votes_cast_before_a_merge_still_count_toward_the_group_and_its_cap()
+    {
+        using var db = NewDb();
+        var (svc, s, notes, _, facil, part) = await GroupingBoard(db);
+        // Two votes on one note, one on another, all before they're merged.
+        await svc.AddVoteAsync(s.Id, part.Id, notes[0].Id);
+        await svc.AddVoteAsync(s.Id, part.Id, notes[0].Id);
+        await svc.AddVoteAsync(s.Id, part.Id, notes[1].Id);
+
+        await svc.GroupNoteAsync(s.Id, facil.Id, notes[0].Id, notes[1].Id);
+
+        // The group already holds 3 of this member's votes, so it's full -- nothing was lost or reset.
+        Assert.Equal(RetroActionResult.Conflict, (await svc.AddVoteAsync(s.Id, part.Id, notes[1].Id)).result);
+        var board = (await svc.GetSessionAsync(s.Id, part.Id))!;
+        Assert.Equal(3, board.Notes.Where(n => n.GroupId == notes[1].Id).Sum(n => n.VoteCount));
+    }
+
+    [Fact]
+    public async Task Unvoting_takes_back_a_vote_cast_anywhere_in_the_group()
+    {
+        using var db = NewDb();
+        var (svc, s, notes, _, facil, part) = await GroupingBoard(db);
+        await svc.AddVoteAsync(s.Id, part.Id, notes[0].Id);      // cast on the note that later becomes a member
+        await svc.GroupNoteAsync(s.Id, facil.Id, notes[0].Id, notes[1].Id);
+
+        // Addressed via the anchor, but the only vote sits on the member note -- it must still come off.
+        Assert.Equal(RetroActionResult.Ok, (await svc.RemoveVoteAsync(s.Id, part.Id, notes[1].Id)).result);
+        Assert.Empty(await db.RetroBoardVotes.ToListAsync());
+    }
+
+    [Fact]
+    public async Task Ungrouping_leaves_votes_on_the_notes_that_hold_them()
+    {
+        using var db = NewDb();
+        var (svc, s, notes, _, facil, part) = await GroupingBoard(db);
+        await svc.GroupNoteAsync(s.Id, facil.Id, notes[0].Id, notes[1].Id);
+        await svc.AddVoteAsync(s.Id, part.Id, notes[0].Id);      // lands on the anchor, notes[1]
+
+        await svc.UngroupAsync(s.Id, facil.Id, notes[1].Id);
+
+        var board = (await svc.GetSessionAsync(s.Id, part.Id))!;
+        Assert.Equal(1, board.Notes.Single(n => n.Id == notes[1].Id).VoteCount);
+        Assert.Equal(0, board.Notes.Single(n => n.Id == notes[0].Id).VoteCount);
+    }
+
+    // ---- Grouping permissions and phases ----
+
+    [Theory]
+    [InlineData("introduce", RetroActionResult.Ok)]
+    [InlineData("vote", RetroActionResult.Ok)]
+    [InlineData("discuss", RetroActionResult.Ok)]
+    [InlineData("capture", RetroActionResult.Conflict)]
+    [InlineData("checkin", RetroActionResult.Conflict)]
+    public async Task Grouping_is_open_from_Introduce_through_Discuss(string phase, RetroActionResult expected)
+    {
+        using var db = NewDb();
+        var (svc, s, notes, _, facil, _) = await GroupingBoard(db, phase);
+
+        var (result, _) = await svc.GroupNoteAsync(s.Id, facil.Id, notes[0].Id, notes[1].Id);
+        Assert.Equal(expected, result);
+    }
+
+    [Fact]
+    public async Task Only_a_facilitator_may_regroup_the_board()
+    {
+        using var db = NewDb();
+        var (svc, s, notes, _, _, part) = await GroupingBoard(db);
+
+        // Grouping changes what everyone else votes on, so it's a facilitation act.
+        Assert.Equal(RetroActionResult.Forbidden, (await svc.GroupNoteAsync(s.Id, part.Id, notes[0].Id, notes[1].Id)).result);
+        Assert.Equal(RetroActionResult.Forbidden, (await svc.UngroupAsync(s.Id, part.Id, notes[1].Id)).result);
+    }
+
+    [Fact]
+    public async Task Grouping_a_note_into_the_group_it_is_already_in_is_a_no_op()
+    {
+        using var db = NewDb();
+        var (svc, s, notes, _, facil, _) = await GroupingBoard(db);
+        await svc.GroupNoteAsync(s.Id, facil.Id, notes[0].Id, notes[1].Id);
+
+        // A stray drop back onto its own stack shouldn't read as an error.
+        Assert.Equal(RetroActionResult.Ok, (await svc.GroupNoteAsync(s.Id, facil.Id, notes[0].Id, notes[1].Id)).result);
+        Assert.Equal(RetroActionResult.Invalid, (await svc.GroupNoteAsync(s.Id, facil.Id, notes[0].Id, notes[0].Id)).result);
+
+        var after = await Reload(db, s.Id);
+        Assert.Equal(notes[1].Id, after.Single(n => n.Id == notes[0].Id).GroupId);
+    }
 }

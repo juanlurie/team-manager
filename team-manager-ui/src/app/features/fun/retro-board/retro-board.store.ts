@@ -15,9 +15,11 @@ import { AuthService } from '../../../core/auth/auth.service';
 import {
   RetroBoardSession, RetroBoardSummary, RetroPhase, RetroBoardNote, RetroBoardParticipant,
   RetroBoardFeedbackPrompt, RetroStepDurations, RetroPhaseFlags, RetroColumnInput, DEFAULT_STEP_DURATIONS,
-  RetroBoardNoteComment,
+  RetroBoardNoteComment, RetroBoardAction, RetroTopic,
 } from '../../../core/models/retro-board.model';
 import * as F from './retro-format';
+import * as T from './retro-topics';
+import { buildTopics } from './retro-topics';
 
 export type StructureLevel = 'freeform' | 'guided' | 'structured';
 
@@ -113,8 +115,9 @@ const PHASE_TIMER: Record<string, keyof RetroBoardSession['stepDurations']> = {
 export interface Member { id: string; name: string; }
 export interface ActionDraft { noteId: string; title: string; assignees: string[]; }
 
-/** Server-enforced ceiling on how many of your votes can land on one note (RetroBoardService). */
-export const MAX_VOTES_PER_NOTE = 3;
+/** Server-enforced ceiling on how many of your votes can land on one topic — a loose note or a whole
+ *  merged group (RetroBoardService.MaxVotesPerTopic). */
+export const MAX_VOTES_PER_TOPIC = 3;
 
 /** Quick timer nudges offered to the facilitator, in seconds — the same "give them another 30s"
  *  affordance Win of the Week's host controls have. */
@@ -670,6 +673,111 @@ export class RetroBoardStore implements OnDestroy {
   distPct(p: RetroBoardFeedbackPrompt, star: number) { return p.responseCount ? (p.distribution[star - 1] / p.responseCount) * 100 : 0; }
 
   notesFor(colId: string) { return this.notesByColumn()[colId] ?? []; }
+
+  // ── Topics: what the board actually votes on and discusses ──────────────────────────────────
+  // Merging near-duplicates exists so an idea gets ONE vote budget instead of one per wording, so
+  // everything downstream of Capture works in topics, not raw notes. A topic is a group of merged
+  // notes or a single loose one; the server mirrors this (RetroBoardService.Grouping) and redirects
+  // votes to the anchor, which is why the counts here are summed across the whole group — votes cast
+  // before a merge still belong to it.
+  private topicsByColumn = computed(() => buildTopics(this.session()?.notes ?? []));
+  topicsFor(colId: string) { return this.topicsByColumn()[colId] ?? []; }
+  /** Every topic on the board, highest-voted first — the Discuss running order. */
+  topicsByVotes = computed(() =>
+    Object.values(this.topicsByColumn()).flat().sort((a, b) => b.voteCount - a.voteCount));
+  /** What to call a topic: the group's name, else its anchor note's text. */
+  topicTitle(t: RetroTopic) { return T.topicTitle(t); }
+  /** A group shows every member's comments, not just the anchor's. */
+  topicComments(t: RetroTopic) { return T.topicComments(t); }
+  /** New comments go on the anchor — one place to read them back from. */
+  addTopicComment(t: RetroTopic, text: string) { this.addComment(t.id, text); }
+  /** Delete resolves the note the comment actually lives on, which for a group may be a member. */
+  delTopicComment(t: RetroTopic, commentId: string) {
+    const owner = t.notes.find(n => n.comments.some(c => c.id === commentId));
+    if (owner) this.delComment(owner.id, commentId);
+  }
+  /** Raise an action from a topic, pre-titled with what the topic is called — for a merged group
+   *  that's the group's name, not whichever note happened to anchor it. */
+  startTopicAction(t: RetroTopic) {
+    this.actionDraft.set({ noteId: t.id, title: this.topicTitle(t), assignees: [] });
+    this.assigneeQuery = '';
+  }
+
+  // ── Grouping (facilitator-only; the server enforces the same) ────────────────────────────────
+  /** Merging changes what everyone else votes on, so it's a facilitation act — and it belongs to the
+   *  read-and-talk half of the retro, not to Capture where notes are still arriving and masked. */
+  canGroup = computed(() => {
+    const s = this.session();
+    return this.amFacilitator() && !!s && s.status === 'live' && (s.phase === 'introduce' || s.phase === 'vote' || s.phase === 'discuss');
+  });
+  grouping = signal(false);
+  /** The note currently being dragged, so drop targets can light up (and refuse themselves). */
+  dragNoteId = signal<string | null>(null);
+  /** Whether dropping the dragged note here would do anything: same column, different topic. */
+  canDropOn(target: RetroBoardNote): boolean {
+    const id = this.dragNoteId();
+    if (!id || !this.canGroup() || id === target.id) return false;
+    const dragged = this.session()?.notes.find(n => n.id === id);
+    if (!dragged || dragged.columnId !== target.columnId) return false;
+    return (dragged.groupId ?? dragged.id) !== (target.groupId ?? target.id);
+  }
+  /** Drop the dragged note onto `target`, merging the two topics. */
+  dropOn(target: RetroBoardNote) {
+    const s = this.session();
+    const id = this.dragNoteId();
+    this.dragNoteId.set(null);
+    if (!s || !id || !this.canDropOn(target)) return;
+    this.svc.groupNote(s.id, id, target.id).subscribe({
+      next: () => this.refresh(s.id),
+      error: () => this.refresh(s.id),
+    });
+  }
+  /** Topic-level wrappers for the drop target — a topic is dropped onto by its anchor. */
+  canDropOnTopic(t: RetroTopic) { return !!t.notes[0] && this.canDropOn(t.notes[0]); }
+  dropOnTopic(t: RetroTopic) { if (t.notes[0]) this.dropOn(t.notes[0]); }
+  startDrag(n: RetroBoardNote) { if (this.canGroup()) this.dragNoteId.set(n.id); }
+  endDrag() { this.dragNoteId.set(null); }
+
+  ungroupTopic(t: RetroTopic) {
+    const s = this.session();
+    if (!s || !t.isGroup || !this.canGroup()) return;
+    this.svc.ungroup(s.id, t.id).subscribe({ next: () => this.refresh(s.id) });
+  }
+  ungroupNote(n: RetroBoardNote) {
+    const s = this.session();
+    if (!s || !n.groupId || !this.canGroup()) return;
+    this.svc.ungroupNote(s.id, n.id).subscribe({ next: () => this.refresh(s.id) });
+  }
+  renameTopic(t: RetroTopic, label: string) {
+    const s = this.session();
+    if (!s || !t.isGroup || !this.canGroup()) return;
+    this.svc.setGroupLabel(s.id, t.id, label.trim() || null).subscribe({ next: () => this.refresh(s.id) });
+  }
+  /** Bulk AI clustering, applied through the same anchor mechanic the drag uses. */
+  groupSimilar() {
+    const s = this.session();
+    if (!s || !this.canGroup() || this.grouping()) return;
+    this.grouping.set(true); this.error.set(null);
+    this.svc.groupSimilar(s.id).subscribe({
+      next: () => { this.grouping.set(false); this.refresh(s.id); },
+      error: e => { this.grouping.set(false); this.error.set(e?.error?.error || 'AI grouping unavailable.'); },
+    });
+  }
+
+  // ── Actions ↔ notes ─────────────────────────────────────────────────────────────────────────
+  /** Actions raised from this note, so a note can show what it produced. */
+  actionsFromNote(noteId: string) { return (this.session()?.actions ?? []).filter(a => a.sourceNoteId === noteId); }
+  /** Actions raised from anywhere in this topic — a group's actions are its members' actions. */
+  actionsFromTopic(t: RetroTopic) {
+    const ids = new Set(t.notes.map(n => n.id));
+    return (this.session()?.actions ?? []).filter(a => a.sourceNoteId && ids.has(a.sourceNoteId));
+  }
+  /** The note an action came from, when it was raised from one (null for a manually added action,
+   *  or when that note has since been deleted). */
+  sourceNoteOf(a: RetroBoardAction): RetroBoardNote | null {
+    if (!a.sourceNoteId) return null;
+    return this.session()?.notes.find(n => n.id === a.sourceNoteId) ?? null;
+  }
   // Theme colour for a note's column, for colour-coding topics in Discuss. Returns a hex fallback
   // (not a CSS var) so callers that append an alpha suffix — e.g. `columnColor(id)+'22'` — stay valid.
   columnColor(columnId: string) { return this.session()?.columns.find(c => c.id === columnId)?.color ?? '#7d5cff'; }
@@ -708,21 +816,26 @@ export class RetroBoardStore implements OnDestroy {
     }));
   }
   votesLeft = computed(() => { const s = this.session(); return s ? Math.max(0, s.votesPerUser - s.myVotesUsed) : 0; });
-  canVoteOn(n: RetroBoardNote) { return this.canVote() && this.votesLeft() > 0 && n.myVoteCount < MAX_VOTES_PER_NOTE; }
-  canUnvoteOn(n: RetroBoardNote) { return this.canVote() && n.myVoteCount > 0; }
-  vote(n: RetroBoardNote) {
+  // Votes are spent on a TOPIC, so the per-topic cap counts the whole group. Merging three wordings
+  // of an idea must not hand everyone 9 votes on it — the server applies the identical rule.
+  canVoteOn(t: RetroTopic) { return this.canVote() && this.votesLeft() > 0 && t.myVoteCount < MAX_VOTES_PER_TOPIC; }
+  canUnvoteOn(t: RetroTopic) { return this.canVote() && t.myVoteCount > 0; }
+  vote(t: RetroTopic) {
     const s = this.session();
-    if (!s || !this.canVoteOn(n)) return;
-    this.applyVoteDelta(n.id, 1);
+    if (!s || !this.canVoteOn(t)) return;
+    this.applyVoteDelta(t.id, 1);        // the anchor holds the vote; the topic's total is derived
     // Refetch either way: on success to pick up everyone else's votes, on failure to undo the
     // optimistic credit rather than leave the board lying about the budget.
-    this.svc.addVote(s.id, n.id).subscribe({ next: () => this.refresh(s.id), error: () => this.refresh(s.id) });
+    this.svc.addVote(s.id, t.id).subscribe({ next: () => this.refresh(s.id), error: () => this.refresh(s.id) });
   }
-  unvote(n: RetroBoardNote) {
+  unvote(t: RetroTopic) {
     const s = this.session();
-    if (!s || !this.canUnvoteOn(n)) return;
-    this.applyVoteDelta(n.id, -1);
-    this.svc.removeVote(s.id, n.id).subscribe({ next: () => this.refresh(s.id), error: () => this.refresh(s.id) });
+    if (!s || !this.canUnvoteOn(t)) return;
+    // The server takes back the newest vote anywhere in the topic, which may sit on a member note if
+    // it was cast before the merge; mirror that locally so the optimistic count doesn't drift.
+    const holder = t.notes.find(n => n.id === t.id && n.myVoteCount > 0) ?? t.notes.find(n => n.myVoteCount > 0);
+    if (holder) this.applyVoteDelta(holder.id, -1);
+    this.svc.removeVote(s.id, t.id).subscribe({ next: () => this.refresh(s.id), error: () => this.refresh(s.id) });
   }
 
   // ---- Note comments ----

@@ -120,6 +120,27 @@ export class RetroBoardService {
     return this.http.post<void>(`${this.base}/${id}/notes/${noteId}/introduced`, { flagged: introduced });
   }
 
+  // ---- note grouping ----
+  /** Drag `noteId` onto `targetNoteId` — joins the target's group, creating one if it has none. */
+  groupNote(id: string, noteId: string, targetNoteId: string): Observable<void> {
+    return this.http.post<void>(`${this.base}/${id}/notes/${noteId}/group`, { targetNoteId });
+  }
+  /** Pull a single note back out of its group. */
+  ungroupNote(id: string, noteId: string): Observable<void> {
+    return this.http.delete<void>(`${this.base}/${id}/notes/${noteId}/group`);
+  }
+  /** Break a whole group apart. */
+  ungroup(id: string, anchorId: string): Observable<void> {
+    return this.http.delete<void>(`${this.base}/${id}/groups/${anchorId}`);
+  }
+  setGroupLabel(id: string, anchorId: string, label: string | null): Observable<void> {
+    return this.http.patch<void>(`${this.base}/${id}/groups/${anchorId}/label`, { label });
+  }
+  /** Ask the AI to cluster near-duplicate notes. Resolves with how many notes it grouped. */
+  groupSimilar(id: string): Observable<{ grouped: number }> {
+    return this.http.post<{ grouped: number }>(`${this.base}/${id}/group-similar`, {});
+  }
+
   // ---- note comments ----
   addNoteComment(id: string, noteId: string, text: string): Observable<RetroBoardNoteComment> {
     return this.http.post<RetroBoardNoteComment>(`${this.base}/${id}/notes/${noteId}/comments`, { text });
