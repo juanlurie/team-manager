@@ -65,6 +65,18 @@ services:
       - api
     restart: unless-stopped
 
+  storybook:
+    build:
+      context: ./team-manager-ui
+      dockerfile: Dockerfile.storybook
+    ports:
+      - "6006:6006"
+    volumes:
+      - ./team-manager-ui/src:/app/src
+      - ./team-manager-ui/.storybook:/app/.storybook
+    profiles:
+      - storybook
+
 volumes:
   postgres_dev_data:
     name: team-manager-dev_postgres_data

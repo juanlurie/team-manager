@@ -34,3 +34,7 @@ team-manager-ui/node_modules/
 # OS
 .DS_Store
 Thumbs.db
+
+*storybook.log
+storybook-static
+team-manager-ui/documentation.json
