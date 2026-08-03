@@ -5,6 +5,8 @@ public record SquadSummaryDto
     public Guid Id { get; init; }
     public string Name { get; init; } = string.Empty;
     public string? Color { get; init; }
+    public Guid? TeamId { get; init; }
+    public string? TeamName { get; init; }
 }
 
 public record SquadMemberEntryDto
@@ -18,6 +20,8 @@ public record SquadDto
     public Guid Id { get; init; }
     public string Name { get; init; } = string.Empty;
     public string? Color { get; init; }
+    public Guid? TeamId { get; init; }
+    public string? TeamName { get; init; }
     public IReadOnlyList<SquadMemberEntryDto> Members { get; init; } = [];
 }
 
@@ -25,6 +29,7 @@ public record CreateSquadRequest
 {
     public string Name { get; init; } = string.Empty;
     public string? Color { get; init; }
+    public Guid? TeamId { get; init; }
 }
 
 public record SetSquadMembersRequest

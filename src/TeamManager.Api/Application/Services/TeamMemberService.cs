@@ -6,6 +6,8 @@ using TeamManager.Api.Application.Services.Interfaces;
 using TeamManager.Api.Domain.Entities;
 using TeamManager.Api.Domain.Enums;
 using TeamManager.Api.Infrastructure.Data;
+// Aliased: Domain.Entities and DTOs.Team both define a "Team", and this file needs the entity.
+using TeamSummaryDto = TeamManager.Api.Application.DTOs.Team.TeamSummaryDto;
 
 namespace TeamManager.Api.Application.Services;
 
@@ -16,7 +18,7 @@ public class TeamMemberService(AppDbContext db) : ITeamMemberService
         var query = db.TeamMembers
             .Include(m => m.TeamLead)
             .Include(m => m.Achievements).ThenInclude(a => a.Achievement)
-            .Include(m => m.SquadMemberships).ThenInclude(sm => sm.Squad)
+            .Include(m => m.SquadMemberships).ThenInclude(sm => sm.Squad).ThenInclude(s => s.Team)
             .AsQueryable();
 
         if (role is not null && Enum.TryParse<MemberRole>(role, true, out var parsedRole))
@@ -37,7 +39,7 @@ public class TeamMemberService(AppDbContext db) : ITeamMemberService
         var member = await db.TeamMembers
             .Include(m => m.TeamLead)
             .Include(m => m.Achievements).ThenInclude(a => a.Achievement)
-            .Include(m => m.SquadMemberships).ThenInclude(sm => sm.Squad)
+            .Include(m => m.SquadMemberships).ThenInclude(sm => sm.Squad).ThenInclude(s => s.Team)
             .FirstOrDefaultAsync(m => m.Id == id);
         return member is null ? null : ToDto(member);
     }
@@ -184,7 +186,20 @@ public class TeamMemberService(AppDbContext db) : ITeamMemberService
             {
                 Id = sm.Squad.Id,
                 Name = sm.Squad.Name,
-                Color = sm.Squad.Color
-            }).ToList()
+                Color = sm.Squad.Color,
+                TeamId = sm.Squad.TeamId,
+                TeamName = sm.Squad.Team?.Name
+            }).ToList(),
+        // A member's teams are a set, derived here so the rule lives in one place rather than in
+        // every component that displays it: distinct non-null Squad.Team, ordered by name. Squads
+        // with no team contribute nothing -- they are not a "No team" pseudo-team.
+        Teams = m.SquadMemberships
+            .Select(sm => sm.Squad?.Team)
+            .Where(t => t is not null)
+            .Select(t => t!)
+            .DistinctBy(t => t.Id)
+            .OrderBy(t => t.Name)
+            .Select(t => new TeamSummaryDto { Id = t.Id, Name = t.Name })
+            .ToList()
     };
 }

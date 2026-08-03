@@ -36,6 +36,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<TimesheetWebhookDelivery> TimesheetWebhookDeliveries => Set<TimesheetWebhookDelivery>();
     public DbSet<ApiSyncEvent> ApiSyncEvents => Set<ApiSyncEvent>();
     public DbSet<SprintVote> SprintVotes => Set<SprintVote>();
+    public DbSet<Team> Teams => Set<Team>();
     public DbSet<Squad> Squads => Set<Squad>();
     public DbSet<SquadMember> SquadMembers => Set<SquadMember>();
     public DbSet<RetroAction> RetroActions => Set<RetroAction>();
@@ -156,6 +157,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         modelBuilder.ApplyConfiguration(new MemberTaskConfiguration());
         modelBuilder.ApplyConfiguration(new SprintVoteConfiguration());
         modelBuilder.ApplyConfiguration(new InvitationConfiguration());
+        modelBuilder.ApplyConfiguration(new TeamConfiguration());
         modelBuilder.ApplyConfiguration(new SquadConfiguration());
         modelBuilder.ApplyConfiguration(new SquadMemberConfiguration());
         modelBuilder.ApplyConfiguration(new RetroActionConfiguration());

@@ -10,6 +10,7 @@ public class SquadService(AppDbContext db)
     public async Task<IReadOnlyList<SquadDto>> GetAllAsync()
     {
         var squads = await db.Squads
+            .Include(s => s.Team)
             .Include(s => s.Members).ThenInclude(sm => sm.TeamMember)
             .OrderBy(s => s.Name)
             .ToListAsync();
@@ -19,6 +20,7 @@ public class SquadService(AppDbContext db)
     public async Task<SquadDto?> GetByIdAsync(Guid id)
     {
         var squad = await db.Squads
+            .Include(s => s.Team)
             .Include(s => s.Members).ThenInclude(sm => sm.TeamMember)
             .FirstOrDefaultAsync(s => s.Id == id);
         return squad is null ? null : ToDto(squad);
@@ -26,10 +28,11 @@ public class SquadService(AppDbContext db)
 
     public async Task<SquadDto> CreateAsync(CreateSquadRequest request)
     {
-        var squad = new Squad { Name = request.Name.Trim(), Color = request.Color };
+        var squad = new Squad { Name = request.Name.Trim(), Color = request.Color, TeamId = request.TeamId };
         db.Squads.Add(squad);
         await db.SaveChangesAsync();
-        return ToDto(squad);
+        // Re-read so the response carries TeamName -- the tracked entity has TeamId but no Team.
+        return await GetByIdAsync(squad.Id) ?? ToDto(squad);
     }
 
     public async Task<SquadDto?> UpdateAsync(Guid id, CreateSquadRequest request)
@@ -38,6 +41,7 @@ public class SquadService(AppDbContext db)
         if (squad is null) return null;
         squad.Name = request.Name.Trim();
         squad.Color = request.Color;
+        squad.TeamId = request.TeamId;
         await db.SaveChangesAsync();
         return await GetByIdAsync(id);
     }
@@ -82,6 +86,8 @@ public class SquadService(AppDbContext db)
         Id = s.Id,
         Name = s.Name,
         Color = s.Color,
+        TeamId = s.TeamId,
+        TeamName = s.Team?.Name,
         Members = s.Members
             .OrderBy(sm => sm.TeamMember?.LastName).ThenBy(sm => sm.TeamMember?.FirstName)
             .Select(sm => new SquadMemberEntryDto
@@ -97,6 +103,8 @@ public class SquadService(AppDbContext db)
     {
         Id = s.Id,
         Name = s.Name,
-        Color = s.Color
+        Color = s.Color,
+        TeamId = s.TeamId,
+        TeamName = s.Team?.Name
     };
 }
