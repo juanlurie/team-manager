@@ -563,7 +563,8 @@ including `SquadsController` and `AccessRequestsController`, but the rest of the
 codebase has not been swept. The clearest remaining instance is
 `TeamMembersController.Update`, which is still `[RequireFeature("team")]` only;
 it is what D's UI had to work around in decision 5 above. **3 and 5 remain open
-and are out of scope for this plan**; they want their own piece of work.
+and are out of scope for this plan**; they want their own piece of work. **9 was
+found on beta after D shipped** and is closed by the `Bootstrap:AdminEmail` hatch.
 
 1. ~~**Self-promotion via the member update endpoint**~~ — closed by A (#214).
    `Role` was removed from the create/update DTOs and moved to its own gated
@@ -588,6 +589,54 @@ and are out of scope for this plan**; they want their own piece of work.
    rather than reusing `canAssignRoles()` for exactly this reason.
 7. ~~**No audit trail on role changes**~~ — closed by A (`MemberRoleChanges`).
 8. ~~**No last-Admin guard**~~ — closed by A.
+9. ~~**The Admin bootstrap only fires on an empty members table**~~ — found on
+   beta after D shipped, closed by `Bootstrap:AdminEmail` (see *Recovering a
+   deployment with no Admin* below).
+
+   This plan designed the bootstrap for a *fresh* deployment and never said what
+   happens to an existing one. Every environment that predates B therefore has
+   **zero Admins**, while A–D moved ~30 endpoints behind TeamLead and put
+   granting Admin behind Admin. Where such a deployment also has no TeamLead, it
+   cannot be repaired from inside the app at all — the same dead end the
+   last-Admin guard exists to prevent, reached from the other direction, and
+   without the guard's benefit of being noticed at the moment it happens.
+
+   The lesson generalises past this plan: *a privilege tier that can only be
+   granted by someone already holding it needs a defined origin story for every
+   environment, not just for a database that has never been written to.*
+
+---
+
+## Recovering a deployment with no Admin
+
+Set `Bootstrap__AdminEmail` to an existing member's address and their next
+request promotes them, audited into `MemberRoleChanges` with a null `ActorId`.
+It does nothing once *any* Admin exists, so it cannot undo a deliberate demotion
+or be left on as a standing grant — but unset it once recovery is confirmed
+regardless, because a deployment that later loses its last Admin should fail
+loudly rather than silently re-promoting whoever is named there.
+
+```
+kubectl set env deployment/team-manager-api Bootstrap__AdminEmail=you@example.com
+# sign in, confirm the role, then:
+kubectl set env deployment/team-manager-api Bootstrap__AdminEmail-
+```
+
+Deliberately *not* committed to `k8s/base` — it is a recovery action with a
+beginning and an end, not configuration the deployment carries around.
+
+**Before reaching for it, check whether a role changed or a member changed.**
+`MemberRoleChanges` records every demotion the app itself performed:
+
+```sql
+SELECT * FROM "MemberRoleChanges" ORDER BY "CreatedAt" DESC LIMIT 20;
+```
+
+A row means the role endpoint did it, and `ActorId` says who. **No row means the
+app did not do it** — look instead for a second `TeamMembers` row with the same
+person's email or `ExternalSubjectId`, since resolving to a different record
+looks identical from the outside and is the more likely story on an environment
+whose data has been restored or reseeded.
 
 ---
 
