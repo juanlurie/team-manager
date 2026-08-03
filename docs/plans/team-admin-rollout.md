@@ -9,6 +9,27 @@ not depend on the schema work.
 
 ---
 
+## Status — as of 2026-08-03
+
+**A, B and C are merged. D is all that remains.**
+
+| Workstream | PR | State |
+|---|---|---|
+| A — escalation fix + role endpoint | [#214](https://github.com/juanlurie/team-manager/pull/214) | ✅ merged |
+| B1 + B2 — Admin role, hierarchy, claims, frontend sweep | [#216](https://github.com/juanlurie/team-manager/pull/216) | ✅ merged |
+| C1 — Team schema, migration, API | [#217](https://github.com/juanlurie/team-manager/pull/217) | ✅ merged |
+| C2 — Team UI | [#218](https://github.com/juanlurie/team-manager/pull/218) | ✅ merged |
+| D — approval assignment + role gates | — | ⬜ **not started** |
+
+Both migrations are applied in order: `AddMemberRoleChangeAudit` (A) then
+`AddTeamEntityAndSquadTeamFk` (C1). D carries no migration, so it branches off
+`main` and needs no stacking.
+
+**Before starting D, read *Carried into D from C* at the end of the D section** —
+it lists two things C left behind that D is the right place to fix.
+
+---
+
 ## Domain model
 
 - **Team** — an organisational unit. Contains squads.
@@ -94,7 +115,7 @@ member currently *is* an Admin, unless the caller is an Admin.
 
 ---
 
-## A. Privilege-escalation fix — ship first
+## A. Privilege-escalation fix — ship first ✅ shipped (#214)
 
 [`TeamMembersController.Update`](../src/TeamManager.Api/Presentation/Controllers/TeamMembersController.cs)
 is gated only by `[RequireFeature("team")]` — no role attribute — and its
@@ -155,7 +176,7 @@ guard are written in terms of it, so it cannot be deferred. Nothing else of B mo
 
 ---
 
-## B. Admin role
+## B. Admin role ✅ shipped (#216)
 
 Split in two. **B1** is the authorization boundary — who is implicitly who, and what
 "all permissions" actually means at the gate. **B2** is the frontend sweep, which is
@@ -239,7 +260,7 @@ No migration.
 
 ---
 
-## C. Team schema
+## C. Team schema ✅ shipped (C1 #217, C2 #218)
 
 Split in two, on the same divide as B — the part where a wrong choice is
 expensive, and the part the compiler and the existing idiom can carry.
@@ -357,7 +378,7 @@ picker would assign a team nobody can see.
 
 ---
 
-## D. Squad-on-approval + role gates
+## D. Squad-on-approval + role gates ⬜ next — start here
 
 ### Extract first
 
@@ -429,11 +450,55 @@ Thread through
 and
 [access-requests.component.ts](../team-manager-ui/src/app/features/access-requests/access-requests.component.ts).
 
+### Carried into D from C
+
+Two things C1 shipped that D is the right place to fix, since D is already
+touching `SquadsController` and the squad-write path. Both were noted on
+[#217](https://github.com/juanlurie/team-manager/pull/217) rather than fixed
+there, to keep C1 to its stated scope.
+
+1. **`CreateSquadRequest.TeamId` is unvalidated.** `SquadService` sets it
+   straight onto the entity, so an id for a team that doesn't exist reaches the
+   FK and surfaces as a **500**, not a 400. Validate it the same way D validates
+   `SquadId` on approval: check existence, return 400 when absent.
+
+2. **`SquadService.UpdateAsync` writes `TeamId` unconditionally.** Any caller
+   that omits the field silently detaches the squad from its team. This already
+   bit once — `squad-manager-dialog`'s rename posted `{name, color}` and would
+   have un-teamed every squad it renamed; C2 fixed that one caller by threading
+   `teamId` through, but the shape is still a trap for the next one. The real
+   fix is a partial-update shape (`Guid? TeamId` with an explicit "unset"
+   signal, or a dedicated `PUT /squads/{id}/team`) rather than relying on every
+   caller to remember. D's squad picker is the second caller, so this is the
+   moment it's worth doing properly.
+
+Neither is a security issue. Both are the same *class* of quiet failure this
+plan keeps flagging: a write path that does something destructive when a field
+is merely absent.
+
+### A note on verification
+
+The frontend `vitest` specs do not run — all 7 files fail with
+`describe is not defined`, there is no `test` script in `package.json`, and
+vitest globals are unconfigured. This is **pre-existing and repo-wide**, not a
+regression; don't mistake it for one, and don't take a green frontend run as
+evidence of anything. Backend is `./dev.sh test` (137 passing as of C2), and
+`npx ng build` from `team-manager-ui/` is what actually typechecks the frontend,
+templates included.
+
 ---
 
 ## Gaps found
 
-1. **Self-promotion via the member update endpoint** — workstream A. Live.
+Status as of 2026-08-03: **1, 4, 6, 7 and 8 are closed** by A and B. **2 is
+partly closed** — the endpoints A, B and C touched now carry both gates, but the
+rest of the codebase has not been swept, and `SquadsController` is still
+ungated (D). **3 and 5 remain open and are out of scope for this plan**; they
+want their own piece of work.
+
+1. ~~**Self-promotion via the member update endpoint**~~ — closed by A (#214).
+   `Role` was removed from the create/update DTOs and moved to its own gated
+   endpoint with an escalation check and a last-Admin guard.
 2. **Feature flags are being used as authorization.** `RequireFeature` is the
    only gate on several privileged endpoints. It is a visibility/rollout
    mechanism whose state is editable from a settings screen — a different thing
@@ -442,17 +507,18 @@ and
    for any feature not in the hardcoded `DefaultOffFeatures` deny-list. Every new
    feature is world-readable until someone remembers to add it. Deny-lists don't
    scale; allow-lists do.
-4. **The role list is duplicated in four places** — the C# enum, `AllRoles` in
-   `FeaturePermissionService`, `ROLES` in `feature-permissions.model.ts`, and
-   hardcoded `<th>` columns. Adding Admin means touching all four and nothing
-   fails if you miss one.
+4. ~~**The role list is duplicated in four places**~~ — closed by B. `AllRoles`
+   derives from `Enum.GetNames<MemberRole>()`, `ROLES` derives from
+   `MEMBER_ROLES`, and the matrix columns render from that list.
 5. **`FeaturePermission.Role` is an unvalidated string** — a typo'd row is
-   silently inert forever.
-6. **`IsInRole("TeamLead") || IsInRole("TechLead")` is copy-pasted** across
-   `TeamMembersController`, `self-or-lead.guard.ts`, `auth.service.ts` and
-   several components. Each is a place Admin must be added by hand.
-7. **No audit trail on role changes.**
-8. **No last-Admin guard.**
+   silently inert forever. **Still open**; out of scope here.
+6. ~~**`IsInRole("TeamLead") || IsInRole("TechLead")` is copy-pasted**~~ —
+   closed by B for the role question via `RoleHierarchy` and named predicates
+   (`isLead()`, `canAssignRoles()`, `canManageTeams()`). Add new predicates by
+   intent rather than widening an existing one; C2 added `canManageTeams()`
+   rather than reusing `canAssignRoles()` for exactly this reason.
+7. ~~**No audit trail on role changes**~~ — closed by A (`MemberRoleChanges`).
+8. ~~**No last-Admin guard**~~ — closed by A.
 
 ---
 
@@ -508,14 +574,14 @@ under *A member's teams are a set, not a value* (was open question 2).
 
 ## Order
 
-| # | Workstream | Migration | Notes |
-|---|---|---|---|
-| 1 | A — escalation fix + role endpoint | `AddMemberRoleChangeAudit` | Security. API + the role-control move in the member form |
-| 2 | B1 — hierarchy, claims, feature gating | none | Auth claim change; the authorization boundary |
-| 2 | B2 — frontend sweep | none | Broad but mechanical; derive the lists and follow the compiler |
-| 3 | C1 — Team schema, migration, API | `AddTeamEntityAndSquadTeamFk` | Additive and deployable ahead of the UI. `SetNull` is the decision that fails quietly |
-| 4 | C2 — Team UI | none | Largest surface; every piece has a squad equivalent to mirror. Needs C1's DTOs |
-| 5 | D — approval assignment + role gates | none | Depends on C |
+| # | Workstream | Migration | State | Notes |
+|---|---|---|---|---|
+| 1 | A — escalation fix + role endpoint | `AddMemberRoleChangeAudit` | ✅ #214 | Security. API + the role-control move in the member form |
+| 2 | B1 — hierarchy, claims, feature gating | none | ✅ #216 | Auth claim change; the authorization boundary |
+| 2 | B2 — frontend sweep | none | ✅ #216 | Broad but mechanical; derive the lists and follow the compiler |
+| 3 | C1 — Team schema, migration, API | `AddTeamEntityAndSquadTeamFk` | ✅ #217 | Additive and deployable ahead of the UI. `SetNull` is the decision that fails quietly |
+| 4 | C2 — Team UI | none | ✅ #218 | Largest surface; every piece has a squad equivalent to mirror. Needs C1's DTOs |
+| 5 | D — approval assignment + role gates | none | ⬜ next | Depends on C1's schema (it reads `squad.TeamId`), not on C2 |
 
 Every workstream except B1 carries UI. C2 carries the most: a new team-manager
 dialog, a team picker on squads, and team display/filtering in the member list.
@@ -525,3 +591,17 @@ via `gh pr create --base main`. Where a workstream cannot compile without an
 unmerged one (B needed A's enum), stack the PR on its dependency's branch and
 let GitHub retarget to `main` when that merges — a PR to `main` would otherwise
 duplicate the dependency's whole diff for review.
+
+**Merge a stacked dependency with a merge commit, never squash or rebase.** The
+repo has `delete_branch_on_merge`, so merging the base deletes its branch and
+GitHub retargets the dependent PR to `main` on its own — that part works either
+way. But the dependent branch *contains* the dependency's commits; squashing
+rewrites them, so the retargeted PR re-presents the whole dependency as new work
+and conflicts. Verified on #214 → #216: after a merge-commit merge, #216
+retargeted clean with a diff of exactly its own four commits.
+
+**Branch off the merged `main` before generating an EF migration.** Two branches
+that each scaffold a migration produce colliding `AppDbContextModelSnapshot.cs`
+edits, and a careless resolution quietly leaves a later migration trying to
+re-create the other branch's table. C1 waited for A to merge for this reason.
+D carries no migration, so it is not affected.
