@@ -41,6 +41,32 @@ public class TeamMembersController(ITeamMemberService service) : ControllerBase
         return result is null ? NotFound() : Ok(result);
     }
 
+    // Role assignment is split off from Update on purpose: it is the one field on a member that
+    // is a privilege boundary. Both gates apply -- [RequireFeature] answers "is this turned on
+    // for you", [Authorize] answers "are you allowed"; neither substitutes for the other.
+    // "Admin" is listed explicitly so this endpoint is correct on its own; once the claims
+    // transformer emits the implied TeamLead claim for Admins it becomes redundant, not wrong.
+    [RequireFeature("team")]
+    [Authorize(Roles = "TeamLead,Admin")]
+    [HttpPut("{id:guid}/role")]
+    public async Task<IActionResult> UpdateRole(Guid id, [FromBody] UpdateMemberRoleRequest request)
+    {
+        var result = await service.UpdateRoleAsync(
+            id, request.Role!.Value, HttpContext.GetCurrentMemberId(), User.IsInRole("Admin"));
+
+        return result.Outcome switch
+        {
+            RoleChangeOutcome.Success => Ok(result.Member),
+            RoleChangeOutcome.NotFound => NotFound(),
+            // Forbid() writes no body; these need to reach the user as readable text.
+            RoleChangeOutcome.Forbidden => StatusCode(StatusCodes.Status403Forbidden,
+                new { error = "Only an Admin can grant the Admin role or change an Admin's role." }),
+            RoleChangeOutcome.LastAdmin => BadRequest(
+                new { error = "This is the only Admin. Grant Admin to someone else before changing this role." }),
+            _ => StatusCode(StatusCodes.Status500InternalServerError)
+        };
+    }
+
     [Authorize]
     [HttpPatch("{id:guid}/avatar")]
     public async Task<IActionResult> UpdateAvatar(Guid id, [FromBody] UpdateAvatarRequest request)

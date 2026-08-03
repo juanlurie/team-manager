@@ -6,12 +6,13 @@ import { MatDialogModule, MatDialog } from '@angular/material/dialog';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { Router } from '@angular/router';
-import { TeamMember } from '../../../core/models/team-member.model';
+import { TeamMember, MEMBER_ROLES, roleLabel } from '../../../core/models/team-member.model';
 import { TeamMemberService } from '../../../core/services/team-member.service';
 import { SquadService } from '../../../core/services/squad.service';
 import { SquadSummary } from '../../../core/models/squad.model';
 import { TeamMemberFormComponent } from '../team-member-form/team-member-form.component';
 import { SquadManagerDialogComponent } from '../squad-manager-dialog/squad-manager-dialog.component';
+import { ChangeRoleDialogComponent } from '../change-role-dialog/change-role-dialog.component';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { IconButtonComponent } from '../../../shared/components/icon-btn/icon-btn.component';
 import { FilterBarComponent, FilterGroup, stripMentions } from '../../../shared/components/filter-bar/filter-bar.component';
@@ -74,7 +75,13 @@ import { AvatarCircleComponent } from '../../../core/components/k-picker/avatar-
             <div style="flex:1;min-width:0">
               <div style="font-weight:600;font-size:0.9rem">{{ m.firstName }} {{ m.lastName }}</div>
             </div>
-            <div style="flex-shrink:0" (click)="$event.stopPropagation()">
+            <div style="flex-shrink:0;display:flex;align-items:center" (click)="$event.stopPropagation()">
+              @if (canAssignRoles) {
+                <app-icon-btn icon="badge" size="sm"
+                  [disabled]="!canChangeRole(m)"
+                  [tooltip]="canChangeRole(m) ? 'Change role (' + roleLabel(m.role) + ')' : 'Only an Admin can change an Admin\\'s role'"
+                  (btnClick)="openChangeRole(m)" />
+              }
               <app-icon-btn icon="edit" size="sm" tooltip="Edit member" (btnClick)="openForm(m)" />
             </div>
           </div>
@@ -124,6 +131,7 @@ import { AvatarCircleComponent } from '../../../core/components/k-picker/avatar-
     .role-member    { background:rgba(158,158,158,0.12);color:#9e9e9e; }
     .role-teamlead  { background:rgba(100,181,246,0.15);color:#64b5f6; }
     .role-techlead  { background:rgba(171,71,188,0.15);color:#ce93d8; }
+    .role-admin     { background:rgba(239,83,80,0.15);color:#ef9a9a; }
     .member-card    { background:rgba(255,255,255,0.04);transition:background 0.15s;min-height:80px;cursor:pointer; }
     .member-card:hover { background:rgba(255,255,255,0.08); }
     .member-card-disabled { cursor:default; }
@@ -263,11 +271,7 @@ export class TeamListComponent implements OnInit {
     return filtered;
   });
 
-  readonly roleOptions = [
-    { id: 'Member', name: 'Member' },
-    { id: 'TeamLead', name: 'Team Lead' },
-    { id: 'TechLead', name: 'Tech Lead' },
-  ];
+  readonly roleOptions = MEMBER_ROLES.map(r => ({ id: r.id, name: r.label }));
 
   readonly craftOptions = [
     { id: 'DevBE', name: 'Dev — Backend' },
@@ -280,7 +284,7 @@ export class TeamListComponent implements OnInit {
   ];
 
   roleClass(role: string) { return `role-${role.toLowerCase()}`; }
-  roleLabel(role: string) { return role === 'TeamLead' ? 'Team Lead' : role === 'TechLead' ? 'Tech Lead' : 'Member'; }
+  roleLabel = roleLabel;
   craftLabel(craft: string) { return CRAFT_LABELS[craft] ?? craft; }
   squadBg(color: string | null) { return color ? color + '28' : 'rgba(158,158,158,0.12)'; }
 
@@ -310,6 +314,18 @@ export class TeamListComponent implements OnInit {
       data: { member, allMembers: this.allMembers }
     });
     ref.afterClosed().subscribe(result => { if (result) this.load(); });
+  }
+
+  /** Mirrors the server rule: only an Admin may change an Admin's role. */
+  get canAssignRoles() { return this.auth.canAssignRoles(); }
+  canChangeRole(member: TeamMember): boolean {
+    return member.role !== 'Admin' || this.auth.isAdmin();
+  }
+
+  openChangeRole(member: TeamMember) {
+    if (!this.canChangeRole(member)) return;
+    const ref = this.dialog.open(ChangeRoleDialogComponent, { width: '400px', data: { member } });
+    ref.afterClosed().subscribe(changed => { if (changed) this.load(); });
   }
 
   openSquadManager() {

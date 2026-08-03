@@ -111,7 +111,14 @@ the `TeamMemberService` update path, and
 [team-member-form.component.ts](../team-manager-ui/src/app/features/team/team-member-form/team-member-form.component.ts)
 which posts the role today.
 
-No migration.
+Migration: **`AddMemberRoleChangeAudit`** — the audit row needs somewhere to live, so A does
+carry one after all (a `MemberRoleChanges` table; purely additive, trivial `Down`). The rest of
+A is schema-free.
+
+A also lands B's `Admin` enum value ahead of schedule: the escalation check and the last-Admin
+guard are written in terms of it, so it cannot be deferred. Nothing else of B moves with it —
+`Admin` stays unreachable (only an Admin can grant Admin, and the bootstrap still makes a
+`TeamLead`) until B lands the implied-role claim, the feature-gate short-circuit and the UI sweep.
 
 ---
 
@@ -401,7 +408,7 @@ rules are settled under *Who can change roles*.
 
 | # | Workstream | Migration | Notes |
 |---|---|---|---|
-| 1 | A — escalation fix + role endpoint | none | Security. API + the role-control move in the member form |
+| 1 | A — escalation fix + role endpoint | `AddMemberRoleChangeAudit` | Security. API + the role-control move in the member form |
 | 2 | B — Admin role | none | Auth claim change + broad UI sweep, independently testable |
 | 3 | C — Team schema, API, UI | `AddTeamEntityAndSquadTeamFk` | Largest. Migration is additive and deployable ahead of the rest |
 | 4 | D — approval assignment + role gates | none | Depends on C |
