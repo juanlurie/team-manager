@@ -238,7 +238,14 @@ export class AppSidebarComponent implements OnInit {
   private featureAccess = inject(FeatureAccessService);
   accessReqs = inject(AccessRequestsService);
 
-  showApprovals() { return this.featureAccess.hasAccess('access-requests'); }
+  /**
+   * Both gates, deliberately. The feature flag says whether this deployment has access requests at
+   * all; the role says whether you may review them. list/approve/deny are lead-only on the server,
+   * so on the flag alone a plain member saw an Approvals item whose dialog could only 403.
+   */
+  showApprovals() {
+    return this.featureAccess.hasAccess('access-requests') && this.auth.canReviewAccessRequests();
+  }
 
   ngOnInit() {
     if (this.showApprovals()) this.accessReqs.refreshCount();

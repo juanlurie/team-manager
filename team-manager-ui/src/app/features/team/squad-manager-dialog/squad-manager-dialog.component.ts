@@ -232,9 +232,7 @@ export class SquadManagerDialogComponent implements OnInit {
 
   saveEdit(squad: Squad) {
     if (!this.editName.trim()) return;
-    // teamId must be carried through: the API sets it from the request unconditionally, so
-    // omitting it here would silently detach the squad from its team on a plain rename.
-    this.squadSvc.update(squad.id, { name: this.editName.trim(), color: this.editColor, teamId: squad.teamId }).subscribe(updated => {
+    this.squadSvc.update(squad.id, { name: this.editName.trim(), color: this.editColor }).subscribe(updated => {
       this.squads.update(s => s.map(sq => sq.id === updated.id ? updated : sq).sort((a, b) => a.name.localeCompare(b.name)));
       this.editingId.set(null);
     });
@@ -243,7 +241,7 @@ export class SquadManagerDialogComponent implements OnInit {
   /** Moves a squad between teams, or out of one entirely when teamId is null. */
   setTeam(squad: Squad, teamId: string | null) {
     if (teamId === squad.teamId) return;
-    this.squadSvc.update(squad.id, { name: squad.name, color: squad.color, teamId }).subscribe({
+    this.squadSvc.setTeam(squad.id, teamId).subscribe({
       next: updated => this.squads.update(s => s.map(sq => sq.id === updated.id ? updated : sq)),
       // Put the old value back rather than leaving the dropdown showing a change that didn't stick.
       error: () => this.squads.update(s => [...s])

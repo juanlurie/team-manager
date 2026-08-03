@@ -2,15 +2,26 @@ using TeamManager.Api.Middleware;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using TeamManager.Api.Application.Services;
 using TeamManager.Api.Domain.Entities;
 using TeamManager.Api.Infrastructure.Data;
 
 namespace TeamManager.Api.Presentation.Controllers;
 
+/// <summary>
+/// Reviewing access requests is a management action: it grants someone entry to the app and can
+/// place them in a squad. List, approve and deny are [Authorize(Roles = "TeamLead")]; they carried a
+/// bare [Authorize], which is identical to the global FallbackPolicy in Program.cs -- it reads as a
+/// gate but restricts nothing, and list returns every requester's name, email, googleSub and
+/// free-text reason. TechLead is excluded (no management significance); Admin passes via the implied
+/// TeamLead claim. The class-level [RequireFeature] is not the boundary -- a settings toggle is not
+/// an authorization decision -- so both gates apply. Submit stays anonymous: it is the public entry
+/// point, and is the reason unauthenticated input must never reach the squad assignment below.
+/// </summary>
 [ApiController]
 [RequireFeature("access-requests")]
 [Route("api/[controller]")]
-public class AccessRequestsController(AppDbContext db) : ControllerBase
+public class AccessRequestsController(AppDbContext db, AccessRequestApprovalService approvals) : ControllerBase
 {
     [HttpPost("submit")]
     [AllowAnonymous]
@@ -50,7 +61,7 @@ public class AccessRequestsController(AppDbContext db) : ControllerBase
     }
 
     [HttpGet]
-    [Authorize]
+    [Authorize(Roles = "TeamLead")]
     public async Task<IActionResult> List([FromQuery] string? status)
     {
         var query = db.AccessRequests.AsQueryable();
@@ -81,87 +92,53 @@ public class AccessRequestsController(AppDbContext db) : ControllerBase
     }
 
     [HttpPost("{id}/approve")]
-    [Authorize]
+    [Authorize(Roles = "TeamLead")]
     public async Task<IActionResult> Approve(Guid id, [FromBody] ApproveDto? dto)
     {
-        var request = await db.AccessRequests.FindAsync(id);
-        if (request == null) return NotFound();
-        if (request.Status != "Pending") return BadRequest(new { error = "Request is not pending." });
+        // TryParse rather than Parse: a malformed TMID is a caller we cannot identify, which is a
+        // refusal, not a 500.
+        if (!Guid.TryParse(User.FindFirst("TMID")?.Value, out var reviewerId)) return Forbid();
 
-        var reviewerId = User.FindFirst("TMID")?.Value;
-        if (string.IsNullOrEmpty(reviewerId)) return Forbid();
+        var result = await approvals.ApproveAsync(
+            id,
+            reviewerId,
+            new ApprovalInput(dto?.Notes, dto?.TeamMemberId, dto?.SquadId));
 
-        TeamMember? existing = null;
-        if (dto?.TeamMemberId is { } linkedMemberId)
+        // A switch *expression* with no discard arm, so adding an ApprovalOutcome without handling it
+        // here is a compiler warning (CS8509) and, failing that, a runtime throw. The statement form
+        // this replaced fell through to the success path below: a new failure outcome would have
+        // broadcast "approved" and returned 200 on an approval that did not happen.
+        //
+        // CS8524 is the *other* non-exhaustiveness warning -- an int cast to an undeclared enum value
+        // -- which cannot arise here since the value comes from our own service. Suppressed narrowly
+        // rather than with a `_ =>` arm, because that arm would take CS8509 down with it and CS8509
+        // is the entire point of the shape.
+#pragma warning disable CS8524
+        IActionResult? failure = result.Outcome switch
         {
-            existing = await db.TeamMembers.FindAsync(linkedMemberId);
-            if (existing is null) return BadRequest(new { error = "Selected team member not found." });
-        }
-        else
-        {
-            existing = await db.TeamMembers
-                .FirstOrDefaultAsync(m => m.Email.ToLower() == request.Email.ToLower());
-        }
-
-        if (existing != null)
-        {
-            if (dto?.TeamMemberId is not null && !string.Equals(existing.Email, request.Email, StringComparison.OrdinalIgnoreCase))
-            {
-                var emailTaken = await db.TeamMembers
-                    .AnyAsync(m => m.Id != existing.Id && m.Email.ToLower() == request.Email.ToLower());
-                if (emailTaken)
-                    return BadRequest(new { error = $"Another team member already uses {request.Email}." });
-                existing.Email = request.Email.Trim();
-            }
-            existing.IsActive = true;
-            if (!string.IsNullOrEmpty(request.GoogleSub))
-                existing.ExternalSubjectId = request.GoogleSub;
-            request.Status = "Approved";
-            request.ReviewedByMemberId = Guid.Parse(reviewerId);
-            request.ReviewedAt = DateTimeOffset.UtcNow;
-            request.ReviewNotes = dto?.Notes;
-            await db.SaveChangesAsync();
-            // guestAllowed: true -- the requester's own browser is still an unapproved/anonymous
-        // connection (no TeamMember yet, so no TMID claim) at this point, and BroadcastAsync skips
-        // such connections by default. Without this, the requester never receives the event their
-        // own "waiting for approval" screen is listening for to auto-complete login.
-        _ = WebSocketMiddleware.BroadcastAsync("access_request_approved", new { requestId = request.Id }, guestAllowed: true);
-            return Ok(new { status = "Approved", note = "Member reactivated." });
-        }
-
-        var member = new TeamMember
-        {
-            Id = Guid.NewGuid(),
-            FirstName = request.Name.Split(' ', 2)[0],
-            LastName = request.Name.Split(' ', 2).Length > 1 ? request.Name.Split(' ', 2)[1] : "",
-            Email = request.Email,
-            Role = Domain.Enums.MemberRole.Member,
-            IsActive = true,
-            Crafts = new List<string>()
+            ApprovalOutcome.Success => null,
+            ApprovalOutcome.RequestNotFound => NotFound(),
+            ApprovalOutcome.NotPending => BadRequest(new { error = "Request is not pending." }),
+            ApprovalOutcome.MemberNotFound => BadRequest(new { error = "Selected team member not found." }),
+            ApprovalOutcome.SquadNotFound => BadRequest(new { error = "Selected squad not found." }),
+            ApprovalOutcome.EmailTaken => BadRequest(new { error = $"Another team member already uses {result.ConflictingEmail}." })
         };
-
-        if (!string.IsNullOrEmpty(request.GoogleSub))
-            member.ExternalSubjectId = request.GoogleSub;
-
-        db.TeamMembers.Add(member);
-
-        request.Status = "Approved";
-        request.ReviewedByMemberId = Guid.Parse(reviewerId);
-        request.ReviewedAt = DateTimeOffset.UtcNow;
-        request.ReviewNotes = dto?.Notes;
-
-        await db.SaveChangesAsync();
+#pragma warning restore CS8524
+        if (failure is not null) return failure;
 
         // guestAllowed: true -- the requester's own browser is still an unapproved/anonymous
         // connection (no TeamMember yet, so no TMID claim) at this point, and BroadcastAsync skips
         // such connections by default. Without this, the requester never receives the event their
         // own "waiting for approval" screen is listening for to auto-complete login.
-        _ = WebSocketMiddleware.BroadcastAsync("access_request_approved", new { requestId = request.Id }, guestAllowed: true);
-        return Ok(new { status = "Approved", memberId = member.Id });
+        _ = WebSocketMiddleware.BroadcastAsync("access_request_approved", new { requestId = id }, guestAllowed: true);
+
+        return result.Reactivated
+            ? Ok(new { status = "Approved", memberId = result.MemberId, note = "Member reactivated." })
+            : Ok(new { status = "Approved", memberId = result.MemberId });
     }
 
     [HttpPost("{id}/deny")]
-    [Authorize]
+    [Authorize(Roles = "TeamLead")]
     public async Task<IActionResult> Deny(Guid id, [FromBody] ApproveDto? dto)
     {
         var request = await db.AccessRequests.FindAsync(id);
@@ -180,6 +157,11 @@ public class AccessRequestsController(AppDbContext db) : ControllerBase
         return Ok(new { status = "Denied" });
     }
 
+    /// <summary>
+    /// Carries no squad: Submit is anonymous, and unauthenticated input must not write org
+    /// structure. Where the requester is placed is the reviewer's decision, made at approve time.
+    /// </summary>
     public record SubmitRequestDto(string Email, string Name, string? GoogleSub, string? Reason);
-    public record ApproveDto(string? Notes, Guid? TeamMemberId = null);
+
+    public record ApproveDto(string? Notes, Guid? TeamMemberId = null, Guid? SquadId = null);
 }

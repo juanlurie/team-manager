@@ -29,8 +29,15 @@ export class AccessRequestsService {
     });
   }
 
-  approve(id: string, teamMemberId?: string | null) {
-    return this.http.post(`${this.base}/${id}/approve`, teamMemberId ? { teamMemberId } : {});
+  /**
+   * squadId is optional throughout: approving without placing someone in a squad is a normal
+   * outcome, not a missing value. The team is derived server-side from the squad.
+   */
+  approve(id: string, teamMemberId?: string | null, squadId?: string | null) {
+    return this.http.post(`${this.base}/${id}/approve`, {
+      ...(teamMemberId ? { teamMemberId } : {}),
+      ...(squadId ? { squadId } : {})
+    });
   }
 
   deny(id: string) {

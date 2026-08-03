@@ -46,10 +46,12 @@ import { AvatarCircleComponent } from '../../../core/components/k-picker/avatar-
           <mat-icon>person_add</mat-icon>
           <span>Add member</span>
         </button>
-        <button mat-menu-item (click)="openSquadManager()">
-          <mat-icon>groups</mat-icon>
-          <span>Manage squads</span>
-        </button>
+        @if (canManageSquads) {
+          <button mat-menu-item (click)="openSquadManager()">
+            <mat-icon>groups</mat-icon>
+            <span>Manage squads</span>
+          </button>
+        }
         @if (canManageTeams) {
           <button mat-menu-item (click)="openTeamManager()">
             <mat-icon>workspaces</mat-icon>
@@ -387,6 +389,9 @@ export class TeamListComponent implements OnInit {
 
   /** UX only -- TeamsController's role attribute is the actual boundary. */
   get canManageTeams() { return this.auth.canManageTeams(); }
+
+  /** Likewise UX only; the boundary is the role attribute on SquadsController's write endpoints. */
+  get canManageSquads() { return this.auth.canManageSquads(); }
 
   openTeamManager() {
     const ref = this.dialog.open(TeamManagerDialogComponent, { width: '560px' });
