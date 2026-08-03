@@ -210,6 +210,18 @@ export class AuthService {
     return role === 'TeamLead' || role === 'Admin';
   }
 
+  /**
+   * May create, rename and delete squads and change who is in them. A separate question from
+   * canManageTeams() by intent rather than by membership — one is a level of org structure, the
+   * other another — so a future divergence changes one function, not eight call sites. Mirrors the
+   * role attributes on SquadsController's write endpoints; the reads there are open to everyone,
+   * since squad lists feed ordinary member-facing screens.
+   */
+  canManageSquads(): boolean {
+    const role = this._me$.value?.role;
+    return role === 'TeamLead' || role === 'Admin';
+  }
+
   isSelfOrLead(memberId: string): boolean {
     return this.isLead() || this._me$.value?.id === memberId;
   }

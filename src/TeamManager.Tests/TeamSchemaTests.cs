@@ -155,8 +155,8 @@ public class TeamSchemaTests
         var created = await new SquadService(db)
             .CreateAsync(new CreateSquadRequest { Name = "Squad One", TeamId = team.Id });
 
-        Assert.Equal(team.Id, created.TeamId);
-        Assert.Equal("Alpha", created.TeamName);
+        Assert.Equal(team.Id, created.Squad!.TeamId);
+        Assert.Equal("Alpha", created.Squad.TeamName);
     }
 
     [Fact]
@@ -169,10 +169,10 @@ public class TeamSchemaTests
         var service = new SquadService(db);
         var created = await service.CreateAsync(new CreateSquadRequest { Name = "Squad One", TeamId = team.Id });
 
-        var updated = await service.UpdateAsync(created.Id, new CreateSquadRequest { Name = "Squad One", TeamId = null });
+        var updated = await service.SetTeamAsync(created.Squad!.Id, null);
 
-        Assert.Null(updated!.TeamId);
-        Assert.Null(updated.TeamName);
+        Assert.Null(updated.Squad!.TeamId);
+        Assert.Null(updated.Squad.TeamName);
     }
 
     // --- TeamService -----------------------------------------------------------------------

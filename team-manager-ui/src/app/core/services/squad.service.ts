@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { Squad, CreateSquadRequest } from '../models/squad.model';
+import { Squad, CreateSquadRequest, UpdateSquadRequest } from '../models/squad.model';
 import { API_BASE } from './api.config';
 
 @Injectable({ providedIn: 'root' })
@@ -16,8 +16,13 @@ export class SquadService {
     return this.http.post<Squad>(`${API_BASE}/squads`, request);
   }
 
-  update(id: string, request: CreateSquadRequest): Observable<Squad> {
+  update(id: string, request: UpdateSquadRequest): Observable<Squad> {
     return this.http.put<Squad>(`${API_BASE}/squads/${id}`, request);
+  }
+
+  /** Moves a squad to a team, or out of one when teamId is null. */
+  setTeam(id: string, teamId: string | null): Observable<Squad> {
+    return this.http.put<Squad>(`${API_BASE}/squads/${id}/team`, { teamId });
   }
 
   delete(id: string): Observable<void> {

@@ -11,7 +11,7 @@ not depend on the schema work.
 
 ## Status — as of 2026-08-03
 
-**A, B and C are merged. D is all that remains.**
+**A, B and C are merged. D is in review — the plan is complete once it lands.**
 
 | Workstream | PR | State |
 |---|---|---|
@@ -19,14 +19,10 @@ not depend on the schema work.
 | B1 + B2 — Admin role, hierarchy, claims, frontend sweep | [#216](https://github.com/juanlurie/team-manager/pull/216) | ✅ merged |
 | C1 — Team schema, migration, API | [#217](https://github.com/juanlurie/team-manager/pull/217) | ✅ merged |
 | C2 — Team UI | [#218](https://github.com/juanlurie/team-manager/pull/218) | ✅ merged |
-| D — approval assignment + role gates | — | ⬜ **not started** |
+| D — approval assignment + role gates | — | 🔵 in review |
 
 Both migrations are applied in order: `AddMemberRoleChangeAudit` (A) then
-`AddTeamEntityAndSquadTeamFk` (C1). D carries no migration, so it branches off
-`main` and needs no stacking.
-
-**Before starting D, read *Carried into D from C* at the end of the D section** —
-it lists two things C left behind that D is the right place to fix.
+`AddTeamEntityAndSquadTeamFk` (C1). D carries no migration.
 
 ---
 
@@ -378,7 +374,43 @@ picker would assign a team nobody can see.
 
 ---
 
-## D. Squad-on-approval + role gates ⬜ next — start here
+## D. Squad-on-approval + role gates 🔵 in review
+
+### What the build decided
+
+Five things the plan left open, settled while building. Each is a place where
+following the plan literally would have been wrong.
+
+1. **`SquadsController` gates writes, not reads.** The plan said the controller
+   has no role attribute; a controller-level one would have been the obvious
+   fix and would have broken the app. Squad lists feed the retro board, leave
+   overview, sprints, the k-picker and export — ordinary member-facing screens.
+   *Being* in a squad is not sensitive; *changing* who is, is. So every write
+   carries `[Authorize(Roles = "TeamLead")]` and both `GET`s stay open behind
+   the global fallback policy.
+2. **Carry-over 2 took the dedicated-endpoint option**, not the "explicit unset
+   signal" one. `TeamId` is gone from the update shape entirely — a new
+   `UpdateSquadRequest` record — and moves through `PUT /squads/{id}/team`.
+   Same reasoning as A removing `Role` from the member DTOs: an absent field
+   can't mean "detach" if the field doesn't exist. A test asserts the shape.
+3. **Assignment is additive.** `SetMemberSquadsAsync` replaces the whole set, so
+   calling it with `[squadId]` would strip a reactivated member's other squads.
+   Approval places someone *into* a squad; it does not declare that squad their
+   only one. The service unions with what they already have.
+4. **A no-save overload, not a transaction.** `SetMemberSquadsAsync(…, save: false)`
+   lets the whole approval land in one `SaveChanges`, which is what the plan
+   actually wanted (no member with access and no squad). A transaction would
+   also have failed under the in-memory provider the tests use.
+5. **Two gates had UI consequences worth following.** `PUT /team-members/{id}/squads`
+   is now lead-only, but `team-member-form` called it on every save — including a
+   member editing their own profile, which `TeamMembersController.Update` still
+   allows (gap 2). The squad control is now hidden and the call skipped for
+   non-leads, and "Manage squads" joins "Manage teams" behind a predicate
+   (`canManageSquads()`, named by intent rather than reusing `canManageTeams()`).
+
+The approve dialog has **two** callers — `access-requests.component` and
+`pending-approvals-dialog` — and both thread `squadId` through. The second is
+easy to miss; it is the same dialog, so a dropped field there fails silently.
 
 ### Extract first
 
@@ -482,7 +514,7 @@ The frontend `vitest` specs do not run — all 7 files fail with
 `describe is not defined`, there is no `test` script in `package.json`, and
 vitest globals are unconfigured. This is **pre-existing and repo-wide**, not a
 regression; don't mistake it for one, and don't take a green frontend run as
-evidence of anything. Backend is `./dev.sh test` (137 passing as of C2), and
+evidence of anything. Backend is `./dev.sh test` (152 passing as of D), and
 `npx ng build` from `team-manager-ui/` is what actually typechecks the frontend,
 templates included.
 
@@ -491,10 +523,12 @@ templates included.
 ## Gaps found
 
 Status as of 2026-08-03: **1, 4, 6, 7 and 8 are closed** by A and B. **2 is
-partly closed** — the endpoints A, B and C touched now carry both gates, but the
-rest of the codebase has not been swept, and `SquadsController` is still
-ungated (D). **3 and 5 remain open and are out of scope for this plan**; they
-want their own piece of work.
+partly closed** — the endpoints A, B, C and D touched now carry both gates,
+including `SquadsController` and `AccessRequestsController`, but the rest of the
+codebase has not been swept. The clearest remaining instance is
+`TeamMembersController.Update`, which is still `[RequireFeature("team")]` only;
+it is what D's UI had to work around in decision 5 above. **3 and 5 remain open
+and are out of scope for this plan**; they want their own piece of work.
 
 1. ~~**Self-promotion via the member update endpoint**~~ — closed by A (#214).
    `Role` was removed from the create/update DTOs and moved to its own gated
@@ -581,7 +615,7 @@ under *A member's teams are a set, not a value* (was open question 2).
 | 2 | B2 — frontend sweep | none | ✅ #216 | Broad but mechanical; derive the lists and follow the compiler |
 | 3 | C1 — Team schema, migration, API | `AddTeamEntityAndSquadTeamFk` | ✅ #217 | Additive and deployable ahead of the UI. `SetNull` is the decision that fails quietly |
 | 4 | C2 — Team UI | none | ✅ #218 | Largest surface; every piece has a squad equivalent to mirror. Needs C1's DTOs |
-| 5 | D — approval assignment + role gates | none | ⬜ next | Depends on C1's schema (it reads `squad.TeamId`), not on C2 |
+| 5 | D — approval assignment + role gates | none | 🔵 in review | Depends on C1's schema (it reads `squad.TeamId`), not on C2 |
 
 Every workstream except B1 carries UI. C2 carries the most: a new team-manager
 dialog, a team picker on squads, and team display/filtering in the member list.

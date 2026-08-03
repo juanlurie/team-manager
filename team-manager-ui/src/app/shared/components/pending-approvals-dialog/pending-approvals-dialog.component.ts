@@ -102,7 +102,7 @@ export class PendingApprovalsDialogComponent implements OnInit {
     ref.afterClosed().subscribe((result?: ApproveAccessRequestDialogResult) => {
       if (!result) return;
       this.busyId.set(req.id);
-      this.svc.approve(req.id, result.teamMemberId).subscribe({
+      this.svc.approve(req.id, result.teamMemberId, result.squadId).subscribe({
         next: () => {
           this.snackBar.open(`${req.name} approved and granted access`, 'Close', { duration: 3000 });
           this.busyId.set(null);
