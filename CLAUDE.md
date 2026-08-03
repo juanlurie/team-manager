@@ -47,6 +47,11 @@ Resolve any conflicts immediately, before writing new code.
 5. Open PR to main: `gh pr create --base main`
 6. Stop — the user merges
 
+# Active Plans
+
+See [docs/plans/team-admin-rollout.md](docs/plans/team-admin-rollout.md) for the
+current role/team refactor.
+
 # Frontend Component Architecture
 
 As a feature grows across multiple changes, break it into components as you go —
