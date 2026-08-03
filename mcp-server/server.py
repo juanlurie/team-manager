@@ -257,7 +257,7 @@ TOOLS = [
         inputSchema={
             "type": "object",
             "properties": {
-                "role": {"type": "string", "enum": ["Member", "TeamLead", "TechLead"]},
+                "role": {"type": "string", "enum": ["Member", "TeamLead", "TechLead", "Admin"]},
                 "team_lead_id": {"type": "string"},
                 "is_active": {"type": "boolean"},
             },
@@ -275,25 +275,24 @@ TOOLS = [
     ),
     types.Tool(
         name="create_team_member",
-        description="Add a new team member.",
+        description="Add a new team member. New members start with the Member role -- use change_team_member_role to promote them.",
         inputSchema={
             "type": "object",
             "properties": {
                 "first_name": {"type": "string"},
                 "last_name": {"type": "string"},
                 "email": {"type": "string"},
-                "role": {"type": "string", "enum": ["Member", "TeamLead", "TechLead"]},
                 "team_lead_id": {"type": "string"},
                 "crafts": {"type": "array", "items": {"type": "string"}},
                 "birth_date": {"type": "string", "description": "YYYY-MM-DD"},
                 "join_date": {"type": "string", "description": "YYYY-MM-DD"},
             },
-            "required": ["first_name", "last_name", "email", "role"],
+            "required": ["first_name", "last_name", "email"],
         },
     ),
     types.Tool(
         name="update_team_member",
-        description="Update an existing team member.",
+        description="Update an existing team member. Role is not settable here -- use change_team_member_role.",
         inputSchema={
             "type": "object",
             "properties": {
@@ -301,7 +300,6 @@ TOOLS = [
                 "first_name": {"type": "string"},
                 "last_name": {"type": "string"},
                 "email": {"type": "string"},
-                "role": {"type": "string", "enum": ["Member", "TeamLead", "TechLead"]},
                 "team_lead_id": {"type": "string"},
                 "crafts": {"type": "array", "items": {"type": "string"}},
                 "birth_date": {"type": "string", "description": "YYYY-MM-DD"},
@@ -309,6 +307,21 @@ TOOLS = [
                 "is_active": {"type": "boolean"},
             },
             "required": ["member_id"],
+        },
+    ),
+    types.Tool(
+        name="change_team_member_role",
+        description=(
+            "Change a team member's role. Requires TeamLead or Admin. Only an Admin may grant the "
+            "Admin role or change an existing Admin's role, and the last Admin cannot be demoted."
+        ),
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "member_id": {"type": "string"},
+                "role": {"type": "string", "enum": ["Member", "TeamLead", "TechLead", "Admin"]},
+            },
+            "required": ["member_id", "role"],
         },
     ),
     types.Tool(
@@ -2287,7 +2300,6 @@ async def call_tool(name: str, arguments: dict) -> list[types.TextContent]:
                     "firstName": arguments["first_name"],
                     "lastName": arguments["last_name"],
                     "email": arguments["email"],
-                    "role": arguments["role"],
                     "teamLeadId": arguments.get("team_lead_id"),
                     "crafts": arguments.get("crafts"),
                     "birthDate": arguments.get("birth_date"),
@@ -2298,12 +2310,15 @@ async def call_tool(name: str, arguments: dict) -> list[types.TextContent]:
                     "firstName": arguments.get("first_name"),
                     "lastName": arguments.get("last_name"),
                     "email": arguments.get("email"),
-                    "role": arguments.get("role"),
                     "teamLeadId": arguments.get("team_lead_id"),
                     "crafts": arguments.get("crafts"),
                     "birthDate": arguments.get("birth_date"),
                     "joinDate": arguments.get("join_date"),
                     "isActive": arguments.get("is_active"),
+                })
+            case "change_team_member_role":
+                return await _put(f"/api/v1/team-members/{arguments['member_id']}/role", {
+                    "role": arguments["role"],
                 })
             case "delete_team_member":
                 return await _delete(f"/api/v1/team-members/{arguments['member_id']}")

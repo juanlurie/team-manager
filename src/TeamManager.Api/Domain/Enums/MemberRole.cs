@@ -4,5 +4,6 @@ public enum MemberRole
 {
     Member,
     TeamLead,
-    TechLead
+    TechLead,
+    Admin
 }

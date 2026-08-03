@@ -11,12 +11,26 @@ export interface SquadSummary {
   color: string | null;
 }
 
+export type MemberRole = 'Member' | 'TeamLead' | 'TechLead' | 'Admin';
+
+/** The one place role ids and their display labels are listed on the frontend. */
+export const MEMBER_ROLES: { id: MemberRole; label: string }[] = [
+  { id: 'Member',   label: 'Member' },
+  { id: 'TeamLead', label: 'Team Lead' },
+  { id: 'TechLead', label: 'Tech Lead' },
+  { id: 'Admin',    label: 'Admin' },
+];
+
+export function roleLabel(role: string): string {
+  return MEMBER_ROLES.find(r => r.id === role)?.label ?? role;
+}
+
 export interface TeamMember {
   id: string;
   firstName: string;
   lastName: string;
   email: string;
-  role: 'Member' | 'TeamLead' | 'TechLead';
+  role: MemberRole;
   teamLeadId: string | null;
   teamLeadName: string | null;
   crafts: string[];
@@ -29,11 +43,12 @@ export interface TeamMember {
   squads: SquadSummary[];
 }
 
+// No role field: role is set through TeamMemberService.changeRole(), never as part of a
+// general member save. See docs/plans/team-admin-rollout.md, workstream A.
 export interface CreateTeamMemberRequest {
   firstName: string;
   lastName: string;
   email: string;
-  role: string;
   teamLeadId: string | null;
   crafts: string[];
   birthDate: string | null;
