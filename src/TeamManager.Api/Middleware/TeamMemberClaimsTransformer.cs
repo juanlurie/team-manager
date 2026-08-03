@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.EntityFrameworkCore;
+using TeamManager.Api.Domain.Authorization;
 using TeamManager.Api.Domain.Entities;
 using TeamManager.Api.Domain.Enums;
 using TeamManager.Api.Infrastructure.Data;
@@ -63,7 +64,10 @@ public class TeamMemberClaimsTransformer(AppDbContext db, ILogger<TeamMemberClai
                 FirstName = firstName,
                 LastName = lastName,
                 Email = email,
-                Role = MemberRole.TeamLead,
+                // Admin, not TeamLead: this is the person who has to configure everything, and
+                // only an Admin can grant Admin — bootstrapping a TeamLead would leave a fresh
+                // deployment with no way to reach the role at all.
+                Role = MemberRole.Admin,
                 ExternalSubjectId = sub,
                 IsActive = true
             };
@@ -84,10 +88,15 @@ public class TeamMemberClaimsTransformer(AppDbContext db, ILogger<TeamMemberClai
         var id = (ClaimsIdentity)principal.Identity!;
         id.AddClaim(new Claim("TMID", tm.Id.ToString()));
 
-        // Add role claim from TeamMember entity so [Authorize(Roles = "...")] works
-        // Must use "role" to match JWT RoleClaimType configured in Program.cs
-        if (!principal.IsInRole(tm.Role.ToString()))
-            id.AddClaim(new Claim("role", tm.Role.ToString()));
+        // Add role claims from the TeamMember entity so [Authorize(Roles = "...")] works.
+        // Must use "role" to match JWT RoleClaimType configured in Program.cs.
+        //
+        // The transitive set, not just tm.Role: an Admin emitting only role=Admin would fail every
+        // [Authorize(Roles = "TeamLead")] site in the API — an Admin who can do *less* than a lead.
+        // RoleHierarchy is the single place that decides what implies what.
+        foreach (var role in RoleHierarchy.Expand(tm.Role))
+            if (!principal.IsInRole(role))
+                id.AddClaim(new Claim("role", role));
 
         return principal;
     }

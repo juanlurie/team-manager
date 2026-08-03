@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using TeamManager.Api.Application.DTOs.FeaturePermissions;
 using TeamManager.Api.Application.Services.Interfaces;
 using TeamManager.Api.Domain.Entities;
+using TeamManager.Api.Domain.Enums;
 using TeamManager.Api.Infrastructure.Data;
 
 namespace TeamManager.Api.Application.Services;
@@ -15,7 +16,12 @@ public class FeaturePermissionService : IFeaturePermissionService
         this.db = db;
     }
 
-    private static readonly string[] AllRoles = ["Member", "TeamLead", "TechLead"];
+    // Derived, never restated: a role added to the enum shows up in the settings matrix on its own.
+    // The hand-maintained list is what made adding Admin a four-place edit (see the rollout plan's
+    // "Gaps found" #4).
+    private static readonly string[] AllRoles = Enum.GetNames<MemberRole>();
+
+    private static readonly string AdminRole = nameof(MemberRole.Admin);
 
     public async Task<List<FeatureCategoryGroup>> GetAllRolePermissionsAsync()
     {
@@ -27,6 +33,11 @@ public class FeaturePermissionService : IFeaturePermissionService
         var all = allFeatures
             .SelectMany(f => AllRoles.Select(role =>
             {
+                // Admin has every feature by definition, so its column reports enabled regardless
+                // of what's stored. Reading a stored value here would let the matrix show a state
+                // IsFeatureEnabledForMemberAsync ignores.
+                if (role == AdminRole)
+                    return new FeaturePermissionDto(Guid.Empty, f.Key, f.Category, f.Label, role, true);
                 if (dbMap.TryGetValue((f.Key, role), out var existing))
                     return new FeaturePermissionDto(existing.Id, existing.FeatureKey, existing.Category, existing.Label, existing.Role, existing.IsEnabled);
                 return new FeaturePermissionDto(Guid.Empty, f.Key, f.Category, f.Label, role, true);
@@ -45,6 +56,11 @@ public class FeaturePermissionService : IFeaturePermissionService
 
     public async Task UpdateRolePermissionAsync(string featureKey, string role, bool isEnabled)
     {
+        // Refused rather than stored-and-ignored: a row nothing reads is the "silently inert
+        // permission" failure this file already has one of (gap 5 in the rollout plan).
+        if (role == AdminRole)
+            throw new InvalidOperationException("Admin has every feature by definition and cannot be restricted.");
+
         var permission = await db.FeaturePermissions
             .FirstOrDefaultAsync(p => p.FeatureKey == featureKey && p.Role == role);
 
@@ -74,8 +90,16 @@ public class FeaturePermissionService : IFeaturePermissionService
         var member = await db.TeamMembers.FindAsync(memberId);
         if (member == null) throw new KeyNotFoundException("Member not found.");
 
-        var role = member.Role.ToString();
         var allFeatures = GetAllFeatureDefinitions();
+
+        // Same short-circuit as IsFeatureEnabledForMemberAsync, so the tab shows what the member
+        // actually gets rather than role rows and overrides that no longer apply to them.
+        if (member.Role == MemberRole.Admin)
+            return allFeatures
+                .Select(f => new MemberFeatureOverrideDto(Guid.Empty, f.Key, f.Category, f.Label, true, true))
+                .ToList();
+
+        var role = member.Role.ToString();
         var overrides = await db.MemberFeatureOverrides
             .Where(o => o.TeamMemberId == memberId)
             .ToListAsync();
@@ -108,6 +132,10 @@ public class FeaturePermissionService : IFeaturePermissionService
 
     public async Task UpdateMemberOverrideAsync(Guid memberId, string featureKey, bool isEnabled)
     {
+        var member = await db.TeamMembers.FindAsync(memberId);
+        if (member is not null && member.Role == MemberRole.Admin)
+            throw new InvalidOperationException("Admin has every feature by definition and cannot be restricted.");
+
         var existing = await db.MemberFeatureOverrides
             .FirstOrDefaultAsync(o => o.TeamMemberId == memberId && o.FeatureKey == featureKey);
 
@@ -146,6 +174,11 @@ public class FeaturePermissionService : IFeaturePermissionService
     {
         var member = await db.TeamMembers.FindAsync(memberId);
         if (member == null) return false;
+
+        // "Admin has all permissions" is answered here rather than by seeding an Admin row per
+        // feature: seeded rows go stale the next time someone adds a feature, and this file's
+        // default is fail-open for anything unseeded anyway.
+        if (member.Role == MemberRole.Admin) return true;
 
         var role = member.Role.ToString();
 

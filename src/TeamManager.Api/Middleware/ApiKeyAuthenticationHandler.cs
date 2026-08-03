@@ -4,6 +4,7 @@ using System.Text.Encodings.Web;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using TeamManager.Api.Domain.Authorization;
 using TeamManager.Api.Infrastructure.Data;
 
 namespace TeamManager.Api.Middleware;
@@ -53,10 +54,14 @@ public class ApiKeyAuthenticationHandler : AuthenticationHandler<AuthenticationS
             new(ClaimTypes.NameIdentifier, member.Id.ToString()),
             new("sub", $"apikey:{apiKey.Id}"),
             new("name", $"{member.FirstName} {member.LastName}"),
-            new("role", member.Role.ToString()),
             new("TMID", member.Id.ToString()),
             new("AuthMethod", "ApiKey"),
         };
+
+        // TeamMemberClaimsTransformer returns early for AuthMethod=ApiKey, so this handler is the
+        // other half of the role-claim story and has to expand through the same hierarchy —
+        // otherwise a key issued to an Admin is refused everywhere a TeamLead is required.
+        claims.AddRange(RoleHierarchy.Expand(member.Role).Select(r => new Claim("role", r)));
 
         var identity = new ClaimsIdentity(claims, Scheme.Name);
         var principal = new ClaimsPrincipal(identity);
