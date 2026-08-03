@@ -508,13 +508,48 @@ Neither is a security issue. Both are the same *class* of quiet failure this
 plan keeps flagging: a write path that does something destructive when a field
 is merely absent.
 
+### Review follow-ups
+
+A soundness and security pass over D found no vulnerability — both gaps it set out to
+close are genuinely closed — but eight things worth fixing before merge. All are in:
+
+1. **The role gate needed a UI gate to match.** `list` is lead-only now, but the three
+   entry points (`app-sidebar`, `app-bottom-nav`, `app.component`'s "Review" snackbar)
+   still gated on `hasAccess('access-requests')` alone, so a plain member was offered a
+   Review action that could only 403. This is decision 5's reasoning applied to D's own
+   primary gate; `canReviewAccessRequests()` joins the other named predicates.
+2. **The outcome `switch` fell through to success.** A statement `switch` with no
+   `default`: a sixth `ApprovalOutcome` would have broadcast "approved" and returned 200
+   on an approval that never happened. Now a switch expression with no discard arm, so
+   the compiler catches the next one (CS8509).
+3. **Nothing tested the attributes.** Every behavioural test passes against controllers
+   with their gates deleted — they exercise the services underneath. `EndpointRoleGateTests`
+   pins all nine, *including* that the two squad `GET`s stay ungated, since that is a
+   deliberate choice someone could otherwise "tidy" into a lockout.
+4. **Additive assignment was a set-replacement.** `AssignSquadAsync` read `SquadMembers`
+   directly, then `SetMemberSquadsAsync` re-read them and deleted and re-inserted every
+   row the member held, giving each a fresh `Id` for a change that never concerned it.
+   Now `SquadService.AddMemberToSquadAsync` inserts one row and is idempotent. This was
+   never a correctness bug — EF Core orders the delete before the insert for the unique
+   index — but "add one" should not be spelled as "replace all".
+5. `Guid.Parse` on the `TMID` claim → `TryParse`; an unidentifiable caller is a refusal,
+   not a 500.
+6. `canAssignRoles`/`canManageTeams`/`canManageSquads` had three identical bodies. Named
+   by intent is right, per *Practices*; restating `TeamLead || Admin` in each is the
+   hierarchy encoded four times. They delegate to one `hasManagementAuthority()` now.
+   (`isLead()` is genuinely different — it includes TechLead.)
+7. `SquadService` had two result idioms across three sibling writes. `UpdateAsync` returns
+   `SquadSaveResult` like the others, and the `!` on the post-write re-read is gone.
+8. `team-member-form` snapshotted `canManageSquads` at construction where `team-list` used
+   a getter — before the profile lands that hides the squad control from a lead. Getter.
+
 ### A note on verification
 
 The frontend `vitest` specs do not run — all 7 files fail with
 `describe is not defined`, there is no `test` script in `package.json`, and
 vitest globals are unconfigured. This is **pre-existing and repo-wide**, not a
 regression; don't mistake it for one, and don't take a green frontend run as
-evidence of anything. Backend is `./dev.sh test` (152 passing as of D), and
+evidence of anything. Backend is `./dev.sh test` (166 passing as of D), and
 `npx ng build` from `team-manager-ui/` is what actually typechecks the frontend,
 templates included.
 

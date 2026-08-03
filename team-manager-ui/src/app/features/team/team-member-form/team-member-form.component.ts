@@ -217,7 +217,12 @@ export class TeamMemberFormComponent implements OnInit {
   private dialogRef = inject(MatDialogRef<TeamMemberFormComponent>);
   data: { member?: TeamMember; allMembers: TeamMember[] } = inject(MAT_DIALOG_DATA);
 
-  readonly canManageSquads = this.auth.canManageSquads();
+  /**
+   * A getter, not a snapshot: read at construction it would be false whenever the profile hasn't
+   * landed yet, silently hiding the squad control from a lead and skipping the save below.
+   * UX only -- the role attributes on SquadsController are the boundary.
+   */
+  get canManageSquads() { return this.auth.canManageSquads(); }
 
   achievements = signal<MemberAchievement[]>([]);
   stats = signal<LeaderboardEntry | null>(null);

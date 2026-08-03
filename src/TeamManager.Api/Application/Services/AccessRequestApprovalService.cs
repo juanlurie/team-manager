@@ -90,7 +90,7 @@ public class AccessRequestApprovalService(AppDbContext db, SquadService squads)
                 Id = Guid.NewGuid(),
                 FirstName = parts[0],
                 LastName = parts.Length > 1 ? parts[1] : "",
-                Email = request.Email,
+                Email = request.Email.Trim(),
                 Role = MemberRole.Member,
                 IsActive = true,
                 Crafts = new List<string>()
@@ -106,8 +106,11 @@ public class AccessRequestApprovalService(AppDbContext db, SquadService squads)
         request.ReviewedAt = DateTimeOffset.UtcNow;
         request.ReviewNotes = input.Notes;
 
+        // Adds the chosen squad to whatever the member already has. Approval places someone *into* a
+        // squad; it is not a statement that this is now their only one, so a reactivated member keeps
+        // the memberships they had. Writes through SquadService so one code path still owns SquadMember.
         if (squad is not null)
-            await AssignSquadAsync(member.Id, squad.Id);
+            await squads.AddMemberToSquadAsync(member.Id, squad.Id, save: false);
 
         // One save for the whole approval. SetMemberSquadsAsync is told not to save its own work for
         // exactly this reason: a second, separate save could fail after access was already granted,
@@ -115,22 +118,5 @@ public class AccessRequestApprovalService(AppDbContext db, SquadService squads)
         await db.SaveChangesAsync();
 
         return new ApprovalResult(ApprovalOutcome.Success, member.Id, reactivated);
-    }
-
-    /// <summary>
-    /// Adds the chosen squad to whatever the member already has. Approval places someone *into* a
-    /// squad; it is not a statement that this is now their only one, so a reactivated member keeps
-    /// the memberships they had. Writes through SquadService so one code path still owns SquadMember.
-    /// </summary>
-    private async Task AssignSquadAsync(Guid memberId, Guid squadId)
-    {
-        var current = await db.SquadMembers
-            .Where(sm => sm.TeamMemberId == memberId)
-            .Select(sm => sm.SquadId)
-            .ToListAsync();
-
-        if (current.Contains(squadId)) return;
-
-        await squads.SetMemberSquadsAsync(memberId, [.. current, squadId], save: false);
     }
 }

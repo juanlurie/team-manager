@@ -38,14 +38,14 @@ public class SquadService(AppDbContext db)
     }
 
     /// <summary>Name and colour only. Team membership moves through <see cref="SetTeamAsync"/>.</summary>
-    public async Task<SquadDto?> UpdateAsync(Guid id, UpdateSquadRequest request)
+    public async Task<SquadSaveResult> UpdateAsync(Guid id, UpdateSquadRequest request)
     {
         var squad = await db.Squads.FindAsync(id);
-        if (squad is null) return null;
+        if (squad is null) return SquadSaveResult.NotFound;
         squad.Name = request.Name.Trim();
         squad.Color = request.Color;
         await db.SaveChangesAsync();
-        return await GetByIdAsync(id);
+        return await ReReadAsync(id);
     }
 
     /// <summary>
@@ -61,12 +61,23 @@ public class SquadService(AppDbContext db)
 
         squad.TeamId = teamId;
         await db.SaveChangesAsync();
-        return SquadSaveResult.Ok((await GetByIdAsync(id))!);
+        return await ReReadAsync(id);
     }
 
     /// <summary>Null is "no team", which is always valid; only a stated team has to exist.</summary>
     private async Task<bool> TeamExistsAsync(Guid? teamId) =>
         teamId is not { } id || await db.Teams.AnyAsync(t => t.Id == id);
+
+    /// <summary>
+    /// Re-reads a squad after a write so the response carries TeamName and members -- the tracked
+    /// entity has TeamId but no Team. NotFound rather than a null-forgiving `!`: a concurrent delete
+    /// between the save and this read is narrow but real, and the caller already handles the case.
+    /// </summary>
+    private async Task<SquadSaveResult> ReReadAsync(Guid id)
+    {
+        var dto = await GetByIdAsync(id);
+        return dto is null ? SquadSaveResult.NotFound : SquadSaveResult.Ok(dto);
+    }
 
     public async Task<bool> DeleteAsync(Guid id)
     {
@@ -105,6 +116,25 @@ public class SquadService(AppDbContext db)
 
         foreach (var squadId in squadIds.Distinct())
             db.SquadMembers.Add(new SquadMember { SquadId = squadId, TeamMemberId = teamMemberId });
+
+        if (save) await db.SaveChangesAsync();
+    }
+
+    /// <summary>
+    /// Adds one membership, leaving every other one untouched. Distinct from SetMemberSquadsAsync,
+    /// which replaces the whole set: expressing "also put them in this squad" as a set-replacement
+    /// meant deleting and re-inserting every row the member already had, handing each a fresh
+    /// SquadMember.Id for a change that never concerned them. Idempotent -- already a member is a
+    /// no-op, which is what the unique index on (SquadId, TeamMemberId) would otherwise enforce with
+    /// an exception. <paramref name="save"/> as on SetMemberSquadsAsync: callers passing false must save.
+    /// </summary>
+    public async Task AddMemberToSquadAsync(Guid teamMemberId, Guid squadId, bool save = true)
+    {
+        var alreadyThere = await db.SquadMembers
+            .AnyAsync(sm => sm.TeamMemberId == teamMemberId && sm.SquadId == squadId);
+        if (alreadyThere) return;
+
+        db.SquadMembers.Add(new SquadMember { SquadId = squadId, TeamMemberId = teamMemberId });
 
         if (save) await db.SaveChangesAsync();
     }

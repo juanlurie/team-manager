@@ -179,6 +179,15 @@ export class AppComponent {
   nav = inject(NavService);
   mobile = inject(MobileService);
 
+  /**
+   * Gates both the pending-count fetch and the "Access request from X / Review" snackbar. The
+   * feature flag alone is not enough: list/approve/deny are lead-only on the server, so a plain
+   * member was being offered a Review action that could only 403.
+   */
+  private canReviewAccessRequests() {
+    return this.featureAccess.hasAccess('access-requests') && this.auth.canReviewAccessRequests();
+  }
+
   isAuthorized = signal(false);
   navLoading = signal(false);
   authChecking = signal(true);
@@ -204,7 +213,7 @@ export class AppComponent {
       if (status === 'authorized') {
         this.featureAccess.loadPermissions();
         this.tsd.load();
-        if (this.featureAccess.hasAccess('access-requests')) this.accessReqs.refreshCount();
+        if (this.canReviewAccessRequests()) this.accessReqs.refreshCount();
         // A poll can start while you're anywhere in the app, so this listens app-wide.
         this.wsSvc.connect();
         this.pollAnnouncer.start();
@@ -212,7 +221,7 @@ export class AppComponent {
     });
 
     this.wsSvc.roomEvents<AccessRequestEvent>(ACCESS_REQUEST_EVENT_TYPES).subscribe(msg => {
-      if (msg.type === 'access_request_submitted' && this.featureAccess.hasAccess('access-requests')) {
+      if (msg.type === 'access_request_submitted' && this.canReviewAccessRequests()) {
         this.accessReqs.refreshCount();
         const name = msg.data['name'] as string;
         const ref = this.snackBar.open(`🔔 Access request from ${name}`, 'Review', { duration: 8000 });

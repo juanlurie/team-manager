@@ -95,27 +95,36 @@ public class AccessRequestsController(AppDbContext db, AccessRequestApprovalServ
     [Authorize(Roles = "TeamLead")]
     public async Task<IActionResult> Approve(Guid id, [FromBody] ApproveDto? dto)
     {
-        var reviewerId = User.FindFirst("TMID")?.Value;
-        if (string.IsNullOrEmpty(reviewerId)) return Forbid();
+        // TryParse rather than Parse: a malformed TMID is a caller we cannot identify, which is a
+        // refusal, not a 500.
+        if (!Guid.TryParse(User.FindFirst("TMID")?.Value, out var reviewerId)) return Forbid();
 
         var result = await approvals.ApproveAsync(
             id,
-            Guid.Parse(reviewerId),
+            reviewerId,
             new ApprovalInput(dto?.Notes, dto?.TeamMemberId, dto?.SquadId));
 
-        switch (result.Outcome)
+        // A switch *expression* with no discard arm, so adding an ApprovalOutcome without handling it
+        // here is a compiler warning (CS8509) and, failing that, a runtime throw. The statement form
+        // this replaced fell through to the success path below: a new failure outcome would have
+        // broadcast "approved" and returned 200 on an approval that did not happen.
+        //
+        // CS8524 is the *other* non-exhaustiveness warning -- an int cast to an undeclared enum value
+        // -- which cannot arise here since the value comes from our own service. Suppressed narrowly
+        // rather than with a `_ =>` arm, because that arm would take CS8509 down with it and CS8509
+        // is the entire point of the shape.
+#pragma warning disable CS8524
+        IActionResult? failure = result.Outcome switch
         {
-            case ApprovalOutcome.RequestNotFound:
-                return NotFound();
-            case ApprovalOutcome.NotPending:
-                return BadRequest(new { error = "Request is not pending." });
-            case ApprovalOutcome.MemberNotFound:
-                return BadRequest(new { error = "Selected team member not found." });
-            case ApprovalOutcome.SquadNotFound:
-                return BadRequest(new { error = "Selected squad not found." });
-            case ApprovalOutcome.EmailTaken:
-                return BadRequest(new { error = $"Another team member already uses {result.ConflictingEmail}." });
-        }
+            ApprovalOutcome.Success => null,
+            ApprovalOutcome.RequestNotFound => NotFound(),
+            ApprovalOutcome.NotPending => BadRequest(new { error = "Request is not pending." }),
+            ApprovalOutcome.MemberNotFound => BadRequest(new { error = "Selected team member not found." }),
+            ApprovalOutcome.SquadNotFound => BadRequest(new { error = "Selected squad not found." }),
+            ApprovalOutcome.EmailTaken => BadRequest(new { error = $"Another team member already uses {result.ConflictingEmail}." })
+        };
+#pragma warning restore CS8524
+        if (failure is not null) return failure;
 
         // guestAllowed: true -- the requester's own browser is still an unapproved/anonymous
         // connection (no TeamMember yet, so no TMID claim) at this point, and BroadcastAsync skips

@@ -183,7 +183,10 @@ export class AppBottomNavComponent {
     });
   }
 
-  showApprovals() { return this.featureAccess.hasAccess('access-requests'); }
+  /** Feature flag *and* role, as in the sidebar -- reviewing requests is lead-only on the server. */
+  showApprovals() {
+    return this.featureAccess.hasAccess('access-requests') && this.auth.canReviewAccessRequests();
+  }
 
   openApprovals() {
     this.moreOpen.set(false);

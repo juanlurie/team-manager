@@ -51,7 +51,11 @@ public class SquadsController(SquadService service) : ControllerBase
     public async Task<IActionResult> Update(Guid id, [FromBody] UpdateSquadRequest request)
     {
         var result = await service.UpdateAsync(id, request);
-        return result is null ? NotFound() : Ok(result);
+        return result.Outcome switch
+        {
+            SquadSaveOutcome.NotFound => NotFound(),
+            _ => Ok(result.Squad)
+        };
     }
 
     /// <summary>Moves the squad to a team, or out of one when TeamId is null.</summary>

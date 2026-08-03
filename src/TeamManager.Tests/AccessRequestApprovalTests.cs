@@ -131,7 +131,8 @@ public class AccessRequestApprovalTests
         var member = Member("returning@team.local");
         var request = Request("returning@team.local");
         db.AddRange(held, assigned, member, request);
-        db.Add(new SquadMember { Id = Guid.NewGuid(), SquadId = held.Id, TeamMemberId = member.Id });
+        var heldRow = new SquadMember { Id = Guid.NewGuid(), SquadId = held.Id, TeamMemberId = member.Id };
+        db.Add(heldRow);
         await db.SaveChangesAsync();
 
         await Service(db).ApproveAsync(request.Id, Guid.NewGuid(), new ApprovalInput(SquadId: assigned.Id));
@@ -140,6 +141,31 @@ public class AccessRequestApprovalTests
         Assert.Equal(2, ids.Count);
         Assert.Contains(held.Id, ids);
         Assert.Contains(assigned.Id, ids);
+
+        // And the membership they already had is the *same row*, not a delete-and-reinsert. Adding
+        // one squad by replacing the whole set churned every row the member held, handing each a
+        // fresh Id for a change that never concerned it.
+        var stillHeld = await db.SquadMembers
+            .SingleAsync(sm => sm.TeamMemberId == member.Id && sm.SquadId == held.Id);
+        Assert.Equal(heldRow.Id, stillHeld.Id);
+    }
+
+    [Fact]
+    public async Task Approving_into_a_squad_the_member_is_already_in_is_a_no_op()
+    {
+        using var db = NewDb();
+        // The unique index on (SquadId, TeamMemberId) would otherwise make a re-approval throw.
+        var squad = new Squad { Id = Guid.NewGuid(), Name = "Held" };
+        var member = Member("returning@team.local");
+        var request = Request("returning@team.local");
+        db.AddRange(squad, member, request);
+        db.Add(new SquadMember { Id = Guid.NewGuid(), SquadId = squad.Id, TeamMemberId = member.Id });
+        await db.SaveChangesAsync();
+
+        var result = await Service(db).ApproveAsync(request.Id, Guid.NewGuid(), new ApprovalInput(SquadId: squad.Id));
+
+        Assert.Equal(ApprovalOutcome.Success, result.Outcome);
+        Assert.Single(await SquadIdsOf(db, member.Id));
     }
 
     // --- Validation -------------------------------------------------------------------------
@@ -278,12 +304,13 @@ public class AccessRequestApprovalTests
         db.AddRange(team, squad);
         await db.SaveChangesAsync();
 
-        var updated = await new SquadService(db)
+        var result = await new SquadService(db)
             .UpdateAsync(squad.Id, new UpdateSquadRequest { Name = "Renamed", Color = "#fff" });
 
-        Assert.Equal("Renamed", updated!.Name);
-        Assert.Equal(team.Id, updated.TeamId);
-        Assert.Equal("Alpha", updated.TeamName);
+        Assert.Equal(SquadSaveOutcome.Success, result.Outcome);
+        Assert.Equal("Renamed", result.Squad!.Name);
+        Assert.Equal(team.Id, result.Squad.TeamId);
+        Assert.Equal("Alpha", result.Squad.TeamName);
     }
 
     [Fact]
