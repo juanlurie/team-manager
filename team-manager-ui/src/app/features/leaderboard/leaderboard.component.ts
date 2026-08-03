@@ -6,6 +6,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatDialog } from '@angular/material/dialog';
 import { MatDialogModule } from '@angular/material/dialog';
 import { HiScoreGame, LeaderboardEntry } from '../../core/models/leaderboard.model';
+import { roleLabel } from '../../core/models/team-member.model';
 import { LeaderboardService } from '../../core/services/leaderboard.service';
 import { buildDuplicateFirstNames, memberDisplayName } from '../../core/utils/member-display-name';
 import { MemberPointsHistoryComponent } from './member-points-history.component';
@@ -148,7 +149,7 @@ const SOURCE_COLORS: Record<string, { bg: string; text: string }> = {
               <!-- Name + role -->
               <div style="flex:1;min-width:0">
                 <div style="font-weight:600;font-size:0.9rem">{{memberName(e)}}</div>
-                <div style="font-size:0.72rem;opacity:0.4">{{e.role === 'TeamLead' ? 'Team Lead' : e.role}}</div>
+                <div style="font-size:0.72rem;opacity:0.4">{{roleLabel(e.role)}}</div>
               </div>
 
 <!-- Total -->
@@ -225,6 +226,8 @@ export class LeaderboardComponent implements OnInit {
   memberName = (e: LeaderboardEntry) => memberDisplayName(e, this.duplicates());
 
   readonly POS_COLORS = POS_COLORS;
+
+  roleLabel = roleLabel;
 
   sourceStyle(source: string) { return SOURCE_COLORS[source] ?? SOURCE_COLORS['bonus']; }
 

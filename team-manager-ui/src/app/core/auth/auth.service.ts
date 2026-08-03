@@ -180,7 +180,9 @@ export class AuthService {
 
   isLead(): boolean {
     const role = this._me$.value?.role;
-    return role === 'TeamLead' || role === 'TechLead';
+    // Admin is included -- Admin has all permissions, and every existing isLead() call site
+    // (self-or-lead guard, "who can see/act on all members" checks) must not exclude it.
+    return role === 'TeamLead' || role === 'TechLead' || role === 'Admin';
   }
 
   isAdmin(): boolean {

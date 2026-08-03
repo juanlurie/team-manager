@@ -131,7 +131,7 @@ import { AvatarCircleComponent } from '../../../core/components/k-picker/avatar-
     .role-member    { background:rgba(158,158,158,0.12);color:#9e9e9e; }
     .role-teamlead  { background:rgba(100,181,246,0.15);color:#64b5f6; }
     .role-techlead  { background:rgba(171,71,188,0.15);color:#ce93d8; }
-    .role-admin     { background:rgba(239,83,80,0.15);color:#ef9a9a; }
+    .role-admin     { background:rgba(255,179,0,0.15);color:#ffca28; }
     .member-card    { background:rgba(255,255,255,0.04);transition:background 0.15s;min-height:80px;cursor:pointer; }
     .member-card:hover { background:rgba(255,255,255,0.08); }
     .member-card-disabled { cursor:default; }

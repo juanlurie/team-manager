@@ -18,12 +18,44 @@ not depend on the schema work.
   There is deliberately **no** `TeamMember.TeamId`. Adding one creates a second
   source of truth that will drift from squad membership.
 
-Consequence to be aware of: `SquadMember` is many-to-many and
+Consequence: `SquadMember` is many-to-many and
 [`SetMemberSquadsAsync`](../src/TeamManager.Api/Application/Services/SquadService.cs)
 takes a *list*, so a member can sit in several squads resolving to different
-teams, one team, or none. "The member's team" is not a single well-defined
-value. Nothing reads it today; the rule (first-by-name vs. treat-ambiguous-as-
-unset) needs deciding before anything displays it.
+teams, one team, or none. "The member's team" is not a single well-defined value.
+
+### A member's teams are a set, not a value
+
+`TeamMemberDto` gains a plural `Teams` — an ordered, distinct list — and **never**
+a singular `Team`/`TeamId`. Same reasoning as the absent `TeamMember.TeamId` one
+level up: a singular field is a second source of truth that drifts from squad
+membership. The plural shape is what stops one being added later.
+
+The alternatives were considered and rejected:
+
+- **First-by-name** invents a value the data doesn't hold, and it's unstable —
+  renaming a team or adding a squad silently changes who someone "belongs to".
+- **Ambiguous-as-unset** discards the information for exactly the people it
+  matters for, the ones working across teams, and drops them out of *every*
+  team's filter. Showing them under both is strictly better than under neither.
+
+It also needs no new UI idiom: the member row already renders `squads` as chips
+and the squad filter already matches with `.some()`.
+
+Rules that follow, to hold to:
+
+1. **Derivation** — distinct non-null `Squad.Team` across the member's squads,
+   ordered by name. Squads with no team contribute nothing; they are not a
+   "No team" pseudo-team.
+2. **Filtering is any-match.** A member in two teams appears under both. The
+   "No team" filter option means *the derived set is empty*, which includes
+   members who are in no squad at all.
+3. **Counting.** "Members per team" summed across teams can exceed headcount.
+   Any aggregate needing one number per member counts squad memberships, or
+   states the overlap — it does not get fixed by picking one team.
+4. **One place a single team *is* well-defined**: D's approval flow, where the
+   reviewer picks exactly one squad, so `squad.TeamId` is unambiguous. That is
+   "the team implied by this assignment", not "the member's team" — it must not
+   be reused as the latter.
 
 ### Roles
 
@@ -117,26 +149,49 @@ A is schema-free.
 
 A also lands B's `Admin` enum value ahead of schedule: the escalation check and the last-Admin
 guard are written in terms of it, so it cannot be deferred. Nothing else of B moves with it —
-`Admin` stays unreachable (only an Admin can grant Admin, and the bootstrap still makes a
-`TeamLead`) until B lands the implied-role claim, the feature-gate short-circuit and the UI sweep.
+`Admin` stays unreachable (only an Admin can grant Admin, and A's bootstrap still makes a
+`TeamLead`) until B1 lands the implied-role claim, the feature-gate short-circuit and the
+`Admin` bootstrap, and B2 the UI sweep.
 
 ---
 
 ## B. Admin role
 
+Split in two. **B1** is the authorization boundary — who is implicitly who, and what
+"all permissions" actually means at the gate. **B2** is the frontend sweep, which is
+broad but mechanical: the role is stringly-typed throughout, so making the derived
+lists derive turns the compiler into the checklist.
+
+### B1 — enum, hierarchy, claims, feature gating
+
 **Enum** — append `Admin` to
 [MemberRole.cs](../src/TeamManager.Api/Domain/Enums/MemberRole.cs). Safe:
 [TeamMemberConfiguration.cs](../src/TeamManager.Api/Infrastructure/Data/Configurations/TeamMemberConfiguration.cs)
 persists it via `HasConversion<string>()`, so there is no ordinal to disturb and
-no data migration.
+no data migration. *(Landed early with A — the escalation check and last-Admin
+guard are written in terms of it.)*
 
 **Implied roles — the load-bearing change.**
 [TeamMemberClaimsTransformer.cs](../src/TeamManager.Api/Middleware/TeamMemberClaimsTransformer.cs)
 emits exactly one role claim, `tm.Role.ToString()`. An Admin would get
 `role=Admin` and fail all ~30 `[Authorize(Roles = "TeamLead")]` sites — an Admin
 who can do *less* than a lead. Emit the transitive set instead:
-`Admin → {Admin, TeamLead}`. One file, all existing attributes keep working,
-every future controller inherits it.
+`Admin → {Admin, TeamLead}`. All existing attributes keep working, every future
+controller inherits it.
+
+The map itself lives in
+[RoleHierarchy.cs](../src/TeamManager.Api/Domain/Authorization/RoleHierarchy.cs)
+and is the only thing in the system encoding precedence. There are **two**
+claim emitters, not one:
+[ApiKeyAuthenticationHandler](../src/TeamManager.Api/Middleware/ApiKeyAuthenticationHandler.cs)
+also emits `role` and the transformer returns early for `AuthMethod=ApiKey`, so a
+key issued to an Admin would otherwise be refused everywhere a TeamLead is
+required. Both expand through the same map.
+
+`Admin → TeamLead` only. Admin does **not** imply TechLead: the checks that pair
+the two (`IsInRole("TeamLead") || IsInRole("TechLead")`) are already satisfied by
+the TeamLead claim, and claiming TechLead would put Admins in "who are the tech
+leads" lists where they don't belong.
 
 Do **not** rewrite the call sites to `Roles = "TeamLead,Admin"`. That is 30+
 edits where missing one silently locks Admins out of a feature, and every new
@@ -145,31 +200,72 @@ controller is a fresh chance to forget.
 **Feature gating** — short-circuit Admin to `true` in
 [`IsFeatureEnabledForMemberAsync`](../src/TeamManager.Api/Application/Services/FeaturePermissionService.cs)
 rather than seeding an `Admin` row per feature; seeded rows go stale the next
-time someone adds a feature. Add `"Admin"` to the hardcoded `AllRoles` in the
-same file so the settings matrix renders the column.
+time someone adds a feature. Derive `AllRoles` in the same file from
+`Enum.GetNames<MemberRole>()` — restating it is gap 4, and the settings matrix
+then grows the column on its own.
 
-**Decide:** the claims transformer bootstraps the first-ever user as `TeamLead`.
-Should that now be `Admin`? Recommended yes — the bootstrap user is the one who
-needs to configure everything.
+That short-circuit makes stored Admin permissions unreadable, so the write paths
+**refuse** rather than store-and-ignore (`UpdateRolePermissionAsync` for the
+`Admin` role, `UpdateMemberOverrideAsync` against an Admin member; both surface
+as 400). A row nothing reads is exactly gap 5. The reads match: the matrix and
+the member permissions tab report Admin as enabled regardless of what's in the
+table, and the UI renders those toggles checked and disabled.
 
-**Frontend** — role is stringly-typed throughout; miss one and Admin silently
-degrades to Member:
+**Bootstrap user** — the first-ever login becomes `Admin`, not `TeamLead`. Only
+an Admin can grant Admin, so bootstrapping a TeamLead leaves a fresh deployment
+unable to reach the role at all. (Open question 3, resolved.)
 
-- [team-member.model.ts](../team-manager-ui/src/app/core/models/team-member.model.ts) — union type
-- [feature-permissions.model.ts](../team-manager-ui/src/app/core/models/feature-permissions.model.ts) — `ROLES`, plus the hardcoded `<th>` columns in [feature-permissions.component.html](../team-manager-ui/src/app/features/settings/feature-permissions/feature-permissions.component.html)
-- [auth.service.ts](../team-manager-ui/src/app/core/auth/auth.service.ts) and [self-or-lead.guard.ts](../team-manager-ui/src/app/core/guards/self-or-lead.guard.ts) — both test `TeamLead || TechLead`
-- [team-member-form.component.ts](../team-manager-ui/src/app/features/team/team-member-form/team-member-form.component.ts) and [team-list.component.ts](../team-manager-ui/src/app/features/team/team-list/team-list.component.ts) — role dropdowns
-- `roleLabel()` in team-list.component.ts — falls through to "Member" for
-  anything unknown, so an Admin displays as Member until fixed
-- **Badge styling** in the same file — `.role-member` / `.role-teamlead` /
-  `.role-techlead` exist; without a `.role-admin` the Admin badge renders
-  unstyled
+Dev mode (`DevelopmentAuthHandler`) carries both role claims: it is deliberately
+unrestricted, and the transformer never runs there.
+
+### B2 — frontend sweep
+
+Role is stringly-typed throughout; miss one and Admin silently degrades to
+Member. Make the derived lists actually derive and the compiler finds the rest:
+
+- [team-member.model.ts](../team-manager-ui/src/app/core/models/team-member.model.ts) — union type, `MEMBER_ROLES`, `roleLabel()` *(landed with A)*
+- [feature-permissions.model.ts](../team-manager-ui/src/app/core/models/feature-permissions.model.ts) — `ROLES` derives from `MEMBER_ROLES`; the hardcoded `<th>`/`<col>` columns in [feature-permissions.component.html](../team-manager-ui/src/app/features/settings/feature-permissions/feature-permissions.component.html) render from that list, with the Admin column checked and disabled
+- [auth.service.ts](../team-manager-ui/src/app/core/auth/auth.service.ts) and [self-or-lead.guard.ts](../team-manager-ui/src/app/core/guards/self-or-lead.guard.ts) — both tested `TeamLead || TechLead`; Admin joins `isLead()` and the guard defers to `isSelfOrLead()` instead of restating it
+- **Badge styling** in [team-list.component.ts](../team-manager-ui/src/app/features/team/team-list/team-list.component.ts) — `.role-admin` alongside the existing three
+- `leaderboard.component.ts` had its own inline `'TeamLead' → 'Team Lead'`; uses `roleLabel()` now
+
+Left alone deliberately: the filters that pick *who can be someone's lead*
+(`wheel`, `leave-overview`, `k-picker`, the team-lead dropdown in
+`team-member-form`, `getAll({ role: 'TeamLead' })` in sprints/export). Those
+answer a roster question, not a permission one; putting Admins in them is a
+separate product decision.
 
 No migration.
 
 ---
 
 ## C. Team schema
+
+Split in two, on the same divide as B — the part where a wrong choice is
+expensive, and the part the compiler and the existing idiom can carry.
+
+**C1 — schema, migration, API.** Everything under `src/`: the `Team` entity and
+its configuration, `Squad.TeamId`, the migration, `TeamService` +
+`TeamsController`, the `SquadDto`/`SquadService` threading, and the derived
+`TeamMemberDto.Teams`. Three decisions here are load-bearing and none are
+mechanical:
+
+- **`DeleteBehavior.SetNull`, never cascade.** `SquadMember` already cascades
+  from `Squad`, so a cascading team delete silently wipes every squad
+  membership beneath it. This is the single most damaging thing C could get
+  wrong, and it fails quietly.
+- **Gated `[Authorize(Roles = "TeamLead")]` from the start**, plus
+  `[RequireFeature]` — both, per *Practices to hold to*. `SquadsController` is
+  the cautionary tale (workstream D); a new controller does not get to repeat it.
+- **The `Teams` derivation** — server-side, per *A member's teams are a set*.
+
+**C2 — UI.** Everything under `team-manager-ui/`: the `Team`/`TeamSummary`
+models and `TeamService` mirroring the squad pair, `squad.model.ts` gaining
+`teamId`/`teamName`, the new `team-manager-dialog`, the per-squad team picker,
+and `team-list`'s team filter and chips. Broad but pattern-following — the squad
+equivalents exist for every piece, and C1's DTOs pin the shape. Blocked on C1
+only for the DTO contract, so C1 is worth landing first rather than developing
+both against a moving shape.
 
 ### New files
 
@@ -198,6 +294,14 @@ idiom for idiom.
 - [SquadService.cs](../src/TeamManager.Api/Application/Services/SquadService.cs) —
   set in create/update, project in both `ToDto`s, `.Include(s => s.Team)` on both
   query chains.
+- [TeamMemberDto.cs](../src/TeamManager.Api/Application/DTOs/TeamMember/TeamMemberDto.cs) —
+  `IReadOnlyList<TeamSummaryDto> Teams`, beside the existing `Squads`. Plural, per
+  *A member's teams are a set*.
+- [TeamMemberService.cs](../src/TeamManager.Api/Application/Services/TeamMemberService.cs) —
+  `.ThenInclude(s => s.Team)` on the two query chains that already include
+  `SquadMemberships.Squad`, and the derivation in `ToDto`: distinct non-null
+  `Squad.Team`, ordered by name. Deriving server-side is what keeps the rule in
+  one place instead of in every component that displays it.
 
 **`SquadMember` is untouched.**
 
@@ -241,11 +345,11 @@ picker would assign a team nobody can see.
   inline edit + member picker, and must not absorb team management too.
 - **Team picker per squad** in `squad-manager-dialog` — a dropdown in the squad
   header row, including an explicit "No team" option since `TeamId` is optional.
-- **`team-list`**: a Team filter alongside the existing Squad filter, and team
-  shown on each member row. A member's team derives through their squads, so
-  this can display more than one — render what the *Multi-squad → multi-team*
-  decision settles on, and until then show all distinct teams rather than
-  picking one arbitrarily.
+- **`team-list`**: a Team filter alongside the existing Squad filter, and teams
+  shown on each member row. Per *A member's teams are a set*: render every
+  distinct team, mirroring how squad chips already render; filter is any-match
+  with an explicit "No team" option for the empty set. `TeamMemberDto` carries
+  `Teams` (plural) — the API does the deriving, not the component.
 - **New `Team` / `TeamSummary` models** and a `TeamService` in
   `team-manager-ui/src/app/core/`, mirroring the existing squad model/service pair.
 - `SquadDto` gaining `teamId`/`teamName` means the squad model in
@@ -394,13 +498,11 @@ action the API would happily perform.
    technical". Worth deciding whether TechLead belongs in `MemberRole` at all,
    or is really a per-team/per-squad attribute — before more code depends on the
    current shape.
-2. **Multi-squad → multi-team.** See *Domain model* above. Needs a rule before
-   anything displays a member's team.
-3. **Bootstrap user role.** First-ever user currently becomes `TeamLead`;
-   recommend `Admin`.
 
 Resolved: teams **are** user-manageable (C includes API + UI); role-granting
-rules are settled under *Who can change roles*.
+rules are settled under *Who can change roles*; the bootstrap user is now
+`Admin` (was open question 3, closed by B1); multi-squad → multi-team is settled
+under *A member's teams are a set, not a value* (was open question 2).
 
 ---
 
@@ -409,12 +511,17 @@ rules are settled under *Who can change roles*.
 | # | Workstream | Migration | Notes |
 |---|---|---|---|
 | 1 | A — escalation fix + role endpoint | `AddMemberRoleChangeAudit` | Security. API + the role-control move in the member form |
-| 2 | B — Admin role | none | Auth claim change + broad UI sweep, independently testable |
-| 3 | C — Team schema, API, UI | `AddTeamEntityAndSquadTeamFk` | Largest. Migration is additive and deployable ahead of the rest |
-| 4 | D — approval assignment + role gates | none | Depends on C |
+| 2 | B1 — hierarchy, claims, feature gating | none | Auth claim change; the authorization boundary |
+| 2 | B2 — frontend sweep | none | Broad but mechanical; derive the lists and follow the compiler |
+| 3 | C1 — Team schema, migration, API | `AddTeamEntityAndSquadTeamFk` | Additive and deployable ahead of the UI. `SetNull` is the decision that fails quietly |
+| 4 | C2 — Team UI | none | Largest surface; every piece has a squad equivalent to mirror. Needs C1's DTOs |
+| 5 | D — approval assignment + role gates | none | Depends on C |
 
-Every workstream except B carries UI. C carries the most: a new team-manager
+Every workstream except B1 carries UI. C2 carries the most: a new team-manager
 dialog, a team picker on squads, and team display/filtering in the member list.
 
 Each is a branch off fresh `main` per [CLAUDE.md](../CLAUDE.md), PR to `main`
-via `gh pr create --base main`.
+via `gh pr create --base main`. Where a workstream cannot compile without an
+unmerged one (B needed A's enum), stack the PR on its dependency's branch and
+let GitHub retarget to `main` when that merges — a PR to `main` would otherwise
+duplicate the dependency's whole diff for review.
