@@ -6,6 +6,18 @@ on:
     paths-ignore:
       - 'k8s/**'
 
+# One build at a time per branch. Each run ends by committing the beta image tags back to main,
+# and the image builds and scans in between take minutes, so concurrent runs raced: whichever
+# finished last won the push and the others were rejected with "fetch first". The loud version of
+# that is a red X on a merge whose code was fine (#208, #170). The quiet version is worse -- the
+# winner is whichever build *finishes* last, not whichever merged last, so an earlier merge whose
+# build ran long could pin beta to a SHA that does not contain a later one, with everything green.
+# cancel-in-progress is false deliberately: these runs publish images, so a superseded one still
+# has work worth finishing.
+concurrency:
+  group: build-and-push-${{ github.ref }}
+  cancel-in-progress: false
+
 env:
   REGISTRY: ghcr.io
   OWNER: juanlurie
@@ -105,14 +117,41 @@ jobs:
           ignore-unfixed: true
           format: table
 
-      - name: Update beta overlay image tags
-        run: |
-          sed -i "s|newTag: .*|newTag: \"${{ github.sha }}\"|g" k8s/overlays/beta/kustomization.yaml
-
-      - name: Commit and push beta manifest
+      # The tag edit and the push are one step so the edit is always re-applied to the *current*
+      # tip of main. Applying it to the checkout this run started from is what got rejected: by the
+      # time the images finish building, minutes have passed and main may have moved.
+      - name: Update beta overlay image tags and push
+        env:
+          SHA: ${{ github.sha }}
+          REPO: ${{ github.repository }}
+          TOKEN: ${{ secrets.DEPLOY_TOKEN }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add k8s/overlays/beta/kustomization.yaml
-          git diff --staged --quiet || git commit -m "chore: deploy ${{ github.sha }} to beta [skip ci]"
-          git push https://x-access-token:${{ secrets.DEPLOY_TOKEN }}@github.com/${{ github.repository }}
+
+          for attempt in 1 2 3; do
+            git fetch --quiet origin main
+            # Rebuild the change on top of main's current tip rather than merging or rebasing --
+            # this is one generated file, so re-deriving it is simpler and cannot conflict.
+            git checkout --quiet -B beta-deploy origin/main
+            sed -i "s|newTag: .*|newTag: \"$SHA\"|g" k8s/overlays/beta/kustomization.yaml
+            git add k8s/overlays/beta/kustomization.yaml
+
+            if git diff --staged --quiet; then
+              echo "Beta already points at $SHA; nothing to push."
+              exit 0
+            fi
+
+            git commit --quiet -m "chore: deploy $SHA to beta [skip ci]"
+
+            if git push --quiet "https://x-access-token:$TOKEN@github.com/$REPO" beta-deploy:main; then
+              echo "Beta now points at $SHA."
+              exit 0
+            fi
+
+            echo "Push rejected on attempt $attempt -- main moved. Retrying against the new tip."
+            sleep $(( attempt * 5 ))
+          done
+
+          echo "::error::Could not push the beta manifest after 3 attempts."
+          exit 1
