@@ -16,8 +16,8 @@ export const selfOrLeadGuard: CanActivateFn = (route: ActivatedRouteSnapshot) =>
   return auth.me$.pipe(
     filter(me => me !== null),
     take(1),
-    map(me => {
-      if (me!.id === memberId || me!.role === 'TeamLead' || me!.role === 'TechLead') return true;
+    map(() => {
+      if (auth.isSelfOrLead(memberId)) return true;
       snackBar.open('You can only view your own profile.', 'Close', { duration: 4000 });
       return router.createUrlTree(['/team/members']);
     }),

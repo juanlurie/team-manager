@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { TeamMember, CreateTeamMemberRequest, UpdateTeamMemberRequest } from '../models/team-member.model';
+import { TeamMember, CreateTeamMemberRequest, UpdateTeamMemberRequest, MemberRole } from '../models/team-member.model';
 import { API_BASE } from './api.config';
 
 export interface MeProfile {
@@ -39,6 +39,11 @@ export class TeamMemberService {
 
   update(id: string, request: UpdateTeamMemberRequest): Observable<TeamMember> {
     return this.http.put<TeamMember>(`${this.base}/${id}`, request);
+  }
+
+  /** Role has its own endpoint -- it is never part of create/update. */
+  changeRole(id: string, role: MemberRole): Observable<TeamMember> {
+    return this.http.put<TeamMember>(`${this.base}/${id}/role`, { role });
   }
 
   updateAvatar(id: string, seed: string | null): Observable<TeamMember> {

@@ -7,6 +7,7 @@ namespace TeamManager.Api.Infrastructure.Data;
 public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(options)
 {
     public DbSet<TeamMember> TeamMembers => Set<TeamMember>();
+    public DbSet<MemberRoleChange> MemberRoleChanges => Set<MemberRoleChange>();
     public DbSet<Invitation> Invitations => Set<Invitation>();
     public DbSet<PI> PIs => Set<PI>();
     public DbSet<Sprint> Sprints => Set<Sprint>();
@@ -131,6 +132,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.ApplyConfiguration(new TeamMemberConfiguration());
+        modelBuilder.ApplyConfiguration(new MemberRoleChangeConfiguration());
         modelBuilder.ApplyConfiguration(new PIConfiguration());
         modelBuilder.ApplyConfiguration(new SprintConfiguration());
         modelBuilder.ApplyConfiguration(new SprintMemberConfiguration());

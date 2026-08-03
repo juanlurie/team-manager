@@ -50,16 +50,16 @@
             <table style="width:100%;border-collapse:collapse;font-size:0.82rem;table-layout:fixed">
               <colgroup>
                 <col style="width:auto">
-                <col style="width:90px">
-                <col style="width:90px">
-                <col style="width:90px">
+                @for (role of roles; track role) {
+                  <col style="width:90px">
+                }
               </colgroup>
               <thead>
                 <tr style="border-bottom:1px solid rgba(255,255,255,0.06)">
                   <th style="text-align:left;padding:8px 12px;font-weight:600;opacity:0.4;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.05em">Feature</th>
-                  <th style="text-align:center;padding:8px 12px;font-weight:600;opacity:0.4;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.05em">Member</th>
-                  <th style="text-align:center;padding:8px 12px;font-weight:600;opacity:0.4;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.05em">TeamLead</th>
-                  <th style="text-align:center;padding:8px 12px;font-weight:600;opacity:0.4;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.05em">TechLead</th>
+                  @for (role of roles; track role) {
+                    <th style="text-align:center;padding:8px 12px;font-weight:600;opacity:0.4;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.05em">{{ roleLabel(role) }}</th>
+                  }
                 </tr>
               </thead>
               <tbody>
@@ -70,6 +70,13 @@
                       <td style="text-align:center;padding:8px 12px">
                         @if (isSaving(row.featureKey, role)) {
                           <mat-spinner diameter="18" style="display:inline-block"></mat-spinner>
+                        } @else if (isAdminRole(role)) {
+                          <mat-slide-toggle
+                            [checked]="true"
+                            [disabled]="true"
+                            matTooltip="Admin has every feature."
+                            color="primary">
+                          </mat-slide-toggle>
                         } @else {
                           <mat-slide-toggle
                             [checked]="row.roleEnabled[role] ?? true"

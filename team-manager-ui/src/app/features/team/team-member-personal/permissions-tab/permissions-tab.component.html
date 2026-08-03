@@ -2,7 +2,11 @@
   <!-- Info row -->
   <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
     <span style="font-size:0.8rem;opacity:0.4">
-      Role: <strong>{{ memberRole }}</strong> — toggle to override defaults, click again to reset
+      @if (isAdminMember) {
+        Role: <strong>Admin</strong> — has every feature; overrides don't apply
+      } @else {
+        Role: <strong>{{ memberRole }}</strong> — toggle to override defaults, click again to reset
+      }
     </span>
     @if (!loading() && hasOverrides()) {
       <span style="font-size:0.72rem;padding:2px 8px;background:rgba(255,152,0,0.15);border-radius:10px;color:#ffb74d">
@@ -64,6 +68,9 @@
               </div>
               @if (isSaving(item.featureKey)) {
                 <mat-spinner diameter="18" style="display:inline-block"></mat-spinner>
+              } @else if (isAdminMember) {
+                <mat-slide-toggle [checked]="true" [disabled]="true" color="primary"
+                                  matTooltip="Admin has every feature."></mat-slide-toggle>
               } @else {
                 <mat-slide-toggle
                   [checked]="item.isEnabled"

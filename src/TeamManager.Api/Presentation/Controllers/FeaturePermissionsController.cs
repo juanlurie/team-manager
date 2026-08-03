@@ -33,8 +33,17 @@ public class FeaturePermissionsController : ControllerBase
     [RequireFeature("settings")]
     public async Task<IActionResult> UpdateRolePermission(string featureKey, string role, [FromBody] UpdateFeaturePermissionRequest request)
     {
-        await service.UpdateRolePermissionAsync(featureKey, role, request.IsEnabled);
-        return Ok();
+        try
+        {
+            await service.UpdateRolePermissionAsync(featureKey, role, request.IsEnabled);
+            return Ok();
+        }
+        catch (InvalidOperationException ex)
+        {
+            // Restricting Admin. The UI renders that column read-only, so this is the API refusing
+            // a request the UI shouldn't have made — readable, not a 500.
+            return BadRequest(new { message = ex.Message });
+        }
     }
 
     [HttpGet("members/{memberId}")]
@@ -49,8 +58,15 @@ public class FeaturePermissionsController : ControllerBase
     [RequireFeature("settings")]
     public async Task<IActionResult> UpdateMemberOverride(Guid memberId, [FromBody] UpdateMemberFeatureOverrideRequest request)
     {
-        await service.UpdateMemberOverrideAsync(memberId, request.FeatureKey, request.IsEnabled);
-        return Ok();
+        try
+        {
+            await service.UpdateMemberOverrideAsync(memberId, request.FeatureKey, request.IsEnabled);
+            return Ok();
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
     }
 
     [HttpDelete("members/{memberId}/{featureKey}")]

@@ -41,6 +41,9 @@ export class PermissionsTabComponent implements OnInit {
   overrideCount = computed(() => this.overrides().filter(o => !o.roleDefault).length);
   hasOverrides = computed(() => this.overrideCount() > 0);
 
+  /** Admin has every feature by definition; the API reports all-enabled and refuses overrides. */
+  get isAdminMember(): boolean { return this.memberRole === 'Admin'; }
+
   groupedOverrides = computed(() => {
     const groups: Record<string, MemberFeatureOverride[]> = {};
     for (const item of this.overrides()) {

@@ -180,7 +180,23 @@ export class AuthService {
 
   isLead(): boolean {
     const role = this._me$.value?.role;
-    return role === 'TeamLead' || role === 'TechLead';
+    // Admin is included -- Admin has all permissions, and every existing isLead() call site
+    // (self-or-lead guard, "who can see/act on all members" checks) must not exclude it.
+    return role === 'TeamLead' || role === 'TechLead' || role === 'Admin';
+  }
+
+  isAdmin(): boolean {
+    return this._me$.value?.role === 'Admin';
+  }
+
+  /**
+   * May assign roles to other members. TechLead is excluded deliberately -- it is a role within a
+   * team with no management significance, which is why this isn't isLead(). Mirrors the role
+   * attribute on PUT /team-members/{id}/role; the server is the actual boundary.
+   */
+  canAssignRoles(): boolean {
+    const role = this._me$.value?.role;
+    return role === 'TeamLead' || role === 'Admin';
   }
 
   isSelfOrLead(memberId: string): boolean {

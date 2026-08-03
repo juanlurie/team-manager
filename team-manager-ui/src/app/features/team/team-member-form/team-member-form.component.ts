@@ -56,14 +56,8 @@ const CATEGORY_COLORS: Record<string, { bg: string; text: string }> = {
           <mat-label>Email</mat-label>
           <input matInput formControlName="email" type="email">
         </mat-form-field>
-        <mat-form-field appearance="outline">
-          <mat-label>Role</mat-label>
-          <mat-select formControlName="role">
-            <mat-option value="Member">Member</mat-option>
-            <mat-option value="TeamLead">Team Lead</mat-option>
-            <mat-option value="TechLead">Tech Lead</mat-option>
-          </mat-select>
-        </mat-form-field>
+        <!-- Role deliberately isn't here: it's a privilege boundary with its own endpoint and
+             its own gate, changed through the "Change role" action on the member list. -->
         <mat-form-field appearance="outline">
           <mat-label>Team Lead</mat-label>
           <mat-select formControlName="teamLeadId">
@@ -232,7 +226,6 @@ export class TeamMemberFormComponent implements OnInit {
     firstName: ['', Validators.required],
     lastName: ['', Validators.required],
     email: ['', [Validators.required, Validators.email]],
-    role: ['Member', Validators.required],
     teamLeadId: [null as string | null],
     crafts: [[] as string[]],
     isActive: [true],
