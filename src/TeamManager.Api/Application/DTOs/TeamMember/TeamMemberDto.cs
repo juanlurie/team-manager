@@ -1,5 +1,6 @@
 using TeamManager.Api.Application.DTOs.Achievement;
 using TeamManager.Api.Application.DTOs.Squad;
+using TeamManager.Api.Application.DTOs.Team;
 
 namespace TeamManager.Api.Application.DTOs.TeamMember;
 
@@ -20,4 +21,12 @@ public record TeamMemberDto
     public DateOnly? JoinDate { get; init; }
     public IReadOnlyList<BadgeDto> Achievements { get; init; } = [];
     public IReadOnlyList<SquadSummaryDto> Squads { get; init; } = [];
+
+    /// <summary>
+    /// Derived from the member's squads, never stored. Plural on purpose: a member can sit in
+    /// several squads resolving to different teams, so "the member's team" is not a single
+    /// well-defined value. Never add a singular Team/TeamId here -- it becomes a second source
+    /// of truth that drifts from squad membership.
+    /// </summary>
+    public IReadOnlyList<TeamSummaryDto> Teams { get; init; } = [];
 }
