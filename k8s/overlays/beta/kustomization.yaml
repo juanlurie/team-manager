@@ -7,6 +7,10 @@ resources:
   - namespace.yaml
   - ../../base
 
+# TEMPORARY -- delete this block and bootstrap-admin-patch.yaml once beta has an Admin.
+patches:
+  - path: bootstrap-admin-patch.yaml
+
 images:
   - name: ghcr.io/juanlurie/team-manager-api
     newTag: "819853ef711b8b0c2d7efb489fc328cbb1e0e6dc"
