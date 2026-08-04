@@ -1,0 +1,27 @@
+# TEMPORARY -- remove once recovery is confirmed.
+#
+# Beta has members but no Admin: the first-login bootstrap only fires on an empty members table,
+# so this deployment kept the roles it already had while ~30 endpoints moved behind TeamLead and
+# granting Admin moved behind Admin. Nobody can make the first Admin from inside the app.
+#
+# This promotes the named member on their next request. It is inert once any Admin exists, so it
+# cannot mint a second one or undo a deliberate demotion -- but it should still come straight back
+# out, because a deployment that later loses its last Admin ought to fail loudly rather than
+# silently re-promote whoever is named here.
+#
+# See docs/plans/team-admin-rollout.md, "Recovering a deployment with no Admin".
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api
+spec:
+  template:
+    spec:
+      containers:
+        - name: api
+          env:
+            # Must match the member's TeamMembers.Email exactly (case and whitespace are
+            # tolerated; a different address is not). A mismatch fails silently -- the log line
+            # to look for is "Promoted ... via Bootstrap:AdminEmail".
+            - name: Bootstrap__AdminEmail
+              value: "aspeling.gerhard@gmail.com"
