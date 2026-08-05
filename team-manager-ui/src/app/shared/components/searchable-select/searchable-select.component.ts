@@ -178,9 +178,13 @@ export class SearchableSelectComponent implements ControlValueAccessor, OnInit, 
 
   onBlur(): void {
     this.onTouched();
-    // Restore display if selection exists
-    this.updateDisplay();
-    this.searchInput.set('');
+    // Clicking an option fires (blur) before (optionSelected) -- resetting the filtered list here
+    // synchronously would re-render out from under the pending click and swallow the selection.
+    // Deferring lets onSelect() run first when the blur was actually caused by an option click.
+    setTimeout(() => {
+      this.updateDisplay();
+      this.searchInput.set('');
+    });
   }
 
   clear(event: Event): void {

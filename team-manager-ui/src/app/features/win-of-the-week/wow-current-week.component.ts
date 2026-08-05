@@ -18,6 +18,7 @@ import { AppEmptyStateComponent } from '../../shared/components/app-empty-state/
 import { AppInfoBannerComponent } from '../../shared/components/app-info-banner/app-info-banner.component';
 import { RevealProgressBarComponent } from '../../shared/components/reveal-progress-bar/reveal-progress-bar.component';
 import { AiBadgeComponent } from '../../shared/components/ai-badge/ai-badge.component';
+import { buildDuplicateFirstNames } from '../../core/utils/member-display-name';
 import { SessionJoinComponent } from '../../shared/components/session-join/session-join.component';
 
 @Component({
@@ -470,6 +471,8 @@ import { SessionJoinComponent } from '../../shared/components/session-join/sessi
           @if (w && w.status === 'Closed' && w.winnerNomineeName) {
             <app-wow-winner-banner
               [winnerNomineeName]="w.winnerNomineeName"
+              [winnerMemberId]="winnerNomination()?.nomineeMemberId ?? null"
+              [winnerAvatarSeed]="winnerNomination()?.nomineeAvatarSeed ?? null"
               [winnerTitle]="w.winnerTitle"
               [winnerStory]="w.winnerStory"
               [showPoints]="true"
@@ -733,6 +736,12 @@ export class WowCurrentWeekComponent {
     return w.nominations.reduce((sum, n) => sum + n.hypeMeterCount, 0);
   });
 
+  readonly winnerNomination = computed(() => {
+    const w = this.week();
+    if (!w || !w.winnerNominationId) return null;
+    return w.nominations.find(n => n.id === w.winnerNominationId) ?? null;
+  });
+
   readonly runnersUp = computed(() => {
     const w = this.week();
     if (!w || w.status !== 'Closed') return [];
@@ -763,11 +772,25 @@ export class WowCurrentWeekComponent {
     return [...noms.filter(n => n.powerUp === 'Spotlight'), ...noms.filter(n => n.powerUp !== 'Spotlight')];
   });
 
+  // nomineeName arrives from the server as "First Last" always -- shorten to first name on the
+  // cards unless two nominees this week share a first name, in which case both keep the surname
+  // so they stay distinguishable.
+  private readonly nomineeDuplicates = computed(() => {
+    const w = this.week();
+    if (!w) return new Set<string>();
+    return buildDuplicateFirstNames(w.nominations.map(n => ({ firstName: n.nomineeName.split(' ')[0] })));
+  });
+
+  private shortNomineeName(nom: WinNomination): string {
+    const firstName = nom.nomineeName.split(' ')[0];
+    return this.nomineeDuplicates().has(firstName) ? nom.nomineeName : firstName;
+  }
+
   toDisplay(nom: WinNomination): WowNominationDisplay {
     return {
       id: nom.id,
       nomineeMemberId: nom.nomineeMemberId,
-      nomineeName: nom.nomineeName,
+      nomineeName: this.shortNomineeName(nom),
       nomineeAvatarSeed: nom.nomineeAvatarSeed,
       nominatorName: nom.teamMemberName,
       title: nom.title,
