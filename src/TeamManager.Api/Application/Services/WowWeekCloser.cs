@@ -41,13 +41,19 @@ public class WowWeekCloser(AppDbContext db, WowTokenService tokens, IWinStoryGen
 
         var winnerNom = await db.WinNominations
             .Include(n => n.Nominee)
+            .Include(n => n.Nominees).ThenInclude(n => n.TeamMember)
             .FirstAsync(n => n.Id == week.WinnerNominationId!.Value);
 
-        await tokens.AwardWeeklyAchievementAsync(winnerNom.NomineeMemberId, week.WeekStart);
+        var winners = winnerNom.Nominees.Count > 0
+            ? winnerNom.Nominees.Select(x => x.TeamMember).ToList()
+            : [winnerNom.Nominee];
+        foreach (var winner in winners)
+            await tokens.AwardWeeklyAchievementAsync(winner.Id, week.WeekStart);
         if (winnerNom.TeamMemberId.HasValue)
             await tokens.GrantBonusTokenAsync(winnerNom.TeamMemberId.Value, week.Id);
 
-        winStory.Enqueue(week.Id, $"{winnerNom.Nominee.FirstName} {winnerNom.Nominee.LastName}", winnerNom.Title, winnerNom.Description, theme);
+        var winnerNames = string.Join(", ", winners.Select(x => $"{x.FirstName} {x.LastName}"));
+        winStory.Enqueue(week.Id, winnerNames, winnerNom.Title, winnerNom.Description, theme);
 
         notifier.Broadcast("voting_closed", new
         {

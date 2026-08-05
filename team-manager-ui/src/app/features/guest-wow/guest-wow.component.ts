@@ -33,6 +33,8 @@ function adaptToWinWeek(week: GuestWinWeek): WinWeek {
     teamMemberName: n.nominatorDisplayName,
     isGuestNomination: true,
     nomineeMemberId: n.nomineeMemberId,
+    nomineeMemberIds: n.nomineeMemberIds,
+    nomineeNames: n.nomineeNames,
     nomineeName: n.nomineeName,
     title: n.title,
     description: n.description,

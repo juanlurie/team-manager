@@ -751,6 +751,7 @@ export class WowCurrentWeekComponent {
     return {
       id: nom.id,
       nomineeMemberId: nom.nomineeMemberId,
+      nomineeMemberIds: nom.nomineeMemberIds,
       nomineeName: nom.nomineeName,
       nominatorName: nom.teamMemberName,
       title: nom.title,

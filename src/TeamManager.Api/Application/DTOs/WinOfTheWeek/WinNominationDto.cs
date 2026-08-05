@@ -9,6 +9,8 @@ public record WinNominationDto
     public bool IsGuestNomination { get; init; }
     public Guid NomineeMemberId { get; init; }
     public string NomineeName { get; init; } = string.Empty;
+    public List<Guid> NomineeMemberIds { get; init; } = [];
+    public List<string> NomineeNames { get; init; } = [];
     public string Title { get; init; } = string.Empty;
     public string? Description { get; init; }
     public DateTimeOffset CreatedAt { get; init; }

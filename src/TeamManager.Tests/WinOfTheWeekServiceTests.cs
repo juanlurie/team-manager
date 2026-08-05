@@ -29,7 +29,7 @@ internal sealed class StubWowPresence : IWowPresence
 /// <summary>No-op win-story generator: closing a week must not spin up a real background AI task.</summary>
 internal sealed class NullWinStoryGenerator : IWinStoryGenerator
 {
-    public void Enqueue(Guid weekId, string winnerName, string title, string? description) { }
+    public void Enqueue(Guid weekId, string winnerName, string title, string? description, string? theme = null) { }
 }
 
 /// <summary>
@@ -121,6 +121,48 @@ public class WinOfTheWeekServiceTests
     {
         db.ChangeTracker.Clear();
         return db.WinWeeks.Single(w => w.Id == weekId);
+    }
+
+    [Fact]
+    public async Task Group_nomination_is_one_entry_and_awards_every_nominee_when_it_wins()
+    {
+        await using var db = NewDb();
+        var submitter = Member();
+        var nominees = new[] { Member(), Member(), Member() };
+        nominees[0].FirstName = "A";
+        nominees[1].FirstName = "B";
+        nominees[2].FirstName = "C";
+        var series = new WinSeries { Id = Guid.NewGuid(), Name = "Team wins", CreatedByMemberId = submitter.Id };
+        var week = new WinWeek
+        {
+            Id = Guid.NewGuid(), WinSeriesId = series.Id, Status = WinWeekStatus.Nominating,
+            WeekStart = new DateOnly(2026, 8, 3), WeekEnd = new DateOnly(2026, 8, 9),
+            CreatedByMemberId = submitter.Id
+        };
+        var achievement = new Achievement
+        {
+            Id = Guid.NewGuid(), Key = "win-of-the-week", Name = "Weekly Champion",
+            Description = "Won", Icon = "trophy", Category = "wow", Points = 10
+        };
+        db.AddRange(submitter, series, week, achievement);
+        db.AddRange(nominees);
+        await db.SaveChangesAsync();
+
+        var notifier = new FakeWowNotifier();
+        var service = Svc(db, new StubWowPresence(), notifier);
+        var created = await service.CreateNominationAsync(submitter.Id,
+            new CreateNominationRequest(Guid.Empty, "Shipped together", null, nominees.Select(x => x.Id).ToList()), series.Id);
+
+        Assert.Single(db.WinNominations);
+        Assert.Equal(3, created.NomineeMemberIds.Count);
+        Assert.Equal(new[] { "A Member", "B Member", "C Member" }, created.NomineeNames);
+
+        var closer = new WowWeekCloser(db, new WowTokenService(db), new NullWinStoryGenerator(), notifier);
+        await closer.CloseWithWinnerAsync(week, created.Id);
+
+        Assert.Equal(3, await db.MemberAchievements.CountAsync());
+        Assert.Equal(nominees.Select(x => x.Id).Order(),
+            await db.MemberAchievements.Select(x => x.TeamMemberId).OrderBy(x => x).ToListAsync());
     }
 
     // ─── Sudden death ───

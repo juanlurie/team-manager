@@ -22,6 +22,8 @@ export interface WinNomination {
   isGuestNomination: boolean;
   nomineeMemberId: string;
   nomineeName: string;
+  nomineeMemberIds: string[];
+  nomineeNames: string[];
   title: string;
   description: string | null;
   createdAt: string;
@@ -150,7 +152,8 @@ export interface WinMonthHistory {
 }
 
 export interface CreateNominationRequest {
-  nomineeMemberId: string;
+  nomineeMemberId?: string;
+  nomineeMemberIds: string[];
   title: string;
   description?: string;
 }
@@ -205,6 +208,8 @@ export interface GuestWinWeek {
 export interface GuestNomination {
   id: string;
   nomineeMemberId: string;
+  nomineeMemberIds: string[];
+  nomineeNames: string[];
   nomineeName: string;
   nominatorDisplayName: string;
   title: string;
@@ -221,6 +226,7 @@ export interface GuestNomination {
 export interface WowNominationDisplay {
   id: string;
   nomineeMemberId: string;
+  nomineeMemberIds: string[];
   nomineeName: string;
   nominatorName: string;
   title: string;

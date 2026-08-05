@@ -200,7 +200,8 @@ export class WowSeriesSheetComponent {
           [nullable]="false"
           [options]="allMembers()"
           [displayFn]="memberName"
-          [(ngModel)]="nominateForm.nomineeMemberId" />
+          [multiple]="true"
+          [(ngModel)]="nomineeMemberIds" />
         <mat-form-field appearance="outline" style="width:100%">
           <mat-label>Title</mat-label>
           <input matInput [(ngModel)]="nominateForm.title" placeholder="e.g. Fixed the production DB issue" maxlength="200">
@@ -213,8 +214,8 @@ export class WowSeriesSheetComponent {
       <ng-container modal-footer>
         <button mat-stroked-button (click)="closeDialog()">Cancel</button>
         <button mat-raised-button color="primary" (click)="submitNomination()"
-                [disabled]="!nominateForm.nomineeMemberId || !nominateForm.title.trim() || submitting()">
-          {{ submitting() ? 'Submitting...' : (editingNominationId() ? 'Save Changes' : 'Submit') }}
+                [disabled]="nomineeMemberIds.length === 0 || !nominateForm.title.trim() || submitting()">
+          {{ submitting() ? 'Submitting...' : (editingNominationId() ? 'Save Changes' : (nomineeMemberIds.length > 1 ? 'Submit team nomination (' + nomineeMemberIds.length + ' people)' : 'Submit')) }}
         </button>
       </ng-container>
     </app-modal>
@@ -353,7 +354,8 @@ export class WinOfTheWeekComponent implements OnInit, OnDestroy {
   // starts so it doesn't leak into the next week.
   readonly votingEndRequested = signal(false);
 
-  nominateForm: CreateNominationRequest = { nomineeMemberId: '', title: '', description: '' };
+  nominateForm: CreateNominationRequest = { nomineeMemberIds: [], title: '', description: '' };
+  nomineeMemberIds: string[] = [];
 
   ngOnInit() {
     this.memberSvc.getAll({ isActive: true }).subscribe({
@@ -610,24 +612,31 @@ export class WinOfTheWeekComponent implements OnInit, OnDestroy {
 
   showNominateDialog() {
     this.editingNominationId.set(null);
-    this.nominateForm = { nomineeMemberId: '', title: '', description: '' };
+    this.nominateForm = { nomineeMemberIds: [], title: '', description: '' };
+    this.nomineeMemberIds = [];
     this.showDialog.set(true);
   }
 
   showEditDialog(nom: WowNominationDisplay) {
     this.editingNominationId.set(nom.id);
-    this.nominateForm = { nomineeMemberId: nom.nomineeMemberId, title: nom.title, description: nom.description || '' };
+    this.nominateForm = { nomineeMemberIds: nom.nomineeMemberIds, title: nom.title, description: nom.description || '' };
+    this.nomineeMemberIds = nom.nomineeMemberIds.length > 0 ? [...nom.nomineeMemberIds] : [nom.nomineeMemberId];
     this.showDialog.set(true);
   }
 
-  closeDialog() { this.showDialog.set(false); this.editingNominationId.set(null); }
+  closeDialog() {
+    this.showDialog.set(false);
+    this.editingNominationId.set(null);
+    this.nomineeMemberIds = [];
+  }
 
   submitNomination() {
-    if (!this.nominateForm.nomineeMemberId || !this.nominateForm.title.trim()) return;
+    if (this.nomineeMemberIds.length === 0 || !this.nominateForm.title.trim()) return;
     this.submitting.set(true);
     const editId = this.editingNominationId();
     const payload = {
-      nomineeMemberId: this.nominateForm.nomineeMemberId,
+      nomineeMemberId: this.nomineeMemberIds[0],
+      nomineeMemberIds: this.nomineeMemberIds,
       title: this.nominateForm.title.trim(),
       description: this.nominateForm.description?.trim() || undefined
     };
@@ -643,7 +652,11 @@ export class WinOfTheWeekComponent implements OnInit, OnDestroy {
         this.snackBar.open(editId ? 'Nomination updated!' : 'Nomination submitted! Voting opens Friday.', 'Close', { duration: 3000 });
         this.refresh();
       },
-      error: (err) => { this.submitting.set(false); this.snackBar.open(err.error?.error || 'Failed to save nomination', 'Close', { duration: 3000 }); }
+      error: (err) => {
+        this.submitting.set(false);
+        this.refresh();
+        this.snackBar.open(err.error?.error || 'Failed to save nomination', 'Close', { duration: 3000 });
+      }
     });
   }
 
