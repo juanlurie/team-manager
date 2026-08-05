@@ -786,13 +786,25 @@ export class WowCurrentWeekComponent {
     return this.nomineeDuplicates().has(firstName) ? nom.nomineeName : firstName;
   }
 
+  // Same first-name-only treatment for whoever made the nomination.
+  private readonly nominatorDuplicates = computed(() => {
+    const w = this.week();
+    if (!w) return new Set<string>();
+    return buildDuplicateFirstNames(w.nominations.map(n => ({ firstName: n.teamMemberName.split(' ')[0] })));
+  });
+
+  private shortNominatorName(nom: WinNomination): string {
+    const firstName = nom.teamMemberName.split(' ')[0];
+    return this.nominatorDuplicates().has(firstName) ? nom.teamMemberName : firstName;
+  }
+
   toDisplay(nom: WinNomination): WowNominationDisplay {
     return {
       id: nom.id,
       nomineeMemberId: nom.nomineeMemberId,
       nomineeName: this.shortNomineeName(nom),
       nomineeAvatarSeed: nom.nomineeAvatarSeed,
-      nominatorName: nom.teamMemberName,
+      nominatorName: this.shortNominatorName(nom),
       title: nom.title,
       description: nom.description,
       voteCount: nom.voteCount,
