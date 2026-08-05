@@ -5,6 +5,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { AiBadgeComponent } from '../ai-badge/ai-badge.component';
+import { AvatarCircleComponent } from '../../../core/components/k-picker/avatar-circle.component';
 import { WinnerImageService } from '../../services/winner-image.service';
 
 // 14 pieces on a ~2.6s loop. Left position, color, delay (so several are always mid-fall from
@@ -23,7 +24,7 @@ function makeConfetti() {
 @Component({
   selector: 'app-wow-winner-banner',
   standalone: true,
-  imports: [MatButtonModule, MatIconModule, MatProgressSpinnerModule, MatMenuModule, AiBadgeComponent],
+  imports: [MatButtonModule, MatIconModule, MatProgressSpinnerModule, MatMenuModule, AiBadgeComponent, AvatarCircleComponent],
   changeDetection: ChangeDetectionStrategy.Default,
   styles: [`
     :host { display: block; }
@@ -56,7 +57,13 @@ function makeConfetti() {
     .ring-inner {
       width: 64px; height: 64px; border-radius: 50%; background: var(--ds-surface-sunken, #12141b);
       display: flex; align-items: center; justify-content: center; font-size: 1.8rem;
-      transform: rotate(0deg); /* counter-rotation not needed: emoji reads fine spinning with the ring */
+      transform: rotate(0deg); /* counter-rotation not needed: emoji/avatar reads fine spinning with the ring */
+      overflow: hidden;
+    }
+    .trophy-badge {
+      position: absolute; bottom: -2px; right: -2px; z-index: 2; font-size: 1.05rem; line-height: 1;
+      background: var(--ds-surface-sunken, #12141b); border-radius: 50%; padding: 3px;
+      box-shadow: 0 0 0 2px var(--ds-surface-sunken, #12141b);
     }
     .name { position: relative; z-index: 1; font-weight: 800; font-size: 1.1rem; }
     .title { position: relative; z-index: 1; font-size: 0.85rem; color: var(--ds-text-muted); margin-top: 2px; }
@@ -92,7 +99,18 @@ function makeConfetti() {
         }
       </div>
 
-      <div class="ring-outer"><div class="ring-inner">🏆</div></div>
+      <div class="ring-outer" style="position:relative">
+        <div class="ring-inner">
+          @if (winnerMemberId()) {
+            <app-avatar-circle [memberId]="winnerMemberId()!" [name]="winnerNomineeName()" [avatarSeed]="winnerAvatarSeed()" [size]="64" />
+          } @else {
+            🏆
+          }
+        </div>
+        @if (winnerMemberId()) {
+          <span class="trophy-badge">🏆</span>
+        }
+      </div>
 
       <div class="name">{{winnerNomineeName()}}</div>
       @if (winnerTitle()) {
@@ -172,6 +190,8 @@ export class WowWinnerBannerComponent {
   private snack = inject(MatSnackBar);
 
   winnerNomineeName = input.required<string>();
+  winnerMemberId = input<string | null>(null);
+  winnerAvatarSeed = input<string | null>(null);
   winnerTitle = input<string | null>(null);
   winnerStory = input<string | null>(null);
   showPoints = input(true);
