@@ -13,8 +13,8 @@ patches:
 
 images:
   - name: ghcr.io/juanlurie/team-manager-api
-    newTag: "819853ef711b8b0c2d7efb489fc328cbb1e0e6dc"
+    newTag: "f374451ed90d97afc9f3b0df237e4d0ef77fd60a"
   - name: ghcr.io/juanlurie/team-manager-ui
-    newTag: "819853ef711b8b0c2d7efb489fc328cbb1e0e6dc"
+    newTag: "f374451ed90d97afc9f3b0df237e4d0ef77fd60a"
   - name: ghcr.io/juanlurie/team-manager-mcp
-    newTag: "819853ef711b8b0c2d7efb489fc328cbb1e0e6dc"
+    newTag: "f374451ed90d97afc9f3b0df237e4d0ef77fd60a"
