@@ -61,7 +61,7 @@ export const routes: Routes = [
       // Moved into hubs — keep old paths working
       { path: 'features', redirectTo: 'delivery/features', pathMatch: 'full' },
       { path: 'progress', redirectTo: 'delivery/progress', pathMatch: 'full' },
-      { path: 'session-types', redirectTo: 'meetings/session-types', pathMatch: 'full' },
+      { path: 'session-types', redirectTo: 'meetings/settings', pathMatch: 'full' },
       { path: 'leave', redirectTo: 'team/leave', pathMatch: 'prefix' },
       {
         path: 'showcase',
@@ -139,6 +139,6 @@ export const routes: Routes = [
   { path: 'meeting-series/:id', redirectTo: 'meetings/series/:id', pathMatch: 'full' },
   { path: 'meeting-series/:id/:rest', redirectTo: 'meetings/series/:id/:rest', pathMatch: 'prefix' },
   { path: 'my-meetings', redirectTo: 'meetings/my-meetings', pathMatch: 'full' },
-  { path: 'my-meeting-series', redirectTo: 'meetings/my-series', pathMatch: 'full' },
-  { path: 'slot-locations', redirectTo: 'meetings/locations', pathMatch: 'full' }
+  { path: 'my-meeting-series', redirectTo: 'meetings/my-meetings', pathMatch: 'full' },
+  { path: 'slot-locations', redirectTo: 'meetings/settings', pathMatch: 'full' }
 ];

@@ -4,12 +4,10 @@ import { RouterOutlet } from '@angular/router';
 import { HubTabsComponent, HubTab } from '../../shared/components/hub-tabs/hub-tabs.component';
 
 const MEETINGS_TABS: HubTab[] = [
-  { label: 'Sessions',      route: 'sessions', exact: true },
-  { label: 'Series',        route: 'series' },
-  { label: 'My Meetings',   route: 'my-meetings' },
-  { label: 'My Series',     route: 'my-series' },
-  { label: 'Locations',     route: 'locations' },
-  { label: 'Session Types', route: 'session-types' },
+  { label: 'Sessions',    route: 'sessions', exact: true },
+  { label: 'Series',      route: 'series' },
+  { label: 'My Meetings', route: 'my-meetings' },
+  { label: 'Settings',    route: 'settings' },
 ];
 
 @Component({
