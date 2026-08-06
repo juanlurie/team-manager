@@ -15,6 +15,7 @@ import { TeamMember, Badge } from '../../../core/models/team-member.model';
 import { TeamMemberService } from '../../../core/services/team-member.service';
 import { SquadService } from '../../../core/services/squad.service';
 import { Squad } from '../../../core/models/squad.model';
+import { AuthService } from '../../../core/auth/auth.service';
 import { AchievementService } from '../../../core/services/achievement.service';
 import { LeaderboardService } from '../../../core/services/leaderboard.service';
 import { AwardAchievementDialogComponent } from '../award-achievement-dialog/award-achievement-dialog.component';
@@ -56,14 +57,8 @@ const CATEGORY_COLORS: Record<string, { bg: string; text: string }> = {
           <mat-label>Email</mat-label>
           <input matInput formControlName="email" type="email">
         </mat-form-field>
-        <mat-form-field appearance="outline">
-          <mat-label>Role</mat-label>
-          <mat-select formControlName="role">
-            <mat-option value="Member">Member</mat-option>
-            <mat-option value="TeamLead">Team Lead</mat-option>
-            <mat-option value="TechLead">Tech Lead</mat-option>
-          </mat-select>
-        </mat-form-field>
+        <!-- Role deliberately isn't here: it's a privilege boundary with its own endpoint and
+             its own gate, changed through the "Change role" action on the member list. -->
         <mat-form-field appearance="outline">
           <mat-label>Team Lead</mat-label>
           <mat-select formControlName="teamLeadId">
@@ -85,14 +80,18 @@ const CATEGORY_COLORS: Record<string, { bg: string; text: string }> = {
             <mat-option value="QA">QA</mat-option>
           </mat-select>
         </mat-form-field>
-        <mat-form-field appearance="outline">
-          <mat-label>Squads <span style="opacity:0.5;font-size:0.85em">(optional)</span></mat-label>
-          <mat-select [(ngModel)]="selectedSquadIds" [ngModelOptions]="{standalone:true}" multiple>
-            @for (sq of allSquads(); track sq.id) {
-              <mat-option [value]="sq.id">{{ sq.name }}</mat-option>
-            }
-          </mat-select>
-        </mat-form-field>
+        <!-- Squad membership is org structure: the API only lets a lead rewrite it, so the control
+             is hidden rather than shown and then refused. The save path skips it to match. -->
+        @if (canManageSquads) {
+          <mat-form-field appearance="outline">
+            <mat-label>Squads <span style="opacity:0.5;font-size:0.85em">(optional)</span></mat-label>
+            <mat-select [(ngModel)]="selectedSquadIds" [ngModelOptions]="{standalone:true}" multiple>
+              @for (sq of allSquads(); track sq.id) {
+                <mat-option [value]="sq.id">{{ sq.name }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+        }
         <div style="display:flex;gap:12px">
           <mat-form-field appearance="outline" style="flex:1">
             <mat-label>Birthday (optional)</mat-label>
@@ -214,8 +213,16 @@ export class TeamMemberFormComponent implements OnInit {
   private achievementSvc = inject(AchievementService);
   private leaderboardSvc = inject(LeaderboardService);
   private dialog = inject(MatDialog);
+  private auth = inject(AuthService);
   private dialogRef = inject(MatDialogRef<TeamMemberFormComponent>);
   data: { member?: TeamMember; allMembers: TeamMember[] } = inject(MAT_DIALOG_DATA);
+
+  /**
+   * A getter, not a snapshot: read at construction it would be false whenever the profile hasn't
+   * landed yet, silently hiding the squad control from a lead and skipping the save below.
+   * UX only -- the role attributes on SquadsController are the boundary.
+   */
+  get canManageSquads() { return this.auth.canManageSquads(); }
 
   achievements = signal<MemberAchievement[]>([]);
   stats = signal<LeaderboardEntry | null>(null);
@@ -232,7 +239,6 @@ export class TeamMemberFormComponent implements OnInit {
     firstName: ['', Validators.required],
     lastName: ['', Validators.required],
     email: ['', [Validators.required, Validators.email]],
-    role: ['Member', Validators.required],
     teamLeadId: [null as string | null],
     crafts: [[] as string[]],
     isActive: [true],
@@ -326,7 +332,7 @@ export class TeamMemberFormComponent implements OnInit {
     obs.subscribe({
       next: saved => {
         const memberId = this.data.member?.id ?? (saved as any)?.id;
-        if (memberId) {
+        if (memberId && this.canManageSquads) {
           this.squadSvc.setMemberSquads(memberId, this.selectedSquadIds).subscribe({
             next: () => this.dialogRef.close(true),
             error: err => console.error('[TeamMember] Error saving squad memberships:', err)

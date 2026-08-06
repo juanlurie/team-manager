@@ -27,6 +27,7 @@ import { CreatePollDialogComponent } from '../../polls/poll.component';
 import { ConfirmDialogComponent } from '../../../shared/components/confirm-dialog/confirm-dialog.component';
 import { NavService } from '../../../core/nav/nav.service';
 import { NewRetroDialogComponent, NewRetroDialogResult } from './new-retro-dialog.component';
+import { RetroAiAnalysisDialogComponent } from './retro-ai-analysis-dialog.component';
 import { DEFAULT_COLS, RETRO_TEMPLATES, ICEBREAKER_QUESTIONS, RETRO_THEMES, RetroBgStyle, bgStyleFor, PHOTO_BG_STYLE } from './retro-constants';
 import { RetroSingleCanvasComponent } from './retro-single-canvas.component';
 import { RetroThemeEditorComponent } from './retro-theme-editor.component';
@@ -560,49 +561,6 @@ interface TimerState {
     .emoji-picker-option:hover { background:rgba(255,255,255,0.12); }
 
     /* AI analysis panel */
-    .ai-panel {
-      margin-top:16px;
-      background:rgba(100,181,246,0.06);border:1px solid rgba(100,181,246,0.2);
-      border-radius:10px;padding:16px;
-    }
-    .ai-panel-header {
-      display:flex;align-items:center;gap:8px;margin-bottom:14px;
-    }
-    .ai-badge {
-      display:inline-flex;align-items:center;gap:4px;
-      font-size:0.68rem;font-weight:600;letter-spacing:0.04em;
-      padding:3px 8px;border-radius:10px;
-      background:rgba(100,181,246,0.15);border:1px solid rgba(100,181,246,0.3);
-      color:#64b5f6;
-    }
-    .ai-panel-title {
-      font-size:0.9rem;font-weight:600;color:rgba(255,255,255,0.85);
-    }
-    .ai-section { margin-bottom:14px; }
-    .ai-section:last-child { margin-bottom:0; }
-    .ai-section-label {
-      font-size:0.72rem;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;
-      margin-bottom:6px;opacity:0.6;
-    }
-    .ai-chips {
-      display:flex;flex-wrap:wrap;gap:6px;
-    }
-    .ai-chip {
-      font-size:0.78rem;padding:4px 10px;border-radius:14px;
-      background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.1);
-      color:rgba(255,255,255,0.8);
-    }
-    .ai-list {
-      display:flex;flex-direction:column;gap:5px;
-    }
-    .ai-list-item {
-      font-size:0.82rem;color:rgba(255,255,255,0.75);line-height:1.4;
-      padding-left:12px;position:relative;
-    }
-    .ai-list-item::before {
-      content:'•';position:absolute;left:0;color:rgba(100,181,246,0.6);
-    }
-
     /* Timer popover */
     .timer-ring-wrap { position:relative; width:80px; height:80px; flex-shrink:0; }
     .timer-svg { width:80px; height:80px; }
@@ -861,7 +819,21 @@ interface TimerState {
             <button mat-stroked-button (click)="runAnalysis()" [disabled]="analysing()">
               @if (analysing()) { <mat-spinner diameter="16" style="display:inline-block;margin-right:4px" /> }
               @else { <mat-icon>auto_awesome</mat-icon> }
-              Analyse with AI
+              {{ s.aiAnalysis ? 'Regenerate Analysis' : 'Analyse with AI' }}
+            </button>
+          }
+          @if (s.aiAnalysis) {
+            <button mat-stroked-button (click)="viewAnalysis()">
+              <mat-icon>auto_awesome</mat-icon>
+              View Analysis
+            </button>
+          }
+          @if (s.isCreator && (s.phase === 'vote' || s.phase === 'discuss' || s.phase === 'done')) {
+            <button mat-stroked-button (click)="groupSimilarCards()" [disabled]="grouping()"
+                    title="Cluster cards that say the same thing -- useful before voting so duplicate ideas aren't splitting votes">
+              @if (grouping()) { <mat-spinner diameter="16" style="display:inline-block;margin-right:4px" /> }
+              @else { <mat-icon>join_inner</mat-icon> }
+              Group Similar
             </button>
           }
           @if (s.isCreator && s.phase !== 'lobby' && nextPhase()) {
@@ -1100,7 +1072,7 @@ interface TimerState {
                     <div class="card-group-cluster">
                       <div class="card-group-label">
                         <mat-icon style="font-size:12px;height:12px;width:12px">link</mat-icon>
-                        Group ({{ group.cards.length }})
+                        {{ group.label ?? ('Group (' + group.cards.length + ')') }}
                       </div>
                       @for (card of group.cards; track card.id) {
                         <div class="retro-card" [class.hidden-card]="card.text === null" [class.own-card]="card.isOwn"
@@ -1256,6 +1228,7 @@ interface TimerState {
             (positionCommitted)="onSingleCanvasPositionCommitted($event)"
             (cardSelected)="selectCard($event.id)"
             (commentThreadRequested)="openCommentThread($event.event, $event.card)"
+            (ungroupRequested)="ungroupCard($event.id)"
             (stickerPaletteRequested)="onSingleCanvasStickerPaletteRequested($event)"
             (tokenPositionCommitted)="onSingleCanvasTokenPositionCommitted($event)"
             (timerPositionCommitted)="onSingleCanvasTimerPositionCommitted($event)"
@@ -1277,56 +1250,6 @@ interface TimerState {
           </div>
         }
 
-        <!-- AI Analysis panel -->
-        @if (s.aiAnalysis) {
-          <div class="ai-panel">
-            <div class="ai-panel-header">
-              <span class="ai-badge"><mat-icon style="font-size:12px;height:12px;width:12px">auto_awesome</mat-icon>AI-generated</span>
-              <span class="ai-panel-title">Retro Analysis</span>
-            </div>
-
-            @if (s.aiAnalysis.wellThemes.length) {
-              <div class="ai-section">
-                <div class="ai-section-label" style="color:#4caf50">What went well</div>
-                <div class="ai-chips">
-                  @for (t of s.aiAnalysis.wellThemes; track t) {
-                    <span class="ai-chip">{{ t }}</span>
-                  }
-                </div>
-              </div>
-            }
-            @if (s.aiAnalysis.betterThemes.length) {
-              <div class="ai-section">
-                <div class="ai-section-label" style="color:#ff9800">Areas to improve</div>
-                <div class="ai-chips">
-                  @for (t of s.aiAnalysis.betterThemes; track t) {
-                    <span class="ai-chip">{{ t }}</span>
-                  }
-                </div>
-              </div>
-            }
-            @if (s.aiAnalysis.keyInsights.length) {
-              <div class="ai-section">
-                <div class="ai-section-label">Key insights</div>
-                <div class="ai-list">
-                  @for (i of s.aiAnalysis.keyInsights; track i) {
-                    <div class="ai-list-item">{{ i }}</div>
-                  }
-                </div>
-              </div>
-            }
-            @if (s.aiAnalysis.suggestedActions.length) {
-              <div class="ai-section">
-                <div class="ai-section-label" style="color:#e91e8c">Suggested actions</div>
-                <div class="ai-list">
-                  @for (a of s.aiAnalysis.suggestedActions; track a) {
-                    <div class="ai-list-item">{{ a }}</div>
-                  }
-                </div>
-              </div>
-            }
-          </div>
-        }
         @if (emojiPickerFor() && emojiPickerPos(); as pos) {
           <div class="emoji-picker-popover" [style.top.px]="pos.top" [style.left.px]="pos.left"
                (mousedown)="$event.stopPropagation()" (click)="$event.stopPropagation()">
@@ -1495,6 +1418,7 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
   advancingPhase = signal(false);
   revealing = signal(false);
   analysing = signal(false);
+  grouping = signal(false);
 
   // ── Phase timer ──
   timer = signal<TimerState | null>(null);
@@ -2179,6 +2103,9 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
         case 'fun_retro_analysed':
           if (msg.data['sessionId'] === s.id) this.silentRefresh();
           break;
+        case 'fun_retro_ai_grouped':
+          if (msg.data['sessionId'] === s.id) this.silentRefresh();
+          break;
         case 'fun_retro_card_moved':
           if (msg.data['sessionId'] === s.id) {
             const { cardId, x, y } = msg.data as { cardId: string; x: number; y: number };
@@ -2311,7 +2238,7 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
         this.session.set(s);
         this.applyExtras(s, true);
         this.loading.set(false);
-        this.router.navigate(['/pulse/retro', s.slug ?? s.id], { replaceUrl: true });
+        this.router.navigate(['/pulse/retro/classic', s.slug ?? s.id], { replaceUrl: true });
         this.joinRetroPresence(s.id);
         this.loadRetroPolls(s.id);
       },
@@ -2609,7 +2536,7 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
     this.editingText.set('');
   }
 
-  groupsForCol(cards: FunRetroCard[]): { groupId: string; cards: FunRetroCard[] }[] {
+  groupsForCol(cards: FunRetroCard[]): { groupId: string; label: string | null; cards: FunRetroCard[] }[] {
     const map = new Map<string, FunRetroCard[]>();
     for (const c of cards) {
       if (c.groupId) {
@@ -2618,7 +2545,12 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
         map.set(c.groupId, list);
       }
     }
-    return Array.from(map.entries()).map(([groupId, cards]) => ({ groupId, cards }));
+    // The AI-provided label lives on the anchor card (the one whose own id is the groupId);
+    // manual drag-to-stack groups have no label.
+    return Array.from(map.entries()).map(([groupId, cards]) => ({
+      groupId, cards,
+      label: cards.find(c => c.id === groupId)?.groupLabel ?? null,
+    }));
   }
 
   ungroupedCardsForCol(cards: FunRetroCard[]): FunRetroCard[] {
@@ -2778,7 +2710,7 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   shareSession(s: FunRetroSession): void {
-    const url = `${window.location.origin}/pulse/retro/${s.slug ?? s.id}`;
+    const url = `${window.location.origin}/pulse/retro/classic/${s.slug ?? s.id}`;
     const title = s.title || 'Retro Session';
     const text = `Join our retro — "${title}"`;
 
@@ -2793,7 +2725,7 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
   backToList(): void {
     this.session.set(null);
     this.loadSessions();
-    this.router.navigate(['/pulse/retro'], { replaceUrl: true });
+    this.router.navigate(['/pulse/retro/classic'], { replaceUrl: true });
   }
 
   openNewRetroDialog(): void {
@@ -2910,6 +2842,12 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
     this.svc.updateCardPosition(s.id, req.cardId, req.x, req.y).subscribe();
   }
 
+  viewAnalysis(): void {
+    const analysis = this.session()?.aiAnalysis;
+    if (!analysis) return;
+    this.dialog.open(RetroAiAnalysisDialogComponent, { width: '560px', maxHeight: '85vh', panelClass: 'dark-dialog', data: analysis });
+  }
+
   runAnalysis(): void {
     const s = this.session();
     if (!s) return;
@@ -2918,10 +2856,30 @@ export class FunRetroComponent implements OnInit, AfterViewInit, OnDestroy {
       next: analysis => {
         this.analysing.set(false);
         this.session.update(cur => cur ? { ...cur, aiAnalysis: analysis } : cur);
+        this.dialog.open(RetroAiAnalysisDialogComponent, { width: '560px', maxHeight: '85vh', panelClass: 'dark-dialog', data: analysis });
       },
-      error: () => {
+      error: (err) => {
         this.analysing.set(false);
-        this.snackBar.open('AI analysis failed — check that an AnalyseRetroCards prompt is configured', 'OK', { duration: 5000 });
+        this.snackBar.open(
+          err.error?.error ?? 'AI analysis failed — check that an AnalyseRetroCards prompt is configured',
+          'OK', { duration: 5000 }
+        );
+      }
+    });
+  }
+
+  groupSimilarCards(): void {
+    const s = this.session();
+    if (!s) return;
+    this.grouping.set(true);
+    this.svc.groupSimilarCards(s.id).subscribe({
+      next: () => { this.grouping.set(false); this.silentRefresh(); },
+      error: (err) => {
+        this.grouping.set(false);
+        this.snackBar.open(
+          err.error?.error ?? 'AI grouping failed — check that a GroupRetroCards prompt is configured',
+          'OK', { duration: 5000 }
+        );
       }
     });
   }

@@ -35,6 +35,17 @@ export interface RetroBoardColumn {
   sortOrder: number;
 }
 
+/** A comment on a note — context added in place of a second sticky. Never anonymous. */
+export interface RetroBoardNoteComment {
+  id: string;
+  noteId: string;
+  authorId: string | null;      // null when a guest wrote it
+  authorName: string;
+  isOwn: boolean;               // the viewer wrote it, so they can delete it
+  text: string;
+  createdAt: string;
+}
+
 export interface RetroBoardNote {
   id: string;
   columnId: string;
@@ -49,6 +60,31 @@ export interface RetroBoardNote {
   clarification: string | null;
   introducedAt: string | null;
   createdAt: string;
+  voteCount: number;
+  myVoteCount: number;
+  /** Oldest-first. Always empty while the note is hidden until reveal. */
+  comments: RetroBoardNoteComment[];
+  /** Anchor of the group this note was merged into, or null when it stands alone. The anchor points
+   *  at itself (`groupId === id`), and a group never spans columns. */
+  groupId: string | null;
+  /** What the group is about — only ever set on the anchor. */
+  groupLabel: string | null;
+}
+
+/** One votable topic on the board: a group of merged notes, or a single loose note. The retro votes
+ *  on these, not on raw notes — merging exists so an idea gets one vote budget rather than one per
+ *  wording of it. Built by the store from the flat note list. */
+export interface RetroTopic {
+  /** The anchor's id for a group, the note's own id when loose — what the vote endpoints take. */
+  id: string;
+  columnId: string;
+  /** Oldest-first; the anchor is `notes[0]` for a group. Always at least one note. */
+  notes: RetroBoardNote[];
+  /** True when this is a merged group rather than a single note. */
+  isGroup: boolean;
+  /** The group's name, or null to fall back to the anchor's text. */
+  label: string | null;
+  /** Summed across every note in the topic, so votes cast before a merge still count. */
   voteCount: number;
   myVoteCount: number;
 }
@@ -146,6 +182,9 @@ export interface RetroBoardSession {
   notes: RetroBoardNote[];
   checkinQuestions: RetroBoardCheckinQuestion[];
   participants: RetroBoardParticipant[];
+  /** Participants the host removed. Facilitator-only and deliberately separate from `participants`,
+   *  which the roster and every responded meter count — so removals don't skew them. */
+  removedParticipants: RetroBoardParticipant[];
   actions: RetroBoardAction[];
   feedbackPrompts: RetroBoardFeedbackPrompt[];
 }

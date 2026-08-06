@@ -17,6 +17,7 @@ import { WebSocketService } from '../../core/websocket/websocket.service';
 import { PollEvent, POLL_EVENT_TYPES } from '../../core/websocket/events/poll.events';
 import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/confirm-dialog.component';
 import { FeatureAccessService } from '../../core/services/feature-access.service';
+import { PollBodyComponent } from './poll-body/poll-body.component';
 
 function toLocalDateTimeInputValue(d: Date): string {
   const pad = (n: number) => String(n).padStart(2, '0');
@@ -152,7 +153,7 @@ export class EditPollSettingsDialogComponent {
 @Component({
   selector: 'app-poll',
   standalone: true,
-  imports: [FormsModule, MatButtonModule, MatIconModule, MatMenuModule, MatDialogModule, MatSnackBarModule, MatProgressSpinnerModule, DatePipe],
+  imports: [MatButtonModule, MatIconModule, MatMenuModule, MatDialogModule, MatSnackBarModule, MatProgressSpinnerModule, DatePipe, PollBodyComponent],
   changeDetection: ChangeDetectionStrategy.Default,
   styles: [`
     .wrap { max-width: 700px; margin: 0 auto; }
@@ -172,23 +173,6 @@ export class EditPollSettingsDialogComponent {
     .poll-detail-card { background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:14px;padding:20px }
     .question-text { font-weight:700;font-size:1.1rem;margin-bottom:6px }
     .detail-meta { font-size:0.75rem;opacity:0.5;margin-bottom:16px }
-    .option-btn {
-      width:100%;margin-bottom:10px;padding:14px 16px;height:auto;white-space:normal;
-      text-align:left;justify-content:flex-start;align-items:center;display:flex;gap:10px;
-      border:1.5px solid rgba(100,181,246,0.35);background:rgba(100,181,246,0.07);
-      border-radius:10px;font-size:0.95rem;font-weight:500;transition:all 0.15s ease;
-    }
-    .option-btn:hover { background:rgba(100,181,246,0.16);border-color:#64b5f6;transform:translateY(-1px) }
-    .option-btn .option-icon { opacity:0.55;flex-shrink:0;color:#64b5f6 }
-    .vote-prompt { font-size:0.78rem;opacity:0.65;margin-bottom:10px }
-    .result-row { margin-bottom:10px }
-    .result-label { display:flex;justify-content:space-between;font-size:0.85rem;margin-bottom:4px }
-    .result-label.mine { color:#64b5f6;font-weight:600 }
-    .result-bar-track { height:8px;border-radius:4px;background:rgba(255,255,255,0.08);overflow:hidden }
-    .result-bar-fill { height:100%;border-radius:4px;background:linear-gradient(90deg,#64b5f6,#81c784);transition:width 0.3s ease }
-    .total-votes { font-size:0.72rem;opacity:0.45;margin-top:12px }
-    .hidden-results { font-size:0.82rem;opacity:0.6;text-align:center;padding:16px;background:rgba(255,255,255,0.03);border-radius:8px }
-    .peek-banner { font-size:0.75rem;opacity:0.7;margin-bottom:10px;padding:8px 10px;background:rgba(100,181,246,0.08);border-radius:6px }
     .closed-chip { font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.4px;padding:3px 8px;border-radius:10px;background:rgba(239,83,80,0.15);color:#ef5350 }
     .inline-icon { font-size:14px;width:14px;height:14px;line-height:14px;vertical-align:-2px;color:#64b5f6 }
     .heading-icon { font-size:20px;width:20px;height:20px;line-height:20px;vertical-align:-4px;color:#64b5f6;margin-right:4px }
@@ -264,57 +248,10 @@ export class EditPollSettingsDialogComponent {
               @if (p.scheduledCloseAt && !p.isClosed) { · <mat-icon class="inline-icon">schedule</mat-icon> closes {{ p.scheduledCloseAt | date:'MMM d, h:mm a' }} }
             </div>
 
-            @if (!p.isClosed && p.myOptionId === null) {
-              <div class="vote-prompt"><mat-icon class="inline-icon">touch_app</mat-icon> Tap an option below to cast your vote</div>
-              @for (opt of p.options; track opt.id) {
-                <button mat-stroked-button class="option-btn" (click)="vote(opt.id)">
-                  <mat-icon class="option-icon">radio_button_unchecked</mat-icon>
-                  <span>{{ opt.text }}</span>
-                </button>
-              }
-            } @else if (!p.resultsVisible) {
-              <div class="hidden-results">
-                <mat-icon class="inline-icon">lock</mat-icon> You voted for <strong>{{ myVoteText(p) }}</strong>. Results are hidden until the poll closes.
-              </div>
-              <div style="display:flex;gap:4px;margin-top:8px">
-                <button mat-button style="font-size:0.75rem;opacity:0.6" (click)="changeVote()">Change my vote</button>
-                @if (p.isCreator) {
-                  <button mat-button style="font-size:0.75rem;opacity:0.6" (click)="togglePeek(true)">
-                    <mat-icon class="inline-icon">visibility</mat-icon> Peek at results
-                  </button>
-                }
-              </div>
-            } @else {
-              @if (p.isPeekingAsCreator) {
-                <div class="peek-banner">
-                  <mat-icon class="inline-icon">visibility</mat-icon> Only you can see this — results stay hidden from everyone else.
-                </div>
-              }
-              @for (opt of p.options; track opt.id) {
-                <div class="result-row">
-                  <div class="result-label" [class.mine]="opt.id === p.myOptionId">
-                    <span>{{ opt.text }} @if (opt.id === p.myOptionId) { — your vote }</span>
-                    <span>{{ opt.voteCount }} ({{ opt.percentage }}%)</span>
-                  </div>
-                  <div class="result-bar-track"><div class="result-bar-fill" [style.width]="opt.percentage + '%'"></div></div>
-                </div>
-              }
-              <div style="display:flex;gap:4px;margin-top:4px">
-                @if (p.isPeekingAsCreator) {
-                  <button mat-button style="font-size:0.75rem;opacity:0.6" (click)="togglePeek(false)">
-                    <mat-icon class="inline-icon">visibility_off</mat-icon> Stop peeking
-                  </button>
-                } @else if (!p.isClosed) {
-                  <button mat-button style="font-size:0.75rem;opacity:0.6" (click)="changeVote()">Change my vote</button>
-                }
-              </div>
-            }
-
-            @if (p.resultsVisible) {
-              <div class="total-votes">{{ p.totalVotes }} total vote{{ p.totalVotes === 1 ? '' : 's' }}</div>
-            } @else if (p.hideResultsUntilClosed && !p.isClosed) {
-              <div class="total-votes">Results will be revealed when the poll closes</div>
-            }
+            <app-poll-body [poll]="p"
+                           (voted)="vote($event)"
+                           (changeVoteRequested)="changeVote()"
+                           (peekToggled)="togglePeek($event)" />
 
           </div>
         }
@@ -411,11 +348,11 @@ export class PollComponent implements OnInit, OnDestroy {
   }
 
   selectPoll(pollId: string) {
-    this.router.navigate(['/fun/polls', pollId]);
+    this.router.navigate(['/pulse/polls', pollId]);
   }
 
   sharePoll(pollId: string) {
-    const url = `${window.location.origin}/fun/polls/${pollId}`;
+    const url = `${window.location.origin}/pulse/polls/${pollId}`;
     navigator.clipboard.writeText(url).then(
       () => this.snackBar.open('Share link copied to clipboard', 'Close', { duration: 3000 }),
       () => this.snackBar.open(url, 'Close', { duration: 10000 })
@@ -423,7 +360,7 @@ export class PollComponent implements OnInit, OnDestroy {
   }
 
   backToLobby() {
-    this.router.navigate(['/fun/polls']);
+    this.router.navigate(['/pulse/polls']);
   }
 
   openCreateDialog() {
@@ -431,7 +368,7 @@ export class PollComponent implements OnInit, OnDestroy {
       .afterClosed().subscribe(result => {
         if (!result) return;
         this.service.create(result).subscribe({
-          next: d => { this.router.navigate(['/fun/polls', d.id]); this.snackBar.open('Poll created', 'Close', { duration: 3000 }); },
+          next: d => { this.router.navigate(['/pulse/polls', d.id]); this.snackBar.open('Poll created', 'Close', { duration: 3000 }); },
           error: (err) => this.snackBar.open(err.error?.error ?? 'Failed to create poll', 'Close', { duration: 4000 })
         });
       });
@@ -444,13 +381,6 @@ export class PollComponent implements OnInit, OnDestroy {
       next: d => this.selectedPoll.set(d),
       error: (err) => this.snackBar.open(err.error?.error ?? 'Failed to vote', 'Close', { duration: 4000 })
     });
-  }
-
-  // Results being hidden only withholds aggregate counts -- a voter should still be able to
-  // see which option they themselves picked, even though option.voteCount/percentage are
-  // zeroed out server-side while hidden.
-  myVoteText(p: PollDetail): string {
-    return p.options.find(o => o.id === p.myOptionId)?.text ?? '';
   }
 
   changeVote() {

@@ -24,6 +24,7 @@ export interface WinNomination {
   nomineeName: string;
   nomineeMemberIds: string[];
   nomineeNames: string[];
+  nomineeAvatarSeed: string | null;
   title: string;
   description: string | null;
   createdAt: string;
@@ -228,6 +229,7 @@ export interface WowNominationDisplay {
   nomineeMemberId: string;
   nomineeMemberIds: string[];
   nomineeName: string;
+  nomineeAvatarSeed: string | null;
   nominatorName: string;
   title: string;
   description: string | null;

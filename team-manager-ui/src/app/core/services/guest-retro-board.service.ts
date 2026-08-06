@@ -45,6 +45,16 @@ export class GuestRetroBoardService {
     return this.http.delete<void>(`${this.base}/${encodeURIComponent(slug)}/notes/${noteId}/vote`);
   }
 
+  /** Comment on a note. Returns the refreshed board. */
+  addComment(slug: string, noteId: string, text: string): Observable<GuestRetroBoard> {
+    return this.http.post<GuestRetroBoard>(`${this.base}/${encodeURIComponent(slug)}/notes/${noteId}/comments`, { text });
+  }
+
+  /** Delete one of the guest's own comments. Returns the refreshed board. */
+  deleteComment(slug: string, noteId: string, commentId: string): Observable<GuestRetroBoard> {
+    return this.http.delete<GuestRetroBoard>(`${this.base}/${encodeURIComponent(slug)}/notes/${noteId}/comments/${commentId}`);
+  }
+
   /** Submit (or update) the guest's rating + optional comment for a feedback prompt (204). */
   respondFeedback(slug: string, promptId: string, score: number, comment: string | null): Observable<void> {
     return this.http.post<void>(`${this.base}/${encodeURIComponent(slug)}/feedback-prompts/${promptId}/respond`, { score, comment });

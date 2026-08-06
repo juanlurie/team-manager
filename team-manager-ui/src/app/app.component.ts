@@ -18,6 +18,7 @@ import { AccessRequestEvent, ACCESS_REQUEST_EVENT_TYPES } from './core/websocket
 import { AppSidebarComponent } from './shared/components/app-sidebar/app-sidebar.component';
 import { AppBottomNavComponent } from './shared/components/app-bottom-nav/app-bottom-nav.component';
 import { AccessRequestsService } from './core/services/access-requests.service';
+import { PollAnnouncerService } from './core/services/poll-announcer.service';
 import { PendingApprovalsDialogComponent } from './shared/components/pending-approvals-dialog/pending-approvals-dialog.component';
 import { buildDuplicateFirstNames, memberDisplayName } from './core/utils/member-display-name';
 
@@ -78,7 +79,10 @@ const routeFade = trigger('routeFade', [
       background: #0f1923;
     }
 
-    .content { flex: 1; overflow-y: auto; min-width: 0; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
+    /* container-type lets descendants measure .content's real width (viewport minus the
+       sidebar) via cqw units, instead of falling back to 100vw hacks that ignore the sidebar
+       and bleed under it. */
+    .content { flex: 1; overflow-y: auto; min-width: 0; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; container-type: inline-size; }
     .shell.mobile .content { padding-bottom: 60px; }
     .page-wrap { padding: 24px; max-width: 1200px; margin: 0 auto; }
     .shell.mobile .page-wrap { padding: 0 4px 72px; }
@@ -170,9 +174,19 @@ export class AppComponent {
   private accessReqs = inject(AccessRequestsService);
   private tsd = inject(TimesheetDefaultsService);
   private wsSvc = inject(WebSocketService);
+  private pollAnnouncer = inject(PollAnnouncerService);
 
   nav = inject(NavService);
   mobile = inject(MobileService);
+
+  /**
+   * Gates both the pending-count fetch and the "Access request from X / Review" snackbar. The
+   * feature flag alone is not enough: list/approve/deny are lead-only on the server, so a plain
+   * member was being offered a Review action that could only 403.
+   */
+  private canReviewAccessRequests() {
+    return this.featureAccess.hasAccess('access-requests') && this.auth.canReviewAccessRequests();
+  }
 
   isAuthorized = signal(false);
   navLoading = signal(false);
@@ -199,12 +213,15 @@ export class AppComponent {
       if (status === 'authorized') {
         this.featureAccess.loadPermissions();
         this.tsd.load();
-        if (this.featureAccess.hasAccess('access-requests')) this.accessReqs.refreshCount();
+        if (this.canReviewAccessRequests()) this.accessReqs.refreshCount();
+        // A poll can start while you're anywhere in the app, so this listens app-wide.
+        this.wsSvc.connect();
+        this.pollAnnouncer.start();
       }
     });
 
     this.wsSvc.roomEvents<AccessRequestEvent>(ACCESS_REQUEST_EVENT_TYPES).subscribe(msg => {
-      if (msg.type === 'access_request_submitted' && this.featureAccess.hasAccess('access-requests')) {
+      if (msg.type === 'access_request_submitted' && this.canReviewAccessRequests()) {
         this.accessReqs.refreshCount();
         const name = msg.data['name'] as string;
         const ref = this.snackBar.open(`🔔 Access request from ${name}`, 'Review', { duration: 8000 });

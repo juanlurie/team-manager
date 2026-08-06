@@ -25,14 +25,34 @@ import { MyMeetingItem } from '../../core/models/meeting-series.model';
         @for (group of groupedItems(); track group.seriesId) {
           <div class="series-group">
             <div class="series-header-row">
-              <h3 class="series-title">{{ group.seriesTitle }}</h3>
-              @if (hasOpenItems(group)) {
+              <div style="min-width:0">
+                <h3 class="series-title">{{ group.seriesTitle }}</h3>
+                <div class="series-stats">
+                  <span class="stat" [class.has-open]="openCount(group) > 0">
+                    <mat-icon style="font-size:14px;width:14px;height:14px">event_note</mat-icon>
+                    {{ openCount(group) }} open
+                  </span>
+                  @if (confirmedCount(group) > 0) {
+                    <span class="stat confirmed">
+                      <mat-icon style="font-size:14px;width:14px;height:14px">check_circle</mat-icon>
+                      {{ confirmedCount(group) }} confirmed
+                    </span>
+                  }
+                </div>
+              </div>
+              <div style="display:flex;gap:8px;flex-shrink:0">
+                @if (hasOpenItems(group)) {
+                  <button mat-stroked-button class="series-avail-btn"
+                          [routerLink]="['/meetings', 'series', group.seriesId, 'availability']">
+                    <mat-icon style="font-size:1rem;width:1rem;height:1rem;margin-right:4px">event_available</mat-icon>
+                    Set Availability
+                  </button>
+                }
                 <button mat-stroked-button class="series-avail-btn"
-                        [routerLink]="['/meetings', 'series', group.seriesId, 'availability']">
-                  <mat-icon style="font-size:1rem;width:1rem;height:1rem;margin-right:4px">event_available</mat-icon>
-                  Set Availability
+                        [routerLink]="['/meetings', 'series', group.seriesId]">
+                  View Series
                 </button>
-              }
+              </div>
             </div>
             @for (item of group.items; track item.itemId) {
               <div class="item-card">
@@ -74,8 +94,12 @@ import { MyMeetingItem } from '../../core/models/meeting-series.model';
     .empty-state p { font-weight:600;margin:0; }
     .empty-state span { font-size:0.85rem;opacity:0.5; }
     .series-group { margin-bottom:24px; }
-    .series-header-row { display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid rgba(100,181,246,0.2); }
+    .series-header-row { display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid rgba(100,181,246,0.2); }
     .series-title { font-size:0.85rem;font-weight:600;color:#64b5f6;margin:0; }
+    .series-stats { display:flex;gap:12px;margin-top:4px; }
+    .stat { display:inline-flex;align-items:center;gap:4px;font-size:0.72rem;opacity:0.5; }
+    .stat.has-open { opacity:1;color:#64b5f6; }
+    .stat.confirmed { color:#81c784;opacity:1; }
     .series-avail-btn { flex-shrink:0;font-size:0.78rem;height:32px;padding:0 12px; }
     .item-card {
       display:flex;align-items:center;padding:12px 14px;border-radius:8px;gap:12px;
@@ -102,6 +126,14 @@ export class MyMeetingsComponent implements OnInit {
 
   hasOpenItems(group: { items: MyMeetingItem[] }): boolean {
     return group.items.some(i => !i.isConfirmed);
+  }
+
+  openCount(group: { items: MyMeetingItem[] }): number {
+    return group.items.filter(i => !i.isConfirmed).length;
+  }
+
+  confirmedCount(group: { items: MyMeetingItem[] }): number {
+    return group.items.filter(i => i.isConfirmed).length;
   }
 
   ngOnInit() { this.load(); }

@@ -245,7 +245,7 @@ const NODE_PALETTE = [
             } @else {
               <span (dblclick)="$event.stopPropagation(); startLabelEdit(n)">{{ n.label }}</span>
             }
-            @if (connectMode()) {
+            @if (connectMode() && !readOnly()) {
               <div class="connect-handle" style="right:-7px;top:50%;margin-top:-7px"
                    (mousedown)="startConnect($event, n)"></div>
               <div class="connect-handle" style="left:-7px;top:50%;margin-top:-7px"
@@ -255,15 +255,15 @@ const NODE_PALETTE = [
               <div class="connect-handle" style="bottom:-7px;left:50%;margin-left:-7px"
                    (mousedown)="startConnect($event, n)"></div>
             }
-            @if (resizable()) {
+            @if (resizable() && !readOnly()) {
               <div class="resize-handle" (mousedown)="startResize($event, n)"></div>
             }
-            @if (colorPicker()) {
+            @if (colorPicker() && !readOnly()) {
               <div class="color-handle" title="Change colour"
                    (mousedown)="$event.stopPropagation()"
                    (click)="openColorPicker($event, 'node', n.id)"></div>
             }
-            @if (shapePicker()) {
+            @if (shapePicker() && !readOnly()) {
               <div class="shape-handle" title="Change shape"
                    (mousedown)="$event.stopPropagation()"
                    (click)="openShapePicker($event, n.id)">
@@ -318,6 +318,8 @@ export class CanvasBoardComponent implements AfterViewInit {
   colorPicker = input(false);
   shapePicker = input(false);
   selectedId = input<string | null>(null);
+  /** View-only board: panning and zoom stay live, every mutation affordance is off. */
+  readOnly = input(false);
   // When set to a node id, that node immediately enters label-edit mode (used so a freshly
   // created node opens ready to type). Parent bumps this after adding a node.
   editNodeId = input<string | null>(null);
@@ -674,6 +676,7 @@ export class CanvasBoardComponent implements AfterViewInit {
   }
 
   onCanvasDoubleClick(e: MouseEvent): void {
+    if (this.readOnly()) return;
     const t = e.target as HTMLElement;
     if (t.closest('.canvas-node')) return;
     const p = this.worldPointFromEvent(e);
@@ -681,7 +684,7 @@ export class CanvasBoardComponent implements AfterViewInit {
   }
 
   startNodeDrag(e: MouseEvent, node: CanvasNode): void {
-    if (e.button !== 0) return;
+    if (e.button !== 0 || this.readOnly()) return;
     e.stopPropagation();
     // Note: this also fires from the edit textarea (so a fresh auto-editing node isn't trapped).
     // We don't preventDefault, so a plain click still places the text cursor; only once the pointer
@@ -829,7 +832,7 @@ export class CanvasBoardComponent implements AfterViewInit {
   }
 
   startResize(e: MouseEvent, node: CanvasNode): void {
-    if (e.button !== 0) return;
+    if (e.button !== 0 || this.readOnly()) return;
     e.stopPropagation();
     this.resizeState = {
       id: node.id,
@@ -841,12 +844,14 @@ export class CanvasBoardComponent implements AfterViewInit {
   }
 
   startConnect(e: MouseEvent, node: CanvasNode): void {
+    if (this.readOnly()) return;
     e.stopPropagation();
     e.preventDefault();
     this.connectState = { fromId: node.id, toWorld: { x: node.x, y: node.y } };
   }
 
   startLabelEdit(node: CanvasNode): void {
+    if (this.readOnly()) return;
     this.editingId.set(node.id);
     this.editingText.set(node.label);
   }

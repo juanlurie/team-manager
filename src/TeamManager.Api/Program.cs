@@ -65,6 +65,8 @@ builder.Services.AddScoped<ISprintVoteService, SprintVoteService>();
 builder.Services.AddScoped<IInvitationService, InvitationService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<SquadService>();
+builder.Services.AddScoped<TeamService>();
+builder.Services.AddScoped<AccessRequestApprovalService>();
 builder.Services.AddScoped<IMeetingSessionService, MeetingSessionService>();
 builder.Services.AddScoped<IMeetingSeriesService, MeetingSeriesService>();
 builder.Services.AddScoped<AiPromptExecutorService>();

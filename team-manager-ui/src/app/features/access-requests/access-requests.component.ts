@@ -145,7 +145,7 @@ export class AccessRequestsComponent {
     });
     ref.afterClosed().subscribe((result?: ApproveAccessRequestDialogResult) => {
       if (!result) return;
-      this.accessReqs.approve(req.id, result.teamMemberId).subscribe({
+      this.accessReqs.approve(req.id, result.teamMemberId, result.squadId).subscribe({
         next: () => {
           this.snackBar.open(`${req.name} approved and granted access`, 'Close', { duration: 3000 });
           this.loadRequests();

@@ -1,3 +1,5 @@
+import { MEMBER_ROLES, MemberRole } from './team-member.model';
+
 export interface FeaturePermission {
   id: string;
   featureKey: string;
@@ -21,5 +23,7 @@ export interface MemberFeatureOverride {
   roleDefault: boolean;
 }
 
-export const ROLES = ['Member', 'TeamLead', 'TechLead'] as const;
-export type Role = (typeof ROLES)[number];
+// Derived from MEMBER_ROLES rather than restated -- see docs/plans/team-admin-rollout.md,
+// "derive role lists, never restate them".
+export const ROLES = MEMBER_ROLES.map(r => r.id);
+export type Role = MemberRole;

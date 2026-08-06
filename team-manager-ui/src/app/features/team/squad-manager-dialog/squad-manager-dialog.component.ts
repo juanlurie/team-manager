@@ -10,10 +10,13 @@ import { MatInputModule } from '@angular/material/input';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatSelectModule } from '@angular/material/select';
 import { SearchableMultiSelectComponent } from '../../../shared/components/searchable-multi-select/searchable-multi-select.component';
 import { Squad } from '../../../core/models/squad.model';
+import { TeamSummary } from '../../../core/models/team.model';
 import { TeamMember } from '../../../core/models/team-member.model';
 import { SquadService } from '../../../core/services/squad.service';
+import { TeamService } from '../../../core/services/team.service';
 import { TeamMemberService } from '../../../core/services/team-member.service';
 
 const PALETTE = ['#42A5F5','#66BB6A','#FFA726','#AB47BC','#26C6DA','#EC407A','#8D6E63','#78909C'];
@@ -21,13 +24,16 @@ const PALETTE = ['#42A5F5','#66BB6A','#FFA726','#AB47BC','#26C6DA','#EC407A','#8
 @Component({
   selector: 'app-squad-manager-dialog',
   standalone: true,
-  imports: [FormsModule, MatDialogModule, MatButtonModule, MatIconModule, MatInputModule, MatFormFieldModule, MatTooltipModule, MatProgressSpinnerModule, ConfirmDialogComponent, IconButtonComponent, SearchableMultiSelectComponent],
+  imports: [FormsModule, MatDialogModule, MatButtonModule, MatIconModule, MatInputModule, MatFormFieldModule, MatTooltipModule, MatProgressSpinnerModule, MatSelectModule, ConfirmDialogComponent, IconButtonComponent, SearchableMultiSelectComponent],
   styles: [`
     .squad-card { border-radius:10px;border:1px solid rgba(255,255,255,0.08);margin-bottom:10px; }
     .squad-header { display:flex;align-items:center;gap:10px;padding:12px 14px;cursor:pointer; }
     .squad-header:hover { background:rgba(255,255,255,0.04); }
     .color-dot { width:20px;height:20px;border-radius:50%;cursor:pointer;border:2px solid transparent;flex-shrink:0; }
     .color-dot.selected { border-color:rgba(255,255,255,0.8); }
+    .team-pick { font-size:0.72rem;flex-shrink:0;max-width:150px; }
+    .team-pick ::ng-deep .mat-mdc-select-value { font-size:0.72rem; }
+    .team-pick.unset ::ng-deep .mat-mdc-select-value { opacity:0.35;font-style:italic; }
   `],
   changeDetection: ChangeDetectionStrategy.Default,
   template: `
@@ -90,6 +96,19 @@ const PALETTE = ['#42A5F5','#66BB6A','#FFA726','#AB47BC','#26C6DA','#EC407A','#8
                 </div>
               } @else {
                 <span style="font-weight:600;flex:1">{{ squad.name }}</span>
+
+                <!-- "No team" is explicit, not a blank: Squad.TeamId is optional by design. -->
+                <mat-select class="team-pick" [class.unset]="!squad.teamId"
+                            [ngModel]="squad.teamId" (ngModelChange)="setTeam(squad, $event)"
+                            panelWidth="null" placeholder="No team"
+                            matTooltip="Team this squad belongs to"
+                            (click)="$event.stopPropagation()">
+                  <mat-option [value]="null"><em>No team</em></mat-option>
+                  @for (t of teams(); track t.id) {
+                    <mat-option [value]="t.id">{{ t.name }}</mat-option>
+                  }
+                </mat-select>
+
                 <span style="font-size:0.72rem;opacity:0.4">{{ squad.members.length }} member{{ squad.members.length !== 1 ? 's' : '' }}</span>
                 <app-icon-btn icon="edit" size="sm" tooltip="Rename"
                               (btnClick)="startEdit(squad); $event.stopPropagation()" />
@@ -138,6 +157,7 @@ const PALETTE = ['#42A5F5','#66BB6A','#FFA726','#AB47BC','#26C6DA','#EC407A','#8
 })
 export class SquadManagerDialogComponent implements OnInit {
   private squadSvc   = inject(SquadService);
+  private teamSvc    = inject(TeamService);
   private memberSvc  = inject(TeamMemberService);
   private dialog     = inject(MatDialog);
   private dialogRef  = inject(MatDialogRef<SquadManagerDialogComponent>);
@@ -145,6 +165,7 @@ export class SquadManagerDialogComponent implements OnInit {
   readonly palette = PALETTE;
 
   squads     = signal<Squad[]>([]);
+  teams      = signal<TeamSummary[]>([]);
   allMembers = signal<TeamMember[]>([]);
   loading    = signal(true);
   saving     = signal(false);
@@ -162,6 +183,7 @@ export class SquadManagerDialogComponent implements OnInit {
 
   ngOnInit() {
     this.memberSvc.getAll({ isActive: true }).subscribe(m => this.allMembers.set(m));
+    this.teamSvc.getAll().subscribe(t => this.teams.set(t.map(x => ({ id: x.id, name: x.name }))));
     this.loadSquads();
   }
 
@@ -190,7 +212,7 @@ export class SquadManagerDialogComponent implements OnInit {
   createSquad() {
     if (!this.newName.trim() || this.saving()) return;
     this.saving.set(true);
-    this.squadSvc.create({ name: this.newName.trim(), color: this.newColor }).subscribe({
+    this.squadSvc.create({ name: this.newName.trim(), color: this.newColor, teamId: null }).subscribe({
       next: (squad) => {
         this.squads.update(s => [...s, squad].sort((a, b) => a.name.localeCompare(b.name)));
         this.showNewForm.set(false);
@@ -213,6 +235,16 @@ export class SquadManagerDialogComponent implements OnInit {
     this.squadSvc.update(squad.id, { name: this.editName.trim(), color: this.editColor }).subscribe(updated => {
       this.squads.update(s => s.map(sq => sq.id === updated.id ? updated : sq).sort((a, b) => a.name.localeCompare(b.name)));
       this.editingId.set(null);
+    });
+  }
+
+  /** Moves a squad between teams, or out of one entirely when teamId is null. */
+  setTeam(squad: Squad, teamId: string | null) {
+    if (teamId === squad.teamId) return;
+    this.squadSvc.setTeam(squad.id, teamId).subscribe({
+      next: updated => this.squads.update(s => s.map(sq => sq.id === updated.id ? updated : sq)),
+      // Put the old value back rather than leaving the dropdown showing a change that didn't stick.
+      error: () => this.squads.update(s => [...s])
     });
   }
 

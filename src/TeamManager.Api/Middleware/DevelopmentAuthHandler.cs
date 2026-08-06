@@ -30,7 +30,11 @@ public class DevelopmentAuthHandler : AuthenticationHandler<AuthenticationScheme
         {
             new Claim(ClaimTypes.NameIdentifier, DevSub),
             new Claim("sub", DevSub),
+            // Dev mode is deliberately unrestricted (see above), so it carries both roles rather
+            // than relying on RoleHierarchy — the transformer never runs here, since without an
+            // email claim it can't resolve a member.
             new Claim(ClaimTypes.Role, "TeamLead"),
+            new Claim(ClaimTypes.Role, "Admin"),
             new Claim("name", "Dev TeamLead"),
             // DevEmail stored separately so auth/me can use it without triggering transformer lookup
             new Claim("dev_email", devEmail),

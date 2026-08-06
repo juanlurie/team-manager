@@ -34,5 +34,3 @@ export const MEETING_SERIES_ROUTES: Routes = [
     redirectTo: ':id/availability'
   }
 ];
-
-export { MyMeetingSeriesComponent } from './my-meeting-series.component';

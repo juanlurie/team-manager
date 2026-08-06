@@ -84,11 +84,14 @@ public partial class RetroBoardService
                 await db.SaveChangesAsync();
                 Broadcast(sessionId, "rb_participant_changed");
             }
-            else
+            else if (existing.RemovedAt is null)
             {
                 existing.LastSeenAt = DateTimeOffset.UtcNow;
                 await db.SaveChangesAsync();
             }
+            // A removed member keeps read access to the board (the link still works and there's nothing
+            // secret in it), but re-opening it must not quietly re-enrol them — only the facilitator's
+            // re-admit clears RemovedAt. Every mutation guard already treats them as un-enrolled.
         }
         return await GetSessionAsync(sessionId, memberId);
     }

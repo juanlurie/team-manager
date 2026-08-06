@@ -38,6 +38,20 @@ export const TEAM_ROUTES: Routes = [
       },
     ]
   },
+  // Personal map boards moved here from Pulse -- they belong to one member, so they hang off that
+  // member's page. Listed before ':id' for clarity; the param route only matches a single segment.
+  {
+    path: ':memberId/personal-maps',
+    canActivate: [selfOrLeadGuard],
+    data: { featureKey: 'personal-maps' },
+    loadComponent: () => import('./personal-map/personal-map.component').then(m => m.PersonalMapComponent)
+  },
+  {
+    path: ':memberId/personal-maps/:mapId',
+    canActivate: [selfOrLeadGuard],
+    data: { featureKey: 'personal-maps' },
+    loadComponent: () => import('./personal-map/personal-map.component').then(m => m.PersonalMapComponent)
+  },
   {
     path: ':id',
     canActivate: [selfOrLeadGuard],

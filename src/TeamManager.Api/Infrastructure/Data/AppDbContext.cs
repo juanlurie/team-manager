@@ -7,6 +7,7 @@ namespace TeamManager.Api.Infrastructure.Data;
 public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(options)
 {
     public DbSet<TeamMember> TeamMembers => Set<TeamMember>();
+    public DbSet<MemberRoleChange> MemberRoleChanges => Set<MemberRoleChange>();
     public DbSet<Invitation> Invitations => Set<Invitation>();
     public DbSet<PI> PIs => Set<PI>();
     public DbSet<Sprint> Sprints => Set<Sprint>();
@@ -35,6 +36,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<TimesheetWebhookDelivery> TimesheetWebhookDeliveries => Set<TimesheetWebhookDelivery>();
     public DbSet<ApiSyncEvent> ApiSyncEvents => Set<ApiSyncEvent>();
     public DbSet<SprintVote> SprintVotes => Set<SprintVote>();
+    public DbSet<Team> Teams => Set<Team>();
     public DbSet<Squad> Squads => Set<Squad>();
     public DbSet<SquadMember> SquadMembers => Set<SquadMember>();
     public DbSet<RetroAction> RetroActions => Set<RetroAction>();
@@ -121,6 +123,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<RetroBoardColumn> RetroBoardColumns => Set<RetroBoardColumn>();
     public DbSet<RetroBoardNote> RetroBoardNotes => Set<RetroBoardNote>();
     public DbSet<RetroBoardVote> RetroBoardVotes => Set<RetroBoardVote>();
+    public DbSet<RetroBoardNoteComment> RetroBoardNoteComments => Set<RetroBoardNoteComment>();
     public DbSet<RetroBoardCheckinQuestion> RetroBoardCheckinQuestions => Set<RetroBoardCheckinQuestion>();
     public DbSet<RetroBoardCheckinResponse> RetroBoardCheckinResponses => Set<RetroBoardCheckinResponse>();
     public DbSet<RetroBoardParticipant> RetroBoardParticipants => Set<RetroBoardParticipant>();
@@ -131,6 +134,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.ApplyConfiguration(new TeamMemberConfiguration());
+        modelBuilder.ApplyConfiguration(new MemberRoleChangeConfiguration());
         modelBuilder.ApplyConfiguration(new PIConfiguration());
         modelBuilder.ApplyConfiguration(new SprintConfiguration());
         modelBuilder.ApplyConfiguration(new SprintMemberConfiguration());
@@ -154,6 +158,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         modelBuilder.ApplyConfiguration(new MemberTaskConfiguration());
         modelBuilder.ApplyConfiguration(new SprintVoteConfiguration());
         modelBuilder.ApplyConfiguration(new InvitationConfiguration());
+        modelBuilder.ApplyConfiguration(new TeamConfiguration());
         modelBuilder.ApplyConfiguration(new SquadConfiguration());
         modelBuilder.ApplyConfiguration(new SquadMemberConfiguration());
         modelBuilder.ApplyConfiguration(new RetroActionConfiguration());
@@ -232,6 +237,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         modelBuilder.ApplyConfiguration(new RetroBoardColumnConfiguration());
         modelBuilder.ApplyConfiguration(new RetroBoardNoteConfiguration());
         modelBuilder.ApplyConfiguration(new RetroBoardVoteConfiguration());
+        modelBuilder.ApplyConfiguration(new RetroBoardNoteCommentConfiguration());
         modelBuilder.ApplyConfiguration(new RetroBoardCheckinQuestionConfiguration());
         modelBuilder.ApplyConfiguration(new RetroBoardCheckinResponseConfiguration());
         modelBuilder.ApplyConfiguration(new RetroBoardParticipantConfiguration());

@@ -51,7 +51,8 @@ import { MatChipsModule } from '@angular/material/chips';
       }
       <mat-autocomplete #auto="matAutocomplete"
                         [displayWith]="autocompleteDisplay"
-                        (optionSelected)="onSelect($event)">
+                        (optionSelected)="onSelect($event)"
+                        (closed)="onPanelClosed()">
         @if (nullable()) {
           <mat-option [value]="nullValue()">{{ nullableLabel() }}</mat-option>
         }
@@ -220,7 +221,15 @@ export class SearchableSelectComponent implements ControlValueAccessor, OnInit, 
 
   onBlur(): void {
     this.onTouched();
-    // Restore display if selection exists
+  }
+
+  // Firefox and Chromium order (blur) vs (optionSelected) differently when clicking an option --
+  // in Firefox the input can blur, refocus and reopen the panel with the unfiltered list before
+  // optionSelected ever fires, so resetting the search from (blur) is unreliable (it either races
+  // the click on Chromium or never runs before the panel reopens on Firefox). The autocomplete's
+  // own (closed) event is guaranteed by the CDK to fire after optionSelected, so driving the reset
+  // off the panel's own lifecycle instead of guessing about focus timing works on both.
+  onPanelClosed(): void {
     this.updateDisplay();
     this.searchInput.set('');
   }

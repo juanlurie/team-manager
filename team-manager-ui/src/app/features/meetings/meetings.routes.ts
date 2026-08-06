@@ -19,17 +19,14 @@ export const MEETING_ROUTES: Routes = [
         loadComponent: () => import('./my-meetings.component').then(m => m.MyMeetingsComponent)
       },
       {
-        path: 'my-series',
-        loadComponent: () => import('./my-meeting-series.component').then(m => m.MyMeetingSeriesComponent)
+        path: 'settings',
+        loadComponent: () => import('./meeting-settings.component').then(m => m.MeetingSettingsComponent)
       },
-      {
-        path: 'locations',
-        loadComponent: () => import('./locations-config.component').then(m => m.LocationsConfigComponent)
-      },
-      {
-        path: 'session-types',
-        loadComponent: () => import('../session-types/session-types.component').then(m => m.SessionTypesComponent)
-      },
+      // Back-compat for old deep links -- Locations/Session Types/My Series no longer have their
+      // own tabs, folded into 'settings' and 'my-meetings' respectively.
+      { path: 'my-series', redirectTo: 'my-meetings', pathMatch: 'full' },
+      { path: 'locations', redirectTo: 'settings', pathMatch: 'full' },
+      { path: 'session-types', redirectTo: 'settings', pathMatch: 'full' },
     ]
   },
   {

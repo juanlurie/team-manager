@@ -18,6 +18,7 @@ import { AppEmptyStateComponent } from '../../shared/components/app-empty-state/
 import { AppInfoBannerComponent } from '../../shared/components/app-info-banner/app-info-banner.component';
 import { RevealProgressBarComponent } from '../../shared/components/reveal-progress-bar/reveal-progress-bar.component';
 import { AiBadgeComponent } from '../../shared/components/ai-badge/ai-badge.component';
+import { buildDuplicateFirstNames } from '../../core/utils/member-display-name';
 import { SessionJoinComponent } from '../../shared/components/session-join/session-join.component';
 
 @Component({
@@ -73,6 +74,12 @@ import { SessionJoinComponent } from '../../shared/components/session-join/sessi
     .mob-tab { flex: 1; padding: 10px 0; font-size: 0.8rem; font-weight: 600; text-align: center; cursor: pointer; color: rgba(255,255,255,0.45); border: none; background: none; font-family: inherit; transition: color 0.15s; border-bottom: 2px solid transparent; margin-bottom: -1px; }
     .mob-tab.active { color: #64b5f6; border-bottom-color: #64b5f6; }
     .mob-more { flex: 0 0 44px; display: flex; align-items: center; justify-content: center; color: rgba(255,255,255,0.4); }
+    /* Cards vary in height (reactions, power-ups, hype meter...), so a plain grid leaves gaps
+       under shorter cards. CSS multi-column packs each column top-to-bottom like masonry,
+       without a JS layout library -- the tradeoff is reading order goes down a column before
+       wrapping, instead of left-to-right, which is fine for a card gallery like this. */
+    .nom-masonry { column-width: 380px; column-gap: 10px; }
+    .nom-masonry app-wow-nomination-card { display: block; break-inside: avoid; margin-bottom: 10px; }
   `],
   template: `
     @let w = week();
@@ -464,10 +471,13 @@ import { SessionJoinComponent } from '../../shared/components/session-join/sessi
           @if (w && w.status === 'Closed' && w.winnerNomineeName) {
             <app-wow-winner-banner
               [winnerNomineeName]="w.winnerNomineeName"
+              [winnerMemberId]="winnerNomination()?.nomineeMemberId ?? null"
+              [winnerAvatarSeed]="winnerNomination()?.nomineeAvatarSeed ?? null"
               [winnerTitle]="w.winnerTitle"
               [winnerStory]="w.winnerStory"
               [showPoints]="true"
-              (copyStory)="copyStory.emit($event)"
+              [runnersUp]="runnersUp()"
+              [storyPending]="!w.winnerStory"
             />
           }
 
@@ -519,7 +529,7 @@ import { SessionJoinComponent } from '../../shared/components/session-join/sessi
 
           <!-- Nominations list -->
           @if (!loading() && w && w.nominations.length > 0) {
-            <div style="display:flex;flex-direction:column;gap:10px">
+            <div class="nom-masonry">
               @for (nom of sortedNominations(); track nom.id) {
                 <app-wow-nomination-card
                   [nomination]="toDisplay(nom)"
@@ -654,7 +664,6 @@ export class WowCurrentWeekComponent {
   removeVoteClick         = output<string>();
   editClick               = output<WowNominationDisplay>();
   deleteClick             = output<string>();
-  copyStory               = output<string>();
   shareClick              = output();
   hypeClick               = output<string>();
   applyPowerUpClick       = output<{ nominationId: string; type: string }>();
@@ -727,6 +736,22 @@ export class WowCurrentWeekComponent {
     return w.nominations.reduce((sum, n) => sum + n.hypeMeterCount, 0);
   });
 
+  readonly winnerNomination = computed(() => {
+    const w = this.week();
+    if (!w || !w.winnerNominationId) return null;
+    return w.nominations.find(n => n.id === w.winnerNominationId) ?? null;
+  });
+
+  readonly runnersUp = computed(() => {
+    const w = this.week();
+    if (!w || w.status !== 'Closed') return [];
+    return [...w.nominations]
+      .filter(n => n.id !== w.winnerNominationId)
+      .sort((a, b) => b.voteCount - a.voteCount)
+      .slice(0, 2)
+      .map(n => ({ name: n.nomineeName, voteCount: n.voteCount }));
+  });
+
   readonly sortedNominations = computed(() => {
     const w = this.week();
     if (!w) return [];
@@ -747,13 +772,47 @@ export class WowCurrentWeekComponent {
     return [...noms.filter(n => n.powerUp === 'Spotlight'), ...noms.filter(n => n.powerUp !== 'Spotlight')];
   });
 
+  // nomineeNames holds one "First Last" per nominee (group nominations list more than one) --
+  // shorten each to first name on the cards unless two individual nominees this week share a
+  // first name, in which case both keep the surname so they stay distinguishable. Duplicates are
+  // computed across every individual nominee, not per-nomination, so a group member and a
+  // solo-nominated person sharing a first name still both get disambiguated.
+  private readonly nomineeDuplicates = computed(() => {
+    const w = this.week();
+    if (!w) return new Set<string>();
+    const allNames = w.nominations.flatMap(n => n.nomineeNames?.length ? n.nomineeNames : [n.nomineeName]);
+    return buildDuplicateFirstNames(allNames.map(name => ({ firstName: name.split(' ')[0] })));
+  });
+
+  private shortNomineeName(nom: WinNomination): string {
+    const names = nom.nomineeNames?.length ? nom.nomineeNames : [nom.nomineeName];
+    const duplicates = this.nomineeDuplicates();
+    return names.map(name => {
+      const firstName = name.split(' ')[0];
+      return duplicates.has(firstName) ? name : firstName;
+    }).join(', ');
+  }
+
+  // Same first-name-only treatment for whoever made the nomination.
+  private readonly nominatorDuplicates = computed(() => {
+    const w = this.week();
+    if (!w) return new Set<string>();
+    return buildDuplicateFirstNames(w.nominations.map(n => ({ firstName: n.teamMemberName.split(' ')[0] })));
+  });
+
+  private shortNominatorName(nom: WinNomination): string {
+    const firstName = nom.teamMemberName.split(' ')[0];
+    return this.nominatorDuplicates().has(firstName) ? nom.teamMemberName : firstName;
+  }
+
   toDisplay(nom: WinNomination): WowNominationDisplay {
     return {
       id: nom.id,
       nomineeMemberId: nom.nomineeMemberId,
       nomineeMemberIds: nom.nomineeMemberIds,
-      nomineeName: nom.nomineeName,
-      nominatorName: nom.teamMemberName,
+      nomineeName: this.shortNomineeName(nom),
+      nomineeAvatarSeed: nom.nomineeAvatarSeed,
+      nominatorName: this.shortNominatorName(nom),
       title: nom.title,
       description: nom.description,
       voteCount: nom.voteCount,

@@ -367,7 +367,7 @@ export class SprintDetailComponent implements OnInit {
     this.load();
     this.memberSvc.getAll({ role: 'TeamLead' }).subscribe(m => this.teamLeads.set(m));
     this.memberSvc.getAll({ isActive: true }).subscribe(m => this.allMembers = m);
-    this.squadSvc.getAll().subscribe(s => this.squads.set(s.map(sq => ({ id: sq.id, name: sq.name, color: sq.color }))));
+    this.squadSvc.getAll().subscribe(s => this.squads.set(s));
     this.sprintSvc.getPIs().subscribe(p => this.pis = p);
   }
 

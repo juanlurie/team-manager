@@ -180,7 +180,66 @@ export class AuthService {
 
   isLead(): boolean {
     const role = this._me$.value?.role;
-    return role === 'TeamLead' || role === 'TechLead';
+    // Admin is included -- Admin has all permissions, and every existing isLead() call site
+    // (self-or-lead guard, "who can see/act on all members" checks) must not exclude it.
+    return role === 'TeamLead' || role === 'TechLead' || role === 'Admin';
+  }
+
+  isAdmin(): boolean {
+    return this._me$.value?.role === 'Admin';
+  }
+
+  /**
+   * The management tier: TeamLead and the Admin that implies it. TechLead is excluded -- it is a
+   * role within a team with no management significance, which is why this is not isLead().
+   *
+   * The predicates below are named for intent, not membership, so a future divergence changes one
+   * of them rather than eight call sites. That is why they exist separately despite sharing a
+   * body today. The membership test itself is another matter: restating `TeamLead || Admin` once
+   * per predicate is the role hierarchy encoded in four places, so they all delegate here and the
+   * hierarchy stays defined once. Mirrors RoleHierarchy on the server, which does the same.
+   */
+  private hasManagementAuthority(): boolean {
+    const role = this._me$.value?.role;
+    return role === 'TeamLead' || role === 'Admin';
+  }
+
+  /**
+   * May assign roles to other members. Mirrors the role attribute on
+   * PUT /team-members/{id}/role; the server is the actual boundary.
+   */
+  canAssignRoles(): boolean {
+    return this.hasManagementAuthority();
+  }
+
+  /**
+   * May create, rename and delete teams -- a separate question from canAssignRoles(), since
+   * managing org structure isn't granting privilege. Mirrors TeamsController's
+   * [Authorize(Roles = "TeamLead")].
+   */
+  canManageTeams(): boolean {
+    return this.hasManagementAuthority();
+  }
+
+  /**
+   * May create, rename and delete squads and change who is in them. Separate from canManageTeams()
+   * by intent -- one level of org structure, then another. Mirrors the role attributes on
+   * SquadsController's write endpoints; the reads there are open to everyone, since squad lists
+   * feed ordinary member-facing screens.
+   */
+  canManageSquads(): boolean {
+    return this.hasManagementAuthority();
+  }
+
+  /**
+   * May see and act on other people's access requests. The list carries every requester's name,
+   * email, googleSub and free-text reason, and approving grants entry to the app, so this is
+   * management rather than a feature toggle. Mirrors AccessRequestsController's role attribute on
+   * list/approve/deny -- callers must check this *as well as* the access-requests feature flag,
+   * since the flag governs whether the feature exists here, not whether you may use it.
+   */
+  canReviewAccessRequests(): boolean {
+    return this.hasManagementAuthority();
   }
 
   isSelfOrLead(memberId: string): boolean {

@@ -38,6 +38,10 @@ public record RetroBoardSessionDto
     public List<RetroBoardNoteDto> Notes { get; init; } = [];
     public List<RetroBoardCheckinQuestionDto> CheckinQuestions { get; init; } = [];
     public List<RetroBoardParticipantDto> Participants { get; init; } = [];
+    /// <summary>Participants a facilitator removed, so a mis-click can be undone. Facilitator-only, and
+    /// deliberately kept OUT of <see cref="Participants"/> — the roster and every "N of M responded"
+    /// meter read that list, so they stay counted against active participants only.</summary>
+    public List<RetroBoardParticipantDto> RemovedParticipants { get; init; } = [];
     public List<RetroBoardActionDto> Actions { get; init; } = [];
     public List<RetroBoardFeedbackPromptDto> FeedbackPrompts { get; init; } = [];
 }
@@ -82,6 +86,26 @@ public record RetroBoardNoteDto
     public DateTimeOffset CreatedAt { get; init; }
     public int VoteCount { get; init; }
     public int MyVoteCount { get; init; }
+    /// <summary>The anchor of the group this note was merged into, or null when it stands alone. The
+    /// anchor points at itself. Clients render one votable topic per group.</summary>
+    public Guid? GroupId { get; init; }
+    /// <summary>What the group is about — only ever set on the anchor.</summary>
+    public string? GroupLabel { get; init; }
+    /// <summary>Oldest-first. Empty while the note is hidden until reveal — a comment would leak the
+    /// note's existence and content the same way its text would.</summary>
+    public List<RetroBoardNoteCommentDto> Comments { get; init; } = [];
+}
+
+public record RetroBoardNoteCommentDto
+{
+    public Guid Id { get; init; }
+    public Guid NoteId { get; init; }
+    public Guid? AuthorId { get; init; }
+    public string AuthorName { get; init; } = "";
+    /// <summary>True when the viewer wrote it — the only ones they can delete themselves.</summary>
+    public bool IsOwn { get; init; }
+    public string Text { get; init; } = "";
+    public DateTimeOffset CreatedAt { get; init; }
 }
 
 public record RetroBoardCheckinQuestionDto
@@ -250,6 +274,9 @@ public record CheckinResponseRequest { public string Rating { get; init; } = "";
 public record FeedbackPromptInput { public string Text { get; init; } = ""; }
 public record FeedbackResponseRequest { public int Score { get; init; } public string? Comment { get; init; } }
 public record SetParticipantRoleRequest { public Guid MemberId { get; init; } public string Role { get; init; } = "participant"; }
+public record NoteCommentRequest { public string Text { get; init; } = ""; }
+public record GroupNoteRequest { public Guid TargetNoteId { get; init; } }
+public record GroupLabelRequest { public string? Label { get; init; } }
 public record SetSquadRequest { public Guid? SquadId { get; init; } }
 
 public record AddRetroBoardActionRequest

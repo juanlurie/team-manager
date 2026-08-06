@@ -13,10 +13,12 @@ import { RetroVoteComponent } from './phases/retro-vote.component';
 import { RetroDiscussComponent } from './phases/retro-discuss.component';
 import { RetroReflectComponent } from './phases/retro-reflect.component';
 import { RetroSummaryComponent } from './phases/retro-summary.component';
+import { RetroRailTimerComponent } from './rail-timer.component';
+import { RetroParticipantRailComponent } from './participant-rail.component';
 
 /**
- * RetroBoard container: owns nothing but the shell (topbar, participant rail) and delegates each
- * phase to a dedicated child component. All state and orchestration live in the per-view
+ * RetroBoard container: owns nothing but the shell (topbar, rail) and delegates each phase — and
+ * each rail panel — to a dedicated child component. All state and orchestration live in the per-view
  * {@link RetroBoardStore}, provided here so the container and every child share one instance.
  */
 @Component({
@@ -26,6 +28,7 @@ import { RetroSummaryComponent } from './phases/retro-summary.component';
     CommonModule,
     RetroLobbyComponent, RetroSetupComponent, RetroCheckinComponent, RetroCaptureComponent,
     RetroIntroduceComponent, RetroVoteComponent, RetroDiscussComponent, RetroReflectComponent, RetroSummaryComponent,
+    RetroRailTimerComponent, RetroParticipantRailComponent,
   ],
   providers: [RetroBoardStore],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -97,38 +100,9 @@ import { RetroSummaryComponent } from './phases/retro-summary.component';
       <div class="body">
         <aside class="rail">
           @if (s.status !== 'closed' && store.timerAllowed() && (store.phaseTimerKey() || store.timer() !== null)) {
-            <div class="rail-timer">
-              <div class="rt-label">⏱ {{ store.phaseLabel(s.phase) }}</div>
-              <div class="rt-time" [class.low]="store.timer() !== null && store.timer()! <= 15" [class.idle]="store.timer() === null || store.isPaused()">{{ store.timer() !== null ? store.fmt(store.timer()!) : '—:—' }}</div>
-              @if (store.isPaused()) { <div class="muted" style="font-size:12px">paused</div> }
-              @if (store.amFacilitator() && store.phaseTimerKey()) {
-                <div class="rt-controls">
-                  @if (store.timer() === null) { <button class="btn ghost sm" (click)="store.startTimer()">▶ Start</button> }
-                  @else {
-                    @if (store.isPaused()) { <button class="btn ghost sm" (click)="store.resumeTimer()">▶ Resume</button> }
-                    @else { <button class="btn ghost sm" (click)="store.pauseTimer()">⏸ Pause</button> }
-                    <button class="btn ghost sm" (click)="store.startTimer()" title="Restart this phase timer">↻ Restart</button>
-                  }
-                </div>
-              }
-            </div>
+            <app-retro-rail-timer />
           }
-          <h4>Participants · {{ s.participants.length }}</h4>
-          @for (p of s.participants; track p.id) {
-            <div class="p-row">
-              <span class="avatar" [style.background]="store.tint(p.memberId ?? p.id)" [style.color]="store.ink(p.memberId ?? p.id)">{{ store.initials(p.name) }}</span>
-              <span>{{ store.shortName(p.name) }}</span>
-              @if (p.isGuest) { <span class="guest-tag">guest</span> }
-              @if (p.role === 'facilitator') { <span class="crown">★</span> }
-              @else if (store.amFacilitator() && (s.status === 'open' || s.phase === 'checkin') && p.responded['checkin']) { <span class="tick" title="Checked in">✓</span> }
-              @if (store.canManageHost(p)) {
-                <button class="host-btn" (click)="store.setHost(p, p.role !== 'facilitator')"
-                        [title]="p.role === 'facilitator' ? 'Remove host' : 'Make host'">
-                  {{ p.role === 'facilitator' ? '− host' : '+ host' }}
-                </button>
-              }
-            </div>
-          }
+          <app-retro-participant-rail />
         </aside>
 
         <main class="main">

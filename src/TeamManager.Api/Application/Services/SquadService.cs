@@ -10,6 +10,7 @@ public class SquadService(AppDbContext db)
     public async Task<IReadOnlyList<SquadDto>> GetAllAsync()
     {
         var squads = await db.Squads
+            .Include(s => s.Team)
             .Include(s => s.Members).ThenInclude(sm => sm.TeamMember)
             .OrderBy(s => s.Name)
             .ToListAsync();
@@ -19,27 +20,63 @@ public class SquadService(AppDbContext db)
     public async Task<SquadDto?> GetByIdAsync(Guid id)
     {
         var squad = await db.Squads
+            .Include(s => s.Team)
             .Include(s => s.Members).ThenInclude(sm => sm.TeamMember)
             .FirstOrDefaultAsync(s => s.Id == id);
         return squad is null ? null : ToDto(squad);
     }
 
-    public async Task<SquadDto> CreateAsync(CreateSquadRequest request)
+    public async Task<SquadSaveResult> CreateAsync(CreateSquadRequest request)
     {
-        var squad = new Squad { Name = request.Name.Trim(), Color = request.Color };
+        if (!await TeamExistsAsync(request.TeamId)) return SquadSaveResult.TeamNotFound;
+
+        var squad = new Squad { Name = request.Name.Trim(), Color = request.Color, TeamId = request.TeamId };
         db.Squads.Add(squad);
         await db.SaveChangesAsync();
-        return ToDto(squad);
+        // Re-read so the response carries TeamName -- the tracked entity has TeamId but no Team.
+        return SquadSaveResult.Ok(await GetByIdAsync(squad.Id) ?? ToDto(squad));
     }
 
-    public async Task<SquadDto?> UpdateAsync(Guid id, CreateSquadRequest request)
+    /// <summary>Name and colour only. Team membership moves through <see cref="SetTeamAsync"/>.</summary>
+    public async Task<SquadSaveResult> UpdateAsync(Guid id, UpdateSquadRequest request)
     {
         var squad = await db.Squads.FindAsync(id);
-        if (squad is null) return null;
+        if (squad is null) return SquadSaveResult.NotFound;
         squad.Name = request.Name.Trim();
         squad.Color = request.Color;
         await db.SaveChangesAsync();
-        return await GetByIdAsync(id);
+        return await ReReadAsync(id);
+    }
+
+    /// <summary>
+    /// Moves a squad between teams, or out of one when <paramref name="teamId"/> is null. Its own
+    /// operation rather than a field on the update path: there, an absent field was indistinguishable
+    /// from an intentional detach, so every caller had to remember to echo the current value back.
+    /// </summary>
+    public async Task<SquadSaveResult> SetTeamAsync(Guid id, Guid? teamId)
+    {
+        var squad = await db.Squads.FindAsync(id);
+        if (squad is null) return SquadSaveResult.NotFound;
+        if (!await TeamExistsAsync(teamId)) return SquadSaveResult.TeamNotFound;
+
+        squad.TeamId = teamId;
+        await db.SaveChangesAsync();
+        return await ReReadAsync(id);
+    }
+
+    /// <summary>Null is "no team", which is always valid; only a stated team has to exist.</summary>
+    private async Task<bool> TeamExistsAsync(Guid? teamId) =>
+        teamId is not { } id || await db.Teams.AnyAsync(t => t.Id == id);
+
+    /// <summary>
+    /// Re-reads a squad after a write so the response carries TeamName and members -- the tracked
+    /// entity has TeamId but no Team. NotFound rather than a null-forgiving `!`: a concurrent delete
+    /// between the save and this read is narrow but real, and the caller already handles the case.
+    /// </summary>
+    private async Task<SquadSaveResult> ReReadAsync(Guid id)
+    {
+        var dto = await GetByIdAsync(id);
+        return dto is null ? SquadSaveResult.NotFound : SquadSaveResult.Ok(dto);
     }
 
     public async Task<bool> DeleteAsync(Guid id)
@@ -64,7 +101,13 @@ public class SquadService(AppDbContext db)
         return await GetByIdAsync(squadId);
     }
 
-    public async Task SetMemberSquadsAsync(Guid teamMemberId, List<Guid> squadIds)
+    /// <summary>
+    /// The one code path that owns SquadMember writes. <paramref name="save"/> exists for callers
+    /// that need the membership change to land in the same SaveChanges as their own work -- access
+    /// approval, where a separate save could leave a member holding access but no squad if the
+    /// second write failed. Callers passing false must save.
+    /// </summary>
+    public async Task SetMemberSquadsAsync(Guid teamMemberId, List<Guid> squadIds, bool save = true)
     {
         var existing = await db.SquadMembers
             .Where(sm => sm.TeamMemberId == teamMemberId)
@@ -74,7 +117,26 @@ public class SquadService(AppDbContext db)
         foreach (var squadId in squadIds.Distinct())
             db.SquadMembers.Add(new SquadMember { SquadId = squadId, TeamMemberId = teamMemberId });
 
-        await db.SaveChangesAsync();
+        if (save) await db.SaveChangesAsync();
+    }
+
+    /// <summary>
+    /// Adds one membership, leaving every other one untouched. Distinct from SetMemberSquadsAsync,
+    /// which replaces the whole set: expressing "also put them in this squad" as a set-replacement
+    /// meant deleting and re-inserting every row the member already had, handing each a fresh
+    /// SquadMember.Id for a change that never concerned them. Idempotent -- already a member is a
+    /// no-op, which is what the unique index on (SquadId, TeamMemberId) would otherwise enforce with
+    /// an exception. <paramref name="save"/> as on SetMemberSquadsAsync: callers passing false must save.
+    /// </summary>
+    public async Task AddMemberToSquadAsync(Guid teamMemberId, Guid squadId, bool save = true)
+    {
+        var alreadyThere = await db.SquadMembers
+            .AnyAsync(sm => sm.TeamMemberId == teamMemberId && sm.SquadId == squadId);
+        if (alreadyThere) return;
+
+        db.SquadMembers.Add(new SquadMember { SquadId = squadId, TeamMemberId = teamMemberId });
+
+        if (save) await db.SaveChangesAsync();
     }
 
     internal static SquadDto ToDto(Squad s) => new()
@@ -82,6 +144,8 @@ public class SquadService(AppDbContext db)
         Id = s.Id,
         Name = s.Name,
         Color = s.Color,
+        TeamId = s.TeamId,
+        TeamName = s.Team?.Name,
         Members = s.Members
             .OrderBy(sm => sm.TeamMember?.LastName).ThenBy(sm => sm.TeamMember?.FirstName)
             .Select(sm => new SquadMemberEntryDto
@@ -97,6 +161,8 @@ public class SquadService(AppDbContext db)
     {
         Id = s.Id,
         Name = s.Name,
-        Color = s.Color
+        Color = s.Color,
+        TeamId = s.TeamId,
+        TeamName = s.Team?.Name
     };
 }

@@ -21,6 +21,7 @@ export interface FunRetroCard {
   positionY: number | null;
   color: string | null;
   groupId: string | null;
+  groupLabel: string | null;
   commentCount: number;
 }
 
@@ -48,6 +49,9 @@ export interface FunRetroToken {
 }
 
 export interface FunRetroAnalysis {
+  sentiment: string | null;
+  sentimentSummary: string | null;
+  celebrations: string[];
   wellThemes: string[];
   betterThemes: string[];
   actionThemes: string[];

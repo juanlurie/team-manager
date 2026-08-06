@@ -953,6 +953,9 @@ namespace TeamManager.Api.Migrations
                     b.Property<Guid?>("GroupId")
                         .HasColumnType("uuid");
 
+                    b.Property<string>("GroupLabel")
+                        .HasColumnType("text");
+
                     b.Property<double?>("PositionX")
                         .HasColumnType("double precision");
 
@@ -2062,6 +2065,39 @@ namespace TeamManager.Api.Migrations
                     b.ToTable("MemberPersonals");
                 });
 
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.MemberRoleChange", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<Guid?>("ActorId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("FromRole")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<Guid>("MemberId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ToRole")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("MemberId", "CreatedAt");
+
+                    b.ToTable("MemberRoleChanges");
+                });
+
             modelBuilder.Entity("TeamManager.Api.Domain.Entities.MemberSkill", b =>
                 {
                     b.Property<Guid>("Id")
@@ -3145,6 +3181,13 @@ namespace TeamManager.Api.Migrations
                     b.Property<bool>("Flagged")
                         .HasColumnType("boolean");
 
+                    b.Property<Guid?>("GroupId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("GroupLabel")
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
                     b.Property<DateTimeOffset?>("IntroducedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -3165,6 +3208,9 @@ namespace TeamManager.Api.Migrations
 
                     b.HasIndex("AuthorMemberId");
 
+                    b.HasIndex("GroupId")
+                        .HasDatabaseName("IX_RetroBoardNote_GroupId");
+
                     b.HasIndex("RetroBoardColumnId")
                         .HasDatabaseName("IX_RetroBoardNote_ColumnId");
 
@@ -3172,6 +3218,45 @@ namespace TeamManager.Api.Migrations
                         .HasDatabaseName("IX_RetroBoardNote_SessionId");
 
                     b.ToTable("RetroBoardNotes");
+                });
+
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.RetroBoardNoteComment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<string>("AuthorDisplayName")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("AuthorGuestSessionId")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<Guid?>("AuthorMemberId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("RetroBoardNoteId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Text")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AuthorMemberId");
+
+                    b.HasIndex("RetroBoardNoteId")
+                        .HasDatabaseName("IX_RetroBoardNoteComment_NoteId");
+
+                    b.ToTable("RetroBoardNoteComments");
                 });
 
             modelBuilder.Entity("TeamManager.Api.Domain.Entities.RetroBoardParticipant", b =>
@@ -3197,6 +3282,9 @@ namespace TeamManager.Api.Migrations
 
                     b.Property<Guid?>("MemberId")
                         .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("RemovedAt")
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<Guid>("RetroBoardSessionId")
                         .HasColumnType("uuid");
@@ -3773,7 +3861,12 @@ namespace TeamManager.Api.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
 
+                    b.Property<Guid?>("TeamId")
+                        .HasColumnType("uuid");
+
                     b.HasKey("Id");
+
+                    b.HasIndex("TeamId");
 
                     b.ToTable("Squads");
                 });
@@ -3799,6 +3892,26 @@ namespace TeamManager.Api.Migrations
                         .IsUnique();
 
                     b.ToTable("SquadMembers");
+                });
+
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.Team", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Name")
+                        .IsUnique();
+
+                    b.ToTable("Teams");
                 });
 
             modelBuilder.Entity("TeamManager.Api.Domain.Entities.TeamMember", b =>
@@ -5841,6 +5954,24 @@ namespace TeamManager.Api.Migrations
                     b.Navigation("Session");
                 });
 
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.RetroBoardNoteComment", b =>
+                {
+                    b.HasOne("TeamManager.Api.Domain.Entities.TeamMember", "Author")
+                        .WithMany()
+                        .HasForeignKey("AuthorMemberId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("TeamManager.Api.Domain.Entities.RetroBoardNote", "Note")
+                        .WithMany("Comments")
+                        .HasForeignKey("RetroBoardNoteId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Author");
+
+                    b.Navigation("Note");
+                });
+
             modelBuilder.Entity("TeamManager.Api.Domain.Entities.RetroBoardParticipant", b =>
                 {
                     b.HasOne("TeamManager.Api.Domain.Entities.TeamMember", "Member")
@@ -6026,6 +6157,16 @@ namespace TeamManager.Api.Migrations
                     b.Navigation("Sprint");
 
                     b.Navigation("Voter");
+                });
+
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.Squad", b =>
+                {
+                    b.HasOne("TeamManager.Api.Domain.Entities.Team", "Team")
+                        .WithMany("Squads")
+                        .HasForeignKey("TeamId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Team");
                 });
 
             modelBuilder.Entity("TeamManager.Api.Domain.Entities.SquadMember", b =>
@@ -6566,6 +6707,8 @@ namespace TeamManager.Api.Migrations
 
             modelBuilder.Entity("TeamManager.Api.Domain.Entities.RetroBoardNote", b =>
                 {
+                    b.Navigation("Comments");
+
                     b.Navigation("Votes");
                 });
 
@@ -6619,6 +6762,11 @@ namespace TeamManager.Api.Migrations
             modelBuilder.Entity("TeamManager.Api.Domain.Entities.Squad", b =>
                 {
                     b.Navigation("Members");
+                });
+
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.Team", b =>
+                {
+                    b.Navigation("Squads");
                 });
 
             modelBuilder.Entity("TeamManager.Api.Domain.Entities.TeamMember", b =>

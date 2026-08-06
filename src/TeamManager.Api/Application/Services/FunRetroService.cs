@@ -156,6 +156,7 @@ public class FunRetroService(AppDbContext db, AiPromptExecutorService aiExecutor
                     PositionY = c.PositionY,
                     Color = c.Color,
                     GroupId = c.GroupId,
+                    GroupLabel = c.GroupLabel,
                     CommentCount = c.Comments.Count,
                 };
             })
@@ -813,6 +814,7 @@ public class FunRetroService(AppDbContext db, AiPromptExecutorService aiExecutor
         if (card is null) return false;
 
         card.GroupId = groupId;
+        if (groupId is null) card.GroupLabel = null;
         await db.SaveChangesAsync();
 
         _ = WebSocketMiddleware.BroadcastToRetroSessionAsync("fun_retro_card_grouped", sessionId.ToString(), new { sessionId, cardId, groupId });
@@ -863,5 +865,68 @@ public class FunRetroService(AppDbContext db, AiPromptExecutorService aiExecutor
         _ = WebSocketMiddleware.BroadcastToRetroSessionAsync("fun_retro_analysed", sessionId.ToString(), new { sessionId });
 
         return (true, null, analysis);
+    }
+
+    /// <summary>
+    /// Asks the AI to cluster similar cards, then applies the result through the same GroupId
+    /// mechanic the manual drag-to-stack grouping already uses (SetCardGroupAsync) -- this is
+    /// just a bulk, AI-driven way of doing what dragging one card onto another already does, so
+    /// the board's existing grouped-card rendering picks it up with no new UI concept.
+    /// </summary>
+    public async Task<(bool success, string? error)> GroupSimilarCardsAsync(Guid sessionId, Guid memberId)
+    {
+        var session = await db.FunRetroSessions
+            .Include(s => s.Cards)
+            .FirstOrDefaultAsync(s => s.Id == sessionId);
+
+        if (session is null) return (false, "Session not found.");
+        if (session.CreatedByMemberId != memberId) return (false, "Only the session host can group cards.");
+
+        var cards = session.Cards.Where(c => !string.IsNullOrWhiteSpace(c.Text)).ToList();
+        if (cards.Count < 2) return (false, "Need at least two cards to group.");
+
+        // "id|column|text" per line -- plain and cheap for the model to read, and it can hand the
+        // id straight back rather than us having to fuzzy-match text in the response.
+        var cardList = string.Join("\n", cards.Select(c => $"{c.Id}|{c.Column}|{c.Text}"));
+        var promptParams = new Dictionary<string, string> { ["cards"] = cardList };
+
+        var raw = await aiExecutor.ExecuteAsync(
+            "GroupRetroCards", promptParams,
+            "FunRetroSession", $"Card grouping for session {sessionId}",
+            sessionId.ToString());
+
+        if (raw is null) return (false, "AI grouping unavailable — configure a GroupRetroCards prompt to enable this feature.");
+
+        var opts = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+        List<FunRetroGroupSuggestionDto>? groups;
+        try { groups = JsonSerializer.Deserialize<List<FunRetroGroupSuggestionDto>>(raw, opts); }
+        catch { return (false, "AI returned an unexpected format."); }
+
+        if (groups is null || groups.Count == 0) return (false, "AI found no similar cards to group.");
+
+        var byId = cards.ToDictionary(c => c.Id);
+        var applied = 0;
+        foreach (var group in groups)
+        {
+            // Drop ids the model hallucinated or that belong to a card that no longer exists;
+            // a "group" that survives filtering down to one card isn't a group.
+            var ids = group.CardIds.Where(byId.ContainsKey).Distinct().ToList();
+            if (ids.Count < 2) continue;
+
+            var anchorId = ids[0];
+            byId[anchorId].GroupLabel = string.IsNullOrWhiteSpace(group.Label) ? null : group.Label.Trim();
+            foreach (var cardId in ids)
+            {
+                byId[cardId].GroupId = anchorId;
+                applied++;
+            }
+        }
+
+        if (applied == 0) return (false, "AI didn't suggest any valid groups.");
+
+        await db.SaveChangesAsync();
+        _ = WebSocketMiddleware.BroadcastToRetroSessionAsync("fun_retro_ai_grouped", sessionId.ToString(), new { sessionId });
+
+        return (true, null);
     }
 }

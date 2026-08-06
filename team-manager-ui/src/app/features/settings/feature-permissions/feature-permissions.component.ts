@@ -9,6 +9,7 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { FeaturePermissionService } from '../../../core/services/feature-permission.service';
 import { FeatureCategoryGroup, ROLES } from '../../../core/models/feature-permissions.model';
+import { roleLabel } from '../../../core/models/team-member.model';
 
 interface FeatureRow {
   featureKey: string;
@@ -42,6 +43,15 @@ export class FeaturePermissionsComponent implements OnInit {
   roles = ROLES;
   searchQuery = signal('');
   collapsedCategories = signal<Set<string>>(new Set());
+
+  roleLabel = roleLabel;
+
+  // The server treats Admin as having every feature unconditionally -- it returns isEnabled:
+  // true for every Admin row and rejects writes to them. Render the column as checked/disabled
+  // rather than a settable toggle that would silently be ignored.
+  isAdminRole(role: string): boolean {
+    return role === 'Admin';
+  }
 
   matrixGroups = computed(() => {
     return this.rawGroups().map(group => ({

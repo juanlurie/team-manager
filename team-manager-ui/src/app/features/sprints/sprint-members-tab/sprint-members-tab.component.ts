@@ -108,7 +108,7 @@ export class SprintMembersTabComponent implements OnInit {
   ngOnInit() {
     this.sprintId = this.route.parent!.snapshot.paramMap.get('id')!;
     this.teamMemberSvc.getAll({ isActive: true }).subscribe(m => this.allMembers = m);
-    this.squadSvc.getAll().subscribe(s => this.squads = s.map(sq => ({ id: sq.id, name: sq.name, color: sq.color })));
+    this.squadSvc.getAll().subscribe(s => this.squads = s);
     this.teamLeadId = this.route.parent!.snapshot.queryParamMap.get('teamLeadId') ?? '';
     this.load();
     this.route.parent!.queryParamMap.subscribe(params => {

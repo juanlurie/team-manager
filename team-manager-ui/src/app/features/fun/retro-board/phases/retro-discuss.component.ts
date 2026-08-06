@@ -3,39 +3,61 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RetroBoardStore } from '../retro-board.store';
 import { RETRO_STYLES } from '../retro-board.styles';
+import { RetroTopicComponent } from '../retro-topic.component';
+import { GroupSimilarButtonComponent } from '../group-similar-button.component';
 
 @Component({
   selector: 'app-retro-discuss',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, RetroTopicComponent, GroupSimilarButtonComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  styles: [RETRO_STYLES],
+  styles: [RETRO_STYLES, `
+    .from-note { font-size: 11.5px; color: var(--mute); margin-top: 4px; display: block; }
+    .from-note b { color: var(--ds-text, #e6e9ef); font-weight: 500; }
+  `],
   template: `
     @if (store.session(); as s) {
-      <div class="phase-head"><div><h1>Discuss</h1><p class="sub">Top-voted first — turn topics into action items</p></div>
-        @if (store.liveFacilitation()) { <button class="btn primary" (click)="store.goNext()">Continue to {{ store.nextPhaseLabel() }} →</button> }</div>
+      <div class="phase-head">
+        <div><h1>Discuss</h1><p class="sub">Top-voted first — turn topics into action items</p></div>
+        <div class="ph-right">
+          <app-group-similar-button />
+          @if (store.liveFacilitation()) { <button class="btn primary" (click)="store.goNext()">Continue to {{ store.nextPhaseLabel() }} →</button> }
+        </div>
+      </div>
       <div class="grid g2" style="align-items:start">
         <div>
-          @for (n of store.sortedByVotes(); track n.id) {
-            <div class="card" style="padding:14px 16px" [style.borderLeft]="'3px solid ' + store.columnColor(n.columnId)">
-              <div class="row between"><div class="row" style="gap:12px"><span class="avatar" [style.background]="store.columnColor(n.columnId)+'22'" [style.color]="store.columnColor(n.columnId)">{{ n.voteCount }}</span>
-                <div><div>{{ n.text }}</div><div class="muted" style="font-size:12px"><span [style.color]="store.columnColor(n.columnId)" style="font-weight:600">{{ n.columnKey }}</span>{{ n.isAnonymous ? '' : ' · ' + n.authorName }}</div></div></div>
-                @if (store.amFacilitator()) { <button class="btn ghost sm" (click)="store.startAction(n)">+ Action</button> }</div>
-              @if (store.actionDraft()?.noteId === n.id) {
-                <div style="margin-top:12px;border-top:1px solid var(--border);padding-top:12px">
-                  <input class="f" [(ngModel)]="store.actionDraft()!.title" placeholder="Action…">
-                  <ng-container [ngTemplateOutlet]="assignPicker" [ngTemplateOutletContext]="{ draft: store.actionDraft() }"></ng-container>
-                  <div class="row" style="margin-top:10px"><button class="btn primary sm" (click)="store.saveAction()">Add action</button><button class="btn ghost sm" (click)="store.actionDraft.set(null)">Cancel</button></div>
+          <!-- Discussion runs on topics, so a merged idea is talked through once, at the rank its
+               combined votes earned it. -->
+          @for (t of store.topicsByVotes(); track t.id) {
+            <app-retro-topic [topic]="t" variant="discuss" />
+            @if (store.actionDraft(); as d) {
+              @if (topicOwnsDraft(t, d.noteId)) {
+                <div class="card" style="margin:-4px 0 10px;padding:12px 16px">
+                  <input class="f" [(ngModel)]="d.title" placeholder="Action…">
+                  <ng-container [ngTemplateOutlet]="assignPicker" [ngTemplateOutletContext]="{ draft: d }"></ng-container>
+                  <div class="row" style="margin-top:10px">
+                    <button class="btn primary sm" (click)="store.saveAction()">Add action</button>
+                    <button class="btn ghost sm" (click)="store.actionDraft.set(null)">Cancel</button>
+                  </div>
                 </div>
               }
-            </div>
+            }
           }
         </div>
         <div class="card">
           <h3 style="margin:0 0 12px">Action items</h3>
           @for (a of s.actions; track a.id) {
-            <div class="note"><div class="row between"><span>{{ a.title }}</span>@if (store.amFacilitator()) { <button class="btn ghost sm" (click)="store.delAction(a.id)">✕</button> }</div>
-              @if (a.assigneeMemberIds.length) { <div class="chips">@for (m of a.assigneeMemberIds; track m) { <span class="tag">{{ store.memberName(m) }}</span> }</div> }</div>
+            <div class="note">
+              <div class="row between"><span>{{ a.title }}</span>@if (store.amFacilitator()) { <button class="btn ghost sm" (click)="store.delAction(a.id)">✕</button> }</div>
+              <!-- Where this action came from. The link was always stored; it was just never shown,
+                   so an action lost its context the moment it left the note that prompted it. -->
+              @if (store.sourceNoteOf(a); as src) {
+                <span class="from-note">from <b>{{ src.text }}</b></span>
+              } @else if (a.sourceNoteId) {
+                <span class="from-note">from a note that has since been deleted</span>
+              }
+              @if (a.assigneeMemberIds.length) { <div class="chips">@for (m of a.assigneeMemberIds; track m) { <span class="tag">{{ store.memberName(m) }}</span> }</div> }
+            </div>
           }
           @if (s.actions.length === 0) { <p class="muted">No actions yet.</p> }
           @if (store.amFacilitator()) {
@@ -66,4 +88,10 @@ import { RETRO_STYLES } from '../retro-board.styles';
 })
 export class RetroDiscussComponent {
   store = inject(RetroBoardStore);
+
+  /** The action composer opens under whichever topic contains the note it was started from — for a
+   *  group that's any of its members, since the ⋯ raises the action against the anchor. */
+  topicOwnsDraft(t: { notes: { id: string }[] }, noteId: string) {
+    return t.notes.some(n => n.id === noteId);
+  }
 }

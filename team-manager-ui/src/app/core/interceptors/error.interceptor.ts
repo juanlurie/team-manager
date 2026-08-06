@@ -41,7 +41,12 @@ export const errorInterceptor: HttpInterceptorFn = (req, next) => {
         if (error?.status === 0) {
           message = 'Connection lost. Please check your network and try again.';
         } else {
-          message = error?.error?.detail ?? error?.error?.title ?? 'An unexpected error occurred.';
+          // `error` is this API's own shape -- controllers return `{ error: "..." }` for every
+          // deliberate 4xx (see e.g. RetroBoardController.MapResult). Reading only ProblemDetails'
+          // detail/title meant those all surfaced as the generic fallback, which is how a plain
+          // "No votes left." reached the user as "An unexpected error occurred."
+          message = error?.error?.error ?? error?.error?.detail ?? error?.error?.title
+            ?? 'An unexpected error occurred.';
         }
         snackBar.open(message, 'Close', { duration: 5000, panelClass: ['error-snackbar'] });
       }
