@@ -44,6 +44,7 @@ public class WinOfTheWeekService(
         var nominations = await db.WinNominations
             .Include(n => n.TeamMember)
             .Include(n => n.Nominee)
+            .Include(n => n.Nominees).ThenInclude(n => n.TeamMember)
             .Include(n => n.Votes)
             .Where(n => n.WinWeekId == week.Id)
             .OrderByDescending(n => n.CreatedAt)
@@ -86,7 +87,7 @@ public class WinOfTheWeekService(
         var quizEligible = week.Status != WinWeekStatus.Closed && string.IsNullOrEmpty(week.QuizQuestion)
             && await IsQuizEligibleAsync(week.Id);
         var quizWinnerNomination = week.QuizWinnerMemberId.HasValue
-            ? nominations.FirstOrDefault(n => n.NomineeMemberId == week.QuizWinnerMemberId.Value)
+            ? nominations.FirstOrDefault(n => n.NomineeMemberId == week.QuizWinnerMemberId.Value || n.Nominees.Any(x => x.TeamMemberId == week.QuizWinnerMemberId.Value))
             : null;
 
         return new WinWeekDto
@@ -98,7 +99,7 @@ public class WinOfTheWeekService(
             Status = week.Status.ToString(),
             WinnerNominationId = week.WinnerNominationId,
             WinnerTitle = winner?.Title,
-            WinnerNomineeName = winner != null ? $"{winner.Nominee.FirstName} {winner.Nominee.LastName}" : null,
+            WinnerNomineeName = winner != null ? NomineeName(winner) : null,
             OpenedAt = week.OpenedAt,
             ClosedAt = week.ClosedAt,
             SuddenDeathEndsAt = week.SuddenDeathEndsAt,
@@ -142,7 +143,9 @@ public class WinOfTheWeekService(
                     : (n.GuestName ?? "Guest"),
                 IsGuestNomination = n.TeamMemberId == null,
                 NomineeMemberId = n.NomineeMemberId,
-                NomineeName = $"{n.Nominee.FirstName} {n.Nominee.LastName}",
+                NomineeName = NomineeName(n),
+                NomineeMemberIds = NomineeIds(n),
+                NomineeNames = NomineeNames(n),
                 NomineeAvatarSeed = n.Nominee.AvatarSeed,
                 Title = n.Title,
                 Description = n.Description,
@@ -173,11 +176,20 @@ public class WinOfTheWeekService(
         if (count >= maxNominations)
             throw new InvalidOperationException($"You can only submit up to {maxNominations} nominations per week.");
 
+        var nomineeIds = RequestNomineeIds(request);
+        var activeNominees = await db.TeamMembers
+            .Where(m => nomineeIds.Contains(m.Id) && m.IsActive)
+            .Select(m => m.Id)
+            .ToListAsync();
+        if (activeNominees.Count != nomineeIds.Count)
+            throw new InvalidOperationException("Every nominee must be an active team member.");
+
         var nomination = new WinNomination
         {
             WinWeekId = week.Id,
             TeamMemberId = memberId,
-            NomineeMemberId = request.NomineeMemberId,
+            NomineeMemberId = nomineeIds[0],
+            Nominees = nomineeIds.Select(id => new WinNominationMember { TeamMemberId = id }).ToList(),
             Title = request.Title,
             Description = request.Description
         };
@@ -187,6 +199,7 @@ public class WinOfTheWeekService(
 
         await db.Entry(nomination).Reference(n => n.TeamMember).LoadAsync();
         await db.Entry(nomination).Reference(n => n.Nominee).LoadAsync();
+        await db.Entry(nomination).Collection(n => n.Nominees).Query().Include(n => n.TeamMember).LoadAsync();
 
         var dto = MapNominationDto(nomination, false);
         notifier.Broadcast("nomination_created", new { nomination = dto }, guestAllowed: true);
@@ -198,6 +211,7 @@ public class WinOfTheWeekService(
         var nomination = await db.WinNominations
             .Include(n => n.TeamMember)
             .Include(n => n.Nominee)
+            .Include(n => n.Nominees).ThenInclude(n => n.TeamMember)
             .Include(n => n.WinWeek)
             .FirstOrDefaultAsync(n => n.Id == nominationId);
 
@@ -212,7 +226,19 @@ public class WinOfTheWeekService(
 
         nomination.Title = request.Title;
         nomination.Description = request.Description;
-        nomination.NomineeMemberId = request.NomineeMemberId;
+        var nomineeIds = RequestNomineeIds(request);
+        var activeNominees = await db.TeamMembers
+            .Where(m => nomineeIds.Contains(m.Id) && m.IsActive)
+            .ToListAsync();
+        if (activeNominees.Count != nomineeIds.Count)
+            throw new InvalidOperationException("Every nominee must be an active team member.");
+
+        nomination.NomineeMemberId = nomineeIds[0];
+        var removedNominees = nomination.Nominees.Where(x => !nomineeIds.Contains(x.TeamMemberId)).ToList();
+        db.WinNominationMembers.RemoveRange(removedNominees);
+        foreach (var member in activeNominees.Where(m => nomination.Nominees.All(x => x.TeamMemberId != m.Id)))
+            nomination.Nominees.Add(new WinNominationMember { TeamMemberId = member.Id, TeamMember = member });
+        nomination.Nominee = activeNominees.First(m => m.Id == nomineeIds[0]);
 
         await db.SaveChangesAsync();
 
@@ -448,6 +474,7 @@ public class WinOfTheWeekService(
             {
                 n.Id,
                 NomineeName = n.Nominee.FirstName + " " + n.Nominee.LastName,
+                NomineeNames = n.Nominees.Select(x => x.TeamMember.FirstName + " " + x.TeamMember.LastName).ToList(),
                 n.Title,
                 n.Description,
                 VoteCount = n.Votes.Count
@@ -464,7 +491,7 @@ public class WinOfTheWeekService(
                 Id = week.Id,
                 WeekStart = week.WeekStart,
                 WeekEnd = week.WeekEnd,
-                WinnerNomineeName = winner?.NomineeName,
+                WinnerNomineeName = winner == null ? null : string.Join(", ", winner.NomineeNames.Count > 0 ? winner.NomineeNames : [winner.NomineeName]),
                 WinnerTitle = winner?.Title,
                 WinnerDescription = winner?.Description,
                 WinnerVoteCount = winner?.VoteCount ?? 0,
@@ -484,6 +511,7 @@ public class WinOfTheWeekService(
         var nominations = await db.WinNominations
             .Include(n => n.TeamMember)
             .Include(n => n.Nominee)
+            .Include(n => n.Nominees).ThenInclude(n => n.TeamMember)
             .Include(n => n.Votes)
             .Where(n => n.WinWeekId == weekId)
             .OrderByDescending(n => n.Votes.Count)
@@ -501,7 +529,7 @@ public class WinOfTheWeekService(
             Id = week.Id,
             WeekStart = week.WeekStart,
             WeekEnd = week.WeekEnd,
-            WinnerNomineeName = winner != null ? $"{winner.Nominee.FirstName} {winner.Nominee.LastName}" : null,
+            WinnerNomineeName = winner != null ? NomineeName(winner) : null,
             WinnerTitle = winner?.Title,
             AllNominations = nominations.Select(n => new WinNominationDto
             {
@@ -513,7 +541,9 @@ public class WinOfTheWeekService(
                     : (n.GuestName ?? "Guest"),
                 IsGuestNomination = n.TeamMemberId == null,
                 NomineeMemberId = n.NomineeMemberId,
-                NomineeName = $"{n.Nominee.FirstName} {n.Nominee.LastName}",
+                NomineeName = NomineeName(n),
+                NomineeMemberIds = NomineeIds(n),
+                NomineeNames = NomineeNames(n),
                 NomineeAvatarSeed = n.Nominee.AvatarSeed,
                 Title = n.Title,
                 Description = n.Description,
@@ -575,6 +605,7 @@ public class WinOfTheWeekService(
         var nomination = await db.WinNominations
             .Include(n => n.TeamMember)
             .Include(n => n.Nominee)
+            .Include(n => n.Nominees).ThenInclude(n => n.TeamMember)
             .Include(n => n.Votes)
             .Include(n => n.WinWeek)
             .FirstOrDefaultAsync(n => n.Id == nominationId);
@@ -610,7 +641,9 @@ public class WinOfTheWeekService(
             : (n.GuestName ?? "Guest"),
         IsGuestNomination = n.TeamMemberId == null,
         NomineeMemberId = n.NomineeMemberId,
-        NomineeName = $"{n.Nominee.FirstName} {n.Nominee.LastName}",
+        NomineeName = NomineeName(n),
+        NomineeMemberIds = NomineeIds(n),
+        NomineeNames = NomineeNames(n),
         NomineeAvatarSeed = n.Nominee.AvatarSeed,
         Title = n.Title,
         Description = n.Description,
@@ -621,6 +654,27 @@ public class WinOfTheWeekService(
         ChaosCard = n.ChaosCard,
         HypeMeterCount = n.HypeMeterCount
     };
+
+    private static List<Guid> RequestNomineeIds(CreateNominationRequest request)
+    {
+        var ids = (request.NomineeMemberIds ?? [])
+            .Where(id => id != Guid.Empty)
+            .Distinct()
+            .ToList();
+        if (ids.Count == 0 && request.NomineeMemberId != Guid.Empty) ids.Add(request.NomineeMemberId);
+        if (ids.Count == 0) throw new InvalidOperationException("Select at least one nominee.");
+        return ids;
+    }
+
+    private static List<Guid> NomineeIds(WinNomination nomination) => nomination.Nominees.Count > 0
+        ? nomination.Nominees.Select(x => x.TeamMemberId).ToList()
+        : [nomination.NomineeMemberId];
+
+    private static List<string> NomineeNames(WinNomination nomination) => nomination.Nominees.Count > 0
+        ? nomination.Nominees.Select(x => $"{x.TeamMember.FirstName} {x.TeamMember.LastName}").ToList()
+        : [$"{nomination.Nominee.FirstName} {nomination.Nominee.LastName}"];
+
+    private static string NomineeName(WinNomination nomination) => string.Join(", ", NomineeNames(nomination));
 
     public Task AutoCloseExpiredSuddenDeathAsync(Guid weekId) => tiebreaker.AutoCloseExpiredSuddenDeathAsync(weekId);
 

@@ -50,6 +50,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<WinSeries> WinSeries => Set<WinSeries>();
     public DbSet<WinWeek> WinWeeks => Set<WinWeek>();
     public DbSet<WinNomination> WinNominations => Set<WinNomination>();
+    public DbSet<WinNominationMember> WinNominationMembers => Set<WinNominationMember>();
     public DbSet<WinVote> WinVotes => Set<WinVote>();
     public DbSet<WinMonth> WinMonths => Set<WinMonth>();
     public DbSet<WinMonthNomination> WinMonthNominations => Set<WinMonthNomination>();
@@ -173,6 +174,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         modelBuilder.ApplyConfiguration(new WinSeriesConfiguration());
         modelBuilder.ApplyConfiguration(new WinWeekConfiguration());
         modelBuilder.ApplyConfiguration(new WinNominationConfiguration());
+        modelBuilder.ApplyConfiguration(new WinNominationMemberConfiguration());
         modelBuilder.ApplyConfiguration(new WinVoteConfiguration());
         modelBuilder.ApplyConfiguration(new WinMonthConfiguration());
         modelBuilder.ApplyConfiguration(new WinMonthNominationConfiguration());

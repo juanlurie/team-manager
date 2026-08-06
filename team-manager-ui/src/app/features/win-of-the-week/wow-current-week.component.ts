@@ -772,18 +772,25 @@ export class WowCurrentWeekComponent {
     return [...noms.filter(n => n.powerUp === 'Spotlight'), ...noms.filter(n => n.powerUp !== 'Spotlight')];
   });
 
-  // nomineeName arrives from the server as "First Last" always -- shorten to first name on the
-  // cards unless two nominees this week share a first name, in which case both keep the surname
-  // so they stay distinguishable.
+  // nomineeNames holds one "First Last" per nominee (group nominations list more than one) --
+  // shorten each to first name on the cards unless two individual nominees this week share a
+  // first name, in which case both keep the surname so they stay distinguishable. Duplicates are
+  // computed across every individual nominee, not per-nomination, so a group member and a
+  // solo-nominated person sharing a first name still both get disambiguated.
   private readonly nomineeDuplicates = computed(() => {
     const w = this.week();
     if (!w) return new Set<string>();
-    return buildDuplicateFirstNames(w.nominations.map(n => ({ firstName: n.nomineeName.split(' ')[0] })));
+    const allNames = w.nominations.flatMap(n => n.nomineeNames?.length ? n.nomineeNames : [n.nomineeName]);
+    return buildDuplicateFirstNames(allNames.map(name => ({ firstName: name.split(' ')[0] })));
   });
 
   private shortNomineeName(nom: WinNomination): string {
-    const firstName = nom.nomineeName.split(' ')[0];
-    return this.nomineeDuplicates().has(firstName) ? nom.nomineeName : firstName;
+    const names = nom.nomineeNames?.length ? nom.nomineeNames : [nom.nomineeName];
+    const duplicates = this.nomineeDuplicates();
+    return names.map(name => {
+      const firstName = name.split(' ')[0];
+      return duplicates.has(firstName) ? name : firstName;
+    }).join(', ');
   }
 
   // Same first-name-only treatment for whoever made the nomination.
@@ -802,6 +809,7 @@ export class WowCurrentWeekComponent {
     return {
       id: nom.id,
       nomineeMemberId: nom.nomineeMemberId,
+      nomineeMemberIds: nom.nomineeMemberIds,
       nomineeName: this.shortNomineeName(nom),
       nomineeAvatarSeed: nom.nomineeAvatarSeed,
       nominatorName: this.shortNominatorName(nom),

@@ -65,6 +65,7 @@ public class GuestWinOfTheWeekService(AppDbContext db, IHttpContextAccessor http
         var nominations = await db.WinNominations
             .Include(n => n.TeamMember)
             .Include(n => n.Nominee)
+            .Include(n => n.Nominees).ThenInclude(n => n.TeamMember)
             .Include(n => n.Votes)
             .Where(n => n.WinWeekId == week.Id)
             .OrderByDescending(n => n.CreatedAt)
@@ -108,7 +109,7 @@ public class GuestWinOfTheWeekService(AppDbContext db, IHttpContextAccessor http
             MaxNominationsPerPerson = MaxNominationsFor(week),
             MaxVotesPerPerson = MaxVotesFor(week),
             UserVotesRemaining = votesRemaining,
-            WinnerNomineeName = winner != null ? $"{winner.Nominee.FirstName} {winner.Nominee.LastName}" : null,
+            WinnerNomineeName = winner != null ? NomineeName(winner) : null,
             WinnerTitle = winner?.Title,
             WinnerStory = week.WinnerStory,
             SuddenDeathEndsAt = week.SuddenDeathEndsAt,
@@ -125,7 +126,7 @@ public class GuestWinOfTheWeekService(AppDbContext db, IHttpContextAccessor http
             QuizCorrectIndex = week.QuizRevealed ? week.QuizCorrectIndex : null,
             QuizIsAiGenerated = week.QuizIsAiGenerated,
             QuizWinnerName = week.QuizWinnerMemberId.HasValue
-                ? nominations.FirstOrDefault(n => n.NomineeMemberId == week.QuizWinnerMemberId.Value) is { } wn
+                ? nominations.FirstOrDefault(n => n.NomineeMemberId == week.QuizWinnerMemberId.Value || n.Nominees.Any(x => x.TeamMemberId == week.QuizWinnerMemberId.Value)) is { } wn
                     ? $"{wn.Nominee.FirstName} {wn.Nominee.LastName}" : null
                 : null,
             QuizEliminatedMemberIds = !string.IsNullOrEmpty(week.QuizEliminatedMemberIds)
@@ -141,7 +142,9 @@ public class GuestWinOfTheWeekService(AppDbContext db, IHttpContextAccessor http
             {
                 Id = n.Id,
                 NomineeMemberId = n.NomineeMemberId,
-                NomineeName = $"{n.Nominee.FirstName} {n.Nominee.LastName}",
+                NomineeName = NomineeName(n),
+                NomineeMemberIds = NomineeIds(n),
+                NomineeNames = NomineeNames(n),
                 NominatorDisplayName = n.TeamMember != null
                     ? $"{n.TeamMember.FirstName} {n.TeamMember.LastName}"
                     : (n.GuestName ?? "Guest"),
@@ -188,6 +191,7 @@ public class GuestWinOfTheWeekService(AppDbContext db, IHttpContextAccessor http
             GuestName = request.GuestName.Trim(),
             GuestSessionId = guestSessionId,
             NomineeMemberId = request.NomineeMemberId,
+            Nominees = [new WinNominationMember { TeamMemberId = request.NomineeMemberId }],
             Title = request.Title,
             Description = request.Description
         };
@@ -196,12 +200,15 @@ public class GuestWinOfTheWeekService(AppDbContext db, IHttpContextAccessor http
         await db.SaveChangesAsync();
 
         await db.Entry(nomination).Reference(n => n.Nominee).LoadAsync();
+        await db.Entry(nomination).Collection(n => n.Nominees).Query().Include(n => n.TeamMember).LoadAsync();
 
         var dto = new GuestNominationDto
         {
             Id = nomination.Id,
             NomineeMemberId = nomination.NomineeMemberId,
-            NomineeName = $"{nomination.Nominee.FirstName} {nomination.Nominee.LastName}",
+            NomineeName = NomineeName(nomination),
+            NomineeMemberIds = NomineeIds(nomination),
+            NomineeNames = NomineeNames(nomination),
             NominatorDisplayName = nomination.GuestName,
             Title = nomination.Title,
             Description = nomination.Description,
@@ -219,6 +226,7 @@ public class GuestWinOfTheWeekService(AppDbContext db, IHttpContextAccessor http
         var nomination = await db.WinNominations
             .Include(n => n.WinWeek)
             .Include(n => n.Nominee)
+            .Include(n => n.Nominees).ThenInclude(n => n.TeamMember)
             .FirstOrDefaultAsync(n => n.Id == nominationId)
             ?? throw new KeyNotFoundException("Nomination not found.");
 
@@ -233,6 +241,9 @@ public class GuestWinOfTheWeekService(AppDbContext db, IHttpContextAccessor http
             throw new KeyNotFoundException("The selected nominee was not found.");
 
         nomination.NomineeMemberId = request.NomineeMemberId;
+        db.WinNominationMembers.RemoveRange(nomination.Nominees.Where(x => x.TeamMemberId != request.NomineeMemberId));
+        if (nomination.Nominees.All(x => x.TeamMemberId != request.NomineeMemberId))
+            nomination.Nominees.Add(new WinNominationMember { TeamMemberId = request.NomineeMemberId });
         nomination.Title = request.Title;
         nomination.Description = request.Description;
         await db.SaveChangesAsync();
@@ -300,6 +311,7 @@ public class GuestWinOfTheWeekService(AppDbContext db, IHttpContextAccessor http
         var nomination = await db.WinNominations
             .Include(n => n.WinWeek).ThenInclude(w => w.Series)
             .Include(n => n.Nominee)
+            .Include(n => n.Nominees).ThenInclude(n => n.TeamMember)
             .Include(n => n.Votes)
             .FirstOrDefaultAsync(n => n.Id == nominationId)
             ?? throw new KeyNotFoundException("Nomination not found.");
@@ -350,7 +362,9 @@ public class GuestWinOfTheWeekService(AppDbContext db, IHttpContextAccessor http
     {
         Id = n.Id,
         NomineeMemberId = n.NomineeMemberId,
-        NomineeName = $"{n.Nominee.FirstName} {n.Nominee.LastName}",
+        NomineeName = NomineeName(n),
+        NomineeMemberIds = NomineeIds(n),
+        NomineeNames = NomineeNames(n),
         NominatorDisplayName = n.TeamMember != null ? $"{n.TeamMember.FirstName} {n.TeamMember.LastName}" : (n.GuestName ?? "Guest"),
         Title = n.Title,
         Description = n.Description,
@@ -362,6 +376,16 @@ public class GuestWinOfTheWeekService(AppDbContext db, IHttpContextAccessor http
         ChaosCard = n.ChaosCard,
         HypeMeterCount = n.HypeMeterCount
     };
+
+    private static IReadOnlyList<Guid> NomineeIds(WinNomination nomination) => nomination.Nominees.Count > 0
+        ? nomination.Nominees.Select(x => x.TeamMemberId).ToList()
+        : [nomination.NomineeMemberId];
+
+    private static IReadOnlyList<string> NomineeNames(WinNomination nomination) => nomination.Nominees.Count > 0
+        ? nomination.Nominees.Select(x => $"{x.TeamMember.FirstName} {x.TeamMember.LastName}").ToList()
+        : [$"{nomination.Nominee.FirstName} {nomination.Nominee.LastName}"];
+
+    private static string NomineeName(WinNomination nomination) => string.Join(", ", NomineeNames(nomination));
 
     public async Task<IReadOnlyList<object>> GetMembersAsync(string token)
     {

@@ -4370,6 +4370,21 @@ namespace TeamManager.Api.Migrations
                     b.ToTable("WinNominations");
                 });
 
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.WinNominationMember", b =>
+                {
+                    b.Property<Guid>("WinNominationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("TeamMemberId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("WinNominationId", "TeamMemberId");
+
+                    b.HasIndex("TeamMemberId");
+
+                    b.ToTable("WinNominationMembers");
+                });
+
             modelBuilder.Entity("TeamManager.Api.Domain.Entities.WinQuizAnswer", b =>
                 {
                     b.Property<Guid>("Id")
@@ -6306,6 +6321,24 @@ namespace TeamManager.Api.Migrations
                     b.Navigation("WinWeek");
                 });
 
+            modelBuilder.Entity("TeamManager.Api.Domain.Entities.WinNominationMember", b =>
+                {
+                    b.HasOne("TeamManager.Api.Domain.Entities.TeamMember", "TeamMember")
+                        .WithMany()
+                        .HasForeignKey("TeamMemberId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("TeamManager.Api.Domain.Entities.WinNomination", "WinNomination")
+                        .WithMany("Nominees")
+                        .HasForeignKey("WinNominationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("TeamMember");
+                    b.Navigation("WinNomination");
+                });
+
             modelBuilder.Entity("TeamManager.Api.Domain.Entities.WinQuizAnswer", b =>
                 {
                     b.HasOne("TeamManager.Api.Domain.Entities.WinWeek", "WinWeek")
@@ -6773,6 +6806,8 @@ namespace TeamManager.Api.Migrations
 
             modelBuilder.Entity("TeamManager.Api.Domain.Entities.WinNomination", b =>
                 {
+                    b.Navigation("Nominees");
+
                     b.Navigation("Votes");
                 });
 

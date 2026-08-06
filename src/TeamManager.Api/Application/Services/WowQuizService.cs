@@ -146,7 +146,8 @@ public class WowQuizService(
             throw new InvalidOperationException("There's no quiz winner to confirm right now.");
 
         var winningNomination = await db.WinNominations
-            .FirstOrDefaultAsync(n => n.WinWeekId == weekId && n.NomineeMemberId == week.QuizWinnerMemberId.Value);
+            .FirstOrDefaultAsync(n => n.WinWeekId == weekId &&
+                (n.NomineeMemberId == week.QuizWinnerMemberId.Value || n.Nominees.Any(x => x.TeamMemberId == week.QuizWinnerMemberId.Value)));
         if (winningNomination is null)
             throw new InvalidOperationException("The winning nomination could not be found.");
 
@@ -206,11 +207,15 @@ public class WowQuizService(
 
         if (tiedIds.Count < 2) return [];
 
-        return await db.WinNominations
-            .Where(n => tiedIds.Contains(n.Id))
-            .Select(n => n.NomineeMemberId)
-            .Distinct()
+        var nomineeIds = await db.WinNominationMembers
+            .Where(x => tiedIds.Contains(x.WinNominationId))
+            .Select(x => x.TeamMemberId)
             .ToListAsync();
+        var legacyIds = await db.WinNominations
+            .Where(n => tiedIds.Contains(n.Id) && !n.Nominees.Any())
+            .Select(n => n.NomineeMemberId)
+            .ToListAsync();
+        return nomineeIds.Concat(legacyIds).Distinct().ToList();
     }
 
     public async Task<Guid> StartQuizAsync(Guid weekId, int? difficultyLevel = null)

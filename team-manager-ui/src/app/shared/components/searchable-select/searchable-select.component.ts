@@ -6,17 +6,28 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatChipsModule } from '@angular/material/chips';
 
 @Component({
   selector: 'app-searchable-select',
   standalone: true,
-  imports: [FormsModule, MatAutocompleteModule, MatFormFieldModule, MatInputModule, MatIconModule, MatProgressSpinnerModule],
+  imports: [FormsModule, MatAutocompleteModule, MatFormFieldModule, MatInputModule, MatIconModule, MatProgressSpinnerModule, MatChipsModule],
   providers: [{
     provide: NG_VALUE_ACCESSOR,
     useExisting: forwardRef(() => SearchableSelectComponent),
     multi: true
   }],
   template: `
+    @if (multiple() && selectedOptions().length > 0) {
+      <mat-chip-set style="display:block;margin-bottom:8px">
+        @for (opt of selectedOptions(); track trackBy()(opt)) {
+          <mat-chip (removed)="removeOption(opt)" [removable]="!disabled()">
+            {{ displayFn()(opt) }}
+            @if (!disabled()) { <button matChipRemove type="button"><mat-icon>cancel</mat-icon></button> }
+          </mat-chip>
+        }
+      </mat-chip-set>
+    }
     <mat-form-field [appearance]="appearance()" style="margin:0" [style.width]="width()" subscriptSizing="dynamic">
       @if (label()) {
         <mat-label>{{ label() }}</mat-label>
@@ -31,7 +42,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
       @if (loading()) {
         <mat-spinner matSuffix diameter="18" style="margin-right:8px"></mat-spinner>
       }
-      @if (displayText() && !disabled()) {
+      @if (!multiple() && displayText() && !disabled()) {
         <button matSuffix type="button" class="clear-btn"
                 (click)="clear($event)"
                 (mousedown)="$event.preventDefault()">
@@ -39,6 +50,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
         </button>
       }
       <mat-autocomplete #auto="matAutocomplete"
+                        [displayWith]="autocompleteDisplay"
                         (optionSelected)="onSelect($event)"
                         (closed)="onPanelClosed()">
         @if (nullable()) {
@@ -94,6 +106,8 @@ export class SearchableSelectComponent implements ControlValueAccessor, OnInit, 
   nullValue = input('');
   disabled = input(false);
   loading = input(false);
+  multiple = input(false);
+  maxSelections = input<number | null>(null);
 
   // Functions for custom value extraction and display
   valueFn = input<(o: any) => any>((o: any) => o?.id ?? o);
@@ -121,12 +135,29 @@ export class SearchableSelectComponent implements ControlValueAccessor, OnInit, 
   private onChange: ((v: any) => void) = () => {};
   private onTouched: () => void = () => {};
 
+  // Material writes the selected option object directly into the input before optionSelected runs.
+  // Multi-select renders selections as chips, so the text input must remain a search box rather
+  // than briefly displaying the object's default "[object Object]" string representation.
+  autocompleteDisplay = (option: any): string => {
+    if (this.multiple() || option == null) return '';
+    return this.displayFn()(option);
+  };
+
   filtered = computed(() => {
     const q = this.searchInput().trim().toLowerCase();
     const all = this.options();
     const displayFn = this.displayFn();
-    if (!q) return all;
-    return all.filter(o => displayFn(o).toLowerCase().includes(q));
+    const selected = this.multiple() && Array.isArray(this.selectedValue()) ? this.selectedValue() : [];
+    if (this.multiple() && this.maxSelections() !== null && selected.length >= this.maxSelections()!) return [];
+    const available = all.filter(o => !selected.includes(this.valueFn()(o)));
+    if (!q) return available;
+    return available.filter(o => displayFn(o).toLowerCase().includes(q));
+  });
+
+  selectedOptions = computed(() => {
+    if (!this.multiple() || !Array.isArray(this.selectedValue())) return [];
+    const selected = this.selectedValue();
+    return this.options().filter(o => selected.includes(this.valueFn()(o)));
   });
 
   ngOnInit() {
@@ -138,7 +169,7 @@ export class SearchableSelectComponent implements ControlValueAccessor, OnInit, 
   // ── ControlValueAccessor ──
 
   writeValue(value: any): void {
-    this.selectedValue.set(value);
+    this.selectedValue.set(this.multiple() ? (Array.isArray(value) ? value : []) : value);
     this.updateDisplay();
   }
 
@@ -158,7 +189,7 @@ export class SearchableSelectComponent implements ControlValueAccessor, OnInit, 
 
   onSearchInput(val: string): void {
     this.searchInput.set(val);
-    if (!val) {
+    if (!val && !this.multiple()) {
       // If user clears input, reset selection
       this.selectedValue.set(this.nullValue());
       this.displayText.set('');
@@ -170,6 +201,17 @@ export class SearchableSelectComponent implements ControlValueAccessor, OnInit, 
   onSelect(event: MatAutocompleteSelectedEvent): void {
     const opt = event.option.value;
     const extracted = this.valueFn()(opt);
+    if (this.multiple()) {
+      const current = Array.isArray(this.selectedValue()) ? this.selectedValue() : [];
+      if (this.maxSelections() !== null && current.length >= this.maxSelections()!) return;
+      const next = current.includes(extracted) ? current : [...current, extracted];
+      this.selectedValue.set(next);
+      this.displayText.set('');
+      this.onChange(next);
+      this.valueChange.emit(next);
+      this.searchInput.set('');
+      return;
+    }
     this.selectedValue.set(extracted);
     this.searchInput.set('');
     this.updateDisplay();
@@ -202,7 +244,20 @@ export class SearchableSelectComponent implements ControlValueAccessor, OnInit, 
     this.valueChange.emit(this.nullValue());
   }
 
+  removeOption(opt: any): void {
+    if (!this.multiple() || this.disabled()) return;
+    const value = this.valueFn()(opt);
+    const next = (this.selectedValue() as any[]).filter(v => v !== value);
+    this.selectedValue.set(next);
+    this.onChange(next);
+    this.valueChange.emit(next);
+  }
+
   private updateDisplay(): void {
+    if (this.multiple()) {
+      this.displayText.set('');
+      return;
+    }
     const val = this.selectedValue();
     const displayFn = this.displayFn();
     if (val === null || val === undefined || val === this.nullValue()) {
