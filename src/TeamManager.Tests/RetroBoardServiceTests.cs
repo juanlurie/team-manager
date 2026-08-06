@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using TeamManager.Api.Application.DTOs.RetroBoard;
 using TeamManager.Api.Application.Realtime;
 using TeamManager.Api.Application.Services;
@@ -16,6 +17,14 @@ internal sealed class NullRetroBroadcaster : IRetroBroadcaster
     public void Global(string type, object data, bool guestAllowed = false) { }
 }
 
+/// <summary>None of these tests drive a phase transition into Vote (they seed sessions directly with
+/// phase "vote"), so the Vote-theme auto-fire's background scope is never actually resolved — this
+/// just satisfies the constructor.</summary>
+internal sealed class NullServiceScopeFactory : IServiceScopeFactory
+{
+    public IServiceScope CreateScope() => throw new NotSupportedException("Not exercised by these tests.");
+}
+
 /// <summary>
 /// Guards the high-risk RetroBoard invariants: feedback anonymity, score validation/upsert,
 /// the close/reopen/archive lifecycle, and the close-lock on board mutations. Uses the EF
@@ -29,7 +38,8 @@ public class RetroBoardServiceTests
             .UseInMemoryDatabase($"rb-{Guid.NewGuid()}")
             .Options);
 
-    private static RetroBoardService Svc(AppDbContext db) => new(db, new AiPromptExecutorService(db), new NullRetroBroadcaster());
+    private static RetroBoardService Svc(AppDbContext db) =>
+        new(db, new AiPromptExecutorService(db), new NullRetroBroadcaster(), new NullServiceScopeFactory());
 
     private static TeamMember Member(string first = "Test") =>
         new()
@@ -1433,5 +1443,55 @@ public class RetroBoardServiceTests
 
         var after = await Reload(db, s.Id);
         Assert.Equal(notes[1].Id, after.Single(n => n.Id == notes[0].Id).GroupId);
+    }
+
+    // ---- Vote theme synthesis ----
+
+    [Fact]
+    public async Task Only_a_facilitator_may_request_vote_themes()
+    {
+        using var db = NewDb();
+        var (svc, s, _, note, _, part) = await LivePhaseBoard(db, "vote");
+        await svc.AddVoteAsync(s.Id, part.Id, note.Id);
+
+        var (ok, error, summary) = await svc.AnalyseVotingThemesAsync(s.Id, part.Id);
+        Assert.False(ok);
+        Assert.Null(summary);
+        Assert.Equal("Only a facilitator can generate themes.", error);
+    }
+
+    [Fact]
+    public async Task No_voted_notes_fails_and_records_the_error_on_the_session()
+    {
+        using var db = NewDb();
+        var (svc, s, _, _, facil, _) = await LivePhaseBoard(db, "vote");
+
+        var (ok, error, summary) = await svc.AnalyseVotingThemesAsync(s.Id, facil.Id);
+        Assert.False(ok);
+        Assert.Null(summary);
+        Assert.Equal("No voted notes to synthesise.", error);
+
+        var after = (await svc.GetSessionAsync(s.Id, facil.Id))!;
+        Assert.Equal("No voted notes to synthesise.", after.VoteThemesError);
+        Assert.Null(after.VoteThemes);
+    }
+
+    [Fact]
+    public async Task No_configured_prompt_fails_without_disturbing_a_previous_result()
+    {
+        using var db = NewDb();
+        var (svc, s, _, note, facil, part) = await LivePhaseBoard(db, "vote");
+        await svc.AddVoteAsync(s.Id, part.Id, note.Id);
+
+        // No "RetroVoteThemeSynthesis" AiPrompt row is seeded, so AiPromptExecutorService.ExecuteAsync
+        // returns null uniformly, exactly as it does for an unconfigured connection in production.
+        var (ok, error, summary) = await svc.AnalyseVotingThemesAsync(s.Id, facil.Id);
+        Assert.False(ok);
+        Assert.Null(summary);
+        Assert.Equal("Theme synthesis unavailable — configure a RetroVoteThemeSynthesis prompt to enable this.", error);
+
+        var after = (await svc.GetSessionAsync(s.Id, facil.Id))!;
+        Assert.Equal(error, after.VoteThemesError);
+        Assert.Null(after.VoteThemes);
     }
 }

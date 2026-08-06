@@ -50,6 +50,16 @@ public class RetroBoardSession
     public string? InviteEmailsJson { get; set; }
     /// <summary>AI Reflect output: { strengthThemes, improveThemes, insights, suggestedActions }.</summary>
     public string? AiSummaryJson { get; set; }
+    /// <summary>AI vote-theme synthesis output: { themes: [{ title, description, noteIds }] }. Set by
+    /// either the Vote-phase auto-fire or the manual "Re-analyse" trigger — whichever completes last.</summary>
+    public string? VoteThemesJson { get; set; }
+    /// <summary>Last vote-theme synthesis failure message, cleared on the next successful run. Lets a
+    /// facilitator who refreshes after an auto-fire failure see why no themes appeared.</summary>
+    public string? VoteThemesError { get; set; }
+    /// <summary>When the Discuss-phase auto-fire last kicked off theme synthesis. Written synchronously
+    /// before the AI call starts (not after it resolves) so a near-simultaneous duplicate transition
+    /// into Discuss — a retried WS event, a double-clicked Continue — doesn't fire a second call.</summary>
+    public DateTimeOffset? VoteThemesAutoFiredAt { get; set; }
 
     /// <summary>Archived sessions are filed away — hidden from the active lobby but retrievable in the
     /// archived view. Independent of Status: a session is typically closed first, then archived; reopening un-archives.</summary>

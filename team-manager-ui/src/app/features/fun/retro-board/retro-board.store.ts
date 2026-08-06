@@ -15,7 +15,7 @@ import { AuthService } from '../../../core/auth/auth.service';
 import {
   RetroBoardSession, RetroBoardSummary, RetroPhase, RetroBoardNote, RetroBoardParticipant,
   RetroBoardFeedbackPrompt, RetroStepDurations, RetroPhaseFlags, RetroColumnInput, DEFAULT_STEP_DURATIONS,
-  RetroBoardNoteComment, RetroBoardAction, RetroTopic,
+  RetroBoardNoteComment, RetroBoardAction, RetroTopic, RetroVoteTheme,
 } from '../../../core/models/retro-board.model';
 import * as F from './retro-format';
 import * as T from './retro-topics';
@@ -167,6 +167,7 @@ export class RetroBoardStore implements OnDestroy {
   creating = signal(false);
   joining = signal(false);
   analysing = signal(false);
+  analysingThemes = signal(false);
   viewAs = signal<'facilitator' | 'participant'>('facilitator');
   // Facilitator is editing the setup (questions/structure/timers) mid-session — overlays the board.
   editingSetup = signal(false);
@@ -778,6 +779,12 @@ export class RetroBoardStore implements OnDestroy {
     if (!a.sourceNoteId) return null;
     return this.session()?.notes.find(n => n.id === a.sourceNoteId) ?? null;
   }
+  /** The notes a synthesised vote theme draws from, oldest-first — stale ids (a note deleted since
+   *  synthesis ran) are dropped rather than shown as blanks. */
+  notesForTheme(t: RetroVoteTheme): RetroBoardNote[] {
+    const s = this.session(); if (!s) return [];
+    return t.noteIds.map(id => s.notes.find(n => n.id === id)).filter((n): n is RetroBoardNote => !!n);
+  }
   // Theme colour for a note's column, for colour-coding topics in Discuss. Returns a hex fallback
   // (not a CSS var) so callers that append an alpha suffix — e.g. `columnColor(id)+'22'` — stay valid.
   columnColor(columnId: string) { return this.session()?.columns.find(c => c.id === columnId)?.color ?? '#7d5cff'; }
@@ -864,6 +871,13 @@ export class RetroBoardStore implements OnDestroy {
   delAction(id: string) { const s = this.session(); if (s) this.svc.deleteAction(s.id, id).subscribe({ next: () => this.refresh(s.id) }); }
 
   analyse() { const s = this.session(); if (!s) return; this.analysing.set(true); this.error.set(null); this.svc.analyse(s.id).subscribe({ next: () => { this.analysing.set(false); this.refresh(s.id); }, error: e => { this.analysing.set(false); this.error.set(e?.error?.error || 'AI summary unavailable.'); } }); }
+
+  // Always callable regardless of the Vote-phase auto-fire's own dedupe state — a facilitator can
+  // re-run this any time notes are still voted-on, not just once per Vote-phase entry. Unlike
+  // analyse() above, the server persists a failure onto the session (VoteThemesError, which the vote
+  // theme panel reads straight off `s`) rather than only handing one back in the response — so this
+  // refreshes on error too, or the panel would keep showing stale state until some other event did.
+  analyseVotingThemes() { const s = this.session(); if (!s) return; this.analysingThemes.set(true); this.svc.analyseVotingThemes(s.id).subscribe({ next: () => { this.analysingThemes.set(false); this.refresh(s.id); }, error: () => { this.analysingThemes.set(false); this.refresh(s.id); } }); }
 
   // ---- display helpers ----
   filterMembers(query: string, exclude: string[]): Member[] { const q = query.trim().toLowerCase(); if (!q) return []; return this.members().filter(m => !exclude.includes(m.id) && m.name.toLowerCase().includes(q)).slice(0, 6); }

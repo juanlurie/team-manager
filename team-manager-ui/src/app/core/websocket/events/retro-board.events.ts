@@ -21,6 +21,10 @@ export const RETRO_BOARD_EVENT_TYPES = [
   'rb_feedback_responded',
   'rb_lifecycle_changed',
   'rb_session_deleted',
+  'rb_vote_themes_ready',
+  // Broadcast server-side (RetroBoardService.Grouping.cs) since #149 but missing from this allowlist
+  // until now, so it silently never reached clients — added while touching this file for vote themes.
+  'rb_notes_grouped',
 ] as const;
 
 export type RetroBoardEvent = WsEvent<(typeof RETRO_BOARD_EVENT_TYPES)[number]>;

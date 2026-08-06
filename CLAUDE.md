@@ -52,6 +52,9 @@ Resolve any conflicts immediately, before writing new code.
 See [docs/plans/team-admin-rollout.md](docs/plans/team-admin-rollout.md) for the
 current role/team refactor.
 
+See [docs/plans/retro-vote-theme-synthesis.md](docs/plans/retro-vote-theme-synthesis.md)
+for the RetroBoard vote-theme AI synthesis feature.
+
 # Frontend Component Architecture
 
 As a feature grows across multiple changes, break it into components as you go —

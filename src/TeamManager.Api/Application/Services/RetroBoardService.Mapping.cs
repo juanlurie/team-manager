@@ -165,6 +165,8 @@ public partial class RetroBoardService
             EnabledPhases = EnabledPhases(phaseCfg, s.CheckinQuestions.Count > 0, s.FeedbackPrompts.Count > 0),
             LiveStateJson = s.LiveStateJson,
             AiSummary = string.IsNullOrEmpty(s.AiSummaryJson) ? null : JsonSerializer.Deserialize<RetroBoardAiSummaryDto>(s.AiSummaryJson, JsonRead),
+            VoteThemes = string.IsNullOrEmpty(s.VoteThemesJson) ? null : JsonSerializer.Deserialize<RetroVoteThemeSummaryDto>(s.VoteThemesJson, JsonRead),
+            VoteThemesError = s.VoteThemesError,
             CreatedAt = s.CreatedAt,
             StartedAt = s.StartedAt,
             ClosedAt = s.ClosedAt,

@@ -116,6 +116,15 @@ public class RetroBoardController(RetroBoardService service) : ControllerBase
         return ok ? Ok(summary) : BadRequest(new { error });
     }
 
+    [HttpPost("{id:guid}/voting-themes")]
+    public async Task<IActionResult> AnalyseVotingThemes(Guid id, [FromQuery] Guid? columnId)
+    {
+        var memberId = GetMemberId();
+        if (memberId is null) return Unauthorized();
+        var (ok, error, summary) = await service.AnalyseVotingThemesAsync(id, memberId.Value, columnId);
+        return ok ? Ok(summary) : BadRequest(new { error });
+    }
+
     // ---------- Columns ----------
 
     [HttpPost("{id:guid}/columns")]

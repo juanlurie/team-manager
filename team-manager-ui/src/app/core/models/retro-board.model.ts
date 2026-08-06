@@ -134,6 +134,16 @@ export interface RetroBoardAiSummary {
   suggestedActions: string[];
 }
 
+export interface RetroVoteTheme {
+  title: string;
+  description: string;
+  noteIds: string[];
+}
+
+export interface RetroVoteThemeSummary {
+  themes: RetroVoteTheme[];
+}
+
 export interface RetroBoardFeedbackPrompt {
   id: string;
   text: string;
@@ -174,6 +184,10 @@ export interface RetroBoardSession {
   enabledPhases: string[];
   liveStateJson: string | null;
   aiSummary: RetroBoardAiSummary | null;
+  voteThemes: RetroVoteThemeSummary | null;
+  /** Last vote-theme synthesis failure, if any — set by the Vote-phase auto-fire or the manual
+   *  trigger, cleared on the next successful run. Doesn't disturb a previous `voteThemes`. */
+  voteThemesError: string | null;
   createdAt: string;
   startedAt: string | null;
   closedAt: string | null;
