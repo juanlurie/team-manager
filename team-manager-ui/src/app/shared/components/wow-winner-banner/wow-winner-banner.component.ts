@@ -101,13 +101,13 @@ function makeConfetti() {
 
       <div class="ring-outer" style="position:relative">
         <div class="ring-inner">
-          @if (winnerMemberId()) {
+          @if (winnerMemberId() && winnerAvatarSeed()) {
             <app-avatar-circle [memberId]="winnerMemberId()!" [name]="winnerNomineeName()" [avatarSeed]="winnerAvatarSeed()" [size]="64" />
           } @else {
             🏆
           }
         </div>
-        @if (winnerMemberId()) {
+        @if (winnerMemberId() && winnerAvatarSeed()) {
           <span class="trophy-badge">🏆</span>
         }
       </div>
