@@ -153,11 +153,20 @@ public partial class RetroBoardService
 
         // Step navigation within a running session. The draft→open→live transitions are owned by
         // OpenAsync/GoLiveAsync; reaching Summary no longer auto-closes (facilitator ends via Close).
+        // Entering Discuss (from anything else) kicks off the theme auto-fire — deliberately not
+        // entering Vote, since votes don't exist yet at that instant and the call would just fail with
+        // "no voted notes"; by the time Discuss starts, voting is done. Flag set in the same save as
+        // the phase change so a near-simultaneous duplicate transition (retried WS event, double-
+        // clicked Continue) doesn't see a stale "not yet fired" state and fire twice.
+        var enteringDiscuss = phase == Phase.Discuss && session!.Phase != Phase.Discuss;
         session.Phase = phase;
+        if (enteringDiscuss) session.VoteThemesAutoFiredAt = DateTimeOffset.UtcNow;
         await db.SaveChangesAsync();
 
         Broadcast(sessionId, "rb_phase_changed", new { sessionId, phase });
-        return (RetroActionResult.Ok, await GetSessionAsync(sessionId, memberId));
+        var dto = await GetSessionAsync(sessionId, memberId);
+        if (enteringDiscuss) AutoFireVoteThemesAsync(sessionId, memberId);
+        return (RetroActionResult.Ok, dto);
     }
 
     /// <summary>Sets the session's owning squad and additively enrols that squad's members as

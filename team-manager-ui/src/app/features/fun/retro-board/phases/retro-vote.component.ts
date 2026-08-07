@@ -5,11 +5,12 @@ import { RETRO_STYLES } from '../retro-board.styles';
 import { RespondedMeterComponent } from '../responded-meter.component';
 import { RetroTopicComponent } from '../retro-topic.component';
 import { GroupSimilarButtonComponent } from '../group-similar-button.component';
+import { VoteThemePanelComponent } from '../vote-theme-panel.component';
 
 @Component({
   selector: 'app-retro-vote',
   standalone: true,
-  imports: [CommonModule, RespondedMeterComponent, RetroTopicComponent, GroupSimilarButtonComponent],
+  imports: [CommonModule, RespondedMeterComponent, RetroTopicComponent, GroupSimilarButtonComponent, VoteThemePanelComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   styles: [RETRO_STYLES],
   template: `
@@ -31,6 +32,8 @@ import { GroupSimilarButtonComponent } from '../group-similar-button.component';
       @if (store.canGroup()) {
         <p class="muted" style="font-size:12.5px;margin:10px 0 0">Drag a note onto another to merge near-duplicates — the team then votes on the merged topic once.</p>
       }
+
+      <app-vote-theme-panel />
 
       @for (c of s.columns; track c.id) {
         <h3 [style.color]="c.color" style="margin:18px 0 8px">{{ c.label }}</h3>

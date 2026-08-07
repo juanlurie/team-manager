@@ -5,6 +5,7 @@ import {
   RetroBoardSession, RetroBoardSummary, RetroBoardColumn, RetroBoardCheckinQuestion,
   RetroBoardAction, RetroBoardAiSummary, RetroColumnInput, CheckinQuestionInput, RetroStepDurations,
   RetroBoardFeedbackPrompt, FeedbackPromptInput, RetroPhaseFlags, RetroBoardNoteComment,
+  RetroVoteThemeSummary,
 } from '../models/retro-board.model';
 
 @Injectable({ providedIn: 'root' })
@@ -83,6 +84,11 @@ export class RetroBoardService {
   }
   analyse(id: string): Observable<RetroBoardAiSummary> {
     return this.http.post<RetroBoardAiSummary>(`${this.base}/${id}/analyse`, {});
+  }
+  /** Ask the AI to synthesise converging themes across notes that have received votes. */
+  analyseVotingThemes(id: string, columnId?: string): Observable<RetroVoteThemeSummary> {
+    const url = `${this.base}/${id}/voting-themes` + (columnId ? `?columnId=${columnId}` : '');
+    return this.http.post<RetroVoteThemeSummary>(url, {});
   }
 
   // ---- columns ----

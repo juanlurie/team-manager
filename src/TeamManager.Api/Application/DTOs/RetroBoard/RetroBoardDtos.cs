@@ -30,6 +30,10 @@ public record RetroBoardSessionDto
     public List<string> EnabledPhases { get; init; } = [];
     public string? LiveStateJson { get; init; }   // opaque live sub-state; client parses
     public RetroBoardAiSummaryDto? AiSummary { get; init; }
+    public RetroVoteThemeSummaryDto? VoteThemes { get; init; }
+    /// <summary>Last vote-theme synthesis failure, if any — set by the Vote-phase auto-fire or the
+    /// manual trigger, cleared on the next successful run. Doesn't disturb a previous <see cref="VoteThemes"/>.</summary>
+    public string? VoteThemesError { get; init; }
     public DateTimeOffset CreatedAt { get; init; }
     public DateTimeOffset? StartedAt { get; init; }
     public DateTimeOffset? ClosedAt { get; init; }
@@ -183,6 +187,18 @@ public record RetroBoardAiSummaryDto
     public List<string> ImproveThemes { get; init; } = [];
     public List<string> Insights { get; init; } = [];
     public List<string> SuggestedActions { get; init; } = [];
+}
+
+public record RetroVoteThemeDto
+{
+    public string Title { get; init; } = "";
+    public string Description { get; init; } = "";
+    public List<Guid> NoteIds { get; init; } = [];
+}
+
+public record RetroVoteThemeSummaryDto
+{
+    public List<RetroVoteThemeDto> Themes { get; init; } = [];
 }
 
 public record RetroBoardSummaryDto

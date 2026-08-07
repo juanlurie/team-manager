@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { RetroBoardStore } from '../retro-board.store';
 import { RETRO_STYLES } from '../retro-board.styles';
+import { VoteThemePanelComponent } from '../vote-theme-panel.component';
 
 // Light, self-contained stylesheet for the printable/PDF version (the app is dark-themed; PDFs read
 // better on white). NOTE: this must cover every class the #printArea markup below uses — if you add
@@ -31,7 +32,7 @@ const PRINT_CSS = `
 @Component({
   selector: 'app-retro-summary',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, VoteThemePanelComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   styles: [RETRO_STYLES, `
     .from-note { font-size: 11.5px; color: var(--mute); margin-top: 4px; font-style: italic; }
@@ -62,6 +63,8 @@ const PRINT_CSS = `
             @if (store.error()) { <p class="err">{{ store.error() }}</p> }
           }
         </div>
+
+        <app-vote-theme-panel />
 
         <!-- Action items. Each carries the note it came from, so the recap explains itself weeks
              later when nobody remembers what prompted the action. -->

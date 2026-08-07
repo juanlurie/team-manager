@@ -1,6 +1,7 @@
 using System.Linq.Expressions;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using TeamManager.Api.Application.DTOs.RetroBoard;
 using TeamManager.Api.Application.Realtime;
 using TeamManager.Api.Domain.Entities;
@@ -30,7 +31,8 @@ namespace TeamManager.Api.Application.Services;
 /// maps outcomes to consistent HTTP status codes. Board mutations are rejected once a session is
 /// closed; feedback, action items and lifecycle transitions are intentionally exempt.
 /// </summary>
-public partial class RetroBoardService(AppDbContext db, AiPromptExecutorService aiExecutor, IRetroBroadcaster broadcaster)
+public partial class RetroBoardService(
+    AppDbContext db, AiPromptExecutorService aiExecutor, IRetroBroadcaster broadcaster, IServiceScopeFactory scopeFactory)
 {
     private static readonly JsonSerializerOptions Json = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
     private static readonly JsonSerializerOptions JsonRead = new() { PropertyNameCaseInsensitive = true };
