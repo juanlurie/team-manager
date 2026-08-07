@@ -82,7 +82,11 @@ const routeFade = trigger('routeFade', [
     /* container-type lets descendants measure .content's real width (viewport minus the
        sidebar) via cqw units, instead of falling back to 100vw hacks that ignore the sidebar
        and bleed under it. */
-    .content { flex: 1; overflow-y: auto; min-width: 0; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; container-type: inline-size; }
+    /* scrollbar-gutter: stable keeps .content's measured inline-size constant whether or not
+       the scrollbar is showing -- without it, container-query-sized descendants (e.g. WoW's
+       100cqw breakout) can flip column counts as page height crosses the scroll threshold,
+       toggling the scrollbar and re-triggering the same recalculation in a flicker loop. */
+    .content { flex: 1; overflow-y: auto; scrollbar-gutter: stable; min-width: 0; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; container-type: inline-size; }
     .shell.mobile .content { padding-bottom: 60px; }
     .page-wrap { padding: 24px; max-width: 1200px; margin: 0 auto; }
     .shell.mobile .page-wrap { padding: 0 4px 72px; }
