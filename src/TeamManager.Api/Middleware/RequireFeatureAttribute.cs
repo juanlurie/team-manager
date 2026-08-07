@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.Extensions.DependencyInjection;
@@ -21,6 +22,18 @@ public class RequireFeatureAttribute : Attribute, IAsyncActionFilter
         var memberId = context.HttpContext.GetCurrentMemberId();
         if (memberId == Guid.Empty)
         {
+            // An [AllowAnonymous] action (guest WoW reactions, access-request submission) is meant
+            // to be reachable with no team member at all -- TeamMemberRequiredMiddleware already
+            // lets these through unauthenticated. A feature gate on top of that isn't an
+            // authorization decision for a caller who was never going to have a member row, so it
+            // doesn't apply here; let the action run.
+            var allowAnonymous = context.ActionDescriptor.EndpointMetadata.OfType<IAllowAnonymous>().Any();
+            if (allowAnonymous)
+            {
+                await next();
+                return;
+            }
+
             // Fail closed: a request with no resolvable team member has no business behind a
             // feature gate. The global auth policy + TeamMemberRequiredMiddleware should already
             // have stopped it; denying here keeps this filter safe if that ordering ever changes.
