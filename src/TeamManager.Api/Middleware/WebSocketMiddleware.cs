@@ -23,6 +23,10 @@ public class WebSocketMiddleware
         // Display name for member-presence rooms (retro's "who's here" list). Only rooms that opt
         // into member presence read it; count-only rooms (wow) and silent rooms (board) ignore it.
         public string? DisplayName { get; set; }
+
+        // Set while this client has the Win of the Week nomination form open. This is ephemeral
+        // presence only: disconnecting the socket automatically clears it.
+        public string? WowDraftingName { get; set; }
     }
 
     // Room-key namespaces. Keeping each feature's keys prefixed means two features can use the same
@@ -117,7 +121,10 @@ public class WebSocketMiddleware
                 foreach (var room in removed.Rooms.Keys)
                 {
                     if (room.StartsWith(WowPrefix, StringComparison.Ordinal))
+                    {
                         _ = BroadcastToRoomAsync("presence_changed", room, new { connectedCount = RoomCount(room) });
+                        _ = BroadcastWowDraftingPresenceAsync(room);
+                    }
                     else if (room.StartsWith(RetroPrefix, StringComparison.Ordinal))
                         _ = BroadcastRetroPresenceAsync(room[RetroPrefix.Length..]);
                     // board + generic rooms carry no presence
@@ -152,6 +159,20 @@ public class WebSocketMiddleware
 
     public static List<(Guid MemberId, string MemberName)> GetRetroPresence(string sessionId) =>
         RoomMembers(RetroRoom(sessionId));
+
+    private static async Task BroadcastWowDraftingPresenceAsync(string room)
+    {
+        var names = _connections.Values
+            .Where(c => c.Rooms.ContainsKey(room) && !string.IsNullOrWhiteSpace(c.WowDraftingName))
+            .GroupBy(c => c.MemberId.HasValue
+                ? $"member:{c.MemberId.Value}"
+                : $"guest:{c.WowDraftingName!.Trim().ToUpperInvariant()}")
+            .Select(g => g.First().WowDraftingName!.Trim())
+            .OrderBy(name => name)
+            .ToList();
+
+        await BroadcastToRoomAsync("wow_nomination_drafters_changed", room, new { names });
+    }
 
     private static async Task BroadcastRetroPresenceAsync(string sessionId)
     {
@@ -258,11 +279,29 @@ public class WebSocketMiddleware
                     if (!_connections.TryGetValue(connectionId, out var entry)) return;
                     var newRoom = WowRoom(sessionKey);
                     var oldRoom = RemoveRoomsWithPrefix(entry, WowPrefix, keep: newRoom);
+                    if (oldRoom != null) entry.WowDraftingName = null;
                     entry.Rooms[newRoom] = 1;
 
                     if (oldRoom != null)
+                    {
                         _ = BroadcastToRoomAsync("presence_changed", oldRoom, new { connectedCount = RoomCount(oldRoom) });
+                        _ = BroadcastWowDraftingPresenceAsync(oldRoom);
+                    }
                     _ = BroadcastToRoomAsync("presence_changed", newRoom, new { connectedCount = RoomCount(newRoom) });
+                    _ = BroadcastWowDraftingPresenceAsync(newRoom);
+                    break;
+                }
+
+                case "wow_nomination_drafting":
+                {
+                    if (!_connections.TryGetValue(connectionId, out var entry)) return;
+                    var room = entry.Rooms.Keys.FirstOrDefault(r => r.StartsWith(WowPrefix, StringComparison.Ordinal));
+                    if (room == null) return;
+
+                    var active = root.TryGetProperty("active", out var activeProp) && activeProp.ValueKind == JsonValueKind.True;
+                    var name = root.TryGetProperty("name", out var nameProp) ? nameProp.GetString()?.Trim() : null;
+                    entry.WowDraftingName = active && !string.IsNullOrWhiteSpace(name) ? name : null;
+                    _ = BroadcastWowDraftingPresenceAsync(room);
                     break;
                 }
 
