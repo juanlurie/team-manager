@@ -159,7 +159,7 @@ function adaptToWinWeek(week: GuestWinWeek): WinWeek {
             [activeTimerEndsAt]="activeTimerEndsAt()"
             [hypeBattleEndsAt]="hypeBattleEndsAt()"
             [reactionEvents]="reactionEvents()"
-            (nominateClick)="showForm.set(true)"
+            (nominateClick)="openNominationForm()"
             (voteClick)="vote($event)"
             (removeVoteClick)="removeVote($event)"
             (editClick)="startEdit($event)"
@@ -409,6 +409,7 @@ export class GuestWowComponent implements OnInit, OnDestroy {
 
   private token    = '';
   private wsSub: Subscription | null = null;
+  private connectionSub: Subscription | null = null;
   private pollInterval: ReturnType<typeof setInterval> | null = null;
   private expiryCheckInterval: ReturnType<typeof setInterval> | null = null;
   private hypeExpiryCheckInterval: ReturnType<typeof setInterval> | null = null;
@@ -470,6 +471,8 @@ export class GuestWowComponent implements OnInit, OnDestroy {
       } else if (msg.type === 'presence_changed') {
         const count = msg.data['connectedCount'] as number;
         if (typeof count === 'number') this.connectedCount.set(count);
+      } else if (msg.type === 'wow_nomination_drafters_changed') {
+        // Hosts consume this room event. Guests only need to keep it out of the generic refresh path.
       } else {
         this.refreshWeek();
       }
@@ -491,7 +494,9 @@ export class GuestWowComponent implements OnInit, OnDestroy {
   };
 
   ngOnDestroy() {
+    if (this.showForm()) this.setNominationDrafting(false);
     this.wsSub?.unsubscribe();
+    this.connectionSub?.unsubscribe();
     document.removeEventListener('visibilitychange', this.onVisibilityChange);
     if (this.pollInterval) clearInterval(this.pollInterval);
     if (this.expiryCheckInterval) clearInterval(this.expiryCheckInterval);
@@ -503,6 +508,7 @@ export class GuestWowComponent implements OnInit, OnDestroy {
   login() { this.auth.login('/fun/win-of-the-week'); }
 
   changeName() {
+    if (this.showForm()) this.setNominationDrafting(false);
     localStorage.removeItem(nameKey(this.token));
     this.guestName.set('');
     this.nameInput = '';
@@ -532,12 +538,21 @@ export class GuestWowComponent implements OnInit, OnDestroy {
       description: this.nomForm.description.trim() || undefined
     };
     this.service.createNomination(this.token, request).subscribe({
-      next: () => { this.submitting.set(false); this.showForm.set(false); this.resetForm(); this.refreshWeek(); },
+      next: () => { this.submitting.set(false); this.setNominationDrafting(false); this.showForm.set(false); this.resetForm(); this.refreshWeek(); },
       error: (err) => { this.submitting.set(false); this.formError.set(err.error?.error ?? 'Failed to submit nomination.'); }
     });
   }
 
-  cancelForm() { this.showForm.set(false); this.resetForm(); }
+  openNominationForm() {
+    this.showForm.set(true);
+    this.setNominationDrafting(true);
+  }
+
+  cancelForm() { this.setNominationDrafting(false); this.showForm.set(false); this.resetForm(); }
+
+  private setNominationDrafting(active: boolean) {
+    this.wsSvc.send({ type: 'wow_nomination_drafting', active, name: this.guestName() });
+  }
 
   startEdit(nom: WowNominationDisplay) {
     this.editingId.set(nom.id);
@@ -618,8 +633,12 @@ export class GuestWowComponent implements OnInit, OnDestroy {
         this.loading.set(false);
         if (this.members().length === 0) this.loadMembers();
         this.wsSvc.connect();
-        const connSub = this.wsSvc.connected$.subscribe(connected => {
-          if (connected) { this.wsSvc.send({ type: 'join_wow', sessionKey: this.token }); connSub.unsubscribe(); }
+        this.connectionSub?.unsubscribe();
+        this.connectionSub = this.wsSvc.connected$.subscribe(connected => {
+          if (connected) {
+            this.wsSvc.send({ type: 'join_wow', sessionKey: this.token });
+            if (this.showForm()) this.setNominationDrafting(true);
+          }
         });
       },
       error: () => { this.tokenInvalid.set(true); this.loading.set(false); }

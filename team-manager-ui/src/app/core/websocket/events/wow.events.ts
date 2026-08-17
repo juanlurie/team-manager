@@ -17,6 +17,7 @@ export const WOW_EVENT_TYPES = [
   'hype_meter_tapped',
   'reaction_sent',
   'presence_changed',
+  'wow_nomination_drafters_changed',
   'wow_timer_started',
   'wow_timer_stopped',
   'wow_hype_battle_started',

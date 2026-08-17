@@ -102,6 +102,25 @@ export class WowSeriesSheetComponent {
       border-radius: 16px;
       animation: alertPulse 2s ease-in-out infinite;
     }
+    .drafting-notice {
+      position: fixed;
+      z-index: 1100;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      max-width: min(440px, calc(100vw - 32px));
+      padding: 12px 18px;
+      border: 1px solid rgba(255, 193, 7, 0.55);
+      border-radius: 12px;
+      background: #2b2412;
+      color: #fff3cd;
+      box-shadow: 0 10px 32px rgba(0, 0, 0, 0.35);
+      font-size: 0.95rem;
+      font-weight: 600;
+    }
   `],
   // All template state is signals/computeds (no plain fields are bound), and the 1s interval, the
   // WebSocket handlers and the visibilitychange listener all update via .set() — which notifies
@@ -109,6 +128,17 @@ export class WowSeriesSheetComponent {
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <app-wow-tie-break-spinner [show]="isSpinning()" [name]="spinnerName()" />
+
+    @if (isHost() && nominationDrafters().length > 0) {
+      <div class="drafting-notice" role="status" aria-live="polite">
+        <mat-icon>edit_note</mat-icon>
+        <span>
+          {{ nominationDrafters().length === 1
+            ? nominationDrafters()[0] + ' is still busy submitting.'
+            : 'People are still busy submitting.' }}
+        </span>
+      </div>
+    }
 
     <!-- Breaks out of the shared Fun-hub's 900px max-width (fun-hub.component.ts .hub) so wide
          desktop screens actually get a multi-column nomination grid, without widening that
@@ -328,6 +358,7 @@ export class WinOfTheWeekComponent implements OnInit, OnDestroy {
   tokenBalance        = signal(0);
 
   connectedCount      = signal(0);
+  nominationDrafters  = signal<string[]>([]);
   activeTimerEndsAt   = signal<string | null>(null);
   hypeBattleEndsAt    = signal<string | null>(null);
   suddenDeathDuration = signal(90);
@@ -416,20 +447,17 @@ export class WinOfTheWeekComponent implements OnInit, OnDestroy {
     document.addEventListener('visibilitychange', this.onVisibilityChange);
 
     this.wsSvc.connect();
-    // Re-join session when WS reconnects (handles reconnects mid-session)
-    const connSub = this.wsSvc.connected$.subscribe(connected => {
-      if (connected) {
-        const token = this.currentWeek()?.guestToken;
-        if (token) this.wsSvc.send({ type: 'join_wow', sessionKey: token });
-      }
-    });
-    this.wsSub?.add(connSub);
     this.wsSub = this.wsSvc.roomEvents<WowEvent>(WOW_EVENT_TYPES).subscribe(msg => {
       if (this.activeTab() !== 'current') return;
       switch (msg.type) {
         case 'presence_changed': {
           const count = msg.data['connectedCount'] as number;
           if (typeof count === 'number') this.connectedCount.set(count);
+          break;
+        }
+        case 'wow_nomination_drafters_changed': {
+          const names = msg.data['names'];
+          this.nominationDrafters.set(Array.isArray(names) ? names.filter((name): name is string => typeof name === 'string') : []);
           break;
         }
         case 'vote_cast': case 'vote_removed': case 'nomination_created':
@@ -497,9 +525,21 @@ export class WinOfTheWeekComponent implements OnInit, OnDestroy {
         }
       }
     });
+    // Re-join session when WS reconnects (handles reconnects mid-session)
+    const connSub = this.wsSvc.connected$.subscribe(connected => {
+      if (connected) {
+        const token = this.currentWeek()?.guestToken;
+        if (token) {
+          this.wsSvc.send({ type: 'join_wow', sessionKey: token });
+          if (this.showDialog() && !this.editingNominationId()) this.setNominationDrafting(true);
+        }
+      }
+    });
+    this.wsSub.add(connSub);
   }
 
   ngOnDestroy() {
+    if (this.showDialog() && !this.editingNominationId()) this.setNominationDrafting(false);
     this.wsSub?.unsubscribe();
     this.timerSub?.unsubscribe();
     document.removeEventListener('visibilitychange', this.onVisibilityChange);
@@ -620,6 +660,7 @@ export class WinOfTheWeekComponent implements OnInit, OnDestroy {
     this.nominateForm = { nomineeMemberIds: [], title: '', description: '' };
     this.nomineeMemberIds = [];
     this.showDialog.set(true);
+    this.setNominationDrafting(true);
   }
 
   showEditDialog(nom: WowNominationDisplay) {
@@ -630,6 +671,7 @@ export class WinOfTheWeekComponent implements OnInit, OnDestroy {
   }
 
   closeDialog() {
+    if (!this.editingNominationId()) this.setNominationDrafting(false);
     this.showDialog.set(false);
     this.editingNominationId.set(null);
     this.nomineeMemberIds = [];
@@ -653,6 +695,7 @@ export class WinOfTheWeekComponent implements OnInit, OnDestroy {
       next: () => {
         this.submitting.set(false);
         this.showDialog.set(false);
+        if (!editId) this.setNominationDrafting(false);
         this.editingNominationId.set(null);
         this.snackBar.open(editId ? 'Nomination updated!' : 'Nomination submitted! Voting opens Friday.', 'Close', { duration: 3000 });
         this.refresh();
@@ -730,6 +773,12 @@ export class WinOfTheWeekComponent implements OnInit, OnDestroy {
       next: () => { this.snackBar.open('Voting is now open!', 'Close', { duration: 3000 }); this.refresh(); },
       error: (err) => this.snackBar.open(err.error?.error || 'Failed to open voting', 'Close', { duration: 3000 })
     });
+  }
+
+  private setNominationDrafting(active: boolean) {
+    const member = this.allMembers().find(m => m.id === this.currentUserId);
+    const name = member ? this.memberName(member) : '';
+    this.wsSvc.send({ type: 'wow_nomination_drafting', active, name });
   }
 
   reopenNominations() {
